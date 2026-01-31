@@ -1,0 +1,6 @@
+{
+  "integrationId": "api:689979fee926f36a53ec0042",
+  "name": "CreaoSearch",
+  "description": "AI-powered search API for getting news and information",
+  "docPath": "src/sdk/api-clients/689979fee926f36a53ec0042/requestCreaoSearch.md"
+}

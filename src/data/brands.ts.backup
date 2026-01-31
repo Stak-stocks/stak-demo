@@ -1,0 +1,2186 @@
+export interface VibeMetric {
+	name: string;
+	emoji: string;
+	value: number;
+	color: string;
+}
+
+export interface FinancialMetric {
+	label: string;
+	value: string;
+	explanation: string;
+	culturalTranslation: string;
+}
+
+export interface NewsArticle {
+	headline: string;
+	source: string;
+	timestamp: string;
+	sentiment: "Bullish" | "Bearish" | "Neutral";
+	url: string;
+}
+
+export interface BrandProfile {
+	id: string;
+	ticker: string;
+	name: string;
+	bio: string;
+	heroImage: string;
+	personalityDescription: string;
+	vibes: VibeMetric[];
+	culturalContext: {
+		title: string;
+		sections: {
+			heading: string;
+			content: string;
+		}[];
+	};
+	financials: {
+		peRatio: FinancialMetric;
+		marketCap: FinancialMetric;
+		revenueGrowth: FinancialMetric;
+		profitMargin: FinancialMetric;
+		beta: FinancialMetric;
+		dividendYield: FinancialMetric;
+	};
+	news: NewsArticle[];
+}
+
+export const brands: BrandProfile[] = [
+	{
+		id: "tsla",
+		ticker: "TSLA",
+		name: "Tesla",
+		bio: "electric dreams & memes that break the simulation",
+		heroImage:
+			"https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&h=500&fit=crop",
+		personalityDescription: "The chaos energy of your group chat's tech bro",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 88, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 95, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Tesla Lives Rent-Free in Everyone's Head",
+			sections: [
+				{
+					heading: "Main Character Energy",
+					content:
+						"Tesla isn't just a car company—it's the brand your timeline won't shut up about. Between Elon's 3am tweets and Cybertrucks looking like low-poly PS1 renders, they've mastered the art of staying relevant through pure chaos.",
+				},
+				{
+					heading: "The Vibe",
+					content:
+						"Tech meets climate anxiety meets Silicon Valley maximalism. Tesla convinced people that saving the planet could be aspirational AND a flex. Also, their cars have fart mode.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Love it or hate it, Tesla forced every car company to care about EVs. They proved you could make electric vehicles cool instead of boring eco-warrior mobiles from 2003.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "68",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "expensive but popular—people are betting on the future",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$800 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "bigger than most traditional car companies combined",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "19%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "growing fast, not slowing down",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "15%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "solid profits, not just hype",
+			},
+			beta: {
+				label: "Beta",
+				value: "2.3",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "rollercoaster energy—it moves a lot",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no payouts, all growth mode",
+			},
+		},
+		news: [
+			{
+				headline: "Tesla Cybertruck deliveries ramp up as production hits new milestone",
+				source: "Bloomberg",
+				timestamp: "3 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Elon Musk's latest tweet sparks debate about Tesla's autopilot safety",
+				source: "TechCrunch",
+				timestamp: "1 day ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Analysts mixed on Tesla stock as competition intensifies in EV market",
+				source: "CNBC",
+				timestamp: "2 days ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "aapl",
+		ticker: "AAPL",
+		name: "Apple",
+		bio: "the aesthetic everyone copies but won't admit",
+		heroImage:
+			"https://images.unsplash.com/photo-1611472173362-3f53dbd65d80?w=800&h=500&fit=crop",
+		personalityDescription: "Clean girl aesthetic meets generational wealth",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 45, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Apple is the Original It Girl",
+			sections: [
+				{
+					heading: "Cultural Reset",
+					content:
+						"Apple created the blueprint for making tech feel like a lifestyle. They turned unboxing into ASMR content and convinced everyone that being in a blue bubble group chat means you matter.",
+				},
+				{
+					heading: "The Ecosystem Trap",
+					content:
+						"Once you're in, you're IN. AirPods, iPhone, MacBook, Apple Watch—it's giving capsule wardrobe but make it tech. They made vendor lock-in feel like an aesthetic choice.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Apple doesn't just sell products—they sell identity. That glowing logo is a status symbol, and they've made minimalism feel expensive. Their product launches are basically fashion week for nerds.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "32",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "premium pricing for premium brand",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$3.5 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "literally the most valuable company on Earth",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "8%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady money printer",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "26%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "insane margins—they know what they're worth",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.2",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "stable but still moves",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.5%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "small but consistent payouts",
+			},
+		},
+		news: [
+			{
+				headline: "Apple Vision Pro sales softer than expected, analysts say",
+				source: "The Verge",
+				timestamp: "5 hours ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "iPhone 16 pre-orders break records in India and China",
+				source: "Reuters",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Apple's AI features rolling out slower than competitors",
+				source: "WSJ",
+				timestamp: "3 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "nvda",
+		ticker: "NVDA",
+		name: "NVIDIA",
+		bio: "powering your AI girlfriend and gaming setup",
+		heroImage:
+			"https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=500&fit=crop",
+		personalityDescription: "The plug everyone needs but nobody talks about",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 35, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 90, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why NVIDIA is the Secret Main Character",
+			sections: [
+				{
+					heading: "The AI Gold Rush",
+					content:
+						"While everyone's losing their minds over ChatGPT, NVIDIA's out here selling the shovels. Every AI company needs their chips. They're literally powering the robot uprising we're all nervous about.",
+				},
+				{
+					heading: "Gaming God Status",
+					content:
+						"RTX graphics cards are to gamers what Jordans are to sneakerheads. People camp out for GPU drops like it's a Supreme release. The 'can it run Crysis' meme evolved into 'can you even GET an NVIDIA card?'",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"NVIDIA went from 'that gaming chip company' to 'literally essential for the future of computing.' They're in your gaming rig, training AI models, and probably mining crypto somewhere. Ultimate multitasker energy.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "75",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "sky-high valuation driven by AI hype",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$2.9 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "AI gold rush made them a giant",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "122%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "absolutely exploding",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "55%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "printing money from AI chips",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.7",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile but riding the AI wave",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.03%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "barely anything—all about growth",
+			},
+		},
+		news: [
+			{
+				headline: "NVIDIA unveils next-gen AI chips, stock surges",
+				source: "Bloomberg",
+				timestamp: "2 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Competition heats up as AMD announces rival GPU",
+				source: "TechCrunch",
+				timestamp: "1 day ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "Data centers buying NVIDIA chips faster than they can make them",
+				source: "CNBC",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "rblx",
+		ticker: "RBLX",
+		name: "Roblox",
+		bio: "where gen alpha gets their drip & trades virtual economies",
+		heroImage:
+			"https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800&h=500&fit=crop",
+		personalityDescription: "Minecraft's chaotic younger sibling",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 65, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 88, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Roblox is Gen Alpha's Entire Personality",
+			sections: [
+				{
+					heading: "The Metaverse Before It Was Cringe",
+					content:
+						"Roblox has been doing the metaverse since before Zuck tried to make it happen. Kids are living entire lives in there—making games, running businesses, attending concerts. It's giving Second Life but make it blocky.",
+				},
+				{
+					heading: "Economic Simulation",
+					content:
+						"Children are learning about market dynamics through Robux. They're trading limited items like NFTs before they even know what blockchain is. Some kids are making more money than their parents. Wild.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Roblox is where Gen Alpha socializes, creates, and learns capitalism. It's not just a game—it's their hangout spot, creative outlet, and first job all in one. The cultural influence is insane.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "N/A",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "not profitable yet, all about user growth",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$25 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "bigger than traditional game studios",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "22%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "growing with Gen Alpha",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "-18%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "losing money but building empire",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.4",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "moves with tech sentiment",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no profits = no dividends",
+			},
+		},
+		news: [
+			{
+				headline: "Roblox introduces new safety features for younger users",
+				source: "The Verge",
+				timestamp: "4 hours ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Q3 user numbers beat expectations as Gen Alpha engagement grows",
+				source: "Reuters",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Concerns raised about monetization of child-created content",
+				source: "WSJ",
+				timestamp: "1 week ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "meta",
+		ticker: "META",
+		name: "Meta",
+		bio: "your mom's on facebook, you're on insta, nobody's in the metaverse",
+		heroImage:
+			"https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=500&fit=crop",
+		personalityDescription: "That friend who peaked in high school but still shows up",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 95, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 55, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Meta Can't Escape the Group Chat",
+			sections: [
+				{
+					heading: "Instagram's Grip",
+					content:
+						"Yeah, we all say we hate it, but we're still posting stories and doom-scrolling Reels at 2am. Instagram is simultaneously toxic and essential. It's the app equivalent of that situationship you can't quit.",
+				},
+				{
+					heading: "The Metaverse Flop",
+					content:
+						"Zuck spent billions on VR worlds nobody asked for while everyone just wanted Instagram to stop changing the algorithm. The rebrand to Meta is giving mid-life crisis energy.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Like it or not, Meta owns how billions of people communicate. Instagram, WhatsApp, Facebook—they've got your entire family locked in. Plus they basically invented the concept of parasocial relationships at scale.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "28",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "reasonable for a tech giant",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$1.3 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "still massive despite metaverse losses",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "23%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "ads still printing money",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "35%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "Instagram basically runs itself",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.3",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "moves more than market average",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.4%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "just started paying dividends recently",
+			},
+		},
+		news: [
+			{
+				headline: "Instagram Threads reaches 200M users, challenging Twitter/X",
+				source: "TechCrunch",
+				timestamp: "6 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Meta's Reality Labs loses $4B this quarter on metaverse bet",
+				source: "CNBC",
+				timestamp: "1 day ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "Facebook ad revenue beats estimates despite TikTok competition",
+				source: "Bloomberg",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "nke",
+		ticker: "NKE",
+		name: "Nike",
+		bio: "just do it (spend $200 on shoes you'll wear twice)",
+		heroImage:
+			"https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=500&fit=crop",
+		personalityDescription: "Athleisure royalty that convinced us hoodies are formal",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 94, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 60, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 82, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Nike Runs the Culture",
+			sections: [
+				{
+					heading: "Sneaker Supremacy",
+					content:
+						"Nike turned shoes into investments. People are trading Jordans like crypto. The SNKRS app has caused more heartbreak than any dating app. They made waiting in digital queues feel like a personality trait.",
+				},
+				{
+					heading: "Athleisure Domination",
+					content:
+						"Nike convinced everyone that gym clothes are appropriate everywhere. Swoosh hoodies at brunch? Fashion. Tech fleece to the office? Business casual. They made performance wear aspirational.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Nike doesn't just sponsor athletes—they create cultural moments. From Colin Kaepernick ads to collab drops that break the internet, they've mastered staying relevant across generations. The swoosh is literally universal language.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "25",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "solid for a retail brand",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$150 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "bigger than most fashion empires",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "10%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady growth, not explosive",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "12%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "decent margins for retail",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.1",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "relatively stable",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "1.5%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "consistent payouts to investors",
+			},
+		},
+		news: [
+			{
+				headline: "Nike's direct-to-consumer strategy shows strong results",
+				source: "Reuters",
+				timestamp: "8 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Competition from On Running and Hoka eating market share",
+				source: "WSJ",
+				timestamp: "2 days ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "New Jordan collaboration sells out in minutes",
+				source: "Hypebeast",
+				timestamp: "1 week ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "sbux",
+		ticker: "SBUX",
+		name: "Starbucks",
+		bio: "your $8 oat milk latte has entered the chat",
+		heroImage:
+			"https://images.unsplash.com/photo-1511920170033-f8396924c348?w=800&h=500&fit=crop",
+		personalityDescription: "Basic culture elevated to an aesthetic",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 55, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 70, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Starbucks is the Original Third Place",
+			sections: [
+				{
+					heading: "Main Character Moment",
+					content:
+						"Walking around with that green siren cup is part of the aesthetic. Starbucks made overpriced coffee a personality trait. They turned 'I can't function without caffeine' into a luxury lifestyle brand.",
+				},
+				{
+					heading: "The Secret Menu Industrial Complex",
+					content:
+						"TikTok baristas are out here creating drinks that aren't on any menu. People order by showing photos. Customization culture has never been more unhinged. That pink drink launched a thousand imitators.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Starbucks normalized spending $7 on coffee and made cafes acceptable workspaces/hangout spots. They created the modern coffee culture. Also, pumpkin spice lattes literally control the seasonal economy now.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "22",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "reasonable for consumer brand",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$110 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "coffee empire status",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "11%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "still expanding globally",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "14%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "solid margins on overpriced coffee",
+			},
+			beta: {
+				label: "Beta",
+				value: "0.9",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "more stable than most",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "2.3%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "decent income for investors",
+			},
+		},
+		news: [
+			{
+				headline: "Starbucks union negotiations reach tentative agreement",
+				source: "CNBC",
+				timestamp: "3 hours ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Same-store sales miss estimates as traffic slows",
+				source: "Bloomberg",
+				timestamp: "1 day ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "New CEO announces major menu overhaul",
+				source: "The Verge",
+				timestamp: "4 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "spot",
+		ticker: "SPOT",
+		name: "Spotify",
+		bio: "your wrapped reveal is your whole personality for a week",
+		heroImage:
+			"https://images.unsplash.com/photo-1614680376593-902f74cf0d41?w=800&h=500&fit=crop",
+		personalityDescription: "The algorithm that knows you better than you know yourself",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 50, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 80, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Spotify Soundtracks Your Life",
+			sections: [
+				{
+					heading: "Wrapped Supremacy",
+					content:
+						"Spotify Wrapped is the annual personality test nobody asked for but everyone shares. It's astrology for music taste. People plan their listening habits all year just to have good stats. The screenshots flood every timeline.",
+				},
+				{
+					heading: "Playlist Culture",
+					content:
+						"Making playlists is the new mixtape. 'Pov: you're the main character' playlists have their own aesthetic. Collaborative playlists for group chats. Discover Weekly knows your vibe better than your best friend.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Spotify democratized music access and made discovery algorithmic. They turned listening habits into social currency. The green app icon means you're never without a soundtrack. Music taste is identity, and Spotify is the curator.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "N/A",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "barely profitable, focused on growth",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$75 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "dominates music streaming",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "16%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "subscribers still growing",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "1%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "tiny margins, licensing costs eat profits",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.5",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile stock",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no profits to share",
+			},
+		},
+		news: [
+			{
+				headline: "Spotify Premium price increase announced for 2024",
+				source: "TechCrunch",
+				timestamp: "5 hours ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "User growth accelerates in emerging markets",
+				source: "Reuters",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Artists renew criticism of low streaming payouts",
+				source: "Billboard",
+				timestamp: "1 week ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "amzn",
+		ticker: "AMZN",
+		name: "Amazon",
+		bio: "2-day shipping has ruined your patience forever",
+		heroImage:
+			"https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?w=800&h=500&fit=crop",
+		personalityDescription: "The everything store that knows what you want before you do",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 70, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 75, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Amazon is Inescapable",
+			sections: [
+				{
+					heading: "Instant Gratification HQ",
+					content:
+						"Amazon trained an entire generation to expect everything immediately. Same-day delivery? Normal. Waiting a week for shipping? Unacceptable. They've weaponized convenience to the point where going to actual stores feels inefficient.",
+				},
+				{
+					heading: "The Everything Empire",
+					content:
+						"Started selling books, now they're in your TV, your home automation, your groceries, your cloud storage, probably your dreams. Amazon is everywhere. The smile logo is giving 'I know too much about you' energy.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Amazon fundamentally changed how we shop and what we expect from retail. Prime membership is like a lifestyle subscription. They made online shopping so seamless that physical stores are fighting for relevance. Plus, AWS runs half the internet.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "48",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "expensive but AWS justifies it",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$1.9 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "everything store is massive",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "13%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "still growing despite size",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "8%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "retail is tough, AWS saves them",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.2",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "moves with tech sector",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "Bezos doesn't do dividends",
+			},
+		},
+		news: [
+			{
+				headline: "Amazon Web Services growth slows as cloud spending moderates",
+				source: "CNBC",
+				timestamp: "4 hours ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "Prime Day breaks sales records across all categories",
+				source: "Bloomberg",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "FTC antitrust case against Amazon moves forward",
+				source: "WSJ",
+				timestamp: "5 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "nflx",
+		ticker: "NFLX",
+		name: "Netflix",
+		bio: "binge culture architect & password sharing police",
+		heroImage:
+			"https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=800&h=500&fit=crop",
+		personalityDescription: "The friend who suggests watching something then falls asleep",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 75, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 78, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Netflix Owns Your Screen Time",
+			sections: [
+				{
+					heading: "Binge Culture Headquarters",
+					content:
+						"Netflix invented the 'just one more episode' trap. They dropped entire seasons at once and ruined our sleep schedules. The auto-play countdown is psychological warfare. They made binge-watching a socially acceptable hobby.",
+				},
+				{
+					heading: "Meme Factory",
+					content:
+						"Every Netflix show becomes either a cultural moment or a meme template. Squid Game costumes, Wednesday's dance, Stranger Things nostalgia—Netflix content dominates the conversation even if the shows get canceled after one season.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Netflix killed cable TV and changed how we consume media. They made streaming mainstream. Yeah, they're cracking down on password sharing now (RIP the golden era), but they created the template every other platform copied. The 'ta-dum' sound is iconic.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "42",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "pricey for streaming",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$265 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "streaming OG still on top",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "15%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "password crackdown working",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "20%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "strong margins for content business",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.4",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "moves more than market",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "reinvesting in content",
+			},
+		},
+		news: [
+			{
+				headline: "Netflix subscriber growth beats estimates after password crackdown",
+				source: "Reuters",
+				timestamp: "6 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "New ad tier gaining traction with price-conscious users",
+				source: "The Verge",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Content spending to remain elevated despite profit goals",
+				source: "Bloomberg",
+				timestamp: "1 week ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "coin",
+		ticker: "COIN",
+		name: "Coinbase",
+		bio: "where your friend lost $5k on dog-themed coins",
+		heroImage:
+			"https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=800&h=500&fit=crop",
+		personalityDescription: "Crypto's corporate cousin trying to seem legitimate",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 85, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 72, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Coinbase Rides the Chaos",
+			sections: [
+				{
+					heading: "Crypto's Gateway Drug",
+					content:
+						"Coinbase is where normies enter the crypto wilderness. They made buying Bitcoin as easy as ordering food delivery. Before you know it, you're watching charts at 3am and using terms like 'HODL' unironically.",
+				},
+				{
+					heading: "Volatility Theater",
+					content:
+						"One day crypto is the future of money, the next day it's crashing 40%. Coinbase sits in the middle of this chaos, taking fees while everyone panic-sells. They're the house in a casino where the chips are imaginary internet money.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Love it or hate it, Coinbase legitimized crypto for mainstream audiences. They put crypto in Super Bowl ads. They made blockchain semi-respectable in the eyes of regulators. They're the bridge between 'normal finance' and 'decentralized chaos.'",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "35",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "depends entirely on crypto prices",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$55 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "biggest US crypto exchange",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "-8%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "down with crypto winter",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "12%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "fees keep them profitable",
+			},
+			beta: {
+				label: "Beta",
+				value: "2.8",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "extremely volatile, tied to Bitcoin",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "too volatile for dividends",
+			},
+		},
+		news: [
+			{
+				headline: "Bitcoin rally lifts Coinbase trading volumes 40%",
+				source: "Bloomberg",
+				timestamp: "2 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "SEC lawsuit against Coinbase faces setback in court",
+				source: "CNBC",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Crypto winter thaws as institutional interest returns",
+				source: "WSJ",
+				timestamp: "3 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "msft",
+		ticker: "MSFT",
+		name: "Microsoft",
+		bio: "office suite overlord & cloud computing empire",
+		heroImage:
+			"https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=800&h=500&fit=crop",
+		personalityDescription: "The adult in the room that owns everything",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 96, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 40, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 75, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Microsoft Runs Everything",
+			sections: [
+				{
+					heading: "Office Domination",
+					content:
+						"Word, Excel, PowerPoint—your entire work life happens in Microsoft apps whether you like it or not. Teams meetings at 9am, Excel sheets all day, Outlook for endless emails. They own enterprise.",
+				},
+				{
+					heading: "Cloud Empire",
+					content:
+						"Azure is the corporate cloud. While AWS leads, Microsoft has every Fortune 500 company locked in with Active Directory and Office 365 bundles. They play the long game.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Microsoft went from '90s monopoly villain to cloud computing giant. Xbox, GitHub, LinkedIn, OpenAI partnership—they're everywhere. Satya Nadella's transformation has been legendary.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "35",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "premium but justified by cloud growth",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$3.1 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "2nd most valuable company on Earth",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "13%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady cloud-driven growth",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "36%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "software margins are insane",
+			},
+			beta: {
+				label: "Beta",
+				value: "0.9",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "surprisingly stable for tech",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.8%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "consistent dividend payer",
+			},
+		},
+		news: [
+			{
+				headline: "Microsoft's AI Copilot subscriptions exceed expectations",
+				source: "Bloomberg",
+				timestamp: "3 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Azure cloud revenue grows 29% year-over-year",
+				source: "CNBC",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "EU regulators investigate Teams bundling practices",
+				source: "WSJ",
+				timestamp: "4 days ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "googl",
+		ticker: "GOOGL",
+		name: "Google",
+		bio: "the search bar that knows your secrets",
+		heroImage:
+			"https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?w=800&h=500&fit=crop",
+		personalityDescription: "Big Brother but make it colorful",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 97, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 65, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 88, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Google Knows Everything",
+			sections: [
+				{
+					heading: "Search Monopoly",
+					content:
+						"'Just Google it' became a verb for a reason. They handle 8.5 billion searches per day. Your questions, your secrets, your 3am existential crises—all logged and analyzed. The search box is the internet's front door.",
+				},
+				{
+					heading: "The Everything Company",
+					content:
+						"Gmail, YouTube, Android, Maps, Chrome—Google owns your digital life. They know where you go, who you email, what you watch, and what you're searching for. Privacy? Never heard of her.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Google isn't just a tech company, it's infrastructure for modern life. Ads fund the free internet, YouTube is the second-biggest search engine, and Android runs most smartphones. They're inescapable.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "26",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "reasonable for a cash machine",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$1.8 trillion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "ad revenue empire",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "11%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady growth from ads",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "27%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "printing money from searches",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.1",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "relatively stable",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no dividends, all growth",
+			},
+		},
+		news: [
+			{
+				headline: "Google's Gemini AI challenges ChatGPT dominance",
+				source: "TechCrunch",
+				timestamp: "4 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "YouTube ad revenue beats analyst expectations",
+				source: "Bloomberg",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "DOJ antitrust case could force Google breakup",
+				source: "WSJ",
+				timestamp: "1 week ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "dis",
+		ticker: "DIS",
+		name: "Disney",
+		bio: "owns your childhood & half of Hollywood",
+		heroImage:
+			"https://images.unsplash.com/photo-1566195992011-5f6b21e539aa?w=800&h=500&fit=crop",
+		personalityDescription: "The mouse that ate entertainment",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 93, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 50, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 82, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Disney Owns Everything",
+			sections: [
+				{
+					heading: "IP Empire",
+					content:
+						"Marvel, Star Wars, Pixar, ESPN, ABC, Hulu, National Geographic—Disney didn't just buy franchises, they bought entire childhoods. They perfected the art of nostalgic capitalism.",
+				},
+				{
+					heading: "Streaming Wars",
+					content:
+						"Disney+ launched and immediately became a Netflix competitor. The Mandalorian alone justified subscriptions. They're leveraging 100 years of content to dominate streaming.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Disney creates cultural moments that span generations. From theme parks to blockbusters to streaming, they're the ultimate content empire. The mouse always wins.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "42",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "premium for content library",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$180 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "entertainment giant",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "7%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady but slowing",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "8%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "margins squeezed by streaming",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.2",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "moves with consumer spending",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.6%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "small but consistent",
+			},
+		},
+		news: [
+			{
+				headline: "Disney+ subscriber growth rebounds after password crackdown",
+				source: "Bloomberg",
+				timestamp: "5 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Pixar's latest film breaks streaming records",
+				source: "Variety",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Theme park attendance shows signs of weakness",
+				source: "CNBC",
+				timestamp: "1 week ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "uber",
+		ticker: "UBER",
+		name: "Uber",
+		bio: "your ride & your eats",
+		heroImage:
+			"https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&h=500&fit=crop",
+		personalityDescription: "Gig economy poster child",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 83, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 70, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 77, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Uber Changed Transportation",
+			sections: [
+				{
+					heading: "Gig Economy Pioneer",
+					content:
+						"Uber didn't just create ride-sharing, they created a whole new labor model. Millions of drivers, flexible hours, no benefits—controversial but revolutionary. They redefined what it means to work.",
+				},
+				{
+					heading: "Convenience Culture",
+					content:
+						"Rides in 5 minutes, food in 30. Uber made instant gratification a lifestyle. You never need to plan transportation again. The app replaced taxis, delivery, and even public transit for many.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Love it or hate it, Uber fundamentally changed urban life. They proved tech could disrupt heavily regulated industries. Now every city works differently because of them.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "45",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "finally profitable after years",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$140 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "gig economy leader",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "16%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "strong post-pandemic recovery",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "3%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "thin margins, high volume",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.6",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile with economy",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no profits to share yet",
+			},
+		},
+		news: [
+			{
+				headline: "Uber Eats market share gains on DoorDash",
+				source: "Reuters",
+				timestamp: "6 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Autonomous vehicle partnerships expand in key cities",
+				source: "TechCrunch",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Driver protests continue over pay structure",
+				source: "WSJ",
+				timestamp: "5 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "shop",
+		ticker: "SHOP",
+		name: "Shopify",
+		bio: "Etsy shops that look professional",
+		heroImage:
+			"https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=500&fit=crop",
+		personalityDescription: "E-commerce for everyone",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 76, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 45, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 73, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Shopify Powers the Internet",
+			sections: [
+				{
+					heading: "E-Commerce Democracy",
+					content:
+						"Shopify made online stores accessible to everyone. No coding required, just ideas and hustle. From side hustles to billion-dollar brands, they power millions of businesses.",
+				},
+				{
+					heading: "Anti-Amazon",
+					content:
+						"While Amazon owns the marketplace, Shopify gives merchants independence. You keep your brand, your customer data, your identity. They're the indie alternative to tech giants.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Shopify democratized commerce. They proved you don't need to be on Amazon to succeed online. Instagram brands, DTC companies, dropshippers—all built on Shopify.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "72",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "high growth premium",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$95 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "e-commerce infrastructure play",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "25%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "strong merchant growth",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "13%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "improving margins",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.9",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile growth stock",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "reinvesting for growth",
+			},
+		},
+		news: [
+			{
+				headline: "Shopify merchant base grows 18% year-over-year",
+				source: "Bloomberg",
+				timestamp: "4 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "New AI features automate store management",
+				source: "TechCrunch",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Competition intensifies from Square and BigCommerce",
+				source: "CNBC",
+				timestamp: "1 week ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "amd",
+		ticker: "AMD",
+		name: "AMD",
+		bio: "NVIDIA's scrappy competitor",
+		heroImage:
+			"https://images.unsplash.com/photo-1591488320449-011701bb6704?w=800&h=500&fit=crop",
+		personalityDescription: "Team Red rising",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 40, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why AMD is the Underdog Hero",
+			sections: [
+				{
+					heading: "Intel Killer",
+					content:
+						"For years AMD was the budget option. Then Ryzen happened. Now they're beating Intel in performance and price. Data centers, gaming PCs, laptops—AMD is everywhere.",
+				},
+				{
+					heading: "GPU Wars",
+					content:
+						"While NVIDIA dominates AI, AMD fights back with Radeon for gaming. They're the scrappy alternative to the green team. Price-to-performance champions.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"AMD's comeback story is legendary. They went from near-bankruptcy to taking market share from Intel and challenging NVIDIA. Competition keeps prices sane and innovation moving.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "48",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "growth premium",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$240 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "major semiconductor player",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "18%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "data center momentum",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "22%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "solid chip margins",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.8",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile semiconductor stock",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no dividends yet",
+			},
+		},
+		news: [
+			{
+				headline: "AMD announces next-gen AI accelerators to rival NVIDIA",
+				source: "Bloomberg",
+				timestamp: "3 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Data center CPU market share reaches record high",
+				source: "Reuters",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Gaming GPU sales face headwinds from NVIDIA dominance",
+				source: "TechCrunch",
+				timestamp: "1 week ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "spy",
+		ticker: "SPY",
+		name: "SPY ETF",
+		bio: "S&P 500 index, the ultimate set & forget",
+		heroImage:
+			"https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=500&fit=crop",
+		personalityDescription: "Passive investing icon",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 15, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 55, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why SPY is the People's Index",
+			sections: [
+				{
+					heading: "Set It and Forget It",
+					content:
+						"SPY tracks the S&P 500—America's 500 biggest companies in one fund. Warren Buffett's advice for most people? Buy SPY and chill. It's boring, reliable, and historically returns 10% annually.",
+				},
+				{
+					heading: "Bogleheads Unite",
+					content:
+						"Named after John Bogle, these investors preach low-cost index funds. SPY is the most liquid ETF on Earth. Trillions of dollars, millions of investors, one simple bet: America keeps winning.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"SPY democratized investing. You don't need to pick stocks or time the market. Just buy America's growth and hold. It's the ultimate 'don't overthink it' investment.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "24",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "reflects S&P 500 average",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$500 billion AUM",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "most traded ETF globally",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "N/A",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "tracks index, not a company",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "N/A",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "ETF structure, no margins",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.0",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "is the market by definition",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "1.3%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "modest quarterly payouts",
+			},
+		},
+		news: [
+			{
+				headline: "SPY hits all-time high as market rally continues",
+				source: "Bloomberg",
+				timestamp: "6 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Record inflows into S&P 500 index funds",
+				source: "WSJ",
+				timestamp: "2 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Fee war among brokers benefits passive investors",
+				source: "CNBC",
+				timestamp: "1 week ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "qqq",
+		ticker: "QQQ",
+		name: "QQQ ETF",
+		bio: "Nasdaq-100, pure tech energy",
+		heroImage:
+			"https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=500&fit=crop",
+		personalityDescription: "Tech index supremacy",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 20, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 70, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why QQQ is the Tech Bet",
+			sections: [
+				{
+					heading: "Pure Tech Exposure",
+					content:
+						"QQQ tracks the Nasdaq-100—the biggest 100 non-financial companies on Nasdaq. It's basically Apple, Microsoft, Amazon, NVIDIA, and friends in one fund. Maximum tech concentration.",
+				},
+				{
+					heading: "High Risk, High Reward",
+					content:
+						"When tech booms, QQQ moons. When tech crashes, QQQ bleeds. It's volatile, aggressive, and perfect for believers in innovation over stability. SPY's cooler younger sibling.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"QQQ lets you bet on American tech dominance without picking individual winners. It's the 'I believe in the future' index. Also, it's tax-efficient and liquid as hell.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "32",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "tech premium pricing",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$300 billion AUM",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "most popular tech ETF",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "N/A",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "tracks Nasdaq, not a company",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "N/A",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "ETF structure",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.2",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "more volatile than SPY",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0.6%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "small payouts, growth focused",
+			},
+		},
+		news: [
+			{
+				headline: "QQQ outperforms SPY for fifth straight quarter",
+				source: "Bloomberg",
+				timestamp: "4 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Tech sector rotation drives record QQQ inflows",
+				source: "CNBC",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Analysts warn of tech concentration risk in Nasdaq",
+				source: "WSJ",
+				timestamp: "1 week ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "pypl",
+		ticker: "PYPL",
+		name: "PayPal",
+		bio: "splitting the bill made easy",
+		heroImage:
+			"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&h=500&fit=crop",
+		personalityDescription: "Digital payments OG",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 79, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 50, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 68, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why PayPal Still Matters",
+			sections: [
+				{
+					heading: "OG Digital Wallet",
+					content:
+						"Before Venmo, Cash App, or Apple Pay, there was PayPal. They pioneered online payments and made eBay possible. The blue button is still everywhere—from Etsy to Shopify checkout pages.",
+				},
+				{
+					heading: "Venmo's Parent Company",
+					content:
+						"PayPal owns Venmo, the app that turned splitting bills into social media. Your friends can see you paid for 'pizza and regrets' at 2am. They made peer-to-peer payments a cultural phenomenon.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"PayPal democratized online commerce. They solved the 'how do I pay strangers on the internet' problem before anyone else. Now they process billions in transactions and connect millions of merchants.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "18",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "beaten down valuation",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$85 billion",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "fintech heavyweight",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "9%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "steady but slowing",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "16%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "solid payment margins",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.4",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile fintech stock",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no dividends yet",
+			},
+		},
+		news: [
+			{
+				headline: "PayPal launches stablecoin for crypto payments",
+				source: "TechCrunch",
+				timestamp: "5 hours ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Venmo user growth accelerates among Gen Z",
+				source: "Bloomberg",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Competition from Apple Pay and Google Wallet intensifies",
+				source: "CNBC",
+				timestamp: "4 days ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "intc",
+		ticker: "INTC",
+		name: "Intel",
+		bio: "inside every PC & quantum research lab",
+		heroImage:
+			"https://images.unsplash.com/photo-1555680206-5f368f6df0d7?w=800&h=500&fit=crop",
+		personalityDescription: "The OG chip maker fighting back",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 60, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 55, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Intel Still Matters",
+			sections: [
+				{
+					heading: "The Comeback Kid",
+					content:
+						"Intel dominated PCs for decades with that iconic 'Intel Inside' sticker. Lost the lead to AMD and TSMC but they're investing billions to take it back. Plus quantum computing research.",
+				},
+				{
+					heading: "Quantum Ambitions",
+					content:
+						"Beyond traditional chips, Intel's diving into quantum computing and advanced packaging. They want to prove legacy tech companies can innovate.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Intel shaped personal computing. Their struggle to compete shows how fast tech moves. If they pull off their comeback, it's legendary.",
+				},
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "35", explanation: "Price-to-Earnings ratio", culturalTranslation: "turnaround premium" },
+			marketCap: { label: "Market Cap", value: "$180 billion", explanation: "Total company value", culturalTranslation: "chip giant status" },
+			revenueGrowth: { label: "Revenue Growth", value: "5%", explanation: "Year-over-year growth", culturalTranslation: "slow but steady" },
+			profitMargin: { label: "Profit Margin", value: "8%", explanation: "Profit percentage", culturalTranslation: "struggling margins" },
+			beta: { label: "Beta", value: "1.5", explanation: "Volatility measure", culturalTranslation: "volatile turnaround story" },
+			dividendYield: { label: "Dividend Yield", value: "1.8%", explanation: "Annual dividend payout", culturalTranslation: "some passive income" },
+		},
+		news: [
+			{ headline: "Intel announces new quantum chip breakthrough", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Foundry business struggles continue", source: "Reuters", timestamp: "1 day ago", sentiment: "Bearish", url: "#" },
+			{ headline: "Government subsidies boost US manufacturing plans", source: "WSJ", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
+		],
+	},
+	{
+		id: "ionq",
+		ticker: "IONQ",
+		name: "IonQ",
+		bio: "pure-play quantum computing moonshot",
+		heroImage:
+			"https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=500&fit=crop",
+		personalityDescription: "Quantum computing's startup darling",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 55, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 45, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 82, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why IonQ is the Quantum Bet",
+			sections: [
+				{
+					heading: "Pure Quantum Play",
+					content:
+						"IonQ is betting everything on trapped-ion quantum computers. While others dabble, IonQ is all-in. High risk, potentially revolutionary reward.",
+				},
+				{
+					heading: "The Future or Hype?",
+					content:
+						"Quantum computing could change everything—or stay 10 years away forever. IonQ represents the belief that the quantum age is actually coming.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"If quantum computing takes off, early players like IonQ could be massive. If not, it's an expensive science experiment. That's the gamble.",
+				},
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio", culturalTranslation: "no profits yet, pure growth" },
+			marketCap: { label: "Market Cap", value: "$2 billion", explanation: "Total company value", culturalTranslation: "small but hyped" },
+			revenueGrowth: { label: "Revenue Growth", value: "85%", explanation: "Year-over-year growth", culturalTranslation: "growing from tiny base" },
+			profitMargin: { label: "Profit Margin", value: "-300%", explanation: "Profit percentage", culturalTranslation: "burning cash on R&D" },
+			beta: { label: "Beta", value: "2.5", explanation: "Volatility measure", culturalTranslation: "extremely volatile" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "Annual dividend payout", culturalTranslation: "lol no" },
+		},
+		news: [
+			{ headline: "IonQ quantum computer hits new accuracy milestone", source: "TechCrunch", timestamp: "5 hours ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Analyst questions commercial viability timeline", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bearish", url: "#" },
+			{ headline: "New partnership with major cloud provider announced", source: "CNBC", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
+		],
+	},
+	{
+		id: "tsm",
+		ticker: "TSM",
+		name: "TSMC",
+		bio: "makes the chips that power your entire life",
+		heroImage:
+			"https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=500&fit=crop",
+		personalityDescription: "The invisible giant running everything",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 70, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 75, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why TSMC Runs the World",
+			sections: [
+				{
+					heading: "The Chip Maker's Chip Maker",
+					content:
+						"Apple, NVIDIA, AMD—they all design chips. TSMC actually makes them. Without TSMC, your iPhone doesn't exist. Your gaming PC doesn't exist. Nothing works.",
+				},
+				{
+					heading: "Geopolitical Chess Piece",
+					content:
+						"Taiwan makes most of the world's advanced chips. This makes TSMC the most strategically important company on Earth. Literally everyone needs them to not fail.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"TSMC is why Taiwan is critical to global tech. They're not flashy, but they're essential. The ultimate 'if you know, you know' company.",
+				},
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "28", explanation: "Price-to-Earnings ratio", culturalTranslation: "premium for dominance" },
+			marketCap: { label: "Market Cap", value: "$650 billion", explanation: "Total company value", culturalTranslation: "chip manufacturing king" },
+			revenueGrowth: { label: "Revenue Growth", value: "20%", explanation: "Year-over-year growth", culturalTranslation: "strong AI chip demand" },
+			profitMargin: { label: "Profit Margin", value: "38%", explanation: "Profit percentage", culturalTranslation: "insane margins" },
+			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "moves with tech" },
+			dividendYield: { label: "Dividend Yield", value: "1.8%", explanation: "Annual dividend payout", culturalTranslation: "modest payouts" },
+		},
+		news: [
+			{ headline: "TSMC Arizona fab ramps up production", source: "Reuters", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
+			{ headline: "3nm chip demand exceeds supply", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Geopolitical tensions weigh on stock", source: "WSJ", timestamp: "4 days ago", sentiment: "Neutral", url: "#" },
+		],
+	},
+	{
+		id: "qcom",
+		ticker: "QCOM",
+		name: "Qualcomm",
+		bio: "every smartphone runs on our chips",
+		heroImage:
+			"https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=500&fit=crop",
+		personalityDescription: "Mobile chip monopoly energy",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 55, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 68, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Qualcomm Powers Your Phone",
+			sections: [
+				{
+					heading: "Snapdragon Supremacy",
+					content:
+						"Snapdragon processors are in basically every Android phone. Apple makes their own chips, everyone else uses Qualcomm. That's power.",
+				},
+				{
+					heading: "5G Royalty Checks",
+					content:
+						"Qualcomm doesn't just sell chips—they own patents on wireless tech. Every phone maker pays them licensing fees. Passive income on steroids.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Qualcomm enabled the smartphone era and now profits from 5G. They're the invisible infrastructure making mobile possible.",
+				},
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "22", explanation: "Price-to-Earnings ratio", culturalTranslation: "reasonable valuation" },
+			marketCap: { label: "Market Cap", value: "$200 billion", explanation: "Total company value", culturalTranslation: "mobile chip giant" },
+			revenueGrowth: { label: "Revenue Growth", value: "12%", explanation: "Year-over-year growth", culturalTranslation: "steady growth" },
+			profitMargin: { label: "Profit Margin", value: "28%", explanation: "Profit percentage", culturalTranslation: "strong margins" },
+			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "tech volatility" },
+			dividendYield: { label: "Dividend Yield", value: "2.1%", explanation: "Annual dividend payout", culturalTranslation: "decent income" },
+		},
+		news: [
+			{ headline: "New Snapdragon chip beats Apple in benchmarks", source: "TechCrunch", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Auto chip division shows strong growth", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Smartphone market slowdown concerns persist", source: "Bloomberg", timestamp: "5 days ago", sentiment: "Bearish", url: "#" },
+		],
+	},
+	{
+		id: "avgo",
+		ticker: "AVGO",
+		name: "Broadcom",
+		bio: "infrastructure chips nobody sees but everyone needs",
+		heroImage:
+			"https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=500&fit=crop",
+		personalityDescription: "The boring company making bank",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 35, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 60, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Broadcom Runs Infrastructure",
+			sections: [
+				{
+					heading: "Boring But Critical",
+					content:
+						"Broadcom makes chips for networking, broadband, storage—all the unsexy stuff that makes the internet work. Not flashy, just essential.",
+				},
+				{
+					heading: "M&A Machine",
+					content:
+						"Broadcom grows by buying other companies. They're like private equity but as a chip company. Buy, optimize, print money.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Every data center, every network, every cloud—Broadcom chips are there. They're infrastructure incarnate.",
+				},
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "32", explanation: "Price-to-Earnings ratio", culturalTranslation: "premium for stability" },
+			marketCap: { label: "Market Cap", value: "$650 billion", explanation: "Total company value", culturalTranslation: "infrastructure giant" },
+			revenueGrowth: { label: "Revenue Growth", value: "15%", explanation: "Year-over-year growth", culturalTranslation: "M&A fueled growth" },
+			profitMargin: { label: "Profit Margin", value: "35%", explanation: "Profit percentage", culturalTranslation: "excellent margins" },
+			beta: { label: "Beta", value: "1.1", explanation: "Volatility measure", culturalTranslation: "relatively stable" },
+			dividendYield: { label: "Dividend Yield", value: "1.9%", explanation: "Annual dividend payout", culturalTranslation: "consistent payouts" },
+		},
+		news: [
+			{ headline: "VMware acquisition integration ahead of schedule", source: "Bloomberg", timestamp: "6 hours ago", sentiment: "Bullish", url: "#" },
+			{ headline: "AI networking chips see record demand", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
+			{ headline: "Antitrust concerns emerge in Europe", source: "WSJ", timestamp: "1 week ago", sentiment: "Bearish", url: "#" },
+		],
+	},
+];
+

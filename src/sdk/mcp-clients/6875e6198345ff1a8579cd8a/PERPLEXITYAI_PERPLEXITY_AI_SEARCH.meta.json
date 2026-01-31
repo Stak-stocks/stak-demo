@@ -1,0 +1,6 @@
+{
+  "integrationId": "mcp:6875e6198345ff1a8579cd8a",
+  "name": "PERPLEXITYAI_PERPLEXITY_AI_SEARCH",
+  "description": "Perplexity Ai Search interfaces with Perplexity AI to perform search queries and return responses from a range of models. This action manages requests to Perplexity AI and processes the resulting completions, which may include text, citations, and images based on selected models and settings. Key features include: Autoprompting to enhance and refine queries, choice of AI models for various content and performance requirements, temperature settings to manage response randomness, Top K and Top P filters to fine-tune response generation. Beta features include citations and images in results, and response streaming for dynamic interaction. Note: The parameters 'presence_penalty' and 'frequency_penalty' are mutually exclusive and cannot be used simultaneously.",
+  "docPath": "src/sdk/mcp-clients/6875e6198345ff1a8579cd8a/PERPLEXITYAI_PERPLEXITY_AI_SEARCH.md"
+}
