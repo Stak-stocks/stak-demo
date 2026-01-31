@@ -165,11 +165,16 @@ function LeagueHomePage() {
 
 							{Array.from({ length: emptySlots }).map((_, index) => (
 								<button
+									type="button"
 									key={`empty-${index}`}
 									onClick={() => navigate({ to: "/league/lineup" })}
-									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-zinc-800/50 transition-all cursor-pointer"
+									onTouchEnd={(e) => {
+										e.preventDefault();
+										navigate({ to: "/league/lineup" });
+									}}
+									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-zinc-800/50 active:bg-yellow-500/20 active:border-yellow-500 transition-all cursor-pointer"
 								>
-									<p className="text-zinc-600 text-sm">Pick your starters</p>
+									<p className="text-zinc-600 text-sm pointer-events-none">Pick your starters</p>
 								</button>
 							))}
 						</div>
