@@ -10,7 +10,7 @@ import {
 import { ArrowLeft, Trophy, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/league/results")({
+export const Route = createFileRoute("/league_/results")({
 	component: ResultsPage,
 });
 
@@ -63,7 +63,7 @@ function ResultsPage() {
 				...leagueState.currentLineup!,
 				locked: false,
 			},
-		};
+		}
 
 		localStorage.setItem("league-state", JSON.stringify(updatedState));
 		setLeagueState(updatedState);
@@ -178,5 +178,5 @@ function ResultsPage() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

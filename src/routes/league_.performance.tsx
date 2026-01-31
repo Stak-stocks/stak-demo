@@ -4,7 +4,7 @@ import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE } from "@/data/league";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 
-export const Route = createFileRoute("/league/performance")({
+export const Route = createFileRoute("/league_/performance")({
 	component: PerformancePage,
 });
 
@@ -20,7 +20,7 @@ function PerformancePage() {
 	// Simulated performance data
 	const getRandomPerformance = () => {
 		return (Math.random() * 20 - 10).toFixed(2);
-	};
+	}
 
 	return (
 		<div className="min-h-screen bg-[#121212] text-white">
@@ -96,7 +96,7 @@ function PerformancePage() {
 												</div>
 											</div>
 										</div>
-									);
+									)
 								})}
 							</div>
 						)}
@@ -110,5 +110,5 @@ function PerformancePage() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

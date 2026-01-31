@@ -6,7 +6,7 @@ import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
 import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/league/lineup")({
+export const Route = createFileRoute("/league_/lineup")({
 	component: LineupBuilderPage,
 });
 
@@ -24,7 +24,7 @@ function LineupBuilderPage() {
 
 	const [selectedStarters, setSelectedStarters] = useState<BrandProfile[]>(
 		leagueState.currentLineup?.starters || [],
-	);
+	)
 
 	// Persist state changes to localStorage
 	useEffect(() => {
@@ -35,7 +35,7 @@ function LineupBuilderPage() {
 				locked: false,
 				weekStartDate: leagueState.currentLineup?.weekStartDate || getWeekKey(),
 			},
-		};
+		}
 		localStorage.setItem("league-state", JSON.stringify(updatedState));
 	}, [selectedStarters]);
 
@@ -44,7 +44,7 @@ function LineupBuilderPage() {
 		console.log("[League Lineup] MyStak loaded:", {
 			count: swipedBrands.length,
 			brands: swipedBrands.map((b) => b.ticker),
-		});
+		})
 	}, [swipedBrands]);
 
 	// Add card to next available slot
@@ -59,15 +59,15 @@ function LineupBuilderPage() {
 				return [...prev, brand];
 			}
 			return prev;
-		});
-	};
+		})
+	}
 
 	// Remove card from slot
 	const handleRemoveStarter = (index: number) => {
 		setSelectedStarters((prev) => {
 			return prev.filter((_, i) => i !== index);
-		});
-	};
+		})
+	}
 
 	const handleLockLineup = () => {
 		const newLeagueState: LeagueState = {
@@ -77,11 +77,11 @@ function LineupBuilderPage() {
 				locked: true,
 				weekStartDate: getWeekKey(),
 			},
-		};
+		}
 		setLeagueState(newLeagueState);
 		localStorage.setItem("league-state", JSON.stringify(newLeagueState));
 		navigate({ to: "/league" });
-	};
+	}
 
 	return (
 		<div className="min-h-screen bg-[#121212] text-white">
@@ -158,7 +158,7 @@ function LineupBuilderPage() {
 											<p className="text-zinc-600 text-sm">Pick your starter</p>
 										)}
 									</button>
-								);
+								)
 							})}
 						</div>
 					</div>
@@ -188,7 +188,7 @@ function LineupBuilderPage() {
 								{swipedBrands.map((brand) => {
 									const isSelected = !!selectedStarters.find(
 										(b) => b.id === brand.id,
-									);
+									)
 									return (
 										<button
 											key={brand.id}
@@ -220,7 +220,7 @@ function LineupBuilderPage() {
 												{brand.bio}
 											</p>
 										</button>
-									);
+									)
 								})}
 							</div>
 						)}
@@ -242,5 +242,5 @@ function LineupBuilderPage() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

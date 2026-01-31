@@ -8,165 +8,79 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as MyStakRouteImport } from './routes/my-stak'
+import { Route as LeagueRouteImport } from './routes/league'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as LeagueResultsRouteImport } from './routes/league_.results'
+import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
+import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
+import { Route as BrandBrandIdRouteImport } from './routes/brand.$brandId'
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as MyStakImport } from './routes/my-stak'
-import { Route as LeagueImport } from './routes/league'
-import { Route as IndexImport } from './routes/index'
-import { Route as LeagueResultsImport } from './routes/league.results'
-import { Route as LeaguePerformanceImport } from './routes/league.performance'
-import { Route as LeagueLineupImport } from './routes/league.lineup'
-import { Route as BrandBrandIdImport } from './routes/brand.$brandId'
-
-// Create/Update Routes
-
-const MyStakRoute = MyStakImport.update({
+const MyStakRoute = MyStakRouteImport.update({
   id: '/my-stak',
   path: '/my-stak',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const LeagueRoute = LeagueImport.update({
+const LeagueRoute = LeagueRouteImport.update({
   id: '/league',
   path: '/league',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const IndexRoute = IndexImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const LeagueResultsRoute = LeagueResultsImport.update({
-  id: '/results',
-  path: '/results',
-  getParentRoute: () => LeagueRoute,
+const LeagueResultsRoute = LeagueResultsRouteImport.update({
+  id: '/league_/results',
+  path: '/league/results',
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const LeaguePerformanceRoute = LeaguePerformanceImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => LeagueRoute,
+const LeaguePerformanceRoute = LeaguePerformanceRouteImport.update({
+  id: '/league_/performance',
+  path: '/league/performance',
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const LeagueLineupRoute = LeagueLineupImport.update({
-  id: '/lineup',
-  path: '/lineup',
-  getParentRoute: () => LeagueRoute,
+const LeagueLineupRoute = LeagueLineupRouteImport.update({
+  id: '/league_/lineup',
+  path: '/league/lineup',
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const BrandBrandIdRoute = BrandBrandIdImport.update({
+const BrandBrandIdRoute = BrandBrandIdRouteImport.update({
   id: '/brand/$brandId',
   path: '/brand/$brandId',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-// Populate the FileRoutesByPath interface
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/league': {
-      id: '/league'
-      path: '/league'
-      fullPath: '/league'
-      preLoaderRoute: typeof LeagueImport
-      parentRoute: typeof rootRoute
-    }
-    '/my-stak': {
-      id: '/my-stak'
-      path: '/my-stak'
-      fullPath: '/my-stak'
-      preLoaderRoute: typeof MyStakImport
-      parentRoute: typeof rootRoute
-    }
-    '/brand/$brandId': {
-      id: '/brand/$brandId'
-      path: '/brand/$brandId'
-      fullPath: '/brand/$brandId'
-      preLoaderRoute: typeof BrandBrandIdImport
-      parentRoute: typeof rootRoute
-    }
-    '/league/lineup': {
-      id: '/league/lineup'
-      path: '/lineup'
-      fullPath: '/league/lineup'
-      preLoaderRoute: typeof LeagueLineupImport
-      parentRoute: typeof LeagueImport
-    }
-    '/league/performance': {
-      id: '/league/performance'
-      path: '/performance'
-      fullPath: '/league/performance'
-      preLoaderRoute: typeof LeaguePerformanceImport
-      parentRoute: typeof LeagueImport
-    }
-    '/league/results': {
-      id: '/league/results'
-      path: '/results'
-      fullPath: '/league/results'
-      preLoaderRoute: typeof LeagueResultsImport
-      parentRoute: typeof LeagueImport
-    }
-  }
-}
-
-// Create and export the route tree
-
-interface LeagueRouteChildren {
-  LeagueLineupRoute: typeof LeagueLineupRoute
-  LeaguePerformanceRoute: typeof LeaguePerformanceRoute
-  LeagueResultsRoute: typeof LeagueResultsRoute
-}
-
-const LeagueRouteChildren: LeagueRouteChildren = {
-  LeagueLineupRoute: LeagueLineupRoute,
-  LeaguePerformanceRoute: LeaguePerformanceRoute,
-  LeagueResultsRoute: LeagueResultsRoute,
-}
-
-const LeagueRouteWithChildren =
-  LeagueRoute._addFileChildren(LeagueRouteChildren)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/league': typeof LeagueRouteWithChildren
+  '/league': typeof LeagueRoute
   '/my-stak': typeof MyStakRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
 }
-
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/league': typeof LeagueRouteWithChildren
+  '/league': typeof LeagueRoute
   '/my-stak': typeof MyStakRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRoute
+  __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/league': typeof LeagueRouteWithChildren
+  '/league': typeof LeagueRoute
   '/my-stak': typeof MyStakRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
-  '/league/lineup': typeof LeagueLineupRoute
-  '/league/performance': typeof LeaguePerformanceRoute
-  '/league/results': typeof LeagueResultsRoute
+  '/league_/lineup': typeof LeagueLineupRoute
+  '/league_/performance': typeof LeaguePerformanceRoute
+  '/league_/results': typeof LeagueResultsRoute
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
@@ -192,71 +106,84 @@ export interface FileRouteTypes {
     | '/league'
     | '/my-stak'
     | '/brand/$brandId'
-    | '/league/lineup'
-    | '/league/performance'
-    | '/league/results'
+    | '/league_/lineup'
+    | '/league_/performance'
+    | '/league_/results'
   fileRoutesById: FileRoutesById
 }
-
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  LeagueRoute: typeof LeagueRouteWithChildren
+  LeagueRoute: typeof LeagueRoute
   MyStakRoute: typeof MyStakRoute
   BrandBrandIdRoute: typeof BrandBrandIdRoute
+  LeagueLineupRoute: typeof LeagueLineupRoute
+  LeaguePerformanceRoute: typeof LeaguePerformanceRoute
+  LeagueResultsRoute: typeof LeagueResultsRoute
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/my-stak': {
+      id: '/my-stak'
+      path: '/my-stak'
+      fullPath: '/my-stak'
+      preLoaderRoute: typeof MyStakRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/league': {
+      id: '/league'
+      path: '/league'
+      fullPath: '/league'
+      preLoaderRoute: typeof LeagueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/league_/results': {
+      id: '/league_/results'
+      path: '/league/results'
+      fullPath: '/league/results'
+      preLoaderRoute: typeof LeagueResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/league_/performance': {
+      id: '/league_/performance'
+      path: '/league/performance'
+      fullPath: '/league/performance'
+      preLoaderRoute: typeof LeaguePerformanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/league_/lineup': {
+      id: '/league_/lineup'
+      path: '/league/lineup'
+      fullPath: '/league/lineup'
+      preLoaderRoute: typeof LeagueLineupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brand/$brandId': {
+      id: '/brand/$brandId'
+      path: '/brand/$brandId'
+      fullPath: '/brand/$brandId'
+      preLoaderRoute: typeof BrandBrandIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  LeagueRoute: LeagueRouteWithChildren,
+  LeagueRoute: LeagueRoute,
   MyStakRoute: MyStakRoute,
   BrandBrandIdRoute: BrandBrandIdRoute,
+  LeagueLineupRoute: LeagueLineupRoute,
+  LeaguePerformanceRoute: LeaguePerformanceRoute,
+  LeagueResultsRoute: LeagueResultsRoute,
 }
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/",
-        "/league",
-        "/my-stak",
-        "/brand/$brandId"
-      ]
-    },
-    "/": {
-      "filePath": "index.tsx"
-    },
-    "/league": {
-      "filePath": "league.tsx",
-      "children": [
-        "/league/lineup",
-        "/league/performance",
-        "/league/results"
-      ]
-    },
-    "/my-stak": {
-      "filePath": "my-stak.tsx"
-    },
-    "/brand/$brandId": {
-      "filePath": "brand.$brandId.tsx"
-    },
-    "/league/lineup": {
-      "filePath": "league.lineup.tsx",
-      "parent": "/league"
-    },
-    "/league/performance": {
-      "filePath": "league.performance.tsx",
-      "parent": "/league"
-    },
-    "/league/results": {
-      "filePath": "league.results.tsx",
-      "parent": "/league"
-    }
-  }
-}
-ROUTE_MANIFEST_END */
