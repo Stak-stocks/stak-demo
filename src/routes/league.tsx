@@ -164,12 +164,13 @@ function LeagueHomePage() {
 							))}
 
 							{Array.from({ length: emptySlots }).map((_, index) => (
-								<div
+								<button
 									key={`empty-${index}`}
-									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px]"
+									onClick={() => navigate({ to: "/league/lineup" })}
+									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-zinc-800/50 transition-all cursor-pointer"
 								>
 									<p className="text-zinc-600 text-sm">Pick your starters</p>
-								</div>
+								</button>
 							))}
 						</div>
 
