@@ -3944,7 +3944,7 @@ export const brands: BrandProfile[] = [
 		name: "L'Oréal",
 		bio: "owns everything in your bathroom from CeraVe to YSL",
 		heroImage:
-			"https://images.unsplash.com/photo-1596462502278-27bfdd403cc2?w=800&h=500&fit=crop",
+			"https://images.unsplash.com/photo-1503236823255-943cb751f9c6?w=800&h=500&fit=crop",
 		personalityDescription: "The final boss of the beauty industry",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
@@ -4296,7 +4296,7 @@ export const brands: BrandProfile[] = [
 		name: "Coty",
 		bio: "the chaotic perfume house trying to get its act together",
 		heroImage:
-			"https://images.unsplash.com/photo-1595475207225-428b62bda831?w=800&h=500&fit=crop",
+			"https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&h=500&fit=crop",
 		personalityDescription: "The fragrance empire with a messy balance sheet",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
