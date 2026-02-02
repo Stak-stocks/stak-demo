@@ -2533,7 +2533,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MA",
 		name: "Mastercard",
 		bio: "Visa's slightly cooler twin with better marketing",
-		heroImage: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=500&fit=crop",
+		heroImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQA7EL0UC3evvmUxpPLJLXQPR8MBbkh4tBFvg&s",
 		personalityDescription: "Forever second place but owns it",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
