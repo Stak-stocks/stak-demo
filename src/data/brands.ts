@@ -659,15 +659,15 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$110B",
+				value: "$104.4B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "coffee empire status",
 			},
 			revenueGrowth: {
 				label: "Revenue Growth",
-				value: "11%",
+				value: "10.4%",
 				explanation: "How much more money the company is making compared to last year",
-				culturalTranslation: "still expanding globally",
+				culturalTranslation: "steady growth fueled by international expansion, especially in China",
 			},
 			profitMargin: {
 				label: "Profit Margin",
@@ -679,13 +679,13 @@ export const brands: BrandProfile[] = [
 				label: "Beta",
 				value: "0.9",
 				explanation: "How much the stock price swings compared to the overall market",
-				culturalTranslation: "more stable than most",
+				culturalTranslation: "boring but stable; coffee is a recession-resistant habit",
 			},
 			dividendYield: {
 				label: "Dividend Yield",
-				value: "2.3%",
+				value: "2.57%",
 				explanation: "The percentage of the stock price paid out as dividends each year",
-				culturalTranslation: "decent income for investors",
+				culturalTranslation: "paying you back for all those lattes you bought",
 			},
 		},
 		news: [
@@ -748,33 +748,33 @@ export const brands: BrandProfile[] = [
 		financials: {
 			peRatio: {
 				label: "P/E Ratio",
-				value: "N/A",
+				value: "99.2",
 				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
-				culturalTranslation: "barely profitable, focused on growth",
+				culturalTranslation: "investors are paying for the future audio monopoly, not today's profits",
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$75B",
+				value: "$103.9B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "dominates music streaming",
 			},
 			revenueGrowth: {
 				label: "Revenue Growth",
-				value: "16%",
+				value: "14.5%",
 				explanation: "How much more money the company is making compared to last year",
-				culturalTranslation: "subscribers still growing",
+				culturalTranslation: "accelerating growth thanks to podcasting and price hikes",
 			},
 			profitMargin: {
 				label: "Profit Margin",
-				value: "1%",
+				value: "3.5%",
 				explanation: "What percentage of each sale becomes actual profit",
-				culturalTranslation: "tiny margins, licensing costs eat profits",
+				culturalTranslation: "thin margins but expanding as they try to get everyone to use premium",
 			},
 			beta: {
 				label: "Beta",
 				value: "1.5",
 				explanation: "How much the stock price swings compared to the overall market",
-				culturalTranslation: "volatile stock",
+				culturalTranslation: "high-energy stock; it moves with user sentiment and pricing news",
 			},
 			dividendYield: {
 				label: "Dividend Yield",
@@ -843,7 +843,7 @@ export const brands: BrandProfile[] = [
 		financials: {
 			peRatio: {
 				label: "P/E Ratio",
-				value: "33",
+				value: "33.9",
 				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
 				culturalTranslation: "expensive but AWS justifies it",
 			},
@@ -851,19 +851,19 @@ export const brands: BrandProfile[] = [
 				label: "Market Cap",
 				value: "$2.6T",
 				explanation: "The total value of all the company's shares combined",
-				culturalTranslation: "everything store is massive",
+				culturalTranslation: "the biggest 'everything store' in the world",
 			},
 			revenueGrowth: {
 				label: "Revenue Growth",
-				value: "13%",
+				value: "11.5%",
 				explanation: "How much more money the company is making compared to last year",
-				culturalTranslation: "still growing despite size",
+				culturalTranslation: "steady compounding growth; when you're this big, double digits is a flex",
 			},
 			profitMargin: {
 				label: "Profit Margin",
-				value: "9%",
+				value: "10.2%",
 				explanation: "What percentage of each sale becomes actual profit",
-				culturalTranslation: "retail is tough, AWS saves them",
+				culturalTranslation: "retail is a grind, but their Ad and Cloud margins are carrying the team",
 			},
 			beta: {
 				label: "Beta",
@@ -931,34 +931,34 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Why It Matters",
 					content:
-						"Netflix killed cable TV and changed how we consume media. They made streaming mainstream. Yeah, they're cracking down on password sharing now (RIP the golden era), but they created the template every other platform copied. The 'ta-dum' sound is iconic.",
+						"Netflix killed cable TV and changed how we consume media. They made streaming mainstream and they are acquiring Warner Bros. Discovery. Now they own the iconic ta-dum sound AND Harry Potter, HBO, and Batman. It's a total content monopoly.",
 				},
 			],
 		},
 		financials: {
 			peRatio: {
 				label: "P/E Ratio",
-				value: "42",
+				value: "33.04",
 				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
-				culturalTranslation: "pricey for streaming",
+				culturalTranslation: "A high-stakes valuation as the market bets on Netflix successfully pivoting from a pure tech platform into a diversified media empire.",
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$265B",
+				value: "$352.5B",
 				explanation: "The total value of all the company's shares combined",
-				culturalTranslation: "streaming OG still on top",
+				culturalTranslation: "slumped recently as the market digests the massive debt from the WBD deal",
 			},
 			revenueGrowth: {
 				label: "Revenue Growth",
-				value: "15%",
+				value: "17%",
 				explanation: "How much more money the company is making compared to last year",
-				culturalTranslation: "password crackdown working",
+				culturalTranslation: "high growth fueled by the ad-tier pivot",
 			},
 			profitMargin: {
 				label: "Profit Margin",
-				value: "20%",
+				value: "29.5%",
 				explanation: "What percentage of each sale becomes actual profit",
-				culturalTranslation: "strong margins for content business",
+				culturalTranslation: "industry-leading margins; they've mastered the binge economy",
 			},
 			beta: {
 				label: "Beta",
