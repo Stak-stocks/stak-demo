@@ -4,8 +4,16 @@ import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { SearchView } from "@/components/SearchView";
-import { Sparkles, Search } from "lucide-react";
+import { Sparkles, Search, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
+
+const STAK_CAPACITY = 15;
 
 export const Route = createFileRoute("/")({
 	component: App,
@@ -19,6 +27,8 @@ function App() {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
 	});
+	const [swapPickerOpen, setSwapPickerOpen] = useState(false);
+	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
 
 	useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
@@ -30,16 +40,47 @@ function App() {
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
-		setSwipedBrands((prev) => {
-			if (!prev.find((b) => b.id === brand.id)) {
+		// Check if already in stak before showing toast (avoid duplicate toasts from StrictMode)
+		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
+		if (!alreadyInStak) {
+			// Check if at capacity
+			if (swipedBrands.length >= STAK_CAPACITY) {
+				// Store the pending brand and open swap picker
+				setPendingBrand(brand);
+				setSwapPickerOpen(true);
+				toast.info("Your Stak is full!", {
+					description: "Pick a stock to swap out",
+					duration: 2000,
+				});
+			} else {
 				toast.success("Added to your Stak", {
 					description: brand.name,
 					duration: 2000,
 				});
-				return [...prev, brand];
+				setSwipedBrands((prev) => [...prev, brand]);
 			}
-			return prev;
+		}
+	};
+
+	const handleSwapStock = (brandToRemove: BrandProfile) => {
+		if (!pendingBrand) return;
+
+		setSwipedBrands((prev) => {
+			const filtered = prev.filter((b) => b.id !== brandToRemove.id);
+			return [...filtered, pendingBrand];
 		});
+
+		toast.success(`Swapped ${brandToRemove.name} for ${pendingBrand.name}`, {
+			duration: 2000,
+		});
+
+		setPendingBrand(null);
+		setSwapPickerOpen(false);
+	};
+
+	const handleCancelSwap = () => {
+		setPendingBrand(null);
+		setSwapPickerOpen(false);
 	};
 
 	const handleCloseModal = () => {
@@ -75,7 +116,9 @@ function App() {
 				</header>
 
 				<SwipeableCardStack
-					brands={brands}
+					brands={brands.filter(
+						(brand) => !swipedBrands.some((b) => b.id === brand.id)
+					)}
 					onLearnMore={handleLearnMore}
 					onSwipeRight={handleSwipeRight}
 				/>
@@ -103,6 +146,54 @@ function App() {
 				onClose={handleCloseModal}
 				onAddToStak={handleSwipeRight}
 			/>
+
+			{/* Swap Picker Sheet - shown when Stak is full */}
+			<Sheet open={swapPickerOpen} onOpenChange={(open) => !open && handleCancelSwap()}>
+				<SheetContent side="bottom" className="bg-zinc-900 border-zinc-800 h-[70vh]">
+					<SheetHeader className="mb-4">
+						<SheetTitle className="text-white text-xl flex items-center gap-2">
+							<AlertTriangle className="w-5 h-5 text-orange-500" />
+							Stak Full - Pick One to Swap
+						</SheetTitle>
+					</SheetHeader>
+
+					{pendingBrand && (
+						<div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+							<p className="text-green-400 text-sm">
+								Adding: <span className="font-bold">{pendingBrand.name}</span> ({pendingBrand.ticker})
+							</p>
+						</div>
+					)}
+
+					<p className="text-zinc-400 text-sm mb-4">
+						Tap a stock below to remove it and add {pendingBrand?.name}:
+					</p>
+
+					<div className="space-y-3 overflow-y-auto max-h-[calc(70vh-200px)] pb-4">
+						{swipedBrands.map((brand) => (
+							<button
+								type="button"
+								key={brand.id}
+								onClick={() => handleSwapStock(brand)}
+								className="w-full text-left p-4 rounded-xl border-2 border-zinc-700 bg-zinc-800/50 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+							>
+								<div className="flex items-center gap-4">
+									<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-xl font-bold shrink-0">
+										{brand.ticker.charAt(0)}
+									</div>
+									<div className="flex-1 min-w-0">
+										<h3 className="font-bold text-white">{brand.name}</h3>
+										<span className="text-xs font-mono text-zinc-500 uppercase">
+											{brand.ticker}
+										</span>
+									</div>
+									<span className="text-red-400 text-sm">Tap to swap</span>
+								</div>
+							</button>
+						))}
+					</div>
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

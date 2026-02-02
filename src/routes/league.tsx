@@ -7,8 +7,55 @@ import {
 	getLeagueButtonState,
 	getWeekKey,
 } from "@/data/league";
-import { Trophy, Lock, TrendingUp, TrendingDown } from "lucide-react";
+import { Trophy, Lock, Check, X, Calendar, Clock } from "lucide-react";
+import { toast } from "sonner";
+
+// TESTING: Set to true to bypass Monday check
+const TESTING_MODE = false; // Change to false for production
+
+// Check if it's Monday in CST timezone
+function isMondayCST(): boolean {
+	if (TESTING_MODE) return true; // Always Monday in testing mode
+
+	const now = new Date();
+	// Convert to CST (UTC-6)
+	const cstOffset = -6 * 60; // CST is UTC-6
+	const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+	const cstTime = new Date(utcTime + cstOffset * 60000);
+	return cstTime.getDay() === 1; // 1 = Monday
+}
+
+// Get time until next Monday in CST
+function getTimeUntilMonday(): { days: number; hours: number } {
+	const now = new Date();
+	const cstOffset = -6 * 60;
+	const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+	const cstTime = new Date(utcTime + cstOffset * 60000);
+
+	const currentDay = cstTime.getDay();
+	const daysUntilMonday = currentDay === 0 ? 1 : currentDay === 1 ? 0 : 8 - currentDay;
+
+	if (daysUntilMonday === 0) {
+		return { days: 0, hours: 0 };
+	}
+
+	const nextMonday = new Date(cstTime);
+	nextMonday.setDate(cstTime.getDate() + daysUntilMonday);
+	nextMonday.setHours(0, 0, 0, 0);
+
+	const diff = nextMonday.getTime() - cstTime.getTime();
+	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+	return { days, hours };
+}
 import { Button } from "@/components/ui/button";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/league")({
 	component: LeagueHomePage,
@@ -26,9 +73,83 @@ function LeagueHomePage() {
 		return saved ? JSON.parse(saved) : [];
 	});
 
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const [isMonday, setIsMonday] = useState(isMondayCST);
+	const [timeUntilMonday, setTimeUntilMonday] = useState(getTimeUntilMonday);
+
 	useEffect(() => {
 		localStorage.setItem("league-state", JSON.stringify(leagueState));
 	}, [leagueState]);
+
+	// Check if we need to reset for a new week
+	useEffect(() => {
+		const currentWeekKey = getWeekKey();
+		const savedWeekKey = leagueState.currentLineup?.weekStartDate;
+
+		// If it's a new week, reset the lineup
+		if (savedWeekKey && savedWeekKey !== currentWeekKey) {
+			setLeagueState((prev) => ({
+				...prev,
+				currentLineup: {
+					starters: [],
+					locked: false,
+					weekStartDate: currentWeekKey,
+				},
+			}));
+		}
+	}, [leagueState.currentLineup?.weekStartDate]);
+
+	// Update Monday check every minute
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setIsMonday(isMondayCST());
+			setTimeUntilMonday(getTimeUntilMonday());
+
+			// Also check for weekly reset
+			const currentWeekKey = getWeekKey();
+			const savedWeekKey = leagueState.currentLineup?.weekStartDate;
+			if (savedWeekKey && savedWeekKey !== currentWeekKey) {
+				setLeagueState((prev) => ({
+					...prev,
+					currentLineup: {
+						starters: [],
+						locked: false,
+						weekStartDate: currentWeekKey,
+					},
+				}));
+			}
+		}, 60000);
+		return () => clearInterval(interval);
+	}, [leagueState.currentLineup?.weekStartDate]);
+
+	const starters = leagueState.currentLineup?.starters || [];
+
+	const handleAddStarter = (brand: BrandProfile) => {
+		if (starters.length >= 5) return;
+		if (starters.find((b) => b.id === brand.id)) return;
+
+		const newStarters = [...starters, brand];
+		setLeagueState((prev) => ({
+			...prev,
+			currentLineup: {
+				starters: newStarters,
+				locked: false,
+				weekStartDate: prev.currentLineup?.weekStartDate || getWeekKey(),
+			},
+		}));
+	};
+
+	const handleRemoveStarter = (brandId: string) => {
+		const newStarters = starters.filter((b) => b.id !== brandId);
+		setLeagueState((prev) => ({
+			...prev,
+			currentLineup: {
+				starters: newStarters,
+				locked: false,
+				weekStartDate: prev.currentLineup?.weekStartDate || getWeekKey(),
+			},
+		}));
+	};
 
 	const buttonState = getLeagueButtonState();
 	const currentWeek = getWeekKey();
@@ -48,6 +169,47 @@ function LeagueHomePage() {
 
 	const handleJoinLeague = () => {
 		setLeagueState((prev) => ({ ...prev, hasJoined: true }));
+	};
+
+	const handleConfirmLineup = () => {
+		if (starters.length !== 5) {
+			toast.error("You need exactly 5 starters to confirm");
+			return;
+		}
+
+		setLeagueState((prev) => ({
+			...prev,
+			currentLineup: {
+				...prev.currentLineup!,
+				locked: true,
+				weekStartDate: getWeekKey(),
+			},
+		}));
+
+		toast.success("Lineup locked in!", {
+			description: "Good luck this week!",
+			duration: 3000,
+		});
+
+		setPickerOpen(false);
+	};
+
+	const handlePickerOpen = () => {
+		if (!isMonday) {
+			toast.error("Selections only available on Mondays", {
+				description: `Come back in ${timeUntilMonday.days}d ${timeUntilMonday.hours}h`,
+				duration: 3000,
+			});
+			return;
+		}
+		if (isLineupLocked) {
+			toast.error("Lineup already locked", {
+				description: "You can change your picks next Monday",
+				duration: 3000,
+			});
+			return;
+		}
+		setPickerOpen(true);
 	};
 
 	if (!leagueState.hasJoined) {
@@ -105,7 +267,6 @@ function LeagueHomePage() {
 		);
 	}
 
-	const starters = leagueState.currentLineup?.starters || [];
 	const emptySlots = 5 - starters.length;
 
 	return (
@@ -124,28 +285,65 @@ function LeagueHomePage() {
 				</header>
 
 				<div className="space-y-8">
+					{/* Selection Status Banner */}
+					{isMonday && !isLineupLocked ? (
+						<div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6">
+							<div className="flex items-center gap-3">
+								<Calendar className="w-6 h-6 text-green-400" />
+								<div>
+									<p className="text-green-400 font-bold">It's Monday! Selections are OPEN</p>
+									<p className="text-green-400/70 text-sm">Pick your 5 starters and lock them in before midnight CST</p>
+								</div>
+							</div>
+						</div>
+					) : !isLineupLocked ? (
+						<div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4 mb-6">
+							<div className="flex items-center gap-3">
+								<Clock className="w-6 h-6 text-zinc-400" />
+								<div>
+									<p className="text-zinc-300 font-bold">Selections closed</p>
+									<p className="text-zinc-500 text-sm">
+										Next selection window opens in{" "}
+										<span className="text-cyan-400 font-bold">
+											{timeUntilMonday.days}d {timeUntilMonday.hours}h
+										</span>
+									</p>
+								</div>
+							</div>
+						</div>
+					) : null}
+
 					<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
 							<h2 className="text-2xl font-bold text-white">
 								This Week's Lineup
 							</h2>
 							{isLineupLocked && (
-								<div className="flex items-center gap-2 text-yellow-500 text-sm">
-									<Lock className="w-4 h-4" />
-									<span>Locked until next Monday</span>
+								<div className="flex items-center gap-2 text-green-500 text-sm">
+									<Check className="w-4 h-4" />
+									<span>Locked in for this week</span>
 								</div>
 							)}
 						</div>
 
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-							{starters.map((brand, index) => (
+							{starters.map((brand) => (
 								<div
 									key={brand.id}
-									className="relative bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 hover:border-green-500/50 transition-all"
+									className="relative bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 hover:border-green-500/50 transition-all group"
 									style={{
 										boxShadow: "0 0 20px rgba(34, 197, 94, 0.1)",
 									}}
 								>
+									{!isLineupLocked && isMonday && (
+										<button
+											type="button"
+											onClick={() => handleRemoveStarter(brand.id)}
+											className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+										>
+											<X className="w-4 h-4 text-white" />
+										</button>
+									)}
 									<div className="flex items-center gap-3 mb-2">
 										<div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-lg font-bold">
 											{brand.ticker.charAt(0)}
@@ -164,14 +362,34 @@ function LeagueHomePage() {
 							))}
 
 							{Array.from({ length: emptySlots }).map((_, index) => (
-								<div
+								<button
+									type="button"
 									key={`empty-${index}`}
-									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px]"
+									onClick={handlePickerOpen}
+									className="bg-zinc-800/30 border border-zinc-700 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-zinc-800/50 active:bg-yellow-500/20 transition-all cursor-pointer"
 								>
-									<p className="text-zinc-600 text-sm">Pick your starters</p>
-								</div>
+									<p className="text-zinc-600 text-sm">
+										{isMonday ? "Pick your starters" : "Available Mondays only"}
+									</p>
+								</button>
 							))}
 						</div>
+
+						{/* Confirm button when all 5 starters are selected */}
+						{starters.length === 5 && !isLineupLocked && isMonday && (
+							<div className="mt-6">
+								<Button
+									onClick={handleConfirmLineup}
+									className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white py-6 h-auto text-lg"
+								>
+									<Lock className="w-5 h-5 mr-2" />
+									Confirm & Lock Lineup
+								</Button>
+								<p className="text-center text-xs text-zinc-500 mt-2">
+									Once confirmed, you cannot change your picks until next Monday
+								</p>
+							</div>
+						)}
 
 						{swipedBrands.length < 5 && starters.length === 0 && (
 							<div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
@@ -232,6 +450,87 @@ function LeagueHomePage() {
 					</div>
 				</div>
 			</div>
+
+			{/* Stock Picker Sheet */}
+			<Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+				<SheetContent side="bottom" className="bg-zinc-900 border-zinc-800 h-[70vh]">
+					<SheetHeader className="mb-4">
+						<SheetTitle className="text-white text-xl">
+							Pick Your Starters ({starters.length}/5)
+						</SheetTitle>
+					</SheetHeader>
+
+					{swipedBrands.length === 0 ? (
+						<div className="flex flex-col items-center justify-center h-48 text-center">
+							<p className="text-zinc-400 mb-2">Your Stak is empty!</p>
+							<p className="text-zinc-500 text-sm">
+								Go to Discover and swipe right on stocks you like.
+							</p>
+						</div>
+					) : (
+						<div className="space-y-3 overflow-y-auto max-h-[calc(70vh-120px)] pb-4">
+							{swipedBrands.map((brand) => {
+								const isSelected = starters.some((s) => s.id === brand.id);
+								const canAdd = starters.length < 5;
+
+								return (
+									<button
+										type="button"
+										key={brand.id}
+										onClick={() => {
+											if (isSelected) {
+												handleRemoveStarter(brand.id);
+											} else if (canAdd) {
+												handleAddStarter(brand);
+											}
+										}}
+										disabled={!isSelected && !canAdd}
+										className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+											isSelected
+												? "border-yellow-500 bg-yellow-500/10"
+												: canAdd
+													? "border-zinc-700 bg-zinc-800/50 hover:border-cyan-500/50"
+													: "border-zinc-800 bg-zinc-900/50 opacity-50 cursor-not-allowed"
+										}`}
+									>
+										<div className="flex items-center gap-4">
+											<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-xl font-bold shrink-0">
+												{brand.ticker.charAt(0)}
+											</div>
+											<div className="flex-1 min-w-0">
+												<h3 className="font-bold text-white">{brand.name}</h3>
+												<span className="text-xs font-mono text-zinc-500 uppercase">
+													{brand.ticker}
+												</span>
+											</div>
+											{isSelected && (
+												<div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center shrink-0">
+													<Check className="w-5 h-5 text-black" />
+												</div>
+											)}
+										</div>
+									</button>
+								);
+							})}
+						</div>
+					)}
+
+					{starters.length === 5 && (
+						<div className="absolute bottom-4 left-4 right-4">
+							<Button
+								onClick={handleConfirmLineup}
+								className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white py-6 h-auto text-lg"
+							>
+								<Lock className="w-5 h-5 mr-2" />
+								Confirm & Lock Lineup
+							</Button>
+							<p className="text-center text-xs text-zinc-500 mt-2">
+								Once confirmed, you cannot change your picks until next Monday
+							</p>
+						</div>
+					)}
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

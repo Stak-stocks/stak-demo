@@ -1,24 +1,98 @@
-import { useState, useRef, type MouseEvent, type TouchEvent } from "react";
+import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "react";
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
+import { Clock, Sparkles } from "lucide-react";
+
+const DAILY_LIMIT = 20;
+const RESET_HOUR = 9; // 9 AM
+
+interface DailySwipeState {
+	count: number;
+	date: string;
+}
+
+function getTodayKey(): string {
+	const now = new Date();
+	// If before 9 AM, use yesterday's date
+	if (now.getHours() < RESET_HOUR) {
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		return yesterday.toISOString().split("T")[0];
+	}
+	return now.toISOString().split("T")[0];
+}
+
+function getTimeUntilReset(): { hours: number; minutes: number } {
+	const now = new Date();
+	const resetTime = new Date(now);
+
+	if (now.getHours() >= RESET_HOUR) {
+		// Reset is tomorrow at 9 AM
+		resetTime.setDate(resetTime.getDate() + 1);
+	}
+	resetTime.setHours(RESET_HOUR, 0, 0, 0);
+
+	const diff = resetTime.getTime() - now.getTime();
+	const hours = Math.floor(diff / (1000 * 60 * 60));
+	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+	return { hours, minutes };
+}
+
+function getDailySwipeState(): DailySwipeState {
+	const saved = localStorage.getItem("daily-swipe-state");
+	if (saved) {
+		const state: DailySwipeState = JSON.parse(saved);
+		const todayKey = getTodayKey();
+		if (state.date === todayKey) {
+			return state;
+		}
+	}
+	return { count: 0, date: getTodayKey() };
+}
+
+function saveDailySwipeState(state: DailySwipeState): void {
+	localStorage.setItem("daily-swipe-state", JSON.stringify(state));
+}
 
 interface SwipeableCardStackProps {
 	brands: BrandProfile[];
 	onLearnMore: (brand: BrandProfile) => void;
 	onSwipeRight?: (brand: BrandProfile) => void;
+	onSwipe?: () => void;
 }
 
 export function SwipeableCardStack({
 	brands,
 	onLearnMore,
 	onSwipeRight,
+	onSwipe,
 }: SwipeableCardStackProps) {
+	const [dailyState, setDailyState] = useState<DailySwipeState>(getDailySwipeState);
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [isExiting, setIsExiting] = useState(false);
+	const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilReset);
 	const dragStartPos = useRef({ x: 0, y: 0 });
 	const cardRef = useRef<HTMLDivElement>(null);
+	const isProcessingSwipe = useRef(false);
+
+	// Update countdown timer every minute
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setTimeUntilReset(getTimeUntilReset());
+			// Check if we should reset the daily state
+			const newState = getDailySwipeState();
+			if (newState.date !== dailyState.date) {
+				setDailyState(newState);
+			}
+		}, 60000);
+		return () => clearInterval(interval);
+	}, [dailyState.date]);
+
+	const remainingCards = DAILY_LIMIT - dailyState.count;
+	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
 
 	// Show current card + 2 stacked behind (but only current is readable)
 	const visibleBrands = brands.slice(currentIndex, currentIndex + 3);
@@ -38,12 +112,15 @@ export function SwipeableCardStack({
 	};
 
 	const handleDragEnd = () => {
-		if (!isDragging) return;
+		if (!isDragging || isProcessingSwipe.current) return;
 
 		const swipeThreshold = 100;
 		const shouldSwipe = Math.abs(dragOffset.x) > swipeThreshold;
 
 		if (shouldSwipe) {
+			// Use ref to immediately block duplicate triggers (synchronous)
+			isProcessingSwipe.current = true;
+			setIsDragging(false);
 			setIsExiting(true);
 			const exitDirection = dragOffset.x > 0 ? 1000 : -1000;
 			const isRightSwipe = dragOffset.x > 0;
@@ -55,11 +132,20 @@ export function SwipeableCardStack({
 				onSwipeRight(currentBrand);
 			}
 
+			// Track the swipe in daily state
+			const newState = {
+				count: dailyState.count + 1,
+				date: dailyState.date,
+			};
+			setDailyState(newState);
+			saveDailySwipeState(newState);
+			onSwipe?.();
+
 			setTimeout(() => {
 				setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
 				setDragOffset({ x: 0, y: 0 });
 				setIsExiting(false);
-				setIsDragging(false);
+				isProcessingSwipe.current = false;
 			}, 300);
 		} else {
 			setDragOffset({ x: 0, y: 0 });
@@ -98,6 +184,37 @@ export function SwipeableCardStack({
 			onLearnMore(brand);
 		}
 	};
+
+	// Show "all caught up" screen when daily limit is reached
+	if (hasReachedLimit) {
+		return (
+			<div className="flex items-center justify-center min-h-[600px]">
+				<div className="text-center space-y-6 px-8">
+					<div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/20 to-pink-500/20 mb-4">
+						<Sparkles className="w-10 h-10 text-cyan-400" />
+					</div>
+					<h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">
+						You're all caught up!
+					</h2>
+					<p className="text-zinc-400 text-lg max-w-sm mx-auto">
+						You've swiped through today's daily drop. Come back for fresh picks!
+					</p>
+					<div className="flex items-center justify-center gap-2 text-zinc-500">
+						<Clock className="w-5 h-5" />
+						<span>
+							New drop in{" "}
+							<span className="font-bold text-cyan-400">
+								{timeUntilReset.hours}h {timeUntilReset.minutes}m
+							</span>
+						</span>
+					</div>
+					<p className="text-xs text-zinc-600">
+						Daily drops refresh at 9 AM
+					</p>
+				</div>
+			</div>
+		);
+	}
 
 	if (currentIndex >= brands.length) {
 		return (
@@ -201,6 +318,14 @@ export function SwipeableCardStack({
 					</div>
 				</div>
 			)}
+
+			{/* Daily cards remaining counter */}
+			<div className="absolute -bottom-8 left-1/2 -translate-x-1/2">
+				<div className="flex items-center gap-2 text-sm text-zinc-500">
+					<span className="font-bold text-cyan-400">{remainingCards}</span>
+					<span>cards left today</span>
+				</div>
+			</div>
 		</div>
 	);
 }
