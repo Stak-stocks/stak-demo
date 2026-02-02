@@ -2601,8 +2601,8 @@ export const brands: BrandProfile[] = [
 		ticker: "HOOD",
 		name: "Robinhood",
 		bio: "the casino that grew up and became your bank",
-		heroImage: "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?w=800&h=500&fit=crop", // Verified: Sleek mobile trading/crypto interface
-		personalityDescription: "The ex-frat boy who now wears a Patagonia vest and cares about 'yield'",
+		heroImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Robinhood_%28company%29_logo.svg/2560px-Robinhood_%28company%29_logo.svg.png",
+		personalityDescription: "turned your timeline into a stock ticker during GameStop",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
 			{ name: "Drama Level", emoji: "🎭", value: 92, color: "#ff006e" },
@@ -2614,7 +2614,7 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "From Meme Stocks to Gold Cards",
 					content:
-						"Robinhood pivoted hard from the GameStop era. Now it's all about the Gold Card (3% cash back on everything) and retirement matching. They successfully tricked Gen Z into caring about IRAs by gamifying responsible finance.",
+						"Robinhood made trading free and added confetti when you buy stocks. They turned investing into a mobile game with real consequences. Millions of people YOLOing into meme stocks, buying fractional shares with lunch money, panic-selling at 3am. The app that made 'stonks only go up' a lifestyle. Revolutionary or reckless? Yes.",
 				},
 				{
 					heading: "The Crypto Engine",
