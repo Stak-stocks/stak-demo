@@ -446,17 +446,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Instagram's Grip",
 					content:
-						"Yeah, we all say we hate it, but we're still posting stories and doom-scrolling Reels at 2am. Instagram is simultaneously toxic and essential. It's the app equivalent of that situationship you can't quit.",
+						"We all complain about it, yet we’re still posting stories and scrolling Reels late at night. Instagram became the place where moments feel real only if they’re shared. It’s exhausting, addictive, and somehow essential all at once.",
 				},
 				{
 					heading: "The Metaverse Flop",
 					content:
-						"Zuck spent billions on VR worlds nobody asked for while everyone just wanted Instagram to stop changing the algorithm. The rebrand to Meta is giving mid-life crisis energy.",
+						"Meta spent billions trying to push virtual worlds most people weren’t asking for, while users just wanted Instagram to stop changing the algorithm. The rebrand signaled a big future vision — even if the timing felt off.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Like it or not, Meta owns how billions of people communicate. Instagram, WhatsApp, Facebook—they've got your entire family locked in. Plus they basically invented the concept of parasocial relationships at scale.",
+						"Meta controls how billions of people communicate every day. Instagram, WhatsApp, and Facebook aren’t just apps — they’re infrastructure for social life. Even when people say they’re “over it,” they still show up. That kind of attention is hard to replace.",
 				},
 			],
 		},
@@ -541,17 +541,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Sneaker Supremacy",
 					content:
-						"Nike turned shoes into investments. People are trading Jordans like crypto. The SNKRS app has caused more heartbreak than any dating app. They made waiting in digital queues feel like a personality trait.",
+						"Nike turned shoes into assets. Jordans resell like crypto, and the SNKRS app has caused more heartbreak than most dating apps. They made waiting in digital queues feel like a lifestyle.",
 				},
 				{
 					heading: "Athleisure Domination",
 					content:
-						"Nike convinced everyone that gym clothes are appropriate everywhere. Swoosh hoodies at brunch? Fashion. Tech fleece to the office? Business casual. They made performance wear aspirational.",
+						"Nike convinced everyone that gym clothes work everywhere. Hoodies at brunch? Normal. Tech fleece to class or work? Accepted. They made performance wear aspirational, not just practical.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Nike doesn't just sponsor athletes—they create cultural moments. From Colin Kaepernick ads to collab drops that break the internet, they've mastered staying relevant across generations. The swoosh is literally universal language.",
+						"Nike doesn’t just sell gear — they shape culture. From headline-making ads to collabs that break the internet, they stay relevant across generations. The swoosh isn’t just a logo, it’s a signal.",
 				},
 			],
 		},
