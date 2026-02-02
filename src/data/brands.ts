@@ -89,7 +89,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$800 billion",
+				value: "$800B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "bigger than most traditional car companies combined",
 			},
@@ -184,7 +184,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$3.5 trillion",
+				value: "$3.5T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "literally the most valuable company on Earth",
 			},
@@ -261,7 +261,7 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Runs Everything, Brags About Nothing",
 					content:
-						"High-performance, hard-to-replace, quietly dominant. NVIDIA built a reputation in gaming first, then became essential for AI, data centers, and advanced computing. They’re not loud on social media — their relevance comes from being needed everywhere.'",
+						"High-performance, hard-to-replace, quietly dominant. NVIDIA built a reputation in gaming first, then became essential for AI, data centers, and advanced computing. They’re not loud on social media — their relevance comes from being needed everywhere.",
 				},
 				{
 					heading: "Why It Matters",
@@ -279,7 +279,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$2.9 trillion",
+				value: "$2.9T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "AI gold rush made them a giant",
 			},
@@ -374,7 +374,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$25 billion",
+				value: "$25B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "bigger than traditional game studios",
 			},
@@ -469,7 +469,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$1.3 trillion",
+				value: "$1.3T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "still massive despite metaverse losses",
 			},
@@ -564,7 +564,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$150 billion",
+				value: "$150B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "bigger than most fashion empires",
 			},
@@ -659,7 +659,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$110 billion",
+				value: "$110B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "coffee empire status",
 			},
@@ -754,7 +754,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$75 billion",
+				value: "$75B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "dominates music streaming",
 			},
@@ -849,7 +849,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$2.6 trillion",
+				value: "$2.6T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "everything store is massive",
 			},
@@ -944,7 +944,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$265 billion",
+				value: "$265B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "streaming OG still on top",
 			},
@@ -1026,7 +1026,7 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Why It Matters",
 					content:
-						"Love it or hate it, Coinbase legitimized crypto for mainstream audiences. They put crypto in Super Bowl ads. They made blockchain semi-respectable in the eyes of regulators. They're the bridge between 'normal finance' and 'decentralized chaos. Even people who don’t use crypto know the name — and that alone says a lot.'",
+						"Love it or hate it, Coinbase legitimized crypto for mainstream audiences. They put crypto in Super Bowl ads. They made blockchain semi-respectable in the eyes of regulators. They're the bridge between 'normal finance' and 'decentralized chaos. Even people who don’t use crypto know the name — and that alone says a lot.",
 				},
 			],
 		},
@@ -1039,7 +1039,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$55 billion",
+				value: "$55B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "biggest US crypto exchange",
 			},
@@ -1134,7 +1134,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$3.1 trillion",
+				value: "$3.1T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "2nd most valuable company on Earth",
 			},
@@ -1229,7 +1229,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$1.8 trillion",
+				value: "$1.8T",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "ad revenue empire",
 			},
@@ -1324,7 +1324,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$180 billion",
+				value: "$180B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "entertainment giant",
 			},
@@ -1419,7 +1419,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$140 billion",
+				value: "$140B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "gig economy leader",
 			},
@@ -1514,7 +1514,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$95 billion",
+				value: "$95B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "e-commerce infrastructure play",
 			},
@@ -1609,7 +1609,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$240 billion",
+				value: "$240B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "major semiconductor player",
 			},
@@ -1704,7 +1704,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$500 billion AUM",
+				value: "$500B AUM",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "most traded ETF globally",
 			},
@@ -1799,7 +1799,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$300 billion AUM",
+				value: "$300B AUM",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "most popular tech ETF",
 			},
@@ -1894,7 +1894,7 @@ export const brands: BrandProfile[] = [
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$85 billion",
+				value: "$85B",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "fintech heavyweight",
 			},
@@ -1982,7 +1982,7 @@ export const brands: BrandProfile[] = [
 		},
 		financials: {
 			peRatio: { label: "P/E Ratio", value: "35", explanation: "Price-to-Earnings ratio", culturalTranslation: "turnaround premium" },
-			marketCap: { label: "Market Cap", value: "$180 billion", explanation: "Total company value", culturalTranslation: "chip giant status" },
+			marketCap: { label: "Market Cap", value: "$180B", explanation: "Total company value", culturalTranslation: "chip giant status" },
 			revenueGrowth: { label: "Revenue Growth", value: "5%", explanation: "Year-over-year growth", culturalTranslation: "slow but steady" },
 			profitMargin: { label: "Profit Margin", value: "8%", explanation: "Profit percentage", culturalTranslation: "struggling margins" },
 			beta: { label: "Beta", value: "1.5", explanation: "Volatility measure", culturalTranslation: "volatile turnaround story" },
@@ -2029,7 +2029,7 @@ export const brands: BrandProfile[] = [
 		},
 		financials: {
 			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio", culturalTranslation: "no profits yet, pure growth" },
-			marketCap: { label: "Market Cap", value: "$2 billion", explanation: "Total company value", culturalTranslation: "small but hyped" },
+			marketCap: { label: "Market Cap", value: "$2B", explanation: "Total company value", culturalTranslation: "small but hyped" },
 			revenueGrowth: { label: "Revenue Growth", value: "85%", explanation: "Year-over-year growth", culturalTranslation: "growing from tiny base" },
 			profitMargin: { label: "Profit Margin", value: "-300%", explanation: "Profit percentage", culturalTranslation: "burning cash on R&D" },
 			beta: { label: "Beta", value: "2.5", explanation: "Volatility measure", culturalTranslation: "extremely volatile" },
@@ -2076,7 +2076,7 @@ export const brands: BrandProfile[] = [
 		},
 		financials: {
 			peRatio: { label: "P/E Ratio", value: "28", explanation: "Price-to-Earnings ratio", culturalTranslation: "premium for dominance" },
-			marketCap: { label: "Market Cap", value: "$650 billion", explanation: "Total company value", culturalTranslation: "chip manufacturing king" },
+			marketCap: { label: "Market Cap", value: "$650B", explanation: "Total company value", culturalTranslation: "chip manufacturing king" },
 			revenueGrowth: { label: "Revenue Growth", value: "20%", explanation: "Year-over-year growth", culturalTranslation: "strong AI chip demand" },
 			profitMargin: { label: "Profit Margin", value: "38%", explanation: "Profit percentage", culturalTranslation: "insane margins" },
 			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "moves with tech" },
@@ -2123,7 +2123,7 @@ export const brands: BrandProfile[] = [
 		},
 		financials: {
 			peRatio: { label: "P/E Ratio", value: "22", explanation: "Price-to-Earnings ratio", culturalTranslation: "reasonable valuation" },
-			marketCap: { label: "Market Cap", value: "$200 billion", explanation: "Total company value", culturalTranslation: "mobile chip giant" },
+			marketCap: { label: "Market Cap", value: "$200B", explanation: "Total company value", culturalTranslation: "mobile chip giant" },
 			revenueGrowth: { label: "Revenue Growth", value: "12%", explanation: "Year-over-year growth", culturalTranslation: "steady growth" },
 			profitMargin: { label: "Profit Margin", value: "28%", explanation: "Profit percentage", culturalTranslation: "strong margins" },
 			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "tech volatility" },
@@ -2170,7 +2170,7 @@ export const brands: BrandProfile[] = [
 		},
 		financials: {
 			peRatio: { label: "P/E Ratio", value: "32", explanation: "Price-to-Earnings ratio", culturalTranslation: "premium for stability" },
-			marketCap: { label: "Market Cap", value: "$650 billion", explanation: "Total company value", culturalTranslation: "infrastructure giant" },
+			marketCap: { label: "Market Cap", value: "$650B", explanation: "Total company value", culturalTranslation: "infrastructure giant" },
 			revenueGrowth: { label: "Revenue Growth", value: "15%", explanation: "Year-over-year growth", culturalTranslation: "M&A fueled growth" },
 			profitMargin: { label: "Profit Margin", value: "35%", explanation: "Profit percentage", culturalTranslation: "excellent margins" },
 			beta: { label: "Beta", value: "1.1", explanation: "Volatility measure", culturalTranslation: "relatively stable" },
