@@ -1948,51 +1948,73 @@ export const brands: BrandProfile[] = [
 		],
 	},
 	{
-		id: "intc",
-		ticker: "INTC",
-		name: "Intel",
-		bio: "inside every PC & quantum research lab",
-		heroImage:
-			"https://images.unsplash.com/photo-1555680206-5f368f6df0d7?w=800&h=500&fit=crop",
-		personalityDescription: "The OG chip maker fighting back",
-		vibes: [
-			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
-			{ name: "Drama Level", emoji: "🎭", value: 60, color: "#ff006e" },
-			{ name: "Internet Hype", emoji: "🔥", value: 55, color: "#ff9500" },
-		],
-		culturalContext: {
-			title: "Why Intel Still Matters",
-			sections: [
-				{
-					heading: "The OG Chip King",
-					content:
-						"Intel was the computer chip brand for decades. That “Intel Inside” sticker meant your laptop was legit. If you used a PC, Intel was probably running it.",
-				},
-				{
-					heading: "Fighting for Relevance",
-					content:
-						"Intel lost ground to faster rivals like AMD and overseas chip makers. Now they’re spending billions to rebuild factories, redesign chips, and win back control instead of outsourcing everything.",
-				},
-				{
-					heading: "Why It Matters",
-					content:
-						"America needs chips, and Intel is the home-team bet. This is a high-stakes comeback story. Either they return to dominance — or become a case study in how fast tech leaves giants behind.",
-				},
-			],
-		},
-		financials: {
-			peRatio: { label: "P/E Ratio", value: "35", explanation: "Price-to-Earnings ratio", culturalTranslation: "turnaround premium" },
-			marketCap: { label: "Market Cap", value: "$180B", explanation: "Total company value", culturalTranslation: "chip giant status" },
-			revenueGrowth: { label: "Revenue Growth", value: "5%", explanation: "Year-over-year growth", culturalTranslation: "slow but steady" },
-			profitMargin: { label: "Profit Margin", value: "8%", explanation: "Profit percentage", culturalTranslation: "struggling margins" },
-			beta: { label: "Beta", value: "1.5", explanation: "Volatility measure", culturalTranslation: "volatile turnaround story" },
-			dividendYield: { label: "Dividend Yield", value: "1.8%", explanation: "Annual dividend payout", culturalTranslation: "some passive income" },
-		},
-		news: [
-			{ headline: "Intel announces new quantum chip breakthrough", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Foundry business struggles continue", source: "Reuters", timestamp: "1 day ago", sentiment: "Bearish", url: "#" },
-			{ headline: "Government subsidies boost US manufacturing plans", source: "WSJ", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
+    id: "intc",
+    ticker: "INTC",
+    name: "Intel",
+    bio: "the empire strikes back (or dies trying)",
+    heroImage:
+        "https://images.unsplash.com/photo-1555680206-5f368f6df0d7?w=800&h=500&fit=crop",
+    personalityDescription: "The tech boomer that finally got a gym membership",
+    vibes: [
+        { name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
+        { name: "Drama Level", emoji: "🎭", value: 90, color: "#ff006e" },
+        { name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
+    ],
+    culturalContext: {
+        title: "Why Intel is the Ultimate Comeback Bet",
+        sections: [
+            {
+                heading: "The 18A Gamble",
+                content: "Intel bet the entire farm on their '18A' process node to beat TSMC. It’s the most expensive science project in history. If it works, they own the AI supply chain. If it fails, they get broken up. High stakes is an understatement."
+            },
+            {
+                heading: "America's Chip Savior",
+                content: "The US government basically decided Intel cannot fail. Billions in CHIPS Act subsidies are the only reason the factory lights are still on. It’s not just a stock; it’s a geopolitical chess piece."
+            }
+        ],
+    },
+    financials: {
+        peRatio: {
+            label: "P/E Ratio",
+            value: "77.4",
+            explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+            culturalTranslation: "priced for a miracle; you're paying for 2027 earnings in 2026"
+        },
+        marketCap: {
+            label: "Market Cap",
+            value: "$232.0B",
+            explanation: "The total value of all the company's shares combined",
+            culturalTranslation: "clawed its way back from the dead, but still a fraction of NVIDIA"
+        },
+        revenueGrowth: {
+            label: "Revenue Growth",
+            value: "-4.0%",
+            explanation: "How much more money the company is making compared to last year",
+            culturalTranslation: "still shrinking as legacy PC sales drag down the foundry gains"
+        },
+        profitMargin: {
+            label: "Profit Margin",
+            value: "-1.2%",
+            explanation: "What percentage of each sale becomes actual profit",
+            culturalTranslation: "losing money to build factories; the burn rate is terrifying"
+        },
+        beta: {
+            label: "Beta",
+            value: "1.65",
+            explanation: "How much the stock price swings compared to the overall market",
+            culturalTranslation: "extremely volatile; it moves on every rumor about yields"
+        },
+        dividendYield: {
+            label: "Dividend Yield",
+            value: "0%",
+            explanation: "The percentage of the stock price paid out as dividends each year",
+            culturalTranslation: "dividend is dead; cash is for buying lithography machines"
+        },
+    },
+    news: [
+        { headline: "Intel 18A node hits high-volume production, creating new AI timeline", source: "Bloomberg", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
+        { headline: "Q4 guidance misses expectations as turnaround costs mount", source: "CNBC", timestamp: "4 days ago", sentiment: "Bearish", url: "#" }
+    ],
 	},
 	{
 		id: "ionq",
