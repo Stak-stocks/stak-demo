@@ -2601,7 +2601,7 @@ export const brands: BrandProfile[] = [
 		ticker: "HOOD",
 		name: "Robinhood",
 		bio: "the casino that grew up and became your bank",
-		heroImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Robinhood_%28company%29_logo.svg/2560px-Robinhood_%28company%29_logo.svg.png",
+		heroImage: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&h=500&fit=crop",
 		personalityDescription: "turned your timeline into a stock ticker during GameStop",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
