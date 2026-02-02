@@ -1948,78 +1948,38 @@ export const brands: BrandProfile[] = [
 		],
 	},
 	{
-    id: "intc",
-    ticker: "INTC",
-    name: "Intel",
-    bio: "the empire strikes back (or dies trying)",
-    heroImage:
-        "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?w=800&h=500&fit=crop",
-    personalityDescription: "The tech boomer that finally got a gym membership",
-    vibes: [
-        { name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
-        { name: "Drama Level", emoji: "🎭", value: 90, color: "#ff006e" },
-        { name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
-    ],
-    culturalContext: {
-        title: "Why Intel Is “Too Big to Die?”,
-        sections: [
-            {
-                heading: "The OG Chip King",
-                content: "Intel was the computer chip brand for decades. That “Intel Inside” sticker meant your laptop was legit. If you used a PC, Intel was probably running it."
-            },
-			 {
-                heading: "Fighting for Relevance",
-                content: "Intel lost ground to faster rivals like AMD and overseas chip makers. Now they’re spending billions to rebuild factories, redesign chips, and win back control instead of outsourcing everything."
-            },
-            {
-                heading: "America's Chip Savior",
-                content: "The US government basically decided Intel cannot fail. Billions in CHIPS Act subsidies are the only reason the factory lights are still on. It’s not just a stock; it’s a geopolitical chess piece."
-            }
-        ],
-    },
-    financials: {
-        peRatio: {
-            label: "P/E Ratio",
-            value: "77.4",
-            explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
-            culturalTranslation: "priced for a miracle; you're paying for 2027 earnings in 2026"
-        },
-        marketCap: {
-            label: "Market Cap",
-            value: "$232.0B",
-            explanation: "The total value of all the company's shares combined",
-            culturalTranslation: "clawed its way back from the dead, but still a fraction of NVIDIA"
-        },
-        revenueGrowth: {
-            label: "Revenue Growth",
-            value: "-4.0%",
-            explanation: "How much more money the company is making compared to last year",
-            culturalTranslation: "still shrinking as legacy PC sales drag down the foundry gains"
-        },
-        profitMargin: {
-            label: "Profit Margin",
-            value: "-1.2%",
-            explanation: "What percentage of each sale becomes actual profit",
-            culturalTranslation: "losing money to build factories; the burn rate is terrifying"
-        },
-        beta: {
-            label: "Beta",
-            value: "1.65",
-            explanation: "How much the stock price swings compared to the overall market",
-            culturalTranslation: "extremely volatile; it moves on every rumor about yields"
-        },
-        dividendYield: {
-            label: "Dividend Yield",
-            value: "0%",
-            explanation: "The percentage of the stock price paid out as dividends each year",
-            culturalTranslation: "dividend is dead. Their cash is for buying lithography machines"
-        },
-    },
-    news: [
-        { headline: "Intel 18A node hits high-volume production, creating new AI timeline", source: "Bloomberg", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-        { headline: "Q4 guidance misses expectations as turnaround costs mount", source: "CNBC", timestamp: "4 days ago", sentiment: "Bearish", url: "#" }
-    ],
-	},
+		id: "intc",
+		ticker: "INTC",
+		name: "Intel",
+		bio: "the empire strikes back (or dies trying)",
+		heroImage:
+			"https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?w=800&h=500&fit=crop",
+		personalityDescription: "The tech boomer that finally got a gym membership",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 90, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Intel Is “Too Big to Die?”", // Fixed here
+			sections: [
+				{
+					heading: "The OG Chip King",
+					content:
+						"Intel was the computer chip brand for decades. That “Intel Inside” sticker meant your laptop was legit. If you used a PC, Intel was probably running it.",
+				},
+				{
+					heading: "Fighting for Relevance",
+					content:
+						"Intel lost ground to faster rivals like AMD and overseas chip makers. Now they’re spending billions to rebuild factories, redesign chips, and win back control instead of outsourcing everything.",
+				},
+				{
+					heading: "America's Chip Savior",
+					content:
+						"The US government basically decided Intel cannot fail. Billions in CHIPS Act subsidies are the only reason the factory lights are still on. It’s not just a stock; it’s a geopolitical chess piece.",
+				},
+			],
+		},
 	{
 		id: "ionq",
 		ticker: "IONQ",
