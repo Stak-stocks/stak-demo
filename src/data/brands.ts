@@ -1953,7 +1953,7 @@ export const brands: BrandProfile[] = [
     name: "Intel",
     bio: "the empire strikes back (or dies trying)",
     heroImage:
-        "https://images.unsplash.com/photo-1555680206-5f368f6df0d7?w=800&h=500&fit=crop",
+        "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?w=800&h=500&fit=crop",
     personalityDescription: "The tech boomer that finally got a gym membership",
     vibes: [
         { name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -3970,7 +3970,7 @@ export const brands: BrandProfile[] = [
 		name: "L'Oréal",
 		bio: "owns everything in your bathroom from CeraVe to YSL",
 		heroImage:
-			"https://images.unsplash.com/photo-1629198688000-71f23e745b6e?w=800&h=500&fit=crop",
+			"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&h=500&fit=crop",
 		personalityDescription: "The final boss of the beauty industry",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
