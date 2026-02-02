@@ -2600,34 +2600,94 @@ export const brands: BrandProfile[] = [
 		id: "hood",
 		ticker: "HOOD",
 		name: "Robinhood",
-		bio: "turned your timeline into a stock ticker during GameStop",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=500&fit=crop",
-		personalityDescription: "r/wallstreetbets in app form",
+		bio: "the casino that grew up and became your bank",
+		heroImage: "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?w=800&h=500&fit=crop", // Verified: Sleek mobile trading/crypto interface
+		personalityDescription: "The ex-frat boy who now wears a Patagonia vest and cares about 'yield'",
 		vibes: [
-			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
-			{ name: "Drama Level", emoji: "🎭", value: 95, color: "#ff006e" },
+			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 92, color: "#ff006e" },
 			{ name: "Internet Hype", emoji: "🔥", value: 88, color: "#ff9500" },
 		],
 		culturalContext: {
-			title: "Why Robinhood Made Investing a Meme",
+			title: "Why Robinhood is the 'Super App' We Actually Use",
 			sections: [
-				{ heading: "The Gamification Controversy", content: "Robinhood made trading free and added confetti when you buy stocks. They turned investing into a mobile game with real consequences. Millions of people YOLOing into meme stocks, buying fractional shares with lunch money, panic-selling at 3am. The app that made 'stonks only go up' a lifestyle. Revolutionary or reckless? Yes." },
-				{ heading: "GameStop Changed Everything", content: "Remember when Reddit broke Wall Street and Robinhood had to halt buying GME? That was their villain origin story. Congressional hearings, lawsuits, memes for days. They went from fintech darling to public enemy #1 in 48 hours. The chaos was legendary. Also they IPO'd right after like nothing happened." },
-				{ heading: "Why It Matters", content: "Robinhood democratized trading but also democratized losing money. They brought millions of Gen Z into the market, made commission-free the standard, and proved retail investors could move markets. Whether that's good or bad depends on your portfolio. Either way, investing will never be the same." },
+				{
+					heading: "From Meme Stocks to Gold Cards",
+					content:
+						"Robinhood pivoted hard from the GameStop era. Now it's all about the Gold Card (3% cash back on everything) and retirement matching. They successfully tricked Gen Z into caring about IRAs by gamifying responsible finance.",
+				},
+				{
+					heading: "The Crypto Engine",
+					content:
+						"Despite the 'serious' rebrand, they are still the main on-ramp for crypto. When Bitcoin rips, Robinhood prints money. When Bitcoin crashes, Robinhood bleeds. It’s a leveraged bet on the entire crypto ecosystem.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"They proved that 'commission-free' was just the start. By bundling trading, high-yield cash, and credit into one app, they are slowly killing traditional banks for anyone under 40. They aren't just a broker anymore; they are the financial operating system for the internet.",
+				},
 			],
 		},
 		financials: {
-			peRatio: { label: "P/E Ratio", value: "28", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "finally profitable after years of chaos" },
-			marketCap: { label: "Market Cap", value: "$18B", explanation: "The total value of all the company's shares combined", culturalTranslation: "smaller than expected after the hype cycle" },
-			revenueGrowth: { label: "Revenue Growth", value: "35%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "crypto trading keeping them alive" },
-			profitMargin: { label: "Profit Margin", value: "15%", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "payment for order flow prints money apparently" },
-			beta: { label: "Beta", value: "2.5", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "as volatile as the meme stocks it enables" },
-			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "imagine Robinhood paying dividends lmao" },
+			peRatio: {
+				label: "P/E Ratio",
+				value: "41.30",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "surprisingly mature; paying 41x for triple-digit profit growth is actually a steal",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$89.5B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "slid back under $100B after the crypto crash, but still a fintech titan",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "74.6%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "hyper-growth mode; Gold subscriptions and crypto volume are compounding",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "43.7%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "printing cash; they've mastered the art of high-margin operational efficiency",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.85",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "extreme volatility; it moves twice as hard as the market",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no dividends; they are hoarding cash to fight the legacy banks",
+			},
 		},
 		news: [
-			{ headline: "Robinhood crypto trading surges", source: "CNBC", timestamp: "5 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "New retirement account features launch", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Regulatory scrutiny continues", source: "WSJ", timestamp: "5 days ago", sentiment: "Bearish", url: "#" },
+			{
+				headline: "Robinhood shares plunge 10% as weekend crypto crash hits trading sentiment",
+				source: "CNBC",
+				timestamp: "2 hours ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+			{
+				headline: "Q4 earnings preview: Analysts expect record revenue from Gold subscribers",
+				source: "Bloomberg",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Gold Card waitlist hits new milestone as traditional banks lose share",
+				source: "WSJ",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
 		],
 	},
 	{
