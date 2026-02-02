@@ -226,7 +226,7 @@ export const brands: BrandProfile[] = [
 				source: "Reuters",
 				timestamp: "1 day ago",
 				sentiment: "Bullish",
-				url: "https://timesofindia.indiatimes.com/technology/mobiles-tabs/apple-iphone-17-series-breaks-iphone-16-series-china-records-in-first-minute/articleshow/123882085.cms",
+				url: "#",
 			},
 			{
 				headline: "Apple's AI features rolling out slower than competitors",
