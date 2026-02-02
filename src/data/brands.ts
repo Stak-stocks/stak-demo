@@ -3944,7 +3944,7 @@ export const brands: BrandProfile[] = [
 		name: "L'Oréal",
 		bio: "owns everything in your bathroom from CeraVe to YSL",
 		heroImage:
-			"https://images.unsplash.com/photo-1503236823255-943cb751f9c6?w=800&h=500&fit=crop",
+			"https://images.unsplash.com/photo-1629198688000-71f23e745b6e?w=800&h=500&fit=crop",
 		personalityDescription: "The final boss of the beauty industry",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
