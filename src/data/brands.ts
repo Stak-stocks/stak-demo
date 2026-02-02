@@ -338,7 +338,7 @@ export const brands: BrandProfile[] = [
 		name: "Roblox",
 		bio: "where gen alpha gets their drip & trades virtual economies",
 		heroImage:
-			"https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800&h=500&fit=crop",
+			"https://upload.wikimedia.org/wikipedia/commons/1/1e/Roblox_Logo_2025.png",
 		personalityDescription: "Minecraft's chaotic younger sibling",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
