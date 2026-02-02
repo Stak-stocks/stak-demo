@@ -1858,7 +1858,7 @@ export const brands: BrandProfile[] = [
 		name: "PayPal",
 		bio: "splitting the bill made easy",
 		heroImage:
-			"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&h=500&fit=crop",
+			"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkP9spdRyYRolf8YctVxqGsAL8ADaPoEzsSQ&s",
 		personalityDescription: "Digital payments OG",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 79, color: "#00d9ff" },
