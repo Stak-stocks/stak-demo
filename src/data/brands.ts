@@ -1288,7 +1288,7 @@ export const brands: BrandProfile[] = [
 		name: "Disney",
 		bio: "owns your childhood & half of Hollywood",
 		heroImage:
-			"https://images.unsplash.com/photo-1566195992011-5f6b21e539aa?w=800&h=500&fit=crop",
+			"https://s3-symbol-logo.tradingview.com/walt-disney--600.png",
 		personalityDescription: "The mouse that ate entertainment",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 93, color: "#00d9ff" },
