@@ -2199,7 +2199,7 @@ export const brands: BrandProfile[] = [
 			sections: [
 				{ heading: "Essential Chips", content: "Micron makes memory chips — the part of tech nobody thinks about but everything needs. Phones, laptops, data centers, gaming consoles — if it turns on, it probably uses Micron memory." },
 				{ heading: "Boom & Bust Energy", content: "Memory is cyclical. When demand is hot, Micron prints. When supply floods the market, prices crash. It’s high highs, low lows — not boring, not stable, but always relevant." },
-				{ heading: "Every device needs memory, and Micron is one of the top players globally. As AI, cloud, and data usage grow, memory demand grows with it. You can’t build the future without storage. They are the gas station for the AI revolution." },
+				{ heading: "Why It Matters", content: "Every device needs memory, and Micron is one of the top players globally. As AI, cloud, and data usage grow, memory demand grows with it. You can’t build the future without storage. They are the gas station for the AI revolution." },
 			],
 		},
 		financials: {
