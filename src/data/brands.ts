@@ -66,17 +66,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Main Character Energy",
 					content:
-						"Tesla isn't just a car company—it's the brand your timeline won't shut up about. Between Elon's 3am tweets and Cybertrucks looking like low-poly PS1 renders, they've mastered the art of staying relevant through pure chaos.",
+						"Tesla isn’t just a car company — it’s the one that somehow ends up in every conversation. Between headline-grabbing tweets from its CEO and cars that look nothing like anything else on the road, Tesla stays relevant by being impossible to ignore.",
 				},
 				{
 					heading: "The Vibe",
 					content:
-						"Tech meets climate anxiety meets Silicon Valley maximalism. Tesla convinced people that saving the planet could be aspirational AND a flex. Also, their cars have fart mode.",
+						"Future tech meets saving the planet meets flex culture. Tesla made electric cars feel exciting instead of boring, and convinced people that driving green could also look cool. Also yes, the cars have fart mode. That’s real.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Love it or hate it, Tesla forced every car company to care about EVs. They proved you could make electric vehicles cool instead of boring eco-warrior mobiles from 2003.",
+						"Tesla forced every major car company to take electric vehicles seriously. Before Tesla, EVs were niche and forgettable. After Tesla, they became the future. Love it or hate it, Tesla changed what people expect from cars.",
 				},
 			],
 		},
@@ -256,17 +256,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "The AI Gold Rush",
 					content:
-						"While everyone's losing their minds over ChatGPT, NVIDIA's out here selling the shovels. Every AI company needs their chips. They're literally powering the robot uprising we're all nervous about.",
+						"While everyone talks about flashy AI apps and chatbots, NVIDIA focuses on the less glamorous part: the hardware that makes all of it possible. Their chips are what power most modern AI systems behind the scenes. If AI is the gold rush, NVIDIA sells the tools everyone needs to dig.",
 				},
 				{
-					heading: "Gaming God Status",
+					heading: "Runs Everything, Brags About Nothing",
 					content:
-						"RTX graphics cards are to gamers what Jordans are to sneakerheads. People camp out for GPU drops like it's a Supreme release. The 'can it run Crysis' meme evolved into 'can you even GET an NVIDIA card?'",
+						"High-performance, hard-to-replace, quietly dominant. NVIDIA built a reputation in gaming first, then became essential for AI, data centers, and advanced computing. They’re not loud on social media — their relevance comes from being needed everywhere.'",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"NVIDIA went from 'that gaming chip company' to 'literally essential for the future of computing.' They're in your gaming rig, training AI models, and probably mining crypto somewhere. Ultimate multitasker energy.",
+						"NVIDIA went from “that graphics card company” to a backbone of modern computing. Their technology shows up in gaming PCs, AI research, cloud services, and more. When new tech trends take off, NVIDIA usually benefits because their chips are already at the center of it all.",
 				},
 			],
 		},
