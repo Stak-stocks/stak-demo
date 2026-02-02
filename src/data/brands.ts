@@ -3938,4 +3938,444 @@ export const brands: BrandProfile[] = [
 			{ headline: "Industrial automation demand strong", source: "WSJ", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
 		],
 	},
+	{
+		id: "or",
+		ticker: "OR.PA",
+		name: "L'Oréal",
+		bio: "owns everything in your bathroom from CeraVe to YSL",
+		heroImage:
+			"https://images.unsplash.com/photo-1596462502278-27bfdd403cc2?w=800&h=500&fit=crop",
+		personalityDescription: "The final boss of the beauty industry",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 25, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 70, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why L'Oréal is the Beauty Monopoly",
+			sections: [
+				{
+					heading: "The Portfolio Powerhouse",
+					content:
+						"L'Oréal isn't just a brand; it's a holding company for every aesthetic you know. They own the drugstore (CeraVe, Maybelline), the salon (Redken, Kérastase), and the luxury counter (Lancôme, YSL, Armani). They basically collect beauty brands like Pokémon.",
+				},
+				{
+					heading: "Science > Hype",
+					content:
+						"While other brands chase TikTok trends, L'Oréal drops billions on R&D to invent molecules that actually work. They play the long game, convincing dermatologists and influencers alike that they own the science of skin.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"In a recession, you still buy shampoo and concealer. L'Oréal's massive diversification makes it the 'safe haven' of the sector. It’s the beauty stock you buy and delete the app for 10 years.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "33.44",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "premium pricing for the undisputed king of the sector",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$223.5B", // converted from €207B
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "a European giant that dwarfs every competitor",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "2.6%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "slow and steady; it's hard to double when you're already everywhere",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "19.0%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "elite efficiency driven by massive scale advantages",
+			},
+			beta: {
+				label: "Beta",
+				value: "0.83",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "low volatility; the defensive play for turbulent markets",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "1.83%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "consistent payouts funded by selling billions of mascaras",
+			},
+		},
+		news: [
+			{
+				headline: "L'Oréal acquires new biotech skincare firm to boost dermatological division",
+				source: "Bloomberg",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Q4 earnings show resilience in Europe despite China slowdown",
+				source: "Reuters",
+				timestamp: "3 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "el",
+		ticker: "EL",
+		name: "Estée Lauder",
+		bio: "old money aesthetics trying to fix a new money problem",
+		heroImage:
+			"https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=800&h=500&fit=crop",
+		personalityDescription: "The rich grandmother currently restructuring her trust fund",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 85, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 40, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Estée Lauder is in its 'Reputation' Era",
+			sections: [
+				{
+					heading: "The Prestige Trap",
+					content:
+						"Estée Lauder (La Mer, MAC, Clinique) bet everything on 'Prestige Beauty' and travel retail in China. When that market slowed down, the stock crashed hard. Now they are in full turnaround mode, cutting costs and trying to make Clinique cool for Gen Z again.",
+				},
+				{
+					heading: "The Profit Recovery Plan",
+					content:
+						"Management is executing a massive 'Profit Recovery Plan' to fix broken margins. It involves layoffs, supply chain fixes, and a desperate pivot to TikTok virality. It's a high-stakes corporate makeover.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"EL is the ultimate 'fallen angel' trade. If they fix the business, the stock could double. If they don't, they might get broken up or acquired. Investors are watching the turnaround like a reality TV finale.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "-44.60",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "currently losing money on paper due to massive restructuring charges",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$41.5B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "down significantly from its peak, reflecting the recent crisis",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "5.3%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "finally showing signs of life after a brutal 2025",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "-1.8%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "burning cash to fix the foundation; profitability is the goal for 2027",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.50",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "highly volatile as the market reacts to every piece of turnaround news",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "1.21%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "they kept the dividend to stop investors from revolting",
+			},
+		},
+		news: [
+			{
+				headline: "Estée Lauder to release Q2 results on Feb 5 amid turnaround hopes",
+				source: "Business Wire",
+				timestamp: "4 days ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Zacks ranks EL a 'Buy' ahead of earnings due to improving demand",
+				source: "Finviz",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "elf",
+		ticker: "ELF",
+		name: "e.l.f. Beauty",
+		bio: "dupe culture turned into a billion-dollar empire",
+		heroImage:
+			"https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&h=500&fit=crop",
+		personalityDescription: "The chaotic Gen Z genius who hacked capitalism",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 30, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 98, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why e.l.f. Owns Your FYP",
+			sections: [
+				{
+					heading: "The Art of the Dupe",
+					content:
+						"e.l.f. (Eyes Lips Face) mastered the art of 'duping' luxury products legally. $40 primer? e.l.f. has it for $10. They move faster than anyone, launching products weeks after a trend starts on TikTok. They turned 'cheap' into 'smart.'",
+				},
+				{
+					heading: "Marketing Genius",
+					content:
+						"From Super Bowl ads with Jennifer Coolidge to Roblox integrations, e.l.f. is everywhere Gen Z exists. They don't just buy ads; they create cultural moments. They've delivered 27 consecutive quarters of growth, which is unheard of in beauty.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"e.l.f. proved that mass-market beauty doesn't have to be boring. They are eating market share from heritage brands by being faster, cheaper, and louder. It's a high-growth stock with a valuation to match.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "60.24",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "priced for perfection; investors expect the winning streak to last forever",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$5.1B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "small but punching way above its weight class",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "18.0%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "double-digit growth that makes legacy brands jealous",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "10.0%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "healthy margins despite low price points—that's the volume game",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.70",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "volatile growth stock energy; big moves in both directions",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "all profits go back into marketing and product launches",
+			},
+		},
+		news: [
+			{
+				headline: "e.l.f. Beauty extends growth streak to 28 quarters",
+				source: "The Motley Fool",
+				timestamp: "1 day ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "New 'Rhode' dupe launch causes sellouts at Target",
+				source: "Teen Vogue",
+				timestamp: "2 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "ulta",
+		ticker: "ULTA",
+		name: "Ulta Beauty",
+		bio: "the target of beauty where you accidentally spend $200",
+		heroImage:
+			"https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&h=500&fit=crop",
+		personalityDescription: "The retail queen hitting all-time highs",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 20, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 75, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Ulta is the Beauty Playground",
+			sections: [
+				{
+					heading: "High-Low Mix",
+					content:
+						"Ulta is the only place where you can buy $80 Chanel perfume and $5 essence mascara in the same basket. They cracked the code of mixing prestige and mass beauty, making it the default destination for everyone.",
+				},
+				{
+					heading: "The Unleashed Turnaround",
+					content:
+						"After a shaky 2024, Ulta launched its 'Unleashed' strategy, and it's working. The stock hit all-time highs in Jan 2026. Their loyalty program (Ultamate Rewards) is basically a secondary currency for makeup lovers.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Ulta controls the physical retail experience in the US. While Sephora focuses on malls, Ulta is in every strip center in suburbia. They own the convenience factor and the loyalty data.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "24.81",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "fairly valued for a retailer executing a perfect turnaround",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$28.7B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "dominant domestic retailer hitting new valuation records",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "6.0%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "solid steady growth driven by new store openings",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "11.5%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "strong retail margins thanks to that massive loyalty program",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.00",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "perfectly synced with the market; stability at its finest",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "buybacks over dividends; they prefer reducing share count",
+			},
+		},
+		news: [
+			{
+				headline: "Ulta Beauty shares hit all-time high on 'Unleashed' strategy success",
+				source: "Cosmetics Business",
+				timestamp: "7 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Analyst upgrades Ulta citing robust loyalty member spend",
+				source: "CNBC",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+		],
+	},
+	{
+		id: "coty",
+		ticker: "COTY",
+		name: "Coty",
+		bio: "the chaotic perfume house trying to get its act together",
+		heroImage:
+			"https://images.unsplash.com/photo-1595475207225-428b62bda831?w=800&h=500&fit=crop",
+		personalityDescription: "The fragrance empire with a messy balance sheet",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 80, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 60, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Why Coty Smells Like Risk and Reward",
+			sections: [
+				{
+					heading: "The Fragrance Factory",
+					content:
+						"If you own a designer perfume (Gucci, Burberry, Hugo Boss), Coty probably made it. They dominate the fragrance market and are betting big on 'Prestige' scents as people splurge on looking (and smelling) rich.",
+				},
+				{
+					heading: "Kylie & Kim Connection",
+					content:
+						"Coty owns a chunk of Kylie Cosmetics and KKW Beauty. It was a massive bet on the Kardashian/Jenner influence. It brought hype, but also volatility. They are constantly trying to balance high-fashion licenses with celebrity trends.",
+				},
+				{
+					heading: "Why It Matters",
+					content:
+						"Coty is the leverage play. High debt, low stock price, but massive potential if they execute. They are trying to premium-ize everything to fix their margins. It's a risky bet on the 'Lipstick Effect'—that people keep buying perfume even when broke.",
+				},
+			],
+		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "-7.08",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "negative earnings currently, but forward estimates look cheaper",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$2.77B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "small cap territory; a fraction of its competitors",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "10.0%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "decent top-line growth driven by prestige fragrance demand",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "1.2%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "razor thin; debt interest payments eat up most of the cash",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.12",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "choppy trading; moves with consumer spending trends",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "no chance of dividends until the debt pile is gone",
+			},
+		},
+		news: [
+			{
+				headline: "Coty reaffirms outlook ahead of earnings; fragrance sales strong",
+				source: "Investing.com",
+				timestamp: "4 hours ago",
+				sentiment: "Neutral",
+				url: "#",
+			},
+			{
+				headline: "Analyst debate: Is Coty undervalued or a value trap?",
+				source: "Insider Monkey",
+				timestamp: "1 day ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
 ];
