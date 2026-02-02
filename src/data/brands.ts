@@ -636,17 +636,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Main Character Moment",
 					content:
-						"Walking around with that green siren cup is part of the aesthetic. Starbucks made overpriced coffee a personality trait. They turned 'I can't function without caffeine' into a luxury lifestyle brand.",
+						"Walking around with that green siren cup is part of the aesthetic. Starbucks turned overpriced coffee into a personality trait and made “I can’t function without caffeine” feel like a lifestyle choice, not a problem.",
 				},
 				{
 					heading: "The Secret Menu Industrial Complex",
 					content:
-						"TikTok baristas are out here creating drinks that aren't on any menu. People order by showing photos. Customization culture has never been more unhinged. That pink drink launched a thousand imitators.",
+						"Starbucks didn’t just sell coffee — it created a culture of customization. People order drinks by screenshots, TikTok baristas invent off-menu combos daily, and the Pink Drink became a social media icon all on its own.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Starbucks normalized spending $7 on coffee and made cafes acceptable workspaces/hangout spots. They created the modern coffee culture. Also, pumpkin spice lattes literally control the seasonal economy now.",
+						"Starbucks normalized spending $7 on coffee and made cafés acceptable places to work, hang out, or exist for hours. They didn’t just change what people drink but also shaped modern coffee culture. Also yes, pumpkin spice season still runs the calendar.",
 				},
 			],
 		},
@@ -826,30 +826,30 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Instant Gratification HQ",
 					content:
-						"Amazon trained an entire generation to expect everything immediately. Same-day delivery? Normal. Waiting a week for shipping? Unacceptable. They've weaponized convenience to the point where going to actual stores feels inefficient.",
+						"Amazon trained an entire generation to expect everything immediately. Same-day delivery feels normal now, and waiting a week for shipping feels outdated. They made convenience so seamless that going to physical stores can feel inefficient by comparison.",
 				},
 				{
 					heading: "The Everything Empire",
 					content:
-						"Started selling books, now they're in your TV, your home automation, your groceries, your cloud storage, probably your dreams. Amazon is everywhere. The smile logo is giving 'I know too much about you' energy.",
+						"Amazon started with books and now shows up everywhere — your TV, your smart home, your groceries, and the apps you use daily. The smile logo gives “I know what you need before you do” energy, and honestly… that’s not wrong.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Amazon fundamentally changed how we shop and what we expect from retail. Prime membership is like a lifestyle subscription. They made online shopping so seamless that physical stores are fighting for relevance. Plus, AWS runs half the internet.",
+						"Amazon fundamentally changed how we shop and what we expect from retail. Prime membership is like a lifestyle subscription. They made online shopping so seamless that physical stores are fighting for relevance. Plus, Amazon’s cloud services power a huge part of the internet, which means the company benefits even when you’re not shopping.",
 				},
 			],
 		},
 		financials: {
 			peRatio: {
 				label: "P/E Ratio",
-				value: "48",
+				value: "33",
 				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
 				culturalTranslation: "expensive but AWS justifies it",
 			},
 			marketCap: {
 				label: "Market Cap",
-				value: "$1.9 trillion",
+				value: "$2.6 trillion",
 				explanation: "The total value of all the company's shares combined",
 				culturalTranslation: "everything store is massive",
 			},
@@ -861,13 +861,13 @@ export const brands: BrandProfile[] = [
 			},
 			profitMargin: {
 				label: "Profit Margin",
-				value: "8%",
+				value: "9%",
 				explanation: "What percentage of each sale becomes actual profit",
 				culturalTranslation: "retail is tough, AWS saves them",
 			},
 			beta: {
 				label: "Beta",
-				value: "1.2",
+				value: "1.4",
 				explanation: "How much the stock price swings compared to the overall market",
 				culturalTranslation: "moves with tech sector",
 			},
@@ -921,12 +921,12 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Binge Culture Headquarters",
 					content:
-						"Netflix invented the 'just one more episode' trap. They dropped entire seasons at once and ruined our sleep schedules. The auto-play countdown is psychological warfare. They made binge-watching a socially acceptable hobby.",
+						"Netflix invented the “just one more episode” lie. Dropping full seasons at once wrecked sleep schedules worldwide. Auto-play is psychological warfare, and they made binge-watching a normal personality trait.",
 				},
 				{
 					heading: "Meme Factory",
 					content:
-						"Every Netflix show becomes either a cultural moment or a meme template. Squid Game costumes, Wednesday's dance, Stranger Things nostalgia—Netflix content dominates the conversation even if the shows get canceled after one season.",
+						"Every Netflix hit turns into a moment or a meme. Squid Game costumes, Wednesday’s dance, Stranger Things nostalgia—Netflix shows dominate timelines even when they vanish after one season.",
 				},
 				{
 					heading: "Why It Matters",
@@ -1014,19 +1014,19 @@ export const brands: BrandProfile[] = [
 			title: "Why Coinbase Rides the Chaos",
 			sections: [
 				{
-					heading: "Crypto's Gateway Drug",
+					heading: "Crypto’s Front Door",
 					content:
 						"Coinbase is where normies enter the crypto wilderness. They made buying Bitcoin as easy as ordering food delivery. Before you know it, you're watching charts at 3am and using terms like 'HODL' unironically.",
 				},
 				{
 					heading: "Volatility Theater",
 					content:
-						"One day crypto is the future of money, the next day it's crashing 40%. Coinbase sits in the middle of this chaos, taking fees while everyone panic-sells. They're the house in a casino where the chips are imaginary internet money.",
+						"One day crypto is the future of money, the next day it's crashing 40%. Coinbase sits in the middle of this chaos, taking fees while everyone panic-sells.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Love it or hate it, Coinbase legitimized crypto for mainstream audiences. They put crypto in Super Bowl ads. They made blockchain semi-respectable in the eyes of regulators. They're the bridge between 'normal finance' and 'decentralized chaos.'",
+						"Love it or hate it, Coinbase legitimized crypto for mainstream audiences. They put crypto in Super Bowl ads. They made blockchain semi-respectable in the eyes of regulators. They're the bridge between 'normal finance' and 'decentralized chaos. Even people who don’t use crypto know the name — and that alone says a lot.'",
 				},
 			],
 		},
@@ -1109,19 +1109,19 @@ export const brands: BrandProfile[] = [
 			title: "Why Microsoft Runs Everything",
 			sections: [
 				{
-					heading: "Office Domination",
+					heading: "Work-Life Monopoly",
 					content:
-						"Word, Excel, PowerPoint—your entire work life happens in Microsoft apps whether you like it or not. Teams meetings at 9am, Excel sheets all day, Outlook for endless emails. They own enterprise.",
+						"Word, Excel, PowerPoint—your entire work and school life lives inside Microsoft. Group projects in Teams, spreadsheets in Excel, emails in Outlook. You don’t choose Microsoft. It chooses you. Once a company starts using it, leaving is painful.",
 				},
 				{
 					heading: "Cloud Empire",
 					content:
-						"Azure is the corporate cloud. While AWS leads, Microsoft has every Fortune 500 company locked in with Active Directory and Office 365 bundles. They play the long game.",
+						"They own 'The Cloud' (Azure). It’s the invisible supercomputer that runs everything from your school's website to Fortnite servers. Microsoft bundles cloud services with Office and security tools, so businesses get everything in one place. That’s how they lock in customers for years",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Microsoft went from '90s monopoly villain to cloud computing giant. Xbox, GitHub, LinkedIn, OpenAI partnership—they're everywhere. Satya Nadella's transformation has been legendary.",
+						"They used to be the boring 'Dad' of tech. Then they bought Xbox, LinkedIn, and half of OpenAI (ChatGPT). Now they own your work, your gaming, and your AI homework helper. The glow-up is real.",
 				},
 			],
 		},
@@ -1204,19 +1204,19 @@ export const brands: BrandProfile[] = [
 			title: "Why Google Knows Everything",
 			sections: [
 				{
-					heading: "Search Monopoly",
+					heading: "The Search Default",
 					content:
-						"'Just Google it' became a verb for a reason. They handle 8.5 billion searches per day. Your questions, your secrets, your 3am existential crises—all logged and analyzed. The search box is the internet's front door.",
+						"“Just Google it” became a phrase for a reason. Google handles billions of searches every day and sits at the starting point of almost every question online. If you’re looking for something, chances are Google is where you begin.",
 				},
 				{
-					heading: "The Everything Company",
+					heading: "The Everything Effect",
 					content:
-						"Gmail, YouTube, Android, Maps, Chrome—Google owns your digital life. They know where you go, who you email, what you watch, and what you're searching for. Privacy? Never heard of her.",
+						"Search is just the surface. Gmail, YouTube, Maps, Android, and Chrome quietly shape how people move, communicate, and consume information. Google isn’t one app — it’s a layer that sits underneath daily digital life.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Google isn't just a tech company, it's infrastructure for modern life. Ads fund the free internet, YouTube is the second-biggest search engine, and Android runs most smartphones. They're inescapable.",
+						"Google isn’t just a tech company, it’s infrastructure. Ads power much of the free internet, YouTube doubles as a massive search engine, and Android runs a huge share of smartphones worldwide. Even when you’re not thinking about Google, you’re probably using it.",
 				},
 			],
 		},
@@ -1396,17 +1396,17 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "Gig Economy Pioneer",
 					content:
-						"Uber didn't just create ride-sharing, they created a whole new labor model. Millions of drivers, flexible hours, no benefits—controversial but revolutionary. They redefined what it means to work.",
+						"Uber turned getting around into a tap instead of a decision. No calling cabs, no guessing arrival times — a car just shows up. That shift alone changed how people think about movement in cities.",
 				},
 				{
-					heading: "Convenience Culture",
+					heading: "Convenience as a Lifestyle",
 					content:
-						"Rides in 5 minutes, food in 30. Uber made instant gratification a lifestyle. You never need to plan transportation again. The app replaced taxis, delivery, and even public transit for many.",
+						"Rides in 5 minutes, tacos in 30. They made patience optional and walking obsolete. Basically your designated driver and personal chef in one app.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Love it or hate it, Uber fundamentally changed urban life. They proved tech could disrupt heavily regulated industries. Now every city works differently because of them.",
+						"They proved tech could rewrite how cities function. Love them or hate surge pricing, they reset expectations for convenience. Now, waiting feels outdated.",
 				},
 			],
 		},
@@ -1584,19 +1584,19 @@ export const brands: BrandProfile[] = [
 			title: "Why AMD is the Underdog Hero",
 			sections: [
 				{
-					heading: "Intel Killer",
+					heading: "The Comeback",
 					content:
-						"For years AMD was the budget option. Then Ryzen happened. Now they're beating Intel in performance and price. Data centers, gaming PCs, laptops—AMD is everywhere.",
+						"For years, AMD was seen as the cheaper alternative. Then everything changed. Their chips got faster, more efficient, and suddenly competitive across laptops, gaming PCs, and data centers. What used to be a backup option became a real choice.",
 				},
 				{
-					heading: "GPU Wars",
+					heading: "Console Power",
 					content:
-						"While NVIDIA dominates AI, AMD fights back with Radeon for gaming. They're the scrappy alternative to the green team. Price-to-performance champions.",
+						"If you’ve played a PS5 or Xbox Series X, you’ve used AMD tech. They power the consoles behind some of the biggest games in the world. That alone put AMD in millions of living rooms without most people ever realizing it.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"AMD's comeback story is legendary. They went from near-bankruptcy to taking market share from Intel and challenging NVIDIA. Competition keeps prices sane and innovation moving.",
+						"AMD pulled off one of the rarest moves in tech: a real comeback. They went from being written off to powering consoles and competing with industry leaders. That kind of turnaround shows execution, momentum, and staying power — the kind that forces the whole market to pay attention.",
 				},
 			],
 		},
@@ -1871,12 +1871,12 @@ export const brands: BrandProfile[] = [
 				{
 					heading: "OG Digital Wallet",
 					content:
-						"Before Venmo, Cash App, or Apple Pay, there was PayPal. They pioneered online payments and made eBay possible. The blue button is still everywhere—from Etsy to Shopify checkout pages.",
+						"Before Venmo, Cash App, or Apple Pay, there was PayPal. They pioneered online payments and made eBay possible. That blue button still shows up everywhere — from Etsy shops to Shopify checkouts.",
 				},
 				{
 					heading: "Venmo's Parent Company",
 					content:
-						"PayPal owns Venmo, the app that turned splitting bills into social media. Your friends can see you paid for 'pizza and regrets' at 2am. They made peer-to-peer payments a cultural phenomenon.",
+						"PayPal owns Venmo, the app that turned splitting bills into a public activity. Your friends can see you paid for “pizza and regrets” at 2am. They made peer-to-peer payments a cultural norm.",
 				},
 				{
 					heading: "Why It Matters",
@@ -1964,19 +1964,19 @@ export const brands: BrandProfile[] = [
 			title: "Why Intel Still Matters",
 			sections: [
 				{
-					heading: "The Comeback Kid",
+					heading: "The OG Chip King",
 					content:
-						"Intel dominated PCs for decades with that iconic 'Intel Inside' sticker. Lost the lead to AMD and TSMC but they're investing billions to take it back. Plus quantum computing research.",
+						"Intel was the computer chip brand for decades. That “Intel Inside” sticker meant your laptop was legit. If you used a PC, Intel was probably running it.",
 				},
 				{
-					heading: "Quantum Ambitions",
+					heading: "Fighting for Relevance",
 					content:
-						"Beyond traditional chips, Intel's diving into quantum computing and advanced packaging. They want to prove legacy tech companies can innovate.",
+						"Intel lost ground to faster rivals like AMD and overseas chip makers. Now they’re spending billions to rebuild factories, redesign chips, and win back control instead of outsourcing everything.",
 				},
 				{
 					heading: "Why It Matters",
 					content:
-						"Intel shaped personal computing. Their struggle to compete shows how fast tech moves. If they pull off their comeback, it's legendary.",
+						"America needs chips, and Intel is the home-team bet. This is a high-stakes comeback story. Either they return to dominance — or become a case study in how fast tech leaves giants behind.",
 				},
 			],
 		},
@@ -2016,9 +2016,9 @@ export const brands: BrandProfile[] = [
 						"IonQ is betting everything on trapped-ion quantum computers. While others dabble, IonQ is all-in. High risk, potentially revolutionary reward.",
 				},
 				{
-					heading: "The Future or Hype?",
+					heading: "Future or Fantasy?",
 					content:
-						"Quantum computing could change everything—or stay 10 years away forever. IonQ represents the belief that the quantum age is actually coming.",
+						"Quantum computing promises insane speed and problem-solving power… someday. The catch? Nobody knows when “someday” is. IonQ represents belief — that the quantum era arrives sooner, not later.",
 				},
 				{
 					heading: "Why It Matters",
@@ -2197,8 +2197,9 @@ export const brands: BrandProfile[] = [
 		culturalContext: {
 			title: "Why Micron Powers Memory",
 			sections: [
-				{ heading: "Essential Chips", content: "Micron makes memory chips for everything—phones, computers, servers. Cyclical business but critical infrastructure." },
-				{ heading: "Why It Matters", content: "Every device needs memory. Micron is a top-3 global player in RAM and storage chips." },
+				{ heading: "Essential Chips", content: "Micron makes memory chips — the part of tech nobody thinks about but everything needs. Phones, laptops, data centers, gaming consoles — if it turns on, it probably uses Micron memory." },
+				{ heading: "Boom & Bust Energy", content: "Memory is cyclical. When demand is hot, Micron prints. When supply floods the market, prices crash. It’s high highs, low lows — not boring, not stable, but always relevant." },
+				{ heading: "Every device needs memory, and Micron is one of the top players globally. As AI, cloud, and data usage grow, memory demand grows with it. You can’t build the future without storage. They are the gas station for the AI revolution." },
 			],
 		},
 		financials: {
