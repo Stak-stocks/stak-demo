@@ -1947,7 +1947,7 @@ export const brands: BrandProfile[] = [
 			},
 		],
 	},
-	{
+{
 		id: "intc",
 		ticker: "INTC",
 		name: "Intel",
@@ -1961,7 +1961,7 @@ export const brands: BrandProfile[] = [
 			{ name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
 		],
 		culturalContext: {
-			title: "Why Intel Is “Too Big to Die?”", // Fixed here
+			title: "Why Intel Is “Too Big to Die?”",
 			sections: [
 				{
 					heading: "The OG Chip King",
@@ -1980,6 +1980,61 @@ export const brands: BrandProfile[] = [
 				},
 			],
 		},
+		financials: {
+			peRatio: {
+				label: "P/E Ratio",
+				value: "77.4",
+				explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit",
+				culturalTranslation: "priced for a miracle; you're paying for 2027 earnings in 2026",
+			},
+			marketCap: {
+				label: "Market Cap",
+				value: "$232.0B",
+				explanation: "The total value of all the company's shares combined",
+				culturalTranslation: "clawed its way back from the dead, but still a fraction of NVIDIA",
+			},
+			revenueGrowth: {
+				label: "Revenue Growth",
+				value: "-4.0%",
+				explanation: "How much more money the company is making compared to last year",
+				culturalTranslation: "still shrinking as legacy PC sales drag down the foundry gains",
+			},
+			profitMargin: {
+				label: "Profit Margin",
+				value: "-1.2%",
+				explanation: "What percentage of each sale becomes actual profit",
+				culturalTranslation: "losing money to build factories; the burn rate is terrifying",
+			},
+			beta: {
+				label: "Beta",
+				value: "1.65",
+				explanation: "How much the stock price swings compared to the overall market",
+				culturalTranslation: "extremely volatile; it moves on every rumor about yields",
+			},
+			dividendYield: {
+				label: "Dividend Yield",
+				value: "0%",
+				explanation: "The percentage of the stock price paid out as dividends each year",
+				culturalTranslation: "dividend is dead; cash is for buying lithography machines",
+			},
+		},
+		news: [
+			{
+				headline: "Intel 18A node hits high-volume production, creating new AI timeline",
+				source: "Bloomberg",
+				timestamp: "3 days ago",
+				sentiment: "Bullish",
+				url: "#",
+			},
+			{
+				headline: "Q4 guidance misses expectations as turnaround costs mount",
+				source: "CNBC",
+				timestamp: "4 days ago",
+				sentiment: "Bearish",
+				url: "#",
+			},
+		],
+	},
 	{
 		id: "ionq",
 		ticker: "IONQ",
