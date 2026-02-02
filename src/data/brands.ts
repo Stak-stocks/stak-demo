@@ -1961,11 +1961,15 @@ export const brands: BrandProfile[] = [
         { name: "Internet Hype", emoji: "🔥", value: 85, color: "#ff9500" },
     ],
     culturalContext: {
-        title: "Why Intel is the Ultimate Comeback Bet",
+        title: "Why Intel Is “Too Big to Die?”,
         sections: [
             {
-                heading: "The 18A Gamble",
-                content: "Intel bet the entire farm on their '18A' process node to beat TSMC. It’s the most expensive science project in history. If it works, they own the AI supply chain. If it fails, they get broken up. High stakes is an understatement."
+                heading: "The OG Chip King",
+                content: "Intel was the computer chip brand for decades. That “Intel Inside” sticker meant your laptop was legit. If you used a PC, Intel was probably running it."
+            },
+			 {
+                heading: "Fighting for Relevance",
+                content: "Intel lost ground to faster rivals like AMD and overseas chip makers. Now they’re spending billions to rebuild factories, redesign chips, and win back control instead of outsourcing everything."
             },
             {
                 heading: "America's Chip Savior",
@@ -2008,7 +2012,7 @@ export const brands: BrandProfile[] = [
             label: "Dividend Yield",
             value: "0%",
             explanation: "The percentage of the stock price paid out as dividends each year",
-            culturalTranslation: "dividend is dead; cash is for buying lithography machines"
+            culturalTranslation: "dividend is dead. Their cash is for buying lithography machines"
         },
     },
     news: [
