@@ -2695,7 +2695,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SOFI",
 		name: "SoFi",
 		bio: "bought a football stadium before figuring out profits",
-		heroImage: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800&h=500&fit=crop",
+		heroImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSFbyYnkiToTat248zFKPjQDlTd68R9yk8sSw&s",
 		personalityDescription: "The app that wants to replace your entire bank",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
