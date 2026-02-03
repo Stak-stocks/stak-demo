@@ -83,7 +83,8 @@ export function BrandContextModal({
 
 					<div className="pt-4 border-t border-zinc-800">
 						<p className="text-xs text-zinc-500 text-center italic">
-							Swipe the Market.
+							This is cultural context, not financial advice. We're here to explain
+							why brands matter, not tell you what to invest in.
 						</p>
 					</div>
 				</div>
