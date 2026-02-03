@@ -107,8 +107,7 @@ function App() {
 						<Sparkles className="w-8 h-8 text-pink-500" />
 					</div>
 					<p className="text-lg sm:text-xl text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto">
-						Brands as personalities, not portfolios. Zero financial advice, all the
-						cultural context.
+						Swipe the market to your taste
 					</p>
 					<p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
 						Swipe right to vibe, left to pass. Tap to learn more.

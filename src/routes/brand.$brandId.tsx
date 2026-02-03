@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { ArrowLeft, TrendingUp, Newspaper } from "lucide-react";
@@ -11,12 +11,17 @@ export const Route = createFileRoute("/brand/$brandId")({
 
 function BrandDetailPage() {
 	const { brandId } = Route.useParams();
+	const navigate = useNavigate();
 	const [brand, setBrand] = useState<BrandProfile | null>(null);
 
 	useEffect(() => {
 		const foundBrand = brands.find((b) => b.id === brandId);
 		setBrand(foundBrand || null);
 	}, [brandId]);
+
+	const handleClose = () => {
+		navigate({ to: "/my-stak" });
+	};
 
 	if (!brand) {
 		return (
@@ -37,8 +42,14 @@ function BrandDetailPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#121212] text-white">
-			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+		<div
+			className="min-h-screen bg-[#121212] text-white"
+			onClick={handleClose}
+		>
+			<div
+				className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
+				onClick={(e) => e.stopPropagation()}
+			>
 				<Link
 					to="/my-stak"
 					className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8"
