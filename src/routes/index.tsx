@@ -122,7 +122,7 @@ function App() {
 					onSwipeRight={handleSwipeRight}
 				/>
 
-				<footer className="mt-12 text-center text-zinc-500 dark:text-zinc-500 text-sm space-y-2">
+				<footer className="mt-16 sm:mt-12 text-center text-zinc-500 dark:text-zinc-500 text-sm space-y-2">
 					<p>
 						This is a social discovery app about brand culture, not a financial
 						platform.

@@ -15,18 +15,18 @@ const VIBE_EXPLANATIONS: Record<string, string> = {
 
 export function VibeSliders({ vibes }: VibeSlidersProps) {
 	return (
-		<div className="space-y-4">
+		<div className="space-y-2 sm:space-y-4">
 			{vibes.map((vibe) => (
-				<div key={vibe.name} className="space-y-2">
+				<div key={vibe.name} className="space-y-1 sm:space-y-2">
 					<div className="flex items-center justify-between">
 						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
 								<button
-									className="text-sm font-medium text-zinc-200 flex items-center gap-2 cursor-pointer hover:text-white transition-colors active:scale-95 transition-transform touch-manipulation"
+									className="text-xs sm:text-sm font-medium text-zinc-200 flex items-center gap-1 sm:gap-2 cursor-pointer hover:text-white transition-colors active:scale-95 transition-transform touch-manipulation"
 									type="button"
 									aria-label={`Learn about ${vibe.name}`}
 								>
-									<span className="text-lg select-none">{vibe.emoji}</span>
+									<span className="text-base sm:text-lg select-none">{vibe.emoji}</span>
 									<span className="select-none">{vibe.name}</span>
 								</button>
 							</TooltipTrigger>
@@ -44,7 +44,7 @@ export function VibeSliders({ vibes }: VibeSlidersProps) {
 					</div>
 					<Progress
 						value={vibe.value}
-						className="h-3 bg-zinc-800/50 border border-zinc-700/50"
+						className="h-2 sm:h-3 bg-zinc-800/50 border border-zinc-700/50"
 						style={
 							{
 								"--progress-color": vibe.color,
@@ -53,7 +53,7 @@ export function VibeSliders({ vibes }: VibeSlidersProps) {
 					/>
 				</div>
 			))}
-			<p className="text-xs text-zinc-500 italic mt-4 text-center">
+			<p className="text-xs text-zinc-500 italic mt-2 sm:mt-4 text-center hidden sm:block">
 				Vibes are based on recent buzz, not financial advice
 			</p>
 		</div>

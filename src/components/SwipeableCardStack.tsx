@@ -188,7 +188,7 @@ export function SwipeableCardStack({
 	// Show "all caught up" screen when daily limit is reached
 	if (hasReachedLimit) {
 		return (
-			<div className="flex items-center justify-center min-h-[450px] sm:min-h-[600px] pb-16">
+			<div className="flex items-center justify-center min-h-[350px] sm:min-h-[600px] pb-20">
 				<div className="text-center space-y-6 px-8">
 					<div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/20 to-pink-500/20 mb-4">
 						<Sparkles className="w-10 h-10 text-cyan-400" />
@@ -218,7 +218,7 @@ export function SwipeableCardStack({
 
 	if (currentIndex >= brands.length) {
 		return (
-			<div className="flex items-center justify-center min-h-[450px] sm:min-h-[600px] pb-16">
+			<div className="flex items-center justify-center min-h-[350px] sm:min-h-[600px] pb-20">
 				<div className="text-center space-y-4">
 					<p className="text-2xl font-bold text-zinc-300">
 						You've seen all the vibes!
@@ -232,8 +232,8 @@ export function SwipeableCardStack({
 	}
 
 	return (
-		<div className="relative flex items-center justify-center min-h-[450px] sm:min-h-[600px] w-full max-w-md mx-auto pb-16">
-			<div className="relative w-full h-[400px] sm:h-[550px]">
+		<div className="relative flex items-center justify-center w-full max-w-md mx-auto pb-20">
+			<div className="relative w-full h-[350px] sm:h-[550px]">
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
 					// Make stacked cards much smaller and less visible
@@ -320,7 +320,7 @@ export function SwipeableCardStack({
 			)}
 
 			{/* Daily cards remaining counter */}
-			<div className="absolute -bottom-8 left-1/2 -translate-x-1/2">
+			<div className="absolute -bottom-12 sm:-bottom-8 left-1/2 -translate-x-1/2">
 				<div className="flex items-center gap-2 text-sm text-zinc-500">
 					<span className="font-bold text-cyan-400">{remainingCards}</span>
 					<span>cards left today</span>
