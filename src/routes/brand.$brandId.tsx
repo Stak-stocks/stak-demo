@@ -43,22 +43,28 @@ function BrandDetailPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-[#121212] text-white"
+			className="min-h-screen bg-black/80 sm:bg-[#121212] text-white flex flex-col justify-end sm:justify-start"
 			onClick={handleClose}
 		>
 			<div
-				className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
+				className="max-w-4xl w-full mx-auto sm:px-6 lg:px-8 py-4 sm:py-12 bg-[#121212] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<Link
-					to="/my-stak"
-					className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8"
-				>
-					<ArrowLeft className="w-5 h-5" />
-					<span>Back to My Stak</span>
-				</Link>
+				{/* Drag handle indicator for mobile */}
+				<div className="flex justify-center mb-4 sm:hidden">
+					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+				</div>
 
-				<div className="mb-8">
+				<div className="px-4 sm:px-0">
+					<Link
+						to="/my-stak"
+						className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 sm:mb-8"
+					>
+						<ArrowLeft className="w-5 h-5" />
+						<span>Back to My Stak</span>
+					</Link>
+
+					<div className="mb-6 sm:mb-8">
 					<div className="flex items-baseline gap-3 mb-2">
 						<h1 className="text-4xl font-bold text-white">{brand.name}</h1>
 						<span className="text-lg font-mono text-zinc-400 uppercase">
@@ -210,11 +216,12 @@ function BrandDetailPage() {
 					</TabsContent>
 				</Tabs>
 
-				<div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
-					<p className="text-xs text-zinc-500 text-center">
-						This is cultural context, not financial advice. We're here to explain
-						why brands matter, not tell you what to invest in.
-					</p>
+					<div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+						<p className="text-xs text-zinc-500 text-center">
+							This is cultural context, not financial advice. We're here to explain
+							why brands matter, not tell you what to invest in.
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>
