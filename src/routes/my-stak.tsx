@@ -300,10 +300,10 @@ function MyStakPage() {
 							className="group relative overflow-hidden rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
 							onClick={() => handleBrandClick(brand)}
 						>
-							{/* Remove button */}
+							{/* Remove button - always visible on mobile, hover on desktop */}
 							<button
 								onClick={(e) => handleRemoveFromStak(e, brand)}
-								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
 								aria-label={`Remove ${brand.name} from Stak`}
 							>
 								<X className="w-4 h-4" />
