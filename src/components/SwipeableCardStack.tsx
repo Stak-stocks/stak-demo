@@ -97,6 +97,27 @@ export function SwipeableCardStack({
 	// Show current card + 2 stacked behind (but only current is readable)
 	const visibleBrands = brands.slice(currentIndex, currentIndex + 3);
 
+	// Preload all images on mount for instant transitions
+	useEffect(() => {
+		// Preload first 15 images immediately
+		const preloadCount = Math.min(15, brands.length);
+		for (let i = 0; i < preloadCount; i++) {
+			const img = new Image();
+			img.src = brands[i].heroImage;
+		}
+	}, [brands]);
+
+	// Continue preloading as user swipes
+	useEffect(() => {
+		const preloadStart = Math.max(currentIndex + 3, 15);
+		const preloadEnd = Math.min(preloadStart + 5, brands.length);
+
+		for (let i = preloadStart; i < preloadEnd; i++) {
+			const img = new Image();
+			img.src = brands[i].heroImage;
+		}
+	}, [currentIndex, brands]);
+
 	const handleDragStart = (clientX: number, clientY: number) => {
 		setIsDragging(true);
 		dragStartPos.current = { x: clientX, y: clientY };
@@ -233,7 +254,7 @@ export function SwipeableCardStack({
 
 	return (
 		<div className="relative flex items-center justify-center w-full max-w-md mx-auto pb-20">
-			<div className="relative w-full h-[350px] sm:h-[550px]">
+			<div className="relative w-full h-[350px] sm:h-[550px] bg-white dark:bg-[#121212] rounded-2xl">
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
 					// Make stacked cards much smaller and less visible
@@ -293,7 +314,7 @@ export function SwipeableCardStack({
 								/>
 							)}
 							<div onClick={() => isTopCard && handleCardClick(brand)}>
-								<StockCard brand={brand} onLearnMore={() => {}} />
+								<StockCard brand={brand} onLearnMore={() => {}} priority={isTopCard} />
 							</div>
 						</div>
 					);

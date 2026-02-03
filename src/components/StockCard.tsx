@@ -6,9 +6,10 @@ import { Sparkles } from "lucide-react";
 interface StockCardProps {
 	brand: BrandProfile;
 	onLearnMore: (brand: BrandProfile) => void;
+	priority?: boolean;
 }
 
-export function StockCard({ brand, onLearnMore }: StockCardProps) {
+export function StockCard({ brand, onLearnMore, priority = false }: StockCardProps) {
 	return (
 		<Card className="overflow-hidden bg-zinc-900/80 border-zinc-800 backdrop-blur-sm shadow-2xl hover:border-zinc-700 transition-all">
 			<div className="relative h-32 sm:h-48 overflow-hidden">
@@ -16,6 +17,8 @@ export function StockCard({ brand, onLearnMore }: StockCardProps) {
 					src={brand.heroImage}
 					alt={brand.name}
 					className="w-full h-full object-cover"
+					loading={priority ? "eager" : "lazy"}
+					decoding="async"
 				/>
 				<div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/50 to-transparent" />
 				<div className="absolute bottom-2 sm:bottom-4 left-4 sm:left-6 right-4 sm:right-6">

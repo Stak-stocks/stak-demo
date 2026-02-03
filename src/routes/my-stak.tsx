@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { BrandProfile } from "@/data/brands";
-import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper } from "lucide-react";
+import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +42,19 @@ function MyStakPage() {
 		});
 	};
 
+	const handleRemoveFromStak = (e: React.MouseEvent, brand: BrandProfile) => {
+		e.stopPropagation();
+		setSwipedBrands((prev) => {
+			const updated = prev.filter((b) => b.id !== brand.id);
+			localStorage.setItem("my-stak", JSON.stringify(updated));
+			return updated;
+		});
+		toast.success("Removed from your Stak", {
+			description: brand.name,
+			duration: 2000,
+		});
+	};
+
 	// Brand Detail Overlay - reusable across both states
 	const brandDetailOverlay = selectedBrand && (
 		<div
@@ -76,20 +89,20 @@ function MyStakPage() {
 						<TabsList className="grid w-full grid-cols-3 bg-zinc-900 border border-zinc-800">
 							<TabsTrigger
 								value="vibe"
-								className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs sm:text-sm"
+								className="text-zinc-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs sm:text-sm"
 							>
 								✨ Vibe
 							</TabsTrigger>
 							<TabsTrigger
 								value="numbers"
-								className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm"
+								className="text-zinc-200 data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm"
 							>
 								<TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								Numbers
 							</TabsTrigger>
 							<TabsTrigger
 								value="news"
-								className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400 text-xs sm:text-sm"
+								className="text-zinc-200 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400 text-xs sm:text-sm"
 							>
 								<Newspaper className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								News
@@ -282,11 +295,20 @@ function MyStakPage() {
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 					{swipedBrands.map((brand) => (
-						<button
+						<div
 							key={brand.id}
+							className="group relative overflow-hidden rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
 							onClick={() => handleBrandClick(brand)}
-							className="group relative overflow-hidden rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg"
 						>
+							{/* Remove button */}
+							<button
+								onClick={(e) => handleRemoveFromStak(e, brand)}
+								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+								aria-label={`Remove ${brand.name} from Stak`}
+							>
+								<X className="w-4 h-4" />
+							</button>
+
 							<div className="flex items-start gap-4 mb-4">
 								<div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-2xl font-bold text-zinc-900 dark:text-white">
 									{brand.ticker.charAt(0)}
@@ -312,7 +334,7 @@ function MyStakPage() {
 									→
 								</span>
 							</div>
-						</button>
+						</div>
 					))}
 				</div>
 			</div>
