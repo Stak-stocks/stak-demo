@@ -1,11 +1,5 @@
 import type { BrandProfile } from "@/data/brands";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { X, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface BrandContextModalProps {
 	brand: BrandProfile | null;
@@ -20,7 +14,7 @@ export function BrandContextModal({
 	onClose,
 	onAddToStak,
 }: BrandContextModalProps) {
-	if (!brand) return null;
+	if (!brand || !open) return null;
 
 	const handleAddToStak = () => {
 		if (onAddToStak && brand) {
@@ -29,22 +23,27 @@ export function BrandContextModal({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onClose}>
-			<DialogContent
-				className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[80vh] overflow-y-auto"
-				showCloseButton={false}
-			>
-				<button
-					onClick={onClose}
-					className="absolute top-4 right-4 p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-				>
-					<X className="w-5 h-5 text-zinc-400" />
-				</button>
+		<div
+			className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center"
+			onClick={onClose}
+		>
+			{/* Semi-transparent overlay showing page behind */}
+			<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-				<div className="space-y-6">
+			{/* Content sheet */}
+			<div
+				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#121212] rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{/* Drag handle indicator for mobile */}
+				<div className="flex justify-center pt-4 pb-2 sm:hidden">
+					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+				</div>
+
+				<div className="px-6 pb-6 pt-2 sm:pt-6 space-y-6">
 					<div>
 						<div className="flex items-baseline gap-3 mb-2">
-							<h2 className="text-2xl font-bold">{brand.name}</h2>
+							<h2 className="text-2xl sm:text-3xl font-bold text-white">{brand.name}</h2>
 							<span className="text-sm font-mono text-zinc-400 uppercase tracking-wider">
 								{brand.ticker}
 							</span>
@@ -74,7 +73,7 @@ export function BrandContextModal({
 					{onAddToStak && (
 						<button
 							onClick={handleAddToStak}
-							className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all font-semibold flex items-center justify-center gap-2"
+							className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all font-semibold flex items-center justify-center gap-2 text-white"
 						>
 							<Plus className="w-5 h-5" />
 							Add to My Stak
@@ -88,7 +87,7 @@ export function BrandContextModal({
 						</p>
 					</div>
 				</div>
-			</DialogContent>
-		</Dialog>
+			</div>
+		</div>
 	);
 }

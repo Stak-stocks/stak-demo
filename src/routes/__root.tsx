@@ -1,7 +1,6 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { FloatingBanner } from "@/components/FloatingBanner";
 import { BottomNav } from "@/components/BottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Toaster } from "sonner";
@@ -20,7 +19,6 @@ function Root() {
 			<BottomNav />
 			<Toaster position="top-center" />
 			<TanStackRouterDevtools position="bottom-right" />
-			<FloatingBanner position="bottom-left" />
 		</div>
 	);
 }
