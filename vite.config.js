@@ -8,7 +8,7 @@ import { creaoPlugins } from "./config/vite/creao-plugin.mjs";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	base: process.env.TENANT_ID ? `/${process.env.TENANT_ID}/` : "./",
+	base: process.env.TENANT_ID ? `/${process.env.TENANT_ID}/` : "/",
 	define: {
 		"import.meta.env.TENANT_ID": JSON.stringify(process.env.TENANT_ID || ""),
 	},
