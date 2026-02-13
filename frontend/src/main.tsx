@@ -9,6 +9,7 @@ import { routeTree } from "./routeTree.gen";
 import reportWebVitals from "./sdk/core/internal/reportWebVitals.ts";
 import "./styles.css";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { AuthProvider } from "./context/AuthContext";
 
 // Initialize Creao platform SDK
 import { APP_CONFIG } from "./sdk/core/global.ts";
@@ -51,9 +52,11 @@ if (rootElement && !rootElement.innerHTML) {
 	root.render(
 		<StrictMode>
 			<ThemeProvider>
-				<QueryClientProvider client={queryClient}>
-					<RouterProvider router={router} />
-				</QueryClientProvider>
+				<AuthProvider>
+					<QueryClientProvider client={queryClient}>
+						<RouterProvider router={router} />
+					</QueryClientProvider>
+				</AuthProvider>
 			</ThemeProvider>
 		</StrictMode>,
 	);

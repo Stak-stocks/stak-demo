@@ -9,16 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyStakRouteImport } from './routes/my-stak'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeagueRouteImport } from './routes/league'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
 import { Route as BrandBrandIdRouteImport } from './routes/brand.$brandId'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -37,6 +50,11 @@ const LoginRoute = LoginRouteImport.update({
 const LeagueRoute = LeagueRouteImport.update({
   id: '/league',
   path: '/league',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -67,10 +85,13 @@ const BrandBrandIdRoute = BrandBrandIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
@@ -78,10 +99,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
@@ -90,10 +114,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
@@ -103,10 +130,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/forgot-password'
     | '/league'
     | '/login'
     | '/my-stak'
     | '/profile'
+    | '/reset-password'
+    | '/signup'
     | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
@@ -114,10 +144,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/league'
     | '/login'
     | '/my-stak'
     | '/profile'
+    | '/reset-password'
+    | '/signup'
     | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
@@ -125,10 +158,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/forgot-password'
     | '/league'
     | '/login'
     | '/my-stak'
     | '/profile'
+    | '/reset-password'
+    | '/signup'
     | '/brand/$brandId'
     | '/league_/lineup'
     | '/league_/performance'
@@ -137,10 +173,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LeagueRoute: typeof LeagueRoute
   LoginRoute: typeof LoginRoute
   MyStakRoute: typeof MyStakRoute
   ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SignupRoute: typeof SignupRoute
   BrandBrandIdRoute: typeof BrandBrandIdRoute
   LeagueLineupRoute: typeof LeagueLineupRoute
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
@@ -149,6 +188,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -175,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/league'
       fullPath: '/league'
       preLoaderRoute: typeof LeagueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -217,10 +277,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LeagueRoute: LeagueRoute,
   LoginRoute: LoginRoute,
   MyStakRoute: MyStakRoute,
   ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SignupRoute: SignupRoute,
   BrandBrandIdRoute: BrandBrandIdRoute,
   LeagueLineupRoute: LeagueLineupRoute,
   LeaguePerformanceRoute: LeaguePerformanceRoute,

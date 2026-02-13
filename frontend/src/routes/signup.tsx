@@ -2,19 +2,19 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-
-export const Route = createFileRoute("/login")({
-	component: LoginPage,
-});
-
 import { FloatingBrands } from "@/components/FloatingBrands";
 
-function LoginPage() {
-	const { user, loading, signInWithGoogle, signInWithEmail } = useAuth();
+export const Route = createFileRoute("/signup")({
+	component: SignUpPage,
+});
+
+function SignUpPage() {
+	const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
 	const navigate = useNavigate();
-	const [signingIn, setSigningIn] = useState(false);
+	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 
 	useEffect(() => {
@@ -23,28 +23,38 @@ function LoginPage() {
 		}
 	}, [user, loading, navigate]);
 
-	async function handleEmailSignIn(e: React.FormEvent) {
+	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
-		if (!email || !password) return;
-		setSigningIn(true);
+		if (!email || !password || !confirmPassword) return;
+		if (password !== confirmPassword) {
+			toast.error("Passwords don't match");
+			return;
+		}
+		if (password.length < 6) {
+			toast.error("Password must be at least 6 characters");
+			return;
+		}
+		setSigningUp(true);
 		try {
-			await signInWithEmail(email, password);
-			toast.success("Welcome back!");
+			await signUpWithEmail(email, password);
+			toast.success("Account created! Welcome to STAK!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
-			if (message.includes("user-not-found") || message.includes("invalid-credential")) {
-				toast.error("Invalid email or password");
-			} else if (message.includes("wrong-password")) {
-				toast.error("Wrong password");
+			if (message.includes("email-already-in-use")) {
+				toast.error("Email already in use. Try signing in instead.");
+			} else if (message.includes("weak-password")) {
+				toast.error("Password is too weak. Use at least 6 characters.");
+			} else if (message.includes("invalid-email")) {
+				toast.error("Invalid email address");
 			} else {
-				toast.error("Sign in failed. Please try again.");
+				toast.error("Sign up failed. Please try again.");
 			}
-			setSigningIn(false);
+			setSigningUp(false);
 		}
 	}
 
 	async function handleGoogleSignIn() {
-		setSigningIn(true);
+		setSigningUp(true);
 		try {
 			await signInWithGoogle();
 			toast.success("Welcome to STAK!");
@@ -53,7 +63,7 @@ function LoginPage() {
 			if (!message.includes("popup-closed-by-user")) {
 				toast.error("Sign in failed. Please try again.");
 			}
-			setSigningIn(false);
+			setSigningUp(false);
 		}
 	}
 
@@ -68,7 +78,6 @@ function LoginPage() {
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			<FloatingBrands />
-
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Logo */}
 				<div className="flex items-center justify-center gap-2 mb-2">
@@ -81,12 +90,12 @@ function LoginPage() {
 
 				{/* Heading */}
 				<div>
-					<h1 className="text-3xl font-bold text-white">Welcome Back</h1>
-					<p className="text-slate-400 mt-1">Sign in to continue</p>
+					<h1 className="text-3xl font-bold text-white">Create Account</h1>
+					<p className="text-slate-400 mt-1">Start building your stak</p>
 				</div>
 
 				{/* Form */}
-				<form onSubmit={handleEmailSignIn} className="space-y-4 text-left">
+				<form onSubmit={handleEmailSignUp} className="space-y-4 text-left">
 					<div>
 						<label htmlFor="email" className="block text-sm text-slate-400 mb-1.5">Email</label>
 						<input
@@ -105,7 +114,7 @@ function LoginPage() {
 							<input
 								id="password"
 								type={showPassword ? "text" : "password"}
-								placeholder="Password"
+								placeholder="At least 6 characters"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
 								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
@@ -127,26 +136,33 @@ function LoginPage() {
 								)}
 							</button>
 						</div>
-						<div className="text-right mt-1.5">
-							<Link to="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
-								Forgot password?
-							</Link>
-						</div>
 					</div>
 
-					{/* Sign In Button */}
+					<div>
+						<label htmlFor="confirmPassword" className="block text-sm text-slate-400 mb-1.5">Confirm Password</label>
+						<input
+							id="confirmPassword"
+							type={showPassword ? "text" : "password"}
+							placeholder="Confirm password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+						/>
+					</div>
+
+					{/* Sign Up Button */}
 					<button
 						type="submit"
-						disabled={signingIn || !email || !password}
+						disabled={signingUp || !email || !password || !confirmPassword}
 						className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 					>
-						{signingIn ? (
+						{signingUp ? (
 							<div className="flex items-center justify-center gap-2">
 								<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-								Signing in...
+								Creating account...
 							</div>
 						) : (
-							"Sign In"
+							"Sign Up"
 						)}
 					</button>
 				</form>
@@ -163,7 +179,7 @@ function LoginPage() {
 					<button
 						type="button"
 						onClick={handleGoogleSignIn}
-						disabled={signingIn}
+						disabled={signingUp}
 						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 text-white font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
 					>
 						<svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -172,20 +188,19 @@ function LoginPage() {
 							<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
 							<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
 						</svg>
-						Sign in with Google
+						Sign up with Google
 					</button>
 
 				</div>
 
-				{/* Sign Up Link */}
+				{/* Sign In Link */}
 				<p className="text-slate-400 text-sm pt-2">
-					Don't have an account yet?{" "}
-					<Link to="/signup" className="text-blue-400 hover:text-blue-300 font-medium">
-						Sign up
+					Already have an account?{" "}
+					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+						Sign in
 					</Link>
 				</p>
 			</div>
-
 		</div>
 	);
 }

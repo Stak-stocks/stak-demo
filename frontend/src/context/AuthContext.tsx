@@ -1,0 +1,95 @@
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useState,
+	type ReactNode,
+} from "react";
+import {
+	onAuthStateChanged,
+	signInWithPopup,
+	signInWithEmailAndPassword,
+	createUserWithEmailAndPassword,
+	sendPasswordResetEmail,
+	verifyPasswordResetCode,
+	confirmPasswordReset,
+	signOut,
+	type User,
+} from "firebase/auth";
+import { auth, googleProvider } from "../lib/firebase";
+
+interface AuthContextType {
+	user: User | null;
+	loading: boolean;
+	signInWithGoogle: () => Promise<void>;
+	signInWithEmail: (email: string, password: string) => Promise<void>;
+	signUpWithEmail: (email: string, password: string) => Promise<void>;
+	resetPassword: (email: string) => Promise<void>;
+	verifyResetCode: (code: string) => Promise<string>;
+	confirmReset: (code: string, newPassword: string) => Promise<void>;
+	logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+	const [user, setUser] = useState<User | null>(null);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+			setUser(firebaseUser);
+			setLoading(false);
+		});
+		return unsubscribe;
+	}, []);
+
+	async function signInWithGoogle() {
+		await signInWithPopup(auth, googleProvider);
+	}
+
+	async function signInWithEmail(email: string, password: string) {
+		await signInWithEmailAndPassword(auth, email, password);
+	}
+
+	async function signUpWithEmail(email: string, password: string) {
+		await createUserWithEmailAndPassword(auth, email, password);
+	}
+
+	async function resetPassword(email: string) {
+		const baseUrl = import.meta.env.DEV
+			? "http://localhost:3000"
+			: "https://stak-demo-goodluck-badewoles-projects.vercel.app";
+		await sendPasswordResetEmail(auth, email, {
+			url: `${baseUrl}/login`,
+		});
+	}
+
+	async function verifyResetCode(code: string) {
+		return await verifyPasswordResetCode(auth, code);
+	}
+
+	async function confirmReset(code: string, newPassword: string) {
+		await confirmPasswordReset(auth, code, newPassword);
+	}
+
+	async function logout() {
+		await signOut(auth);
+	}
+
+	return (
+		<AuthContext.Provider
+			value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+		>
+			{children}
+		</AuthContext.Provider>
+	);
+}
+
+export function useAuth() {
+	const context = useContext(AuthContext);
+	if (!context) {
+		throw new Error("useAuth must be used within an AuthProvider");
+	}
+	return context;
+}
