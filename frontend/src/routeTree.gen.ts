@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyStakRouteImport } from './routes/my-stak'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeagueRouteImport } from './routes/league'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
@@ -17,9 +19,19 @@ import { Route as LeaguePerformanceRouteImport } from './routes/league_.performa
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
 import { Route as BrandBrandIdRouteImport } from './routes/brand.$brandId'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyStakRoute = MyStakRouteImport.update({
   id: '/my-stak',
   path: '/my-stak',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeagueRoute = LeagueRouteImport.update({
@@ -56,7 +68,9 @@ const BrandBrandIdRoute = BrandBrandIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/league': typeof LeagueRoute
+  '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/profile': typeof ProfileRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
@@ -65,7 +79,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/league': typeof LeagueRoute
+  '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/profile': typeof ProfileRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
@@ -75,7 +91,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/league': typeof LeagueRoute
+  '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/profile': typeof ProfileRoute
   '/brand/$brandId': typeof BrandBrandIdRoute
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
@@ -86,7 +104,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/league'
+    | '/login'
     | '/my-stak'
+    | '/profile'
     | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
@@ -95,7 +115,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/league'
+    | '/login'
     | '/my-stak'
+    | '/profile'
     | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
@@ -104,7 +126,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/league'
+    | '/login'
     | '/my-stak'
+    | '/profile'
     | '/brand/$brandId'
     | '/league_/lineup'
     | '/league_/performance'
@@ -114,7 +138,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LeagueRoute: typeof LeagueRoute
+  LoginRoute: typeof LoginRoute
   MyStakRoute: typeof MyStakRoute
+  ProfileRoute: typeof ProfileRoute
   BrandBrandIdRoute: typeof BrandBrandIdRoute
   LeagueLineupRoute: typeof LeagueLineupRoute
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
@@ -123,11 +149,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-stak': {
       id: '/my-stak'
       path: '/my-stak'
       fullPath: '/my-stak'
       preLoaderRoute: typeof MyStakRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/league': {
@@ -178,7 +218,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LeagueRoute: LeagueRoute,
+  LoginRoute: LoginRoute,
   MyStakRoute: MyStakRoute,
+  ProfileRoute: ProfileRoute,
   BrandBrandIdRoute: BrandBrandIdRoute,
   LeagueLineupRoute: LeagueLineupRoute,
   LeaguePerformanceRoute: LeaguePerformanceRoute,

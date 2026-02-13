@@ -1,2 +1,7 @@
 node_modules
 .vercel
+.vite
+dist
+.env
+*.env.local
+serviceAccountKey.json
