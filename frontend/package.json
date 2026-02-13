@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --port 3000",
     "start": "vite --port 3000",
-    "build": "vite build",
+    "build": "npm rebuild lightningcss --verbose && vite build",
     "serve": "vite preview",
     "test": "vitest run --config vitest.config.js test/template-tests/suites",
     "test:smoke": "vitest run --config vitest.config.js test/template-tests/smoke",
@@ -17,7 +17,7 @@
     "lint:mcp": "eslint src --config config/eslint/eslint.mcp.config.js",
     "lint:validate": "node config/eslint/validate-configs.js",
     "prepare": "",
-    "postinstall": "npm rebuild esbuild && npm rebuild lightningcss || true"
+    "postinstall": "npm rebuild lightningcss --build-from-source || true"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.0.0",
