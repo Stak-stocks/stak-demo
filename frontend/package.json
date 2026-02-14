@@ -16,8 +16,7 @@
     "lint:radix": "grep -l -r '<SelectItem' src | xargs eslint --config config/eslint/eslint.radix.config.js",
     "lint:mcp": "eslint src --config config/eslint/eslint.mcp.config.js",
     "lint:validate": "node config/eslint/validate-configs.js",
-    "prepare": "",
-    "postinstall": "npm rebuild lightningcss --build-from-source 2>/dev/null || true"
+    "prepare": ""
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.0.0",
