@@ -19,7 +19,11 @@ function SignUpPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			navigate({ to: "/" });
+			if (localStorage.getItem("onboardingCompleted") === "false") {
+				navigate({ to: "/onboarding" });
+			} else {
+				navigate({ to: "/" });
+			}
 		}
 	}, [user, loading, navigate]);
 
@@ -36,6 +40,7 @@ function SignUpPage() {
 		}
 		setSigningUp(true);
 		try {
+			localStorage.setItem("onboardingCompleted", "false");
 			await signUpWithEmail(email, password);
 			toast.success("Account created! Welcome to STAK!");
 		} catch (error: unknown) {
@@ -56,6 +61,7 @@ function SignUpPage() {
 	async function handleGoogleSignIn() {
 		setSigningUp(true);
 		try {
+			localStorage.setItem("onboardingCompleted", "false");
 			await signInWithGoogle();
 			toast.success("Welcome to STAK!");
 		} catch (error: unknown) {

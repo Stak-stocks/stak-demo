@@ -19,7 +19,11 @@ function LoginPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			navigate({ to: "/" });
+			if (localStorage.getItem("onboardingCompleted") === "false") {
+				navigate({ to: "/onboarding" });
+			} else {
+				navigate({ to: "/" });
+			}
 		}
 	}, [user, loading, navigate]);
 
@@ -46,8 +50,11 @@ function LoginPage() {
 	async function handleGoogleSignIn() {
 		setSigningIn(true);
 		try {
-			await signInWithGoogle();
-			toast.success("Welcome to STAK!");
+			const isNew = await signInWithGoogle();
+			if (isNew) {
+				localStorage.setItem("onboardingCompleted", "false");
+			}
+			toast.success(isNew ? "Welcome to STAK!" : "Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (!message.includes("popup-closed-by-user")) {

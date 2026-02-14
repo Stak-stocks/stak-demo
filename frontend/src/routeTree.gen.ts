@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MyStakRouteImport } from './routes/my-stak'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeagueRouteImport } from './routes/league'
@@ -35,6 +36,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyStakRoute = MyStakRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/league': typeof LeagueRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/league'
     | '/login'
     | '/my-stak'
+    | '/onboarding'
     | '/profile'
     | '/reset-password'
     | '/signup'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/league'
     | '/login'
     | '/my-stak'
+    | '/onboarding'
     | '/profile'
     | '/reset-password'
     | '/signup'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/league'
     | '/login'
     | '/my-stak'
+    | '/onboarding'
     | '/profile'
     | '/reset-password'
     | '/signup'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   LeagueRoute: typeof LeagueRoute
   LoginRoute: typeof LoginRoute
   MyStakRoute: typeof MyStakRoute
+  OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-stak': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeagueRoute: LeagueRoute,
   LoginRoute: LoginRoute,
   MyStakRoute: MyStakRoute,
+  OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,

@@ -16,11 +16,14 @@ function Root() {
 	const { user, loading, logout } = useAuth();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].includes(location.pathname);
+	const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 
 	useEffect(() => {
 		if (!loading && !user && !isAuthPage) {
 			navigate({ to: "/login" });
+		}
+		if (!loading && user && !isAuthPage && localStorage.getItem("onboardingCompleted") === "false") {
+			navigate({ to: "/onboarding" });
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
