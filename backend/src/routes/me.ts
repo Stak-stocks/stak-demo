@@ -35,7 +35,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, preferences } = req.body;
+		const { displayName, preferences, onboardingCompleted } = req.body;
 
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
@@ -43,6 +43,7 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 		if (displayName !== undefined) updates.displayName = displayName;
 		if (preferences !== undefined) updates.preferences = preferences;
+		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
 
@@ -51,5 +52,42 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	} catch (error) {
 		console.error("Error updating profile:", error);
 		res.status(500).json({ error: "Failed to update profile" });
+	}
+});
+
+// GET /api/me/stak — get user's saved brand IDs (requires auth)
+meRouter.get("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const doc = await adminDb.collection("users").doc(uid).get();
+		const data = doc.data();
+		const brandIds: string[] = data?.stakBrandIds ?? [];
+		res.json({ brandIds });
+	} catch (error) {
+		console.error("Error fetching stak:", error);
+		res.status(500).json({ error: "Failed to fetch stak" });
+	}
+});
+
+// PUT /api/me/stak — save user's brand IDs (requires auth)
+meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { brandIds } = req.body;
+
+		if (!Array.isArray(brandIds)) {
+			res.status(400).json({ error: "brandIds must be an array" });
+			return;
+		}
+
+		await adminDb.collection("users").doc(uid).set(
+			{ stakBrandIds: brandIds, updatedAt: new Date().toISOString() },
+			{ merge: true },
+		);
+
+		res.json({ brandIds });
+	} catch (error) {
+		console.error("Error saving stak:", error);
+		res.status(500).json({ error: "Failed to save stak" });
 	}
 });

@@ -18,7 +18,8 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { getProfile } from "../lib/api";
+import { getProfile, getStak } from "../lib/api";
+import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
 	user: User | null;
@@ -43,7 +44,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			setUser(firebaseUser);
 			setLoading(false);
 			if (firebaseUser) {
-				getProfile().catch(() => {});
+				// Sync profile + stak from backend (fire-and-forget)
+				getProfile()
+					.then((profile) => {
+						// Hydrate onboarding status from backend if available
+						if (profile.onboardingCompleted !== undefined) {
+							localStorage.setItem(
+								"onboardingCompleted",
+								profile.onboardingCompleted ? "true" : "false",
+							);
+						}
+					})
+					.catch(() => {});
+
+				getStak()
+					.then(({ brandIds }) => {
+						if (brandIds.length > 0) {
+							// Hydrate my-stak from backend brand IDs
+							const stakBrands = brandIds
+								.map((id) => allBrands.find((b) => b.id === id))
+								.filter(Boolean);
+							localStorage.setItem("my-stak", JSON.stringify(stakBrands));
+						}
+					})
+					.catch(() => {});
 			}
 		});
 		return unsubscribe;

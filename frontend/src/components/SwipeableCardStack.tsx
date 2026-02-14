@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "r
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
 import { Clock, Sparkles } from "lucide-react";
+import { recordSwipe } from "@/lib/api";
 
 const DAILY_LIMIT = 20;
 const RESET_HOUR = 9; // 9 AM
@@ -149,8 +150,11 @@ export function SwipeableCardStack({
 
 			setDragOffset({ x: exitDirection, y: dragOffset.y });
 
-			if (isRightSwipe && currentBrand && onSwipeRight) {
-				onSwipeRight(currentBrand);
+			if (currentBrand) {
+				if (isRightSwipe && onSwipeRight) {
+					onSwipeRight(currentBrand);
+				}
+				recordSwipe(currentBrand.id, isRightSwipe ? "right" : "left").catch(() => {});
 			}
 
 			// Track the swipe in daily state

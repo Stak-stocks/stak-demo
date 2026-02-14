@@ -6,6 +6,7 @@ import { BrandContextModal } from "@/components/BrandContextModal";
 import { SearchView } from "@/components/SearchView";
 import { Sparkles, Search, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { saveStak } from "@/lib/api";
 import {
 	Sheet,
 	SheetContent,
@@ -32,6 +33,7 @@ function App() {
 
 	useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
+		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
 	}, [swipedBrands]);
 
 	const handleLearnMore = (brand: BrandProfile) => {

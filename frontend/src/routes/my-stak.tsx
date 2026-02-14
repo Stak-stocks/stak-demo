@@ -6,6 +6,7 @@ import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
+import { saveStak } from "@/lib/api";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
@@ -36,6 +37,7 @@ function MyStakPage() {
 				});
 				const updated = [...prev, brand];
 				localStorage.setItem("my-stak", JSON.stringify(updated));
+				saveStak(updated.map((b) => b.id)).catch(() => {});
 				return updated;
 			}
 			return prev;
@@ -47,6 +49,7 @@ function MyStakPage() {
 		setSwipedBrands((prev) => {
 			const updated = prev.filter((b) => b.id !== brand.id);
 			localStorage.setItem("my-stak", JSON.stringify(updated));
+			saveStak(updated.map((b) => b.id)).catch(() => {});
 			return updated;
 		});
 		toast.success("Removed from your Stak", {

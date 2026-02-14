@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
-import { FloatingBrands } from "@/components/FloatingBrands";
+import { updateProfile, saveStak } from "@/lib/api";
 import { brands as allBrands } from "@/data/brands";
 import {
 	ACTIVITY_OPTIONS,
@@ -36,16 +36,70 @@ const BRAND_DOMAINS: Record<string, string> = {
 	dis: "disney.com",
 };
 
+// ─── Progress persistence ────────────────────────────────────────────────────
+
+interface OnboardingProgress {
+	step: number;
+	selectedActivities: string[];
+	swipedRight: string[];
+	selectedMotivations: string[];
+	selectedFamiliarity: string | null;
+}
+
+function loadProgress(): OnboardingProgress | null {
+	try {
+		const raw = localStorage.getItem("onboardingProgress");
+		if (!raw) return null;
+		return JSON.parse(raw) as OnboardingProgress;
+	} catch {
+		return null;
+	}
+}
+
+function saveProgress(progress: OnboardingProgress) {
+	localStorage.setItem("onboardingProgress", JSON.stringify(progress));
+}
+
+function clearProgress() {
+	localStorage.removeItem("onboardingProgress");
+}
+
+// ─── Back button ─────────────────────────────────────────────────────────────
+
+function BackButton({ onClick }: { onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="absolute top-8 left-6 z-20 p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+		>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+				<path d="M15 18l-6-6 6-6" />
+			</svg>
+		</button>
+	);
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
+
 function OnboardingPage() {
 	const { user, loading } = useAuth();
 	const navigate = useNavigate();
-	const [step, setStep] = useState(0);
 
-	// Step data
-	const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-	const [swipedRight, setSwipedRight] = useState<string[]>([]);
-	const [selectedMotivation, setSelectedMotivation] = useState<string | null>(null);
-	const [selectedFamiliarity, setSelectedFamiliarity] = useState<string | null>(null);
+	// Load saved progress or start fresh
+	const saved = loadProgress();
+	const [step, setStep] = useState(saved?.step ?? 0);
+	const [selectedActivities, setSelectedActivities] = useState<string[]>(saved?.selectedActivities ?? []);
+	const [swipedRight, setSwipedRight] = useState<string[]>(saved?.swipedRight ?? []);
+	const [selectedMotivations, setSelectedMotivations] = useState<string[]>(saved?.selectedMotivations ?? []);
+	const [selectedFamiliarity, setSelectedFamiliarity] = useState<string | null>(saved?.selectedFamiliarity ?? null);
+
+	// Save progress whenever state changes
+	useEffect(() => {
+		if (step < 5) {
+			saveProgress({ step, selectedActivities, swipedRight, selectedMotivations, selectedFamiliarity });
+		}
+	}, [step, selectedActivities, swipedRight, selectedMotivations, selectedFamiliarity]);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -61,8 +115,12 @@ function OnboardingPage() {
 		);
 	}
 
+	function goTo(nextStep: number) {
+		setStep(nextStep);
+	}
+
 	const steps = [
-		<WelcomeStep key="welcome" onNext={() => setStep(1)} />,
+		<WelcomeStep key="welcome" onNext={() => goTo(1)} />,
 		<ActivitiesStep
 			key="activities"
 			selected={selectedActivities}
@@ -71,24 +129,28 @@ function OnboardingPage() {
 					prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
 				)
 			}
-			onNext={() => setStep(2)}
+			onNext={() => goTo(2)}
 		/>,
 		<SwipeStep
 			key="swipe"
 			onSwipeRight={(id) => setSwipedRight((prev) => [...prev, id])}
-			onNext={() => setStep(3)}
+			onNext={() => goTo(3)}
 		/>,
 		<MotivationStep
 			key="motivation"
-			selected={selectedMotivation}
-			onSelect={setSelectedMotivation}
-			onNext={() => setStep(4)}
+			selected={selectedMotivations}
+			onToggle={(m) =>
+				setSelectedMotivations((prev) =>
+					prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
+				)
+			}
+			onNext={() => goTo(4)}
 		/>,
 		<FamiliarityStep
 			key="familiarity"
 			selected={selectedFamiliarity}
 			onSelect={setSelectedFamiliarity}
-			onNext={() => setStep(5)}
+			onNext={() => goTo(5)}
 		/>,
 		<BuildingStep
 			key="building"
@@ -100,7 +162,9 @@ function OnboardingPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			<FloatingBrands />
+			{/* Back button (not on welcome or building steps) */}
+			{step > 0 && step < 5 && <BackButton onClick={() => goTo(step - 1)} />}
+
 			{/* Progress dots */}
 			{step < 5 && (
 				<div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2">
@@ -414,18 +478,18 @@ function SwipeStep({
 
 function MotivationStep({
 	selected,
-	onSelect,
+	onToggle,
 	onNext,
 }: {
-	selected: string | null;
-	onSelect: (m: string) => void;
+	selected: string[];
+	onToggle: (m: string) => void;
 	onNext: () => void;
 }) {
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
 				<h1 className="text-2xl font-bold text-white">What brings you here?</h1>
-				<p className="text-slate-400 mt-1">This helps us personalize your experience</p>
+				<p className="text-slate-400 mt-1">Select all that apply</p>
 			</div>
 
 			<div className="space-y-3">
@@ -433,9 +497,9 @@ function MotivationStep({
 					<button
 						key={option}
 						type="button"
-						onClick={() => onSelect(option)}
+						onClick={() => onToggle(option)}
 						className={`w-full text-left py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${
-							selected === option
+							selected.includes(option)
 								? "bg-orange-500/20 border-orange-500 text-white"
 								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 						}`}
@@ -448,7 +512,7 @@ function MotivationStep({
 			<button
 				type="button"
 				onClick={onNext}
-				disabled={!selected}
+				disabled={selected.length === 0}
 				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
 				Continue
@@ -545,6 +609,11 @@ function BuildingStep({
 
 		localStorage.setItem("my-stak", JSON.stringify(merged));
 		localStorage.setItem("onboardingCompleted", "true");
+		clearProgress();
+
+		// Sync to backend (fire-and-forget)
+		updateProfile({ onboardingCompleted: true }).catch(() => {});
+		saveStak(merged.map((b: { id: string }) => b.id)).catch(() => {});
 
 		const timer = setTimeout(onDone, 2500);
 		return () => clearTimeout(timer);

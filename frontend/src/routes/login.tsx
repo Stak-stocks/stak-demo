@@ -7,8 +7,6 @@ export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
-import { FloatingBrands } from "@/components/FloatingBrands";
-
 function LoginPage() {
 	const { user, loading, signInWithGoogle, signInWithEmail } = useAuth();
 	const navigate = useNavigate();
@@ -74,7 +72,6 @@ function LoginPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Logo */}
