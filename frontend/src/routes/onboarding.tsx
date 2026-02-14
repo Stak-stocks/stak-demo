@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { updateProfile, saveStak } from "@/lib/api";
+import { FloatingBrands } from "@/components/FloatingBrands";
 import { brands as allBrands } from "@/data/brands";
 import {
 	ACTIVITY_OPTIONS,
@@ -38,30 +39,45 @@ const BRAND_DOMAINS: Record<string, string> = {
 
 // ─── Progress persistence ────────────────────────────────────────────────────
 
+const PROGRESS_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
 interface OnboardingProgress {
 	step: number;
 	selectedActivities: string[];
 	swipedRight: string[];
 	selectedMotivations: string[];
 	selectedFamiliarity: string | null;
+	lastUpdated: number;
 }
 
 function loadProgress(): OnboardingProgress | null {
 	try {
 		const raw = localStorage.getItem("onboardingProgress");
 		if (!raw) return null;
-		return JSON.parse(raw) as OnboardingProgress;
+		const progress = JSON.parse(raw) as OnboardingProgress;
+		// Expire progress older than 1 hour
+		if (progress.lastUpdated && Date.now() - progress.lastUpdated > PROGRESS_EXPIRY_MS) {
+			localStorage.removeItem("onboardingProgress");
+			updateProfile({ onboardingProgress: null }).catch(() => {});
+			return null;
+		}
+		return progress;
 	} catch {
 		return null;
 	}
 }
 
 function saveProgress(progress: OnboardingProgress) {
-	localStorage.setItem("onboardingProgress", JSON.stringify(progress));
+	const withTimestamp = { ...progress, lastUpdated: Date.now() };
+	localStorage.setItem("onboardingProgress", JSON.stringify(withTimestamp));
+	// Sync to backend for cross-device resume (fire-and-forget)
+	updateProfile({ onboardingProgress: withTimestamp }).catch(() => {});
 }
 
 function clearProgress() {
 	localStorage.removeItem("onboardingProgress");
+	// Clear from backend too
+	updateProfile({ onboardingProgress: null }).catch(() => {});
 }
 
 // ─── Back button ─────────────────────────────────────────────────────────────
@@ -162,6 +178,8 @@ function OnboardingPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+			<FloatingBrands />
+
 			{/* Back button (not on welcome or building steps) */}
 			{step > 0 && step < 5 && <BackButton onClick={() => goTo(step - 1)} />}
 

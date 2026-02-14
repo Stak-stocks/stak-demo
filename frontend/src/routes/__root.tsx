@@ -3,7 +3,6 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { FloatingBrands } from "@/components/FloatingBrands";
 import { Toaster } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -17,6 +16,7 @@ function Root() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
+
 
 	useEffect(() => {
 		if (!loading && !user && !isAuthPage) {
@@ -37,7 +37,7 @@ function Root() {
 
 	return (
 		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#121212] transition-colors duration-300 overflow-hidden">
-			{!isAuthPage && <FloatingBrands />}
+			{/* FloatingBrands rendered inside each auth page component directly */}
 			{!isAuthPage && <ThemeToggle />}
 			{!isAuthPage && user && (
 				<button

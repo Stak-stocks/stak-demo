@@ -35,7 +35,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, preferences, onboardingCompleted } = req.body;
+		const { displayName, preferences, onboardingCompleted, onboardingProgress } = req.body;
 
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
@@ -44,6 +44,7 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		if (displayName !== undefined) updates.displayName = displayName;
 		if (preferences !== undefined) updates.preferences = preferences;
 		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
+		if (onboardingProgress !== undefined) updates.onboardingProgress = onboardingProgress;
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
 

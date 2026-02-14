@@ -54,6 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 								profile.onboardingCompleted ? "true" : "false",
 							);
 						}
+						// Hydrate onboarding progress from backend (for cross-device resume)
+						if (profile.onboardingProgress && !profile.onboardingCompleted) {
+							const age = Date.now() - (profile.onboardingProgress.lastUpdated || 0);
+							if (age < 60 * 60 * 1000) {
+								localStorage.setItem(
+									"onboardingProgress",
+									JSON.stringify(profile.onboardingProgress),
+								);
+							}
+						}
 					})
 					.catch(() => {});
 

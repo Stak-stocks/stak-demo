@@ -36,11 +36,20 @@ async function apiRequest<T>(
 }
 
 // User profile
-export function getProfile() {
-	return apiRequest<{ uid: string; email: string; displayName: string; preferences: Record<string, unknown>; onboardingCompleted?: boolean }>("/api/me");
+export interface OnboardingProgress {
+	step: number;
+	selectedActivities: string[];
+	swipedRight: string[];
+	selectedMotivations: string[];
+	selectedFamiliarity: string | null;
+	lastUpdated: number;
 }
 
-export function updateProfile(data: { displayName?: string; preferences?: Record<string, unknown>; onboardingCompleted?: boolean }) {
+export function getProfile() {
+	return apiRequest<{ uid: string; email: string; displayName: string; preferences: Record<string, unknown>; onboardingCompleted?: boolean; onboardingProgress?: OnboardingProgress }>("/api/me");
+}
+
+export function updateProfile(data: { displayName?: string; preferences?: Record<string, unknown>; onboardingCompleted?: boolean; onboardingProgress?: OnboardingProgress | null }) {
 	return apiRequest("/api/me", {
 		method: "PUT",
 		body: JSON.stringify(data),
