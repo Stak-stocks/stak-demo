@@ -10,7 +10,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+const allowedOrigins = [
+	"http://localhost:3000",
+	"https://stak-demo.vercel.app",
+];
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 // Routes
@@ -24,5 +29,5 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-	console.log(`Backend running on http://localhost:${PORT}`);
+	console.log(`Backend running on port ${PORT}`);
 });

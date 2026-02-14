@@ -18,6 +18,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
+import { getProfile } from "../lib/api";
 
 interface AuthContextType {
 	user: User | null;
@@ -41,6 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
 			setUser(firebaseUser);
 			setLoading(false);
+			if (firebaseUser) {
+				getProfile().catch(() => {});
+			}
 		});
 		return unsubscribe;
 	}, []);
