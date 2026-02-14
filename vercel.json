@@ -2,8 +2,11 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
-  "buildCommand": "cd frontend && npm install --prefer-offline && npm run build",
-  "outputDirectory": "frontend/dist"
+  "buildCommand": "npm --prefix frontend install && npm --prefix frontend run build",
+  "outputDirectory": "frontend/dist",
+  "env": {
+    "NODE_OPTIONS": "--max-old-space-size=4096"
+  }
 }
 
 
