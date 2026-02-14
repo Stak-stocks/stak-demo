@@ -13,7 +13,7 @@ export function BottomNav() {
 	};
 
 	return (
-		<nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 z-40">
+		<nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0b1121]/95 backdrop-blur-lg border-t border-zinc-200 dark:border-slate-800/60 z-40">
 			<div className="max-w-7xl mx-auto px-4">
 				<div className="flex items-center justify-around h-16">
 					<Link

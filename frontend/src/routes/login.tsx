@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
+import { updateProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
@@ -52,6 +53,7 @@ function LoginPage() {
 			const isNew = await signInWithGoogle();
 			if (isNew) {
 				localStorage.setItem("onboardingCompleted", "false");
+				updateProfile({ onboardingCompleted: false }).catch(() => {});
 			}
 			toast.success(isNew ? "Welcome to STAK!" : "Welcome back!");
 		} catch (error: unknown) {

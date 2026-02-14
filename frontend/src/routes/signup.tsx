@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
+import { updateProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -42,6 +43,7 @@ function SignUpPage() {
 		try {
 			localStorage.setItem("onboardingCompleted", "false");
 			await signUpWithEmail(email, password);
+			updateProfile({ onboardingCompleted: false }).catch(() => {});
 			toast.success("Account created! Welcome to STAK!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
@@ -63,6 +65,7 @@ function SignUpPage() {
 		try {
 			localStorage.setItem("onboardingCompleted", "false");
 			await signInWithGoogle();
+			updateProfile({ onboardingCompleted: false }).catch(() => {});
 			toast.success("Welcome to STAK!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";

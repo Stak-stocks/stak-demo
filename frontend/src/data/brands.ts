@@ -24,6 +24,7 @@ export interface BrandProfile {
 	id: string;
 	ticker: string;
 	name: string;
+	domain?: string;
 	bio: string;
 	heroImage: string;
 	personalityDescription: string;
@@ -44,6 +45,34 @@ export interface BrandProfile {
 		dividendYield: FinancialMetric;
 	};
 	news: NewsArticle[];
+}
+
+const BRAND_DOMAINS: Record<string, string> = {
+	tsla: "tesla.com", aapl: "apple.com", nvda: "nvidia.com", rblx: "roblox.com",
+	meta: "meta.com", nke: "nike.com", sbux: "starbucks.com", spot: "spotify.com",
+	amzn: "amazon.com", nflx: "netflix.com", coin: "coinbase.com", msft: "microsoft.com",
+	googl: "google.com", dis: "disney.com", uber: "uber.com", shop: "shopify.com",
+	amd: "amd.com", spy: "ssga.com", qqq: "invesco.com", pypl: "paypal.com",
+	intc: "intel.com", ionq: "ionq.com", tsm: "tsmc.com", qcom: "qualcomm.com",
+	avgo: "broadcom.com", mu: "micron.com", asml: "asml.com", nee: "nexteraenergy.com",
+	enph: "enphase.com", fslr: "firstsolar.com", plug: "plugpower.com", xom: "exxonmobil.com",
+	cvx: "chevron.com", v: "visa.com", ma: "mastercard.com", sq: "squareup.com",
+	hood: "robinhood.com", sofi: "sofi.com", afrm: "affirm.com", txn: "ti.com",
+	nxpi: "nxp.com", mrvl: "marvell.com", wmt: "walmart.com", tgt: "target.com",
+	cost: "costco.com", hd: "homedepot.com", low: "lowes.com", mcd: "mcdonalds.com",
+	ko: "coca-cola.com", pep: "pepsico.com", pg: "pg.com", jnj: "jnj.com",
+	lmt: "lockheedmartin.com", ba: "boeing.com", unh: "unitedhealthgroup.com",
+	crm: "salesforce.com", adbe: "adobe.com", now: "servicenow.com", intu: "intuit.com",
+	amat: "appliedmaterials.com", abnb: "airbnb.com", lyft: "lyft.com", ddog: "datadoghq.com",
+	snow: "snowflake.com", mdb: "mongodb.com", panw: "paloaltonetworks.com",
+	crwd: "crowdstrike.com", zm: "zoom.us", pltr: "palantir.com", hon: "honeywell.com",
+	or: "loreal.com", el: "esteelauder.com", elf: "elfcosmetics.com", ulta: "ulta.com",
+	coty: "coty.com",
+};
+
+export function getBrandLogoUrl(brand: BrandProfile): string {
+	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
+	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
 
 export const brands: BrandProfile[] = [

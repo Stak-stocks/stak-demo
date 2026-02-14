@@ -46,13 +46,13 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	return (
 		<>
-			<div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 overflow-y-auto">
+			<div className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 overflow-y-auto">
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 					{/* Header */}
 					<div className="flex items-center gap-4 mb-8">
 						<button
 							onClick={onClose}
-							className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+							className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors"
 						>
 							<X className="w-6 h-6 text-zinc-900 dark:text-white" />
 						</button>
@@ -70,7 +70,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
 							autoFocus
-							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 						/>
 					</div>
 
