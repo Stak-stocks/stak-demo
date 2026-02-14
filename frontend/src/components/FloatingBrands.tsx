@@ -13,6 +13,14 @@ const floatingBrands = [
 	{ name: "Uber", logo: fl("uber.com"), x: 35, y: 85, size: 34, delay: 0.3 },
 	{ name: "Nvidia", logo: fl("nvidia.com"), x: 60, y: 88, size: 36, delay: 1.7 },
 	{ name: "Amazon", logo: fl("amazon.com"), x: 48, y: 5, size: 32, delay: 2 },
+	{ name: "Microsoft", logo: fl("microsoft.com"), x: 42, y: 35, size: 34, delay: 0.7 },
+	{ name: "Adidas", logo: fl("adidas.com"), x: 55, y: 60, size: 38, delay: 1.9 },
+	{ name: "Samsung", logo: fl("samsung.com"), x: 18, y: 55, size: 36, delay: 2.6 },
+	{ name: "Starbucks", logo: fl("starbucks.com"), x: 72, y: 42, size: 32, delay: 0.4 },
+	{ name: "PayPal", logo: fl("paypal.com"), x: 38, y: 18, size: 30, delay: 2.3 },
+	{ name: "Airbnb", logo: fl("airbnb.com"), x: 65, y: 70, size: 34, delay: 1.1 },
+	{ name: "Twitter", logo: fl("x.com"), x: 92, y: 40, size: 30, delay: 1.6 },
+	{ name: "Shopify", logo: fl("shopify.com"), x: 3, y: 30, size: 32, delay: 2.8 },
 ];
 
 export function FloatingBrands() {
