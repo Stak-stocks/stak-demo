@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --port 3000",
     "start": "vite --port 3000",
-    "build": "npm rebuild lightningcss --verbose && vite build",
+    "build": "vite build",
     "serve": "vite preview",
     "test": "vitest run --config vitest.config.js test/template-tests/suites",
     "test:smoke": "vitest run --config vitest.config.js test/template-tests/smoke",
@@ -16,8 +16,7 @@
     "lint:radix": "grep -l -r '<SelectItem' src | xargs eslint --config config/eslint/eslint.radix.config.js",
     "lint:mcp": "eslint src --config config/eslint/eslint.mcp.config.js",
     "lint:validate": "node config/eslint/validate-configs.js",
-    "prepare": "",
-    "postinstall": "npm rebuild lightningcss --build-from-source || true"
+    "prepare": ""
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.0.0",

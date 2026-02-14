@@ -1,5 +1,9 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
-  ]
+  ],
+  "buildCommand": "cd frontend && npm install --prefer-offline && npm run build",
+  "outputDirectory": "frontend/dist"
 }
+
+
