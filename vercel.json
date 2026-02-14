@@ -2,12 +2,8 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
-  "installCommand": "npm install && npm --prefix frontend rebuild lightningcss --build-from-source",
   "buildCommand": "npm --prefix frontend run build",
-  "outputDirectory": "frontend/dist",
-  "env": {
-    "NODE_OPTIONS": "--max-old-space-size=4096"
-  }
+  "outputDirectory": "frontend/dist"
 }
 
 
