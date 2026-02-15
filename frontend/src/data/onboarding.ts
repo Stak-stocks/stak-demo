@@ -1,4 +1,4 @@
-export interface ActivityOption {
+export interface InterestOption {
 	id: string;
 	label: string;
 	emoji: string;
@@ -7,15 +7,14 @@ export interface ActivityOption {
 export interface FamiliarityOption {
 	id: string;
 	label: string;
-	description: string;
 }
 
-export const ACTIVITY_OPTIONS: ActivityOption[] = [
+export const INTEREST_OPTIONS: InterestOption[] = [
 	{ id: "gaming", label: "Gaming", emoji: "🎮" },
 	{ id: "streaming", label: "Streaming", emoji: "📺" },
-	{ id: "fashion", label: "Fashion", emoji: "👟" },
+	{ id: "fashion", label: "Fashion", emoji: "👗" },
 	{ id: "tech", label: "Tech", emoji: "💻" },
-	{ id: "food", label: "Food & Drink", emoji: "☕" },
+	{ id: "food_drink", label: "Food & Drink", emoji: "🍔" },
 	{ id: "travel", label: "Travel", emoji: "✈️" },
 	{ id: "fitness", label: "Fitness", emoji: "💪" },
 	{ id: "finance", label: "Finance", emoji: "💳" },
@@ -26,32 +25,33 @@ export const ACTIVITY_OPTIONS: ActivityOption[] = [
 ];
 
 export const MOTIVATION_OPTIONS = [
-	"Learn about investing",
-	"Track brands I love",
-	"Compete with friends",
-	"Build a portfolio",
+	{ id: "learn", label: "I want to learn about stocks", color: "bg-red-500", icon: "👤" },
+	{ id: "invest", label: "I want to start investing", color: "bg-green-500", icon: "👤" },
+	{ id: "insights", label: "I already invest but want better insights", color: "bg-teal-500", icon: "👤" },
+	{ id: "curious", label: "Just curious", color: "bg-slate-600", icon: "💭" },
 ];
 
 export const FAMILIARITY_OPTIONS: FamiliarityOption[] = [
-	{ id: "beginner", label: "Beginner", description: "I'm new to investing and want to learn" },
-	{ id: "intermediate", label: "Intermediate", description: "I know the basics and have some experience" },
-	{ id: "advanced", label: "Advanced", description: "I actively invest and follow the markets" },
+	{ id: "new", label: "Completely new" },
+	{ id: "little", label: "Know a little" },
+	{ id: "some", label: "Some experience" },
+	{ id: "experienced", label: "Experienced investor" },
 ];
 
-// Maps activity selections to brand IDs from brands.ts
-export const ACTIVITY_TO_BRANDS: Record<string, string[]> = {
-	gaming: ["rblx", "nvda", "msft", "amd", "aapl"],
-	streaming: ["nflx", "spot", "dis", "amzn", "googl"],
+// Maps interest selections to brand IDs from brands.ts
+export const INTEREST_TO_BRANDS: Record<string, string[]> = {
+	gaming: ["msft", "sony", "nflx", "aapl"],
+	streaming: ["nflx", "dis", "spot", "googl"],
 	fashion: ["nke", "ulta", "elf", "coty"],
-	tech: ["aapl", "msft", "googl", "meta", "nvda", "tsla"],
-	food: ["sbux", "mcd", "ko", "pep", "cost"],
-	travel: ["abnb", "uber", "lyft", "ba"],
+	tech: ["aapl", "msft", "googl", "tsla"],
+	food_drink: ["sbux", "ko", "pep", "cost"],
+	travel: ["uber", "lyft", "amzn"],
 	fitness: ["nke", "aapl", "ulta"],
-	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "coin"],
-	beauty: ["ulta", "elf", "coty", "el", "or"],
-	music: ["spot", "aapl", "amzn", "googl"],
-	shopping: ["amzn", "shop", "wmt", "tgt", "cost", "hd"],
-	energy: ["nee", "enph", "fslr", "xom", "cvx", "plug"],
+	finance: ["aapl", "msft", "googl"],
+	beauty: ["ulta", "elf", "coty"],
+	music: ["spot", "aapl", "googl"],
+	shopping: ["amzn", "shop", "wmt", "tgt"],
+	energy: ["tsla", "aapl"],
 };
 
 // Curated popular brands for the swipe step

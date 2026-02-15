@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
-import { SearchView } from "@/components/SearchView";
-import { Search, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { saveStak } from "@/lib/api";
 import {
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/")({
 function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
-	const [searchOpen, setSearchOpen] = useState(false);
+
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
@@ -92,23 +91,7 @@ function App() {
 
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
-			<button
-				onClick={() => setSearchOpen(true)}
-				className="fixed top-4 left-4 z-50 p-2 rounded-full bg-[#0f1629]/80 hover:bg-[#162036] border border-slate-700/50 text-slate-400 hover:text-white transition-colors"
-			>
-				<Search className="w-5 h-5" />
-			</button>
-
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-				<header className="text-center mb-6">
-					<h1 className="text-2xl sm:text-3xl font-extrabold tracking-wider bg-gradient-to-r from-[#7BA4F7] via-[#A78BDB] to-[#C97BB2] bg-clip-text text-transparent">
-						STAK
-					</h1>
-					<p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-						Swipe right to vibe, left to pass
-					</p>
-				</header>
-
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 				<SwipeableCardStack
 					brands={brands.filter(
 						(brand) => !swipedBrands.some((b) => b.id === brand.id)
@@ -116,17 +99,7 @@ function App() {
 					onLearnMore={handleLearnMore}
 					onSwipeRight={handleSwipeRight}
 				/>
-
-				<footer className="mt-12 sm:mt-10 text-center text-slate-600 dark:text-slate-500 text-xs">
-					<p>Not financial advice. Just vibes and context.</p>
-				</footer>
 			</div>
-
-			<SearchView
-				open={searchOpen}
-				onClose={() => setSearchOpen(false)}
-				onSwipeRight={handleSwipeRight}
-			/>
 
 			<BrandContextModal
 				brand={selectedBrand}

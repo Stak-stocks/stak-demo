@@ -1,24 +1,37 @@
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
 import { VibeSliders } from "@/components/VibeSliders";
-import { Sparkles } from "lucide-react";
 
 interface StockCardProps {
 	brand: BrandProfile;
 	onLearnMore: (brand: BrandProfile) => void;
 	priority?: boolean;
+	isTopCard?: boolean;
 }
 
-export function StockCard({ brand, onLearnMore, priority = false }: StockCardProps) {
+export function StockCard({ brand, onLearnMore, priority = false, isTopCard = false }: StockCardProps) {
 	return (
-		<div
-			className="overflow-hidden rounded-2xl"
-			style={{
-				background: "linear-gradient(145deg, #1a1f2e 0%, #0f1320 100%)",
-				border: "1px solid rgba(0, 200, 255, 0.15)",
-				boxShadow: "0 0 20px rgba(0, 200, 255, 0.08), 0 0 60px rgba(0, 200, 255, 0.04)",
-			}}
-		>
+		<div className="relative rounded-2xl p-[2px] overflow-hidden">
+			{/* Animated rotating gradient border */}
+			<div
+				className="absolute inset-[-50%] animate-[spin_4s_linear_infinite]"
+				style={{
+					background: "conic-gradient(from 0deg, #00c8ff, #7850ff, #c832c8, #ff6432, #00c8ff)",
+				}}
+			/>
+			{/* Glow effect behind the card */}
+			<div
+				className="absolute inset-0 rounded-2xl"
+				style={{
+					boxShadow: "0 0 20px rgba(0,200,255,0.4), 0 0 40px rgba(120,80,255,0.2), 0 0 60px rgba(200,50,200,0.15)",
+				}}
+			/>
+			<div
+				className="relative overflow-hidden rounded-2xl"
+				style={{
+					background: "linear-gradient(145deg, #1a1f2e 0%, #0f1320 100%)",
+				}}
+			>
 			{/* Hero image with brand logo */}
 			<div className="relative h-36 sm:h-48 overflow-hidden">
 				<img
@@ -62,31 +75,42 @@ export function StockCard({ brand, onLearnMore, priority = false }: StockCardPro
 				</div>
 
 				{/* Vibe sliders */}
-				<VibeSliders vibes={brand.vibes} />
+				<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
 
-				{/* CTA button with neon gradient border */}
-				<div
-					className="rounded-xl p-[1px] transition-all hover:scale-[1.02] active:scale-[0.98]"
-					style={{
-						background: "linear-gradient(135deg, rgba(0,200,255,0.6), rgba(168,85,247,0.4), rgba(255,100,50,0.6))",
-						boxShadow: "0 0 12px rgba(0, 200, 255, 0.15), 0 0 12px rgba(255, 100, 50, 0.15)",
-					}}
-				>
+				{/* CTA button with animated rotating neon glow */}
+				<div className="relative rounded-xl p-[2px] overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98]">
+					<div
+						className="absolute inset-[-50%] animate-[spin_4s_linear_infinite]"
+						style={{
+							background: "conic-gradient(from 0deg, #00c8ff, #7850ff, #c832c8, #ff6432, #00c8ff)",
+						}}
+					/>
+					<div
+						className="absolute inset-0 rounded-xl"
+						style={{
+							boxShadow: "0 0 20px rgba(0,200,255,0.5), 0 0 40px rgba(120,80,255,0.3), 0 0 60px rgba(200,50,200,0.2)",
+						}}
+					/>
 					<button
 						onClick={() => onLearnMore(brand)}
-						className="w-full group rounded-xl px-4 py-3 text-center"
+						className="relative w-full group rounded-xl px-4 py-3 text-center"
 						style={{
 							background: "linear-gradient(135deg, #141828 0%, #0f1320 100%)",
 						}}
 					>
-						<div className="flex items-center justify-center gap-2">
-							<span className="text-white font-semibold text-sm">
+						<div className="flex items-center justify-center gap-3">
+							<span className="text-white font-bold text-base">
 								Why do people care...
 							</span>
-							<Sparkles className="w-4 h-4 text-orange-400 group-hover:rotate-12 transition-transform" />
+							<svg className="w-7 h-7 group-hover:rotate-12 transition-transform flex-shrink-0" viewBox="0 0 24 24" fill="none" style={{ filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8)) drop-shadow(0 0 12px rgba(255,215,0,0.4))" }}>
+								<path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" fill="#FFD700" stroke="#FFD700" strokeWidth="0.5" />
+								<path d="M19 11l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" fill="#FFD700" opacity="0.85" />
+								<path d="M6 15l.7 2.1 2.3.7-2.3.7L6 20.6l-.7-2.1-2.3-.7 2.3-.7L6 15z" fill="#FFD700" opacity="0.65" />
+							</svg>
 						</div>
 					</button>
 				</div>
+			</div>
 			</div>
 		</div>
 	);

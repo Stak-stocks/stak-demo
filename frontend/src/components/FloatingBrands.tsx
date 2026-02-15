@@ -1,58 +1,127 @@
 const fl = (d: string) => `https://www.google.com/s2/favicons?domain=${d}&sz=128`;
 
+// Seeded pseudo-random for deterministic values per icon
+function seededRandom(seed: number) {
+	let s = seed;
+	return () => {
+		s = (s * 16807 + 0) % 2147483647;
+		return (s - 1) / 2147483646;
+	};
+}
+
+function randRange(rng: () => number, min: number, max: number) {
+	return min + rng() * (max - min);
+}
+
 const floatingBrands = [
-	{ name: "Nike", logo: fl("nike.com"), x: 8, y: 12, size: 44, delay: 0 },
-	{ name: "Spotify", logo: fl("spotify.com"), x: 25, y: 6, size: 38, delay: 1.2 },
-	{ name: "Tesla", logo: fl("tesla.com"), x: 78, y: 8, size: 42, delay: 0.5 },
-	{ name: "Apple", logo: fl("apple.com"), x: 90, y: 20, size: 36, delay: 1.8 },
-	{ name: "Meta", logo: fl("meta.com"), x: 5, y: 45, size: 34, delay: 2.1 },
-	{ name: "Netflix", logo: fl("netflix.com"), x: 88, y: 55, size: 40, delay: 0.8 },
-	{ name: "Google", logo: fl("google.com"), x: 15, y: 75, size: 36, delay: 1.5 },
-	{ name: "Disney", logo: fl("disney.com"), x: 82, y: 78, size: 38, delay: 2.4 },
-	{ name: "AMD", logo: fl("amd.com"), x: 70, y: 15, size: 32, delay: 1 },
-	{ name: "Uber", logo: fl("uber.com"), x: 35, y: 85, size: 34, delay: 0.3 },
-	{ name: "Nvidia", logo: fl("nvidia.com"), x: 60, y: 88, size: 36, delay: 1.7 },
-	{ name: "Amazon", logo: fl("amazon.com"), x: 48, y: 5, size: 32, delay: 2 },
-	{ name: "Microsoft", logo: fl("microsoft.com"), x: 42, y: 35, size: 34, delay: 0.7 },
-	{ name: "Adidas", logo: fl("adidas.com"), x: 55, y: 60, size: 38, delay: 1.9 },
-	{ name: "Samsung", logo: fl("samsung.com"), x: 18, y: 55, size: 36, delay: 2.6 },
-	{ name: "Starbucks", logo: fl("starbucks.com"), x: 72, y: 42, size: 32, delay: 0.4 },
-	{ name: "PayPal", logo: fl("paypal.com"), x: 38, y: 18, size: 30, delay: 2.3 },
-	{ name: "Airbnb", logo: fl("airbnb.com"), x: 65, y: 70, size: 34, delay: 1.1 },
-	{ name: "Twitter", logo: fl("x.com"), x: 92, y: 40, size: 30, delay: 1.6 },
-	{ name: "Shopify", logo: fl("shopify.com"), x: 3, y: 30, size: 32, delay: 2.8 },
+	// Original 20
+	{ name: "Nike", logo: fl("nike.com"), size: 64, delay: 0 },
+	{ name: "Spotify", logo: fl("spotify.com"), size: 56, delay: 1.2 },
+	{ name: "Tesla", logo: fl("tesla.com"), size: 62, delay: 0.5 },
+	{ name: "Apple", logo: fl("apple.com"), size: 58, delay: 1.8 },
+	{ name: "Meta", logo: fl("meta.com"), size: 52, delay: 2.1 },
+	{ name: "Netflix", logo: fl("netflix.com"), size: 60, delay: 0.8 },
+	{ name: "Google", logo: fl("google.com"), size: 56, delay: 1.5 },
+	{ name: "Disney", logo: fl("disney.com"), size: 58, delay: 2.4 },
+	{ name: "AMD", logo: fl("amd.com"), size: 50, delay: 1 },
+	{ name: "Uber", logo: fl("uber.com"), size: 52, delay: 0.3 },
+	{ name: "Nvidia", logo: fl("nvidia.com"), size: 56, delay: 1.7 },
+	{ name: "Amazon", logo: fl("amazon.com"), size: 50, delay: 2 },
+	{ name: "Microsoft", logo: fl("microsoft.com"), size: 54, delay: 0.7 },
+	{ name: "Adidas", logo: fl("adidas.com"), size: 58, delay: 1.9 },
+	{ name: "Samsung", logo: fl("samsung.com"), size: 54, delay: 2.6 },
+	{ name: "Starbucks", logo: fl("starbucks.com"), size: 50, delay: 0.4 },
+	{ name: "PayPal", logo: fl("paypal.com"), size: 48, delay: 2.3 },
+	{ name: "Airbnb", logo: fl("airbnb.com"), size: 52, delay: 1.1 },
+	{ name: "Twitter", logo: fl("x.com"), size: 48, delay: 1.6 },
+	{ name: "Shopify", logo: fl("shopify.com"), size: 50, delay: 2.8 },
+	// Additional brands
+	{ name: "Coca-Cola", logo: fl("coca-cola.com"), size: 54, delay: 0.2 },
+	{ name: "Intel", logo: fl("intel.com"), size: 52, delay: 1.3 },
+	{ name: "Oracle", logo: fl("oracle.com"), size: 50, delay: 0.9 },
+	{ name: "Visa", logo: fl("visa.com"), size: 56, delay: 2.2 },
+	{ name: "Mastercard", logo: fl("mastercard.com"), size: 54, delay: 1.4 },
+	{ name: "LinkedIn", logo: fl("linkedin.com"), size: 52, delay: 0.6 },
+	{ name: "Snapchat", logo: fl("snapchat.com"), size: 50, delay: 2.5 },
+	{ name: "Reddit", logo: fl("reddit.com"), size: 54, delay: 1.0 },
+	{ name: "Pinterest", logo: fl("pinterest.com"), size: 48, delay: 1.8 },
+	{ name: "Slack", logo: fl("slack.com"), size: 52, delay: 0.7 },
+	{ name: "Zoom", logo: fl("zoom.us"), size: 50, delay: 2.0 },
+	{ name: "Dropbox", logo: fl("dropbox.com"), size: 48, delay: 1.1 },
+	{ name: "TikTok", logo: fl("tiktok.com"), size: 56, delay: 0.4 },
+	{ name: "Sony", logo: fl("sony.com"), size: 54, delay: 2.7 },
+	{ name: "Honda", logo: fl("honda.com"), size: 52, delay: 1.6 },
+	{ name: "BMW", logo: fl("bmw.com"), size: 58, delay: 0.8 },
+	{ name: "Porsche", logo: fl("porsche.com"), size: 54, delay: 2.3 },
+	{ name: "Gucci", logo: fl("gucci.com"), size: 50, delay: 1.5 },
+	{ name: "Louis Vuitton", logo: fl("louisvuitton.com"), size: 52, delay: 0.3 },
+	{ name: "Rolex", logo: fl("rolex.com"), size: 56, delay: 2.1 },
 ];
+
+// Pre-compute unique wandering paths for each brand
+const brandAnimations = floatingBrands.map((_, i) => {
+	const rng = seededRandom((i + 1) * 7919);
+
+	// Allow positions to go slightly off-screen (-8 to 95)
+	const startX = randRange(rng, -8, 95);
+	const startY = randRange(rng, -8, 95);
+
+	const duration = randRange(rng, 20, 40);
+
+	// Waypoints can bleed off edges
+	const waypoints = Array.from({ length: 5 }, () => ({
+		x: randRange(rng, -10, 98),
+		y: randRange(rng, -10, 98),
+		rot: randRange(rng, -12, 12),
+		scale: randRange(rng, 0.9, 1.1),
+	}));
+
+	return { startX, startY, duration, waypoints };
+});
+
+// Generate keyframes using viewport positions (vw/vh)
+const keyframesCSS = brandAnimations
+	.map((anim, i) => {
+		const [w1, w2, w3, w4, w5] = anim.waypoints;
+		return `@keyframes drift-${i} {
+  0% { left: ${anim.startX.toFixed(1)}vw; top: ${anim.startY.toFixed(1)}vh; transform: rotate(0deg) scale(1); }
+  20% { left: ${w1.x.toFixed(1)}vw; top: ${w1.y.toFixed(1)}vh; transform: rotate(${w1.rot.toFixed(1)}deg) scale(${w1.scale.toFixed(2)}); }
+  40% { left: ${w2.x.toFixed(1)}vw; top: ${w2.y.toFixed(1)}vh; transform: rotate(${w2.rot.toFixed(1)}deg) scale(${w2.scale.toFixed(2)}); }
+  60% { left: ${w3.x.toFixed(1)}vw; top: ${w3.y.toFixed(1)}vh; transform: rotate(${w3.rot.toFixed(1)}deg) scale(${w3.scale.toFixed(2)}); }
+  80% { left: ${w4.x.toFixed(1)}vw; top: ${w4.y.toFixed(1)}vh; transform: rotate(${w4.rot.toFixed(1)}deg) scale(${w4.scale.toFixed(2)}); }
+  100% { left: ${w5.x.toFixed(1)}vw; top: ${w5.y.toFixed(1)}vh; transform: rotate(${w5.rot.toFixed(1)}deg) scale(${w5.scale.toFixed(2)}); }
+}`;
+	})
+	.join("\n");
 
 export function FloatingBrands() {
 	return (
 		<>
-			{floatingBrands.map((brand) => (
-				<div
-					key={brand.name}
-					className="absolute rounded-2xl opacity-[0.07] dark:opacity-20 overflow-hidden pointer-events-none bg-black/5 dark:bg-white/10 p-1.5"
-					style={{
-						left: `${brand.x}%`,
-						top: `${brand.y}%`,
-						width: brand.size,
-						height: brand.size,
-						animation: `float ${6 + brand.delay}s ease-in-out infinite`,
-						animationDelay: `${brand.delay}s`,
-					}}
-				>
-					<img
-						src={brand.logo}
-						alt={brand.name}
-						className="w-full h-full object-contain rounded-lg"
-						loading="lazy"
-					/>
-				</div>
-			))}
-			<style>{`
-				@keyframes float {
-					0%, 100% { transform: translateY(0px); }
-					50% { transform: translateY(-12px); }
-				}
-			`}</style>
+			{floatingBrands.map((brand, i) => {
+				const anim = brandAnimations[i];
+				return (
+					<div
+						key={brand.name}
+						className="absolute opacity-[0.45] pointer-events-none"
+						style={{
+							left: `${anim.startX}vw`,
+							top: `${anim.startY}vh`,
+							width: brand.size,
+							height: brand.size,
+							animation: `drift-${i} ${anim.duration.toFixed(1)}s ease-in-out infinite alternate`,
+							animationDelay: `${brand.delay}s`,
+						}}
+					>
+						<img
+							src={brand.logo}
+							alt={brand.name}
+							className="w-full h-full object-contain rounded-lg"
+							loading="lazy"
+						/>
+					</div>
+				);
+			})}
+			<style>{keyframesCSS}</style>
 		</>
 	);
 }

@@ -264,8 +264,8 @@ export function SwipeableCardStack({
 					// Make stacked cards much smaller and less visible
 					const scale = index === 0 ? 1 : 0.92 - index * 0.04;
 					const yOffset = index * 12;
-					// Heavily reduce opacity for stacked cards so only top card is readable
-					const opacity = index === 0 ? 1 : 0.15;
+					// Stacked cards visible behind with glow border showing
+					const opacity = index === 0 ? 1 : 0.4;
 
 					const rotation = isTopCard ? dragOffset.x * 0.03 : 0;
 					const translateX = isTopCard ? dragOffset.x : 0;
@@ -318,7 +318,7 @@ export function SwipeableCardStack({
 								/>
 							)}
 							<div onClick={() => isTopCard && handleCardClick(brand)}>
-								<StockCard brand={brand} onLearnMore={() => {}} priority={isTopCard} />
+								<StockCard brand={brand} onLearnMore={() => {}} priority={isTopCard} isTopCard={isTopCard} />
 							</div>
 						</div>
 					);

@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "react";
+import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { updateProfile, saveStak } from "@/lib/api";
-import { FloatingBrands } from "@/components/FloatingBrands";
+
 import {
-	ACTIVITY_OPTIONS,
+	INTEREST_OPTIONS,
 	MOTIVATION_OPTIONS,
 	FAMILIARITY_OPTIONS,
 	ONBOARDING_SWIPE_BRAND_IDS,
+	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
 import { brands as allBrands } from "@/data/brands";
 
@@ -36,6 +37,15 @@ const BRAND_DOMAINS: Record<string, string> = {
 	dis: "disney.com",
 };
 
+// Brand colors for the building step fan cards
+const BRAND_COLORS: Record<string, string> = {
+	nflx: "#E50914",
+	aapl: "#1a1a2e",
+	spot: "#1DB954",
+	amzn: "#FF9900",
+	dis: "#0078D7",
+};
+
 function clearProgress() {
 	localStorage.removeItem("onboardingProgress");
 }
@@ -62,7 +72,7 @@ function OnboardingPage() {
 	const { user, loading } = useAuth();
 	const navigate = useNavigate();
 
-	const [step, setStep] = useState(0);
+	const [step, setStep] = useState(1);
 	const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 	const [swipedRight, setSwipedRight] = useState<string[]>([]);
 	const [selectedMotivations, setSelectedMotivations] = useState<string[]>([]);
@@ -88,8 +98,8 @@ function OnboardingPage() {
 
 	const steps = [
 		<WelcomeStep key="welcome" onNext={() => goTo(1)} />,
-		<ActivitiesStep
-			key="activities"
+		<InterestsStep
+			key="interests"
 			selected={selectedActivities}
 			onToggle={(id) =>
 				setSelectedActivities((prev) =>
@@ -121,21 +131,21 @@ function OnboardingPage() {
 		/>,
 		<BuildingStep
 			key="building"
+			selectedInterests={selectedActivities}
+			swipedBrandIds={swipedRight}
 			onDone={() => navigate({ to: "/" })}
 		/>,
 	];
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			<FloatingBrands />
-
-			{/* Back button (not on welcome or building steps) */}
-			{step > 0 && step < 5 && <BackButton onClick={() => goTo(step - 1)} />}
+			{/* Back button (not on first or building steps) */}
+			{step > 1 && step < 5 && <BackButton onClick={() => goTo(step - 1)} />}
 
 			{/* Progress dots */}
 			{step < 5 && (
 				<div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2">
-					{[0, 1, 2, 3, 4].map((i) => (
+					{[1, 2, 3, 4].map((i) => (
 						<div
 							key={i}
 							className={`w-2 h-2 rounded-full transition-all duration-300 ${
@@ -184,7 +194,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 			<div>
 				<h1 className="text-3xl font-bold text-white">Welcome to STAK</h1>
 				<p className="text-slate-400 mt-3 text-lg">
-					Discover brands you love. Build your portfolio. Compete with friends.
+					Discover stocks through brands you already know
 				</p>
 			</div>
 
@@ -193,7 +203,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 				onClick={onNext}
 				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 			>
-				Let's get started
+				Get Started ►
 			</button>
 		</div>
 	);
@@ -201,7 +211,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 
 // ─── Step 2: Activities ─────────────────────────────────────────────────────────
 
-function ActivitiesStep({
+function InterestsStep({
 	selected,
 	onToggle,
 	onNext,
@@ -218,19 +228,19 @@ function ActivitiesStep({
 			</div>
 
 			<div className="grid grid-cols-3 gap-3">
-				{ACTIVITY_OPTIONS.map((activity) => (
+				{INTEREST_OPTIONS.map((interest) => (
 					<button
-						key={activity.id}
+						key={interest.id}
 						type="button"
-						onClick={() => onToggle(activity.id)}
-						className={`flex flex-col items-center gap-1.5 py-4 px-2 rounded-xl border transition-all active:scale-95 ${
-							selected.includes(activity.id)
+						onClick={() => onToggle(interest.id)}
+						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${
+							selected.includes(interest.id)
 								? "bg-orange-500/20 border-orange-500 text-white"
 								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 						}`}
 					>
-						<span className="text-2xl">{activity.emoji}</span>
-						<span className="text-xs font-medium">{activity.label}</span>
+						<span className="text-2xl">{interest.emoji}</span>
+						<span className="text-xs font-medium">{interest.label}</span>
 					</button>
 				))}
 			</div>
@@ -323,9 +333,9 @@ function SwipeStep({
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
 				<h1 className="text-2xl font-bold text-white">Swipe to discover</h1>
-				<p className="text-slate-400 mt-1">
-					Swipe right on brands you like, left to skip
-				</p>
+				{!done && (
+					<p className="text-slate-400 text-sm mt-1">Swipe right on brands you like, left to skip</p>
+				)}
 			</div>
 
 			<div className="relative w-full h-[320px]">
@@ -459,23 +469,23 @@ function MotivationStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">What brings you here?</h1>
-				<p className="text-slate-400 mt-1">Select all that apply</p>
+				<h1 className="text-2xl font-bold text-white">What brings you to STAK?</h1>
 			</div>
 
 			<div className="space-y-3">
 				{MOTIVATION_OPTIONS.map((option) => (
 					<button
-						key={option}
+						key={option.id}
 						type="button"
-						onClick={() => onToggle(option)}
-						className={`w-full text-left py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${
-							selected.includes(option)
-								? "bg-orange-500/20 border-orange-500 text-white"
-								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
+						onClick={() => onToggle(option.id)}
+						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${
+							selected.includes(option.id)
+								? `${option.color} text-white border border-transparent`
+								: `${option.color}/20 text-white border border-slate-700 hover:border-slate-500`
 						}`}
 					>
-						{option}
+						<span className="text-lg">{option.icon}</span>
+						<span className="font-medium">{option.label}</span>
 					</button>
 				))}
 			</div>
@@ -486,7 +496,7 @@ function MotivationStep({
 				disabled={selected.length === 0}
 				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
-				Continue
+				Next
 			</button>
 		</div>
 	);
@@ -506,8 +516,7 @@ function FamiliarityStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">How familiar are you with investing?</h1>
-				<p className="text-slate-400 mt-1">No wrong answers here</p>
+				<h1 className="text-2xl font-bold text-white">How familiar are you with stocks?</h1>
 			</div>
 
 			<div className="space-y-3">
@@ -516,14 +525,13 @@ function FamiliarityStep({
 						key={option.id}
 						type="button"
 						onClick={() => onSelect(option.id)}
-						className={`w-full text-left py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${
+						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${
 							selected === option.id
 								? "bg-orange-500/20 border-orange-500 text-white"
 								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 						}`}
 					>
 						<p className="font-semibold">{option.label}</p>
-						<p className="text-sm text-slate-400 mt-0.5">{option.description}</p>
 					</button>
 				))}
 			</div>
@@ -543,10 +551,34 @@ function FamiliarityStep({
 // ─── Step 6: Building ───────────────────────────────────────────────────────────
 
 function BuildingStep({
+	selectedInterests,
+	swipedBrandIds,
 	onDone,
 }: {
+	selectedInterests: string[];
+	swipedBrandIds: string[];
 	onDone: () => void;
 }) {
+	// Derive brands from user selections: interests → brand IDs, plus swiped brands
+	const userBrandIds = useMemo(() => {
+		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
+		const combined = [...swipedBrandIds, ...fromInterests];
+		// Deduplicate while preserving order
+		const unique = [...new Set(combined)];
+		// Only keep brands that exist in our data
+		return unique.filter((id) => allBrands.some((b) => b.id === id)).slice(0, 4);
+	}, [selectedInterests, swipedBrandIds]);
+
+	// Fallback if user somehow has no selections
+	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).map((id) => {
+		const brand = allBrands.find((b) => b.id === id)!;
+		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6" };
+	});
+
+	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
+	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
+	const shuffleCount = useRef(0);
+
 	useEffect(() => {
 		// Start with an empty stak — users add stocks from Discover
 		localStorage.setItem("my-stak", JSON.stringify([]));
@@ -557,47 +589,109 @@ function BuildingStep({
 		updateProfile({ onboardingCompleted: true }).catch(() => {});
 		saveStak([]).catch(() => {});
 
-		const timer = setTimeout(onDone, 2500);
-		return () => clearTimeout(timer);
-	}, [onDone]);
+		// Cards enter, then start shuffling
+		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
+		return () => clearTimeout(enterTimer);
+	}, []);
+
+	// Revolving logic — rotate positions around the orbit
+	useEffect(() => {
+		if (phase !== "shuffle") return;
+
+		const interval = setInterval(() => {
+			shuffleCount.current += 1;
+			setOrder((prev) => {
+				// Rotate all positions by 1 step around the orbit
+				const next = prev.map((_, idx) => prev[(idx + 1) % prev.length]);
+				return next;
+			});
+
+			// After 10 rotations, finish and redirect
+			if (shuffleCount.current >= 10) {
+				clearInterval(interval);
+				setPhase("done");
+				setTimeout(() => onDone(), 800);
+			}
+		}, 500);
+
+		return () => clearInterval(interval);
+	}, [phase, onDone]);
 
 	return (
 		<div className="text-center space-y-8 animate-in fade-in duration-500">
-			<div className="flex items-center justify-center">
-				<div className="relative">
-					<div className="w-20 h-20 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" />
-					<div className="absolute inset-0 flex items-center justify-center">
-						<svg
-							width="32"
-							height="32"
-							viewBox="0 0 24 24"
-							fill="none"
-							className="text-orange-400"
-						>
-							<path
-								d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-								stroke="currentColor"
-								strokeWidth="2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-							<path
-								d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"
-								stroke="currentColor"
-								strokeWidth="2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-					</div>
-				</div>
-			</div>
-
 			<div>
 				<h1 className="text-2xl font-bold text-white">Building your STAK...</h1>
 				<p className="text-slate-400 mt-2">
-					We're curating brands just for you
+					Finding the best stocks for you
 				</p>
+			</div>
+
+			{/* Revolving card carousel */}
+			<div className="relative h-[220px] w-[280px] mx-auto flex items-center justify-center">
+				{SHUFFLE_BRANDS.map((brand, i) => {
+					// Each card gets a position on the orbit based on current order
+					const pos = order.indexOf(i);
+					const total = SHUFFLE_BRANDS.length;
+					const angle = (pos / total) * 360;
+					const radians = (angle * Math.PI) / 180;
+
+					// Elliptical orbit: wider horizontally, shallower vertically
+					const rx = 90; // horizontal radius
+					const ry = 30; // vertical radius (creates depth illusion)
+					const x = Math.sin(radians) * rx;
+					const y = -Math.cos(radians) * ry;
+
+					// Cards in "front" (bottom of orbit) are bigger, cards in "back" are smaller
+					const depthFactor = (1 - Math.cos(radians)) / 2; // 0 = back, 1 = front
+					const depthScale = 0.55 + 0.65 * depthFactor; // back: 0.55, front: 1.2
+					const depthOpacity = 0.4 + 0.6 * depthFactor;
+					// Front cards have higher z-index
+					const z = Math.round(depthFactor * 100);
+					const isFront = depthFactor > 0.85;
+
+					return (
+						<div
+							key={brand.id}
+							className="absolute w-[90px] h-[125px] rounded-2xl flex flex-col items-center justify-center gap-2"
+							style={{
+								background: `linear-gradient(145deg, ${brand.color}, ${brand.color}cc)`,
+								transform: phase === "enter"
+									? "scale(0) translateY(40px)"
+									: `translateX(${x}px) translateY(${y + (isFront ? 10 : 0)}px) scale(${depthScale})`,
+								opacity: phase === "enter" ? 0 : (phase === "done" ? (isFront ? 1 : 0.4) : depthOpacity),
+								zIndex: z,
+								transition: "all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+								transitionDelay: phase === "enter" ? `${i * 100}ms` : "0ms",
+								boxShadow: isFront
+									? `0 16px 40px ${brand.color}60, 0 0 30px ${brand.color}40`
+									: `0 4px 12px rgba(0,0,0,0.3)`,
+							}}
+						>
+							<img
+								src={fl(BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase()}.com`)}
+								alt={brand.name}
+								className="w-11 h-11 object-contain rounded-xl"
+							/>
+							<span className="text-white text-[11px] font-bold">{brand.name}</span>
+						</div>
+					);
+				})}
+			</div>
+
+			{/* Loading dots */}
+			<div className="flex justify-center gap-1.5">
+				{[0, 1, 2].map((i) => (
+					<div
+						key={i}
+						className="w-2 h-2 rounded-full bg-blue-400"
+						style={{
+							animation: "pulse 1s ease-in-out infinite",
+							animationDelay: `${i * 0.2}s`,
+							opacity: phase === "done" ? 0 : 1,
+							transition: "opacity 0.3s",
+						}}
+					/>
+				))}
 			</div>
 		</div>
 	);
