@@ -19,17 +19,26 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 	const wasTopCard = useRef(false);
 
 	useEffect(() => {
+		// When used in swipeable card stack, animate on becoming top card
 		if (isTopCard && !wasTopCard.current) {
 			setLoaded(false);
 			const timer = setTimeout(() => setLoaded(true), 100);
 			wasTopCard.current = true;
 			return () => clearTimeout(timer);
 		}
-		if (!isTopCard) {
+		if (!isTopCard && wasTopCard.current) {
 			wasTopCard.current = false;
 			setLoaded(false);
 		}
 	}, [isTopCard]);
+
+	// When not in a swipeable context (e.g. search results), load immediately
+	useEffect(() => {
+		if (!isTopCard && !wasTopCard.current) {
+			const timer = setTimeout(() => setLoaded(true), 100);
+			return () => clearTimeout(timer);
+		}
+	}, []);
 
 	return (
 		<div className="space-y-3">
