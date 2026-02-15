@@ -264,13 +264,6 @@ function MyStakPage() {
 
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#121212] text-zinc-900 dark:text-white transition-colors duration-300">
-			<button
-				onClick={() => setSearchOpen(true)}
-				className="fixed top-4 right-4 z-50 p-3 rounded-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-lg"
-			>
-				<Search className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
-			</button>
-
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<Link
 					to="/"
