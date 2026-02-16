@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { BrandProfile } from "@/data/brands";
-import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, X } from "lucide-react";
+import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,7 +89,7 @@ function MyStakPage() {
 					</div>
 
 					<Tabs defaultValue="vibe" className="w-full">
-						<TabsList className="grid w-full grid-cols-3 bg-[#0f1629] border border-slate-700/50">
+						<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50">
 							<TabsTrigger
 								value="vibe"
 								className="text-zinc-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs sm:text-sm"
@@ -97,10 +97,17 @@ function MyStakPage() {
 								✨ Vibe
 							</TabsTrigger>
 							<TabsTrigger
+								value="trends"
+								className="text-zinc-200 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 text-xs sm:text-sm"
+							>
+								<TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+								Trends
+							</TabsTrigger>
+							<TabsTrigger
 								value="numbers"
 								className="text-zinc-200 data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm"
 							>
-								<TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+								<Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								Numbers
 							</TabsTrigger>
 							<TabsTrigger
@@ -168,6 +175,20 @@ function MyStakPage() {
 											</p>
 										</div>
 									))}
+								</div>
+							</div>
+						</TabsContent>
+
+						<TabsContent value="trends" className="mt-4 sm:mt-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+								<div className="flex flex-col items-center justify-center py-12 text-center">
+									<TrendingUp className="w-12 h-12 text-purple-400/50 mb-4" />
+									<h2 className="text-2xl font-bold text-purple-400 mb-2">
+										Trends
+									</h2>
+									<p className="text-zinc-400 text-sm max-w-sm">
+										Coming soon — track how {selectedBrand.name}'s cultural relevance and market sentiment evolve over time.
+									</p>
 								</div>
 							</div>
 						</TabsContent>

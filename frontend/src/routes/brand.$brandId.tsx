@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { brands, type BrandProfile } from "@/data/brands";
-import { ArrowLeft, TrendingUp, Newspaper } from "lucide-react";
+import { ArrowLeft, TrendingUp, Newspaper, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 
@@ -75,7 +75,7 @@ function BrandDetailPage() {
 				</div>
 
 				<Tabs defaultValue="vibe" className="w-full">
-					<TabsList className="grid w-full grid-cols-3 bg-[#0f1629] border border-slate-700/50">
+					<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50">
 						<TabsTrigger
 							value="vibe"
 							className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
@@ -83,11 +83,18 @@ function BrandDetailPage() {
 							✨ Vibe
 						</TabsTrigger>
 						<TabsTrigger
+							value="trends"
+							className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400"
+						>
+							<TrendingUp className="w-4 h-4 mr-2" />
+							Trends
+						</TabsTrigger>
+						<TabsTrigger
 							value="numbers"
 							className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
 						>
-							<TrendingUp className="w-4 h-4 mr-2" />
-							The Numbers
+							<Activity className="w-4 h-4 mr-2" />
+							Numbers
 						</TabsTrigger>
 						<TabsTrigger
 							value="news"
@@ -160,6 +167,20 @@ function BrandDetailPage() {
 								<p className="text-xs text-zinc-500 text-center italic">
 									These are real financial metrics, not investment advice. This is
 									for learning, not trading decisions.
+								</p>
+							</div>
+						</div>
+					</TabsContent>
+
+					<TabsContent value="trends" className="mt-6">
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+							<div className="flex flex-col items-center justify-center py-12 text-center">
+								<TrendingUp className="w-12 h-12 text-purple-400/50 mb-4" />
+								<h2 className="text-2xl font-bold text-purple-400 mb-2">
+									Trends
+								</h2>
+								<p className="text-zinc-400 text-sm max-w-sm">
+									Coming soon — track how {brand.name}'s cultural relevance and market sentiment evolve over time.
 								</p>
 							</div>
 						</div>
