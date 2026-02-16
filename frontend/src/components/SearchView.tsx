@@ -16,6 +16,14 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
+	// Clear search when closing
+	useEffect(() => {
+		if (!open) {
+			setQuery("");
+			setResults([]);
+		}
+	}, [open]);
+
 	useEffect(() => {
 		if (!query.trim()) {
 			setResults([]);

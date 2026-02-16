@@ -51,26 +51,19 @@ function Root() {
 		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-hidden">
 			{/* Top header bar with STAK title and profile icon */}
 			{!isAuthPage && user && (
-				<header className="sticky top-0 z-40 flex flex-col items-center px-4 py-3 bg-white/95 dark:bg-[#0b1121]/95 backdrop-blur-lg border-b border-zinc-200/50 dark:border-slate-800/40">
+				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0b1121]/95 backdrop-blur-lg border-b border-zinc-200/50 dark:border-slate-800/40">
 					{/* Search icon */}
-					<div className="absolute left-4">
-						<button
-							type="button"
-							onClick={() => setSearchOpen(true)}
-							className="p-2 rounded-full text-slate-400 hover:text-white transition-colors"
-							aria-label="Search stocks"
-						>
-							<Search className="w-5 h-5" />
-						</button>
-					</div>
-
-					<h1 className="text-xl font-extrabold tracking-wider italic bg-gradient-to-b from-purple-300 to-purple-500 bg-clip-text text-transparent">
-						STAK
-					</h1>
-					<p className="text-[11px] text-slate-500 dark:text-slate-400">Swipe right to vibe, left to pass</p>
+					<button
+						type="button"
+						onClick={() => setSearchOpen(true)}
+						className="p-2 rounded-full text-slate-400 hover:text-white transition-colors"
+						aria-label="Search stocks"
+					>
+						<Search className="w-5 h-5" />
+					</button>
 
 					{/* Profile icon */}
-					<div className="absolute right-4">
+					<div className="relative">
 						<button
 							type="button"
 							onClick={(e) => { e.stopPropagation(); setProfileOpen((v) => !v); }}

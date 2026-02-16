@@ -32,7 +32,7 @@ export function BrandContextModal({
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto"
+				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl h-[80vh] sm:h-[70vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}

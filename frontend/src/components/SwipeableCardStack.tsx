@@ -95,8 +95,8 @@ export function SwipeableCardStack({
 	const remainingCards = DAILY_LIMIT - dailyState.count;
 	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
 
-	// Show current card + 2 stacked behind (but only current is readable)
-	const visibleBrands = brands.slice(currentIndex, currentIndex + 3);
+	// Show current card + 1 stacked behind
+	const visibleBrands = brands.slice(currentIndex, currentIndex + 2);
 
 	// Preload all images on mount for instant transitions
 	useEffect(() => {
@@ -151,9 +151,6 @@ export function SwipeableCardStack({
 			setDragOffset({ x: exitDirection, y: dragOffset.y });
 
 			if (currentBrand) {
-				if (isRightSwipe && onSwipeRight) {
-					onSwipeRight(currentBrand);
-				}
 				recordSwipe(currentBrand.id, isRightSwipe ? "right" : "left").catch(() => {});
 			}
 
@@ -167,7 +164,15 @@ export function SwipeableCardStack({
 			onSwipe?.();
 
 			setTimeout(() => {
-				setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+				// Fire onSwipeRight AFTER animation completes so the brands
+				// array doesn't change mid-animation (which would cause the
+				// next card to inherit the exit transform and fly off too).
+				if (isRightSwipe && onSwipeRight && currentBrand) {
+					onSwipeRight(currentBrand);
+				}
+				if (!isRightSwipe) {
+					setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+				}
 				setDragOffset({ x: 0, y: 0 });
 				setIsExiting(false);
 				isProcessingSwipe.current = false;
@@ -257,7 +262,7 @@ export function SwipeableCardStack({
 	}
 
 	return (
-		<div className="relative flex items-center justify-center w-full max-w-md mx-auto pb-20">
+		<div className="flex flex-col items-center w-full max-w-md mx-auto">
 			<div className="relative w-full h-[350px] sm:h-[550px] bg-white dark:bg-[#0b1121] rounded-2xl">
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
@@ -323,33 +328,31 @@ export function SwipeableCardStack({
 						</div>
 					);
 				})}
+
+				{isDragging && Math.abs(dragOffset.x) > 50 && (
+					<div
+						className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"
+						style={{
+							opacity: Math.min(Math.abs(dragOffset.x) / 120, 1),
+						}}
+					>
+						<div
+							className={`text-7xl font-black px-10 py-6 rounded-3xl border-8 ${
+								dragOffset.x > 0
+									? "text-green-400 dark:text-green-400 border-green-400 dark:border-green-400 bg-green-400/20 dark:bg-green-400/20 rotate-12"
+									: "text-red-500 dark:text-red-500 border-red-500 dark:border-red-500 bg-red-500/20 dark:bg-red-500/20 -rotate-12"
+							} shadow-2xl`}
+						>
+							{dragOffset.x > 0 ? "STAKED" : "PASS"}
+						</div>
+					</div>
+				)}
 			</div>
 
-			{isDragging && Math.abs(dragOffset.x) > 50 && (
-				<div
-					className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"
-					style={{
-						opacity: Math.min(Math.abs(dragOffset.x) / 120, 1),
-					}}
-				>
-					<div
-						className={`text-7xl font-black px-10 py-6 rounded-3xl border-8 ${
-							dragOffset.x > 0
-								? "text-green-400 dark:text-green-400 border-green-400 dark:border-green-400 bg-green-400/20 dark:bg-green-400/20 rotate-12"
-								: "text-red-500 dark:text-red-500 border-red-500 dark:border-red-500 bg-red-500/20 dark:bg-red-500/20 -rotate-12"
-						} shadow-2xl`}
-					>
-						{dragOffset.x > 0 ? "STAKED" : "PASS"}
-					</div>
-				</div>
-			)}
-
 			{/* Daily cards remaining counter */}
-			<div className="absolute -bottom-12 sm:-bottom-8 left-1/2 -translate-x-1/2">
-				<div className="flex items-center gap-2 text-sm text-zinc-500">
-					<span className="font-bold text-cyan-400">{remainingCards}</span>
-					<span>cards left today</span>
-				</div>
+			<div className="mt-4 flex items-center justify-center gap-2 text-sm text-zinc-500">
+				<span className="font-bold text-cyan-400">{remainingCards}</span>
+				<span>cards left today</span>
 			</div>
 		</div>
 	);

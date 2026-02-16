@@ -92,6 +92,13 @@ function App() {
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+				<div className="flex flex-col items-center mb-6">
+					<h1 className="text-4xl sm:text-5xl font-extrabold tracking-wider italic bg-gradient-to-b from-purple-300 to-purple-500 bg-clip-text text-transparent">
+						STAK
+					</h1>
+					<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Swipe right to vibe, left to pass</p>
+				</div>
+
 				<SwipeableCardStack
 					brands={brands.filter(
 						(brand) => !swipedBrands.some((b) => b.id === brand.id)
