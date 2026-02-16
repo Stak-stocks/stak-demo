@@ -35,6 +35,40 @@ const BRAND_DOMAINS: Record<string, string> = {
 	sbux: "starbucks.com",
 	amzn: "amazon.com",
 	dis: "disney.com",
+	msft: "microsoft.com",
+	googl: "google.com",
+	meta: "meta.com",
+	rblx: "roblox.com",
+	amd: "amd.com",
+	nvda: "nvidia.com",
+	ulta: "ulta.com",
+	elf: "elfcosmetics.com",
+	coty: "coty.com",
+	el: "esteelauder.com",
+	or: "loreal.com",
+	tgt: "target.com",
+	pg: "pg.com",
+	ko: "coca-cola.com",
+	pep: "pepsico.com",
+	cost: "costco.com",
+	mcd: "mcdonalds.com",
+	wmt: "walmart.com",
+	uber: "uber.com",
+	lyft: "lyft.com",
+	abnb: "airbnb.com",
+	v: "visa.com",
+	ma: "mastercard.com",
+	sq: "block.xyz",
+	hood: "robinhood.com",
+	sofi: "sofi.com",
+	pypl: "paypal.com",
+	afrm: "affirm.com",
+	shop: "shopify.com",
+	nee: "nexteraenergy.com",
+	enph: "enphase.com",
+	fslr: "firstsolar.com",
+	xom: "exxonmobil.com",
+	cvx: "chevron.com",
 };
 
 // Brand colors for the building step fan cards
@@ -61,8 +95,13 @@ const BRAND_COLORS: Record<string, string> = {
 	ulta: "#E85C2B",
 	elf: "#1a1a2e",
 	coty: "#1a1a2e",
-	sony: "#000000",
 	rblx: "#E2231A",
+	nvda: "#76B900",
+	el: "#022169",
+	or: "#1a1a2e",
+	v: "#1A1F71",
+	hood: "#00C805",
+	sq: "#1a1a2e",
 };
 
 function clearProgress() {
@@ -619,6 +658,9 @@ function BuildingStep({
 	const shuffleCount = useRef(0);
 
 	useEffect(() => {
+		// Save user interests so Discover page can recommend similar brands
+		localStorage.setItem("user-interests", JSON.stringify(selectedInterests));
+
 		// Start with an empty stak — users add stocks from Discover
 		localStorage.setItem("my-stak", JSON.stringify([]));
 		localStorage.setItem("onboardingCompleted", "true");
