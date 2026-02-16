@@ -1901,7 +1901,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PYPL",
 		name: "PayPal",
 		bio: "splitting the bill made easy",
-		heroImage: "https://images.unsplash.com/photo-1556742111-a301076d9d18?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1556742044-3c52d6e88c62?w=800&h=600&fit=crop",
 		personalityDescription: "Digital payments OG",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 79, color: "#00d9ff" },
@@ -2174,7 +2174,7 @@ export const brands: BrandProfile[] = [
 		ticker: "QCOM",
 		name: "Qualcomm",
 		bio: "every smartphone runs on our chips",
-		heroImage: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1597733336794-12d05021d510?w=800&h=600&fit=crop",
 		personalityDescription: "Mobile chip monopoly energy",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -2605,7 +2605,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SQ",
 		name: "Block",
 		bio: "when Jack Dorsey left Twitter to focus on Bitcoin",
-		heroImage: "https://images.unsplash.com/photo-1556742393-d75f468bfcb0?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1556745757-8d76bdb6984b?w=800&h=600&fit=crop",
 		personalityDescription: "The friend who rebranded after their breakup",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -2733,7 +2733,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SOFI",
 		name: "SoFi",
 		bio: "bought a football stadium before figuring out profits",
-		heroImage: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=800&h=600&fit=crop",
 		personalityDescription: "The app that wants to replace your entire bank",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
@@ -2767,7 +2767,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AFRM",
 		name: "Affirm",
 		bio: "financing your impulse purchases guilt-free since 2012",
-		heroImage: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop",
 		personalityDescription: "That friend who splits everything into payments",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -2835,7 +2835,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NXPI",
 		name: "NXP Semiconductors",
 		bio: "chips in your car's brain you didn't know existed",
-		heroImage: "https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=800&h=600&fit=crop",
 		personalityDescription: "The specialist nobody talks about but everyone needs",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -2937,7 +2937,7 @@ export const brands: BrandProfile[] = [
 		ticker: "TGT",
 		name: "Target",
 		bio: "went in for milk, left with $200 of things you didn't need",
-		heroImage: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?w=800&h=600&fit=crop",
 		personalityDescription: "Walmart's Instagram-worthy cousin",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -3300,7 +3300,7 @@ export const brands: BrandProfile[] = [
 		ticker: "BA",
 		name: "Boeing",
 		bio: "aerospace legacy trying to rebuild trust one inspection at a time",
-		heroImage: "https://images.unsplash.com/photo-1436491865332-7a61a109db05?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1750030951507-de461317da40?w=800&h=600&fit=crop",
 		personalityDescription: "The comeback kid with serious baggage",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -3392,7 +3392,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CRM",
 		name: "Salesforce",
 		bio: "the CRM software every sales team complains about using",
-		heroImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop",
 		personalityDescription: "Marc Benioff's cloud empire built on subscriptions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -3530,7 +3530,7 @@ export const brands: BrandProfile[] = [
 		ticker: "INTU",
 		name: "Intuit",
 		bio: "profiting from tax season panic & small business chaos",
-		heroImage: "https://images.unsplash.com/photo-1450101499163-c8848e968838?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=800&h=600&fit=crop",
 		personalityDescription: "The company that lobbies to keep taxes complicated",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -4169,7 +4169,7 @@ export const brands: BrandProfile[] = [
 		ticker: "EL",
 		name: "Estée Lauder",
 		bio: "old money aesthetics trying to fix a new money problem",
-		heroImage: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=600&fit=crop",
 		personalityDescription: "The rich grandmother currently restructuring her trust fund",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
