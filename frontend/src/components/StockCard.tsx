@@ -64,18 +64,18 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 			{/* Content */}
 			<div className="px-4 sm:px-5 pt-8 pb-4 space-y-3 flex-1 flex flex-col">
 				{/* Brand name + ticker */}
-				<div>
+				<div className="h-[5.5rem] sm:h-24 overflow-hidden">
 					<div className="flex items-center gap-2">
-						<h2 className="text-xl sm:text-2xl font-bold text-white">{brand.name}</h2>
-						<span className="text-[10px] sm:text-xs font-mono font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-md uppercase tracking-wider">
+						<h2 className="text-xl sm:text-2xl font-bold text-white truncate">{brand.name}</h2>
+						<span className="text-[10px] sm:text-xs font-mono font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
 							{brand.ticker}
 						</span>
 					</div>
-					<p className="text-zinc-400 text-xs sm:text-sm mt-1.5 line-clamp-2 min-h-[2.5em]">{brand.bio}</p>
+					<p className="text-zinc-400 text-xs sm:text-sm mt-1.5 line-clamp-2">{brand.bio}</p>
 				</div>
 
 				{/* Vibe sliders */}
-				<div className="flex-1">
+				<div>
 					<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
 				</div>
 
