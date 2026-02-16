@@ -328,20 +328,36 @@ function SwipeStep({
 	onNext: () => void;
 }) {
 	// Derive swipe brands from user's interest selections
+	// Round-robin across categories so each interest gets equal representation
 	const swipeBrands = useMemo(() => {
 		if (selectedInterests.length === 0) return SWIPE_BRANDS;
 
-		const interestBrandIds = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
-		const uniqueIds = [...new Set(interestBrandIds)];
-		const mapped = uniqueIds.map((id) => {
+		// Build per-category brand lists
+		const categoryBrands = selectedInterests.map(
+			(interest) => INTEREST_TO_BRANDS[interest] || [],
+		);
+
+		// Round-robin pick: take 1 from each category in turn
+		const picked = new Set<string>();
+		const maxLen = Math.max(...categoryBrands.map((b) => b.length));
+		for (let i = 0; i < maxLen && picked.size < 8; i++) {
+			for (const brands of categoryBrands) {
+				if (i < brands.length && !picked.has(brands[i])) {
+					picked.add(brands[i]);
+					if (picked.size >= 8) break;
+				}
+			}
+		}
+
+		const mapped = [...picked].map((id) => {
 			const brand = allBrands.find((b) => b.id === id);
 			return brand
 				? { id: brand.id, name: brand.name, image: brand.heroImage, ticker: brand.ticker }
 				: null;
 		}).filter(Boolean) as { id: string; name: string; image: string; ticker: string }[];
 
-		// Return at least 4 brands, pad with defaults if needed
-		return mapped.length >= 4 ? mapped.slice(0, 8) : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
+		// Pad with defaults if fewer than 4 brands
+		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
 	}, [selectedInterests]);
 
 	const [currentIndex, setCurrentIndex] = useState(0);
