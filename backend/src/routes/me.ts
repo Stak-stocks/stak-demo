@@ -17,6 +17,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				email: req.user!.email || "",
 				displayName: "",
 				preferences: {},
+				onboardingCompleted: false,
 				createdAt: new Date().toISOString(),
 			};
 			await adminDb.collection("users").doc(uid).set(defaultProfile);
