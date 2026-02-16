@@ -71,6 +71,8 @@ const BRAND_DOMAINS: Record<string, string> = {
 };
 
 export function getBrandLogoUrl(brand: BrandProfile): string {
+	const slug = TV_LOGO_SLUGS[brand.id];
+	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
 	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
@@ -79,22 +81,22 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 const TV_LOGO_SLUGS: Record<string, string> = {
 	tsla: "tesla", aapl: "apple", nvda: "nvidia", rblx: "roblox", meta: "meta-platforms",
 	nke: "nike", sbux: "starbucks", spot: "spotify-technology", amzn: "amazon", nflx: "netflix",
-	coin: "coinbase-global", msft: "microsoft", googl: "alphabet", dis: "walt-disney",
-	uber: "uber-technologies", shop: "shopify", amd: "advanced-micro-devices",
-	spy: "spdr-s-and-p-500-etf-trust", qqq: "invesco-qqq-trust", pypl: "paypal",
+	coin: "coinbase", msft: "microsoft", googl: "alphabet", dis: "walt-disney",
+	uber: "uber", shop: "shopify", amd: "advanced-micro-devices",
+	spy: "state-street", qqq: "invesco", pypl: "paypal",
 	intc: "intel", ionq: "ionq", tsm: "taiwan-semiconductor", qcom: "qualcomm",
-	avgo: "broadcom", mu: "micron-technology", asml: "asml-holding",
+	avgo: "broadcom", mu: "micron-technology", asml: "asml",
 	nee: "nextera-energy", enph: "enphase-energy", fslr: "first-solar",
-	plug: "plug-power", xom: "exxon-mobil", cvx: "chevron", v: "visa", ma: "mastercard",
-	sq: "block", hood: "robinhood-markets", sofi: "sofi-technologies", afrm: "affirm-holdings",
-	txn: "texas-instruments", nxpi: "nxp-semiconductors", mrvl: "marvell-technology",
-	wmt: "walmart", tgt: "target", cost: "costco-wholesale", hd: "home-depot", low: "lowes-companies",
-	mcd: "mcdonald-s", ko: "coca-cola", pep: "pepsico", pg: "procter-gamble",
-	jnj: "johnson-johnson", lmt: "lockheed-martin", ba: "boeing",
-	unh: "unitedhealth-group", crm: "salesforce", adbe: "adobe", now: "servicenow",
+	plug: "plug-power", xom: "exxon", cvx: "chevron", v: "visa", ma: "mastercard",
+	sq: "block", hood: "robinhood", sofi: "sofi", afrm: "affirm",
+	txn: "texas-instruments", nxpi: "nxp-semiconductors", mrvl: "marvell-tech",
+	wmt: "walmart", tgt: "target", cost: "costco-wholesale", hd: "home-depot", low: "lowe-s",
+	mcd: "mcdonalds", ko: "coca-cola", pep: "pepsico", pg: "procter-and-gamble",
+	jnj: "johnson-and-johnson", lmt: "lockheed-martin", ba: "boeing",
+	unh: "unitedhealth", crm: "salesforce", adbe: "adobe", now: "servicenow",
 	intu: "intuit", amat: "applied-materials", abnb: "airbnb", lyft: "lyft",
 	ddog: "datadog", snow: "snowflake", mdb: "mongodb", panw: "palo-alto-networks",
-	crwd: "crowdstrike-holdings", zm: "zoom-video-communications", pltr: "palantir-technologies",
+	crwd: "crowdstrike", zm: "zoom-video-communications", pltr: "palantir",
 	hon: "honeywell", or: "l-oreal", el: "estee-lauder", elf: "e-l-f-beauty",
 	ulta: "ulta-beauty", coty: "coty",
 };
