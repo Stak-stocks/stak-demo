@@ -39,11 +39,30 @@ const BRAND_DOMAINS: Record<string, string> = {
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
+	tsla: "#cc0000",
+	aapl: "#555555",
 	nflx: "#E50914",
-	aapl: "#1a1a2e",
 	spot: "#1DB954",
 	amzn: "#FF9900",
-	dis: "#0078D7",
+	dis: "#0056A4",
+	nke: "#111111",
+	googl: "#4285F4",
+	msft: "#00A4EF",
+	meta: "#0668E1",
+	sbux: "#00704A",
+	uber: "#000000",
+	lyft: "#FF00BF",
+	shop: "#96BF48",
+	wmt: "#0071CE",
+	tgt: "#CC0000",
+	cost: "#E31837",
+	ko: "#F40009",
+	pep: "#004B93",
+	ulta: "#E85C2B",
+	elf: "#1a1a2e",
+	coty: "#1a1a2e",
+	sony: "#000000",
+	rblx: "#E2231A",
 };
 
 function clearProgress() {
@@ -592,7 +611,7 @@ function BuildingStep({
 	// Fallback if user somehow has no selections
 	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).map((id) => {
 		const brand = allBrands.find((b) => b.id === id)!;
-		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6" };
+		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", heroImage: brand.heroImage };
 	});
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
@@ -688,9 +707,9 @@ function BuildingStep({
 							}}
 						>
 							<img
-								src={fl(BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase()}.com`)}
+								src={brand.heroImage}
 								alt={brand.name}
-								className="w-11 h-11 object-contain rounded-xl"
+								className="w-14 h-14 object-contain rounded-xl"
 							/>
 							<span className="text-white text-[11px] font-bold">{brand.name}</span>
 						</div>

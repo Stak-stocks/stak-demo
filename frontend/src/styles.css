@@ -18,6 +18,15 @@ code {
 		source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
+/* Hide browser-native password reveal button (Edge/Chrome) */
+input::-ms-reveal,
+input::-ms-clear {
+	display: none;
+}
+input::-webkit-credentials-auto-fill-button {
+	display: none;
+}
+
 :root {
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.141 0.005 285.823);
