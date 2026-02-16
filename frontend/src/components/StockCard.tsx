@@ -1,5 +1,4 @@
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl } from "@/data/brands";
 import { VibeSliders } from "@/components/VibeSliders";
 
 interface StockCardProps {
@@ -42,27 +41,10 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 					decoding="async"
 				/>
 				<div className="absolute inset-0 bg-gradient-to-t from-[#0f1320] via-[#0f1320]/40 to-transparent" />
-
-				{/* Floating brand logo */}
-				<div className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-10">
-					<div
-						className="w-12 h-12 rounded-xl overflow-hidden bg-[#1a1f2e] p-0.5"
-						style={{
-							boxShadow: "0 0 12px rgba(0, 200, 255, 0.2), 0 4px 12px rgba(0,0,0,0.4)",
-							border: "1px solid rgba(0, 200, 255, 0.2)",
-						}}
-					>
-						<img
-							src={getBrandLogoUrl(brand)}
-							alt={`${brand.name} logo`}
-							className="w-full h-full rounded-lg object-contain"
-						/>
-					</div>
-				</div>
 			</div>
 
 			{/* Content */}
-			<div className="px-4 sm:px-5 pt-8 pb-4 space-y-3">
+			<div className="px-4 sm:px-5 pt-4 pb-4 space-y-3">
 				{/* Brand name + ticker */}
 				<div>
 					<div className="flex items-center gap-2">

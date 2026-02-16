@@ -70,7 +70,7 @@ function ResultsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-[#121212] text-white">
+		<div className="min-h-screen bg-[#0b1121] text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -97,7 +97,7 @@ function ResultsPage() {
 						<p className="text-2xl text-zinc-300">{message}</p>
 					</div>
 
-					<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-8 max-w-2xl mx-auto">
+					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-8 max-w-2xl mx-auto">
 						<h2 className="text-xl font-bold text-white mb-6">
 							Week {weekKey} Results
 						</h2>
@@ -131,13 +131,13 @@ function ResultsPage() {
 							</div>
 						</div>
 
-						<div className="border-t border-zinc-800 pt-6">
+						<div className="border-t border-slate-700/50 pt-6">
 							<p className="text-zinc-400 mb-4">Your picks:</p>
 							<div className="flex flex-wrap gap-2 justify-center">
 								{starters.map((brand) => (
 									<div
 										key={brand.id}
-										className="px-3 py-1 bg-zinc-800 rounded-full text-sm"
+										className="px-3 py-1 bg-[#162036] rounded-full text-sm"
 									>
 										{brand.ticker}
 									</div>

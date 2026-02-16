@@ -69,7 +69,7 @@ function MyStakPage() {
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#121212] rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto"
+				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
@@ -89,7 +89,7 @@ function MyStakPage() {
 					</div>
 
 					<Tabs defaultValue="vibe" className="w-full">
-						<TabsList className="grid w-full grid-cols-3 bg-zinc-900 border border-zinc-800">
+						<TabsList className="grid w-full grid-cols-3 bg-[#0f1629] border border-slate-700/50">
 							<TabsTrigger
 								value="vibe"
 								className="text-zinc-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs sm:text-sm"
@@ -113,7 +113,7 @@ function MyStakPage() {
 						</TabsList>
 
 						<TabsContent value="vibe" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-							<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 sm:p-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
 								<h2 className="text-lg sm:text-xl font-bold text-cyan-400 mb-3 sm:mb-4">
 									{selectedBrand.culturalContext.title}
 								</h2>
@@ -131,14 +131,14 @@ function MyStakPage() {
 								</div>
 							</div>
 
-							<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 sm:p-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
 								<h3 className="font-semibold text-base sm:text-lg text-white mb-3 sm:mb-4">Vibe Metrics</h3>
 								<VibeSliders vibes={selectedBrand.vibes} />
 							</div>
 						</TabsContent>
 
 						<TabsContent value="numbers" className="mt-4 sm:mt-6">
-							<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 sm:p-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
 								<div className="mb-4 sm:mb-6">
 									<h2 className="text-xl sm:text-2xl font-bold text-pink-400 mb-2">
 										The Numbers
@@ -173,7 +173,7 @@ function MyStakPage() {
 						</TabsContent>
 
 						<TabsContent value="news" className="mt-4 sm:mt-6">
-							<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 sm:p-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
 								<div className="mb-4 sm:mb-6">
 									<h2 className="text-xl sm:text-2xl font-bold text-orange-400 mb-2">
 										Recent News
@@ -217,7 +217,7 @@ function MyStakPage() {
 						</TabsContent>
 					</Tabs>
 
-					<div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+					<div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg">
 						<p className="text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.
@@ -230,7 +230,7 @@ function MyStakPage() {
 
 	if (swipedBrands.length === 0) {
 		return (
-			<div className="min-h-screen bg-white dark:bg-[#121212] text-zinc-900 dark:text-white transition-colors duration-300">
+			<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 					<Link
 						to="/"
@@ -263,7 +263,7 @@ function MyStakPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-white dark:bg-[#121212] text-zinc-900 dark:text-white transition-colors duration-300">
+		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<Link
 					to="/"
@@ -286,13 +286,13 @@ function MyStakPage() {
 					{swipedBrands.map((brand) => (
 						<div
 							key={brand.id}
-							className="group relative overflow-hidden rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
+							className="group relative overflow-hidden rounded-xl bg-white dark:bg-[#0f1629]/80 border border-zinc-200 dark:border-slate-700/50 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
 							onClick={() => handleBrandClick(brand)}
 						>
 							{/* Remove button - always visible on mobile, hover on desktop */}
 							<button
 								onClick={(e) => handleRemoveFromStak(e, brand)}
-								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
+								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-[#162036] hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
 								aria-label={`Remove ${brand.name} from Stak`}
 							>
 								<X className="w-4 h-4" />

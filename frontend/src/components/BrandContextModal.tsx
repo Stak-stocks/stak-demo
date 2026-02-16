@@ -80,7 +80,7 @@ export function BrandContextModal({
 						</button>
 					)}
 
-					<div className="pt-4 border-t border-zinc-800">
+					<div className="pt-4 border-t border-slate-700/50">
 						<p className="text-xs text-zinc-500 text-center italic">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.

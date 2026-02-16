@@ -84,7 +84,7 @@ function LineupBuilderPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#121212] text-white">
+		<div className="min-h-screen bg-[#0b1121] text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -111,7 +111,7 @@ function LineupBuilderPage() {
 
 				<div className="space-y-8">
 					{/* Lineup Slots */}
-					<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
 							<h2 className="text-xl font-bold text-white">
 								Starters ({selectedStarters.length}/5)
@@ -132,7 +132,7 @@ function LineupBuilderPage() {
 										className={`border-2 border-dashed rounded-lg p-4 min-h-[100px] flex items-center justify-center transition-all ${
 											starter
 												? "border-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 cursor-pointer"
-												: "border-zinc-700 bg-zinc-800/30 cursor-default"
+												: "border-slate-600/50 bg-[#162036]/30 cursor-default"
 										}`}
 									>
 										{starter ? (
@@ -175,7 +175,7 @@ function LineupBuilderPage() {
 						</div>
 
 						{swipedBrands.length === 0 ? (
-							<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-12 text-center">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-12 text-center">
 								<p className="text-zinc-400 mb-2">
 									You haven't saved any stocks yet.
 								</p>
@@ -197,7 +197,7 @@ function LineupBuilderPage() {
 											className={`text-left p-6 rounded-xl border-2 transition-all ${
 												isSelected
 													? "border-yellow-500/50 bg-yellow-500/5 opacity-60 cursor-not-allowed"
-													: "border-zinc-800 bg-zinc-900/50 hover:border-cyan-500/50 hover:bg-zinc-800/80"
+													: "border-slate-700/50 bg-[#0f1629]/50 hover:border-cyan-500/50 hover:bg-[#162036]/80"
 											}`}
 										>
 											<div className="flex items-start gap-4 mb-3">

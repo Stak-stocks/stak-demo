@@ -25,7 +25,7 @@ function BrandDetailPage() {
 
 	if (!brand) {
 		return (
-			<div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">
+			<div className="min-h-screen bg-[#0b1121] text-white flex items-center justify-center">
 				<div className="text-center">
 					<h2 className="text-2xl font-bold text-zinc-300 mb-2">
 						Brand not found
@@ -43,11 +43,11 @@ function BrandDetailPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-black/80 sm:bg-[#121212] text-white flex flex-col justify-end sm:justify-start"
+			className="min-h-screen bg-black/80 sm:bg-[#0b1121] text-white flex flex-col justify-end sm:justify-start"
 			onClick={handleClose}
 		>
 			<div
-				className="max-w-4xl w-full mx-auto sm:px-6 lg:px-8 py-4 sm:py-12 bg-[#121212] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
+				className="max-w-4xl w-full mx-auto sm:px-6 lg:px-8 py-4 sm:py-12 bg-[#0b1121] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
@@ -75,7 +75,7 @@ function BrandDetailPage() {
 				</div>
 
 				<Tabs defaultValue="vibe" className="w-full">
-					<TabsList className="grid w-full grid-cols-3 bg-zinc-900 border border-zinc-800">
+					<TabsList className="grid w-full grid-cols-3 bg-[#0f1629] border border-slate-700/50">
 						<TabsTrigger
 							value="vibe"
 							className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
@@ -99,7 +99,7 @@ function BrandDetailPage() {
 					</TabsList>
 
 					<TabsContent value="vibe" className="mt-6 space-y-6">
-						<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 							<h2 className="text-xl font-bold text-cyan-400 mb-4">
 								{brand.culturalContext.title}
 							</h2>
@@ -117,14 +117,14 @@ function BrandDetailPage() {
 							</div>
 						</div>
 
-						<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 							<h3 className="font-semibold text-lg text-white mb-4">Vibe Metrics</h3>
 							<VibeSliders vibes={brand.vibes} />
 						</div>
 					</TabsContent>
 
 					<TabsContent value="numbers" className="mt-6">
-						<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 							<div className="mb-6">
 								<h2 className="text-2xl font-bold text-pink-400 mb-2">
 									The Numbers
@@ -156,7 +156,7 @@ function BrandDetailPage() {
 								))}
 							</div>
 
-							<div className="mt-6 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
+							<div className="mt-6 p-4 bg-[#162036]/50 rounded-lg border border-slate-600/50">
 								<p className="text-xs text-zinc-500 text-center italic">
 									These are real financial metrics, not investment advice. This is
 									for learning, not trading decisions.
@@ -166,7 +166,7 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="news" className="mt-6">
-						<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 							<div className="mb-6">
 								<h2 className="text-2xl font-bold text-orange-400 mb-2">
 									Recent News
@@ -180,7 +180,7 @@ function BrandDetailPage() {
 								{brand.news.map((article, index) => (
 									<div
 										key={index}
-										className="border-l-4 border-zinc-700 hover:border-orange-500/50 pl-4 py-3 transition-all"
+										className="border-l-4 border-slate-600/50 hover:border-orange-500/50 pl-4 py-3 transition-all"
 									>
 										<div className="flex items-start justify-between gap-4 mb-2">
 											<h3 className="font-semibold text-white leading-tight">
@@ -216,7 +216,7 @@ function BrandDetailPage() {
 					</TabsContent>
 				</Tabs>
 
-					<div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+					<div className="mt-8 p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg">
 						<p className="text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.

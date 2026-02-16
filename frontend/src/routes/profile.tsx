@@ -18,7 +18,7 @@ function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-white dark:bg-[#121212]">
+			<div className="flex items-center justify-center min-h-screen bg-white dark:bg-[#0b1121]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -30,7 +30,7 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-white dark:bg-[#121212] text-zinc-900 dark:text-white px-6 py-12">
+		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white px-6 py-12">
 			<div className="max-w-lg mx-auto space-y-8">
 				<header className="text-center">
 					<h1 className="text-3xl font-bold">Your Profile</h1>
@@ -64,7 +64,7 @@ function ProfilePage() {
 					<button
 						type="button"
 						onClick={handleLogout}
-						className="w-full py-3 px-4 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition-all active:scale-95"
+						className="w-full py-3 px-4 rounded-xl bg-[#162036] text-white font-semibold hover:bg-zinc-700 transition-all active:scale-95"
 					>
 						Sign Out
 					</button>

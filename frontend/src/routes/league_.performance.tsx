@@ -23,7 +23,7 @@ function PerformancePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#121212] text-white">
+		<div className="min-h-screen bg-[#0b1121] text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -43,7 +43,7 @@ function PerformancePage() {
 				</header>
 
 				<div className="space-y-6">
-					<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 						<h2 className="text-xl font-bold text-white mb-6">Your Lineup</h2>
 
 						{starters.length === 0 ? (
@@ -102,7 +102,7 @@ function PerformancePage() {
 						)}
 					</div>
 
-					<div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
 						<p className="text-center text-zinc-500 text-sm italic">
 							Results finalize on Friday. Keep checking back!
 						</p>
