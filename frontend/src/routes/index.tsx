@@ -49,52 +49,69 @@ function App() {
 	const [swapPickerOpen, setSwapPickerOpen] = useState(false);
 	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
 
-	// Compute stable recommended brand order once on mount
-	// Tier 1: First 5 from user's onboarding interests
-	// Tier 2: Related brands (share categories with interest brands)
-	// Tier 3: Everything else (random discovery)
+	// Compute stable recommended brand order once per session
+	// Persisted in sessionStorage so tab navigation doesn't reshuffle
 	const [recommendedOrder] = useState<BrandProfile[]>(() => {
+		// Check sessionStorage for a previously computed order
+		const cached = sessionStorage.getItem("stak-deck-order");
+		if (cached) {
+			try {
+				const ids: string[] = JSON.parse(cached);
+				const brandMap = new Map(brands.map((b) => [b.id, b]));
+				const restored = ids.map((id) => brandMap.get(id)).filter(Boolean) as BrandProfile[];
+				if (restored.length === brands.length) return restored;
+			} catch { /* fall through to recompute */ }
+		}
+
 		const interests: string[] = JSON.parse(
 			localStorage.getItem("user-interests") || "[]",
 		);
 
+		let order: BrandProfile[];
+
 		// No interests saved — just shuffle everything
-		if (interests.length === 0) return shuffleArray(brands);
+		if (interests.length === 0) {
+			order = shuffleArray(brands);
+		} else {
+			// Tier 1: Direct interest matches
+			const interestBrandIds = new Set(
+				interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []),
+			);
 
-		// Tier 1: Direct interest matches
-		const interestBrandIds = new Set(
-			interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []),
-		);
+			// Find expanded categories (all categories that interest brands belong to)
+			const expandedCategories = new Set<string>();
+			for (const id of interestBrandIds) {
+				(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCategories.add(c));
+			}
 
-		// Find expanded categories (all categories that interest brands belong to)
-		const expandedCategories = new Set<string>();
-		for (const id of interestBrandIds) {
-			(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCategories.add(c));
+			// Tier 2: Brands in adjacent categories but not direct interest matches
+			const adjacentBrandIds = new Set<string>();
+			for (const cat of expandedCategories) {
+				(INTEREST_TO_BRANDS[cat] || []).forEach((id) => {
+					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
+				});
+			}
+
+			const tier1 = brands.filter((b) => interestBrandIds.has(b.id));
+			const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id));
+			const tier3 = brands.filter(
+				(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id),
+			);
+
+			const shuffled1 = shuffleArray(tier1);
+			const shuffled2 = shuffleArray(tier2);
+			const shuffled3 = shuffleArray(tier3);
+
+			order = [
+				...shuffled1.slice(0, 5),
+				...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
+				...shuffled3,
+			];
 		}
 
-		// Tier 2: Brands in adjacent categories but not direct interest matches
-		const adjacentBrandIds = new Set<string>();
-		for (const cat of expandedCategories) {
-			(INTEREST_TO_BRANDS[cat] || []).forEach((id) => {
-				if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
-			});
-		}
-
-		const tier1 = brands.filter((b) => interestBrandIds.has(b.id));
-		const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id));
-		const tier3 = brands.filter(
-			(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id),
-		);
-
-		const shuffled1 = shuffleArray(tier1);
-		const shuffled2 = shuffleArray(tier2);
-		const shuffled3 = shuffleArray(tier3);
-
-		return [
-			...shuffled1.slice(0, 5),
-			...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
-			...shuffled3,
-		];
+		// Cache the order for this session
+		sessionStorage.setItem("stak-deck-order", JSON.stringify(order.map((b) => b.id)));
+		return order;
 	});
 
 	useEffect(() => {
