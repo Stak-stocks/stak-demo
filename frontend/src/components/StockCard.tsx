@@ -11,7 +11,7 @@ interface StockCardProps {
 
 export function StockCard({ brand, onLearnMore, priority = false, isTopCard = false }: StockCardProps) {
 	return (
-		<div className="relative rounded-2xl p-[2px] overflow-hidden">
+		<div className="relative rounded-2xl p-[2px] overflow-hidden h-full flex flex-col">
 			{/* Animated rotating gradient border */}
 			<div
 				className="absolute inset-[-50%] animate-[spin_4s_linear_infinite]"
@@ -27,7 +27,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 				}}
 			/>
 			<div
-				className="relative overflow-hidden rounded-2xl"
+				className="relative overflow-hidden rounded-2xl flex-1 flex flex-col"
 				style={{
 					background: "linear-gradient(145deg, #1a1f2e 0%, #0f1320 100%)",
 				}}
@@ -62,7 +62,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 			</div>
 
 			{/* Content */}
-			<div className="px-4 sm:px-5 pt-8 pb-4 space-y-3">
+			<div className="px-4 sm:px-5 pt-8 pb-4 space-y-3 flex-1 flex flex-col">
 				{/* Brand name + ticker */}
 				<div>
 					<div className="flex items-center gap-2">
@@ -71,11 +71,13 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 							{brand.ticker}
 						</span>
 					</div>
-					<p className="text-zinc-400 text-xs sm:text-sm mt-1.5 line-clamp-3">{brand.bio}</p>
+					<p className="text-zinc-400 text-xs sm:text-sm mt-1.5 line-clamp-2 min-h-[2.5em]">{brand.bio}</p>
 				</div>
 
 				{/* Vibe sliders */}
-				<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
+				<div className="flex-1">
+					<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
+				</div>
 
 				{/* CTA button with animated rotating neon glow */}
 				<div className="relative rounded-xl p-[2px] overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98]">
