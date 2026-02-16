@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { BrandProfile } from "@/data/brands";
+import { getBrandLogoUrl } from "@/data/brands";
 import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
@@ -92,27 +93,27 @@ function MyStakPage() {
 						<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50">
 							<TabsTrigger
 								value="vibe"
-								className="text-zinc-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs sm:text-sm"
+								className="!text-cyan-400/60 data-[state=active]:!bg-cyan-500/20 data-[state=active]:!text-cyan-400 text-xs sm:text-sm"
 							>
 								✨ Vibe
 							</TabsTrigger>
 							<TabsTrigger
 								value="trends"
-								className="text-zinc-200 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 text-xs sm:text-sm"
+								className="!text-purple-400/60 data-[state=active]:!bg-purple-500/20 data-[state=active]:!text-purple-400 text-xs sm:text-sm"
 							>
 								<TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								Trends
 							</TabsTrigger>
 							<TabsTrigger
 								value="numbers"
-								className="text-zinc-200 data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm"
+								className="!text-pink-400/60 data-[state=active]:!bg-pink-500/20 data-[state=active]:!text-pink-400 text-xs sm:text-sm"
 							>
 								<Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								Numbers
 							</TabsTrigger>
 							<TabsTrigger
 								value="news"
-								className="text-zinc-200 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400 text-xs sm:text-sm"
+								className="!text-orange-400/60 data-[state=active]:!bg-orange-500/20 data-[state=active]:!text-orange-400 text-xs sm:text-sm"
 							>
 								<Newspaper className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								News
@@ -320,9 +321,11 @@ function MyStakPage() {
 							</button>
 
 							<div className="flex items-start gap-4 mb-4">
-								<div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-2xl font-bold text-zinc-900 dark:text-white">
-									{brand.ticker.charAt(0)}
-								</div>
+								<img
+									src={getBrandLogoUrl(brand)}
+									alt={`${brand.name} logo`}
+									className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
+								/>
 								<div className="flex-1">
 									<div className="flex items-baseline gap-2 mb-1">
 										<h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">

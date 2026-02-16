@@ -24,7 +24,22 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 		return () => clearTimeout(timer);
 	}, [isTopCard]);
 
+	const glowKeyframes = vibes.map((vibe, i) =>
+		`@keyframes glow-pulse-${i} {
+			0%, 100% { box-shadow: 0 0 8px ${vibe.color}, 0 0 16px ${vibe.color}80, 0 0 32px ${vibe.color}40; }
+			50% { box-shadow: 0 0 14px ${vibe.color}, 0 0 28px ${vibe.color}90, 0 0 48px ${vibe.color}60; }
+		}`
+	).join("\n");
+
 	return (
+		<>
+		<style>{`
+			${glowKeyframes}
+			@keyframes shimmer {
+				0% { transform: translateX(-100%); }
+				100% { transform: translateX(100%); }
+			}
+		`}</style>
 		<div className="space-y-3">
 			{vibes.map((vibe, i) => (
 				<div key={vibe.name} className="space-y-1.5">
@@ -75,12 +90,13 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 						<div className="h-3 w-full rounded-full bg-zinc-800/60">
 							{/* Smooth rounded neon bar */}
 							<div
-								className="h-full rounded-full relative"
+								className="h-full rounded-full relative overflow-hidden"
 								style={{
 									width: loaded ? `${vibe.value}%` : "0%",
 									transition: `width ${0.8 + i * 0.2}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
 									background: `linear-gradient(90deg, ${vibe.color}99 0%, ${vibe.color} 70%, #ffffffCC 100%)`,
 									boxShadow: `0 0 8px ${vibe.color}, 0 0 16px ${vibe.color}80, 0 0 32px ${vibe.color}40`,
+									animation: loaded ? `glow-pulse-${i} ${2 + i * 0.3}s ease-in-out infinite` : "none",
 								}}
 							>
 								{/* Top highlight for depth */}
@@ -90,11 +106,21 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 										background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 50%)",
 									}}
 								/>
+								{/* Shimmer sweep */}
+								<div
+									className="absolute inset-0 rounded-full"
+									style={{
+										background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)`,
+										animation: loaded ? `shimmer ${2.5 + i * 0.5}s ease-in-out infinite` : "none",
+										animationDelay: `${i * 0.4}s`,
+									}}
+								/>
 							</div>
 						</div>
 					</div>
 				</div>
 			))}
 		</div>
+		</>
 	);
 }

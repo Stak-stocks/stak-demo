@@ -78,27 +78,27 @@ function BrandDetailPage() {
 					<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50">
 						<TabsTrigger
 							value="vibe"
-							className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
+							className="!text-cyan-400/60 data-[state=active]:!bg-cyan-500/20 data-[state=active]:!text-cyan-400"
 						>
 							✨ Vibe
 						</TabsTrigger>
 						<TabsTrigger
 							value="trends"
-							className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400"
+							className="!text-purple-400/60 data-[state=active]:!bg-purple-500/20 data-[state=active]:!text-purple-400"
 						>
 							<TrendingUp className="w-4 h-4 mr-2" />
 							Trends
 						</TabsTrigger>
 						<TabsTrigger
 							value="numbers"
-							className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
+							className="!text-pink-400/60 data-[state=active]:!bg-pink-500/20 data-[state=active]:!text-pink-400"
 						>
 							<Activity className="w-4 h-4 mr-2" />
 							Numbers
 						</TabsTrigger>
 						<TabsTrigger
 							value="news"
-							className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-400"
+							className="!text-orange-400/60 data-[state=active]:!bg-orange-500/20 data-[state=active]:!text-orange-400"
 						>
 							<Newspaper className="w-4 h-4 mr-2" />
 							News
