@@ -346,7 +346,7 @@ function SwipeStep({
 	const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
 	const handleTouchEnd = () => handleDragEnd();
 
-	const visibleBrands = swipeBrands.slice(currentIndex, currentIndex + 3);
+	const visibleBrands = swipeBrands.slice(currentIndex, currentIndex + 2);
 	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 150, 0.4);
 
 	return (
