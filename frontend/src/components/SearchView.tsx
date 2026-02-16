@@ -81,12 +81,12 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 								<p className="text-sm text-zinc-500 dark:text-zinc-400">
 									Search results — tap to explore the vibe.
 								</p>
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
 									{results.map((brand) => (
 										<div
 											key={brand.id}
 											onClick={() => handleLearnMore(brand)}
-											className="cursor-pointer transform transition-transform hover:scale-[1.02] active:scale-[0.98]"
+											className="cursor-pointer transform transition-transform hover:scale-[1.02] active:scale-[0.98] h-full"
 										>
 											<StockCard brand={brand} onLearnMore={handleLearnMore} />
 										</div>
