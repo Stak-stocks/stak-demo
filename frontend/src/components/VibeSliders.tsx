@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { VibeMetric } from "@/data/brands";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -16,29 +16,13 @@ const VIBE_EXPLANATIONS: Record<string, string> = {
 export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 	const [loaded, setLoaded] = useState(false);
 	const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-	const wasTopCard = useRef(false);
 
+	// Animate bars: trigger on mount and whenever isTopCard changes
 	useEffect(() => {
-		// When used in swipeable card stack, animate on becoming top card
-		if (isTopCard && !wasTopCard.current) {
-			setLoaded(false);
-			const timer = setTimeout(() => setLoaded(true), 100);
-			wasTopCard.current = true;
-			return () => clearTimeout(timer);
-		}
-		if (!isTopCard && wasTopCard.current) {
-			wasTopCard.current = false;
-			setLoaded(false);
-		}
+		setLoaded(false);
+		const timer = setTimeout(() => setLoaded(true), 150);
+		return () => clearTimeout(timer);
 	}, [isTopCard]);
-
-	// When not in a swipeable context (e.g. search results), load immediately
-	useEffect(() => {
-		if (!isTopCard && !wasTopCard.current) {
-			const timer = setTimeout(() => setLoaded(true), 100);
-			return () => clearTimeout(timer);
-		}
-	}, []);
 
 	return (
 		<div className="space-y-3">

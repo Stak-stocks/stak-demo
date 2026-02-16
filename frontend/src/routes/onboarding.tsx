@@ -110,6 +110,7 @@ function OnboardingPage() {
 		/>,
 		<SwipeStep
 			key="swipe"
+			selectedInterests={selectedActivities}
 			onSwipeRight={(id) => setSwipedRight((prev) => [...prev, id])}
 			onNext={() => goTo(3)}
 		/>,
@@ -260,12 +261,31 @@ function InterestsStep({
 // ─── Step 3: Swipe ──────────────────────────────────────────────────────────────
 
 function SwipeStep({
+	selectedInterests,
 	onSwipeRight,
 	onNext,
 }: {
+	selectedInterests: string[];
 	onSwipeRight: (id: string) => void;
 	onNext: () => void;
 }) {
+	// Derive swipe brands from user's interest selections
+	const swipeBrands = useMemo(() => {
+		if (selectedInterests.length === 0) return SWIPE_BRANDS;
+
+		const interestBrandIds = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
+		const uniqueIds = [...new Set(interestBrandIds)];
+		const mapped = uniqueIds.map((id) => {
+			const brand = allBrands.find((b) => b.id === id);
+			return brand
+				? { id: brand.id, name: brand.name, image: brand.heroImage, ticker: brand.ticker }
+				: null;
+		}).filter(Boolean) as { id: string; name: string; image: string; ticker: string }[];
+
+		// Return at least 4 brands, pad with defaults if needed
+		return mapped.length >= 4 ? mapped.slice(0, 8) : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
+	}, [selectedInterests]);
+
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
@@ -273,7 +293,7 @@ function SwipeStep({
 	const dragStartPos = useRef({ x: 0, y: 0 });
 	const isProcessingSwipe = useRef(false);
 
-	const done = currentIndex >= SWIPE_BRANDS.length;
+	const done = currentIndex >= swipeBrands.length;
 
 	const handleDragStart = (clientX: number, clientY: number) => {
 		if (done || isProcessingSwipe.current) return;
@@ -299,7 +319,7 @@ function SwipeStep({
 			setIsExiting(true);
 			const exitDirection = dragOffset.x > 0 ? 1000 : -1000;
 			const isRight = dragOffset.x > 0;
-			const brand = SWIPE_BRANDS[currentIndex];
+			const brand = swipeBrands[currentIndex];
 
 			setDragOffset({ x: exitDirection, y: dragOffset.y });
 
@@ -326,7 +346,7 @@ function SwipeStep({
 	const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
 	const handleTouchEnd = () => handleDragEnd();
 
-	const visibleBrands = SWIPE_BRANDS.slice(currentIndex, currentIndex + 3);
+	const visibleBrands = swipeBrands.slice(currentIndex, currentIndex + 3);
 	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 150, 0.4);
 
 	return (
@@ -436,7 +456,7 @@ function SwipeStep({
 			{/* Card counter */}
 			{!done && (
 				<div className="text-center text-sm text-slate-500">
-					{currentIndex + 1} / {SWIPE_BRANDS.length}
+					{currentIndex + 1} / {swipeBrands.length}
 				</div>
 			)}
 

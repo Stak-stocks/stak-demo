@@ -14,7 +14,7 @@ function randRange(rng: () => number, min: number, max: number) {
 }
 
 const floatingBrands = [
-	// Original 20
+	// Only brands with clear, high-quality favicons
 	{ name: "Nike", logo: fl("nike.com"), size: 64, delay: 0 },
 	{ name: "Spotify", logo: fl("spotify.com"), size: 56, delay: 1.2 },
 	{ name: "Tesla", logo: fl("tesla.com"), size: 62, delay: 0.5 },
@@ -23,37 +23,23 @@ const floatingBrands = [
 	{ name: "Netflix", logo: fl("netflix.com"), size: 60, delay: 0.8 },
 	{ name: "Google", logo: fl("google.com"), size: 56, delay: 1.5 },
 	{ name: "Disney", logo: fl("disney.com"), size: 58, delay: 2.4 },
-	{ name: "AMD", logo: fl("amd.com"), size: 50, delay: 1 },
 	{ name: "Uber", logo: fl("uber.com"), size: 52, delay: 0.3 },
 	{ name: "Nvidia", logo: fl("nvidia.com"), size: 56, delay: 1.7 },
 	{ name: "Amazon", logo: fl("amazon.com"), size: 50, delay: 2 },
-	{ name: "Microsoft", logo: fl("microsoft.com"), size: 54, delay: 0.7 },
-	{ name: "Adidas", logo: fl("adidas.com"), size: 58, delay: 1.9 },
 	{ name: "Samsung", logo: fl("samsung.com"), size: 54, delay: 2.6 },
 	{ name: "Starbucks", logo: fl("starbucks.com"), size: 50, delay: 0.4 },
 	{ name: "PayPal", logo: fl("paypal.com"), size: 48, delay: 2.3 },
 	{ name: "Airbnb", logo: fl("airbnb.com"), size: 52, delay: 1.1 },
-	{ name: "Twitter", logo: fl("x.com"), size: 48, delay: 1.6 },
 	{ name: "Shopify", logo: fl("shopify.com"), size: 50, delay: 2.8 },
-	// Additional brands
-	{ name: "Coca-Cola", logo: fl("coca-cola.com"), size: 54, delay: 0.2 },
-	{ name: "Intel", logo: fl("intel.com"), size: 52, delay: 1.3 },
 	{ name: "Oracle", logo: fl("oracle.com"), size: 50, delay: 0.9 },
-	{ name: "Visa", logo: fl("visa.com"), size: 56, delay: 2.2 },
 	{ name: "Mastercard", logo: fl("mastercard.com"), size: 54, delay: 1.4 },
-	{ name: "LinkedIn", logo: fl("linkedin.com"), size: 52, delay: 0.6 },
 	{ name: "Snapchat", logo: fl("snapchat.com"), size: 50, delay: 2.5 },
 	{ name: "Reddit", logo: fl("reddit.com"), size: 54, delay: 1.0 },
 	{ name: "Pinterest", logo: fl("pinterest.com"), size: 48, delay: 1.8 },
-	{ name: "Slack", logo: fl("slack.com"), size: 52, delay: 0.7 },
-	{ name: "Zoom", logo: fl("zoom.us"), size: 50, delay: 2.0 },
 	{ name: "Dropbox", logo: fl("dropbox.com"), size: 48, delay: 1.1 },
-	{ name: "TikTok", logo: fl("tiktok.com"), size: 56, delay: 0.4 },
-	{ name: "Sony", logo: fl("sony.com"), size: 54, delay: 2.7 },
 	{ name: "Honda", logo: fl("honda.com"), size: 52, delay: 1.6 },
 	{ name: "BMW", logo: fl("bmw.com"), size: 58, delay: 0.8 },
 	{ name: "Porsche", logo: fl("porsche.com"), size: 54, delay: 2.3 },
-	{ name: "Gucci", logo: fl("gucci.com"), size: 50, delay: 1.5 },
 	{ name: "Louis Vuitton", logo: fl("louisvuitton.com"), size: 52, delay: 0.3 },
 	{ name: "Rolex", logo: fl("rolex.com"), size: 56, delay: 2.1 },
 ];

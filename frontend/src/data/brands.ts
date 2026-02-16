@@ -75,14 +75,45 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
 
+// TradingView logo slugs for high-quality company hero images
+const TV_LOGO_SLUGS: Record<string, string> = {
+	tsla: "tesla", aapl: "apple", nvda: "nvidia", rblx: "roblox", meta: "meta-platforms",
+	nke: "nike", sbux: "starbucks", spot: "spotify-technology", amzn: "amazon", nflx: "netflix",
+	coin: "coinbase-global", msft: "microsoft", googl: "alphabet", dis: "walt-disney",
+	uber: "uber-technologies", shop: "shopify", amd: "advanced-micro-devices",
+	spy: "spdr-s-and-p-500-etf-trust", qqq: "invesco-qqq-trust", pypl: "paypal",
+	intc: "intel", ionq: "ionq", tsm: "taiwan-semiconductor", qcom: "qualcomm",
+	avgo: "broadcom", mu: "micron-technology", asml: "asml-holding",
+	nee: "nextera-energy", enph: "enphase-energy", fslr: "first-solar",
+	plug: "plug-power", xom: "exxon-mobil", cvx: "chevron", v: "visa", ma: "mastercard",
+	sq: "block", hood: "robinhood-markets", sofi: "sofi-technologies", afrm: "affirm-holdings",
+	txn: "texas-instruments", nxpi: "nxp-semiconductors", mrvl: "marvell-technology",
+	wmt: "walmart", tgt: "target", cost: "costco-wholesale", hd: "home-depot", low: "lowes-companies",
+	mcd: "mcdonald-s", ko: "coca-cola", pep: "pepsico", pg: "procter-gamble",
+	jnj: "johnson-johnson", lmt: "lockheed-martin", ba: "boeing",
+	unh: "unitedhealth-group", crm: "salesforce", adbe: "adobe", now: "servicenow",
+	intu: "intuit", amat: "applied-materials", abnb: "airbnb", lyft: "lyft",
+	ddog: "datadog", snow: "snowflake", mdb: "mongodb", panw: "palo-alto-networks",
+	crwd: "crowdstrike-holdings", zm: "zoom-video-communications", pltr: "palantir-technologies",
+	hon: "honeywell", or: "l-oreal", el: "estee-lauder", elf: "e-l-f-beauty",
+	ulta: "ulta-beauty", coty: "coty",
+};
+
+export function getBrandHeroUrl(id: string): string {
+	const slug = TV_LOGO_SLUGS[id];
+	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
+	const domain = BRAND_DOMAINS[id];
+	if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+	return "";
+}
+
 export const brands: BrandProfile[] = [
 	{
 		id: "tsla",
 		ticker: "TSLA",
 		name: "Tesla",
 		bio: "electric dreams & memes that break the simulation",
-		heroImage:
-			"https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/tesla--600.png",
 		personalityDescription: "The chaos energy of your group chat's tech bro",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
@@ -176,8 +207,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AAPL",
 		name: "Apple",
 		bio: "the aesthetic everyone copies but won't admit",
-		heroImage:
-			"https://images.unsplash.com/photo-1611472173362-3f53dbd65d80?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/apple--600.png",
 		personalityDescription: "Clean girl aesthetic meets generational wealth",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
@@ -271,8 +301,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NVDA",
 		name: "NVIDIA",
 		bio: "powering your AI girlfriend and gaming setup",
-		heroImage:
-			"https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/nvidia--600.png",
 		personalityDescription: "The plug everyone needs but nobody talks about",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -366,8 +395,7 @@ export const brands: BrandProfile[] = [
 		ticker: "RBLX",
 		name: "Roblox",
 		bio: "where gen alpha gets their drip & trades virtual economies",
-		heroImage:
-			"https://upload.wikimedia.org/wikipedia/commons/1/1e/Roblox_Logo_2025.png",
+		heroImage: "https://s3-symbol-logo.tradingview.com/roblox--600.png",
 		personalityDescription: "Minecraft's chaotic younger sibling",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -461,8 +489,7 @@ export const brands: BrandProfile[] = [
 		ticker: "META",
 		name: "Meta",
 		bio: "your mom's on facebook, you're on insta, nobody's in the metaverse",
-		heroImage:
-			"https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/meta-platforms--600.png",
 		personalityDescription: "That friend who peaked in high school but still shows up",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -556,8 +583,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NKE",
 		name: "Nike",
 		bio: "just do it (spend $200 on shoes you'll wear twice)",
-		heroImage:
-			"https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/nike--600.png",
 		personalityDescription: "Athleisure royalty that convinced us hoodies are formal",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 94, color: "#00d9ff" },
@@ -651,8 +677,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SBUX",
 		name: "Starbucks",
 		bio: "your $8 oat milk latte has entered the chat",
-		heroImage:
-			"https://images.unsplash.com/photo-1511920170033-f8396924c348?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/starbucks--600.png",
 		personalityDescription: "Basic culture elevated to an aesthetic",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -746,8 +771,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SPOT",
 		name: "Spotify",
 		bio: "your wrapped reveal is your whole personality for a week",
-		heroImage:
-			"https://images.unsplash.com/photo-1614680376593-902f74cf0d41?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/spotify-technology--600.png",
 		personalityDescription: "The algorithm that knows you better than you know yourself",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -841,8 +865,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AMZN",
 		name: "Amazon",
 		bio: "2-day shipping has ruined your patience forever",
-		heroImage:
-			"https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/amazon--600.png",
 		personalityDescription: "The everything store that knows what you want before you do",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
@@ -936,8 +959,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NFLX",
 		name: "Netflix",
 		bio: "binge culture architect & password sharing police",
-		heroImage:
-			"https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/netflix--600.png",
 		personalityDescription: "The friend who suggests watching something then falls asleep",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -1031,8 +1053,7 @@ export const brands: BrandProfile[] = [
 		ticker: "COIN",
 		name: "Coinbase",
 		bio: "where your friend lost $5k on dog-themed coins",
-		heroImage:
-			"https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/coinbase--600.png",
 		personalityDescription: "Crypto's corporate cousin trying to seem legitimate",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -1126,8 +1147,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MSFT",
 		name: "Microsoft",
 		bio: "office suite overlord & cloud computing empire",
-		heroImage:
-			"https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/microsoft--600.png",
 		personalityDescription: "The adult in the room that owns everything",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 96, color: "#00d9ff" },
@@ -1221,8 +1241,7 @@ export const brands: BrandProfile[] = [
 		ticker: "GOOGL",
 		name: "Google",
 		bio: "the search bar that knows your secrets",
-		heroImage:
-			"https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/alphabet--600.png",
 		personalityDescription: "Big Brother but make it colorful",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 97, color: "#00d9ff" },
@@ -1316,8 +1335,7 @@ export const brands: BrandProfile[] = [
 		ticker: "DIS",
 		name: "Disney",
 		bio: "owns your childhood & half of Hollywood",
-		heroImage:
-			"https://s3-symbol-logo.tradingview.com/walt-disney--600.png",
+		heroImage: "https://s3-symbol-logo.tradingview.com/walt-disney--600.png",
 		personalityDescription: "The mouse that ate entertainment",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 93, color: "#00d9ff" },
@@ -1411,8 +1429,7 @@ export const brands: BrandProfile[] = [
 		ticker: "UBER",
 		name: "Uber",
 		bio: "your ride & your eats",
-		heroImage:
-			"https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/uber--600.png",
 		personalityDescription: "Gig economy poster child",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 83, color: "#00d9ff" },
@@ -1506,8 +1523,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SHOP",
 		name: "Shopify",
 		bio: "Etsy shops that look professional",
-		heroImage:
-			"https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/shopify--600.png",
 		personalityDescription: "E-commerce for everyone",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 76, color: "#00d9ff" },
@@ -1601,8 +1617,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AMD",
 		name: "AMD",
 		bio: "NVIDIA's scrappy competitor",
-		heroImage:
-			"https://images.unsplash.com/photo-1591488320449-011701bb6704?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/advanced-micro-devices--600.png",
 		personalityDescription: "Team Red rising",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -1696,8 +1711,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SPY",
 		name: "SPY ETF",
 		bio: "S&P 500 index, the ultimate set & forget",
-		heroImage:
-			"https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/state-street--600.png",
 		personalityDescription: "Passive investing icon",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -1791,8 +1805,7 @@ export const brands: BrandProfile[] = [
 		ticker: "QQQ",
 		name: "QQQ ETF",
 		bio: "Nasdaq-100, pure tech energy",
-		heroImage:
-			"https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/invesco--600.png",
 		personalityDescription: "Tech index supremacy",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -1886,8 +1899,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PYPL",
 		name: "PayPal",
 		bio: "splitting the bill made easy",
-		heroImage:
-			"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkP9spdRyYRolf8YctVxqGsAL8ADaPoEzsSQ&s",
+		heroImage: "https://s3-symbol-logo.tradingview.com/paypal--600.png",
 		personalityDescription: "Digital payments OG",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 79, color: "#00d9ff" },
@@ -1981,8 +1993,7 @@ export const brands: BrandProfile[] = [
 		ticker: "INTC",
 		name: "Intel",
 		bio: "the empire strikes back (or dies trying)",
-		heroImage:
-			"https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/intel--600.png",
 		personalityDescription: "The tech boomer that finally got a gym membership",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -2069,8 +2080,7 @@ export const brands: BrandProfile[] = [
 		ticker: "IONQ",
 		name: "IonQ",
 		bio: "pure-play quantum computing moonshot",
-		heroImage:
-			"https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/ionq--600.png",
 		personalityDescription: "Quantum computing's startup darling",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 55, color: "#00d9ff" },
@@ -2116,8 +2126,7 @@ export const brands: BrandProfile[] = [
 		ticker: "TSM",
 		name: "TSMC",
 		bio: "makes the chips that power your entire life",
-		heroImage:
-			"https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/taiwan-semiconductor--600.png",
 		personalityDescription: "The invisible giant running everything",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -2163,8 +2172,7 @@ export const brands: BrandProfile[] = [
 		ticker: "QCOM",
 		name: "Qualcomm",
 		bio: "every smartphone runs on our chips",
-		heroImage:
-			"https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/qualcomm--600.png",
 		personalityDescription: "Mobile chip monopoly energy",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -2210,8 +2218,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AVGO",
 		name: "Broadcom",
 		bio: "infrastructure chips nobody sees but everyone needs",
-		heroImage:
-			"https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/broadcom--600.png",
 		personalityDescription: "The boring company making bank",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -2257,7 +2264,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MU",
 		name: "Micron",
 		bio: "memory chips in everything",
-		heroImage: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/micron-technology--600.png",
 		personalityDescription: "Memory essential",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
@@ -2291,7 +2298,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ASML",
 		name: "ASML",
 		bio: "only company making chip-making machines",
-		heroImage: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/asml--600.png",
 		personalityDescription: "Dutch chip equipment monopoly",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -2324,7 +2331,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NEE",
 		name: "NextEra Energy",
 		bio: "making climate change solutions actually profitable",
-		heroImage: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/nextera-energy--600.png",
 		personalityDescription: "The utility company your eco-conscious friend won't shut up about",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -2358,7 +2365,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ENPH",
 		name: "Enphase",
 		bio: "the tiny box that makes rooftop solar actually work",
-		heroImage: "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/enphase-energy--600.png",
 		personalityDescription: "Profiting from your neighbor's solar flex",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 62, color: "#00d9ff" },
@@ -2392,7 +2399,7 @@ export const brands: BrandProfile[] = [
 		ticker: "FSLR",
 		name: "First Solar",
 		bio: "building solar farms big enough to see from space",
-		heroImage: "https://images.unsplash.com/photo-1497440001374-f26997328c1b?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/first-solar--600.png",
 		personalityDescription: "Industrial-scale clean energy, hold the Instagram aesthetic",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 60, color: "#00d9ff" },
@@ -2426,7 +2433,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PLUG",
 		name: "Plug Power",
 		bio: "betting the farm on hydrogen when nobody asked",
-		heroImage: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/plug-power--600.png",
 		personalityDescription: "That friend who's convinced their niche thing will be huge",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 55, color: "#00d9ff" },
@@ -2460,7 +2467,7 @@ export const brands: BrandProfile[] = [
 		ticker: "XOM",
 		name: "Exxon Mobil",
 		bio: "dinosaur juice empire with 'we care now' PR",
-		heroImage: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/exxon--600.png",
 		personalityDescription: "Your rich uncle who dgaf about your opinions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -2494,7 +2501,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CVX",
 		name: "Chevron",
 		bio: "pumping oil with one hand, planting trees with the other",
-		heroImage: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/chevron--600.png",
 		personalityDescription: "Exxon's slightly more self-aware cousin",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 73, color: "#00d9ff" },
@@ -2528,7 +2535,7 @@ export const brands: BrandProfile[] = [
 		ticker: "V",
 		name: "Visa",
 		bio: "the invisible toll booth on literally every purchase",
-		heroImage: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/visa--600.png",
 		personalityDescription: "That friend who gets a cut of everything without doing the work",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
@@ -2562,7 +2569,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MA",
 		name: "Mastercard",
 		bio: "Visa's slightly cooler twin with better marketing",
-		heroImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQA7EL0UC3evvmUxpPLJLXQPR8MBbkh4tBFvg&s",
+		heroImage: "https://s3-symbol-logo.tradingview.com/mastercard--600.png",
 		personalityDescription: "Forever second place but owns it",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
@@ -2596,7 +2603,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SQ",
 		name: "Block",
 		bio: "when Jack Dorsey left Twitter to focus on Bitcoin",
-		heroImage: "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/block--600.png",
 		personalityDescription: "The friend who rebranded after their breakup",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -2630,7 +2637,7 @@ export const brands: BrandProfile[] = [
 		ticker: "HOOD",
 		name: "Robinhood",
 		bio: "the casino that grew up and became your bank",
-		heroImage: "https://play-lh.googleusercontent.com/gdh_yiRr-u_xS1o76iOBpDp5-6l_qnvAAmD_Ft3KUFPSYdYZNEQT-rmPcFV2YaPSEhE",
+		heroImage: "https://s3-symbol-logo.tradingview.com/robinhood--600.png",
 		personalityDescription: "turned your timeline into a stock ticker during GameStop",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -2724,7 +2731,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SOFI",
 		name: "SoFi",
 		bio: "bought a football stadium before figuring out profits",
-		heroImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSFbyYnkiToTat248zFKPjQDlTd68R9yk8sSw&s",
+		heroImage: "https://s3-symbol-logo.tradingview.com/sofi--600.png",
 		personalityDescription: "The app that wants to replace your entire bank",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
@@ -2758,7 +2765,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AFRM",
 		name: "Affirm",
 		bio: "financing your impulse purchases guilt-free since 2012",
-		heroImage: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/affirm--600.png",
 		personalityDescription: "That friend who splits everything into payments",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -2792,7 +2799,7 @@ export const brands: BrandProfile[] = [
 		ticker: "TXN",
 		name: "Texas Instruments",
 		bio: "the TI-84 brand that also makes chips for everything",
-		heroImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/texas-instruments--600.png",
 		personalityDescription: "Your high school calculator maker is a chip powerhouse",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -2826,7 +2833,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NXPI",
 		name: "NXP Semiconductors",
 		bio: "chips in your car's brain you didn't know existed",
-		heroImage: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/nxp-semiconductors--600.png",
 		personalityDescription: "The specialist nobody talks about but everyone needs",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -2860,7 +2867,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MRVL",
 		name: "Marvell",
 		bio: "the unglamorous chips making cloud infrastructure actually work",
-		heroImage: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/marvell-tech--600.png",
 		personalityDescription: "NVIDIA's less famous but equally important cousin",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
@@ -2894,7 +2901,7 @@ export const brands: BrandProfile[] = [
 		ticker: "WMT",
 		name: "Walmart",
 		bio: "where America bulk-buys everything at 2am",
-		heroImage: "https://images.unsplash.com/photo-1601598851547-4302969d0614?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/walmart--600.png",
 		personalityDescription: "The omnipresent retail empire you can't escape",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -2928,7 +2935,7 @@ export const brands: BrandProfile[] = [
 		ticker: "TGT",
 		name: "Target",
 		bio: "went in for milk, left with $200 of things you didn't need",
-		heroImage: "https://images.unsplash.com/photo-1596003906949-67221c37965c?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/target--600.png",
 		personalityDescription: "Walmart's Instagram-worthy cousin",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -2962,7 +2969,7 @@ export const brands: BrandProfile[] = [
 		ticker: "COST",
 		name: "Costco",
 		bio: "pay $60 to buy 48 rolls of toilet paper you don't need",
-		heroImage: "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/costco-wholesale--600.png",
 		personalityDescription: "The cult that charges membership fees",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -2996,7 +3003,7 @@ export const brands: BrandProfile[] = [
 		ticker: "HD",
 		name: "Home Depot",
 		bio: "where dads disappear for 3 hours buying one screw",
-		heroImage: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/home-depot--600.png",
 		personalityDescription: "The orange apron temple of home ownership",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -3030,7 +3037,7 @@ export const brands: BrandProfile[] = [
 		ticker: "LOW",
 		name: "Lowe's",
 		bio: "Home Depot's friendlier blue apron twin",
-		heroImage: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/lowe-s--600.png",
 		personalityDescription: "The slightly less chaotic hardware warehouse",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -3076,7 +3083,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MCD",
 		name: "McDonald's",
 		bio: "always broken ice cream machine, never broken profits",
-		heroImage: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/mcdonalds--600.png",
 		personalityDescription: "American cultural export disguised as burgers",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 95, color: "#00d9ff" },
@@ -3110,7 +3117,7 @@ export const brands: BrandProfile[] = [
 		ticker: "KO",
 		name: "Coca-Cola",
 		bio: "selling sugar water & nostalgia since before your grandparents",
-		heroImage: "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/coca-cola--600.png",
 		personalityDescription: "Warren Buffett's favorite dividend machine",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
@@ -3144,7 +3151,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PEP",
 		name: "PepsiCo",
 		bio: "snacks & drinks empire",
-		heroImage: "https://images.unsplash.com/photo-1624517452488-04869289c4ca?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/pepsico--600.png",
 		personalityDescription: "Coke's snack-focused rival",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
@@ -3177,7 +3184,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PG",
 		name: "Procter & Gamble",
 		bio: "Tide, Pampers, Gillette—they own your entire routine",
-		heroImage: "https://images.unsplash.com/photo-1584305574647-0cc949a2bb9f?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/procter-and-gamble--600.png",
 		personalityDescription: "Boring brands that print money forever",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
@@ -3211,7 +3218,7 @@ export const brands: BrandProfile[] = [
 		ticker: "JNJ",
 		name: "Johnson & Johnson",
 		bio: "Band-Aids in your cabinet, lawsuits in the news",
-		heroImage: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/johnson-and-johnson--600.png",
 		personalityDescription: "Healthcare empire with a complicated past",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 93, color: "#00d9ff" },
@@ -3245,7 +3252,7 @@ export const brands: BrandProfile[] = [
 		ticker: "LMT",
 		name: "Lockheed Martin",
 		bio: "billion-dollar fighter jets your tax dollars bought",
-		heroImage: "https://images.unsplash.com/photo-1517976487492-5750f3195933?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/lockheed-martin--600.png",
 		personalityDescription: "The military-industrial complex's final boss",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -3291,7 +3298,7 @@ export const brands: BrandProfile[] = [
 		ticker: "BA",
 		name: "Boeing",
 		bio: "aerospace legacy trying to rebuild trust one inspection at a time",
-		heroImage: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/boeing--600.png",
 		personalityDescription: "The comeback kid with serious baggage",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -3337,7 +3344,7 @@ export const brands: BrandProfile[] = [
 		ticker: "UNH",
 		name: "UnitedHealth",
 		bio: "controls your insurance AND your doctor's paycheck",
-		heroImage: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/unitedhealth--600.png",
 		personalityDescription: "The healthcare monopoly everyone loves to hate",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -3383,7 +3390,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CRM",
 		name: "Salesforce",
 		bio: "the CRM software every sales team complains about using",
-		heroImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/salesforce--600.png",
 		personalityDescription: "Marc Benioff's cloud empire built on subscriptions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -3429,7 +3436,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ADBE",
 		name: "Adobe",
 		bio: "$60/month to remove backgrounds and sign PDFs",
-		heroImage: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/adobe--600.png",
 		personalityDescription: "Creative software landlord you can't escape",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 90, color: "#00d9ff" },
@@ -3475,7 +3482,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NOW",
 		name: "ServiceNow",
 		bio: "the IT ticketing system running every enterprise help desk",
-		heroImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/servicenow--600.png",
 		personalityDescription: "Boring enterprise automation that prints money",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -3521,7 +3528,7 @@ export const brands: BrandProfile[] = [
 		ticker: "INTU",
 		name: "Intuit",
 		bio: "profiting from tax season panic & small business chaos",
-		heroImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/intuit--600.png",
 		personalityDescription: "The company that lobbies to keep taxes complicated",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -3567,7 +3574,7 @@ export const brands: BrandProfile[] = [
 		ticker: "AMAT",
 		name: "Applied Materials",
 		bio: "builds the machines that build the chips that run everything",
-		heroImage: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/applied-materials--600.png",
 		personalityDescription: "The toolmaker nobody knows but everyone needs",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -3613,7 +3620,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ABNB",
 		name: "Airbnb",
 		bio: "ruined housing markets but gave you unique vacation vibes",
-		heroImage: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/airbnb--600.png",
 		personalityDescription: "The sharing economy app gentrifying your neighborhood",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -3659,7 +3666,7 @@ export const brands: BrandProfile[] = [
 		ticker: "LYFT",
 		name: "Lyft",
 		bio: "Uber's friendlier pink competitor that finally makes money",
-		heroImage: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/lyft--600.png",
 		personalityDescription: "The scrappy underdog that survived",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -3705,7 +3712,7 @@ export const brands: BrandProfile[] = [
 		ticker: "DDOG",
 		name: "Datadog",
 		bio: "watching your servers crash in beautiful real-time dashboards",
-		heroImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/datadog--600.png",
 		personalityDescription: "The DevOps tool every engineer complains about paying for",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -3751,7 +3758,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SNOW",
 		name: "Snowflake",
 		bio: "where enterprises dump all their data and pay by the query",
-		heroImage: "https://images.unsplash.com/photo-1639322537228-f710d846310a?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/snowflake--600.png",
 		personalityDescription: "The cloud data warehouse that had the most hyped IPO ever",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -3797,7 +3804,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MDB",
 		name: "MongoDB",
 		bio: "the database every startup uses then regrets at scale",
-		heroImage: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/mongodb--600.png",
 		personalityDescription: "NoSQL that convinced everyone schemas are optional",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -3843,7 +3850,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PANW",
 		name: "Palo Alto Networks",
 		bio: "protecting enterprises from hackers & breaches since 2005",
-		heroImage: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/palo-alto-networks--600.png",
 		personalityDescription: "The cybersecurity empire profiting from fear",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -3889,7 +3896,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CRWD",
 		name: "CrowdStrike",
 		bio: "cloud security that stops hackers & their IPO was legendary",
-		heroImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/crowdstrike--600.png",
 		personalityDescription: "Next-gen endpoint security crushing legacy antivirus",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -3935,7 +3942,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ZM",
 		name: "Zoom",
 		bio: "gave us Zoom fatigue then fought to stay relevant",
-		heroImage: "https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/zoom-video-communications--600.png",
 		personalityDescription: "Pandemic hero struggling with post-COVID reality",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -3981,7 +3988,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PLTR",
 		name: "Palantir",
 		bio: "CIA-backed data analytics with cult stock following",
-		heroImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/palantir--600.png",
 		personalityDescription: "Secretive government contractor turned AI hype machine",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -4027,7 +4034,7 @@ export const brands: BrandProfile[] = [
 		ticker: "HON",
 		name: "Honeywell",
 		bio: "your thermostat maker also builds quantum computers somehow",
-		heroImage: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/honeywell--600.png",
 		personalityDescription: "Industrial conglomerate betting on quantum while making jet parts",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -4073,8 +4080,7 @@ export const brands: BrandProfile[] = [
 		ticker: "OR.PA",
 		name: "L'Oréal",
 		bio: "owns everything in your bathroom from CeraVe to YSL",
-		heroImage:
-			"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/l-oreal--600.png",
 		personalityDescription: "The final boss of the beauty industry",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 98, color: "#00d9ff" },
@@ -4161,8 +4167,7 @@ export const brands: BrandProfile[] = [
 		ticker: "EL",
 		name: "Estée Lauder",
 		bio: "old money aesthetics trying to fix a new money problem",
-		heroImage:
-			"https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/estee-lauder--600.png",
 		personalityDescription: "The rich grandmother currently restructuring her trust fund",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 92, color: "#00d9ff" },
@@ -4249,8 +4254,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ELF",
 		name: "e.l.f. Beauty",
 		bio: "dupe culture turned into a billion-dollar empire",
-		heroImage:
-			"https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/e-l-f-beauty--600.png",
 		personalityDescription: "The chaotic Gen Z genius who hacked capitalism",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -4337,8 +4341,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ULTA",
 		name: "Ulta Beauty",
 		bio: "the target of beauty where you accidentally spend $200",
-		heroImage:
-			"https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/ulta-beauty--600.png",
 		personalityDescription: "The retail queen hitting all-time highs",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -4425,8 +4428,7 @@ export const brands: BrandProfile[] = [
 		ticker: "COTY",
 		name: "Coty",
 		bio: "the chaotic perfume house trying to get its act together",
-		heroImage:
-			"https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&h=500&fit=crop",
+		heroImage: "https://s3-symbol-logo.tradingview.com/coty--600.png",
 		personalityDescription: "The fragrance empire with a messy balance sheet",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },

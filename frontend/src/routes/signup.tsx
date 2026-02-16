@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { FloatingBrands } from "@/components/FloatingBrands";
+
 import { updateProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
@@ -86,7 +86,6 @@ function SignUpPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Heading */}
