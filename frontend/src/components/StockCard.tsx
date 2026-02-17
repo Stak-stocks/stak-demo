@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
 import { VibeSliders } from "@/components/VibeSliders";
+import { ChevronUp } from "lucide-react";
 
 interface StockCardProps {
 	brand: BrandProfile;
@@ -10,6 +12,8 @@ interface StockCardProps {
 }
 
 export function StockCard({ brand, onLearnMore, priority = false, isTopCard = false }: StockCardProps) {
+	const [expanded, setExpanded] = useState(false);
+
 	return (
 		<div className="relative rounded-2xl p-[2px] overflow-hidden h-full flex flex-col">
 			{/* Animated rotating gradient border */}
@@ -67,7 +71,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 					<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
 				</div>
 
-				{/* CTA button with animated rotating neon glow */}
+				{/* CTA toggle button with animated rotating neon glow */}
 				<div className="relative rounded-xl p-[2px] overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98]">
 					<div
 						className="absolute inset-[-50%] animate-[spin_4s_linear_infinite]"
@@ -82,7 +86,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 						}}
 					/>
 					<button
-						onClick={() => onLearnMore(brand)}
+						onClick={() => setExpanded(!expanded)}
 						className="relative w-full group rounded-xl px-4 py-3 text-center"
 						style={{
 							background: "linear-gradient(135deg, #141828 0%, #0f1320 100%)",
@@ -92,14 +96,39 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 							<span className="text-white font-bold text-base">
 								Why do people care...
 							</span>
-							<svg className="w-7 h-7 group-hover:rotate-12 transition-transform flex-shrink-0" viewBox="0 0 24 24" fill="none" style={{ filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8)) drop-shadow(0 0 12px rgba(255,215,0,0.4))" }}>
-								<path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" fill="#FFD700" stroke="#FFD700" strokeWidth="0.5" />
-								<path d="M19 11l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" fill="#FFD700" opacity="0.85" />
-								<path d="M6 15l.7 2.1 2.3.7-2.3.7L6 20.6l-.7-2.1-2.3-.7 2.3-.7L6 15z" fill="#FFD700" opacity="0.65" />
-							</svg>
+							{expanded ? (
+								<ChevronUp className="w-6 h-6 text-cyan-400 flex-shrink-0 transition-transform" />
+							) : (
+								<svg className="w-7 h-7 group-hover:rotate-12 transition-transform flex-shrink-0" viewBox="0 0 24 24" fill="none" style={{ filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8)) drop-shadow(0 0 12px rgba(255,215,0,0.4))" }}>
+									<path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" fill="#FFD700" stroke="#FFD700" strokeWidth="0.5" />
+									<path d="M19 11l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" fill="#FFD700" opacity="0.85" />
+									<path d="M6 15l.7 2.1 2.3.7-2.3.7L6 20.6l-.7-2.1-2.3-.7 2.3-.7L6 15z" fill="#FFD700" opacity="0.65" />
+								</svg>
+							)}
 						</div>
 					</button>
 				</div>
+
+				{/* Expandable cultural context content */}
+				{expanded && (
+					<div className="mt-3 rounded-xl bg-[#0f1629]/80 border border-slate-700/50 p-4 space-y-3 max-h-48 overflow-y-auto">
+						<h3 className="text-sm font-bold text-cyan-400">
+							{brand.culturalContext.title}
+						</h3>
+						{brand.culturalContext.sections.map((section, index) => (
+							<div key={index} className="space-y-1">
+								<h4 className="text-xs font-semibold text-pink-400">{section.heading}</h4>
+								<p className="text-xs text-zinc-300 leading-relaxed">{section.content}</p>
+							</div>
+						))}
+						<button
+							onClick={() => onLearnMore(brand)}
+							className="w-full mt-2 py-2 rounded-lg text-xs font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 hover:bg-cyan-400/20 transition-colors"
+						>
+							Read full context
+						</button>
+					</div>
+				)}
 			</div>
 			</div>
 		</div>
