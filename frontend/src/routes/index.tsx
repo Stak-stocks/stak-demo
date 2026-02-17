@@ -134,8 +134,13 @@ function App() {
 	}, [swipedBrands]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
-		setSelectedBrand(brand);
-		setModalOpen(true);
+		if (modalOpen && selectedBrand?.id === brand.id) {
+			setModalOpen(false);
+			setTimeout(() => setSelectedBrand(null), 200);
+		} else {
+			setSelectedBrand(brand);
+			setModalOpen(true);
+		}
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
