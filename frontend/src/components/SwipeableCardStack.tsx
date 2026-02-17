@@ -98,7 +98,7 @@ export function SwipeableCardStack({
 	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
 
 	// Show current card + 1 stacked behind
-	const visibleBrands = brands.slice(currentIndex, currentIndex + 2);
+	const visibleBrands = brands.slice(currentIndex, currentIndex + 1);
 
 	// Preload all images on mount for instant transitions
 	useEffect(() => {
@@ -276,7 +276,7 @@ export function SwipeableCardStack({
 					const scale = index === 0 ? 1 : 0.92 - index * 0.04;
 					const yOffset = index * 12;
 					// Stacked cards visible behind with glow border showing
-					const opacity = index === 0 ? 1 : 0.4;
+					const opacity = index === 0 ? 1 : 0;
 
 					const rotation = isTopCard ? dragOffset.x * 0.03 : 0;
 					const translateX = isTopCard ? dragOffset.x : 0;
