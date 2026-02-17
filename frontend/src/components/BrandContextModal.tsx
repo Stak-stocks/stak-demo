@@ -32,13 +32,13 @@ export function BrandContextModal({
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full h-full sm:h-[70vh] sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl overflow-y-auto"
+				className="relative w-full h-full sm:h-[70vh] sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl overflow-y-auto pt-14 sm:pt-0"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Back to Discovery button */}
 				<button
 					onClick={onClose}
-					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-6 pt-4 pb-0"
+					className="sticky top-0 z-10 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-6 pt-4 pb-2 bg-[#0b1121] w-full"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span className="text-sm">Back to Discovery</span>
