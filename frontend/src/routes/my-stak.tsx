@@ -122,18 +122,18 @@ function MyStakPage() {
 							</TabsTrigger>
 						</TabsList>
 
-						<TabsContent value="vibe" className="mt-2 sm:mt-6 space-y-3 sm:space-y-6 overflow-y-auto flex-1">
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
-								<h2 className="text-lg sm:text-xl font-bold text-cyan-400 mb-3 sm:mb-4">
+						<TabsContent value="vibe" className="mt-2 sm:mt-6 space-y-2 sm:space-y-6 overflow-y-auto flex-1">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
+								<h2 className="text-base sm:text-xl font-bold text-cyan-400 mb-2 sm:mb-4">
 									{selectedBrand.culturalContext.title}
 								</h2>
-								<div className="space-y-4 sm:space-y-6">
+								<div className="space-y-2 sm:space-y-6">
 									{selectedBrand.culturalContext.sections.map((section, index) => (
 										<div key={index}>
-											<h3 className="font-semibold text-base sm:text-lg text-pink-400 mb-2">
+											<h3 className="font-semibold text-sm sm:text-lg text-pink-400 mb-1 sm:mb-2">
 												{section.heading}
 											</h3>
-											<p className="text-zinc-300 leading-relaxed text-sm sm:text-base">
+											<p className="text-zinc-300 leading-snug sm:leading-relaxed text-xs sm:text-base">
 												{section.content}
 											</p>
 										</div>
@@ -141,15 +141,15 @@ function MyStakPage() {
 								</div>
 							</div>
 
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
-								<h3 className="font-semibold text-base sm:text-lg text-white mb-3 sm:mb-4">Vibe Metrics</h3>
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
+								<h3 className="font-semibold text-sm sm:text-lg text-white mb-2 sm:mb-4">Vibe Metrics</h3>
 								<VibeSliders vibes={selectedBrand.vibes} />
 							</div>
 						</TabsContent>
 
 						<TabsContent value="numbers" className="mt-2 sm:mt-6 overflow-y-auto flex-1">
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
-								<div className="mb-4 sm:mb-6">
+							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
+								<div className="mb-2 sm:mb-6">
 									<h2 className="text-xl sm:text-2xl font-bold text-pink-400 mb-2">
 										The Numbers
 									</h2>
@@ -299,7 +299,7 @@ function MyStakPage() {
 					</p>
 				</header>
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-6">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
 					{swipedBrands.map((brand) => (
 						<div
 							key={brand.id}
