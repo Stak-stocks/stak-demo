@@ -10,18 +10,16 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { brands as allBrands, getBrandLogoUrl } from "@/data/brands";
+import { brands as allBrands, getBrandLogoUrl, type BrandProfile } from "@/data/brands";
+import { StockCard } from "@/components/StockCard";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
 });
 
-const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) => {
-	const brand = allBrands.find((b) => b.id === id);
-	return brand
-		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
-		: null;
-}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
+const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) =>
+	allBrands.find((b) => b.id === id),
+).filter(Boolean) as BrandProfile[];
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
@@ -301,12 +299,9 @@ function SwipeStep({
 			}
 		}
 
-		const mapped = [...picked].map((id) => {
-			const brand = allBrands.find((b) => b.id === id);
-			return brand
-				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
-				: null;
-		}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
+		const mapped = [...picked]
+			.map((id) => allBrands.find((b) => b.id === id))
+			.filter(Boolean) as BrandProfile[];
 
 		// Pad with defaults if fewer than 4 brands
 		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
@@ -376,7 +371,7 @@ function SwipeStep({
 	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 150, 0.4);
 
 	return (
-		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
+		<div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
 				<h1 className="text-2xl font-bold text-white">Swipe to discover</h1>
 				{!done && (
@@ -384,7 +379,7 @@ function SwipeStep({
 				)}
 			</div>
 
-			<div className="relative w-full h-[320px]">
+			<div className="relative w-full h-[calc(100dvh-240px)] max-h-[430px]">
 				{done ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="text-center space-y-3">
@@ -407,7 +402,7 @@ function SwipeStep({
 							return (
 								<div
 									key={brand.id}
-									className="absolute inset-0 flex items-center justify-center"
+									className="absolute inset-0 cursor-grab active:cursor-grabbing"
 									style={{
 										transform: `translateX(${translateX}px) translateY(${translateY + yOffset}px) scale(${scale}) rotate(${rotation}deg)`,
 										opacity,
@@ -430,7 +425,7 @@ function SwipeStep({
 									{/* Swipe tint overlay */}
 									{isTopCard && isDragging && Math.abs(dragOffset.x) > 20 && (
 										<div
-											className="absolute inset-0 flex items-center justify-center rounded-2xl pointer-events-none z-10"
+											className="absolute inset-0 rounded-2xl pointer-events-none z-10"
 											style={{
 												backgroundColor:
 													dragOffset.x > 0
@@ -441,17 +436,7 @@ function SwipeStep({
 										/>
 									)}
 
-									<div className="w-64 h-72 flex flex-col items-center justify-center gap-4 cursor-grab active:cursor-grabbing">
-										<img
-											src={brand.logo}
-											alt={brand.name}
-											className="w-28 h-28 rounded-2xl object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]"
-										/>
-										<div className="text-center">
-											<p className="text-white font-bold text-lg">{brand.name}</p>
-											<p className="text-slate-400 text-sm">${brand.ticker}</p>
-										</div>
-									</div>
+									<StockCard brand={brand} onLearnMore={() => {}} priority={isTopCard} isTopCard={isTopCard} />
 								</div>
 							);
 						})}
@@ -487,7 +472,7 @@ function SwipeStep({
 			<button
 				type="button"
 				onClick={onNext}
-				className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${
+				className={`w-full py-3 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${
 					done
 						? "bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 shadow-orange-500/25"
 						: "bg-slate-700 hover:bg-slate-600 shadow-none"

@@ -269,7 +269,7 @@ export function SwipeableCardStack({
 
 	return (
 		<div className="flex flex-col items-center w-full max-w-md mx-auto">
-			<div className="relative w-full h-[430px] sm:h-[550px] bg-white dark:bg-[#0b1121] rounded-2xl">
+			<div className="relative w-full h-[calc(100dvh-200px)] max-h-[430px] sm:max-h-[550px] sm:h-[550px] bg-white dark:bg-[#0b1121] rounded-2xl">
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
 					// Make stacked cards much smaller and less visible

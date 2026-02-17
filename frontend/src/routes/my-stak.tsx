@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
 import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
@@ -22,6 +23,16 @@ function MyStakPage() {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
 	});
+
+	// Lock background scroll when overlay is open
+	useEffect(() => {
+		if (selectedBrand) {
+			document.body.style.overflow = "hidden";
+		} else {
+			document.body.style.overflow = "";
+		}
+		return () => { document.body.style.overflow = ""; };
+	}, [selectedBrand]);
 
 	const handleBrandClick = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
@@ -61,10 +72,10 @@ function MyStakPage() {
 		});
 	};
 
-	// Brand Detail Overlay - reusable across both states
-	const brandDetailOverlay = selectedBrand && (
+	// Brand Detail Overlay - portaled to body to escape page-transition transform
+	const brandDetailOverlay = selectedBrand && createPortal(
 		<div
-			className="fixed inset-0 z-[60] flex flex-col sm:justify-center sm:items-center"
+			className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center sm:items-center"
 			onClick={handleCloseDetail}
 		>
 			{/* Semi-transparent overlay showing page behind */}
@@ -72,29 +83,34 @@ function MyStakPage() {
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl sm:max-h-[95vh] overflow-y-auto"
+				className="relative w-full h-[85vh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl sm:max-h-[95vh] flex flex-col"
 				onClick={(e) => e.stopPropagation()}
 			>
-				{/* Back button for mobile */}
+				{/* Drag handle + close button for mobile */}
+				<div className="flex justify-center pt-3 pb-1 sm:hidden">
+					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+				</div>
 				<button
 					onClick={handleCloseDetail}
-					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-3 pt-3 pb-1 mb-4 sm:hidden"
+					className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors z-10 sm:hidden"
+					aria-label="Close"
 				>
-					<ArrowLeft className="w-5 h-5" />
-					<span className="text-sm">Back to My Stak</span>
+					<X className="w-5 h-5" />
 				</button>
 
-				<div className="px-3 pb-[env(safe-area-inset-bottom,12px)] pt-0 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col">
-					<div className="mb-2 sm:mb-6 shrink-0">
-						<div className="flex items-baseline gap-3 mb-0.5 sm:mb-2">
-							<h1 className="text-2xl sm:text-4xl font-bold text-white">{selectedBrand.name}</h1>
-							<span className="text-sm sm:text-lg font-mono text-zinc-400 uppercase">
-								{selectedBrand.ticker}
-							</span>
-						</div>
-						<p className="text-zinc-400 text-sm sm:text-lg italic">{selectedBrand.bio}</p>
+				{/* Brand header - always visible */}
+				<div className="shrink-0 px-3 pt-1 pb-2 sm:px-6 sm:pt-6 sm:pb-4">
+					<div className="flex items-baseline gap-3 mb-0.5 sm:mb-2">
+						<h1 className="text-2xl sm:text-4xl font-bold text-white">{selectedBrand.name}</h1>
+						<span className="text-sm sm:text-lg font-mono text-zinc-400 uppercase">
+							{selectedBrand.ticker}
+						</span>
 					</div>
+					<p className="text-zinc-400 text-sm sm:text-lg italic">{selectedBrand.bio}</p>
+				</div>
 
+				{/* Scrollable content */}
+				<div className="flex-1 overflow-y-auto px-3 pb-[env(safe-area-inset-bottom,12px)] sm:px-6 sm:pb-6">
 					<Tabs defaultValue="vibe" className="w-full">
 						<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50 shrink-0">
 							<TabsTrigger
@@ -246,7 +262,8 @@ function MyStakPage() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 
 	if (swipedBrands.length === 0) {
@@ -286,6 +303,14 @@ function MyStakPage() {
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+				<Link
+					to="/"
+					className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mb-8"
+				>
+					<ArrowLeft className="w-5 h-5" />
+					<span>Back to Discovery</span>
+				</Link>
+
 				<header className="mb-8">
 					<h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent mb-2">
 						My Stak

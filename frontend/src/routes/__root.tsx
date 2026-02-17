@@ -2,12 +2,14 @@ import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { UserCircle, LogOut, Sun, Moon, Search } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
+import type { BrandProfile } from "@/data/brands";
+import { saveStak } from "@/lib/api";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -49,6 +51,23 @@ function Root() {
 	const [profileOpen, setProfileOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const { theme, setTheme } = useTheme();
+
+	const handleAddToStak = useCallback((brand: BrandProfile) => {
+		const saved = localStorage.getItem("my-stak");
+		const stak: BrandProfile[] = saved ? JSON.parse(saved) : [];
+		if (stak.some((b) => b.id === brand.id)) {
+			toast.info("Already in your Stak", { description: brand.name, duration: 2000 });
+			return;
+		}
+		if (stak.length >= 15) {
+			toast.error("Your Stak is full!", { description: "Remove a stock first (max 15)", duration: 2000 });
+			return;
+		}
+		const updated = [...stak, brand];
+		localStorage.setItem("my-stak", JSON.stringify(updated));
+		saveStak(updated.map((b) => b.id)).catch(() => {});
+		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
+	}, []);
 
 	useEffect(() => {
 		if (!loading && !user && !isAuthPage) {
@@ -143,6 +162,7 @@ function Root() {
 			<SearchView
 				open={searchOpen}
 				onClose={() => setSearchOpen(false)}
+				onSwipeRight={handleAddToStak}
 			/>
 		</div>
 	);

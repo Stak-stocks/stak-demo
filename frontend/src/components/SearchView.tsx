@@ -1,8 +1,32 @@
-import { useState, useEffect } from "react";
-import { X, Search } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { X, Search, Clock, Trash2 } from "lucide-react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
+
+const RECENT_SEARCHES_KEY = "recent-searches";
+const MAX_RECENT_SEARCHES = 5;
+
+function getRecentSearches(): string[] {
+	try {
+		const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
+		return saved ? JSON.parse(saved) : [];
+	} catch {
+		return [];
+	}
+}
+
+function saveRecentSearch(query: string) {
+	const trimmed = query.trim();
+	if (!trimmed) return;
+	const recent = getRecentSearches().filter((s) => s.toLowerCase() !== trimmed.toLowerCase());
+	recent.unshift(trimmed);
+	localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recent.slice(0, MAX_RECENT_SEARCHES)));
+}
+
+function clearRecentSearches() {
+	localStorage.removeItem(RECENT_SEARCHES_KEY);
+}
 
 interface SearchViewProps {
 	open: boolean;
@@ -15,6 +39,14 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const [results, setResults] = useState<BrandProfile[]>([]);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+	const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+	// Load recent searches when opening
+	useEffect(() => {
+		if (open) {
+			setRecentSearches(getRecentSearches());
+		}
+	}, [open]);
 
 	// Clear search when closing
 	useEffect(() => {
@@ -40,14 +72,33 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		setResults(filtered);
 	}, [query]);
 
-	const handleLearnMore = (brand: BrandProfile) => {
-		setSelectedBrand(brand);
-		setModalOpen(true);
-	};
+	// Save search when results are shown and user interacts
+	const handleLearnMore = useCallback((brand: BrandProfile) => {
+		if (query.trim()) {
+			saveRecentSearch(query.trim());
+			setRecentSearches(getRecentSearches());
+		}
+		if (modalOpen && selectedBrand?.id === brand.id) {
+			setModalOpen(false);
+			setTimeout(() => setSelectedBrand(null), 200);
+		} else {
+			setSelectedBrand(brand);
+			setModalOpen(true);
+		}
+	}, [query, modalOpen, selectedBrand]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
 		setTimeout(() => setSelectedBrand(null), 200);
+	};
+
+	const handleRecentClick = (search: string) => {
+		setQuery(search);
+	};
+
+	const handleClearRecent = () => {
+		clearRecentSearches();
+		setRecentSearches([]);
 	};
 
 	if (!open) return null;
@@ -112,14 +163,49 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							</div>
 						)
 					) : (
-						<div className="text-center py-12">
-							<Search className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-							<p className="text-zinc-500 dark:text-zinc-400">
-								Start typing to search stocks
-							</p>
-							<p className="text-sm text-zinc-400 dark:text-zinc-500 mt-2">
-								Search by ticker (e.g., AAPL) or company name
-							</p>
+						<div>
+							{recentSearches.length > 0 ? (
+								<div>
+									<div className="flex items-center justify-between mb-4">
+										<h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+											Recent Searches
+										</h3>
+										<button
+											type="button"
+											onClick={handleClearRecent}
+											className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+										>
+											<Trash2 className="w-3.5 h-3.5" />
+											Clear
+										</button>
+									</div>
+									<div className="space-y-1">
+										{recentSearches.map((search) => (
+											<button
+												key={search}
+												type="button"
+												onClick={() => handleRecentClick(search)}
+												className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors group"
+											>
+												<Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+												<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+													{search}
+												</span>
+											</button>
+										))}
+									</div>
+								</div>
+							) : (
+								<div className="text-center py-12">
+									<Search className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
+									<p className="text-zinc-500 dark:text-zinc-400">
+										Start typing to search stocks
+									</p>
+									<p className="text-sm text-zinc-400 dark:text-zinc-500 mt-2">
+										Search by ticker (e.g., AAPL) or company name
+									</p>
+								</div>
+							)}
 						</div>
 					)}
 				</div>

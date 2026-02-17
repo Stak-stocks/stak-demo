@@ -1,5 +1,7 @@
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface BrandContextModalProps {
 	brand: BrandProfile | null;
@@ -14,6 +16,16 @@ export function BrandContextModal({
 	onClose,
 	onAddToStak,
 }: BrandContextModalProps) {
+	// Lock background scroll when modal is open
+	useEffect(() => {
+		if (brand && open) {
+			document.body.style.overflow = "hidden";
+		} else {
+			document.body.style.overflow = "";
+		}
+		return () => { document.body.style.overflow = ""; };
+	}, [brand, open]);
+
 	if (!brand || !open) return null;
 
 	const handleAddToStak = () => {
@@ -22,7 +34,7 @@ export function BrandContextModal({
 		}
 	};
 
-	return (
+	return createPortal(
 		<div
 			className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center"
 			onClick={onClose}
@@ -32,19 +44,16 @@ export function BrandContextModal({
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full h-full sm:h-[70vh] sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl overflow-y-auto pt-14 sm:pt-0"
+				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl h-[80vh] sm:h-[70vh] flex flex-col"
 				onClick={(e) => e.stopPropagation()}
 			>
-				{/* Back to Discovery button */}
-				<button
-					onClick={onClose}
-					className="sticky top-0 z-10 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-6 pt-4 pb-2 bg-[#0b1121] w-full"
-				>
-					<ArrowLeft className="w-5 h-5" />
-					<span className="text-sm">Back to Discovery</span>
-				</button>
+				{/* Drag handle indicator for mobile */}
+				<div className="flex justify-center pt-4 pb-2 sm:hidden">
+					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
+				</div>
 
-				<div className="px-6 pb-6 pt-4 space-y-6">
+				{/* Scrollable content */}
+				<div className="flex-1 overflow-y-auto px-6 pt-2 sm:pt-6 pb-4 space-y-6">
 					<div>
 						<div className="flex items-baseline gap-3 mb-2">
 							<h2 className="text-2xl sm:text-3xl font-bold text-white">{brand.name}</h2>
@@ -74,16 +83,6 @@ export function BrandContextModal({
 						</div>
 					</div>
 
-					{onAddToStak && (
-						<button
-							onClick={handleAddToStak}
-							className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all font-semibold flex items-center justify-center gap-2 text-white"
-						>
-							<Plus className="w-5 h-5" />
-							Add to My Stak
-						</button>
-					)}
-
 					<div className="pt-4 border-t border-slate-700/50">
 						<p className="text-xs text-zinc-500 text-center italic">
 							This is cultural context, not financial advice. We're here to explain
@@ -91,7 +90,21 @@ export function BrandContextModal({
 						</p>
 					</div>
 				</div>
+
+				{/* Sticky bottom button */}
+				{onAddToStak && (
+					<div className="shrink-0 px-6 pb-6 pt-3 bg-[#0b1121] border-t border-slate-700/30">
+						<button
+							onClick={handleAddToStak}
+							className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all font-semibold flex items-center justify-center gap-2 text-white active:scale-[0.98]"
+						>
+							<Plus className="w-5 h-5" />
+							Add to My Stak
+						</button>
+					</div>
+				)}
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 }
