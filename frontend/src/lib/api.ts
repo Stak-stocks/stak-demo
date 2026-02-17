@@ -37,10 +37,10 @@ async function apiRequest<T>(
 
 // User profile
 export function getProfile() {
-	return apiRequest<{ uid: string; email: string; displayName: string; preferences: Record<string, unknown>; onboardingCompleted?: boolean }>("/api/me");
+	return apiRequest<{ uid: string; email: string; displayName: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");
 }
 
-export function updateProfile(data: { displayName?: string; preferences?: Record<string, unknown>; onboardingCompleted?: boolean }) {
+export function updateProfile(data: { displayName?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }) {
 	return apiRequest("/api/me", {
 		method: "PUT",
 		body: JSON.stringify(data),
@@ -61,6 +61,18 @@ export function saveStak(brandIds: string[]) {
 	return apiRequest("/api/me/stak", {
 		method: "PUT",
 		body: JSON.stringify({ brandIds }),
+	});
+}
+
+// Passed brands (left-swiped)
+export function getPassedBrands() {
+	return apiRequest<{ entries: { id: string; at: number }[] }>("/api/me/passed");
+}
+
+export function savePassedBrands(entries: { id: string; at: number }[]) {
+	return apiRequest("/api/me/passed", {
+		method: "PUT",
+		body: JSON.stringify({ entries }),
 	});
 }
 

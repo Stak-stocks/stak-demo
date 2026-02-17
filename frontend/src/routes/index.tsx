@@ -5,7 +5,7 @@ import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak } from "@/lib/api";
+import { saveStak, savePassedBrands } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -188,6 +188,8 @@ function App() {
 				entries.push({ id: brand.id, at: Date.now() });
 			}
 			localStorage.setItem("passed-brands", JSON.stringify(entries));
+			// Sync to backend for cross-device persistence
+			savePassedBrands(entries).catch(() => {});
 			return next;
 		});
 	};

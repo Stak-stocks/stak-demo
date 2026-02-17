@@ -18,7 +18,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { getProfile, getStak } from "../lib/api";
+import { getProfile, getStak, getPassedBrands } from "../lib/api";
 import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
@@ -53,12 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 							profile.onboardingCompleted ? "true" : "false",
 						);
 					}
+					// Hydrate user interests from backend
+					if (profile.preferences?.interests) {
+						localStorage.setItem(
+							"user-interests",
+							JSON.stringify(profile.preferences.interests),
+						);
+					}
 				} catch {
 					// Profile fetch failed — continue with whatever localStorage has
 				}
 				setLoading(false);
 
-				// Stak hydration can stay fire-and-forget
+				// Stak hydration (fire-and-forget)
 				getStak()
 					.then(({ brandIds }) => {
 						if (brandIds.length > 0) {
@@ -66,6 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 								.map((id) => allBrands.find((b) => b.id === id))
 								.filter(Boolean);
 							localStorage.setItem("my-stak", JSON.stringify(stakBrands));
+						}
+					})
+					.catch(() => {});
+
+				// Passed brands hydration (fire-and-forget)
+				getPassedBrands()
+					.then(({ entries }) => {
+						if (entries.length > 0) {
+							localStorage.setItem("passed-brands", JSON.stringify(entries));
 						}
 					})
 					.catch(() => {});

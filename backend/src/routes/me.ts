@@ -93,3 +93,40 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		res.status(500).json({ error: "Failed to save stak" });
 	}
 });
+
+// GET /api/me/passed — get passed (left-swiped) brands with timestamps
+meRouter.get("/passed", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const doc = await adminDb.collection("users").doc(uid).get();
+		const data = doc.data();
+		const entries: { id: string; at: number }[] = data?.passedBrands ?? [];
+		res.json({ entries });
+	} catch (error) {
+		console.error("Error fetching passed brands:", error);
+		res.status(500).json({ error: "Failed to fetch passed brands" });
+	}
+});
+
+// PUT /api/me/passed — save passed brands with timestamps
+meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { entries } = req.body;
+
+		if (!Array.isArray(entries)) {
+			res.status(400).json({ error: "entries must be an array" });
+			return;
+		}
+
+		await adminDb.collection("users").doc(uid).set(
+			{ passedBrands: entries, updatedAt: new Date().toISOString() },
+			{ merge: true },
+		);
+
+		res.json({ entries });
+	} catch (error) {
+		console.error("Error saving passed brands:", error);
+		res.status(500).json({ error: "Failed to save passed brands" });
+	}
+});
