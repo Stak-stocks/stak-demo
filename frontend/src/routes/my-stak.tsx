@@ -72,7 +72,7 @@ function MyStakPage() {
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full max-h-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl sm:max-h-[95vh] overflow-y-auto"
+				className="relative w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl sm:max-h-[95vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
