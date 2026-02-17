@@ -72,7 +72,7 @@ function MyStakPage() {
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl flex flex-col sm:max-h-[95vh]"
+				className="relative w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl flex flex-col sm:max-h-[95vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
@@ -80,9 +80,9 @@ function MyStakPage() {
 					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
 				</div>
 
-				<div className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col flex-1 overflow-hidden">
-					<div className="mb-3 sm:mb-6 shrink-0">
-						<div className="flex items-baseline gap-3 mb-1 sm:mb-2">
+				<div className="px-3 pb-3 pt-1 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col">
+					<div className="mb-2 sm:mb-6 shrink-0">
+						<div className="flex items-baseline gap-3 mb-0.5 sm:mb-2">
 							<h1 className="text-2xl sm:text-4xl font-bold text-white">{selectedBrand.name}</h1>
 							<span className="text-sm sm:text-lg font-mono text-zinc-400 uppercase">
 								{selectedBrand.ticker}
@@ -91,7 +91,7 @@ function MyStakPage() {
 						<p className="text-zinc-400 text-sm sm:text-lg italic">{selectedBrand.bio}</p>
 					</div>
 
-					<Tabs defaultValue="vibe" className="w-full flex flex-col flex-1 overflow-hidden">
+					<Tabs defaultValue="vibe" className="w-full">
 						<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50 shrink-0">
 							<TabsTrigger
 								value="vibe"
@@ -122,7 +122,7 @@ function MyStakPage() {
 							</TabsTrigger>
 						</TabsList>
 
-						<TabsContent value="vibe" className="mt-2 sm:mt-6 space-y-2 sm:space-y-6 overflow-y-auto flex-1">
+						<TabsContent value="vibe" className="mt-1 sm:mt-6 space-y-2 sm:space-y-6">
 							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
 								<h2 className="text-base sm:text-xl font-bold text-cyan-400 mb-2 sm:mb-4">
 									{selectedBrand.culturalContext.title}
@@ -147,7 +147,7 @@ function MyStakPage() {
 							</div>
 						</TabsContent>
 
-						<TabsContent value="numbers" className="mt-2 sm:mt-6 overflow-y-auto flex-1">
+						<TabsContent value="numbers" className="mt-1 sm:mt-6">
 							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
 								<div className="mb-2 sm:mb-6">
 									<h2 className="text-xl sm:text-2xl font-bold text-pink-400 mb-2">
@@ -182,14 +182,14 @@ function MyStakPage() {
 							</div>
 						</TabsContent>
 
-						<TabsContent value="trends" className="mt-2 sm:mt-6 overflow-y-auto flex-1">
+						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
 								trends={getBrandTrends(selectedBrand.id)}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>
 
-						<TabsContent value="news" className="mt-2 sm:mt-6 overflow-y-auto flex-1">
+						<TabsContent value="news" className="mt-1 sm:mt-6">
 							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
 								<div className="mb-4 sm:mb-6">
 									<h2 className="text-xl sm:text-2xl font-bold text-orange-400 mb-2">
@@ -234,7 +234,7 @@ function MyStakPage() {
 						</TabsContent>
 					</Tabs>
 
-					<div className="mt-2 sm:mt-8 p-2 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg shrink-0">
+					<div className="mt-2 sm:mt-8 p-2 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg">
 						<p className="text-[10px] sm:text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.
