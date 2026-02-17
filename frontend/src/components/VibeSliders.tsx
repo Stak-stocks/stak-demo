@@ -40,6 +40,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 	const [loaded, setLoaded] = useState(false);
 	const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 	const [openPopover, setOpenPopover] = useState<number | null>(null);
+	const [tappedBar, setTappedBar] = useState<number | null>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
 
 	// Animate bars: trigger on mount and whenever isTopCard changes
@@ -51,10 +52,11 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 
 	// Close popover on outside click/touch
 	useEffect(() => {
-		if (openPopover === null) return;
+		if (openPopover === null && tappedBar === null) return;
 		const handler = (e: MouseEvent | TouchEvent) => {
 			if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
 				setOpenPopover(null);
+				setTappedBar(null);
 			}
 		};
 		document.addEventListener("mousedown", handler);
@@ -63,7 +65,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 			document.removeEventListener("mousedown", handler);
 			document.removeEventListener("touchstart", handler);
 		};
-	}, [openPopover]);
+	}, [openPopover, tappedBar]);
 
 	const glowKeyframes = vibes.map((vibe, i) =>
 		`@keyframes glow-pulse-${i} {
@@ -102,6 +104,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 							onClick={(e) => {
 								e.stopPropagation();
 								setOpenPopover(openPopover === i ? null : i);
+								setTappedBar(null);
 							}}
 						>
 							<EyeIcon color={vibe.color} />
@@ -136,11 +139,12 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 						onMouseLeave={() => setHoveredIndex(null)}
 						onClick={(e) => {
 							e.stopPropagation();
-							setOpenPopover(openPopover === i ? null : i);
+							setTappedBar(tappedBar === i ? null : i);
+							setOpenPopover(null);
 						}}
 					>
 						{/* Percentage badge above bar */}
-						{hoveredIndex === i && (
+						{(hoveredIndex === i || tappedBar === i) && (
 							<div
 								className="absolute -top-7 px-2 py-0.5 rounded-md text-xs font-bold text-white pointer-events-none z-10"
 								style={{
