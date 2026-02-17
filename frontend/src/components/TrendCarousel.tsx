@@ -21,7 +21,7 @@ const COLOR_MAP: Record<
 		glowInner: "inset 0 0 30px rgba(239,68,68,0.08)",
 		badge: "bg-red-500/15 border-red-500/40",
 		badgeText: "text-red-400",
-		dominance: "text-white",
+		dominance: "text-red-500",
 		dotActive: "bg-red-400",
 		rgb: "239,68,68",
 	},
