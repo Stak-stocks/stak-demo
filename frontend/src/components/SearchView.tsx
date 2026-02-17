@@ -3,29 +3,35 @@ import { X, Search, Clock, Trash2 } from "lucide-react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
+import { useAuth } from "@/context/AuthContext";
 
-const RECENT_SEARCHES_KEY = "recent-searches";
+const RECENT_SEARCHES_PREFIX = "recent-searches";
 const MAX_RECENT_SEARCHES = 5;
 
-function getRecentSearches(): string[] {
+function getStorageKey(uid: string | undefined) {
+	return uid ? `${RECENT_SEARCHES_PREFIX}-${uid}` : RECENT_SEARCHES_PREFIX;
+}
+
+function getRecentSearches(uid: string | undefined): string[] {
 	try {
-		const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
+		const saved = localStorage.getItem(getStorageKey(uid));
 		return saved ? JSON.parse(saved) : [];
 	} catch {
 		return [];
 	}
 }
 
-function saveRecentSearch(query: string) {
-	const trimmed = query.trim();
+function saveRecentSearch(brandName: string, uid: string | undefined) {
+	const trimmed = brandName.trim();
 	if (!trimmed) return;
-	const recent = getRecentSearches().filter((s) => s.toLowerCase() !== trimmed.toLowerCase());
+	const key = getStorageKey(uid);
+	const recent = getRecentSearches(uid).filter((s) => s.toLowerCase() !== trimmed.toLowerCase());
 	recent.unshift(trimmed);
-	localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recent.slice(0, MAX_RECENT_SEARCHES)));
+	localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT_SEARCHES)));
 }
 
-function clearRecentSearches() {
-	localStorage.removeItem(RECENT_SEARCHES_KEY);
+function clearRecentSearches(uid: string | undefined) {
+	localStorage.removeItem(getStorageKey(uid));
 }
 
 interface SearchViewProps {
@@ -35,6 +41,7 @@ interface SearchViewProps {
 }
 
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
+	const { user } = useAuth();
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<BrandProfile[]>([]);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
@@ -44,9 +51,9 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	// Load recent searches when opening
 	useEffect(() => {
 		if (open) {
-			setRecentSearches(getRecentSearches());
+			setRecentSearches(getRecentSearches(user?.uid));
 		}
-	}, [open]);
+	}, [open, user?.uid]);
 
 	// Clear search when closing
 	useEffect(() => {
@@ -72,12 +79,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		setResults(filtered);
 	}, [query]);
 
-	// Save search when results are shown and user interacts
+	// Save clicked brand name to recent searches
 	const handleLearnMore = useCallback((brand: BrandProfile) => {
-		if (query.trim()) {
-			saveRecentSearch(query.trim());
-			setRecentSearches(getRecentSearches());
-		}
+		saveRecentSearch(brand.name, user?.uid);
+		setRecentSearches(getRecentSearches(user?.uid));
 		if (modalOpen && selectedBrand?.id === brand.id) {
 			setModalOpen(false);
 			setTimeout(() => setSelectedBrand(null), 200);
@@ -85,7 +90,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 			setSelectedBrand(brand);
 			setModalOpen(true);
 		}
-	}, [query, modalOpen, selectedBrand]);
+	}, [user?.uid, modalOpen, selectedBrand]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
@@ -97,7 +102,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	};
 
 	const handleClearRecent = () => {
-		clearRecentSearches();
+		clearRecentSearches(user?.uid);
 		setRecentSearches([]);
 	};
 

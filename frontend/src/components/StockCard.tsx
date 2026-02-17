@@ -33,7 +33,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 				}}
 			>
 			{/* Hero image */}
-			<div className="relative h-28 sm:h-48 overflow-hidden">
+			<div className="relative h-36 sm:h-48 overflow-hidden">
 				<img
 					src={brand.heroImage}
 					alt={brand.name}
@@ -45,9 +45,9 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 			</div>
 
 			{/* Content */}
-			<div className="px-4 sm:px-5 pt-3 pb-3 sm:pt-4 sm:pb-4 space-y-2 sm:space-y-3 flex-1 flex flex-col">
+			<div className="px-4 sm:px-5 pt-4 pb-4 space-y-3 flex-1 flex flex-col">
 				{/* Brand name + ticker */}
-				<div className="overflow-hidden">
+				<div className="h-[5.5rem] sm:h-24 overflow-hidden">
 					<div className="flex items-center gap-2">
 						<img
 							src={getBrandLogoUrl(brand)}
@@ -98,9 +98,6 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 								<path d="M6 15l.7 2.1 2.3.7-2.3.7L6 20.6l-.7-2.1-2.3-.7 2.3-.7L6 15z" fill="#FFD700" opacity="0.65" />
 							</svg>
 						</div>
-						<p className="text-[10px] text-zinc-500 mt-1 group-hover:text-zinc-300 transition-colors">
-							Tap to explore &rsaquo;
-						</p>
 					</button>
 				</div>
 			</div>

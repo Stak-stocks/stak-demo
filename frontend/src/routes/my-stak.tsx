@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
-import { ArrowLeft, Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
+import { Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -270,14 +270,6 @@ function MyStakPage() {
 		return (
 			<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-					<Link
-						to="/"
-						className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mb-8"
-					>
-						<ArrowLeft className="w-5 h-5" />
-						<span>Back to Discovery</span>
-					</Link>
-
 					<div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
 						<Sparkles className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mb-4" />
 						<h2 className="text-2xl font-bold text-zinc-700 dark:text-zinc-300 mb-2">
@@ -303,14 +295,6 @@ function MyStakPage() {
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-				<Link
-					to="/"
-					className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mb-8"
-				>
-					<ArrowLeft className="w-5 h-5" />
-					<span>Back to Discovery</span>
-				</Link>
-
 				<header className="mb-8">
 					<h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent mb-2">
 						My Stak

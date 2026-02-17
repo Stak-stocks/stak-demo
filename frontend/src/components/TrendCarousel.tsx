@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { TrendCard } from "@/data/brands";
 
 /* ── colour system ── */
@@ -103,14 +104,14 @@ function GlassCard({
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px] min-h-[300px] sm:min-h-[540px]"
+			className="rounded-[20px] min-h-[220px] sm:min-h-[540px]"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden min-h-[300px] sm:min-h-[540px]"
+				className="rounded-[20px] p-3 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden min-h-[220px] sm:min-h-[540px]"
 				style={{
 					background:
 						"linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
@@ -153,7 +154,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			<Badge type={card.type} label={card.label} />
 
 			{card.headline && (
-				<h3 className="text-xl sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mt-4 sm:mt-5 mb-3 sm:mb-4">
+				<h3 className="text-base sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mt-2 sm:mt-5 mb-2 sm:mb-4">
 					{card.headline}
 				</h3>
 			)}
@@ -164,7 +165,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			</p>
 
 			{card.pressure && (
-				<div className="flex items-center gap-2 mt-auto pt-6">
+				<div className="flex items-center gap-2 mt-auto pt-3 sm:pt-6">
 					<span className="text-lg">{card.pressureEmoji}</span>
 					<span className={`text-sm font-semibold ${c.badgeText}`}>
 						{card.pressure}
@@ -181,12 +182,12 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 		<GlassCard type="stak">
 			<Badge type="stak" label={card.label} />
 
-			<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-4 sm:mt-5 flex-1">
+			<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-2 sm:mt-5 flex-1">
 				{highlightTrendRefs(card.explanation)}
 			</p>
 
 			{card.takeaway && (
-				<div className="mt-4 sm:mt-5 space-y-1">
+				<div className="mt-2 sm:mt-5 space-y-1">
 					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
 						<span className="font-bold text-white">
 							{"\u{1F4A1}"} The Subconscious Takeaway:&nbsp;
@@ -315,7 +316,7 @@ export function TrendCarousel({ trends, ticker }: TrendCarouselProps) {
 		return () => mq.removeEventListener("change", handler);
 	}, []);
 
-	const CARD_WIDTH_PCT = isMobile ? 88 : 57;
+	const CARD_WIDTH_PCT = isMobile ? 92 : 57;
 	const GAP_PCT = 2; // gap between cards
 	const STEP = CARD_WIDTH_PCT + GAP_PCT; // total step per card
 	const PEEK_OFFSET = (100 - CARD_WIDTH_PCT) / 2; // center the active card
@@ -324,50 +325,70 @@ export function TrendCarousel({ trends, ticker }: TrendCarouselProps) {
 		<div className="space-y-4 mx-auto">
 			{/* Dominance header */}
 			<h2
-				className={`text-center text-xl sm:text-2xl font-black tracking-[0.08em] uppercase ${colors.dominance}`}
+				className={`text-center text-base sm:text-2xl font-black tracking-[0.08em] uppercase ${colors.dominance}`}
 				style={{ fontFamily: "'Orbitron', sans-serif" }}
 			>
 				{activeTrend?.dominance}
 			</h2>
 
-			{/* Carousel track */}
-			<div
-				className="overflow-hidden touch-pan-y select-none py-4"
-				ref={trackRef}
-				onPointerDown={handlePointerDown}
-				onPointerMove={handlePointerMove}
-				onPointerUp={handlePointerUp}
-			>
+			{/* Carousel track with nav arrows */}
+			<div className="relative">
 				<div
-					className={`flex ${isTransitioning ? "transition-transform duration-400 ease-out" : ""}`}
-					style={{
-						transform: `translateX(calc(-${pos * STEP}% + ${PEEK_OFFSET}%))`,
-					}}
-					onTransitionEnd={handleTransitionEnd}
+					className="overflow-hidden touch-pan-y select-none py-4"
+					ref={trackRef}
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={handlePointerUp}
 				>
-					{extendedCards.map((card, i) => {
-						const isActive = i === pos;
-						return (
-							<div
-								key={`${card.type}-${i}`}
-								className="shrink-0 transition-transform duration-400 ease-out origin-center"
-								style={{
-									width: `${CARD_WIDTH_PCT}%`,
-									marginRight: `${GAP_PCT}%`,
-									padding: "10px 4px",
-									transform: isActive ? "scale(1)" : "scale(0.9)",
-									opacity: isActive ? 1 : 0.7,
-								}}
-							>
-								{card.type === "stak" ? (
-									<StakInsightCard card={card} />
-								) : (
-									<StandardTrendCard card={card} />
-								)}
-							</div>
-						);
-					})}
+					<div
+						className={`flex ${isTransitioning ? "transition-transform duration-400 ease-out" : ""}`}
+						style={{
+							transform: `translateX(calc(-${pos * STEP}% + ${PEEK_OFFSET}%))`,
+						}}
+						onTransitionEnd={handleTransitionEnd}
+					>
+						{extendedCards.map((card, i) => {
+							const isActive = i === pos;
+							return (
+								<div
+									key={`${card.type}-${i}`}
+									className="shrink-0 transition-transform duration-400 ease-out origin-center"
+									style={{
+										width: `${CARD_WIDTH_PCT}%`,
+										marginRight: `${GAP_PCT}%`,
+										padding: "10px 4px",
+										transform: isActive ? "scale(1)" : "scale(0.9)",
+										opacity: isActive ? 1 : 0.7,
+									}}
+								>
+									{card.type === "stak" ? (
+										<StakInsightCard card={card} />
+									) : (
+										<StandardTrendCard card={card} />
+									)}
+								</div>
+							);
+						})}
+					</div>
 				</div>
+
+				{/* Prev / Next arrows */}
+				<button
+					type="button"
+					onClick={goPrev}
+					className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					aria-label="Previous trend"
+				>
+					<ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+				</button>
+				<button
+					type="button"
+					onClick={goNext}
+					className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					aria-label="Next trend"
+				>
+					<ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+				</button>
 			</div>
 
 			{/* Dot indicators */}
