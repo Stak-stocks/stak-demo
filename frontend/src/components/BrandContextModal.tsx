@@ -1,5 +1,5 @@
 import type { BrandProfile } from "@/data/brands";
-import { Plus } from "lucide-react";
+import { Plus, ArrowLeft } from "lucide-react";
 
 interface BrandContextModalProps {
 	brand: BrandProfile | null;
@@ -35,7 +35,16 @@ export function BrandContextModal({
 				className="relative w-full h-full sm:h-[70vh] sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<div className="px-6 pb-6 pt-6 space-y-6">
+				{/* Back to Discovery button */}
+				<button
+					onClick={onClose}
+					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-6 pt-4 pb-0"
+				>
+					<ArrowLeft className="w-5 h-5" />
+					<span className="text-sm">Back to Discovery</span>
+				</button>
+
+				<div className="px-6 pb-6 pt-4 space-y-6">
 					<div>
 						<div className="flex items-baseline gap-3 mb-2">
 							<h2 className="text-2xl sm:text-3xl font-bold text-white">{brand.name}</h2>
