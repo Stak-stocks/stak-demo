@@ -75,10 +75,14 @@ function MyStakPage() {
 				className="relative w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl sm:max-h-[95vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
-				{/* Drag handle indicator for mobile */}
-				<div className="flex justify-center pt-1 pb-0.5 sm:hidden">
-					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
-				</div>
+				{/* Back button for mobile */}
+				<button
+					onClick={handleCloseDetail}
+					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-3 pt-3 pb-1 sm:hidden"
+				>
+					<ArrowLeft className="w-5 h-5" />
+					<span className="text-sm">Back to My Stak</span>
+				</button>
 
 				<div className="px-3 pb-[env(safe-area-inset-bottom,12px)] pt-0 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col">
 					<div className="mb-2 sm:mb-6 shrink-0">
