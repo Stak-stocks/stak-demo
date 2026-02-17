@@ -20,6 +20,17 @@ export interface NewsArticle {
 	url: string;
 }
 
+export interface TrendCard {
+	type: "macro" | "sector" | "company" | "stak";
+	label: string;
+	dominance: string;
+	headline?: string;
+	explanation: string;
+	pressure?: "Positive Pressure" | "Negative Pressure" | "Volatile / Mixed Pressure";
+	pressureEmoji?: string;
+	takeaway?: string;
+}
+
 export interface BrandProfile {
 	id: string;
 	ticker: string;
@@ -45,6 +56,7 @@ export interface BrandProfile {
 		dividendYield: FinancialMetric;
 	};
 	news: NewsArticle[];
+	trends?: TrendCard[];
 }
 
 const BRAND_DOMAINS: Record<string, string> = {

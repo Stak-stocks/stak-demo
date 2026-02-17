@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { brands, type BrandProfile } from "@/data/brands";
-import { ArrowLeft, TrendingUp, Newspaper, Activity } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
+import { TrendCarousel } from "@/components/TrendCarousel";
+import { getBrandTrends } from "@/data/trends";
 
 export const Route = createFileRoute("/brand/$brandId")({
 	component: BrandDetailPage,
@@ -47,7 +49,7 @@ function BrandDetailPage() {
 			onClick={handleClose}
 		>
 			<div
-				className="max-w-4xl w-full mx-auto sm:px-6 lg:px-8 py-4 sm:py-12 bg-[#0b1121] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
+				className="max-w-[390px] w-full mx-auto px-2 py-4 sm:py-12 bg-[#0b1121] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
@@ -56,51 +58,43 @@ function BrandDetailPage() {
 				</div>
 
 				<div className="px-4 sm:px-0">
-					<Link
-						to="/my-stak"
-						className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 sm:mb-8"
-					>
-						<ArrowLeft className="w-5 h-5" />
-						<span>Back to My Stak</span>
-					</Link>
-
-					<div className="mb-6 sm:mb-8">
-					<div className="flex items-baseline gap-3 mb-2">
-						<h1 className="text-4xl font-bold text-white">{brand.name}</h1>
-						<span className="text-lg font-mono text-zinc-400 uppercase">
-							{brand.ticker}
-						</span>
+					{/* Centered header */}
+					<div className="relative flex items-center justify-center mb-6">
+						<Link
+							to="/my-stak"
+							className="absolute left-0 text-zinc-400 hover:text-white transition-colors"
+						>
+							<ChevronLeft className="w-6 h-6" />
+						</Link>
+						<h1 className="text-lg font-semibold text-white">
+							My Stak ({brand.ticker})
+						</h1>
 					</div>
-					<p className="text-zinc-400 text-lg italic">{brand.bio}</p>
-				</div>
 
 				<Tabs defaultValue="vibe" className="w-full">
-					<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50">
+					<TabsList className="flex w-full bg-transparent border-b border-zinc-700/50 rounded-none p-0 h-auto gap-0">
 						<TabsTrigger
 							value="vibe"
-							className="!text-cyan-400/60 data-[state=active]:!bg-cyan-500/20 data-[state=active]:!text-cyan-400"
+							className="flex-1 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-1 text-sm text-zinc-500 data-[state=active]:border-white data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none"
 						>
-							✨ Vibe
+							Vibes
 						</TabsTrigger>
 						<TabsTrigger
 							value="trends"
-							className="!text-purple-400/60 data-[state=active]:!bg-purple-500/20 data-[state=active]:!text-purple-400"
+							className="flex-1 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-1 text-sm text-zinc-500 data-[state=active]:border-white data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none"
 						>
-							<TrendingUp className="w-4 h-4 mr-2" />
 							Trends
 						</TabsTrigger>
 						<TabsTrigger
 							value="numbers"
-							className="!text-pink-400/60 data-[state=active]:!bg-pink-500/20 data-[state=active]:!text-pink-400"
+							className="flex-1 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-1 text-sm text-zinc-500 data-[state=active]:border-white data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none"
 						>
-							<Activity className="w-4 h-4 mr-2" />
 							Numbers
 						</TabsTrigger>
 						<TabsTrigger
 							value="news"
-							className="!text-orange-400/60 data-[state=active]:!bg-orange-500/20 data-[state=active]:!text-orange-400"
+							className="flex-1 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-1 text-sm text-zinc-500 data-[state=active]:border-white data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none"
 						>
-							<Newspaper className="w-4 h-4 mr-2" />
 							News
 						</TabsTrigger>
 					</TabsList>
@@ -173,17 +167,10 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="trends" className="mt-6">
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-							<div className="flex flex-col items-center justify-center py-12 text-center">
-								<TrendingUp className="w-12 h-12 text-purple-400/50 mb-4" />
-								<h2 className="text-2xl font-bold text-purple-400 mb-2">
-									Trends
-								</h2>
-								<p className="text-zinc-400 text-sm max-w-sm">
-									Coming soon — track how {brand.name}'s cultural relevance and market sentiment evolve over time.
-								</p>
-							</div>
-						</div>
+						<TrendCarousel
+							trends={getBrandTrends(brand.id)}
+							ticker={brand.ticker}
+						/>
 					</TabsContent>
 
 					<TabsContent value="news" className="mt-6">

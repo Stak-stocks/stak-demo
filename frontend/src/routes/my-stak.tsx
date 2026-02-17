@@ -7,6 +7,8 @@ import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
+import { TrendCarousel } from "@/components/TrendCarousel";
+import { getBrandTrends } from "@/data/trends";
 import { saveStak } from "@/lib/api";
 
 export const Route = createFileRoute("/my-stak")({
@@ -181,17 +183,10 @@ function MyStakPage() {
 						</TabsContent>
 
 						<TabsContent value="trends" className="mt-4 sm:mt-6">
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-								<div className="flex flex-col items-center justify-center py-12 text-center">
-									<TrendingUp className="w-12 h-12 text-purple-400/50 mb-4" />
-									<h2 className="text-2xl font-bold text-purple-400 mb-2">
-										Trends
-									</h2>
-									<p className="text-zinc-400 text-sm max-w-sm">
-										Coming soon — track how {selectedBrand.name}'s cultural relevance and market sentiment evolve over time.
-									</p>
-								</div>
-							</div>
+							<TrendCarousel
+								trends={getBrandTrends(selectedBrand.id)}
+								ticker={selectedBrand.ticker}
+							/>
 						</TabsContent>
 
 						<TabsContent value="news" className="mt-4 sm:mt-6">
