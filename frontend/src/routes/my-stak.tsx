@@ -64,7 +64,7 @@ function MyStakPage() {
 	// Brand Detail Overlay - reusable across both states
 	const brandDetailOverlay = selectedBrand && (
 		<div
-			className="fixed inset-0 z-50 flex flex-col sm:justify-center sm:items-center"
+			className="fixed inset-0 z-[60] flex flex-col sm:justify-center sm:items-center"
 			onClick={handleCloseDetail}
 		>
 			{/* Semi-transparent overlay showing page behind */}
@@ -76,11 +76,11 @@ function MyStakPage() {
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
-				<div className="flex justify-center pt-3 pb-1 sm:hidden">
+				<div className="flex justify-center pt-1 pb-0.5 sm:hidden">
 					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
 				</div>
 
-				<div className="px-3 pb-3 pt-1 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col">
+				<div className="px-3 pb-[env(safe-area-inset-bottom,12px)] pt-0 sm:px-6 sm:pb-6 sm:pt-6 flex flex-col">
 					<div className="mb-2 sm:mb-6 shrink-0">
 						<div className="flex items-baseline gap-3 mb-0.5 sm:mb-2">
 							<h1 className="text-2xl sm:text-4xl font-bold text-white">{selectedBrand.name}</h1>
