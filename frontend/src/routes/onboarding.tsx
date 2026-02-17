@@ -10,66 +10,18 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { brands as allBrands } from "@/data/brands";
+import { brands as allBrands, getBrandLogoUrl } from "@/data/brands";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
 });
 
-const fl = (d: string) => `https://www.google.com/s2/favicons?domain=${d}&sz=128`;
-
 const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) => {
 	const brand = allBrands.find((b) => b.id === id);
 	return brand
-		? { id: brand.id, name: brand.name, image: brand.heroImage, ticker: brand.ticker }
+		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
 		: null;
-}).filter(Boolean) as { id: string; name: string; image: string; ticker: string }[];
-
-// Domain mapping for favicons
-const BRAND_DOMAINS: Record<string, string> = {
-	tsla: "tesla.com",
-	aapl: "apple.com",
-	nke: "nike.com",
-	spot: "spotify.com",
-	nflx: "netflix.com",
-	sbux: "starbucks.com",
-	amzn: "amazon.com",
-	dis: "disney.com",
-	msft: "microsoft.com",
-	googl: "google.com",
-	meta: "meta.com",
-	rblx: "roblox.com",
-	amd: "amd.com",
-	nvda: "nvidia.com",
-	ulta: "ulta.com",
-	elf: "elfcosmetics.com",
-	coty: "coty.com",
-	el: "esteelauder.com",
-	or: "loreal.com",
-	tgt: "target.com",
-	pg: "pg.com",
-	ko: "coca-cola.com",
-	pep: "pepsico.com",
-	cost: "costco.com",
-	mcd: "mcdonalds.com",
-	wmt: "walmart.com",
-	uber: "uber.com",
-	lyft: "lyft.com",
-	abnb: "airbnb.com",
-	v: "visa.com",
-	ma: "mastercard.com",
-	sq: "block.xyz",
-	hood: "robinhood.com",
-	sofi: "sofi.com",
-	pypl: "paypal.com",
-	afrm: "affirm.com",
-	shop: "shopify.com",
-	nee: "nexteraenergy.com",
-	enph: "enphase.com",
-	fslr: "firstsolar.com",
-	xom: "exxonmobil.com",
-	cvx: "chevron.com",
-};
+}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
@@ -352,9 +304,9 @@ function SwipeStep({
 		const mapped = [...picked].map((id) => {
 			const brand = allBrands.find((b) => b.id === id);
 			return brand
-				? { id: brand.id, name: brand.name, image: brand.heroImage, ticker: brand.ticker }
+				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
 				: null;
-		}).filter(Boolean) as { id: string; name: string; image: string; ticker: string }[];
+		}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
 
 		// Pad with defaults if fewer than 4 brands
 		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
@@ -489,17 +441,15 @@ function SwipeStep({
 										/>
 									)}
 
-									<div className="w-64 h-72 rounded-2xl bg-[#1a2332] border border-slate-700 flex flex-col items-center justify-center gap-4 p-6 overflow-hidden cursor-grab active:cursor-grabbing">
+									<div className="w-64 h-72 flex flex-col items-center justify-center gap-4 cursor-grab active:cursor-grabbing">
 										<img
-											src={isTopCard ? brand.image : fl(BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase()}.com`)}
+											src={brand.logo}
 											alt={brand.name}
-											className={isTopCard ? "w-full h-40 rounded-xl object-cover" : "w-16 h-16 rounded-xl object-contain"}
+											className="w-28 h-28 rounded-2xl object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]"
 										/>
 										<div className="text-center">
 											<p className="text-white font-bold text-lg">{brand.name}</p>
-											{isTopCard && (
-												<p className="text-slate-400 text-sm">${brand.ticker}</p>
-											)}
+											<p className="text-slate-400 text-sm">${brand.ticker}</p>
 										</div>
 									</div>
 								</div>
@@ -666,7 +616,7 @@ function BuildingStep({
 	// Fallback if user somehow has no selections
 	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).map((id) => {
 		const brand = allBrands.find((b) => b.id === id)!;
-		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", heroImage: brand.heroImage };
+		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand) };
 	});
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
@@ -757,9 +707,8 @@ function BuildingStep({
 					return (
 						<div
 							key={brand.id}
-							className="absolute w-[90px] h-[125px] rounded-2xl flex flex-col items-center justify-center gap-2"
+							className="absolute flex flex-col items-center justify-center gap-2"
 							style={{
-								background: `linear-gradient(145deg, ${brand.color}, ${brand.color}cc)`,
 								transform: phase === "enter"
 									? "scale(0) translateY(40px)"
 									: `translateX(${x}px) translateY(${y + (isFront ? 10 : 0)}px) scale(${depthScale})`,
@@ -767,15 +716,13 @@ function BuildingStep({
 								zIndex: z,
 								transition: "all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
 								transitionDelay: phase === "enter" ? `${i * 100}ms` : "0ms",
-								boxShadow: isFront
-									? `0 16px 40px ${brand.color}60, 0 0 30px ${brand.color}40`
-									: `0 4px 12px rgba(0,0,0,0.3)`,
+								filter: isFront ? `drop-shadow(0 0 16px ${brand.color}80)` : "none",
 							}}
 						>
 							<img
-								src={brand.heroImage}
+								src={brand.logoUrl}
 								alt={brand.name}
-								className="w-14 h-14 object-contain rounded-xl"
+								className="w-16 h-16 object-contain rounded-2xl"
 							/>
 							<span className="text-white text-[11px] font-bold">{brand.name}</span>
 						</div>

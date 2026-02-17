@@ -32,7 +32,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 					background: "linear-gradient(145deg, #1a1f2e 0%, #0f1320 100%)",
 				}}
 			>
-			{/* Hero image with brand logo */}
+			{/* Hero image */}
 			<div className="relative h-36 sm:h-48 overflow-hidden">
 				<img
 					src={brand.heroImage}

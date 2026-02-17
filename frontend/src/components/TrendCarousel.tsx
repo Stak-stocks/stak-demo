@@ -103,14 +103,14 @@ function GlassCard({
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px] min-h-[520px] sm:min-h-[540px]"
+			className="rounded-[20px] min-h-0 sm:min-h-[540px]"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-6 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden min-h-[520px] sm:min-h-[540px]"
+				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden min-h-0 sm:min-h-[540px]"
 				style={{
 					background:
 						"linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
@@ -153,12 +153,12 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			<Badge type={card.type} label={card.label} />
 
 			{card.headline && (
-				<h3 className="text-[1.65rem] sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mt-5 mb-4">
+				<h3 className="text-xl sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mt-4 sm:mt-5 mb-3 sm:mb-4">
 					{card.headline}
 				</h3>
 			)}
 
-			<p className="text-zinc-300 text-sm sm:text-[15px] leading-relaxed">
+			<p className="text-zinc-300 text-xs sm:text-[15px] leading-relaxed">
 				<span className="font-bold text-white">The Why:&nbsp;</span>
 				{card.explanation}
 			</p>
@@ -181,13 +181,13 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 		<GlassCard type="stak">
 			<Badge type="stak" label={card.label} />
 
-			<p className="text-zinc-200 text-sm sm:text-[15px] leading-relaxed mt-5 flex-1">
+			<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-4 sm:mt-5 flex-1">
 				{highlightTrendRefs(card.explanation)}
 			</p>
 
 			{card.takeaway && (
-				<div className="mt-5 space-y-1">
-					<p className="text-zinc-200 text-sm sm:text-[15px] leading-relaxed">
+				<div className="mt-4 sm:mt-5 space-y-1">
+					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
 						<span className="font-bold text-white">
 							{"\u{1F4A1}"} The Subconscious Takeaway:&nbsp;
 						</span>
@@ -306,7 +306,16 @@ export function TrendCarousel({ trends, ticker }: TrendCarouselProps) {
 
 	const colors = COLOR_MAP[activeTrend?.type || "macro"];
 
-	const CARD_WIDTH_PCT = 57; // percentage of container each card takes
+	// On mobile (<640px) cards are ~88% width; on desktop 57%
+	const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+	useEffect(() => {
+		const mq = window.matchMedia("(max-width: 639px)");
+		const handler = () => setIsMobile(mq.matches);
+		mq.addEventListener("change", handler);
+		return () => mq.removeEventListener("change", handler);
+	}, []);
+
+	const CARD_WIDTH_PCT = isMobile ? 88 : 57;
 	const GAP_PCT = 2; // gap between cards
 	const STEP = CARD_WIDTH_PCT + GAP_PCT; // total step per card
 	const PEEK_OFFSET = (100 - CARD_WIDTH_PCT) / 2; // center the active card

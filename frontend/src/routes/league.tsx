@@ -214,7 +214,7 @@ function LeagueHomePage() {
 
 	if (!leagueState.hasJoined) {
 		return (
-			<div className="min-h-screen bg-[#0b1121] text-white">
+			<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 					<div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8">
 						<Trophy className="w-24 h-24 text-yellow-500" />
@@ -222,15 +222,15 @@ function LeagueHomePage() {
 							<h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
 								Fantasy League
 							</h1>
-							<p className="text-xl text-zinc-400 max-w-2xl">
+							<p className="text-xl text-gray-500 dark:text-zinc-400 max-w-2xl">
 								Pick 5 stocks each week. Compete with friends. No real money. Just
 								bragging rights.
 							</p>
 						</div>
 
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-8 max-w-md space-y-4">
-							<h3 className="text-lg font-semibold text-white">How it works:</h3>
-							<ul className="text-left text-zinc-400 space-y-3">
+						<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-8 max-w-md space-y-4">
+							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">How it works:</h3>
+							<ul className="text-left text-gray-500 dark:text-zinc-400 space-y-3">
 								<li className="flex gap-3">
 									<span className="text-yellow-500">1.</span>
 									<span>Every Monday, pick 5 stocks from your Stak</span>
@@ -258,7 +258,7 @@ function LeagueHomePage() {
 							Join League
 						</Button>
 
-						<p className="text-xs text-zinc-600 max-w-md">
+						<p className="text-xs text-gray-400 dark:text-zinc-600 max-w-md">
 							This is a game, not investing. No real money. No trading. Just fun.
 						</p>
 					</div>
@@ -270,7 +270,7 @@ function LeagueHomePage() {
 	const emptySlots = 5 - starters.length;
 
 	return (
-		<div className="min-h-screen bg-[#0b1121] text-white">
+		<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<header className="mb-8">
 					<div className="flex items-center gap-3 mb-2">
@@ -279,7 +279,7 @@ function LeagueHomePage() {
 							League
 						</h1>
 					</div>
-					<p className="text-zinc-400">
+					<p className="text-gray-500 dark:text-zinc-400">
 						Your weekly stock picking competition
 					</p>
 				</header>
@@ -291,18 +291,18 @@ function LeagueHomePage() {
 							<div className="flex items-center gap-3">
 								<Calendar className="w-6 h-6 text-green-400" />
 								<div>
-									<p className="text-green-400 font-bold">It's Monday! Selections are OPEN</p>
-									<p className="text-green-400/70 text-sm">Pick your 5 starters and lock them in before midnight CST</p>
+									<p className="text-green-600 dark:text-green-400 font-bold">It's Monday! Selections are OPEN</p>
+									<p className="text-green-600/70 dark:text-green-400/70 text-sm">Pick your 5 starters and lock them in before midnight CST</p>
 								</div>
 							</div>
 						</div>
 					) : !isLineupLocked ? (
-						<div className="bg-[#162036]/50 border border-slate-600/50 rounded-xl p-4 mb-6">
+						<div className="bg-gray-100 dark:bg-[#162036]/50 border border-gray-200 dark:border-slate-600/50 rounded-xl p-4 mb-6">
 							<div className="flex items-center gap-3">
-								<Clock className="w-6 h-6 text-zinc-400" />
+								<Clock className="w-6 h-6 text-gray-400 dark:text-zinc-400" />
 								<div>
-									<p className="text-zinc-300 font-bold">Selections closed</p>
-									<p className="text-zinc-500 text-sm">
+									<p className="text-gray-700 dark:text-zinc-300 font-bold">Selections closed</p>
+									<p className="text-gray-500 dark:text-zinc-500 text-sm">
 										Next selection window opens in{" "}
 										<span className="text-cyan-400 font-bold">
 											{timeUntilMonday.days}d {timeUntilMonday.hours}h
@@ -313,9 +313,9 @@ function LeagueHomePage() {
 						</div>
 					) : null}
 
-					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+					<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
-							<h2 className="text-2xl font-bold text-white">
+							<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
 								This Week's Lineup
 							</h2>
 							{isLineupLocked && (
@@ -330,7 +330,7 @@ function LeagueHomePage() {
 							{starters.map((brand) => (
 								<div
 									key={brand.id}
-									className="relative bg-[#162036]/50 border border-slate-600/50 rounded-lg p-4 hover:border-green-500/50 transition-all group"
+									className="relative bg-gray-100 dark:bg-[#162036]/50 border border-gray-200 dark:border-slate-600/50 rounded-lg p-4 hover:border-green-500/50 transition-all group"
 									style={{
 										boxShadow: "0 0 20px rgba(34, 197, 94, 0.1)",
 									}}
@@ -349,13 +349,13 @@ function LeagueHomePage() {
 											{brand.ticker.charAt(0)}
 										</div>
 										<div className="flex-1">
-											<h3 className="font-bold text-white">{brand.name}</h3>
-											<span className="text-xs font-mono text-zinc-500 uppercase">
+											<h3 className="font-bold text-gray-900 dark:text-white">{brand.name}</h3>
+											<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase">
 												{brand.ticker}
 											</span>
 										</div>
 									</div>
-									<p className="text-xs text-zinc-400 italic line-clamp-2">
+									<p className="text-xs text-gray-400 dark:text-zinc-400 italic line-clamp-2">
 										{brand.bio}
 									</p>
 								</div>
@@ -366,9 +366,9 @@ function LeagueHomePage() {
 									type="button"
 									key={`empty-${index}`}
 									onClick={handlePickerOpen}
-									className="bg-[#162036]/30 border border-slate-600/50 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-[#162036]/50 active:bg-yellow-500/20 transition-all cursor-pointer"
+									className="bg-gray-100 dark:bg-[#162036]/30 border border-gray-200 dark:border-slate-600/50 border-dashed rounded-lg p-4 flex items-center justify-center min-h-[100px] hover:border-yellow-500/50 hover:bg-gray-200 dark:hover:bg-[#162036]/50 active:bg-yellow-500/20 transition-all cursor-pointer"
 								>
-									<p className="text-zinc-600 text-sm">
+									<p className="text-gray-400 dark:text-zinc-600 text-sm">
 										{isMonday ? "Pick your starters" : "Available Mondays only"}
 									</p>
 								</button>
@@ -385,7 +385,7 @@ function LeagueHomePage() {
 									<Lock className="w-5 h-5 mr-2" />
 									Confirm & Lock Lineup
 								</Button>
-								<p className="text-center text-xs text-zinc-500 mt-2">
+								<p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-2">
 									Once confirmed, you cannot change your picks until next Monday
 								</p>
 							</div>
@@ -393,16 +393,16 @@ function LeagueHomePage() {
 
 						{swipedBrands.length < 5 && starters.length === 0 && (
 							<div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
-								<p className="text-yellow-400 text-sm text-center">
+								<p className="text-yellow-600 dark:text-yellow-400 text-sm text-center">
 									You need at least 5 stocks in your Stak to play. Keep swiping!
 								</p>
 							</div>
 						)}
 					</div>
 
-					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+					<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
 						<div className="text-center space-y-4">
-							<p className="text-3xl font-bold text-white">
+							<p className="text-3xl font-bold text-gray-900 dark:text-white">
 								You're beating{" "}
 								<span className="text-yellow-500">
 									{leagueState.stats.totalWins > 0
@@ -416,9 +416,9 @@ function LeagueHomePage() {
 								</span>{" "}
 								of players
 							</p>
-							<div className="flex items-center justify-center gap-8 text-sm text-zinc-400">
+							<div className="flex items-center justify-center gap-8 text-sm text-gray-500 dark:text-zinc-400">
 								<div>
-									<span className="block text-2xl font-bold text-white">
+									<span className="block text-2xl font-bold text-gray-900 dark:text-white">
 										{leagueState.stats.xp}
 									</span>
 									<span>XP</span>
@@ -453,17 +453,17 @@ function LeagueHomePage() {
 
 			{/* Stock Picker Sheet */}
 			<Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-				<SheetContent side="bottom" className="bg-[#0f1629] border-slate-700/50 h-[70vh]">
+				<SheetContent side="bottom" className="bg-white dark:bg-[#0f1629] border-gray-200 dark:border-slate-700/50 h-[70vh]">
 					<SheetHeader className="mb-4">
-						<SheetTitle className="text-white text-xl">
+						<SheetTitle className="text-gray-900 dark:text-white text-xl">
 							Pick Your Starters ({starters.length}/5)
 						</SheetTitle>
 					</SheetHeader>
 
 					{swipedBrands.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-48 text-center">
-							<p className="text-zinc-400 mb-2">Your Stak is empty!</p>
-							<p className="text-zinc-500 text-sm">
+							<p className="text-gray-400 dark:text-zinc-400 mb-2">Your Stak is empty!</p>
+							<p className="text-gray-500 dark:text-zinc-500 text-sm">
 								Go to Discover and swipe right on stocks you like.
 							</p>
 						</div>
@@ -489,8 +489,8 @@ function LeagueHomePage() {
 											isSelected
 												? "border-yellow-500 bg-yellow-500/10"
 												: canAdd
-													? "border-slate-600/50 bg-[#162036]/50 hover:border-cyan-500/50"
-													: "border-slate-700/50 bg-[#0f1629]/50 opacity-50 cursor-not-allowed"
+														? "border-gray-200 dark:border-slate-600/50 bg-gray-50 dark:bg-[#162036]/50 hover:border-cyan-500/50"
+														: "border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-[#0f1629]/50 opacity-50 cursor-not-allowed"
 										}`}
 									>
 										<div className="flex items-center gap-4">
@@ -498,8 +498,8 @@ function LeagueHomePage() {
 												{brand.ticker.charAt(0)}
 											</div>
 											<div className="flex-1 min-w-0">
-												<h3 className="font-bold text-white">{brand.name}</h3>
-												<span className="text-xs font-mono text-zinc-500 uppercase">
+												<h3 className="font-bold text-gray-900 dark:text-white">{brand.name}</h3>
+												<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase">
 													{brand.ticker}
 												</span>
 											</div>
@@ -524,7 +524,7 @@ function LeagueHomePage() {
 								<Lock className="w-5 h-5 mr-2" />
 								Confirm & Lock Lineup
 							</Button>
-							<p className="text-center text-xs text-zinc-500 mt-2">
+							<p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-2">
 								Once confirmed, you cannot change your picks until next Monday
 							</p>
 						</div>

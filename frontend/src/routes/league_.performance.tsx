@@ -23,11 +23,11 @@ function PerformancePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#0b1121] text-white">
+		<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
-					className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8"
+					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span>Back to League</span>
@@ -37,17 +37,17 @@ function PerformancePage() {
 					<h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">
 						This Week's Performance
 					</h1>
-					<p className="text-zinc-400">
+					<p className="text-gray-500 dark:text-zinc-400">
 						Track how your picks are doing vs the market
 					</p>
 				</header>
 
 				<div className="space-y-6">
-					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-						<h2 className="text-xl font-bold text-white mb-6">Your Lineup</h2>
+					<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
+						<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Your Lineup</h2>
 
 						{starters.length === 0 ? (
-							<div className="text-center py-12 text-zinc-500">
+							<div className="text-center py-12 text-gray-400 dark:text-zinc-500">
 								<p>No lineup set for this week</p>
 							</div>
 						) : (
@@ -71,10 +71,10 @@ function PerformancePage() {
 														{brand.ticker.charAt(0)}
 													</div>
 													<div>
-														<h3 className="font-bold text-white">
-															{brand.name}
-														</h3>
-														<span className="text-xs font-mono text-zinc-500 uppercase">
+													<h3 className="font-bold text-gray-900 dark:text-white">
+														{brand.name}
+													</h3>
+													<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase">
 															{brand.ticker}
 														</span>
 													</div>
@@ -102,8 +102,8 @@ function PerformancePage() {
 						)}
 					</div>
 
-					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-						<p className="text-center text-zinc-500 text-sm italic">
+					<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
+						<p className="text-center text-gray-400 dark:text-zinc-500 text-sm italic">
 							Results finalize on Friday. Keep checking back!
 						</p>
 					</div>

@@ -84,11 +84,11 @@ function LineupBuilderPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#0b1121] text-white">
+		<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
-					className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8"
+					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span>Back to League</span>
@@ -98,7 +98,7 @@ function LineupBuilderPage() {
 					<h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">
 						Set Your Lineup
 					</h1>
-					<p className="text-zinc-400">
+					<p className="text-gray-500 dark:text-zinc-400">
 						Pick 5 stocks from your bench to compete this week
 					</p>
 					{/* Debug indicator for MyStak state */}
@@ -111,9 +111,9 @@ function LineupBuilderPage() {
 
 				<div className="space-y-8">
 					{/* Lineup Slots */}
-					<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+					<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
-							<h2 className="text-xl font-bold text-white">
+							<h2 className="text-xl font-bold text-gray-900 dark:text-white">
 								Starters ({selectedStarters.length}/5)
 							</h2>
 							{selectedStarters.length === 5 && (
@@ -132,7 +132,7 @@ function LineupBuilderPage() {
 										className={`border-2 border-dashed rounded-lg p-4 min-h-[100px] flex items-center justify-center transition-all ${
 											starter
 												? "border-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 cursor-pointer"
-												: "border-slate-600/50 bg-[#162036]/30 cursor-default"
+												: "border-gray-300 dark:border-slate-600/50 bg-gray-100 dark:bg-[#162036]/30 cursor-default"
 										}`}
 									>
 										{starter ? (
@@ -142,20 +142,20 @@ function LineupBuilderPage() {
 														{starter.ticker.charAt(0)}
 													</div>
 													<div className="flex-1 text-left">
-														<h3 className="font-bold text-white text-sm">
-															{starter.name}
-														</h3>
-														<span className="text-xs font-mono text-zinc-500 uppercase">
+													<h3 className="font-bold text-gray-900 dark:text-white text-sm">
+														{starter.name}
+													</h3>
+													<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase">
 															{starter.ticker}
 														</span>
 													</div>
 												</div>
-												<p className="text-xs text-zinc-500 text-center mt-2">
-													Tap to remove
-												</p>
-											</div>
-										) : (
-											<p className="text-zinc-600 text-sm">Pick your starter</p>
+											<p className="text-xs text-gray-400 dark:text-zinc-500 text-center mt-2">
+												Tap to remove
+											</p>
+										</div>
+									) : (
+										<p className="text-gray-400 dark:text-zinc-600 text-sm">Pick your starter</p>
 										)}
 									</button>
 								)
@@ -166,20 +166,20 @@ function LineupBuilderPage() {
 					{/* Choose from Your Stak */}
 					<div>
 						<div className="mb-4">
-							<h2 className="text-2xl font-bold text-white mb-2">
+							<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
 								Choose from Your Stak
 							</h2>
-							<p className="text-sm text-zinc-500">
+							<p className="text-sm text-gray-400 dark:text-zinc-500">
 								These are stocks you've saved from swiping.
 							</p>
 						</div>
 
 						{swipedBrands.length === 0 ? (
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-12 text-center">
-								<p className="text-zinc-400 mb-2">
+							<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-12 text-center">
+								<p className="text-gray-500 dark:text-zinc-400 mb-2">
 									You haven't saved any stocks yet.
 								</p>
-								<p className="text-zinc-500 text-sm">
+								<p className="text-gray-400 dark:text-zinc-500 text-sm">
 									Go to Discover to find some vibes.
 								</p>
 							</div>
@@ -197,7 +197,7 @@ function LineupBuilderPage() {
 											className={`text-left p-6 rounded-xl border-2 transition-all ${
 												isSelected
 													? "border-yellow-500/50 bg-yellow-500/5 opacity-60 cursor-not-allowed"
-													: "border-slate-700/50 bg-[#0f1629]/50 hover:border-cyan-500/50 hover:bg-[#162036]/80"
+												: "border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629]/50 hover:border-cyan-500/50 hover:bg-gray-50 dark:hover:bg-[#162036]/80"
 											}`}
 										>
 											<div className="flex items-start gap-4 mb-3">
@@ -205,10 +205,10 @@ function LineupBuilderPage() {
 													{brand.ticker.charAt(0)}
 												</div>
 												<div className="flex-1 min-w-0">
-													<h3 className="font-bold text-white text-lg mb-1">
-														{brand.name}
-													</h3>
-													<span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
+												<h3 className="font-bold text-gray-900 dark:text-white text-lg mb-1">
+													{brand.name}
+												</h3>
+												<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase tracking-wider">
 														{brand.ticker}
 													</span>
 												</div>
@@ -216,7 +216,7 @@ function LineupBuilderPage() {
 													<Check className="w-6 h-6 text-yellow-500 shrink-0" />
 												)}
 											</div>
-											<p className="text-sm text-zinc-400 italic line-clamp-2">
+											<p className="text-sm text-gray-500 dark:text-zinc-400 italic line-clamp-2">
 												{brand.bio}
 											</p>
 										</button>
@@ -236,7 +236,7 @@ function LineupBuilderPage() {
 						</Button>
 					</div>
 
-					<p className="text-xs text-zinc-600 text-center">
+					<p className="text-xs text-gray-400 dark:text-zinc-600 text-center">
 						Once locked, you can't change your picks until next Monday
 					</p>
 				</div>

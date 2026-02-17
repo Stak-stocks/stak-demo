@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { UserCircle, LogOut, Sun, Moon, Search } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
@@ -12,6 +12,34 @@ import { SearchView } from "@/components/SearchView";
 export const Route = createRootRoute({
 	component: Root,
 });
+
+function PageTransition({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+	const [key, setKey] = useState(pathname);
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (pathname !== key) {
+			// Re-trigger animation by updating key
+			setKey(pathname);
+		}
+	}, [pathname, key]);
+
+	// Force animation restart when key changes
+	useEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+		el.classList.remove("page-transition");
+		// Force reflow to restart animation
+		void el.offsetWidth;
+		el.classList.add("page-transition");
+	}, [key]);
+
+	return (
+		<div ref={ref} className="page-transition">
+			{children}
+		</div>
+	);
+}
 
 function Root() {
 	const { user, loading, logout } = useAuth();
@@ -103,7 +131,9 @@ function Root() {
 			)}
 
 			<ErrorBoundary tagName="main" className="flex-1 pb-16">
-				<Outlet />
+				<PageTransition pathname={location.pathname}>
+					<Outlet />
+				</PageTransition>
 			</ErrorBoundary>
 			{!isAuthPage && <BottomNav />}
 			<Toaster position="top-center" />
