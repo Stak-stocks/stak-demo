@@ -78,7 +78,7 @@ function MyStakPage() {
 				{/* Back button for mobile */}
 				<button
 					onClick={handleCloseDetail}
-					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-3 pt-3 pb-1 sm:hidden"
+					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-3 pt-3 pb-1 mb-4 sm:hidden"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span className="text-sm">Back to My Stak</span>
