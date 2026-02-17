@@ -51,10 +51,12 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 	}, [isTopCard]);
 
 	// Close popover on outside click/touch
+	const containerRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (openPopover === null && tappedBar === null) return;
-		const handler = (e: MouseEvent | TouchEvent) => {
-			if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+		const handler = (e: globalThis.MouseEvent | globalThis.TouchEvent) => {
+			// Only close if tap/click is outside the entire vibe sliders area
+			if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
 				setOpenPopover(null);
 				setTappedBar(null);
 			}
@@ -92,7 +94,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 				100% { opacity: 1; transform: translateY(0) scale(1); }
 			}
 		`}</style>
-		<div className="space-y-3">
+		<div className="space-y-3" ref={containerRef}>
 			{vibes.map((vibe, i) => (
 				<div key={vibe.name} className="space-y-1.5">
 					{/* Label with eye icon — clickable */}
