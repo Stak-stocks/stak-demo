@@ -41,13 +41,8 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	}, [query]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
-		if (modalOpen && selectedBrand?.id === brand.id) {
-			setModalOpen(false);
-			setTimeout(() => setSelectedBrand(null), 200);
-		} else {
-			setSelectedBrand(brand);
-			setModalOpen(true);
-		}
+		setSelectedBrand(brand);
+		setModalOpen(true);
 	};
 
 	const handleCloseModal = () => {

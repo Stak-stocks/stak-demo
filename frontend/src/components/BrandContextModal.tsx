@@ -1,5 +1,5 @@
 import type { BrandProfile } from "@/data/brands";
-import { Plus } from "lucide-react";
+import { Plus, ArrowLeft } from "lucide-react";
 
 interface BrandContextModalProps {
 	brand: BrandProfile | null;
@@ -32,13 +32,17 @@ export function BrandContextModal({
 
 			{/* Content sheet */}
 			<div
-				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl h-[80vh] sm:h-[70vh] overflow-y-auto"
+				className="relative w-full h-full sm:h-[70vh] sm:max-w-2xl sm:mx-4 bg-[#0b1121] sm:rounded-2xl overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
-				{/* Drag handle indicator for mobile */}
-				<div className="flex justify-center pt-4 pb-2 sm:hidden">
-					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
-				</div>
+				{/* Back button for mobile */}
+				<button
+					onClick={onClose}
+					className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors px-4 pt-3 pb-1 sm:hidden"
+				>
+					<ArrowLeft className="w-5 h-5" />
+					<span className="text-sm">Back to Discovery</span>
+				</button>
 
 				<div className="px-6 pb-6 pt-2 sm:pt-6 space-y-6">
 					<div>
