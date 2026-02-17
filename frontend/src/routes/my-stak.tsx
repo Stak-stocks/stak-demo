@@ -234,8 +234,8 @@ function MyStakPage() {
 						</TabsContent>
 					</Tabs>
 
-					<div className="mt-3 sm:mt-8 p-2 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg shrink-0">
-						<p className="text-xs text-zinc-500 text-center">
+					<div className="mt-2 sm:mt-8 p-2 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg shrink-0">
+						<p className="text-[10px] sm:text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.
 						</p>
