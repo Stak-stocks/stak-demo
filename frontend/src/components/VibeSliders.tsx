@@ -141,6 +141,8 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 						onMouseLeave={() => setHoveredIndex(null)}
 						onClick={(e) => {
 							e.stopPropagation();
+							// Clear hover state so toggle works on mobile
+							setHoveredIndex(null);
 							setTappedBar(tappedBar === i ? null : i);
 							setOpenPopover(null);
 						}}
