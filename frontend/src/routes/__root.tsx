@@ -84,7 +84,7 @@ function Root() {
 					<button
 						type="button"
 						onClick={() => setSearchOpen(true)}
-						className="p-2 rounded-full text-slate-400 hover:text-white transition-colors"
+						className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
 						aria-label="Search stocks"
 					>
 						<Search className="w-5 h-5" />
@@ -95,14 +95,14 @@ function Root() {
 						<button
 							type="button"
 							onClick={(e) => { e.stopPropagation(); setProfileOpen((v) => !v); }}
-							className="p-2 rounded-full text-slate-400 hover:text-white transition-colors"
+							className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
 						>
 							<UserCircle className="w-6 h-6" />
 						</button>
 
 						{profileOpen && (
 							<div
-								className="absolute right-0 mt-2 w-44 rounded-xl bg-[#0f1629] border border-slate-700/50 shadow-xl overflow-hidden z-50"
+								className="absolute right-0 mt-2 w-44 rounded-xl bg-white dark:bg-[#0f1629] border border-zinc-200 dark:border-slate-700/50 shadow-xl overflow-hidden z-50"
 								onClick={(e) => e.stopPropagation()}
 							>
 								<button
@@ -111,7 +111,7 @@ function Root() {
 										setTheme(theme === "dark" ? "light" : "dark");
 										setProfileOpen(false);
 									}}
-									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-[#162036] transition-colors"
+									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors"
 								>
 									{theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
 									{theme === "dark" ? "Light Mode" : "Dark Mode"}
@@ -119,7 +119,7 @@ function Root() {
 								<button
 									type="button"
 									onClick={() => { logout().then(() => navigate({ to: "/welcome" })); }}
-									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-[#162036] transition-colors border-t border-slate-700/50"
+									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors border-t border-zinc-200 dark:border-slate-700/50"
 								>
 									<LogOut className="w-4 h-4" />
 									Sign Out
