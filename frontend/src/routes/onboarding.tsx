@@ -677,8 +677,9 @@ function BuildingStep({
 		// Save user interests so Discover page can recommend similar brands
 		localStorage.setItem("user-interests", JSON.stringify(selectedInterests));
 
-		// Clear any cached deck order so Discover recomputes based on interests
+		// Clear any cached deck order and passed brands so Discover starts fresh
 		sessionStorage.removeItem("stak-deck-order");
+		localStorage.removeItem("passed-brands");
 
 		// Start with an empty stak — users add stocks from Discover
 		localStorage.setItem("my-stak", JSON.stringify([]));

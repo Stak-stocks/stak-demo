@@ -49,6 +49,20 @@ function App() {
 	const [swapPickerOpen, setSwapPickerOpen] = useState(false);
 	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
 
+	// Track left-swiped (passed) brands so they don't reappear on navigation
+	// Passed brands expire after 2 days so users get another chance
+	const [passedBrandIds, setPassedBrandIds] = useState<Set<string>>(() => {
+		const saved = localStorage.getItem("passed-brands");
+		if (!saved) return new Set();
+		const entries: { id: string; at: number }[] = JSON.parse(saved);
+		const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+		const active = entries.filter((e) => e.at > twoDaysAgo);
+		if (active.length !== entries.length) {
+			localStorage.setItem("passed-brands", JSON.stringify(active));
+		}
+		return new Set(active.map((e) => e.id));
+	});
+
 	// Compute stable recommended brand order once per session
 	// Persisted in sessionStorage so tab navigation doesn't reshuffle
 	const [recommendedOrder] = useState<BrandProfile[]>(() => {
@@ -163,6 +177,21 @@ function App() {
 		setSwapPickerOpen(false);
 	};
 
+	const handleSwipeLeft = (brand: BrandProfile) => {
+		setPassedBrandIds((prev) => {
+			const next = new Set(prev);
+			next.add(brand.id);
+			// Persist with timestamps for 2-day expiry
+			const saved = localStorage.getItem("passed-brands");
+			const entries: { id: string; at: number }[] = saved ? JSON.parse(saved) : [];
+			if (!entries.some((e) => e.id === brand.id)) {
+				entries.push({ id: brand.id, at: Date.now() });
+			}
+			localStorage.setItem("passed-brands", JSON.stringify(entries));
+			return next;
+		});
+	};
+
 	const handleCancelSwap = () => {
 		setPendingBrand(null);
 		setSwapPickerOpen(false);
@@ -185,10 +214,13 @@ function App() {
 
 				<SwipeableCardStack
 					brands={recommendedOrder.filter(
-						(brand) => !swipedBrands.some((b) => b.id === brand.id),
+						(brand) =>
+							!swipedBrands.some((b) => b.id === brand.id) &&
+							!passedBrandIds.has(brand.id),
 					)}
 					onLearnMore={handleLearnMore}
 					onSwipeRight={handleSwipeRight}
+					onSwipeLeft={handleSwipeLeft}
 				/>
 			</div>
 

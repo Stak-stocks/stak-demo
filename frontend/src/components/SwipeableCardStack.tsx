@@ -60,6 +60,7 @@ interface SwipeableCardStackProps {
 	brands: BrandProfile[];
 	onLearnMore: (brand: BrandProfile) => void;
 	onSwipeRight?: (brand: BrandProfile) => void;
+	onSwipeLeft?: (brand: BrandProfile) => void;
 	onSwipe?: () => void;
 }
 
@@ -67,6 +68,7 @@ export function SwipeableCardStack({
 	brands,
 	onLearnMore,
 	onSwipeRight,
+	onSwipeLeft,
 	onSwipe,
 }: SwipeableCardStackProps) {
 	const [dailyState, setDailyState] = useState<DailySwipeState>(getDailySwipeState);
@@ -170,8 +172,12 @@ export function SwipeableCardStack({
 				if (isRightSwipe && onSwipeRight && currentBrand) {
 					onSwipeRight(currentBrand);
 				}
-				if (!isRightSwipe) {
-					setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+				if (!isRightSwipe && currentBrand) {
+					if (onSwipeLeft) {
+						onSwipeLeft(currentBrand);
+					} else {
+						setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+					}
 				}
 				setDragOffset({ x: 0, y: 0 });
 				setIsExiting(false);
