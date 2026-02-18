@@ -55,14 +55,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-	// Load recent searches and focus input when opening
+	// Load recent searches when opening (no auto-focus — avoids iOS caret bug)
 	useEffect(() => {
 		if (open) {
 			setRecentSearches(getRecentSearches(user?.uid));
-			// Delay focus so the layout is fully painted first – avoids the mobile
-			// caret rendering outside the input box on open/refresh.
-			const timer = setTimeout(() => inputRef.current?.focus(), 300);
-			return () => clearTimeout(timer);
 		}
 	}, [open, user?.uid]);
 
@@ -76,6 +72,19 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 			document.body.style.overscrollBehavior = prev;
 			document.documentElement.style.overscrollBehavior = '';
 		};
+	}, [open]);
+
+	// On iOS, blur the input whenever a touch begins *outside* the input.
+	// This hides the caret before any scroll/overscroll can shift it.
+	useEffect(() => {
+		if (!open) return;
+		const handler = (e: TouchEvent) => {
+			if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+				inputRef.current.blur();
+			}
+		};
+		document.addEventListener('touchstart', handler, { passive: true });
+		return () => document.removeEventListener('touchstart', handler);
 	}, [open]);
 
 	// Clear search when closing
