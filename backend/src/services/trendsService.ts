@@ -14,6 +14,8 @@ export interface TrendCard {
 	takeaway?: string;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function generateWithGemini(
 	ticker: string,
 	brandName: string,
@@ -52,33 +54,41 @@ The stak card must ALSO have:
 
 Return ONLY the JSON array, no markdown, no extra text.`;
 
-	const res = await fetch(
-		`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: prompt }] }],
-				generationConfig: {
-					temperature: 0.4,
-					responseMimeType: "application/json",
-				},
-			}),
-		},
-	);
+	for (let attempt = 0; attempt < 4; attempt++) {
+		if (attempt > 0) await sleep(2 ** attempt * 1000); // 2s, 4s, 8s
 
-	if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+		const res = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: {
+						temperature: 0.4,
+						responseMimeType: "application/json",
+					},
+				}),
+			},
+		);
 
-	const data = await res.json();
-	const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-	if (!text) throw new Error("Gemini returned empty response");
+		if (res.status === 429) continue;
 
-	const parsed: TrendCard[] = JSON.parse(text);
-	if (!Array.isArray(parsed) || parsed.length !== 4) {
-		throw new Error("Gemini returned unexpected structure");
+		if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+
+		const data = await res.json();
+		const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+		if (!text) throw new Error("Gemini returned empty response");
+
+		const parsed: TrendCard[] = JSON.parse(text);
+		if (!Array.isArray(parsed) || parsed.length !== 4) {
+			throw new Error("Gemini returned unexpected structure");
+		}
+
+		return parsed;
 	}
 
-	return parsed;
+	throw new Error("Gemini rate limited after 4 attempts");
 }
 
 export async function getTrends(

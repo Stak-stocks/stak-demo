@@ -30,6 +30,8 @@ function chunk<T>(arr: T[], size: number): T[][] {
 	return chunks;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** Call Gemini for a single batch of up to BATCH_SIZE articles */
 async function simplifyBatch(
 	articles: FinnhubArticle[],
@@ -56,39 +58,47 @@ ${articles.map((a, i) => `${i + 1}. Title: ${a.headline}\nSummary: ${a.summary}`
 
 Return ONLY valid JSON, no markdown, no extra text.`;
 
-	const res = await fetch(
-		`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: prompt }] }],
-				generationConfig: {
-					temperature: 0.3,
-					responseMimeType: "application/json",
-				},
-			}),
-		},
-	);
+	for (let attempt = 0; attempt < 4; attempt++) {
+		if (attempt > 0) await sleep(2 ** attempt * 1000); // 2s, 4s, 8s
 
-	if (!res.ok) {
-		const err = await res.text();
-		throw new Error(`Gemini error ${res.status}: ${err}`);
+		const res = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: {
+						temperature: 0.3,
+						responseMimeType: "application/json",
+					},
+				}),
+			},
+		);
+
+		if (res.status === 429) continue;
+
+		if (!res.ok) {
+			const err = await res.text();
+			throw new Error(`Gemini error ${res.status}: ${err}`);
+		}
+
+		const geminiData = await res.json();
+		const rawText: string =
+			geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+
+		try {
+			return JSON.parse(rawText);
+		} catch {
+			return articles.map(() => ({
+				explanation: "Could not simplify this article.",
+				whyItMatters: "Check the original source for details.",
+				sentiment: "neutral",
+			}));
+		}
 	}
 
-	const geminiData = await res.json();
-	const rawText: string =
-		geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-
-	try {
-		return JSON.parse(rawText);
-	} catch {
-		return articles.map(() => ({
-			explanation: "Could not simplify this article.",
-			whyItMatters: "Check the original source for details.",
-			sentiment: "neutral",
-		}));
-	}
+	throw new Error("Gemini rate limited after 4 attempts");
 }
 
 /** Simplify all articles, processing them in sequential batches of BATCH_SIZE.
