@@ -137,7 +137,7 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 	const data: FinnhubArticle[] = await res.json();
 
 	return data
-		.filter((a) => a.headline && a.summary && a.datetime >= cutoff)
+		.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a))
 		.slice(0, limit);
 }
 
