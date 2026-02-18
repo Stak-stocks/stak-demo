@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { ChevronLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,7 @@ import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
 import { StockNewsTab } from "@/components/StockNewsTab";
+import { getLiveTrends } from "@/lib/api";
 
 
 export const Route = createFileRoute("/brand/$brandId")({
@@ -17,6 +19,13 @@ function BrandDetailPage() {
 	const { brandId } = Route.useParams();
 	const navigate = useNavigate();
 	const [brand, setBrand] = useState<BrandProfile | null>(null);
+	const { data: liveData, isLoading: trendsLoading } = useQuery({
+		queryKey: ["trends", brandId],
+		queryFn: () => getLiveTrends(brandId, brand?.ticker ?? "", brand?.name ?? ""),
+		enabled: !!brand,
+		staleTime: 3 * 24 * 60 * 60 * 1000,
+		retry: 1,
+	});
 
 	useEffect(() => {
 		const foundBrand = brands.find((b) => b.id === brandId);
@@ -175,7 +184,7 @@ function BrandDetailPage() {
 
 					<TabsContent value="trends" className="mt-6">
 						<TrendCarousel
-							trends={getBrandTrends(brand.id)}
+							trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(brand.id)}
 							ticker={brand.ticker}
 						/>
 					</TabsContent>

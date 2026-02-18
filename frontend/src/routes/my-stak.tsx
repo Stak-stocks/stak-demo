@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
 import { Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
@@ -10,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak } from "@/lib/api";
+import { saveStak, getLiveTrends } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
@@ -47,6 +48,14 @@ function MyStakPage() {
 		}
 		setDragY(0);
 	}, [dragY]);
+	const { data: liveData } = useQuery({
+		queryKey: ["trends", selectedBrand?.id],
+		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
+		enabled: !!selectedBrand,
+		staleTime: 3 * 24 * 60 * 60 * 1000,
+		retry: 1,
+	});
+
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
@@ -248,7 +257,7 @@ function MyStakPage() {
 
 						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
-								trends={getBrandTrends(selectedBrand.id)}
+								trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(selectedBrand.id)}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>

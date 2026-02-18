@@ -84,6 +84,13 @@ export function recordSwipe(brandId: string, direction: "left" | "right") {
 	});
 }
 
+// Live Trends (Gemini-generated, cached 3 days in Firestore)
+export function getLiveTrends(brandId: string, ticker: string, name: string) {
+	return apiRequest<{ cards: import("@/data/brands").TrendCard[]; brandId: string }>(
+		`/api/trends/${brandId}?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`,
+	);
+}
+
 // News
 export function getCompanyNews(symbol: string) {
 	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(`/api/news/company/${symbol}`);
