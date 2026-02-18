@@ -14,6 +14,29 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
+const FINANCIAL_TERMS = [
+	"stock", "share", "revenue", "earnings", "profit", "loss", "sales",
+	"quarter", "fiscal", "ipo", "acquisition", "merger", "ceo", "cfo",
+	"investor", "analyst", "forecast", "guidance", "dividend", "buyback",
+	"valuation", "fund", "upgrade", "downgrade", "rating", "results",
+	"market cap", "price target", "outlook", "layoff", "restructur",
+];
+
+const SPORTS_TERMS = [
+	"nfl", "nba", "mlb", "nhl", "mls", "ncaa", "touchdown", "quarterback",
+	"playoffs", "championship", "roster", "coach", "draft pick", "game day",
+	"halftime", "super bowl", "world series", "march madness",
+];
+
+/** Returns true if the article is likely financially relevant to the stock */
+function isStockRelevant(article: FinnhubArticle): boolean {
+	const text = `${article.headline} ${article.summary}`.toLowerCase();
+	const hasSports = SPORTS_TERMS.some((t) => text.includes(t));
+	if (!hasSports) return true;
+	const hasFinance = FINANCIAL_TERMS.some((t) => text.includes(t));
+	return hasFinance; // sports article only survives if it also has financial content
+}
+
 /** Fetch general market news (IPOs, interest rates, macro events).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
@@ -47,5 +70,5 @@ export async function getCompanyNews(symbol: string, limit = 15): Promise<Finnhu
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
-	return data.filter((a) => a.headline && a.summary).slice(0, limit);
+	return data.filter((a) => a.headline && a.summary && isStockRelevant(a)).slice(0, limit);
 }
