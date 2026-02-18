@@ -132,6 +132,10 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
 
 	const res = await fetch(`${FINNHUB_BASE}/news?category=general&token=${apiKey}`);
+	if (res.status === 403 || res.status === 429) {
+		console.warn(`Finnhub market-news rate limited (${res.status})`);
+		return [];
+	}
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
@@ -153,6 +157,11 @@ export async function getCompanyNews(symbol: string, limit = 15): Promise<Finnhu
 	const res = await fetch(
 		`${FINNHUB_BASE}/company-news?symbol=${symbol}&from=${sevenDaysAgo}&to=${today}&token=${apiKey}`,
 	);
+	// 403 = rate-limited or plan limit; return empty rather than crashing
+	if (res.status === 403 || res.status === 429) {
+		console.warn(`Finnhub company-news rate limited (${res.status}) for ${symbol}`);
+		return [];
+	}
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
