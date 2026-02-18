@@ -66,6 +66,18 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		}
 	}, [open, user?.uid]);
 
+	// Prevent pull-to-refresh / overscroll on the page behind the search overlay
+	useEffect(() => {
+		if (!open) return;
+		const prev = document.body.style.overscrollBehavior;
+		document.body.style.overscrollBehavior = 'none';
+		document.documentElement.style.overscrollBehavior = 'none';
+		return () => {
+			document.body.style.overscrollBehavior = prev;
+			document.documentElement.style.overscrollBehavior = '';
+		};
+	}, [open]);
+
 	// Clear search when closing
 	useEffect(() => {
 		if (!open) {
@@ -128,10 +140,18 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		<>
 			<div
 				className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 flex flex-col"
-				style={{ transform: 'translate3d(0,0,0)', WebkitTransform: 'translate3d(0,0,0)' }}
+				style={{
+					transform: 'translate3d(0,0,0)',
+					WebkitTransform: 'translate3d(0,0,0)',
+					overscrollBehavior: 'none',
+					WebkitOverflowScrolling: 'auto',
+				} as React.CSSProperties}
 			>
 				{/* Sticky header + search — never scrolls */}
-				<div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+				<div
+					className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4"
+					style={{ touchAction: 'pan-x' }}
+				>
 					{/* Header */}
 					<div className="flex items-center gap-4 mb-6">
 						<button
@@ -155,12 +175,18 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							onBlur={() => {/* allow natural blur */}}
 						/>
 					</div>
 				</div>
 
-				{/* Scrollable results area */}
-				<div className="flex-1 overflow-y-auto">
+				{/* Scrollable results area — blur input on scroll so caret hides */}
+				<div
+					className="flex-1 overflow-y-auto"
+					style={{ overscrollBehavior: 'none' } as React.CSSProperties}
+					onTouchMove={() => inputRef.current?.blur()}
+					onScroll={() => inputRef.current?.blur()}
+				>
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
 
 					{/* Results */}
