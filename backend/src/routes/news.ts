@@ -4,13 +4,12 @@ import { simplifyArticles } from "../services/geminiService.js";
 
 export const newsRouter = Router();
 
-// GET /api/news/market — macro-only market news
+// GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
 	try {
 		const articles = await getMarketNews();
-		// Keep only macro articles for the market feed
-		const macroArticles = articles.filter((a) => classifyArticle(a) === "macro");
-		const simplified = await simplifyArticles(macroArticles, macroArticles.map(() => "macro"));
+		// All general news is treated as macro — no extra filtering needed
+		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		res.json({ articles: simplified });
 	} catch (error) {
 		console.error("Error fetching market news:", error);
