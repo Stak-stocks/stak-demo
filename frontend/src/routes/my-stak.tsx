@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
@@ -19,6 +19,33 @@ export const Route = createFileRoute("/my-stak")({
 function MyStakPage() {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
+	const [dragY, setDragY] = useState(0);
+	const dragging = useRef(false);
+	const startY = useRef(0);
+	const startTime = useRef(0);
+
+	const handleDragStart = useCallback((clientY: number) => {
+		dragging.current = true;
+		startY.current = clientY;
+		startTime.current = Date.now();
+	}, []);
+
+	const handleDragMove = useCallback((clientY: number) => {
+		if (!dragging.current) return;
+		const dy = clientY - startY.current;
+		setDragY(Math.max(0, dy));
+	}, []);
+
+	const handleDragEnd = useCallback(() => {
+		if (!dragging.current) return;
+		dragging.current = false;
+		const elapsed = Date.now() - startTime.current;
+		const velocity = dragY / Math.max(elapsed, 1);
+		if (dragY > 120 || velocity > 0.5) {
+			setSelectedBrand(null);
+		}
+		setDragY(0);
+	}, [dragY]);
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
@@ -95,18 +122,24 @@ function MyStakPage() {
 			<div
 				className="relative w-full h-[85vh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl sm:max-h-[95vh] flex flex-col"
 				onClick={(e) => e.stopPropagation()}
+				style={{
+					transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+					transition: dragging.current ? "none" : "transform 0.3s ease-out",
+					opacity: dragY > 0 ? Math.max(0.5, 1 - dragY / 400) : 1,
+				}}
 			>
-				{/* Drag handle + close button for mobile */}
-				<div className="flex justify-center pt-3 pb-1 sm:hidden">
+				{/* Drag handle – swipe down to close */}
+				<div
+					className="flex justify-center pt-3 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none"
+					onTouchStart={(e) => handleDragStart(e.touches[0].clientY)}
+					onTouchMove={(e) => handleDragMove(e.touches[0].clientY)}
+					onTouchEnd={handleDragEnd}
+					onPointerDown={(e) => { handleDragStart(e.clientY); (e.target as HTMLElement).setPointerCapture(e.pointerId); }}
+					onPointerMove={(e) => handleDragMove(e.clientY)}
+					onPointerUp={handleDragEnd}
+				>
 					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
 				</div>
-				<button
-					onClick={handleCloseDetail}
-					className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors z-10 sm:hidden"
-					aria-label="Close"
-				>
-					<X className="w-5 h-5" />
-				</button>
 
 				{/* Brand header - always visible */}
 				<div className="shrink-0 px-3 pt-1 pb-2 sm:px-6 sm:pt-6 sm:pb-4">

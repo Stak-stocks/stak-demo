@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { Plus } from "lucide-react";
@@ -16,6 +16,11 @@ export function BrandContextModal({
 	onClose,
 	onAddToStak,
 }: BrandContextModalProps) {
+	const [dragY, setDragY] = useState(0);
+	const dragging = useRef(false);
+	const startY = useRef(0);
+	const startTime = useRef(0);
+
 	// Lock background scroll when modal is open
 	useEffect(() => {
 		if (brand && open) {
@@ -25,6 +30,36 @@ export function BrandContextModal({
 		}
 		return () => { document.body.style.overflow = ""; };
 	}, [brand, open]);
+
+	// Reset drag state when modal opens
+	useEffect(() => {
+		if (open) setDragY(0);
+	}, [open]);
+
+	const handleDragStart = useCallback((clientY: number) => {
+		dragging.current = true;
+		startY.current = clientY;
+		startTime.current = Date.now();
+	}, []);
+
+	const handleDragMove = useCallback((clientY: number) => {
+		if (!dragging.current) return;
+		const dy = clientY - startY.current;
+		// Only allow dragging downward
+		setDragY(Math.max(0, dy));
+	}, []);
+
+	const handleDragEnd = useCallback(() => {
+		if (!dragging.current) return;
+		dragging.current = false;
+		const elapsed = Date.now() - startTime.current;
+		const velocity = dragY / Math.max(elapsed, 1); // px/ms
+		// Close if dragged far enough or flicked fast enough
+		if (dragY > 120 || velocity > 0.5) {
+			onClose();
+		}
+		setDragY(0);
+	}, [dragY, onClose]);
 
 	if (!brand || !open) return null;
 
@@ -46,9 +81,22 @@ export function BrandContextModal({
 			<div
 				className="relative w-full sm:max-w-2xl sm:mx-4 bg-[#0b1121] rounded-t-2xl sm:rounded-2xl h-[80vh] sm:h-[70vh] flex flex-col"
 				onClick={(e) => e.stopPropagation()}
+				style={{
+					transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+					transition: dragging.current ? "none" : "transform 0.3s ease-out",
+					opacity: dragY > 0 ? Math.max(0.5, 1 - dragY / 400) : 1,
+				}}
 			>
-				{/* Drag handle indicator for mobile */}
-				<div className="flex justify-center pt-4 pb-2 sm:hidden">
+				{/* Drag handle – swipe down to close */}
+				<div
+					className="flex justify-center pt-4 pb-2 sm:hidden cursor-grab active:cursor-grabbing touch-none"
+					onTouchStart={(e) => handleDragStart(e.touches[0].clientY)}
+					onTouchMove={(e) => handleDragMove(e.touches[0].clientY)}
+					onTouchEnd={handleDragEnd}
+					onPointerDown={(e) => { handleDragStart(e.clientY); (e.target as HTMLElement).setPointerCapture(e.pointerId); }}
+					onPointerMove={(e) => handleDragMove(e.clientY)}
+					onPointerUp={handleDragEnd}
+				>
 					<div className="w-12 h-1.5 bg-zinc-600 rounded-full" />
 				</div>
 
