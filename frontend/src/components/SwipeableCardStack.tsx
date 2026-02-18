@@ -350,8 +350,8 @@ export function SwipeableCardStack({
 									}}
 								/>
 							)}
-							<div onClick={() => isTopCard && handleCardClick(brand)}>
-								<StockCard brand={brand} onLearnMore={() => {}} priority={isTopCard} isTopCard={isTopCard} />
+							<div>
+								<StockCard brand={brand} onLearnMore={onLearnMore} priority={isTopCard} isTopCard={isTopCard} />
 							</div>
 						</div>
 					);

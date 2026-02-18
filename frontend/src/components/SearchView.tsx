@@ -30,6 +30,12 @@ function saveRecentSearch(brandName: string, uid: string | undefined) {
 	localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT_SEARCHES)));
 }
 
+function removeRecentSearch(brandName: string, uid: string | undefined) {
+	const key = getStorageKey(uid);
+	const recent = getRecentSearches(uid).filter((s) => s.toLowerCase() !== brandName.toLowerCase());
+	localStorage.setItem(key, JSON.stringify(recent));
+}
+
 function clearRecentSearches(uid: string | undefined) {
 	localStorage.removeItem(getStorageKey(uid));
 }
@@ -99,6 +105,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	const handleRecentClick = (search: string) => {
 		setQuery(search);
+	};
+
+	const handleRemoveRecent = (search: string) => {
+		removeRecentSearch(search, user?.uid);
+		setRecentSearches(getRecentSearches(user?.uid));
 	};
 
 	const handleClearRecent = () => {
@@ -186,17 +197,29 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 									</div>
 									<div className="space-y-1">
 										{recentSearches.map((search) => (
-											<button
+											<div
 												key={search}
-												type="button"
-												onClick={() => handleRecentClick(search)}
-												className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors group"
+												className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors group"
 											>
-												<Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-												<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
-													{search}
-												</span>
-											</button>
+												<button
+													type="button"
+													onClick={() => handleRecentClick(search)}
+													className="flex items-center gap-3 flex-1 min-w-0 text-left"
+												>
+													<Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+													<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+														{search}
+													</span>
+												</button>
+												<button
+													type="button"
+													onClick={() => handleRemoveRecent(search)}
+													className="p-1.5 rounded-full text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:bg-slate-700/50 transition-colors shrink-0"
+													aria-label={`Remove ${search}`}
+												>
+													<X className="w-4 h-4" />
+												</button>
+											</div>
 										))}
 									</div>
 								</div>
