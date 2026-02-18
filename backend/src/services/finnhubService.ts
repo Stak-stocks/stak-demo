@@ -15,17 +15,69 @@ export interface FinnhubArticle {
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
 const FINANCIAL_TERMS = [
-	"stock", "share", "revenue", "earnings", "profit", "loss", "sales",
-	"quarter", "fiscal", "ipo", "acquisition", "merger", "ceo", "cfo",
-	"investor", "analyst", "forecast", "guidance", "dividend", "buyback",
-	"valuation", "fund", "upgrade", "downgrade", "rating", "results",
-	"market cap", "price target", "outlook", "layoff", "restructur",
+	// Core P&L
+	"stock", "share", "shares", "revenue", "earnings", "profit", "loss", "sales",
+	"margin", "cash flow", "balance sheet", "income statement", "ebitda", "eps",
+	// Time periods
+	"quarter", "quarterly", "fiscal", "annual", "q1", "q2", "q3", "q4", "full year",
+	// Corporate events
+	"ipo", "acquisition", "merger", "buyout", "takeover", "spin-off", "spinoff",
+	"divest", "divestiture", "going public", "going private",
+	// Leadership / org
+	"ceo", "cfo", "cto", "coo", "chief executive", "chief financial", "board of directors",
+	"executive", "management team", "appoint", "resign", "fired",
+	// Investors / markets
+	"investor", "analyst", "hedge fund", "private equity", "venture capital",
+	"nasdaq", "nyse", "s&p", "dow jones", "market cap", "valuation",
+	"listed", "delisted", "ipo price", "trading halt",
+	// Guidance / ratings
+	"forecast", "guidance", "outlook", "estimate", "price target",
+	"upgrade", "downgrade", "rating", "overweight", "underweight",
+	"buy rating", "sell rating", "hold rating",
+	// Returns / capital allocation
+	"dividend", "buyback", "share repurchase", "stock split",
+	// Workforce
+	"layoff", "lay off", "job cut", "headcount", "restructur", "reorganiz",
+	"bankrupt", "chapter 11", "chapter 7", "default",
+	// Macro / regulatory
+	"interest rate", "federal reserve", "fed rate", "inflation", "tariff",
+	"antitrust", "regulation", "sec investigation", "ftc", "doj",
+	"lawsuit", "settlement", "fine", "penalty", "class action",
+	// Growth / momentum
+	"record revenue", "record profit", "beat expectation", "miss expectation",
+	"raised guidance", "lowered guidance", "subscription", "user growth",
+	// Supply chain / ops
+	"supply chain", "shortage", "inventory", "demand outlook",
 ];
 
 const SPORTS_TERMS = [
-	"nfl", "nba", "mlb", "nhl", "mls", "ncaa", "touchdown", "quarterback",
-	"playoffs", "championship", "roster", "coach", "draft pick", "game day",
-	"halftime", "super bowl", "world series", "march madness",
+	// Leagues
+	"nfl", "nba", "mlb", "nhl", "mls", "ncaa", "pga tour", "ufc", "wwe",
+	// NFL teams
+	"seahawks", "cowboys", "patriots", "chiefs", "eagles", "49ers", "giants",
+	"jets", "bears", "packers", "steelers", "ravens", "broncos", "chargers",
+	"raiders", "dolphins", "bills", "browns", "bengals", "colts", "titans",
+	"jaguars", "texans", "falcons", "saints", "panthers", "buccaneers",
+	"cardinals", "rams", "vikings", "lions", "commanders",
+	// NBA teams
+	"lakers", "celtics", "bulls", "warriors", "knicks", "heat", "spurs",
+	"thunder", "clippers", "mavericks", "nuggets", "suns", "bucks", "76ers",
+	"raptors", "pelicans", "jazz", "grizzlies", "rockets", "magic", "pistons",
+	"cavaliers", "wizards", "blazers",
+	// MLB teams
+	"yankees", "red sox", "dodgers", "cubs", "mets", "braves", "astros",
+	"phillies", "nationals", "mariners", "padres", "rockies", "marlins",
+	"brewers", "orioles", "tigers", "white sox", "twins", "royals",
+	// Sports events
+	"super bowl", "world series", "march madness", "nba finals", "stanley cup",
+	"olympic", "world cup", "wimbledon", "us open", "masters tournament",
+	// Sports plays / actions
+	"touchdown", "quarterback", "slam dunk", "home run", "hat trick",
+	"penalty kick", "free throw", "grand slam",
+	// Sports context
+	"playoffs", "championship game", "draft pick", "free agent", "trade deadline",
+	"halftime", "game day", "stadium naming rights", "jersey sponsor",
+	"arena naming", "sports sponsorship", "naming rights",
 ];
 
 /** Returns true if the article is likely financially relevant to the stock */
