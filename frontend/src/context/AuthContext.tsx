@@ -111,7 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			? "http://localhost:3000"
 			: "https://stak-demo-goodluck-badewoles-projects.vercel.app";
 		await sendPasswordResetEmail(auth, email, {
-			url: `${baseUrl}/login`,
+			url: `${baseUrl}/reset-password`,
+			handleCodeInApp: true,
 		});
 	}
 
