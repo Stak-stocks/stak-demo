@@ -127,12 +127,13 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	return (
 		<>
 			<div
-				className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 overflow-y-auto"
+				className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 flex flex-col"
 				style={{ transform: 'translate3d(0,0,0)', WebkitTransform: 'translate3d(0,0,0)' }}
 			>
-				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				{/* Sticky header + search — never scrolls */}
+				<div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
 					{/* Header */}
-					<div className="flex items-center gap-4 mb-8">
+					<div className="flex items-center gap-4 mb-6">
 						<button
 							onClick={onClose}
 							className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors"
@@ -145,7 +146,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					</div>
 
 					{/* Search Input */}
-					<div className="relative mb-8 overflow-hidden rounded-xl">
+					<div className="relative overflow-hidden rounded-xl">
 						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500 z-10" />
 						<input
 							ref={inputRef}
@@ -154,9 +155,13 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
-							style={{ WebkitTransform: 'translate3d(0,0,0)' }}
 						/>
 					</div>
+				</div>
+
+				{/* Scrollable results area */}
+				<div className="flex-1 overflow-y-auto">
+				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
 
 					{/* Results */}
 					{query.trim() ? (
@@ -245,6 +250,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							)}
 						</div>
 					)}
+				</div>
 				</div>
 			</div>
 
