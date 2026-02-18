@@ -22,6 +22,7 @@ export interface NewsArticle {
 	explanation: string;
 	whyItMatters: string;
 	sentiment: "bullish" | "bearish" | "neutral";
+	type: "macro" | "sector" | "company";
 }
 
 export interface TrendCard {

@@ -80,6 +80,40 @@ const SPORTS_TERMS = [
 	"arena naming", "sports sponsorship", "naming rights",
 ];
 
+// Signals that mark an article as primarily macro / market-wide
+const MACRO_SIGNALS = [
+	"federal reserve", "fed raises", "fed cuts", "fed holds", "fed hikes",
+	"fomc", "jerome powell", "janet yellen",
+	"interest rate", "rate cut", "rate hike", "rate decision", "rate pause",
+	"inflation report", "cpi report", "ppi report", "cpi rises", "cpi falls",
+	"cpi climbs", "inflation data", "inflation hits", "inflation slows",
+	"recession", "economic slowdown", "gdp growth", "gdp shrinks", "gdp contracts",
+	"bond yield", "treasury yield", "10-year yield", "yield curve",
+	"tariff", "trade war", "trade policy", "import tax", "export ban",
+	"jobs report", "unemployment rate", "nonfarm payroll", "labor market data",
+	"central bank", "monetary policy", "fiscal policy",
+	"national debt", "debt ceiling", "budget deficit",
+];
+
+/** Classify an article as macro, company-specific, or sector-level */
+export function classifyArticle(
+	article: FinnhubArticle,
+	companyName?: string,
+	ticker?: string,
+): "macro" | "sector" | "company" {
+	const headline = article.headline.toLowerCase();
+	const body = `${headline} ${article.summary.toLowerCase()}`;
+
+	// Company: company name or ticker appears in the headline
+	if (companyName && headline.includes(companyName.toLowerCase())) return "company";
+	if (ticker && headline.includes(ticker.toLowerCase())) return "company";
+
+	// Macro: strong market-wide signal in headline or summary
+	if (MACRO_SIGNALS.some((s) => body.includes(s))) return "macro";
+
+	return "sector";
+}
+
 /** Returns true if the article is likely financially relevant to the stock */
 function isStockRelevant(article: FinnhubArticle): boolean {
 	const text = `${article.headline} ${article.summary}`.toLowerCase();

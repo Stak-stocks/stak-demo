@@ -10,6 +10,7 @@ export interface SimplifiedArticle {
 	explanation: string;
 	whyItMatters: string;
 	sentiment: "bullish" | "bearish" | "neutral";
+	type: "macro" | "sector" | "company";
 }
 
 // Simple in-memory cache: key → { data, expiresAt }
@@ -105,6 +106,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
  *  Results are cached for 30 minutes keyed by article IDs. */
 export async function simplifyArticles(
 	articles: FinnhubArticle[],
+	types?: ("macro" | "sector" | "company")[],
 ): Promise<SimplifiedArticle[]> {
 	if (articles.length === 0) return [];
 
@@ -141,6 +143,7 @@ export async function simplifyArticles(
 			sentiment: (["bullish", "bearish", "neutral"].includes(s.sentiment)
 				? s.sentiment
 				: "neutral") as "bullish" | "bearish" | "neutral",
+			type: types?.[i] ?? "sector",
 		};
 	});
 
