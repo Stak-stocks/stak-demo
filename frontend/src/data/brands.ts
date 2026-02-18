@@ -15,9 +15,13 @@ export interface FinancialMetric {
 export interface NewsArticle {
 	headline: string;
 	source: string;
-	timestamp: string;
-	sentiment: "Bullish" | "Bearish" | "Neutral";
 	url: string;
+	image: string;
+	datetime: number;
+	summary: string;
+	explanation: string;
+	whyItMatters: string;
+	sentiment: "bullish" | "bearish" | "neutral";
 }
 
 export interface TrendCard {
@@ -55,7 +59,6 @@ export interface BrandProfile {
 		beta: FinancialMetric;
 		dividendYield: FinancialMetric;
 	};
-	news: NewsArticle[];
 	trends?: TrendCard[];
 }
 
@@ -192,29 +195,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no payouts, all growth mode",
 			},
 		},
-		news: [
-			{
-				headline: "Tesla Cybertruck deliveries ramp up as production hits new milestone",
-				source: "Bloomberg",
-				timestamp: "3 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Elon Musk's latest tweet sparks debate about Tesla's autopilot safety",
-				source: "TechCrunch",
-				timestamp: "1 day ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Analysts mixed on Tesla stock as competition intensifies in EV market",
-				source: "CNBC",
-				timestamp: "2 days ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "aapl",
@@ -286,29 +266,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "small but consistent payouts",
 			},
 		},
-		news: [
-			{
-				headline: "Apple Vision Pro sales softer than expected, analysts say",
-				source: "The Verge",
-				timestamp: "5 hours ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "iPhone 16 pre-orders break records in India and China",
-				source: "Reuters",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Apple's AI features rolling out slower than competitors",
-				source: "WSJ",
-				timestamp: "3 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "nvda",
@@ -380,29 +337,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "barely anything—all about growth",
 			},
 		},
-		news: [
-			{
-				headline: "NVIDIA unveils next-gen AI chips, stock surges",
-				source: "Bloomberg",
-				timestamp: "2 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Competition heats up as AMD announces rival GPU",
-				source: "TechCrunch",
-				timestamp: "1 day ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "Data centers buying NVIDIA chips faster than they can make them",
-				source: "CNBC",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "rblx",
@@ -474,29 +408,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no profits = no dividends",
 			},
 		},
-		news: [
-			{
-				headline: "Roblox introduces new safety features for younger users",
-				source: "The Verge",
-				timestamp: "4 hours ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Q3 user numbers beat expectations as Gen Alpha engagement grows",
-				source: "Reuters",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Concerns raised about monetization of child-created content",
-				source: "WSJ",
-				timestamp: "1 week ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "meta",
@@ -568,29 +479,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "just started paying dividends recently",
 			},
 		},
-		news: [
-			{
-				headline: "Instagram Threads reaches 200M users, challenging Twitter/X",
-				source: "TechCrunch",
-				timestamp: "6 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Meta's Reality Labs loses $4B this quarter on metaverse bet",
-				source: "CNBC",
-				timestamp: "1 day ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "Facebook ad revenue beats estimates despite TikTok competition",
-				source: "Bloomberg",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "nke",
@@ -662,29 +550,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "consistent payouts to investors",
 			},
 		},
-		news: [
-			{
-				headline: "Nike's direct-to-consumer strategy shows strong results",
-				source: "Reuters",
-				timestamp: "8 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Competition from On Running and Hoka eating market share",
-				source: "WSJ",
-				timestamp: "2 days ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "New Jordan collaboration sells out in minutes",
-				source: "Hypebeast",
-				timestamp: "1 week ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "sbux",
@@ -756,29 +621,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "paying you back for all those lattes you bought",
 			},
 		},
-		news: [
-			{
-				headline: "Starbucks union negotiations reach tentative agreement",
-				source: "CNBC",
-				timestamp: "3 hours ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Same-store sales miss estimates as traffic slows",
-				source: "Bloomberg",
-				timestamp: "1 day ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "New CEO announces major menu overhaul",
-				source: "The Verge",
-				timestamp: "4 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "spot",
@@ -850,29 +692,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no profits to share",
 			},
 		},
-		news: [
-			{
-				headline: "Spotify Premium price increase announced for 2024",
-				source: "TechCrunch",
-				timestamp: "5 hours ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "User growth accelerates in emerging markets",
-				source: "Reuters",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Artists renew criticism of low streaming payouts",
-				source: "Billboard",
-				timestamp: "1 week ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "amzn",
@@ -944,29 +763,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "Bezos doesn't do dividends",
 			},
 		},
-		news: [
-			{
-				headline: "Amazon Web Services growth slows as cloud spending moderates",
-				source: "CNBC",
-				timestamp: "4 hours ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "Prime Day breaks sales records across all categories",
-				source: "Bloomberg",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "FTC antitrust case against Amazon moves forward",
-				source: "WSJ",
-				timestamp: "5 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "nflx",
@@ -1038,29 +834,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "reinvesting in content",
 			},
 		},
-		news: [
-			{
-				headline: "Netflix subscriber growth beats estimates after password crackdown",
-				source: "Reuters",
-				timestamp: "6 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "New ad tier gaining traction with price-conscious users",
-				source: "The Verge",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Content spending to remain elevated despite profit goals",
-				source: "Bloomberg",
-				timestamp: "1 week ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "coin",
@@ -1132,29 +905,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "too volatile for dividends",
 			},
 		},
-		news: [
-			{
-				headline: "Bitcoin rally lifts Coinbase trading volumes 40%",
-				source: "Bloomberg",
-				timestamp: "2 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "SEC lawsuit against Coinbase faces setback in court",
-				source: "CNBC",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Crypto winter thaws as institutional interest returns",
-				source: "WSJ",
-				timestamp: "3 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "msft",
@@ -1226,29 +976,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "consistent dividend payer",
 			},
 		},
-		news: [
-			{
-				headline: "Microsoft's AI Copilot subscriptions exceed expectations",
-				source: "Bloomberg",
-				timestamp: "3 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Azure cloud revenue grows 29% year-over-year",
-				source: "CNBC",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "EU regulators investigate Teams bundling practices",
-				source: "WSJ",
-				timestamp: "4 days ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "googl",
@@ -1320,29 +1047,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no dividends, all growth",
 			},
 		},
-		news: [
-			{
-				headline: "Google's Gemini AI challenges ChatGPT dominance",
-				source: "TechCrunch",
-				timestamp: "4 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "YouTube ad revenue beats analyst expectations",
-				source: "Bloomberg",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "DOJ antitrust case could force Google breakup",
-				source: "WSJ",
-				timestamp: "1 week ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "dis",
@@ -1414,29 +1118,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "small but consistent",
 			},
 		},
-		news: [
-			{
-				headline: "Disney+ subscriber growth rebounds after password crackdown",
-				source: "Bloomberg",
-				timestamp: "5 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Pixar's latest film breaks streaming records",
-				source: "Variety",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Theme park attendance shows signs of weakness",
-				source: "CNBC",
-				timestamp: "1 week ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "uber",
@@ -1508,29 +1189,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no profits to share yet",
 			},
 		},
-		news: [
-			{
-				headline: "Uber Eats market share gains on DoorDash",
-				source: "Reuters",
-				timestamp: "6 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Autonomous vehicle partnerships expand in key cities",
-				source: "TechCrunch",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Driver protests continue over pay structure",
-				source: "WSJ",
-				timestamp: "5 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "shop",
@@ -1602,29 +1260,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "reinvesting for growth",
 			},
 		},
-		news: [
-			{
-				headline: "Shopify merchant base grows 18% year-over-year",
-				source: "Bloomberg",
-				timestamp: "4 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "New AI features automate store management",
-				source: "TechCrunch",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Competition intensifies from Square and BigCommerce",
-				source: "CNBC",
-				timestamp: "1 week ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "amd",
@@ -1696,29 +1331,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no dividends yet",
 			},
 		},
-		news: [
-			{
-				headline: "AMD announces next-gen AI accelerators to rival NVIDIA",
-				source: "Bloomberg",
-				timestamp: "3 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Data center CPU market share reaches record high",
-				source: "Reuters",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Gaming GPU sales face headwinds from NVIDIA dominance",
-				source: "TechCrunch",
-				timestamp: "1 week ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "spy",
@@ -1790,29 +1402,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "modest quarterly payouts",
 			},
 		},
-		news: [
-			{
-				headline: "SPY hits all-time high as market rally continues",
-				source: "Bloomberg",
-				timestamp: "6 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Record inflows into S&P 500 index funds",
-				source: "WSJ",
-				timestamp: "2 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Fee war among brokers benefits passive investors",
-				source: "CNBC",
-				timestamp: "1 week ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "qqq",
@@ -1884,29 +1473,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "small payouts, growth focused",
 			},
 		},
-		news: [
-			{
-				headline: "QQQ outperforms SPY for fifth straight quarter",
-				source: "Bloomberg",
-				timestamp: "4 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Tech sector rotation drives record QQQ inflows",
-				source: "CNBC",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Analysts warn of tech concentration risk in Nasdaq",
-				source: "WSJ",
-				timestamp: "1 week ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "pypl",
@@ -1978,29 +1544,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no dividends yet",
 			},
 		},
-		news: [
-			{
-				headline: "PayPal launches stablecoin for crypto payments",
-				source: "TechCrunch",
-				timestamp: "5 hours ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Venmo user growth accelerates among Gen Z",
-				source: "Bloomberg",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Competition from Apple Pay and Google Wallet intensifies",
-				source: "CNBC",
-				timestamp: "4 days ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 {
 		id: "intc",
@@ -2072,22 +1615,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "dividend is dead; cash is for buying lithography machines",
 			},
 		},
-		news: [
-			{
-				headline: "Intel 18A node hits high-volume production, creating new AI timeline",
-				source: "Bloomberg",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Q4 guidance misses expectations as turnaround costs mount",
-				source: "CNBC",
-				timestamp: "4 days ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "ionq",
@@ -2129,11 +1656,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.5", explanation: "Volatility measure", culturalTranslation: "extremely volatile" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "Annual dividend payout", culturalTranslation: "lol no" },
 		},
-		news: [
-			{ headline: "IonQ quantum computer hits new accuracy milestone", source: "TechCrunch", timestamp: "5 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Analyst questions commercial viability timeline", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bearish", url: "#" },
-			{ headline: "New partnership with major cloud provider announced", source: "CNBC", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "tsm",
@@ -2175,11 +1697,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "moves with tech" },
 			dividendYield: { label: "Dividend Yield", value: "1.8%", explanation: "Annual dividend payout", culturalTranslation: "modest payouts" },
 		},
-		news: [
-			{ headline: "TSMC Arizona fab ramps up production", source: "Reuters", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "3nm chip demand exceeds supply", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Geopolitical tensions weigh on stock", source: "WSJ", timestamp: "4 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "qcom",
@@ -2221,11 +1738,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.3", explanation: "Volatility measure", culturalTranslation: "tech volatility" },
 			dividendYield: { label: "Dividend Yield", value: "2.1%", explanation: "Annual dividend payout", culturalTranslation: "decent income" },
 		},
-		news: [
-			{ headline: "New Snapdragon chip beats Apple in benchmarks", source: "TechCrunch", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Auto chip division shows strong growth", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Smartphone market slowdown concerns persist", source: "Bloomberg", timestamp: "5 days ago", sentiment: "Bearish", url: "#" },
-		],
 	},
 	{
 		id: "avgo",
@@ -2267,11 +1779,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "Volatility measure", culturalTranslation: "relatively stable" },
 			dividendYield: { label: "Dividend Yield", value: "1.9%", explanation: "Annual dividend payout", culturalTranslation: "consistent payouts" },
 		},
-		news: [
-			{ headline: "VMware acquisition integration ahead of schedule", source: "Bloomberg", timestamp: "6 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "AI networking chips see record demand", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Antitrust concerns emerge in Europe", source: "WSJ", timestamp: "1 week ago", sentiment: "Bearish", url: "#" },
-		],
 	},
 	{
 		id: "mu",
@@ -2301,11 +1808,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.7", explanation: "Volatility measure", culturalTranslation: "cyclical swings" },
 			dividendYield: { label: "Dividend Yield", value: "0.5%", explanation: "Annual dividend payout", culturalTranslation: "modest" },
 		},
-		news: [
-			{ headline: "Micron wins NVIDIA AI chip orders", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Memory prices stabilizing", source: "Reuters", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "AI demand drives growth", source: "CNBC", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "asml",
@@ -2334,11 +1836,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.4", explanation: "Volatility measure", culturalTranslation: "semi volatility" },
 			dividendYield: { label: "Dividend Yield", value: "0.8%", explanation: "Annual dividend payout", culturalTranslation: "modest" },
 		},
-		news: [
-			{ headline: "ASML backlog hits record $40B", source: "Bloomberg", timestamp: "1 hour ago", sentiment: "Bullish", url: "#" },
-			{ headline: "China export restrictions tighten", source: "Reuters", timestamp: "2 days ago", sentiment: "Neutral", url: "#" },
-			{ headline: "New High-NA EUV systems ship", source: "TechCrunch", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "nee",
@@ -2368,11 +1865,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.8", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "boring stable—utilities don't do rollercoasters" },
 			dividendYield: { label: "Dividend Yield", value: "2.4%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "consistent payouts while saving the planet" },
 		},
-		news: [
-			{ headline: "NextEra adds 2GW solar capacity", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Wind farm expansion continues", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Renewable targets raised", source: "CNBC", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "enph",
@@ -2402,11 +1894,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.8", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with solar sentiment—pretty volatile" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in growth, no payouts" },
 		},
-		news: [
-			{ headline: "Enphase battery storage sales surge", source: "TechCrunch", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "California solar policy changes", source: "Reuters", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "New microinverter tech announced", source: "Bloomberg", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "fslr",
@@ -2436,11 +1923,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.4", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with green energy sentiment" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in expansion, no payouts" },
 		},
-		news: [
-			{ headline: "First Solar secures 5GW contracts", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "US manufacturing expansion continues", source: "WSJ", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Panel efficiency improvements", source: "Reuters", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "plug",
@@ -2470,11 +1952,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.8", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "rollercoaster doesn't even begin to describe it" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "lol no, they need every penny for hydrogen dreams" },
 		},
-		news: [
-			{ headline: "Plug hydrogen plant expansion", source: "TechCrunch", timestamp: "5 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Profitability concerns persist", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bearish", url: "#" },
-			{ headline: "Fuel cell truck partnership", source: "Reuters", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "xom",
@@ -2504,11 +1981,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with oil prices and geopolitical chaos" },
 			dividendYield: { label: "Dividend Yield", value: "3.5%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "guilt-free passive income if you ignore the carbon footprint" },
 		},
-		news: [
-			{ headline: "Exxon posts record profits", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Climate activists protest", source: "Reuters", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "Permian production increases", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "cvx",
@@ -2538,11 +2010,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.9", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "surprisingly stable for drama-prone energy sector" },
 			dividendYield: { label: "Dividend Yield", value: "3.8%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "even better passive income than Exxon" },
 		},
-		news: [
-			{ headline: "Chevron renewable investment announced", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "LNG export expansion approved", source: "Reuters", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "California refinery maintenance", source: "WSJ", timestamp: "3 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "v",
@@ -2572,11 +2039,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable as the toll booth it is" },
 			dividendYield: { label: "Dividend Yield", value: "0.8%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "modest payouts, they reinvest the rest" },
 		},
-		news: [
-			{ headline: "Visa cross-border volumes surge", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Crypto partnerships expand", source: "Reuters", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Tap-to-pay adoption accelerates", source: "CNBC", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "ma",
@@ -2606,11 +2068,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "slightly more volatile than Visa but basically the same" },
 			dividendYield: { label: "Dividend Yield", value: "0.6%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "small yield, focused on growth instead" },
 		},
-		news: [
-			{ headline: "Mastercard AI fraud detection upgrade", source: "TechCrunch", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "European transaction volumes strong", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Contactless payment milestone reached", source: "Reuters", timestamp: "3 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "sq",
@@ -2640,11 +2097,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.3", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "swings wildly with Bitcoin and fintech sentiment" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "lol Jack's too busy tweeting about Web3" },
 		},
-		news: [
-			{ headline: "Cash App Bitcoin revenue surges", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Square merchant adoption grows", source: "TechCrunch", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Profitability timeline questioned", source: "WSJ", timestamp: "1 week ago", sentiment: "Bearish", url: "#" },
-		],
 	},
 	{
 		id: "hood",
@@ -2716,29 +2168,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no dividends; they are hoarding cash to fight the legacy banks",
 			},
 		},
-		news: [
-			{
-				headline: "Robinhood shares plunge 10% as weekend crypto crash hits trading sentiment",
-				source: "CNBC",
-				timestamp: "2 hours ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-			{
-				headline: "Q4 earnings preview: Analysts expect record revenue from Gold subscribers",
-				source: "Bloomberg",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Gold Card waitlist hits new milestone as traditional banks lose share",
-				source: "WSJ",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "sofi",
@@ -2768,11 +2197,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.2", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile fintech rollercoaster" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "lol no, they need every penny" },
 		},
-		news: [
-			{ headline: "SoFi member growth beats estimates", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Banking charter boosts lending", source: "Reuters", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Student loan pause impact discussed", source: "CNBC", timestamp: "4 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "afrm",
@@ -2802,11 +2226,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "more volatile than your budgeting discipline" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "they can barely pay themselves rn" },
 		},
-		news: [
-			{ headline: "Affirm Amazon partnership expands", source: "TechCrunch", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "BNPL regulation concerns grow", source: "WSJ", timestamp: "1 day ago", sentiment: "Bearish", url: "#" },
-			{ headline: "Delinquency rates remain low", source: "Bloomberg", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "txn",
@@ -2836,11 +2255,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable as your old TI-84" },
 			dividendYield: { label: "Dividend Yield", value: "3.2%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "solid passive income for patient investors" },
 		},
-		news: [
-			{ headline: "TI automotive chip demand strong", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "New fab construction progresses", source: "Reuters", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Industrial market softness noted", source: "CNBC", timestamp: "1 week ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "nxpi",
@@ -2870,11 +2284,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.5", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with auto industry cycles" },
 			dividendYield: { label: "Dividend Yield", value: "2.1%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "decent yield for a chip company" },
 		},
-		news: [
-			{ headline: "NXP EV chip orders accelerate", source: "Reuters", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Automotive revenue beats estimates", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "China market concerns persist", source: "WSJ", timestamp: "4 days ago", sentiment: "Bearish", url: "#" },
-		],
 	},
 	{
 		id: "mrvl",
@@ -2904,11 +2313,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile semiconductor growth stock" },
 			dividendYield: { label: "Dividend Yield", value: "0.3%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "basically nothing, reinvesting for growth" },
 		},
-		news: [
-			{ headline: "Marvell AI accelerator chips gain traction", source: "TechCrunch", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Data center revenue surges", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Custom chip business expands", source: "Reuters", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "wmt",
@@ -2938,11 +2342,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "boring stable—people always need groceries" },
 			dividendYield: { label: "Dividend Yield", value: "1.4%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "steady dividend from steady business" },
 		},
-		news: [
-			{ headline: "Walmart+ membership growth accelerates", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "E-commerce sales beat estimates", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Store remodels continue nationwide", source: "Reuters", timestamp: "5 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "tgt",
@@ -2972,11 +2371,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.9", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable consumer staples play" },
 			dividendYield: { label: "Dividend Yield", value: "3.1%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "solid dividend for patient investors" },
 		},
-		news: [
-			{ headline: "Target same-store sales beat expectations", source: "WSJ", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "New private label brands launched", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Inventory management improving", source: "Reuters", timestamp: "3 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "cost",
@@ -3006,11 +2400,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "defensive stock—recessions mean more bulk buying" },
 			dividendYield: { label: "Dividend Yield", value: "0.6%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "small regular dividend plus occasional special dividends" },
 		},
-		news: [
-			{ headline: "Costco membership renewal rate hits record", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "International expansion continues", source: "WSJ", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "E-commerce growth strong", source: "CNBC", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "hd",
@@ -3040,11 +2429,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with market and housing trends" },
 			dividendYield: { label: "Dividend Yield", value: "2.4%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reliable dividend for income investors" },
 		},
-		news: [
-			{ headline: "Home Depot pro customer sales surge", source: "CNBC", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "DIY trends remain elevated", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Supply chain improvements noted", source: "WSJ", timestamp: "4 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "low",
@@ -3086,11 +2470,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moves with housing market" },
 			dividendYield: { label: "Dividend Yield", value: "2.0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reliable income for shareholders" },
 		},
-		news: [
-			{ headline: "Lowe's omnichannel strategy shows results", source: "Reuters", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Store renovations complete", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Market share gains in DIY", source: "WSJ", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "mcd",
@@ -3120,11 +2499,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "defensive—people eat cheap in recessions" },
 			dividendYield: { label: "Dividend Yield", value: "2.3%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reliable dividend aristocrat status" },
 		},
-		news: [
-			{ headline: "McDonald's digital sales hit $20B globally", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Value menu revamp drives traffic", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "International expansion continues", source: "WSJ", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "ko",
@@ -3154,11 +2528,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "ultra defensive—people drink Coke in recessions" },
 			dividendYield: { label: "Dividend Yield", value: "3.0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend king, pays shareholders forever" },
 		},
-		news: [
-			{ headline: "Coca-Cola zero sugar drives growth", source: "Reuters", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Emerging markets sales strong", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Sustainability initiatives expand", source: "CNBC", timestamp: "1 week ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "pep",
@@ -3187,11 +2556,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.6", explanation: "Volatility measure", culturalTranslation: "defensive consumer" },
 			dividendYield: { label: "Dividend Yield", value: "2.7%", explanation: "Annual dividend payout", culturalTranslation: "reliable dividend" },
 		},
-		news: [
-			{ headline: "PepsiCo Frito-Lay revenue beats estimates", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Gatorade market share gains", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "International snacks expansion", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "pg",
@@ -3221,11 +2585,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.4", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "ultra defensive—boring is beautiful" },
 			dividendYield: { label: "Dividend Yield", value: "2.5%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend king—65+ years straight payouts" },
 		},
-		news: [
-			{ headline: "P&G premium products drive margins", source: "WSJ", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Emerging market growth accelerates", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Sustainability targets raised", source: "Reuters", timestamp: "1 week ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "jnj",
@@ -3255,11 +2614,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "defensive healthcare stock, low volatility" },
 			dividendYield: { label: "Dividend Yield", value: "3.0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend king—61+ years of increases" },
 		},
-		news: [
-			{ headline: "J&J pharma pipeline shows promise", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Talc lawsuit settlement negotiations", source: "WSJ", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "Medical devices revenue strong", source: "CNBC", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "lmt",
@@ -3301,11 +2655,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "defensive stock—ironically stable" },
 			dividendYield: { label: "Dividend Yield", value: "2.8%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "consistent payouts from defense budgets" },
 		},
-		news: [
-			{ headline: "Lockheed F-35 orders increase", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Hypersonic missile contract awarded", source: "WSJ", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "International sales expand", source: "Reuters", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "ba",
@@ -3347,11 +2696,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.5", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile as headlines keep coming" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "suspended dividends during the crisis" },
 		},
-		news: [
-			{ headline: "Boeing 737 MAX deliveries accelerate", source: "CNBC", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Quality control improvements ongoing", source: "WSJ", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "Defense contracts provide stability", source: "Bloomberg", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "unh",
@@ -3393,11 +2737,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "0.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "defensive—people always need healthcare" },
 			dividendYield: { label: "Dividend Yield", value: "1.3%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "growing dividend as profits compound" },
 		},
-		news: [
-			{ headline: "UnitedHealth Optum growth accelerates", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Medicare Advantage enrollment strong", source: "WSJ", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Regulatory scrutiny continues", source: "CNBC", timestamp: "1 week ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "crm",
@@ -3439,11 +2778,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.2", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moderate volatility for enterprise software" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in AI and acquisitions" },
 		},
-		news: [
-			{ headline: "Salesforce AI features drive adoption", source: "TechCrunch", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Enterprise deals accelerate", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Profitability focus shows results", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "adbe",
@@ -3485,11 +2819,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable—creatives always need tools" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in AI and features" },
 		},
-		news: [
-			{ headline: "Adobe AI Firefly adoption surges", source: "TechCrunch", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Creative Cloud subscriptions grow", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Figma acquisition blocked", source: "WSJ", timestamp: "3 months ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "now",
@@ -3531,11 +2860,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.3", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "growth stock with some volatility" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in platform expansion" },
 		},
-		news: [
-			{ headline: "ServiceNow AI capabilities expand", source: "Bloomberg", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Enterprise deals accelerate", source: "TechCrunch", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Platform expansion continues", source: "WSJ", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "intu",
@@ -3577,11 +2901,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable—taxes never go away" },
 			dividendYield: { label: "Dividend Yield", value: "0.6%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "small but growing payouts" },
 		},
-		news: [
-			{ headline: "Intuit AI tax features launch", source: "TechCrunch", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "QuickBooks online growth strong", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Credit Karma integration deepens", source: "WSJ", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "amat",
@@ -3623,11 +2942,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.5", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile with semiconductor cycles" },
 			dividendYield: { label: "Dividend Yield", value: "0.9%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "modest but consistent payouts" },
 		},
-		news: [
-			{ headline: "Applied Materials AI chip orders surge", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "China business stabilizes", source: "Reuters", timestamp: "1 day ago", sentiment: "Neutral", url: "#" },
-			{ headline: "Advanced packaging tech announced", source: "TechCrunch", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "abnb",
@@ -3669,11 +2983,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile with travel demand cycles" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in growth and fighting regulations" },
 		},
-		news: [
-			{ headline: "Airbnb bookings hit record highs", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "International growth accelerates", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Regulatory battles continue in Europe", source: "WSJ", timestamp: "1 week ago", sentiment: "Bearish", url: "#" },
-		],
 	},
 	{
 		id: "lyft",
@@ -3715,11 +3024,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.8", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile small-cap rideshare play" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividends, just survival mode success" },
 		},
-		news: [
-			{ headline: "Lyft profitability continues", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Driver retention improves", source: "TechCrunch", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Market share stable vs Uber", source: "WSJ", timestamp: "5 days ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "ddog",
@@ -3761,11 +3065,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.4", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "growth stock volatility" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in product development" },
 		},
-		news: [
-			{ headline: "Datadog AI monitoring features launch", source: "TechCrunch", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Customer expansion rates strong", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Security product gaining traction", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "snow",
@@ -3807,11 +3106,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.7", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile high-growth cloud stock" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting everything in growth" },
 		},
-		news: [
-			{ headline: "Snowflake AI features drive adoption", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Product revenue beats estimates", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Enterprise customer growth strong", source: "WSJ", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "mdb",
@@ -3853,11 +3147,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.6", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "volatile growth stock" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting everything" },
 		},
-		news: [
-			{ headline: "MongoDB Atlas cloud revenue surges", source: "TechCrunch", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "AI application use cases grow", source: "Bloomberg", timestamp: "2 days ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Enterprise adoption accelerates", source: "WSJ", timestamp: "1 week ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "panw",
@@ -3899,11 +3188,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.2", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moderate volatility for security" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in platform expansion" },
 		},
-		news: [
-			{ headline: "Palo Alto AI security features launch", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Cloud security revenue accelerates", source: "TechCrunch", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Enterprise deals expand", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "crwd",
@@ -3945,11 +3229,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.3", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "growth stock volatility" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting in product expansion" },
 		},
-		news: [
-			{ headline: "CrowdStrike stops major ransomware attack", source: "CNBC", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "AI threat detection improves", source: "TechCrunch", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Customer retention hits record", source: "Bloomberg", timestamp: "5 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "zm",
@@ -3991,11 +3270,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moderate volatility now" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "reinvesting to find new growth" },
 		},
-		news: [
-			{ headline: "Zoom AI features drive enterprise adoption", source: "Bloomberg", timestamp: "3 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Contact center product gains traction", source: "TechCrunch", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Hybrid work trends support demand", source: "WSJ", timestamp: "1 week ago", sentiment: "Neutral", url: "#" },
-		],
 	},
 	{
 		id: "pltr",
@@ -4037,11 +3311,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "2.2", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "extremely volatile meme stock energy" },
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "believers don't need dividends" },
 		},
-		news: [
-			{ headline: "Palantir AI platform adoption surges", source: "Bloomberg", timestamp: "2 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Commercial revenue beats government", source: "CNBC", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Defense contracts expand", source: "WSJ", timestamp: "4 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "hon",
@@ -4083,11 +3352,6 @@ export const brands: BrandProfile[] = [
 			beta: { label: "Beta", value: "1.1", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "stable for industrials" },
 			dividendYield: { label: "Dividend Yield", value: "2.0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend aristocrat, reliable income" },
 		},
-		news: [
-			{ headline: "Honeywell quantum computer hits milestone", source: "TechCrunch", timestamp: "4 hours ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Aerospace revenue beats estimates", source: "Bloomberg", timestamp: "1 day ago", sentiment: "Bullish", url: "#" },
-			{ headline: "Industrial automation demand strong", source: "WSJ", timestamp: "3 days ago", sentiment: "Bullish", url: "#" },
-		],
 	},
 	{
 		id: "or",
@@ -4159,22 +3423,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "consistent payouts funded by selling billions of mascaras",
 			},
 		},
-		news: [
-			{
-				headline: "L'Oréal acquires new biotech skincare firm to boost dermatological division",
-				source: "Bloomberg",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Q4 earnings show resilience in Europe despite China slowdown",
-				source: "Reuters",
-				timestamp: "3 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "el",
@@ -4246,22 +3494,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "they kept the dividend to stop investors from revolting",
 			},
 		},
-		news: [
-			{
-				headline: "Estée Lauder to release Q2 results on Feb 5 amid turnaround hopes",
-				source: "Business Wire",
-				timestamp: "4 days ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Zacks ranks EL a 'Buy' ahead of earnings due to improving demand",
-				source: "Finviz",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "elf",
@@ -4333,22 +3565,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "all profits go back into marketing and product launches",
 			},
 		},
-		news: [
-			{
-				headline: "e.l.f. Beauty extends growth streak to 28 quarters",
-				source: "The Motley Fool",
-				timestamp: "1 day ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "New 'Rhode' dupe launch causes sellouts at Target",
-				source: "Teen Vogue",
-				timestamp: "2 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "ulta",
@@ -4420,22 +3636,6 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "buybacks over dividends; they prefer reducing share count",
 			},
 		},
-		news: [
-			{
-				headline: "Ulta Beauty shares hit all-time high on 'Unleashed' strategy success",
-				source: "Cosmetics Business",
-				timestamp: "7 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-			{
-				headline: "Analyst upgrades Ulta citing robust loyalty member spend",
-				source: "CNBC",
-				timestamp: "3 days ago",
-				sentiment: "Bullish",
-				url: "#",
-			},
-		],
 	},
 	{
 		id: "coty",
@@ -4507,21 +3707,5 @@ export const brands: BrandProfile[] = [
 				culturalTranslation: "no chance of dividends until the debt pile is gone",
 			},
 		},
-		news: [
-			{
-				headline: "Coty reaffirms outlook ahead of earnings; fragrance sales strong",
-				source: "Investing.com",
-				timestamp: "4 hours ago",
-				sentiment: "Neutral",
-				url: "#",
-			},
-			{
-				headline: "Analyst debate: Is Coty undervalued or a value trap?",
-				source: "Insider Monkey",
-				timestamp: "1 day ago",
-				sentiment: "Bearish",
-				url: "#",
-			},
-		],
 	},
 ];

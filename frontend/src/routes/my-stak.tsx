@@ -11,6 +11,7 @@ import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
 import { saveStak } from "@/lib/api";
+import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
@@ -253,48 +254,18 @@ function MyStakPage() {
 						</TabsContent>
 
 						<TabsContent value="news" className="mt-1 sm:mt-6">
-							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
-								<div className="mb-4 sm:mb-6">
-									<h2 className="text-xl sm:text-2xl font-bold text-orange-400 mb-2">
-										Recent News
-									</h2>
-									<p className="text-zinc-400 text-xs sm:text-sm">
-										Current articles about {selectedBrand.name}
-									</p>
-								</div>
-
-								<div className="space-y-3 sm:space-y-4">
-									{selectedBrand.news.map((article, index) => (
-										<div
-											key={index}
-											className="border-l-4 border-zinc-700 hover:border-orange-500/50 pl-3 sm:pl-4 py-2 sm:py-3 transition-all"
-										>
-											<div className="flex items-start justify-between gap-2 sm:gap-4 mb-2">
-												<h3 className="font-semibold text-white leading-tight text-sm sm:text-base">
-													{article.headline}
-												</h3>
-												<span
-													className={`shrink-0 px-2 py-1 text-xs font-semibold rounded ${
-														article.sentiment === "Bullish"
-															? "bg-green-500/20 text-green-400"
-															: article.sentiment === "Bearish"
-																? "bg-red-500/20 text-red-400"
-																: "bg-zinc-500/20 text-zinc-400"
-													}`}
-												>
-													{article.sentiment}
-												</span>
-											</div>
-											<div className="flex items-center gap-2 sm:gap-3 text-xs text-zinc-500">
-												<span>{article.source}</span>
-												<span>•</span>
-												<span>{article.timestamp}</span>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-						</TabsContent>
+						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+							<div className="mb-4 sm:mb-5">
+								<h2 className="text-xl sm:text-2xl font-bold text-orange-400 mb-1">
+									Recent News
+								</h2>
+							<p className="text-zinc-400 text-xs sm:text-sm">
+								Latest articles about {selectedBrand.name} · simplified by AI
+							</p>
+						</div>
+						<StockNewsTab ticker={selectedBrand.ticker} name={selectedBrand.name} />
+					</div>
+				</TabsContent>
 					</Tabs>
 
 					<div className="mt-2 sm:mt-8 p-2 sm:p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg">

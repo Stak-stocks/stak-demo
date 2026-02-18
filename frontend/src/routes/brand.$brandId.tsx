@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
+import { StockNewsTab } from "@/components/StockNewsTab";
+
 
 export const Route = createFileRoute("/brand/$brandId")({
 	component: BrandDetailPage,
@@ -45,12 +47,17 @@ function BrandDetailPage() {
 
 	return (
 		<div
+			role="button"
+			tabIndex={0}
 			className="min-h-screen bg-black/80 sm:bg-[#0b1121] text-white flex flex-col justify-end sm:justify-start"
 			onClick={handleClose}
+			onKeyDown={(e) => { if (e.key === "Escape") handleClose(); }}
 		>
 			<div
+				role="presentation"
 				className="max-w-[390px] w-full mx-auto px-2 py-4 sm:py-12 bg-[#0b1121] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
+				onKeyDown={(e) => e.stopPropagation()}
 			>
 				{/* Drag handle indicator for mobile */}
 				<div className="flex justify-center mb-4 sm:hidden">
@@ -105,8 +112,8 @@ function BrandDetailPage() {
 								{brand.culturalContext.title}
 							</h2>
 							<div className="space-y-6">
-								{brand.culturalContext.sections.map((section, index) => (
-									<div key={index}>
+								{brand.culturalContext.sections.map((section) => (
+									<div key={section.heading}>
 										<h3 className="font-semibold text-lg text-pink-400 mb-2">
 											{section.heading}
 										</h3>
@@ -175,51 +182,15 @@ function BrandDetailPage() {
 
 					<TabsContent value="news" className="mt-6">
 						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-							<div className="mb-6">
-								<h2 className="text-2xl font-bold text-orange-400 mb-2">
+							<div className="mb-5">
+								<h2 className="text-2xl font-bold text-orange-400 mb-1">
 									Recent News
 								</h2>
 								<p className="text-zinc-400 text-sm">
-									Current articles about {brand.name}
+									Latest articles about {brand.name} · simplified by AI
 								</p>
 							</div>
-
-							<div className="space-y-4">
-								{brand.news.map((article, index) => (
-									<div
-										key={index}
-										className="border-l-4 border-slate-600/50 hover:border-orange-500/50 pl-4 py-3 transition-all"
-									>
-										<div className="flex items-start justify-between gap-4 mb-2">
-											<h3 className="font-semibold text-white leading-tight">
-												{article.headline}
-											</h3>
-											<span
-												className={`shrink-0 px-2 py-1 text-xs font-semibold rounded ${
-													article.sentiment === "Bullish"
-														? "bg-green-500/20 text-green-400"
-														: article.sentiment === "Bearish"
-															? "bg-red-500/20 text-red-400"
-															: "bg-zinc-500/20 text-zinc-400"
-												}`}
-											>
-												{article.sentiment}
-											</span>
-										</div>
-										<div className="flex items-center gap-3 text-xs text-zinc-500">
-											<span>{article.source}</span>
-											<span>•</span>
-											<span>{article.timestamp}</span>
-										</div>
-									</div>
-								))}
-							</div>
-
-							<div className="mt-6 text-center">
-								<button className="text-orange-400 hover:text-orange-300 text-sm font-semibold transition-colors">
-									View more news →
-								</button>
-							</div>
+							<StockNewsTab ticker={brand.ticker} name={brand.name} />
 						</div>
 					</TabsContent>
 				</Tabs>

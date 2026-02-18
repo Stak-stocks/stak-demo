@@ -83,3 +83,12 @@ export function recordSwipe(brandId: string, direction: "left" | "right") {
 		body: JSON.stringify({ brandId, direction }),
 	});
 }
+
+// News
+export function getCompanyNews(symbol: string) {
+	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(`/api/news/company/${symbol}`);
+}
+
+export function getMarketNews() {
+	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>("/api/news/market");
+}

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
 import { meRouter } from "./routes/me.js";
+import { newsRouter } from "./routes/news.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use("/api/brands", brandsRouter);
 app.use("/api/swipe", swipeRouter);
 app.use("/api/me", meRouter);
+app.use("/api/news", newsRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {
