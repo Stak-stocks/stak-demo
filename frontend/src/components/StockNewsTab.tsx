@@ -32,6 +32,17 @@ function SentimentBadge({ sentiment }: Readonly<{ sentiment: NewsArticle["sentim
 	);
 }
 
+function formatArticleDate(datetime: number): string {
+	const now = Date.now();
+	const ms = datetime * 1000;
+	const diffMs = now - ms;
+	const diffMins = Math.floor(diffMs / 60000);
+	if (diffMins < 60) return `${diffMins}m ago`;
+	const diffHours = Math.floor(diffMs / 3600000);
+	if (diffHours < 24) return `${diffHours}h ago`;
+	return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: string }>) {
 	const [visibleCount, setVisibleCount] = useState(NEWS_PAGE_SIZE);
 
@@ -79,10 +90,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 	return (
 		<div className="space-y-3">
 			{visibleArticles.map((article, i) => {
-				const date = new Date(article.datetime * 1000).toLocaleDateString("en-US", {
-					month: "short",
-					day: "numeric",
-				});
+				const date = formatArticleDate(article.datetime);
 				return (
 					<a
 						key={`${article.datetime}-${i}`}
