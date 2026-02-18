@@ -284,9 +284,10 @@ function SwipeStep({
 	const swipeBrands = useMemo(() => {
 		if (selectedInterests.length === 0) return SWIPE_BRANDS;
 
-		// Build per-category brand lists
+		// Build per-category brand lists, shuffled so shared brands
+		// aren't always claimed by the first selected category
 		const categoryBrands = selectedInterests.map(
-			(interest) => INTEREST_TO_BRANDS[interest] || [],
+			(interest) => [...(INTEREST_TO_BRANDS[interest] || [])].sort(() => Math.random() - 0.5),
 		);
 
 		// Round-robin pick: take 1 from each category in turn

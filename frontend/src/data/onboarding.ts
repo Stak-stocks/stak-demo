@@ -46,7 +46,7 @@ export const INTEREST_TO_BRANDS: Record<string, string[]> = {
 	tech: ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd"],
 	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt"],
 	travel: ["uber", "lyft", "amzn", "abnb"],
-	fitness: ["nke", "aapl", "ulta"],
+	fitness: ["nke", "aapl", "amzn", "cost", "wmt"],
 	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm"],
 	beauty: ["ulta", "elf", "coty", "el", "or", "pg"],
 	music: ["spot", "aapl", "googl"],
