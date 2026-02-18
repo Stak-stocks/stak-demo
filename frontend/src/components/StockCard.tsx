@@ -11,7 +11,7 @@ interface StockCardProps {
 
 export function StockCard({ brand, onLearnMore, priority = false, isTopCard = false }: StockCardProps) {
 	return (
-		<div className="relative rounded-2xl p-[2px] overflow-hidden h-full flex flex-col">
+		<div className="relative rounded-2xl p-[2px] overflow-hidden h-full flex flex-col select-none">
 			{/* Animated rotating gradient border */}
 			<div
 				className="absolute inset-[-50%] animate-[spin_4s_linear_infinite]"

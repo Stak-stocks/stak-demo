@@ -350,7 +350,7 @@ export function SwipeableCardStack({
 									}}
 								/>
 							)}
-							<div>
+							<div className="select-none" style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}>
 								<StockCard brand={brand} onLearnMore={onLearnMore} priority={isTopCard} isTopCard={isTopCard} />
 							</div>
 						</div>
