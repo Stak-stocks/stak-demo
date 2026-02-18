@@ -6,11 +6,21 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 export interface TrendCard {
 	type: "macro" | "sector" | "company" | "stak";
 	label: string;
-	dominance: string;
-	headline?: string;
-	explanation: string;
-	pressure?: "Positive Pressure" | "Negative Pressure" | "Volatile / Mixed Pressure";
+
+	// NEW FORMAT fields
+	topic?: string;
+	situation?: string;
+	whyItMatters?: string;
+	impact?: string;
+	shortTermEffect?: string;
+	longTermQuestion?: string;
+	direction?: string;
 	pressureEmoji?: string;
+
+	// Stak-specific
+	intro?: string;
+	forces?: string[];
+	stockReflects?: string;
 	takeaway?: string;
 }
 
@@ -24,9 +34,10 @@ async function generateWithGemini(
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
+	const numberedHeadlines = headlines.map((h, i) => `${i + 1}. ${h}`).join("\n");
 	const headlinesSection =
 		headlines.length > 0
-			? `Recent headlines about ${brandName}:\n${headlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}`
+			? `Recent headlines about ${brandName}:\n${numberedHeadlines}`
 			: `No recent headlines available — use general knowledge about ${brandName} (${ticker}).`;
 
 	const prompt = `You are a Gen Z financial analyst writing for beginner investors aged 18-25. Your tone is sharp, casual, and honest — no jargon, no fluff.
@@ -35,22 +46,65 @@ ${headlinesSection}
 
 Generate exactly 4 trend analysis cards as a JSON array in this exact order:
 
-1. MACRO card (type: "macro") — a macroeconomic force affecting this stock (interest rates, inflation, government policy, global events)
+1. MACRO card (type: "macro") — a macroeconomic force currently affecting this stock (interest rates, inflation, government policy, global events)
 2. SECTOR card (type: "sector") — an industry or sector dynamic affecting this stock
 3. COMPANY card (type: "company") — a company-specific development, ideally from the headlines above
-4. STAK INSIGHT card (type: "stak") — how all three forces interact + a punchy one-liner takeaway
+4. STAK INSIGHT card (type: "stak") — how all three forces interact
 
-Each card must have these exact fields:
-- type: "macro" | "sector" | "company" | "stak"
-- label: string (e.g. "MACRO TREND", "SECTOR: BIG TECH", "COMPANY: ${ticker}", "STAK INSIGHT")
-- dominance: string (e.g. "MACRO TREND", "SECTOR TREND", "COMPANY TREND", "STAK INSIGHT")
-- headline: string (max 10 words, punchy)
-- explanation: string (2 sentences, casual but sharp, no financial advice)
-- pressure: "Positive Pressure" | "Negative Pressure" | "Volatile / Mixed Pressure"
-- pressureEmoji: "📈" | "📉" | "📊"
+---
 
-The stak card must ALSO have:
-- takeaway: string (1 punchy sentence, culturally aware, no financial advice)
+MACRO card format:
+{
+  "type": "macro",
+  "label": "MACRO TREND",
+  "topic": "<topic title, max 6 words>",
+  "situation": "<1-2 sentences: what is happening at the macro level>",
+  "whyItMatters": "<1-2 sentences: why this macro force moves markets>",
+  "impact": "<1 sentence: how this specifically affects ${brandName}>",
+  "direction": "<e.g. Mild Negative Pressure | Positive Pressure | Volatile / Mixed Pressure>",
+  "pressureEmoji": "<📈 | 📉 | 📊>"
+}
+
+SECTOR card format:
+{
+  "type": "sector",
+  "label": "SECTOR TREND",
+  "topic": "<topic title, max 6 words>",
+  "situation": "<1-2 sentences: what is happening in the sector right now>",
+  "whyItMatters": "<1-2 sentences: why this sector dynamic matters for investors>",
+  "impact": "<1 sentence: how this sector trend affects ${brandName}>",
+  "direction": "<e.g. Positive Pressure | Negative Pressure | Volatile / Mixed Pressure>",
+  "pressureEmoji": "<📈 | 📉 | 📊>"
+}
+
+COMPANY card format:
+{
+  "type": "company",
+  "label": "COMPANY TREND",
+  "topic": "<topic title, max 6 words — ideally from the headlines>",
+  "situation": "<1-2 sentences: what happened at the company level>",
+  "whyItMatters": "<1-2 sentences: why this matters for investors>",
+  "shortTermEffect": "<1 sentence: short-term impact on the stock>",
+  "longTermQuestion": "<1 sentence ending with a question mark: the big unknown>",
+  "direction": "<e.g. Positive Pressure | Negative Pressure | Positive, but depends on execution>",
+  "pressureEmoji": "<📈 | 📉 | 📊>"
+}
+
+STAK INSIGHT card format:
+{
+  "type": "stak",
+  "label": "STAK INSIGHT",
+  "intro": "${brandName} is currently influenced by [X] forces:",
+  "forces": [
+    "<bullet: describe the first force and its effect>",
+    "<bullet: describe the second force and its effect>",
+    "<optional third bullet if there is a third meaningful force>"
+  ],
+  "stockReflects": "<1-2 sentences: what the current stock price signals about investor belief>",
+  "takeaway": "<1 punchy sentence, culturally aware, no financial advice — the vibe check>",
+  "direction": "<Positive Pressure | Negative Pressure | Volatile / Mixed Pressure>",
+  "pressureEmoji": "<📈 | 📉 | 📊>"
+}
 
 Return ONLY the JSON array, no markdown, no extra text.`;
 
@@ -96,8 +150,8 @@ export async function getTrends(
 	ticker: string,
 	brandName: string,
 ): Promise<TrendCard[]> {
-	// Check Firestore cache first
-	const doc = await adminDb.collection("trends").doc(brandId).get();
+	// Check Firestore cache first (v2 collection — new format)
+	const doc = await adminDb.collection("trends_v2").doc(brandId).get();
 	if (doc.exists) {
 		const data = doc.data()!;
 		const age = Date.now() - data.generatedAt.toMillis();
@@ -114,7 +168,7 @@ export async function getTrends(
 
 	// Persist to Firestore (fire-and-forget — don't block response)
 	adminDb
-		.collection("trends")
+		.collection("trends_v2")
 		.doc(brandId)
 		.set({ cards, ticker, generatedAt: new Date() })
 		.catch((err) => console.error("Failed to cache trends:", err));
