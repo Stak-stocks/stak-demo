@@ -769,8 +769,7 @@ function BuildingStep({
 						key={i}
 						className="w-2 h-2 rounded-full bg-blue-400"
 						style={{
-							animation: "pulse 1s ease-in-out infinite",
-							animationDelay: `${i * 0.2}s`,
+							animation: `pulse 1s ease-in-out ${i * 0.2}s infinite`,
 							opacity: phase === "done" ? 0 : 1,
 							transition: "opacity 0.3s",
 						}}

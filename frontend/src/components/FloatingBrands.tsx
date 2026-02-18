@@ -94,8 +94,7 @@ export function FloatingBrands() {
 							top: `${anim.startY}vh`,
 							width: brand.size,
 							height: brand.size,
-							animation: `drift-${i} ${anim.duration.toFixed(1)}s ease-in-out infinite alternate`,
-							animationDelay: `${brand.delay}s`,
+							animation: `drift-${i} ${anim.duration.toFixed(1)}s ease-in-out ${brand.delay}s infinite alternate`,
 						}}
 					>
 						<img

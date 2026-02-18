@@ -187,8 +187,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 									className="absolute inset-0 rounded-full"
 									style={{
 										background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)`,
-										animation: loaded ? `shimmer ${2.5 + i * 0.5}s ease-in-out infinite` : "none",
-										animationDelay: `${i * 0.4}s`,
+										animation: loaded ? `shimmer ${2.5 + i * 0.5}s ease-in-out ${i * 0.4}s infinite` : "none",
 									}}
 								/>
 							</div>
