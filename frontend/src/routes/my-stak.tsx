@@ -24,6 +24,16 @@ function MyStakPage() {
 		return saved ? JSON.parse(saved) : [];
 	});
 
+	// Re-sync stak from localStorage when updated elsewhere (e.g. search overlay)
+	useEffect(() => {
+		const handler = () => {
+			const saved = localStorage.getItem("my-stak");
+			setSwipedBrands(saved ? JSON.parse(saved) : []);
+		};
+		window.addEventListener('stak-updated', handler);
+		return () => window.removeEventListener('stak-updated', handler);
+	}, []);
+
 	// Lock background scroll when overlay is open
 	useEffect(() => {
 		if (selectedBrand) {

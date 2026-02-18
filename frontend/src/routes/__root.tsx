@@ -66,6 +66,7 @@ function Root() {
 		const updated = [...stak, brand];
 		localStorage.setItem("my-stak", JSON.stringify(updated));
 		saveStak(updated.map((b) => b.id)).catch(() => {});
+		window.dispatchEvent(new CustomEvent('stak-updated'));
 		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
 	}, []);
 

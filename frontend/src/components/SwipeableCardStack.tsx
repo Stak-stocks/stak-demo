@@ -1,11 +1,16 @@
-import { useState, useRef, useEffect, type MouseEvent, type TouchEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type MouseEvent, type TouchEvent } from "react";
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
-import { Clock, Sparkles } from "lucide-react";
+import { Clock, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react";
 import { recordSwipe } from "@/lib/api";
 
 const DAILY_LIMIT = 20;
 const RESET_HOUR = 9; // 9 AM
+
+/* ── Velocity / flick thresholds ── */
+const FLICK_VELOCITY = 0.4;      // px/ms – a quick flick at this speed triggers swipe
+const DISTANCE_THRESHOLD = 60;   // px – slower drags need this distance
+const TAP_TOLERANCE = 8;         // px – below this is a tap, not a drag
 
 interface DailySwipeState {
 	count: number;
@@ -14,7 +19,6 @@ interface DailySwipeState {
 
 function getTodayKey(): string {
 	const now = new Date();
-	// If before 9 AM, use yesterday's date
 	if (now.getHours() < RESET_HOUR) {
 		const yesterday = new Date(now);
 		yesterday.setDate(yesterday.getDate() - 1);
@@ -28,7 +32,6 @@ function getTimeUntilReset(): { hours: number; minutes: number } {
 	const resetTime = new Date(now);
 
 	if (now.getHours() >= RESET_HOUR) {
-		// Reset is tomorrow at 9 AM
 		resetTime.setDate(resetTime.getDate() + 1);
 	}
 	resetTime.setHours(RESET_HOUR, 0, 0, 0);
@@ -76,8 +79,12 @@ export function SwipeableCardStack({
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [isExiting, setIsExiting] = useState(false);
+	const [exitDirection, setExitDirection] = useState<"left" | "right" | null>(null);
 	const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilReset);
+
 	const dragStartPos = useRef({ x: 0, y: 0 });
+	const dragStartTime = useRef(0);
+	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const isProcessingSwipe = useRef(false);
 
@@ -85,7 +92,6 @@ export function SwipeableCardStack({
 	useEffect(() => {
 		const interval = setInterval(() => {
 			setTimeUntilReset(getTimeUntilReset());
-			// Check if we should reset the daily state
 			const newState = getDailySwipeState();
 			if (newState.date !== dailyState.date) {
 				setDailyState(newState);
@@ -97,12 +103,10 @@ export function SwipeableCardStack({
 	const remainingCards = DAILY_LIMIT - dailyState.count;
 	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
 
-	// Show current card + 1 stacked behind
-	const visibleBrands = brands.slice(currentIndex, currentIndex + 1);
+	const visibleBrands = brands.slice(currentIndex, currentIndex + 2);
 
-	// Preload all images on mount for instant transitions
+	// Preload images
 	useEffect(() => {
-		// Preload first 15 images immediately
 		const preloadCount = Math.min(15, brands.length);
 		for (let i = 0; i < preloadCount; i++) {
 			const img = new Image();
@@ -110,79 +114,99 @@ export function SwipeableCardStack({
 		}
 	}, [brands]);
 
-	// Continue preloading as user swipes
 	useEffect(() => {
 		const preloadStart = Math.max(currentIndex + 3, 15);
 		const preloadEnd = Math.min(preloadStart + 5, brands.length);
-
 		for (let i = preloadStart; i < preloadEnd; i++) {
 			const img = new Image();
 			img.src = brands[i].heroImage;
 		}
 	}, [currentIndex, brands]);
 
+	/* ── Execute a swipe (shared by drag-end & button taps) ── */
+	const executeSwipe = useCallback((direction: "left" | "right") => {
+		if (isProcessingSwipe.current) return;
+		isProcessingSwipe.current = true;
+
+		const currentBrand = brands[currentIndex];
+		if (!currentBrand) { isProcessingSwipe.current = false; return; }
+
+		setIsDragging(false);
+		setIsExiting(true);
+		setExitDirection(direction);
+
+		const exitX = direction === "right" ? 1200 : -1200;
+		setDragOffset({ x: exitX, y: 0 });
+
+		recordSwipe(currentBrand.id, direction).catch(() => {});
+
+		const newState = { count: dailyState.count + 1, date: dailyState.date };
+		setDailyState(newState);
+		saveDailySwipeState(newState);
+		onSwipe?.();
+
+		setTimeout(() => {
+			if (direction === "right" && onSwipeRight) {
+				onSwipeRight(currentBrand);
+			}
+			if (direction === "left") {
+				if (onSwipeLeft) {
+					onSwipeLeft(currentBrand);
+				} else {
+					setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+				}
+			}
+			setDragOffset({ x: 0, y: 0 });
+			setIsExiting(false);
+			setExitDirection(null);
+			isProcessingSwipe.current = false;
+		}, 280);
+	}, [brands, currentIndex, dailyState, onSwipe, onSwipeRight, onSwipeLeft]);
+
+	/* ── Drag handlers ── */
 	const handleDragStart = (clientX: number, clientY: number) => {
+		if (isProcessingSwipe.current) return;
 		setIsDragging(true);
 		dragStartPos.current = { x: clientX, y: clientY };
+		dragStartTime.current = Date.now();
+		velocityHistory.current = [{ x: clientX, t: Date.now() }];
 	};
 
 	const handleDragMove = (clientX: number, clientY: number) => {
 		if (!isDragging) return;
-
 		const deltaX = clientX - dragStartPos.current.x;
 		const deltaY = clientY - dragStartPos.current.y;
-
 		setDragOffset({ x: deltaX, y: deltaY });
+
+		// Keep last 5 positions for velocity calc
+		const now = Date.now();
+		velocityHistory.current.push({ x: clientX, t: now });
+		if (velocityHistory.current.length > 5) velocityHistory.current.shift();
 	};
 
 	const handleDragEnd = () => {
 		if (!isDragging || isProcessingSwipe.current) return;
 
-		const swipeThreshold = 100;
-		const shouldSwipe = Math.abs(dragOffset.x) > swipeThreshold;
+		// Calculate velocity from recent history
+		const history = velocityHistory.current;
+		let velocity = 0;
+		if (history.length >= 2) {
+			const first = history[0];
+			const last = history[history.length - 1];
+			const dt = last.t - first.t;
+			if (dt > 0) velocity = (last.x - first.x) / dt; // px/ms
+		}
 
-		if (shouldSwipe) {
-			// Use ref to immediately block duplicate triggers (synchronous)
-			isProcessingSwipe.current = true;
-			setIsDragging(false);
-			setIsExiting(true);
-			const exitDirection = dragOffset.x > 0 ? 1000 : -1000;
-			const isRightSwipe = dragOffset.x > 0;
-			const currentBrand = brands[currentIndex];
+		const absDistance = Math.abs(dragOffset.x);
+		const absVelocity = Math.abs(velocity);
 
-			setDragOffset({ x: exitDirection, y: dragOffset.y });
+		// Trigger swipe on: quick flick OR sufficient distance
+		const isFlick = absVelocity > FLICK_VELOCITY && absDistance > 20;
+		const isDrag = absDistance > DISTANCE_THRESHOLD;
 
-			if (currentBrand) {
-				recordSwipe(currentBrand.id, isRightSwipe ? "right" : "left").catch(() => {});
-			}
-
-			// Track the swipe in daily state
-			const newState = {
-				count: dailyState.count + 1,
-				date: dailyState.date,
-			};
-			setDailyState(newState);
-			saveDailySwipeState(newState);
-			onSwipe?.();
-
-			setTimeout(() => {
-				// Fire onSwipeRight AFTER animation completes so the brands
-				// array doesn't change mid-animation (which would cause the
-				// next card to inherit the exit transform and fly off too).
-				if (isRightSwipe && onSwipeRight && currentBrand) {
-					onSwipeRight(currentBrand);
-				}
-				if (!isRightSwipe && currentBrand) {
-					if (onSwipeLeft) {
-						onSwipeLeft(currentBrand);
-					} else {
-						setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
-					}
-				}
-				setDragOffset({ x: 0, y: 0 });
-				setIsExiting(false);
-				isProcessingSwipe.current = false;
-			}, 300);
+		if (isFlick || isDrag) {
+			const direction = (velocity !== 0 ? velocity : dragOffset.x) > 0 ? "right" : "left";
+			executeSwipe(direction);
 		} else {
 			setDragOffset({ x: 0, y: 0 });
 			setIsDragging(false);
@@ -190,6 +214,7 @@ export function SwipeableCardStack({
 	};
 
 	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+		e.preventDefault();
 		handleDragStart(e.clientX, e.clientY);
 	};
 
@@ -216,7 +241,7 @@ export function SwipeableCardStack({
 	};
 
 	const handleCardClick = (brand: BrandProfile) => {
-		if (!isDragging && Math.abs(dragOffset.x) < 5) {
+		if (!isDragging && Math.abs(dragOffset.x) < TAP_TOLERANCE) {
 			onLearnMore(brand);
 		}
 	};
@@ -272,25 +297,22 @@ export function SwipeableCardStack({
 			<div className="relative w-full h-[350px] sm:h-[550px] bg-white dark:bg-[#0b1121] rounded-2xl">
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
-					// Make stacked cards much smaller and less visible
-					const scale = index === 0 ? 1 : 0.92 - index * 0.04;
-					const yOffset = index * 12;
-					// Stacked cards visible behind with glow border showing
-					const opacity = index === 0 ? 1 : 0;
+					const scale = index === 0 ? 1 : 0.95;
+					const yOffset = index * 8;
+					const opacity = index === 0 ? 1 : 0.5;
 
-					const rotation = isTopCard ? dragOffset.x * 0.03 : 0;
+					const rotation = isTopCard ? dragOffset.x * 0.06 : 0;
 					const translateX = isTopCard ? dragOffset.x : 0;
-					const translateY = isTopCard ? dragOffset.y * 0.3 : 0;
+					const translateY = isTopCard ? dragOffset.y * 0.15 : 0;
 
-					// Add tint overlay for swipe direction
-					const swipeIntensity = isTopCard ? Math.abs(dragOffset.x) / 150 : 0;
-					const tintOpacity = Math.min(swipeIntensity, 0.4);
+					const swipeIntensity = isTopCard ? Math.abs(dragOffset.x) / 120 : 0;
+					const tintOpacity = Math.min(swipeIntensity, 0.45);
 
 					return (
 						<div
 							key={brand.id}
 							ref={isTopCard ? cardRef : null}
-							className="absolute inset-0 cursor-grab active:cursor-grabbing"
+							className="absolute inset-0 cursor-grab active:cursor-grabbing select-none"
 							style={{
 								transform: `
 									translateX(${translateX}px)
@@ -301,11 +323,12 @@ export function SwipeableCardStack({
 								opacity,
 								transition:
 									isTopCard && !isDragging
-										? "transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease"
-										: "transform 0s, opacity 0.3s ease",
+										? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease"
+										: "transform 0s, opacity 0.28s ease",
 								zIndex: visibleBrands.length - index,
 								pointerEvents: isTopCard ? "auto" : "none",
 								touchAction: "none",
+								willChange: "transform",
 							}}
 							onMouseDown={isTopCard ? handleMouseDown : undefined}
 							onMouseMove={isTopCard && isDragging ? handleMouseMove : undefined}
@@ -316,7 +339,7 @@ export function SwipeableCardStack({
 							onTouchEnd={isTopCard && isDragging ? handleTouchEnd : undefined}
 						>
 							{/* Swipe Direction Tint Overlay */}
-							{isTopCard && isDragging && Math.abs(dragOffset.x) > 20 && (
+							{isTopCard && Math.abs(dragOffset.x) > 15 && (
 								<div
 									className="absolute inset-0 rounded-2xl pointer-events-none z-10"
 									style={{
@@ -324,7 +347,6 @@ export function SwipeableCardStack({
 											dragOffset.x > 0
 												? `rgba(34, 197, 94, ${tintOpacity})`
 												: `rgba(239, 68, 68, ${tintOpacity})`,
-										transition: "background-color 0.1s ease",
 									}}
 								/>
 							)}
@@ -335,19 +357,20 @@ export function SwipeableCardStack({
 					);
 				})}
 
-				{isDragging && Math.abs(dragOffset.x) > 50 && (
+				{/* Swipe label feedback */}
+				{Math.abs(dragOffset.x) > 30 && (
 					<div
 						className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"
 						style={{
-							opacity: Math.min(Math.abs(dragOffset.x) / 120, 1),
+							opacity: Math.min(Math.abs(dragOffset.x) / 80, 1),
 						}}
 					>
 						<div
-							className={`text-7xl font-black px-10 py-6 rounded-3xl border-8 ${
+							className={`text-5xl sm:text-7xl font-black px-8 py-5 rounded-3xl border-[6px] ${
 								dragOffset.x > 0
-									? "text-green-400 dark:text-green-400 border-green-400 dark:border-green-400 bg-green-400/20 dark:bg-green-400/20 rotate-12"
-									: "text-red-500 dark:text-red-500 border-red-500 dark:border-red-500 bg-red-500/20 dark:bg-red-500/20 -rotate-12"
-							} shadow-2xl`}
+									? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
+									: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
+							} shadow-2xl backdrop-blur-sm`}
 						>
 							{dragOffset.x > 0 ? "STAKED" : "PASS"}
 						</div>
@@ -355,8 +378,30 @@ export function SwipeableCardStack({
 				)}
 			</div>
 
+			{/* Action buttons */}
+			<div className="flex items-center justify-center gap-8 mt-5">
+				<button
+					type="button"
+					onClick={() => executeSwipe("left")}
+					disabled={isProcessingSwipe.current || hasReachedLimit}
+					className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-500/50 bg-red-500/10 hover:bg-red-500/25 hover:border-red-500 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none"
+					aria-label="Pass"
+				>
+					<ThumbsDown className="w-7 h-7 text-red-400 group-hover:text-red-300 transition-colors" />
+				</button>
+				<button
+					type="button"
+					onClick={() => executeSwipe("right")}
+					disabled={isProcessingSwipe.current || hasReachedLimit}
+					className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-green-500/50 bg-green-500/10 hover:bg-green-500/25 hover:border-green-500 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none"
+					aria-label="Stak it"
+				>
+					<ThumbsUp className="w-7 h-7 text-green-400 group-hover:text-green-300 transition-colors" />
+				</button>
+			</div>
+
 			{/* Daily cards remaining counter */}
-			<div className="mt-4 flex items-center justify-center gap-2 text-sm text-zinc-500">
+			<div className="mt-3 flex items-center justify-center gap-2 text-sm text-zinc-500">
 				<span className="font-bold text-cyan-400">{remainingCards}</span>
 				<span>cards left today</span>
 			</div>

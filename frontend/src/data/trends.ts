@@ -1,4 +1,4 @@
-import type { TrendCard } from "./brands";
+﻿import type { TrendCard } from "./brands";
 
 // Sector groupings for shared macro/sector trends
 type Sector =
@@ -51,7 +51,7 @@ const BRAND_SECTOR: Record<string, Sector> = {
 const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	big_tech: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Rates are \"Higher for Longer\".",
 		explanation: "Fed signaled no rate cuts. Borrowing is expensive, investors sell big tech when cash is pricey.",
 		pressure: "Negative Pressure",
@@ -59,7 +59,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	semiconductors: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Global Chip Race.",
 		explanation: "Governments are pouring billions into domestic chip production. CHIPS Act, EU subsidies, and export controls are reshaping the entire supply chain.",
 		pressure: "Positive Pressure",
@@ -67,7 +67,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	ev_clean_energy: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Green Subsidy War.",
 		explanation: "IRA subsidies are fueling clean energy investment, but interest rates are making capital-intensive projects harder to finance. Mixed signals everywhere.",
 		pressure: "Volatile / Mixed Pressure",
@@ -75,7 +75,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	oil_energy: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Oil in a Geopolitical Vise.",
 		explanation: "OPEC+ cuts, Middle East tensions, and sanctions on Russian oil are keeping prices elevated. Energy security is back as a top priority.",
 		pressure: "Positive Pressure",
@@ -83,7 +83,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	fintech: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Credit Squeeze.",
 		explanation: "Higher rates mean higher borrowing costs for consumers. Fintech companies that rely on lending are feeling the squeeze while payment processors benefit from inflation-driven higher transaction values.",
 		pressure: "Volatile / Mixed Pressure",
@@ -91,7 +91,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	streaming: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Consumer Wallets Are Thinning.",
 		explanation: "Inflation is forcing consumers to pick their subscriptions carefully. The days of subscribing to everything are over \u2014 winners take all.",
 		pressure: "Negative Pressure",
@@ -99,7 +99,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	ecommerce_retail: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Consumer is Still Spending.",
 		explanation: "Despite inflation fears, consumer spending remains surprisingly resilient. Jobs are strong, wages are growing, and people keep buying stuff.",
 		pressure: "Positive Pressure",
@@ -107,7 +107,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	cloud_saas: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Enterprise AI Budget Explosion.",
 		explanation: "Companies are slashing traditional IT budgets to fund AI initiatives. Cloud and SaaS companies that can integrate AI win big. Those that can't get left behind.",
 		pressure: "Positive Pressure",
@@ -115,7 +115,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	cybersecurity: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Cyberattacks Are Escalating.",
 		explanation: "Nation-state hacking, ransomware, and AI-powered attacks are surging. Cybersecurity budgets are the last thing companies cut, even in a downturn.",
 		pressure: "Positive Pressure",
@@ -123,7 +123,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	consumer: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Brand Loyalty is Fracturing.",
 		explanation: "Gen Z shops on vibes, not loyalty. TikTok trends can make or break a brand overnight. Inflation is pushing consumers toward value without sacrificing aesthetics.",
 		pressure: "Volatile / Mixed Pressure",
@@ -131,7 +131,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	beauty: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Lipstick Index is Real.",
 		explanation: "In uncertain times, beauty spending actually goes up. Small luxuries replace big ones. Skincare and cosmetics are recession-proof vibes.",
 		pressure: "Positive Pressure",
@@ -139,7 +139,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	aerospace: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Defense Budgets Are Surging.",
 		explanation: "Global conflicts are driving record defense spending worldwide. NATO allies are hitting 2% GDP targets for the first time. Aerospace and defense companies are swimming in contracts.",
 		pressure: "Positive Pressure",
@@ -147,7 +147,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	healthcare: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Healthcare Costs Keep Climbing.",
 		explanation: "An aging population and rising drug prices mean healthcare spending only goes one direction \u2014 up. Health insurers have pricing power but face political pressure.",
 		pressure: "Volatile / Mixed Pressure",
@@ -155,7 +155,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	rideshare_travel: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Revenge Travel Won't Stop.",
 		explanation: "Post-pandemic travel demand remains strong. People are prioritizing experiences over things. The travel economy is booming despite inflation.",
 		pressure: "Positive Pressure",
@@ -163,7 +163,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	industrial: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Reshoring Boom.",
 		explanation: "Companies are bringing manufacturing back home. Infrastructure spending, automation demand, and supply chain security are driving industrial growth.",
 		pressure: "Positive Pressure",
@@ -171,7 +171,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	quantum: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "The Quantum Computing Hype Cycle.",
 		explanation: "Governments and tech giants are racing to achieve quantum advantage. Billions in funding, but commercial viability is still years away. Pure speculation territory.",
 		pressure: "Volatile / Mixed Pressure",
@@ -179,7 +179,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	data_analytics: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Data is the New Oil.",
 		explanation: "AI needs data. Governments need intelligence. Companies need insights. Data analytics firms are positioned at the center of every major trend.",
 		pressure: "Positive Pressure",
@@ -187,7 +187,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	etf: {
 		label: "MACRO TREND",
-		dominance: "MACRO TREND DOMINANT",
+		dominance: "MACRO TREND",
 		headline: "Rates are \"Higher for Longer\".",
 		explanation: "Fed signaled no rate cuts. Higher rates pressure equity valuations, especially growth stocks. Cash alternatives look attractive for the first time in years.",
 		pressure: "Negative Pressure",
@@ -199,7 +199,7 @@ const MACRO_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	big_tech: {
 		label: "SECTOR: BIG TECH",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The AI Arms Race Rally.",
 		explanation: "Investors are piling into tech giants with cash to dominate the AI future. A rising tide lifts these boats.",
 		pressure: "Positive Pressure",
@@ -207,7 +207,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	semiconductors: {
 		label: "SECTOR: CHIPS",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "AI Chip Demand is Insatiable.",
 		explanation: "Every data center, every AI model, every autonomous vehicle needs more chips. Demand is outstripping supply and fabs can't build fast enough.",
 		pressure: "Positive Pressure",
@@ -215,7 +215,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	ev_clean_energy: {
 		label: "SECTOR: CLEAN ENERGY",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The EV Adoption Curve.",
 		explanation: "EV sales are growing but the easy gains are done. Competition is fierce, China is flooding the market with cheap EVs, and charging infrastructure is still catching up.",
 		pressure: "Volatile / Mixed Pressure",
@@ -223,7 +223,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	oil_energy: {
 		label: "SECTOR: ENERGY",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Big Oil's Cash Machine.",
 		explanation: "Oil majors are printing money with disciplined production and returning cash to shareholders through buybacks and dividends. The energy transition is happening but it's slower than expected.",
 		pressure: "Positive Pressure",
@@ -231,7 +231,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	fintech: {
 		label: "SECTOR: FINTECH",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Digital Payments Go Mainstream.",
 		explanation: "Cash is dying globally. Digital wallets, buy-now-pay-later, and embedded finance are becoming the default. Winners are those with scale and trust.",
 		pressure: "Positive Pressure",
@@ -239,7 +239,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	streaming: {
 		label: "SECTOR: ENTERTAINMENT",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Ad-Tier Revolution.",
 		explanation: "Every streaming platform is launching cheaper ad-supported tiers. It's the biggest shift in streaming business models since Netflix killed the DVD. More revenue per user, lower churn.",
 		pressure: "Positive Pressure",
@@ -247,7 +247,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	ecommerce_retail: {
 		label: "SECTOR: RETAIL",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Omnichannel or Bust.",
 		explanation: "The lines between online and in-store are gone. Retailers that nail same-day delivery, curbside pickup, and seamless digital-to-physical experiences are winning. The rest are closing stores.",
 		pressure: "Volatile / Mixed Pressure",
@@ -255,7 +255,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	cloud_saas: {
 		label: "SECTOR: CLOUD",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The AI Integration Race.",
 		explanation: "Every SaaS company is rushing to add AI features. Copilots, assistants, and automation are the new table stakes. Companies without an AI story are getting punished by investors.",
 		pressure: "Positive Pressure",
@@ -263,7 +263,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	cybersecurity: {
 		label: "SECTOR: SECURITY",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Zero Trust is the New Default.",
 		explanation: "AI-powered threats are forcing companies to adopt zero-trust security models. Platform consolidation is happening fast \u2014 companies want one vendor, not twenty.",
 		pressure: "Positive Pressure",
@@ -271,7 +271,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	consumer: {
 		label: "SECTOR: CONSUMER",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Value vs. Vibe Shift.",
 		explanation: "Consumers want premium experiences at value prices. Private label is eating branded. Companies that can deliver quality at scale are thriving.",
 		pressure: "Volatile / Mixed Pressure",
@@ -279,7 +279,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	beauty: {
 		label: "SECTOR: BEAUTY",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Clean Beauty Boom.",
 		explanation: "Skincare-first routines, clean ingredients, and TikTok-driven discovery are reshaping the industry. Legacy brands are scrambling to keep up with indie disruptors.",
 		pressure: "Positive Pressure",
@@ -287,7 +287,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	aerospace: {
 		label: "SECTOR: AEROSPACE",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Aircraft Order Backlog.",
 		explanation: "Airlines need new planes but manufacturers can't build them fast enough. Supply chain issues and quality control problems are creating a massive backlog that'll take years to clear.",
 		pressure: "Volatile / Mixed Pressure",
@@ -295,7 +295,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	healthcare: {
 		label: "SECTOR: HEALTHCARE",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The GLP-1 Revolution.",
 		explanation: "Weight-loss drugs like Ozempic are reshaping healthcare, food, and insurance industries all at once. Everyone wants in on the GLP-1 wave.",
 		pressure: "Positive Pressure",
@@ -303,7 +303,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	rideshare_travel: {
 		label: "SECTOR: MOBILITY",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Autonomous + Rideshare Convergence.",
 		explanation: "Self-driving cars are finally getting real. Rideshare companies face both opportunity and existential threat. Partner with robotaxis or compete against them?",
 		pressure: "Volatile / Mixed Pressure",
@@ -311,7 +311,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	industrial: {
 		label: "SECTOR: INDUSTRIALS",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "Smart Factory Revolution.",
 		explanation: "Automation, IoT, and AI are transforming manufacturing. Legacy industrials that embrace digital transformation are seeing margin expansion and new revenue streams.",
 		pressure: "Positive Pressure",
@@ -319,7 +319,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	quantum: {
 		label: "SECTOR: QUANTUM",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Quantum Race Heats Up.",
 		explanation: "Google, IBM, and startups are all claiming quantum milestones. Error correction is improving. We're in the 'dial-up internet' phase of quantum \u2014 early but real.",
 		pressure: "Volatile / Mixed Pressure",
@@ -327,7 +327,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	data_analytics: {
 		label: "SECTOR: DATA & AI",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The AI Data Infrastructure Build-Out.",
 		explanation: "Every company needs AI, and AI needs data infrastructure. Analytics platforms that can process, clean, and serve data for AI models are becoming essential picks-and-shovels plays.",
 		pressure: "Positive Pressure",
@@ -335,7 +335,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 	},
 	etf: {
 		label: "SECTOR: BROAD MARKET",
-		dominance: "SECTOR TREND DOMINANT",
+		dominance: "SECTOR TREND",
 		headline: "The Passive Investing Juggernaut.",
 		explanation: "More money flows into index funds every month. Passive investing now controls over half the market. The trend reinforces itself \u2014 big stocks get bigger.",
 		pressure: "Positive Pressure",
@@ -347,7 +347,7 @@ const SECTOR_TRENDS: Record<Sector, Omit<TrendCard, "type">> = {
 const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	tsla: {
 		label: "COMPANY: TSLA",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Robotaxi Bet.",
 		explanation: "Tesla is pivoting from car company to AI robotics company. Full Self-Driving, Optimus robot, and the robotaxi network are either the future or the biggest overpromise in tech history.",
 		pressure: "Volatile / Mixed Pressure",
@@ -355,7 +355,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	aapl: {
 		label: "COMPANY: AAPL",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Apple Intelligence Rollout.",
 		explanation: "Apple is finally shipping AI features across iPhone, Mac, and iPad. Siri is getting smart, on-device AI is the pitch, and the upgrade cycle could be massive.",
 		pressure: "Positive Pressure",
@@ -363,7 +363,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	nvda: {
 		label: "COMPANY: NVDA",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The AI Chip Monopoly.",
 		explanation: "NVIDIA controls 80%+ of AI training chips. Every major tech company is their customer. Data center revenue is growing 200%+ year over year. Can any competitor catch them?",
 		pressure: "Positive Pressure",
@@ -371,7 +371,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	rblx: {
 		label: "COMPANY: RBLX",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Aging Up the Platform.",
 		explanation: "Roblox is trying to expand beyond kids into teens and adults. Brands are building virtual experiences, but monetization per user is still low. The metaverse play nobody talks about.",
 		pressure: "Volatile / Mixed Pressure",
@@ -379,7 +379,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	meta: {
 		label: "COMPANY: META",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Reels Money Machine.",
 		explanation: "Meta cracked the short-video monetization code. Reels is printing ad revenue, AI recommendation is keeping users hooked, and the efficiency cuts are boosting margins.",
 		pressure: "Positive Pressure",
@@ -387,7 +387,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	nke: {
 		label: "COMPANY: NKE",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The DTC Retreat.",
 		explanation: "Nike went all-in on direct-to-consumer, pulled from retailers, then realized they need wholesale partners after all. Market share is slipping to New Balance, On, and Hoka.",
 		pressure: "Negative Pressure",
@@ -395,7 +395,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	sbux: {
 		label: "COMPANY: SBUX",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Turnaround CEO.",
 		explanation: "New leadership is trying to fix slowing same-store sales, union battles, and a China problem. Menu simplification and faster service are the plan. Investors are cautiously optimistic.",
 		pressure: "Volatile / Mixed Pressure",
@@ -403,7 +403,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	spot: {
 		label: "COMPANY: SPOT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Finally Profitable.",
 		explanation: "Spotify hit profitability after years of losses. Price hikes are sticking, podcast investments are paying off, and audiobooks are the new growth engine.",
 		pressure: "Positive Pressure",
@@ -411,7 +411,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	amzn: {
 		label: "COMPANY: AMZN",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The $200 Billion AWS Bet.",
 		explanation: "Massive spending on new data centers announced. Short-term investors hate the cost, long-term believers see future dominance.",
 		pressure: "Volatile / Mixed Pressure",
@@ -419,7 +419,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	nflx: {
 		label: "COMPANY: NFLX",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Password Crackdown Worked.",
 		explanation: "Netflix forced password sharers to get their own accounts and subscriber growth exploded. Ad tier is growing fast. Live sports are next. The streaming king is back.",
 		pressure: "Positive Pressure",
@@ -427,7 +427,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	coin: {
 		label: "COMPANY: COIN",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Crypto ETF Tailwind.",
 		explanation: "Bitcoin ETF approvals are driving institutional money through Coinbase's custody platform. They're the toll booth on the crypto highway regardless of which coin wins.",
 		pressure: "Positive Pressure",
@@ -435,7 +435,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	msft: {
 		label: "COMPANY: MSFT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Copilot Everywhere Strategy.",
 		explanation: "Microsoft is embedding AI into every product \u2014 Office, Windows, Azure, GitHub. The OpenAI partnership gives them a head start. Enterprise AI spending flows through Microsoft.",
 		pressure: "Positive Pressure",
@@ -443,7 +443,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	googl: {
 		label: "COMPANY: GOOGL",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Search Under Siege.",
 		explanation: "AI chatbots threaten Google's search monopoly for the first time ever. Gemini is their answer, but the DOJ antitrust case adds uncertainty. Still printing money though.",
 		pressure: "Volatile / Mixed Pressure",
@@ -451,7 +451,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	dis: {
 		label: "COMPANY: DIS",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Streaming Finally Breaking Even.",
 		explanation: "Disney+ is approaching profitability after massive losses. Theme parks are printing money. The Bob Iger comeback is focused on quality over quantity content.",
 		pressure: "Positive Pressure",
@@ -459,7 +459,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	uber: {
 		label: "COMPANY: UBER",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Super App Play.",
 		explanation: "Uber combines rides, food delivery, groceries, and freight into one platform. Finally consistently profitable. Autonomous vehicle partnerships could boost margins further.",
 		pressure: "Positive Pressure",
@@ -467,7 +467,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	shop: {
 		label: "COMPANY: SHOP",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Anti-Amazon Play.",
 		explanation: "Shopify is becoming the operating system for independent e-commerce. Enterprise clients are joining, AI tools are helping merchants sell smarter, and checkout is everywhere.",
 		pressure: "Positive Pressure",
@@ -475,7 +475,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	amd: {
 		label: "COMPANY: AMD",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The AI Chip Challenger.",
 		explanation: "AMD's MI300 AI chips are the most credible alternative to NVIDIA. They're winning data center deals and gaining market share. The underdog everyone is rooting for.",
 		pressure: "Positive Pressure",
@@ -483,7 +483,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	spy: {
 		label: "COMPANY: SPY",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Everything Index.",
 		explanation: "S&P 500 keeps hitting all-time highs driven by Magnificent 7 tech stocks. Concentration risk is real \u2014 top 10 stocks are ~35% of the index. Are you diversified or just buying tech?",
 		pressure: "Volatile / Mixed Pressure",
@@ -491,7 +491,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	qqq: {
 		label: "COMPANY: QQQ",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Riding the AI Nasdaq Wave.",
 		explanation: "QQQ is basically a leveraged bet on AI through Big Tech. When NVIDIA and Microsoft go up, QQQ rockets. When they correct, it hurts. High reward, high concentration.",
 		pressure: "Positive Pressure",
@@ -499,7 +499,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	pypl: {
 		label: "COMPANY: PYPL",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Reinvention Struggle.",
 		explanation: "PayPal is trying to reinvent itself with Venmo monetization and checkout improvements. New CEO is cutting costs and focusing on profitability over growth. Can the OG fintech stay relevant?",
 		pressure: "Volatile / Mixed Pressure",
@@ -507,7 +507,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	intc: {
 		label: "COMPANY: INTC",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Foundry Gamble.",
 		explanation: "Intel is spending $100B+ to become a chip manufacturer for other companies. It's a massive bet that could revive American chipmaking or bankrupt the company. No middle ground.",
 		pressure: "Negative Pressure",
@@ -515,7 +515,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ionq: {
 		label: "COMPANY: IONQ",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Trapped Ion Leader.",
 		explanation: "IonQ's trapped ion approach is showing promise with enterprise partnerships. Government contracts are growing. But revenue is tiny and profitability is years away. Pure quantum bet.",
 		pressure: "Volatile / Mixed Pressure",
@@ -523,7 +523,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	tsm: {
 		label: "COMPANY: TSM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The World's Most Important Company.",
 		explanation: "TSMC makes 90% of the world's most advanced chips. Apple, NVIDIA, AMD \u2014 everyone depends on them. Geopolitical risk from Taiwan is the elephant in the room.",
 		pressure: "Positive Pressure",
@@ -531,7 +531,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	qcom: {
 		label: "COMPANY: QCOM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The On-Device AI Push.",
 		explanation: "Qualcomm's Snapdragon chips are bringing AI to phones and PCs without the cloud. On-device AI is the next battleground and Qualcomm has a head start on every Android phone.",
 		pressure: "Positive Pressure",
@@ -539,7 +539,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	avgo: {
 		label: "COMPANY: AVGO",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Custom AI Chip King.",
 		explanation: "Broadcom designs custom AI chips for Google, Meta, and Apple. As Big Tech wants alternatives to NVIDIA, Broadcom is their go-to partner. VMware acquisition adds enterprise software revenue.",
 		pressure: "Positive Pressure",
@@ -547,7 +547,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	mu: {
 		label: "COMPANY: MU",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "HBM Memory Goldmine.",
 		explanation: "AI chips need high-bandwidth memory and Micron is one of three companies that can make it. HBM demand is through the roof. Memory cycles are brutal but this one looks sustained.",
 		pressure: "Positive Pressure",
@@ -555,7 +555,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	asml: {
 		label: "COMPANY: ASML",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Monopoly Machine Maker.",
 		explanation: "ASML is the only company that makes EUV lithography machines needed for advanced chips. Zero competition. Every chipmaker in the world is their customer. Backlog stretches for years.",
 		pressure: "Positive Pressure",
@@ -563,7 +563,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	nee: {
 		label: "COMPANY: NEE",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Utility AI Play.",
 		explanation: "NextEra is the world's largest generator of renewable energy. AI data centers need massive power, and renewables are the cheapest source. They're signing deals with Big Tech.",
 		pressure: "Positive Pressure",
@@ -571,7 +571,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	enph: {
 		label: "COMPANY: ENPH",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Solar Slowdown Squeeze.",
 		explanation: "Enphase microinverters are best-in-class but residential solar installations slowed dramatically. Higher rates killed home solar financing. Waiting for the recovery.",
 		pressure: "Negative Pressure",
@@ -579,7 +579,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	fslr: {
 		label: "COMPANY: FSLR",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Made in America Solar.",
 		explanation: "First Solar's US manufacturing gives them IRA subsidy advantages over Chinese competitors. Utility-scale solar demand is strong. They're one of the few profitable solar companies.",
 		pressure: "Positive Pressure",
@@ -587,7 +587,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	plug: {
 		label: "COMPANY: PLUG",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Hydrogen Dream Fading.",
 		explanation: "Plug Power keeps burning cash with no path to profitability visible. Green hydrogen is years from being cost-competitive. The market is losing patience with the promise.",
 		pressure: "Negative Pressure",
@@ -595,7 +595,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	xom: {
 		label: "COMPANY: XOM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Pioneer Acquisition.",
 		explanation: "Exxon's $60B Pioneer merger creates a Permian Basin mega-producer. Lower costs, higher output, massive shareholder returns. They're doubling down on oil while everyone else hedges.",
 		pressure: "Positive Pressure",
@@ -603,7 +603,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	cvx: {
 		label: "COMPANY: CVX",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Hess Merger Saga.",
 		explanation: "Chevron's Hess acquisition gives them a stake in Guyana's massive oil discovery. But an arbitration fight with Exxon is adding uncertainty. The deal's value is clear, the timeline isn't.",
 		pressure: "Volatile / Mixed Pressure",
@@ -611,7 +611,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	v: {
 		label: "COMPANY: V",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Global Payment Rails.",
 		explanation: "Visa processes $15 trillion annually and takes a cut of everything. Cross-border payments and emerging markets are the growth engines. The ultimate toll booth business.",
 		pressure: "Positive Pressure",
@@ -619,7 +619,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ma: {
 		label: "COMPANY: MA",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Data Analytics Pivot.",
 		explanation: "Mastercard is evolving beyond payments into data analytics, fraud prevention, and consulting. Services revenue is growing faster than transactions. More than just a card network.",
 		pressure: "Positive Pressure",
@@ -627,7 +627,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	sq: {
 		label: "COMPANY: SQ",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Bitcoin Treasury Strategy.",
 		explanation: "Block holds billions in Bitcoin on their balance sheet. Cash App is their consumer growth engine, Square is their merchant anchor. Jack Dorsey's all-in crypto bet adds volatility.",
 		pressure: "Volatile / Mixed Pressure",
@@ -635,7 +635,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	hood: {
 		label: "COMPANY: HOOD",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Crypto + Options Revival.",
 		explanation: "Robinhood's revenue surges when crypto and meme stocks are hot. New products like retirement accounts and credit cards are diversifying. Living or dying by retail trading volume.",
 		pressure: "Volatile / Mixed Pressure",
@@ -643,7 +643,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	sofi: {
 		label: "COMPANY: SOFI",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Banking Charter Pays Off.",
 		explanation: "SoFi's bank charter lets them hold deposits and lend directly. Member growth is accelerating, deposits are surging, and they're approaching sustained profitability.",
 		pressure: "Positive Pressure",
@@ -651,7 +651,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	afrm: {
 		label: "COMPANY: AFRM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "BNPL at a Crossroads.",
 		explanation: "Affirm's buy-now-pay-later is integrated into Apple Pay and Amazon. But rising defaults and regulation are real risks. Can they grow without blowing up their credit book?",
 		pressure: "Volatile / Mixed Pressure",
@@ -659,7 +659,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	txn: {
 		label: "COMPANY: TXN",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Analog Chip Dividend King.",
 		explanation: "Texas Instruments dominates analog semiconductors with the best margins in the industry. Massive new fabs in Texas. They print cash and return it to shareholders. Boring but beautiful.",
 		pressure: "Positive Pressure",
@@ -667,7 +667,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	nxpi: {
 		label: "COMPANY: NXPI",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The EV Chip Supercycle.",
 		explanation: "Every electric vehicle needs 3x more NXP chips than a gas car. Battery management, radar, motor control \u2014 NXP is in all of it. EV growth = NXP growth.",
 		pressure: "Positive Pressure",
@@ -675,7 +675,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	mrvl: {
 		label: "COMPANY: MRVL",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Custom Silicon Surge.",
 		explanation: "Marvell designs custom chips for cloud data centers. As hyperscalers build their own silicon, Marvell helps them do it. Revenue is inflecting from AI orders.",
 		pressure: "Positive Pressure",
@@ -683,7 +683,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	wmt: {
 		label: "COMPANY: WMT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Walmart+ and the E-Commerce Surge.",
 		explanation: "Walmart is closing the gap with Amazon in e-commerce. Walmart+ membership is growing, delivery infrastructure is massive, and they're stealing market share from everyone.",
 		pressure: "Positive Pressure",
@@ -691,7 +691,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	tgt: {
 		label: "COMPANY: TGT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Inventory Hangover.",
 		explanation: "Target's discretionary focus hurts when consumers trade down. Inventory management issues and shrinkage concerns are pressuring margins. Need a consumer spending rebound.",
 		pressure: "Negative Pressure",
@@ -699,7 +699,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	cost: {
 		label: "COMPANY: COST",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Membership Moat.",
 		explanation: "Costco just raised membership fees and nobody left. 93% renewal rate. Kirkland brand is eating major brands alive. The treasure hunt experience can't be replicated online.",
 		pressure: "Positive Pressure",
@@ -707,7 +707,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	hd: {
 		label: "COMPANY: HD",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Waiting for the Housing Thaw.",
 		explanation: "Home Depot needs the housing market to unfreeze. High mortgage rates killed move-up renovations. When rates drop, pent-up demand for home improvement explodes.",
 		pressure: "Volatile / Mixed Pressure",
@@ -715,7 +715,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	low: {
 		label: "COMPANY: LOW",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Pro Customer Push.",
 		explanation: "Lowe's is investing heavily in professional contractors to close the gap with Home Depot. Pro spending is stickier and higher-ticket. The DIY consumer is tapped out.",
 		pressure: "Volatile / Mixed Pressure",
@@ -723,7 +723,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	mcd: {
 		label: "COMPANY: MCD",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Value Menu Wars.",
 		explanation: "McDonald's raised prices too much and consumers pushed back. Now they're racing to offer $5 meal deals to win back traffic. The fast food value wars are back.",
 		pressure: "Volatile / Mixed Pressure",
@@ -731,7 +731,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ko: {
 		label: "COMPANY: KO",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Pricing Power Champion.",
 		explanation: "Coca-Cola keeps raising prices and people keep buying. Brand strength is unmatched. Zero-sugar variants are driving growth. The ultimate defensive stock.",
 		pressure: "Positive Pressure",
@@ -739,7 +739,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	pep: {
 		label: "COMPANY: PEP",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Snacks Over Soda.",
 		explanation: "Frito-Lay is PepsiCo's real profit engine. Snacking trends are permanent. But pricing pushback from consumers and Walmart is squeezing margins.",
 		pressure: "Volatile / Mixed Pressure",
@@ -747,7 +747,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	pg: {
 		label: "COMPANY: PG",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Premium Everyday Play.",
 		explanation: "Procter & Gamble keeps premiumizing everyday products and consumers keep paying. Tide, Pampers, Gillette \u2014 brands so embedded in daily life they're practically essential services.",
 		pressure: "Positive Pressure",
@@ -755,7 +755,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	jnj: {
 		label: "COMPANY: JNJ",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Pharma Pivot.",
 		explanation: "J&J spun off consumer health into Kenvue and is now a pure pharma and medtech company. Oncology and immunology drugs are the growth drivers. Cleaner story, focused execution.",
 		pressure: "Positive Pressure",
@@ -763,7 +763,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	lmt: {
 		label: "COMPANY: LMT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The F-35 Cash Machine.",
 		explanation: "Lockheed Martin's F-35 program is the most expensive weapons system ever. 3,000+ jets ordered, decades of maintenance revenue. Add hypersonics and space systems. Defense spending's biggest winner.",
 		pressure: "Positive Pressure",
@@ -771,7 +771,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ba: {
 		label: "COMPANY: BA",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Quality Control Crisis.",
 		explanation: "Door plugs falling off, whistleblower testimony, FAA investigations. Boeing is in damage control mode. The order backlog is massive but execution risk is real. Trust is their biggest deficit.",
 		pressure: "Negative Pressure",
@@ -779,7 +779,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	unh: {
 		label: "COMPANY: UNH",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Healthcare Conglomerate.",
 		explanation: "UnitedHealth owns the insurance, the pharmacy benefit manager, the data analytics, and the clinics. Vertical integration at scale. Political risk is the only thing holding it back.",
 		pressure: "Positive Pressure",
@@ -787,7 +787,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	crm: {
 		label: "COMPANY: CRM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The AI Agent Push.",
 		explanation: "Salesforce is betting big on AI agents that can handle sales tasks autonomously. Agentforce is their answer to the AI race. Can they charge premium prices for AI features?",
 		pressure: "Volatile / Mixed Pressure",
@@ -795,7 +795,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	adbe: {
 		label: "COMPANY: ADBE",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Firefly AI Gamble.",
 		explanation: "Adobe's Firefly AI generates images, videos, and designs inside Creative Cloud. They're trying to own generative AI for creatives before Midjourney and others eat their lunch.",
 		pressure: "Volatile / Mixed Pressure",
@@ -803,7 +803,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	now: {
 		label: "COMPANY: NOW",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Enterprise Workflow King.",
 		explanation: "ServiceNow automates everything boring in large companies. IT tickets, HR onboarding, security incidents \u2014 all through one platform. Stickiest enterprise software with 98% renewal rates.",
 		pressure: "Positive Pressure",
@@ -811,7 +811,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	intu: {
 		label: "COMPANY: INTU",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Tax Season Lock-In.",
 		explanation: "TurboTax and QuickBooks have captive audiences. AI-powered tax filing and small business tools keep customers stuck in the ecosystem. Lobbying keeps taxes complicated.",
 		pressure: "Positive Pressure",
@@ -819,7 +819,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	amat: {
 		label: "COMPANY: AMAT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Chip Equipment Cycle.",
 		explanation: "Applied Materials sells the machines that make chips. Every new fab being built worldwide needs their equipment. The CHIPS Act is a direct revenue driver.",
 		pressure: "Positive Pressure",
@@ -827,7 +827,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	abnb: {
 		label: "COMPANY: ABNB",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Beyond Just Stays.",
 		explanation: "Airbnb is expanding into experiences, longer stays, and becoming a lifestyle platform. Regulatory crackdowns in major cities are the risk. But the brand is a verb now.",
 		pressure: "Volatile / Mixed Pressure",
@@ -835,7 +835,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	lyft: {
 		label: "COMPANY: LYFT",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Profitability Pivot.",
 		explanation: "Lyft finally turned profitable after years of losses. New CEO is focused on cost discipline and rider experience. Still the underdog to Uber but the gap is stabilizing.",
 		pressure: "Positive Pressure",
@@ -843,7 +843,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ddog: {
 		label: "COMPANY: DDOG",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Observability Platform.",
 		explanation: "Datadog monitors every cloud application. As companies run more AI workloads, they need more monitoring. Land-and-expand model means customers keep spending more every year.",
 		pressure: "Positive Pressure",
@@ -851,7 +851,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	snow: {
 		label: "COMPANY: SNOW",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The AI Data Lakehouse.",
 		explanation: "Snowflake stores and processes the data that AI models need. New CEO from Google is pushing AI-native features. Consumption-based pricing means revenue tracks actual usage.",
 		pressure: "Volatile / Mixed Pressure",
@@ -859,7 +859,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	mdb: {
 		label: "COMPANY: MDB",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Developer Database.",
 		explanation: "MongoDB is the go-to database for modern apps. Atlas cloud revenue is growing fast. AI applications need flexible databases, and MongoDB is positioned for the AI app wave.",
 		pressure: "Positive Pressure",
@@ -867,7 +867,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	panw: {
 		label: "COMPANY: PANW",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Platformization Bet.",
 		explanation: "Palo Alto is giving away products to lock companies into their platform, then converting to paid subscriptions. Short-term revenue pain for long-term market dominance.",
 		pressure: "Volatile / Mixed Pressure",
@@ -875,7 +875,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	crwd: {
 		label: "COMPANY: CRWD",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "Recovering from the Outage.",
 		explanation: "The global IT outage was a PR nightmare but ironically proved how essential CrowdStrike is. Customers aren't leaving because switching security vendors mid-crisis is even scarier.",
 		pressure: "Volatile / Mixed Pressure",
@@ -883,7 +883,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	zm: {
 		label: "COMPANY: ZM",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Post-Pandemic Identity Crisis.",
 		explanation: "Zoom is trying to be more than video calls \u2014 AI companion, contact center, email. But the pandemic boom is over and growth is flat. Can AI features justify the pivot?",
 		pressure: "Negative Pressure",
@@ -891,7 +891,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	pltr: {
 		label: "COMPANY: PLTR",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Government AI Platform.",
 		explanation: "Palantir's AIP platform is winning commercial and government AI deals. Military and intelligence contracts provide a sticky base. The pivot from spy-tech to enterprise AI is working.",
 		pressure: "Positive Pressure",
@@ -899,7 +899,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	hon: {
 		label: "COMPANY: HON",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Aerospace Spinoff.",
 		explanation: "Honeywell is splitting into three companies to unlock value. Aerospace is the crown jewel. Automation and energy transition businesses get their own focus. Sum of parts is greater than whole.",
 		pressure: "Positive Pressure",
@@ -907,7 +907,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	or: {
 		label: "COMPANY: OR",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Global Beauty Empire.",
 		explanation: "L'Or\u00E9al owns 36 brands across every price point. Chinese beauty recovery and dermatological skincare are the growth drivers. The most diversified beauty play on the planet.",
 		pressure: "Positive Pressure",
@@ -915,7 +915,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	el: {
 		label: "COMPANY: EL",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Prestige Beauty Collapse.",
 		explanation: "Est\u00E9e Lauder's Asia travel retail business cratered. Chinese consumers aren't buying like before. Restructuring is underway but the turnaround will take time. Deep value or value trap?",
 		pressure: "Negative Pressure",
@@ -923,7 +923,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	elf: {
 		label: "COMPANY: ELF",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Gen Z Beauty Queen.",
 		explanation: "e.l.f. is the fastest-growing beauty brand with products that go viral on TikTok weekly. $8 dupes for $40 prestige products. Stealing market share from everyone.",
 		pressure: "Positive Pressure",
@@ -931,7 +931,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	ulta: {
 		label: "COMPANY: ULTA",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Beauty Destination Play.",
 		explanation: "Ulta is where America buys beauty. The in-store experience plus loyalty program creates a moat. Target partnership expands reach. But online competition is intensifying.",
 		pressure: "Volatile / Mixed Pressure",
@@ -939,7 +939,7 @@ const COMPANY_TRENDS: Record<string, Omit<TrendCard, "type">> = {
 	},
 	coty: {
 		label: "COMPANY: COTY",
-		dominance: "COMPANY TREND DOMINANT",
+		dominance: "COMPANY TREND",
 		headline: "The Celebrity Fragrance Machine.",
 		explanation: "Coty owns Burberry, Hugo Boss, and Kylie Cosmetics fragrance licenses. Celebrity partnerships drive hype cycles. Prestige fragrance is the fastest-growing beauty category.",
 		pressure: "Positive Pressure",

@@ -317,14 +317,42 @@ function SwipeStep({
 	const [isDragging, setIsDragging] = useState(false);
 	const [isExiting, setIsExiting] = useState(false);
 	const dragStartPos = useRef({ x: 0, y: 0 });
+	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const isProcessingSwipe = useRef(false);
 
 	const done = currentIndex >= swipeBrands.length;
+
+	const FLICK_VELOCITY = 0.4;      // px/ms
+	const DISTANCE_THRESHOLD = 60;   // px
+
+	const executeSwipe = (direction: "left" | "right") => {
+		if (isProcessingSwipe.current || done) return;
+		isProcessingSwipe.current = true;
+
+		const brand = swipeBrands[currentIndex];
+		setIsDragging(false);
+		setIsExiting(true);
+
+		const exitX = direction === "right" ? 1200 : -1200;
+		setDragOffset({ x: exitX, y: 0 });
+
+		if (direction === "right" && brand) {
+			onSwipeRight(brand.id);
+		}
+
+		setTimeout(() => {
+			setCurrentIndex((prev) => prev + 1);
+			setDragOffset({ x: 0, y: 0 });
+			setIsExiting(false);
+			isProcessingSwipe.current = false;
+		}, 280);
+	};
 
 	const handleDragStart = (clientX: number, clientY: number) => {
 		if (done || isProcessingSwipe.current) return;
 		setIsDragging(true);
 		dragStartPos.current = { x: clientX, y: clientY };
+		velocityHistory.current = [{ x: clientX, t: Date.now() }];
 	};
 
 	const handleDragMove = (clientX: number, clientY: number) => {
@@ -333,39 +361,40 @@ function SwipeStep({
 			x: clientX - dragStartPos.current.x,
 			y: clientY - dragStartPos.current.y,
 		});
+		const now = Date.now();
+		velocityHistory.current.push({ x: clientX, t: now });
+		if (velocityHistory.current.length > 5) velocityHistory.current.shift();
 	};
 
 	const handleDragEnd = () => {
 		if (!isDragging || isProcessingSwipe.current) return;
-		const swipeThreshold = 100;
 
-		if (Math.abs(dragOffset.x) > swipeThreshold) {
-			isProcessingSwipe.current = true;
-			setIsDragging(false);
-			setIsExiting(true);
-			const exitDirection = dragOffset.x > 0 ? 1000 : -1000;
-			const isRight = dragOffset.x > 0;
-			const brand = swipeBrands[currentIndex];
+		// Calculate velocity
+		const history = velocityHistory.current;
+		let velocity = 0;
+		if (history.length >= 2) {
+			const first = history[0];
+			const last = history[history.length - 1];
+			const dt = last.t - first.t;
+			if (dt > 0) velocity = (last.x - first.x) / dt;
+		}
 
-			setDragOffset({ x: exitDirection, y: dragOffset.y });
+		const absDistance = Math.abs(dragOffset.x);
+		const absVelocity = Math.abs(velocity);
 
-			if (isRight && brand) {
-				onSwipeRight(brand.id);
-			}
+		const isFlick = absVelocity > FLICK_VELOCITY && absDistance > 20;
+		const isDrag = absDistance > DISTANCE_THRESHOLD;
 
-			setTimeout(() => {
-				setCurrentIndex((prev) => prev + 1);
-				setDragOffset({ x: 0, y: 0 });
-				setIsExiting(false);
-				isProcessingSwipe.current = false;
-			}, 300);
+		if (isFlick || isDrag) {
+			const direction = (velocity !== 0 ? velocity : dragOffset.x) > 0 ? "right" : "left";
+			executeSwipe(direction);
 		} else {
 			setDragOffset({ x: 0, y: 0 });
 			setIsDragging(false);
 		}
 	};
 
-	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => handleDragStart(e.clientX, e.clientY);
+	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => { e.preventDefault(); handleDragStart(e.clientX, e.clientY); };
 	const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => handleDragMove(e.clientX, e.clientY);
 	const handleMouseUp = () => handleDragEnd();
 	const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
@@ -373,7 +402,7 @@ function SwipeStep({
 	const handleTouchEnd = () => handleDragEnd();
 
 	const visibleBrands = swipeBrands.slice(currentIndex, currentIndex + 1);
-	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 150, 0.4);
+	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 120, 0.45);
 
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
@@ -396,28 +425,29 @@ function SwipeStep({
 					<div className="relative w-full h-full">
 						{visibleBrands.map((brand, index) => {
 							const isTopCard = index === 0;
-							const scale = isTopCard ? 1 : 0.92 - (index - 1) * 0.04;
-							const yOffset = index * 12;
-							const opacity = isTopCard ? 1 : 0.15;
+							const scale = isTopCard ? 1 : 0.95;
+							const yOffset = index * 8;
+							const opacity = isTopCard ? 1 : 0.4;
 
-							const rotation = isTopCard ? dragOffset.x * 0.03 : 0;
+							const rotation = isTopCard ? dragOffset.x * 0.06 : 0;
 							const translateX = isTopCard ? dragOffset.x : 0;
-							const translateY = isTopCard ? dragOffset.y * 0.3 : 0;
+							const translateY = isTopCard ? dragOffset.y * 0.15 : 0;
 
 							return (
 								<div
 									key={brand.id}
-									className="absolute inset-0 flex items-center justify-center"
+									className="absolute inset-0 flex items-center justify-center select-none"
 									style={{
 										transform: `translateX(${translateX}px) translateY(${translateY + yOffset}px) scale(${scale}) rotate(${rotation}deg)`,
 										opacity,
 										transition:
 											isTopCard && !isDragging
-												? "transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease"
-												: "transform 0s, opacity 0.3s ease",
+												? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease"
+												: "transform 0s, opacity 0.28s ease",
 										zIndex: visibleBrands.length - index,
 										pointerEvents: isTopCard ? "auto" : "none",
 										touchAction: "none",
+										willChange: "transform",
 									}}
 									onMouseDown={isTopCard ? handleMouseDown : undefined}
 									onMouseMove={isTopCard && isDragging ? handleMouseMove : undefined}
@@ -428,7 +458,7 @@ function SwipeStep({
 									onTouchEnd={isTopCard && isDragging ? handleTouchEnd : undefined}
 								>
 									{/* Swipe tint overlay */}
-									{isTopCard && isDragging && Math.abs(dragOffset.x) > 20 && (
+									{isTopCard && Math.abs(dragOffset.x) > 15 && (
 										<div
 											className="absolute inset-0 flex items-center justify-center rounded-2xl pointer-events-none z-10"
 											style={{
@@ -436,7 +466,6 @@ function SwipeStep({
 													dragOffset.x > 0
 														? `rgba(34, 197, 94, ${tintOpacity})`
 														: `rgba(239, 68, 68, ${tintOpacity})`,
-												transition: "background-color 0.1s ease",
 											}}
 										/>
 									)}
@@ -456,18 +485,18 @@ function SwipeStep({
 							);
 						})}
 
-						{/* STAKED / PASS label */}
-						{isDragging && Math.abs(dragOffset.x) > 50 && (
+						{/* STAK / PASS label */}
+						{Math.abs(dragOffset.x) > 30 && (
 							<div
 								className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"
-								style={{ opacity: Math.min(Math.abs(dragOffset.x) / 120, 1) }}
+								style={{ opacity: Math.min(Math.abs(dragOffset.x) / 80, 1) }}
 							>
 								<div
 									className={`text-4xl font-black px-6 py-4 rounded-2xl border-4 ${
 										dragOffset.x > 0
 											? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
 											: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
-									} shadow-2xl`}
+									} shadow-2xl backdrop-blur-sm`}
 								>
 									{dragOffset.x > 0 ? "STAKED" : "PASS"}
 								</div>
@@ -476,6 +505,8 @@ function SwipeStep({
 					</div>
 				)}
 			</div>
+
+
 
 			{/* Card counter */}
 			{!done && (

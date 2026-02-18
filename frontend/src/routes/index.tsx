@@ -131,6 +131,7 @@ function App() {
 	useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
 		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
+		window.dispatchEvent(new CustomEvent('stak-updated'));
 	}, [swipedBrands]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
