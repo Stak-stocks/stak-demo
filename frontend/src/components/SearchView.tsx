@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
@@ -48,16 +48,21 @@ interface SearchViewProps {
 
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const { user } = useAuth();
+	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<BrandProfile[]>([]);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-	// Load recent searches when opening
+	// Load recent searches and focus input when opening
 	useEffect(() => {
 		if (open) {
 			setRecentSearches(getRecentSearches(user?.uid));
+			// Delay focus so the layout is fully painted first – avoids the mobile
+			// caret rendering outside the input box on open/refresh.
+			const timer = setTimeout(() => inputRef.current?.focus(), 300);
+			return () => clearTimeout(timer);
 		}
 	}, [open, user?.uid]);
 
@@ -140,11 +145,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					<div className="relative mb-8">
 						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500" />
 						<input
+							ref={inputRef}
 							type="text"
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
-							autoFocus
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 						/>
 					</div>
