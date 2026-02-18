@@ -126,7 +126,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	return (
 		<>
-			<div className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 overflow-y-auto">
+			<div
+				className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 overflow-y-auto"
+				style={{ transform: 'translate3d(0,0,0)', WebkitTransform: 'translate3d(0,0,0)' }}
+			>
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 					{/* Header */}
 					<div className="flex items-center gap-4 mb-8">
@@ -142,8 +145,8 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					</div>
 
 					{/* Search Input */}
-					<div className="relative mb-8">
-						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500" />
+					<div className="relative mb-8 overflow-hidden rounded-xl">
+						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500 z-10" />
 						<input
 							ref={inputRef}
 							type="text"
@@ -151,6 +154,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							style={{ WebkitTransform: 'translate3d(0,0,0)' }}
 						/>
 					</div>
 
