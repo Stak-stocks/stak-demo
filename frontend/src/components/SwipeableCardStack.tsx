@@ -377,34 +377,6 @@ export function SwipeableCardStack({
 					</div>
 				)}
 			</div>
-
-			{/* Action buttons */}
-			<div className="flex items-center justify-center gap-8 mt-5">
-				<button
-					type="button"
-					onClick={() => executeSwipe("left")}
-					disabled={isProcessingSwipe.current || hasReachedLimit}
-					className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-500/50 bg-red-500/10 hover:bg-red-500/25 hover:border-red-500 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none"
-					aria-label="Pass"
-				>
-					<ThumbsDown className="w-7 h-7 text-red-400 group-hover:text-red-300 transition-colors" />
-				</button>
-				<button
-					type="button"
-					onClick={() => executeSwipe("right")}
-					disabled={isProcessingSwipe.current || hasReachedLimit}
-					className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-green-500/50 bg-green-500/10 hover:bg-green-500/25 hover:border-green-500 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none"
-					aria-label="Stak it"
-				>
-					<ThumbsUp className="w-7 h-7 text-green-400 group-hover:text-green-300 transition-colors" />
-				</button>
-			</div>
-
-			{/* Daily cards remaining counter */}
-			<div className="mt-3 flex items-center justify-center gap-2 text-sm text-zinc-500">
-				<span className="font-bold text-cyan-400">{remainingCards}</span>
-				<span>cards left today</span>
-			</div>
 		</div>
 	);
 }
