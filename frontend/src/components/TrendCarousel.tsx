@@ -114,7 +114,7 @@ function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: s
 		>
 			<div>
 				<p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-0.5">
-					Impact
+					Direction
 				</p>
 				<p className={`text-xs sm:text-sm font-semibold ${badgeText}`}>
 					{impact}
