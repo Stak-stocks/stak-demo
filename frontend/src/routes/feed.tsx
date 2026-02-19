@@ -126,11 +126,15 @@ function SkeletonCard() {
 function FeedPage() {
 	const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-	const { data, isLoading, isError, refetch, isFetching } = useQuery({
+	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
 		staleTime: 30 * 1000,
 		gcTime: 5 * 60 * 1000,
+		retry: 2,
+		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+		refetchOnWindowFocus: true,
+		refetchOnMount: true,
 	});
 
 	const allArticles: NewsArticle[] = data?.articles ?? [];
