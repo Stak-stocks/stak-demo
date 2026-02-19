@@ -141,7 +141,7 @@ function FeedPage() {
 
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300">
-			<div className="max-w-2xl mx-auto px-4 pt-6 pb-8">
+			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
 				<div className="flex items-center justify-between mb-6">
 					<div>
