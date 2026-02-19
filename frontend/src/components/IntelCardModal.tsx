@@ -19,8 +19,22 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 	return (
 		<dialog
 			open
-			className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
-			style={{ maxWidth: "100%", maxHeight: "100%", width: "100%", height: "100%", border: "none", padding: "1.5rem", margin: 0 }}
+			className="bg-black/70 backdrop-blur-sm"
+			style={{
+				position: "fixed",
+				inset: 0,
+				zIndex: 50,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				width: "100%",
+				height: "100%",
+				maxWidth: "100%",
+				maxHeight: "100%",
+				border: "none",
+				padding: "1.5rem",
+				margin: 0,
+			}}
 			onClick={(e) => { if (e.target === e.currentTarget) onDismiss(); }}
 			onClose={onDismiss}
 		>
