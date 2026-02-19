@@ -7,6 +7,21 @@ import { getCompanyNews } from "@/lib/api";
 const NEWS_PAGE_SIZE = 3;
 const NEWS_MAX = 15;
 
+function TypeBadge({ type }: Readonly<{ type: NewsArticle["type"] }>) {
+	if (type === "company") {
+		return (
+			<span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide bg-cyan-500/15 text-cyan-400 uppercase">
+				Company
+			</span>
+		);
+	}
+	return (
+		<span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide bg-purple-500/15 text-purple-400 uppercase">
+			Sector
+		</span>
+	);
+}
+
 function SentimentBadge({ sentiment }: Readonly<{ sentiment: NewsArticle["sentiment"] }>) {
 	if (sentiment === "bullish") {
 		return (
@@ -112,6 +127,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 						</p>
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2 text-xs text-zinc-500">
+								<TypeBadge type={article.type} />
 								<span>{article.source}</span>
 								<span>·</span>
 								<span>{date}</span>

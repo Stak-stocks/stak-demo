@@ -22,17 +22,31 @@ export interface NewsArticle {
 	explanation: string;
 	whyItMatters: string;
 	sentiment: "bullish" | "bearish" | "neutral";
+	type: "macro" | "sector" | "company";
 }
 
 export interface TrendCard {
 	type: "macro" | "sector" | "company" | "stak";
 	label: string;
-	dominance: string;
+
+	// NEW FORMAT fields (Gemini v3 — synthesis-based)
+	topic?: string;
+	why?: string;
+	impact?: string;
+	synthesis?: string;
+	takeaway?: string;
+
+	// V2 FORMAT fields (Gemini v2 — may appear in cached data)
+	intro?: string;
+	forces?: string[];
+	stockReflects?: string;
+
+	// LEGACY fields (static fallback data in trends.ts)
+	dominance?: string;
 	headline?: string;
-	explanation: string;
+	explanation?: string;
 	pressure?: "Positive Pressure" | "Negative Pressure" | "Volatile / Mixed Pressure";
 	pressureEmoji?: string;
-	takeaway?: string;
 }
 
 export interface BrandProfile {

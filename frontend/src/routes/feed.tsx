@@ -73,7 +73,10 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+						<span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide bg-blue-500/15 text-blue-400 uppercase">
+						Macro
+					</span>
+				<span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
 						{article.source}
 					</span>
 					<span className="text-xs text-zinc-400 dark:text-zinc-500">{date}</span>
