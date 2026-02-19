@@ -44,6 +44,20 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
+// In-memory news cache so repeated reloads return identical articles
+const newsCache = new Map<string, { data: FinnhubArticle[]; expiresAt: number }>();
+const NEWS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getCachedNews(key: string): FinnhubArticle[] | null {
+	const entry = newsCache.get(key);
+	if (entry && entry.expiresAt > Date.now()) return entry.data;
+	return null;
+}
+
+function setCachedNews(key: string, data: FinnhubArticle[]): void {
+	newsCache.set(key, { data, expiresAt: Date.now() + NEWS_CACHE_TTL_MS });
+}
+
 const FINANCIAL_TERMS = [
 	// Core P&L
 	"stock", "share", "shares", "revenue", "earnings", "profit", "loss", "sales",
@@ -156,6 +170,10 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 /** Fetch general market news (IPOs, interest rates, macro events).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
+	const cacheKey = `market:${limit}`;
+	const cached = getCachedNews(cacheKey);
+	if (cached) return cached;
+
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
 
 	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news?category=general&token=${key}`);
@@ -165,7 +183,9 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 	const data: FinnhubArticle[] = await res.json();
 	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
 	filtered.sort((a, b) => b.datetime - a.datetime);
-	return filtered.slice(0, limit);
+	const result = filtered.slice(0, limit);
+	setCachedNews(cacheKey, result);
+	return result;
 }
 
 /**
@@ -220,6 +240,10 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
  *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
+	const cacheKey = `company:${symbol}:${limit}`;
+	const cached = getCachedNews(cacheKey);
+	if (cached) return cached;
+
 	const newsSymbol = resolveNewsSymbol(symbol);
 	const today = new Date().toISOString().split("T")[0];
 	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
@@ -233,13 +257,19 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 		const data: FinnhubArticle[] = await res.json();
 		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
 		filtered.sort((a, b) => b.datetime - a.datetime);
-		if (filtered.length > 0) return filtered.slice(0, limit);
+		if (filtered.length > 0) {
+			const result = filtered.slice(0, limit);
+			setCachedNews(cacheKey, result);
+			return result;
+		}
 	}
 
 	// Finnhub returned nothing (rate-limited, unsupported ticker, or 0 articles) — try NewsAPI
 	if (companyName) {
 		console.info(`Finnhub returned 0 articles for ${symbol} — falling back to NewsAPI for "${companyName}"`);
-		return getNewsApiArticles(companyName, limit);
+		const fallback = await getNewsApiArticles(companyName, limit);
+		if (fallback.length > 0) setCachedNews(cacheKey, fallback);
+		return fallback;
 	}
 
 	return [];
