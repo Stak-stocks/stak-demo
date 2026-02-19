@@ -100,3 +100,28 @@ export function getCompanyNews(symbol: string, name?: string) {
 export function getMarketNews() {
 	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>("/api/news/market");
 }
+
+export interface LiveQuote {
+	price: number;
+	change: number;
+	changePercent: number;
+	high: number;
+	low: number;
+	open: number;
+	prevClose: number;
+}
+
+export interface LiveMetrics {
+	peRatio: number | null;
+	marketCap: string | null;
+	revenueGrowth: string | null;
+	profitMargin: string | null;
+	beta: number | null;
+	dividendYield: string | null;
+	week52High: number | null;
+	week52Low: number | null;
+}
+
+export function getStockData(symbol: string) {
+	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
+}

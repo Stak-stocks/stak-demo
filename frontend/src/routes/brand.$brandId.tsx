@@ -2,13 +2,13 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
 import { StockNewsTab } from "@/components/StockNewsTab";
-import { getLiveTrends } from "@/lib/api";
+import { getLiveTrends, getStockData } from "@/lib/api";
 
 
 export const Route = createFileRoute("/brand/$brandId")({
@@ -19,11 +19,21 @@ function BrandDetailPage() {
 	const { brandId } = Route.useParams();
 	const navigate = useNavigate();
 	const [brand, setBrand] = useState<BrandProfile | null>(null);
-	const { data: liveData, isLoading: trendsLoading } = useQuery({
+
+	const { data: liveData } = useQuery({
 		queryKey: ["trends", brandId],
 		queryFn: () => getLiveTrends(brandId, brand?.ticker ?? "", brand?.name ?? ""),
 		enabled: !!brand,
 		staleTime: 3 * 24 * 60 * 60 * 1000,
+		retry: 1,
+	});
+
+	const { data: stockData, isLoading: stockLoading } = useQuery({
+		queryKey: ["stock", brand?.ticker],
+		queryFn: () => getStockData(brand!.ticker),
+		enabled: !!brand,
+		staleTime: 60 * 1000,
+		refetchInterval: 60 * 1000,
 		retry: 1,
 	});
 
@@ -142,41 +152,72 @@ function BrandDetailPage() {
 
 					<TabsContent value="numbers" className="mt-6">
 						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-							<div className="mb-6">
-								<h2 className="text-2xl font-bold text-pink-400 mb-2">
-									The Numbers
-								</h2>
-								<p className="text-zinc-400 text-sm">
-									Financial metrics explained in plain language
-								</p>
+							<div className="mb-5">
+								<h2 className="text-2xl font-bold text-pink-400 mb-1">The Numbers</h2>
+								<p className="text-zinc-400 text-sm">Financial metrics explained in plain language</p>
 							</div>
 
-							<div className="grid gap-6">
-								{Object.entries(brand.financials).map(([key, metric]) => (
-									<div
-										key={key}
-										className="border-l-4 border-pink-500/50 pl-4 py-2"
-									>
-										<div className="flex items-baseline justify-between mb-1">
-											<h3 className="font-semibold text-white">{metric.label}</h3>
-											<span className="text-2xl font-bold text-pink-400">
-												{metric.value}
-											</span>
-										</div>
-										<p className="text-sm text-zinc-400 mb-2">
-											{metric.explanation}
-										</p>
-										<p className="text-sm text-cyan-400 italic">
-											"{metric.culturalTranslation}"
-										</p>
+							{/* Live price hero */}
+							{stockLoading ? (
+								<div className="mb-6 p-4 bg-[#162036]/60 rounded-xl border border-pink-500/20 animate-pulse">
+									<div className="h-8 w-32 bg-zinc-700/50 rounded mb-2" />
+									<div className="h-4 w-48 bg-zinc-700/50 rounded" />
+								</div>
+							) : stockData?.quote ? (
+								<div className="mb-6 p-4 bg-[#162036]/60 rounded-xl border border-pink-500/20">
+									<div className="flex items-baseline justify-between">
+										<span className="text-3xl font-bold text-white">
+											${stockData.quote.price.toFixed(2)}
+										</span>
+										<span className={`flex items-center gap-1 text-sm font-semibold ${stockData.quote.change >= 0 ? "text-green-400" : "text-red-400"}`}>
+											{stockData.quote.change >= 0
+												? <TrendingUp className="w-4 h-4" />
+												: <TrendingDown className="w-4 h-4" />}
+											{stockData.quote.change >= 0 ? "+" : ""}{stockData.quote.change.toFixed(2)} ({stockData.quote.changePercent.toFixed(2)}%)
+										</span>
 									</div>
-								))}
+									<div className="flex gap-4 mt-2 text-xs text-zinc-500">
+										<span>H {stockData.quote.high.toFixed(2)}</span>
+										<span>L {stockData.quote.low.toFixed(2)}</span>
+										<span>Prev {stockData.quote.prevClose.toFixed(2)}</span>
+										<span className="ml-auto flex items-center gap-1">
+											<span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+											Live
+										</span>
+									</div>
+								</div>
+							) : null}
+
+							{/* Metrics grid */}
+							<div className="grid gap-6">
+								{Object.entries(brand.financials).map(([key, metric]) => {
+									const m = stockData?.metrics;
+									const liveValue: string | null = m
+										? key === "peRatio" ? (m.peRatio != null ? String(m.peRatio) : null)
+										: key === "marketCap" ? m.marketCap
+										: key === "revenueGrowth" ? m.revenueGrowth
+										: key === "profitMargin" ? m.profitMargin
+										: key === "beta" ? (m.beta != null ? String(m.beta) : null)
+										: key === "dividendYield" ? m.dividendYield
+										: null
+										: null;
+									const displayValue = liveValue ?? metric.value;
+									return (
+										<div key={key} className="border-l-4 border-pink-500/50 pl-4 py-2">
+											<div className="flex items-baseline justify-between mb-1">
+												<h3 className="font-semibold text-white">{metric.label}</h3>
+												<span className="text-2xl font-bold text-pink-400">{displayValue}</span>
+											</div>
+											<p className="text-sm text-zinc-400 mb-2">{metric.explanation}</p>
+											<p className="text-sm text-cyan-400 italic">"{metric.culturalTranslation}"</p>
+										</div>
+									);
+								})}
 							</div>
 
 							<div className="mt-6 p-4 bg-[#162036]/50 rounded-lg border border-slate-600/50">
 								<p className="text-xs text-zinc-500 text-center italic">
-									These are real financial metrics, not investment advice. This is
-									for learning, not trading decisions.
+									These are real financial metrics, not investment advice. This is for learning, not trading decisions.
 								</p>
 							</div>
 						</div>
