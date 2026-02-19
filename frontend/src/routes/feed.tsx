@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { getMarketNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
@@ -129,12 +129,12 @@ function FeedPage() {
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
-		staleTime: 2 * 60 * 1000,
-		gcTime: 10 * 60 * 1000,
+		staleTime: 10 * 60 * 1000,
+		gcTime: 15 * 60 * 1000,
+		placeholderData: keepPreviousData,
 		retry: 2,
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
 		refetchOnWindowFocus: false,
-		refetchOnMount: "always",
 	});
 
 	// Shuffle articles so each page load shows a different order
