@@ -118,7 +118,7 @@ COMPANY card (about ${brandName} ONLY):
 STAK card:
 {
   "type": "stak",
-  "label": "STAK SYNTHESIS: THE BIG PICTURE",
+  "label": "STAK INSIGHT",
   "synthesis": "<3-4 sentences weighing the macro, sector, and company forces against each other to explain the current stock price reality. Be direct and honest.>",
   "takeaway": "<2 sentences framing the psychological or strategic decision the investor has to make. Example: 'This is a clash between short-term cost and long-term vision. Your next move depends on which horizon you trust more.'>",
   "impact": "<📈 Positive Pressure | 📉 Negative Pressure | 📊 Volatile / Mixed Pressure>"
@@ -140,7 +140,7 @@ export async function getTrends(
 	brandName: string,
 ): Promise<TrendCard[]> {
 	// Check Firestore cache first (v3 collection)
-	const doc = await adminDb.collection("trends_v4").doc(brandId).get();
+	const doc = await adminDb.collection("trends_v5").doc(brandId).get();
 	if (doc.exists) {
 		const data = doc.data()!;
 		const age = Date.now() - data.generatedAt.toMillis();
@@ -157,7 +157,7 @@ export async function getTrends(
 
 	// Persist to Firestore (fire-and-forget — don't block response)
 	adminDb
-		.collection("trends_v4")
+		.collection("trends_v5")
 		.doc(brandId)
 		.set({ cards, ticker, generatedAt: new Date() })
 		.catch((err) => console.error("Failed to cache trends:", err));

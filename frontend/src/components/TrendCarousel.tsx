@@ -141,7 +141,6 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 				)}
 
 				<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed flex-1">
-					<span className="font-bold text-white">The Why:&nbsp;</span>
 					{card.why}
 				</p>
 
@@ -164,7 +163,6 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			)}
 
 			<p className="text-zinc-300 text-xs sm:text-[15px] leading-relaxed flex-1">
-				<span className="font-bold text-white">The Why:&nbsp;</span>
 				{card.explanation}
 			</p>
 
