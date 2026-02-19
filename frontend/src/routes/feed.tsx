@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
 import { getMarketNews, searchNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
@@ -131,16 +131,16 @@ function FeedPage() {
 
 	const isSearching = activeQuery.length >= 2;
 
-	// Market feed query
+	// Market feed query — no caching so each refresh gets fresh articles
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
-		staleTime: 10 * 60 * 1000,
-		gcTime: 15 * 60 * 1000,
-		placeholderData: keepPreviousData,
+		staleTime: 0,
+		gcTime: 0,
 		retry: 2,
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
 		refetchOnWindowFocus: false,
+		refetchOnMount: "always",
 	});
 
 	// Search query — only fires when activeQuery is set
@@ -152,9 +152,14 @@ function FeedPage() {
 		retry: 1,
 	});
 
+	// Shuffle articles so each page load shows a different order
 	const allArticles: NewsArticle[] = useMemo(() => {
 		const articles = [...(data?.articles ?? [])];
-		return articles.sort((a, b) => b.datetime - a.datetime);
+		for (let i = articles.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[articles[i], articles[j]] = [articles[j], articles[i]];
+		}
+		return articles;
 	}, [data]);
 	const visibleArticles = allArticles.slice(0, visibleCount);
 	const canLoadMore = visibleCount < allArticles.length && visibleCount < MAX_ARTICLES;

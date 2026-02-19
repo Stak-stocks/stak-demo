@@ -44,7 +44,7 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
-// In-memory news cache so repeated reloads return identical articles
+// In-memory news cache so repeated reloads don't spam Finnhub
 const newsCache = new Map<string, { data: FinnhubArticle[]; expiresAt: number }>();
 const NEWS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -56,6 +56,16 @@ function getCachedNews(key: string): FinnhubArticle[] | null {
 
 function setCachedNews(key: string, data: FinnhubArticle[]): void {
 	newsCache.set(key, { data, expiresAt: Date.now() + NEWS_CACHE_TTL_MS });
+}
+
+/** Fisher-Yates shuffle — returns a new shuffled copy */
+function shuffle<T>(arr: T[]): T[] {
+	const copy = [...arr];
+	for (let i = copy.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[copy[i], copy[j]] = [copy[j], copy[i]];
+	}
+	return copy;
 }
 
 const FINANCIAL_TERMS = [
@@ -185,7 +195,7 @@ function isFinanciallyRelevant(article: FinnhubArticle): boolean {
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 	const cacheKey = `market:${limit}`;
 	const cached = getCachedNews(cacheKey);
-	if (cached) return cached;
+	if (cached) return shuffle(cached).slice(0, limit);
 
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
 
@@ -195,10 +205,9 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 
 	const data: FinnhubArticle[] = await res.json();
 	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
-	filtered.sort((a, b) => b.datetime - a.datetime);
-	const result = filtered.slice(0, limit);
-	setCachedNews(cacheKey, result);
-	return result;
+	// Cache ALL filtered articles (not just `limit`), so shuffling draws from the full pool
+	setCachedNews(cacheKey, filtered);
+	return shuffle(filtered).slice(0, limit);
 }
 
 /**
