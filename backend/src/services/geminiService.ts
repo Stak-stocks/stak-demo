@@ -16,7 +16,7 @@ export interface SimplifiedArticle {
 // Simple in-memory cache: key → { data, expiresAt }
 const cache = new Map<string, { data: SimplifiedArticle[]; expiresAt: number }>();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 8;
 
 function getCacheKey(articles: FinnhubArticle[]): string {
 	return articles.map((a) => String(a.id || a.headline)).join("|");
@@ -33,12 +33,55 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Call Gemini for a single batch of up to BATCH_SIZE articles */
-async function simplifyBatch(
-	articles: FinnhubArticle[],
-): Promise<{ explanation: string; whyItMatters: string; sentiment: string }[]> {
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+function getGeminiKeys(): string[] {
+	return [
+		process.env.GEMINI_API_KEY,
+		process.env.GEMINI_API_KEY_2,
+		process.env.GEMINI_API_KEY_3,
+	].filter((k): k is string => !!k);
+}
+
+type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
+
+/** Try one Gemini key with one retry on 429. Returns parsed results or null if rate-limited. */
+async function trySimplifyKey(key: string, prompt: string, count: number): Promise<SimplifyResult[] | null> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		if (attempt > 0) await sleep(2000);
+
+		const res = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
+				}),
+			},
+		);
+
+		if (res.status === 429) continue;
+		if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+		const geminiData = await res.json();
+		const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+		try {
+			return JSON.parse(rawText);
+		} catch {
+			return Array.from({ length: count }, () => ({
+				explanation: "Could not simplify this article.",
+				whyItMatters: "Check the original source for details.",
+				sentiment: "neutral",
+			}));
+		}
+	}
+	return null;
+}
+
+/** Call Gemini for a single batch of up to BATCH_SIZE articles, rotating keys on 429 */
+async function simplifyBatch(articles: FinnhubArticle[]): Promise<SimplifyResult[]> {
+	const keys = getGeminiKeys();
+	if (keys.length === 0) throw new Error("No GEMINI_API_KEY configured");
 
 	const prompt = `You are a financial news assistant for beginner investors aged 18-25.
 
@@ -59,47 +102,17 @@ ${articles.map((a, i) => `${i + 1}. Title: ${a.headline}\nSummary: ${a.summary}`
 
 Return ONLY valid JSON, no markdown, no extra text.`;
 
-	for (let attempt = 0; attempt < 4; attempt++) {
-		if (attempt > 0) await sleep(2 ** attempt * 1000); // 2s, 4s, 8s
-
-		const res = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: {
-						temperature: 0.3,
-						responseMimeType: "application/json",
-					},
-				}),
-			},
-		);
-
-		if (res.status === 429) continue;
-
-		if (!res.ok) {
-			const err = await res.text();
-			throw new Error(`Gemini error ${res.status}: ${err}`);
-		}
-
-		const geminiData = await res.json();
-		const rawText: string =
-			geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-
-		try {
-			return JSON.parse(rawText);
-		} catch {
-			return articles.map(() => ({
-				explanation: "Could not simplify this article.",
-				whyItMatters: "Check the original source for details.",
-				sentiment: "neutral",
-			}));
-		}
+	for (const key of keys) {
+		const result = await trySimplifyKey(key, prompt, articles.length);
+		if (result !== null) return result;
 	}
 
-	throw new Error("Gemini rate limited after 4 attempts");
+	// All keys exhausted — return raw summaries rather than failing
+	return articles.map((a) => ({
+		explanation: a.summary,
+		whyItMatters: "Read the full article for more context.",
+		sentiment: "neutral",
+	}));
 }
 
 /** Simplify all articles, processing them in sequential batches of BATCH_SIZE.
@@ -116,14 +129,10 @@ export async function simplifyArticles(
 		return cached.data;
 	}
 
-	// Process batches sequentially to avoid rate-limit issues
+	// Process batches in parallel for speed
 	const batches = chunk(articles, BATCH_SIZE);
-	const simplified: { explanation: string; whyItMatters: string; sentiment: string }[] = [];
-
-	for (const batch of batches) {
-		const results = await simplifyBatch(batch);
-		simplified.push(...results);
-	}
+	const batchResults = await Promise.all(batches.map((batch) => simplifyBatch(batch)));
+	const simplified = batchResults.flat();
 
 	const result: SimplifiedArticle[] = articles.map((article, i) => {
 		const s = simplified[i] ?? {
