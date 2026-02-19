@@ -41,6 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+			// If a different user logged in, clear their stale swipe count
+			if (firebaseUser) {
+				const lastUid = localStorage.getItem("last-user-uid");
+				if (lastUid && lastUid !== firebaseUser.uid) {
+					localStorage.removeItem("daily-swipe-state");
+				}
+				localStorage.setItem("last-user-uid", firebaseUser.uid);
+			}
+
 			setUser(firebaseUser);
 			if (firebaseUser) {
 				// Fetch profile BEFORE setting loading=false so onboarding
