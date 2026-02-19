@@ -29,12 +29,17 @@ export interface TrendCard {
 	type: "macro" | "sector" | "company" | "stak";
 	label: string;
 
-	// NEW FORMAT fields (Gemini-generated)
+	// NEW FORMAT fields (Gemini v3 — synthesis-based)
 	topic?: string;
 	why?: string;
 	impact?: string;
 	synthesis?: string;
 	takeaway?: string;
+
+	// V2 FORMAT fields (Gemini v2 — may appear in cached data)
+	intro?: string;
+	forces?: string[];
+	stockReflects?: string;
 
 	// LEGACY fields (static fallback data in trends.ts)
 	dominance?: string;

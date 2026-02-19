@@ -192,7 +192,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 function StakInsightCard({ card }: { card: TrendCard }) {
 	const c = COLOR_MAP.stak;
 
-	/* NEW FORMAT — has `synthesis` field */
+	/* NEW FORMAT (v3) — has `synthesis` field */
 	if (card.synthesis) {
 		return (
 			<GlassCard type="stak">
@@ -216,6 +216,65 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 
 				{card.impact && (
 					<ImpactFooter impact={card.impact} badgeText={c.badgeText} rgb={c.rgb} />
+				)}
+			</GlassCard>
+		);
+	}
+
+	/* V2 FORMAT — cached data with intro + forces fields */
+	if (card.intro ?? card.forces) {
+		// Replace "[N]" placeholders (e.g. "[3]") with "these"
+		const cleanIntro = card.intro?.replace(/\[\d+\]/g, "these") ?? "";
+		// Strip leading "• " that Gemini added inside each force string
+		const cleanForces = (card.forces ?? []).map((f) => f.replace(/^[•·]\s*/, "").trim());
+
+		return (
+			<GlassCard type="stak">
+				<Badge type="stak" label={card.label} />
+
+				<div className="flex flex-col gap-3 mt-1 flex-1">
+					{cleanIntro && (
+						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							{cleanIntro}
+						</p>
+					)}
+
+					{cleanForces.length > 0 && (
+						<ul className="space-y-1.5">
+							{cleanForces.map((force, i) => (
+								<li key={i} className="flex items-start gap-2">
+									<span className="text-amber-400 font-bold mt-0.5 shrink-0">•</span>
+									<span className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">{force}</span>
+								</li>
+							))}
+						</ul>
+					)}
+
+					{card.stockReflects && (
+						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							{card.stockReflects}
+						</p>
+					)}
+
+					{card.takeaway && (
+						<div
+							className="pt-3"
+							style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
+						>
+							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
+								<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+								{card.takeaway}
+							</p>
+						</div>
+					)}
+				</div>
+
+				{(card.impact ?? card.pressure) && (
+					<ImpactFooter
+						impact={card.impact ?? card.pressure ?? ""}
+						badgeText={c.badgeText}
+						rgb={c.rgb}
+					/>
 				)}
 			</GlassCard>
 		);
