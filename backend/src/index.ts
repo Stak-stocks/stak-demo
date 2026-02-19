@@ -7,6 +7,7 @@ import { meRouter } from "./routes/me.js";
 import { newsRouter } from "./routes/news.js";
 import { trendsRouter } from "./routes/trends.js";
 import { stockRouter } from "./routes/stock.js";
+import { intelCardsRouter } from "./routes/intelCards.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use("/api/me", meRouter);
 app.use("/api/news", newsRouter);
 app.use("/api/trends", trendsRouter);
 app.use("/api/stock", stockRouter);
+app.use("/api/intel-cards", intelCardsRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

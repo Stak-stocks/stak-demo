@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
+import { IntelCardModal } from "@/components/IntelCardModal";
+import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands } from "@/lib/api";
+import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -41,6 +44,50 @@ export const Route = createFileRoute("/")({
 function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+
+	// Fetch AI-generated intel cards (falls back to hardcoded set)
+	const { data: intelCardsData } = useQuery({
+		queryKey: ["intel-cards"],
+		queryFn: getIntelCards,
+		staleTime: 7 * 24 * 60 * 60 * 1000,
+		gcTime: 7 * 24 * 60 * 60 * 1000,
+		retry: 1,
+	});
+	const allIntelCards: IntelCard[] = useMemo(
+		() => intelCardsData?.cards ?? INTEL_CARDS,
+		[intelCardsData],
+	);
+
+	// Shuffled queue — persisted in localStorage so no card repeats until all seen
+	const intelQueue = useRef<string[]>([]);
+	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
+	const swipesSinceIntel = useRef(0);
+
+	// Load or initialise the queue from localStorage
+	useEffect(() => {
+		if (allIntelCards.length === 0) return;
+		const saved = localStorage.getItem("intel-card-queue");
+		const remaining: string[] = saved ? JSON.parse(saved) : [];
+		// If queue is empty (first time or fully exhausted), build a new shuffled one
+		if (remaining.length === 0) {
+			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
+		} else {
+			intelQueue.current = remaining;
+		}
+	}, [allIntelCards]);
+
+	// Seed local state from Firestore on mount so queue stays in sync across devices
+	useEffect(() => {
+		getIntelState()
+			.then(({ lastDate, queue }) => {
+				if (lastDate) localStorage.setItem("intel-card-last-date", lastDate);
+				if (queue.length > 0) {
+					localStorage.setItem("intel-card-queue", JSON.stringify(queue));
+					intelQueue.current = queue;
+				}
+			})
+			.catch(() => {}); // Not authenticated or offline — local state persists
+	}, []);
 
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
 		const saved = localStorage.getItem("my-stak");
@@ -131,8 +178,33 @@ function App() {
 	useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
 		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
-		window.dispatchEvent(new CustomEvent('stak-updated'));
+		globalThis.dispatchEvent(new CustomEvent('stak-updated'));
 	}, [swipedBrands]);
+
+	const handleSwipe = useCallback(() => {
+		// Trigger after every 5th swipe, but at most once per day
+		swipesSinceIntel.current += 1;
+		if (swipesSinceIntel.current < 5) return;
+		swipesSinceIntel.current = 0;
+
+		const today = new Date().toISOString().split("T")[0];
+		if (localStorage.getItem("intel-card-last-date") === today) return;
+		localStorage.setItem("intel-card-last-date", today);
+
+		// If queue exhausted, reshuffle all cards into a new random order
+		if (intelQueue.current.length === 0) {
+			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
+		}
+
+		const nextId = intelQueue.current.shift()!;
+		localStorage.setItem("intel-card-queue", JSON.stringify(intelQueue.current));
+
+		// Persist to Firestore so other devices stay in sync
+		saveIntelState(today, intelQueue.current).catch(() => {});
+
+		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
+		setActiveIntelCard(card);
+	}, [allIntelCards]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
@@ -224,6 +296,7 @@ function App() {
 					onLearnMore={handleLearnMore}
 					onSwipeRight={handleSwipeRight}
 					onSwipeLeft={handleSwipeLeft}
+					onSwipe={handleSwipe}
 				/>
 			</div>
 
@@ -233,6 +306,13 @@ function App() {
 				onClose={handleCloseModal}
 				onAddToStak={handleSwipeRight}
 			/>
+
+			{activeIntelCard && (
+				<IntelCardModal
+					card={activeIntelCard}
+					onDismiss={() => setActiveIntelCard(null)}
+				/>
+			)}
 
 			{/* Swap Picker Sheet - shown when Stak is full */}
 			<Sheet open={swapPickerOpen} onOpenChange={(open) => !open && handleCancelSwap()}>

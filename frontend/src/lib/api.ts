@@ -107,6 +107,21 @@ export function searchNews(query: string) {
 	);
 }
 
+export function getIntelCards() {
+	return apiRequest<{ cards: import("@/data/intelCards").IntelCard[] | null }>("/api/intel-cards");
+}
+
+export function getIntelState() {
+	return apiRequest<{ lastDate: string; queue: string[] }>("/api/me/intel-state");
+}
+
+export function saveIntelState(lastDate: string, queue: string[]) {
+	return apiRequest("/api/me/intel-state", {
+		method: "PUT",
+		body: JSON.stringify({ lastDate, queue }),
+	});
+}
+
 export interface LiveQuote {
 	price: number;
 	change: number;
