@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { IntelCard } from "@/data/intelCards";
 
 interface IntelCardModalProps {
@@ -16,14 +17,14 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 		};
 	}, []);
 
-	return (
+	return createPortal(
 		<dialog
 			open
 			className="bg-black/70 backdrop-blur-sm"
 			style={{
 				position: "fixed",
 				inset: 0,
-				zIndex: 50,
+				zIndex: 9999,
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
@@ -35,12 +36,18 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 				padding: "1.5rem",
 				margin: 0,
 			}}
-			onClick={(e) => { if (e.target === e.currentTarget) onDismiss(); }}
 			onClose={onDismiss}
 		>
+			{/* Backdrop click area */}
+			<div
+				aria-hidden="true"
+				style={{ position: "fixed", inset: 0, zIndex: 0 }}
+				onClick={onDismiss}
+			/>
 			<div
 				className="relative w-full max-w-sm rounded-2xl p-7 text-center"
 				style={{
+					zIndex: 1,
 					background: "linear-gradient(160deg, #0d1b35 0%, #0a1628 100%)",
 					border: "1px solid rgba(6, 182, 212, 0.35)",
 					boxShadow: "0 0 40px rgba(6, 182, 212, 0.15), 0 20px 60px rgba(0,0,0,0.5)",
@@ -86,6 +93,7 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 					Got It
 				</button>
 			</div>
-		</dialog>
+		</dialog>,
+		document.body,
 	);
 }
