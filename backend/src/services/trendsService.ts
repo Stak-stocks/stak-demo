@@ -48,7 +48,7 @@ Generate exactly 4 trend analysis cards as a JSON array in this exact order:
 
 1. MACRO card (type: "macro") — a macroeconomic force currently affecting this stock (interest rates, inflation, government policy, global events)
 2. SECTOR card (type: "sector") — an industry or sector dynamic affecting this stock
-3. COMPANY card (type: "company") — a company-specific development, ideally from the headlines above
+3. COMPANY card (type: "company") — a development specific to ${brandName} (${ticker}) ONLY. NEVER write this card about a competitor or any other company. If the headlines mention competitors, use those for sector context instead. This card must be exclusively about ${brandName}.
 4. STAK INSIGHT card (type: "stak") — how all three forces interact
 
 ---
@@ -77,12 +77,12 @@ SECTOR card format:
   "pressureEmoji": "<📈 | 📉 | 📊>"
 }
 
-COMPANY card format:
+COMPANY card format (MUST be about ${brandName} only — not competitors):
 {
   "type": "company",
   "label": "COMPANY TREND",
-  "topic": "<topic title, max 6 words — ideally from the headlines>",
-  "situation": "<1-2 sentences: what happened at the company level>",
+  "topic": "<topic title about ${brandName}, max 6 words>",
+  "situation": "<1-2 sentences: what happened specifically at ${brandName}>",
   "whyItMatters": "<1-2 sentences: why this matters for investors>",
   "shortTermEffect": "<1 sentence: short-term impact on the stock>",
   "longTermQuestion": "<1 sentence ending with a question mark: the big unknown>",
