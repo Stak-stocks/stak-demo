@@ -129,12 +129,12 @@ function FeedPage() {
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
-		staleTime: 30 * 1000,
-		gcTime: 5 * 60 * 1000,
+		staleTime: 0,
+		gcTime: 0,
 		retry: 2,
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
-		refetchOnWindowFocus: true,
-		refetchOnMount: true,
+		refetchOnWindowFocus: false,
+		refetchOnMount: "always",
 	});
 
 	const allArticles: NewsArticle[] = data?.articles ?? [];

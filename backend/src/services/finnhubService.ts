@@ -44,6 +44,15 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Fisher-Yates shuffle — mutates array in place and returns it */
+function shuffle<T>(arr: T[]): T[] {
+	for (let i = arr.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[arr[i], arr[j]] = [arr[j], arr[i]];
+	}
+	return arr;
+}
+
 const FINANCIAL_TERMS = [
 	// Core P&L
 	"stock", "share", "shares", "revenue", "earnings", "profit", "loss", "sales",
@@ -163,9 +172,8 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
-	return data
-		.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a))
-		.slice(0, limit);
+	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
+	return shuffle(filtered).slice(0, limit);
 }
 
 /**
