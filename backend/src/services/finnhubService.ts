@@ -44,15 +44,6 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Fisher-Yates shuffle — mutates array in place and returns it */
-function shuffle<T>(arr: T[]): T[] {
-	for (let i = arr.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[arr[i], arr[j]] = [arr[j], arr[i]];
-	}
-	return arr;
-}
-
 const FINANCIAL_TERMS = [
 	// Core P&L
 	"stock", "share", "shares", "revenue", "earnings", "profit", "loss", "sales",
@@ -173,7 +164,8 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 
 	const data: FinnhubArticle[] = await res.json();
 	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
-	return filtered.sort((a, b) => b.datetime - a.datetime).slice(0, limit);
+	filtered.sort((a, b) => b.datetime - a.datetime);
+	return filtered.slice(0, limit);
 }
 
 /**
@@ -239,8 +231,9 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	if (res) {
 		if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 		const data: FinnhubArticle[] = await res.json();
-		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a)).slice(0, limit);
-		if (filtered.length > 0) return filtered;
+		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
+		filtered.sort((a, b) => b.datetime - a.datetime);
+		if (filtered.length > 0) return filtered.slice(0, limit);
 	}
 
 	// Finnhub returned nothing (rate-limited, unsupported ticker, or 0 articles) — try NewsAPI

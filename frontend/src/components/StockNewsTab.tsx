@@ -122,7 +122,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["company-news", ticker],
 		queryFn: () => getCompanyNews(ticker, name),
-		staleTime: 5 * 60 * 1000,
+		staleTime: 2 * 60 * 1000,
 		gcTime: 10 * 60 * 1000,
 	});
 
