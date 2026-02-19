@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { NewsArticle } from "@/data/brands";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
@@ -58,6 +58,64 @@ function formatArticleDate(datetime: number): string {
 	return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function ArticleCard({ article, index }: Readonly<{ article: NewsArticle; index: number }>) {
+	const [expanded, setExpanded] = useState(false);
+	const [isClamped, setIsClamped] = useState(false);
+	const textRef = useRef<HTMLParagraphElement>(null);
+	const date = formatArticleDate(article.datetime);
+
+	useEffect(() => {
+		const el = textRef.current;
+		if (el) setIsClamped(el.scrollHeight > el.clientHeight);
+	}, []);
+
+	return (
+		<a
+			key={`${article.datetime}-${index}`}
+			href={article.url}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="block border-l-4 border-slate-600/50 hover:border-orange-500/50 pl-4 py-3 transition-all group"
+		>
+			<div className="flex items-start justify-between gap-3 mb-1.5">
+				<h3 className="font-semibold text-white leading-tight text-sm group-hover:text-orange-400 transition-colors line-clamp-2">
+					{article.headline}
+				</h3>
+				<div className="shrink-0 mt-0.5">
+					<SentimentBadge sentiment={article.sentiment} />
+				</div>
+			</div>
+			<p ref={textRef} className={`text-xs text-zinc-400 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
+				{article.explanation}
+			</p>
+			{(isClamped || expanded) && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						setExpanded((v) => !v);
+					}}
+					className="text-xs text-orange-400 hover:text-orange-300 transition-colors mt-0.5 mb-2"
+				>
+					{expanded ? "Show less" : "Read more"}
+				</button>
+			)}
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-2 text-xs text-zinc-500">
+					<TypeBadge type={article.type} />
+					<span>{article.source}</span>
+					<span>·</span>
+					<span>{date}</span>
+				</div>
+				<div className="flex items-center gap-1 text-xs text-zinc-500 group-hover:text-orange-400 transition-colors">
+					<ExternalLink className="w-3 h-3" />
+				</div>
+			</div>
+		</a>
+	);
+}
+
 export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: string }>) {
 	const [visibleCount, setVisibleCount] = useState(NEWS_PAGE_SIZE);
 
@@ -104,41 +162,9 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 
 	return (
 		<div className="space-y-3">
-			{visibleArticles.map((article, i) => {
-				const date = formatArticleDate(article.datetime);
-				return (
-					<a
-						key={`${article.datetime}-${i}`}
-						href={article.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="block border-l-4 border-slate-600/50 hover:border-orange-500/50 pl-4 py-3 transition-all group"
-					>
-						<div className="flex items-start justify-between gap-3 mb-1.5">
-							<h3 className="font-semibold text-white leading-tight text-sm group-hover:text-orange-400 transition-colors line-clamp-2">
-								{article.headline}
-							</h3>
-							<div className="shrink-0 mt-0.5">
-								<SentimentBadge sentiment={article.sentiment} />
-							</div>
-						</div>
-						<p className="text-xs text-zinc-400 leading-relaxed mb-2 line-clamp-2">
-							{article.explanation}
-						</p>
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-2 text-xs text-zinc-500">
-								<TypeBadge type={article.type} />
-								<span>{article.source}</span>
-								<span>·</span>
-								<span>{date}</span>
-							</div>
-							<div className="flex items-center gap-1 text-xs text-zinc-500 group-hover:text-orange-400 transition-colors">
-								<ExternalLink className="w-3 h-3" />
-							</div>
-						</div>
-					</a>
-				);
-			})}
+			{visibleArticles.map((article, i) => (
+				<ArticleCard key={`${article.datetime}-${i}`} article={article} index={i} />
+			))}
 
 			{canLoadMore && (
 				<button
