@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getMarketNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
-import { ExternalLink, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -137,31 +137,15 @@ function FeedPage() {
 	const visibleArticles = allArticles.slice(0, visibleCount);
 	const canLoadMore = visibleCount < allArticles.length && visibleCount < MAX_ARTICLES;
 
-	const handleRefresh = () => {
-		setVisibleCount(PAGE_SIZE);
-		refetch();
-	};
-
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300">
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
-				<div className="flex items-center justify-between mb-6">
-					<div>
-						<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
-						<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-							Simplified for you by AI · last 7 days
-						</p>
-					</div>
-					<button
-						type="button"
-						onClick={handleRefresh}
-						disabled={isFetching}
-						className="p-2 rounded-full text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-						aria-label="Refresh news"
-					>
-						<RefreshCw className={`w-5 h-5 ${isFetching ? "animate-spin" : ""}`} />
-					</button>
+				<div className="mb-6">
+					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
+					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+						Simplified for you by AI · last 7 days
+					</p>
 				</div>
 
 				{/* Loading skeletons */}
@@ -179,15 +163,8 @@ function FeedPage() {
 							Couldn't load news
 						</h3>
 						<p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-xs">
-							Something went wrong fetching the latest market news.
+							Something went wrong fetching the latest market news. Refresh the page to try again.
 						</p>
-						<button
-							type="button"
-							onClick={handleRefresh}
-							className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
-						>
-							Try Again
-						</button>
 					</div>
 				)}
 
