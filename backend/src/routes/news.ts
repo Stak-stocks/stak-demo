@@ -22,7 +22,8 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 	try {
 		const { symbol } = req.params;
 		const ticker = symbol.toUpperCase();
-		const articles = await getCompanyNews(ticker);
+		const companyName = req.query.name as string | undefined;
+		const articles = await getCompanyNews(ticker, 15, companyName);
 
 		if (articles.length === 0) {
 			res.json({ articles: [] });

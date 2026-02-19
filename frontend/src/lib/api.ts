@@ -92,8 +92,9 @@ export function getLiveTrends(brandId: string, ticker: string, name: string) {
 }
 
 // News
-export function getCompanyNews(symbol: string) {
-	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(`/api/news/company/${symbol}`);
+export function getCompanyNews(symbol: string, name?: string) {
+	const query = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(`/api/news/company/${symbol}${query}`);
 }
 
 export function getMarketNews() {
