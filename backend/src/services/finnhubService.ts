@@ -168,14 +168,31 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 		.slice(0, limit);
 }
 
+/**
+ * Some brands in the app use non-US tickers (Euronext, TSE, etc.) that
+ * Finnhub free-tier doesn't support for company news.
+ * Map them to their US ADR equivalents so news still loads.
+ */
+const ADR_MAP: Record<string, string> = {
+	OR: "LRLCY",    // L'Oreal → ADR
+	EL: "EL",       // Estée Lauder is already NYSE-listed
+	ASML: "ASML",   // ASML trades on Nasdaq (fine as-is)
+	TSM: "TSM",     // TSMC trades on NYSE (fine as-is)
+};
+
+function resolveNewsSymbol(symbol: string): string {
+	return ADR_MAP[symbol.toUpperCase()] ?? symbol;
+}
+
 /** Fetch company-specific news for a given ticker symbol.
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15): Promise<FinnhubArticle[]> {
+	const newsSymbol = resolveNewsSymbol(symbol);
 	const today = new Date().toISOString().split("T")[0];
 	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
 
 	const res = await finnhubFetch(
-		(key) => `${FINNHUB_BASE}/company-news?symbol=${symbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
+		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
 	);
 	if (!res) return []; // all keys rate-limited
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
