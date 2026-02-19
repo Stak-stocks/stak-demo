@@ -225,8 +225,10 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 	if (card.intro ?? card.forces) {
 		// Replace "[N]" placeholders (e.g. "[3]") with "these"
 		const cleanIntro = card.intro?.replace(/\[\d+\]/g, "these") ?? "";
-		// Strip leading "• " that Gemini added inside each force string
-		const cleanForces = (card.forces ?? []).map((f) => f.replace(/^[•·]\s*/, "").trim());
+		// Strip leading "• " or "bullet: " that Gemini sometimes adds
+		const cleanForces = (card.forces ?? []).map((f) =>
+			f.replace(/^(bullet:\s*|[•·]\s*)/i, "").trim()
+		);
 
 		return (
 			<GlassCard type="stak">
