@@ -4,14 +4,14 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
-import { Sparkles, Search, TrendingUp, Newspaper, Activity, X } from "lucide-react";
+import { Sparkles, Search, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
@@ -54,6 +54,16 @@ function MyStakPage() {
 		enabled: !!selectedBrand,
 		staleTime: 3 * 24 * 60 * 60 * 1000,
 		retry: 1,
+	});
+
+	const { data: stockData, isLoading: stockLoading } = useQuery({
+		queryKey: ["stock", selectedBrand?.ticker],
+		queryFn: () => getStockData(selectedBrand!.ticker),
+		enabled: !!selectedBrand,
+		staleTime: 60 * 1000,
+		refetchInterval: 60 * 1000,
+		retry: 3,
+		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 	});
 
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
@@ -231,8 +241,29 @@ function MyStakPage() {
 									</p>
 								</div>
 
+								{/* Live price hero */}
+								{stockLoading && !stockData ? (
+									<div className="mb-4 sm:mb-6 rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 animate-pulse">
+										<div className="h-8 w-32 bg-slate-700 rounded mb-2" />
+										<div className="h-4 w-20 bg-slate-700 rounded" />
+									</div>
+								) : stockData?.quote ? (
+									<div className="mb-4 sm:mb-6 rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 flex items-center justify-between">
+										<div>
+											<p className="text-xs text-zinc-400 mb-1">Current Price Per Share</p>
+											<p className="text-3xl font-bold text-white">${stockData.quote.price.toFixed(2)}</p>
+										</div>
+										<div className={`flex items-center gap-1 text-sm font-semibold ${stockData.quote.changePercent >= 0 ? "text-green-400" : "text-red-400"}`}>
+											{stockData.quote.changePercent >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+											{stockData.quote.changePercent >= 0 ? "+" : ""}{stockData.quote.changePercent.toFixed(2)}%
+										</div>
+									</div>
+								) : null}
+
 								<div className="grid gap-4 sm:gap-6">
-									{Object.entries(selectedBrand.financials).map(([key, metric]) => (
+									{Object.entries(selectedBrand.financials).map(([key, metric]) => {
+										const liveVal = (stockData?.metrics as Record<string, string> | undefined)?.[key];
+										return (
 										<div
 											key={key}
 											className="border-l-4 border-pink-500/50 pl-3 sm:pl-4 py-2"
@@ -240,7 +271,7 @@ function MyStakPage() {
 											<div className="flex items-baseline justify-between mb-1">
 												<h3 className="font-semibold text-white text-sm sm:text-base">{metric.label}</h3>
 												<span className="text-xl sm:text-2xl font-bold text-pink-400">
-													{metric.value}
+													{liveVal ?? metric.value}
 												</span>
 											</div>
 											<p className="text-xs sm:text-sm text-zinc-400 mb-2">
@@ -250,7 +281,8 @@ function MyStakPage() {
 												"{metric.culturalTranslation}"
 											</p>
 										</div>
-									))}
+										);
+									})}
 								</div>
 							</div>
 						</TabsContent>

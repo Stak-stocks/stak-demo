@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { ChevronLeft, TrendingUp, TrendingDown } from "lucide-react";
@@ -18,11 +17,13 @@ export const Route = createFileRoute("/brand/$brandId")({
 function BrandDetailPage() {
 	const { brandId } = Route.useParams();
 	const navigate = useNavigate();
-	const [brand, setBrand] = useState<BrandProfile | null>(null);
+
+	// Synchronous lookup — no useState/useEffect needed
+	const brand: BrandProfile | null = brands.find((b) => b.id === brandId) ?? null;
 
 	const { data: liveData } = useQuery({
 		queryKey: ["trends", brandId],
-		queryFn: () => getLiveTrends(brandId, brand?.ticker ?? "", brand?.name ?? ""),
+		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
 		staleTime: 3 * 24 * 60 * 60 * 1000,
 		retry: 1,
@@ -34,13 +35,9 @@ function BrandDetailPage() {
 		enabled: !!brand,
 		staleTime: 60 * 1000,
 		refetchInterval: 60 * 1000,
-		retry: 1,
+		retry: 3,
+		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 	});
-
-	useEffect(() => {
-		const foundBrand = brands.find((b) => b.id === brandId);
-		setBrand(foundBrand || null);
-	}, [brandId]);
 
 	const handleClose = () => {
 		navigate({ to: "/my-stak" });
