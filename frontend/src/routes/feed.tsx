@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { getMarketNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -137,7 +137,15 @@ function FeedPage() {
 		refetchOnMount: "always",
 	});
 
-	const allArticles: NewsArticle[] = data?.articles ?? [];
+	// Shuffle articles so each page load shows a different order
+	const allArticles: NewsArticle[] = useMemo(() => {
+		const articles = [...(data?.articles ?? [])];
+		for (let i = articles.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[articles[i], articles[j]] = [articles[j], articles[i]];
+		}
+		return articles;
+	}, [data]);
 	const visibleArticles = allArticles.slice(0, visibleCount);
 	const canLoadMore = visibleCount < allArticles.length && visibleCount < MAX_ARTICLES;
 
