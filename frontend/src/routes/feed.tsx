@@ -129,8 +129,8 @@ function FeedPage() {
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
-		staleTime: 0,
-		gcTime: 0,
+		staleTime: 5 * 60 * 1000,
+		gcTime: 10 * 60 * 1000,
 		retry: 2,
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
 		refetchOnWindowFocus: false,
