@@ -184,9 +184,42 @@ function resolveNewsSymbol(symbol: string): string {
 	return ADR_MAP[symbol.toUpperCase()] ?? symbol;
 }
 
+/** Fetch company news from NewsAPI by company name (fallback for non-US stocks).
+ *  Returns up to `limit` headlines from the past 7 days. */
+async function getNewsApiArticles(companyName: string, limit: number): Promise<FinnhubArticle[]> {
+	const apiKey = process.env.NEWSAPI_KEY;
+	if (!apiKey) return [];
+
+	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(`"${companyName}"`)}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
+
+	const res = await fetch(url);
+	if (!res.ok) {
+		console.warn(`NewsAPI error: ${res.status}`);
+		return [];
+	}
+
+	const data = await res.json();
+	return (data.articles ?? [])
+		.filter((a: { title?: string; description?: string }) => a.title && a.description)
+		.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
+			headline: a.title,
+			summary: a.description,
+			url: a.url,
+			image: a.urlToImage ?? "",
+			source: a.source?.name ?? "NewsAPI",
+			datetime: Math.floor(new Date(a.publishedAt).getTime() / 1000),
+			category: "general",
+			id: 0,
+			related: "",
+		}))
+		.slice(0, limit);
+}
+
 /** Fetch company-specific news for a given ticker symbol.
+ *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
  *  Returns up to `limit` articles from the past 7 days. */
-export async function getCompanyNews(symbol: string, limit = 15): Promise<FinnhubArticle[]> {
+export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
 	const newsSymbol = resolveNewsSymbol(symbol);
 	const today = new Date().toISOString().split("T")[0];
 	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
@@ -194,9 +227,19 @@ export async function getCompanyNews(symbol: string, limit = 15): Promise<Finnhu
 	const res = await finnhubFetch(
 		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
 	);
-	if (!res) return []; // all keys rate-limited
-	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
-	const data: FinnhubArticle[] = await res.json();
-	return data.filter((a) => a.headline && a.summary && isStockRelevant(a)).slice(0, limit);
+	if (res) {
+		if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
+		const data: FinnhubArticle[] = await res.json();
+		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a)).slice(0, limit);
+		if (filtered.length > 0) return filtered;
+	}
+
+	// Finnhub returned nothing (rate-limited, unsupported ticker, or 0 articles) — try NewsAPI
+	if (companyName) {
+		console.info(`Finnhub returned 0 articles for ${symbol} — falling back to NewsAPI for "${companyName}"`);
+		return getNewsApiArticles(companyName, limit);
+	}
+
+	return [];
 }

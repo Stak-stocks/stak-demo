@@ -150,7 +150,7 @@ export async function getTrends(
 	}
 
 	// Stale or missing — fetch news and generate
-	const articles = await getCompanyNews(ticker, 10).catch(() => []);
+	const articles = await getCompanyNews(ticker, 10, brandName).catch(() => []);
 	const headlines = articles.slice(0, 5).map((a) => a.headline);
 
 	const cards = await generateWithGemini(ticker, brandName, headlines);
