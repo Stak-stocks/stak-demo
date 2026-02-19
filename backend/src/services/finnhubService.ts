@@ -167,6 +167,19 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 	return hasFinance; // sports article only survives if it also has financial content
 }
 
+/**
+ * Stricter filter for search results: the article must contain at least one
+ * financial term or macro signal, not just "not be about sports".
+ * Prevents lifestyle, politics, or entertainment results from appearing.
+ */
+function isFinanciallyRelevant(article: FinnhubArticle): boolean {
+	const text = `${article.headline} ${article.summary}`.toLowerCase();
+	return (
+		FINANCIAL_TERMS.some((t) => text.includes(t)) ||
+		MACRO_SIGNALS.some((t) => text.includes(t))
+	);
+}
+
 /** Fetch general market news (IPOs, interest rates, macro events).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
@@ -286,7 +299,9 @@ export async function searchNewsArticles(query: string): Promise<FinnhubArticle[
 	const cached = getCachedNews(cacheKey);
 	if (cached) return cached;
 
-	const result = await getNewsApiArticles(q, 10);
+	// Fetch extra so we still have enough after the financial relevance filter
+	const raw = await getNewsApiArticles(q, 25);
+	const result = raw.filter(isFinanciallyRelevant).slice(0, 10);
 	setCachedNews(cacheKey, result);
 	return result;
 }
