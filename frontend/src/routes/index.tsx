@@ -80,7 +80,14 @@ function App() {
 	useEffect(() => {
 		getIntelState()
 			.then(({ lastDate, queue }) => {
-				if (lastDate) localStorage.setItem("intel-card-last-date", lastDate);
+				if (lastDate) {
+					localStorage.setItem("intel-card-last-date", lastDate);
+				} else {
+					// New or re-created account — clear any stale state left from a previous account
+					localStorage.removeItem("intel-card-last-date");
+					localStorage.removeItem("intel-card-queue");
+					intelQueue.current = INTEL_CARDS.map((c) => c.id).sort(() => Math.random() - 0.5);
+				}
 				if (queue.length > 0) {
 					localStorage.setItem("intel-card-queue", JSON.stringify(queue));
 					intelQueue.current = queue;
