@@ -1,5 +1,35 @@
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
+/** Collect all configured Finnhub API keys (FINNHUB_API_KEY, FINNHUB_API_KEY_2, FINNHUB_API_KEY_3) */
+function getApiKeys(): string[] {
+	return [
+		process.env.FINNHUB_API_KEY,
+		process.env.FINNHUB_API_KEY_2,
+		process.env.FINNHUB_API_KEY_3,
+	].filter((k): k is string => !!k);
+}
+
+/**
+ * Fetch a Finnhub URL, rotating through available API keys on 403/429.
+ * Returns the Response on success, or null if all keys are rate-limited.
+ */
+async function finnhubFetch(buildUrl: (key: string) => string): Promise<Response | null> {
+	const keys = getApiKeys();
+	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
+
+	for (const key of keys) {
+		const res = await fetch(buildUrl(key));
+		if (res.status === 403 || res.status === 429) {
+			console.warn(`Finnhub rate limited (${res.status}) on key ...${key.slice(-4)} — trying next`);
+			continue;
+		}
+		return res; // success or a real error — let caller decide
+	}
+
+	console.warn("All Finnhub API keys rate limited");
+	return null;
+}
+
 export interface FinnhubArticle {
 	headline: string;
 	summary: string;
@@ -126,20 +156,13 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 /** Fetch general market news (IPOs, interest rates, macro events).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
-	const apiKey = process.env.FINNHUB_API_KEY;
-	if (!apiKey) throw new Error("FINNHUB_API_KEY not set");
-
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
 
-	const res = await fetch(`${FINNHUB_BASE}/news?category=general&token=${apiKey}`);
-	if (res.status === 403 || res.status === 429) {
-		console.warn(`Finnhub market-news rate limited (${res.status})`);
-		return [];
-	}
+	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news?category=general&token=${key}`);
+	if (!res) return []; // all keys rate-limited
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
-
 	return data
 		.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a))
 		.slice(0, limit);
@@ -148,20 +171,13 @@ export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
 /** Fetch company-specific news for a given ticker symbol.
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15): Promise<FinnhubArticle[]> {
-	const apiKey = process.env.FINNHUB_API_KEY;
-	if (!apiKey) throw new Error("FINNHUB_API_KEY not set");
-
 	const today = new Date().toISOString().split("T")[0];
 	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
 
-	const res = await fetch(
-		`${FINNHUB_BASE}/company-news?symbol=${symbol}&from=${sevenDaysAgo}&to=${today}&token=${apiKey}`,
+	const res = await finnhubFetch(
+		(key) => `${FINNHUB_BASE}/company-news?symbol=${symbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
 	);
-	// 403 = rate-limited or plan limit; return empty rather than crashing
-	if (res.status === 403 || res.status === 429) {
-		console.warn(`Finnhub company-news rate limited (${res.status}) for ${symbol}`);
-		return [];
-	}
+	if (!res) return []; // all keys rate-limited
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
 
 	const data: FinnhubArticle[] = await res.json();
