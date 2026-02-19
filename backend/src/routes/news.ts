@@ -7,7 +7,7 @@ export const newsRouter = Router();
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
 	try {
-		const articles = await getMarketNews();
+		const articles = await getMarketNews(16);
 		// All general news is treated as macro — no extra filtering needed
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		res.json({ articles: simplified });
