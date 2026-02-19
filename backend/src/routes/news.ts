@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getMarketNews, getCompanyNews, classifyArticle } from "../services/finnhubService.js";
+import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles } from "../services/finnhubService.js";
 import { simplifyArticles } from "../services/geminiService.js";
 
 export const newsRouter = Router();
@@ -47,5 +47,29 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 	} catch (error) {
 		console.error("Error fetching company news:", error);
 		res.status(500).json({ error: "Failed to fetch company news" });
+	}
+});
+
+// GET /api/news/search?q=:query — keyword or ticker search
+newsRouter.get("/search", async (req, res) => {
+	const q = (req.query.q as string | undefined)?.trim();
+	if (!q || q.length < 2) {
+		res.status(400).json({ error: "Query must be at least 2 characters" });
+		return;
+	}
+	try {
+		const articles = await searchNewsArticles(q);
+		if (articles.length === 0) {
+			res.json({ articles: [] });
+			return;
+		}
+		const simplified = await simplifyArticles(
+			articles,
+			articles.map(() => "sector" as const),
+		);
+		res.json({ articles: simplified });
+	} catch (error) {
+		console.error("Error searching news:", error);
+		res.status(500).json({ error: "Failed to search news" });
 	}
 });

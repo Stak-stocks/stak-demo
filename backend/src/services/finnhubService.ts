@@ -274,3 +274,19 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 
 	return [];
 }
+
+/**
+ * Search news by any keyword, company name, topic, or ticker.
+ * Uses NewsAPI full-text search so queries like "Tesla", "AI", "AAPL",
+ * "interest rates" all work. Returns up to 10 articles.
+ */
+export async function searchNewsArticles(query: string): Promise<FinnhubArticle[]> {
+	const q = query.trim();
+	const cacheKey = `search:${q.toLowerCase()}`;
+	const cached = getCachedNews(cacheKey);
+	if (cached) return cached;
+
+	const result = await getNewsApiArticles(q, 10);
+	setCachedNews(cacheKey, result);
+	return result;
+}

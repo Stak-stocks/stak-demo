@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { getMarketNews } from "@/lib/api";
+import { useState, useMemo, useRef } from "react";
+import { getMarketNews, searchNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
-import { ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -125,7 +125,13 @@ function SkeletonCard() {
 
 function FeedPage() {
 	const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+	const [inputValue, setInputValue] = useState("");
+	const [activeQuery, setActiveQuery] = useState("");
+	const inputRef = useRef<HTMLInputElement>(null);
 
+	const isSearching = activeQuery.length >= 2;
+
+	// Market feed query
 	const { data, isLoading, isError } = useQuery({
 		queryKey: ["market-news"],
 		queryFn: () => getMarketNews(),
@@ -137,6 +143,15 @@ function FeedPage() {
 		refetchOnWindowFocus: false,
 	});
 
+	// Search query — only fires when activeQuery is set
+	const { data: searchData, isLoading: searchLoading, isError: searchError } = useQuery({
+		queryKey: ["news-search", activeQuery],
+		queryFn: () => searchNews(activeQuery),
+		enabled: isSearching,
+		staleTime: 5 * 60 * 1000,
+		retry: 1,
+	});
+
 	const allArticles: NewsArticle[] = useMemo(() => {
 		const articles = [...(data?.articles ?? [])];
 		return articles.sort((a, b) => b.datetime - a.datetime);
@@ -144,71 +159,173 @@ function FeedPage() {
 	const visibleArticles = allArticles.slice(0, visibleCount);
 	const canLoadMore = visibleCount < allArticles.length && visibleCount < MAX_ARTICLES;
 
+	function handleSearch(e: React.FormEvent) {
+		e.preventDefault();
+		const q = inputValue.trim();
+		if (q.length >= 2) {
+			setActiveQuery(q);
+			setVisibleCount(PAGE_SIZE);
+		}
+	}
+
+	function clearSearch() {
+		setInputValue("");
+		setActiveQuery("");
+		setVisibleCount(PAGE_SIZE);
+		inputRef.current?.focus();
+	}
+
 	return (
 		<div className="min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300">
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
-				<div className="mb-6">
+				<div className="mb-4">
 					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
 					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
 						Simplified for you by AI · last 7 days
 					</p>
 				</div>
 
-				{/* Loading skeletons */}
-				{isLoading && (
-					<div className="space-y-4">
-						{Array.from({ length: PAGE_SIZE }).map((_, i) => <SkeletonCard key={i} />)}
-					</div>
-				)}
-
-				{/* Error state */}
-				{isError && !isLoading && (
-					<div className="flex flex-col items-center justify-center py-20 text-center">
-						<div className="text-5xl mb-4">📰</div>
-						<h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
-							Couldn't load news
-						</h3>
-						<p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-xs">
-							Something went wrong fetching the latest market news. Refresh the page to try again.
-						</p>
-					</div>
-				)}
-
-				{/* Articles */}
-				{!isLoading && !isError && (
-					<>
-						{allArticles.length === 0 ? (
-							<div className="text-center py-20">
-								<div className="text-5xl mb-4">🗞️</div>
-								<p className="text-zinc-500 dark:text-zinc-400">No news available right now.</p>
-							</div>
-						) : (
-							<div className="space-y-4">
-								{visibleArticles.map((article, i) => (
-									<NewsCard key={`${article.datetime}-${i}`} article={article} />
-								))}
-							</div>
-						)}
-
-						{/* Load more */}
-						{canLoadMore && (
-							<div className="mt-6 text-center">
+				{/* Search bar */}
+				<form onSubmit={handleSearch} className="mb-6">
+					<div className="relative flex items-center">
+						<input
+							ref={inputRef}
+							type="text"
+							value={inputValue}
+							onChange={(e) => setInputValue(e.target.value)}
+							placeholder="Search news — try 'Tesla', 'AI', 'interest rates'..."
+							className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 bg-white dark:bg-[#0f1629]/70 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
+						/>
+						<div className="absolute right-2 flex items-center gap-1">
+							{activeQuery && (
 								<button
 									type="button"
-									onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, MAX_ARTICLES))}
-									className="px-6 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-slate-800 text-sm font-semibold transition-colors"
+									onClick={clearSearch}
+									className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+									aria-label="Clear search"
 								>
-									Load more stories...
+									<X className="w-4 h-4" />
 								</button>
+							)}
+							<button
+								type="submit"
+								disabled={inputValue.trim().length < 2}
+								className="px-3 py-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+							>
+								Search
+							</button>
+						</div>
+					</div>
+				</form>
+
+				{/* ── SEARCH RESULTS ── */}
+				{isSearching && (
+					<>
+						<div className="mb-4 flex items-center justify-between">
+							<p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+								Results for <span className="text-orange-500">"{activeQuery}"</span>
+							</p>
+							<button
+								type="button"
+								onClick={clearSearch}
+								className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline transition-colors"
+							>
+								Back to feed
+							</button>
+						</div>
+
+						{searchLoading && (
+							<div className="space-y-4">
+								{Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
 							</div>
 						)}
 
-						{/* Disclaimer */}
-						{allArticles.length > 0 && (
-							<p className="text-xs text-zinc-400 dark:text-zinc-600 text-center mt-8">
-								News summarized by AI · Not financial advice
-							</p>
+						{searchError && !searchLoading && (
+							<div className="flex flex-col items-center justify-center py-16 text-center">
+								<div className="text-4xl mb-3">😕</div>
+								<p className="text-zinc-500 dark:text-zinc-400 text-sm">
+									Couldn't fetch results. Try again.
+								</p>
+							</div>
+						)}
+
+						{!searchLoading && !searchError && (
+							<>
+								{(searchData?.articles ?? []).length === 0 ? (
+									<div className="flex flex-col items-center justify-center py-16 text-center">
+										<div className="text-4xl mb-3">🔍</div>
+										<p className="text-zinc-600 dark:text-zinc-300 font-medium mb-1">No results found</p>
+										<p className="text-zinc-400 dark:text-zinc-500 text-sm">
+											Try a different keyword or stock ticker.
+										</p>
+									</div>
+								) : (
+									<div className="space-y-4">
+										{(searchData?.articles ?? []).map((article, i) => (
+											<NewsCard key={`${article.datetime}-${i}`} article={article} />
+										))}
+									</div>
+								)}
+							</>
+						)}
+					</>
+				)}
+
+				{/* ── MARKET FEED ── */}
+				{!isSearching && (
+					<>
+						{isLoading && (
+							<div className="space-y-4">
+								{Array.from({ length: PAGE_SIZE }).map((_, i) => <SkeletonCard key={i} />)}
+							</div>
+						)}
+
+						{isError && !isLoading && (
+							<div className="flex flex-col items-center justify-center py-20 text-center">
+								<div className="text-5xl mb-4">📰</div>
+								<h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+									Couldn't load news
+								</h3>
+								<p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-xs">
+									Something went wrong fetching the latest market news. Refresh the page to try again.
+								</p>
+							</div>
+						)}
+
+						{!isLoading && !isError && (
+							<>
+								{allArticles.length === 0 ? (
+									<div className="text-center py-20">
+										<div className="text-5xl mb-4">🗞️</div>
+										<p className="text-zinc-500 dark:text-zinc-400">No news available right now.</p>
+									</div>
+								) : (
+									<div className="space-y-4">
+										{visibleArticles.map((article, i) => (
+											<NewsCard key={`${article.datetime}-${i}`} article={article} />
+										))}
+									</div>
+								)}
+
+								{canLoadMore && (
+									<div className="mt-6 text-center">
+										<button
+											type="button"
+											onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, MAX_ARTICLES))}
+											className="px-6 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-slate-800 text-sm font-semibold transition-colors"
+										>
+											Load more stories...
+										</button>
+									</div>
+								)}
+
+								{allArticles.length > 0 && (
+									<p className="text-xs text-zinc-400 dark:text-zinc-600 text-center mt-8">
+										News summarized by AI · Not financial advice
+									</p>
+								)}
+							</>
 						)}
 					</>
 				)}

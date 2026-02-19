@@ -101,6 +101,12 @@ export function getMarketNews() {
 	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>("/api/news/market");
 }
 
+export function searchNews(query: string) {
+	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(
+		`/api/news/search?q=${encodeURIComponent(query)}`,
+	);
+}
+
 export interface LiveQuote {
 	price: number;
 	change: number;
