@@ -17,6 +17,8 @@ const PORT = process.env.PORT || 3001;
 const allowedOrigins = [
 	"http://localhost:3000",
 	"https://stak-demo.vercel.app",
+	"https://thestak.org",
+	"https://www.thestak.org",
 ];
 
 app.use(cors({ origin: allowedOrigins }));
