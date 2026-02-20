@@ -181,23 +181,25 @@ function isFinanciallyRelevant(article: FinnhubArticle): boolean {
 	);
 }
 
-/** Fetch general market news (IPOs, interest rates, macro events).
- *  Returns up to `limit` articles from the past 7 days. */
-export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
-	const cacheKey = `market:${limit}`;
-	const cached = getCachedNews(cacheKey);
-	if (cached) return [...cached].sort((a, b) => b.datetime - a.datetime).slice(0, limit);
+const MARKET_CACHE_KEY = "market:all";
 
+/** Fetches fresh general market news from Finnhub and populates the shared cache pool. */
+async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
-
 	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news?category=general&token=${key}`);
 	if (!res) return []; // all keys rate-limited
 	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
-
 	const data: FinnhubArticle[] = await res.json();
 	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
-	setCachedNews(cacheKey, filtered);
-	return [...filtered].sort((a, b) => b.datetime - a.datetime).slice(0, limit);
+	setCachedNews(MARKET_CACHE_KEY, filtered);
+	return filtered;
+}
+
+/** Fetch general market news (IPOs, interest rates, macro events).
+ *  Returns up to `limit` articles from the past 7 days. */
+export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
+	const pool = getCachedNews(MARKET_CACHE_KEY) ?? await fetchFreshMarketNews();
+	return [...pool].sort((a, b) => b.datetime - a.datetime).slice(0, limit);
 }
 
 /**
@@ -223,7 +225,8 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	if (!apiKey) return [];
 
 	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
-	const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(`"${companyName}"`)}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
+	const quotedName = encodeURIComponent('"' + companyName + '"');
+	const url = `https://newsapi.org/v2/everything?q=${quotedName}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
 	const res = await fetch(url);
 	if (!res.ok) {
@@ -289,18 +292,32 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 
 /**
  * Search news by any keyword, company name, topic, or ticker.
- * Uses NewsAPI full-text search so queries like "Tesla", "AI", "AAPL",
- * "interest rates" all work. Returns up to 10 articles.
+ * Filters the Finnhub market news pool first (same source as the feed).
+ * If fewer than 8 results are found, supplements with NewsAPI to fill the gap.
+ * Returns up to 20 articles sorted by recency.
  */
 export async function searchNewsArticles(query: string): Promise<FinnhubArticle[]> {
-	const q = query.trim();
-	const cacheKey = `search:${q.toLowerCase()}`;
+	const q = query.trim().toLowerCase();
+	const cacheKey = `search:${q}`;
 	const cached = getCachedNews(cacheKey);
 	if (cached) return cached;
 
-	// Fetch extra so we still have enough after the financial relevance filter
-	const raw = await getNewsApiArticles(q, 25);
-	const result = raw.filter(isFinanciallyRelevant).slice(0, 10);
+	const pool = getCachedNews(MARKET_CACHE_KEY) ?? await fetchFreshMarketNews();
+	const fromFinnhub = pool
+		.filter((a) => a.headline.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q))
+		.sort((a, b) => b.datetime - a.datetime);
+
+	let result = fromFinnhub;
+
+	// Supplement with NewsAPI if Finnhub cache doesn't have enough
+	if (fromFinnhub.length < 8) {
+		const extra = await getNewsApiArticles(query.trim(), 25);
+		const seenUrls = new Set(fromFinnhub.map((a) => a.url));
+		const deduped = extra.filter((a) => !seenUrls.has(a.url));
+		result = [...fromFinnhub, ...deduped].sort((a, b) => b.datetime - a.datetime);
+	}
+
+	result = result.slice(0, 20);
 	setCachedNews(cacheKey, result);
 	return result;
 }
