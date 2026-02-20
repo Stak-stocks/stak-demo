@@ -152,14 +152,8 @@ function FeedPage() {
 		retry: 1,
 	});
 
-	// Shuffle articles so each page load shows a different order
 	const allArticles: NewsArticle[] = useMemo(() => {
-		const articles = [...(data?.articles ?? [])];
-		for (let i = articles.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[articles[i], articles[j]] = [articles[j], articles[i]];
-		}
-		return articles;
+		return [...(data?.articles ?? [])].sort((a, b) => b.datetime - a.datetime);
 	}, [data]);
 	const visibleArticles = allArticles.slice(0, visibleCount);
 	const canLoadMore = visibleCount < allArticles.length && visibleCount < MAX_ARTICLES;

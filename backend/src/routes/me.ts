@@ -130,3 +130,41 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 		res.status(500).json({ error: "Failed to save passed brands" });
 	}
 });
+
+// GET /api/me/intel-state — get intel card queue + last shown date
+meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const doc = await adminDb.collection("users").doc(uid).get();
+		const data = doc.data();
+		const intelCardState: { lastDate: string; queue: string[] } =
+			data?.intelCardState ?? { lastDate: "", queue: [] };
+		res.json(intelCardState);
+	} catch (error) {
+		console.error("Error fetching intel state:", error);
+		res.status(500).json({ error: "Failed to fetch intel state" });
+	}
+});
+
+// PUT /api/me/intel-state — save intel card queue + last shown date
+meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { lastDate, queue } = req.body;
+
+		if (typeof lastDate !== "string" || !Array.isArray(queue)) {
+			res.status(400).json({ error: "Invalid intel state" });
+			return;
+		}
+
+		await adminDb.collection("users").doc(uid).set(
+			{ intelCardState: { lastDate, queue }, updatedAt: new Date().toISOString() },
+			{ merge: true },
+		);
+
+		res.json({ lastDate, queue });
+	} catch (error) {
+		console.error("Error saving intel state:", error);
+		res.status(500).json({ error: "Failed to save intel state" });
+	}
+});

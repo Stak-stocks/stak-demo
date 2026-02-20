@@ -1,6 +1,7 @@
 {
-  "short_name": "Creao",
-  "name": "Creao",
+  "short_name": "The Stak",
+  "name": "The Stak — Discover Stocks You Vibe With",
+  "description": "Swipe through brands, build your portfolio, and follow market news.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -13,8 +14,8 @@
       "sizes": "192x192 512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0b1121",
+  "background_color": "#0b1121"
 }
