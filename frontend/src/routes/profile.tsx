@@ -7,10 +7,6 @@ import { getBrandLogoUrl } from "@/data/brands";
 import {
 	ChevronRight,
 	Pencil,
-	DollarSign,
-	Star,
-	PieChart,
-	Newspaper,
 	User,
 	Shield,
 	HelpCircle,
@@ -21,28 +17,7 @@ export const Route = createFileRoute("/profile")({
 	component: ProfilePage,
 });
 
-/* ── Donut Chart (SVG) ── */
-function DonutChart({ value, size = 80, strokeWidth = 8 }: { value: number; size?: number; strokeWidth?: number }) {
-	const r = (size - strokeWidth) / 2;
-	const C = 2 * Math.PI * r;
-	const offset = C - (value / 100) * C;
-	return (
-		<svg width={size} height={size} className="-rotate-90">
-			<circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} />
-			<circle
-				cx={size / 2} cy={size / 2} r={r} fill="none"
-				stroke="url(#donutGrad)" strokeWidth={strokeWidth}
-				strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round"
-			/>
-			<defs>
-				<linearGradient id="donutGrad" x1="0" y1="0" x2="1" y2="1">
-					<stop offset="0%" stopColor="#06b6d4" />
-					<stop offset="100%" stopColor="#22d3ee" />
-				</linearGradient>
-			</defs>
-		</svg>
-	);
-}
+
 
 /* ── Floating Brand Icon (background decoration) ── */
 function FloatingIcon({ src, className }: { src: string; className: string }) {
@@ -166,105 +141,11 @@ function ProfilePage() {
 
 				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
 				<div className="grid grid-cols-2 gap-3 mb-6">
-
-					{/* ─ Dividend Income ─ */}
-					<div className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4">
-						<div className="flex items-center gap-2 mb-3">
-							<div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
-								<DollarSign className="w-4 h-4 text-green-400" />
-							</div>
-							<span className="text-[13px] font-medium text-zinc-300">Dividend Income</span>
+					{[0, 1, 2, 3].map((i) => (
+						<div key={i} className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4 flex items-center justify-center min-h-[140px]">
+							<p className="text-zinc-500 text-sm font-medium">Coming Soon</p>
 						</div>
-						<p className="text-[28px] font-bold leading-none mb-1">$234</p>
-						<p className="text-xs">
-							<span className="text-green-400 font-medium">+9%</span>
-							<span className="text-zinc-500 ml-1">This Month</span>
-						</p>
-						{/* Sparkline */}
-						<svg className="mt-3 w-full h-8" viewBox="0 0 120 30" fill="none">
-							<path d="M0 25 Q10 22,20 20 T40 18 T60 12 T80 15 T100 8 T120 5" stroke="rgba(34,197,94,0.6)" strokeWidth="1.5" fill="none" />
-							<path d="M0 25 Q10 22,20 20 T40 18 T60 12 T80 15 T100 8 T120 5 V30 H0Z" fill="url(#sg)" />
-							<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(34,197,94,0.18)" /><stop offset="100%" stopColor="rgba(34,197,94,0)" /></linearGradient></defs>
-						</svg>
-					</div>
-
-					{/* ─ Analyst Ratings ─ */}
-					<div className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4">
-						<div className="flex items-center gap-2 mb-3">
-							<div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center">
-								<Star className="w-4 h-4 text-amber-400" />
-							</div>
-							<span className="text-[13px] font-medium text-zinc-300">Analyst Ratings</span>
-						</div>
-						<div className="flex items-center gap-3">
-							<div className="relative shrink-0">
-								<DonutChart value={72} size={70} strokeWidth={7} />
-								<span className="absolute inset-0 flex items-center justify-center text-[15px] font-bold">72%</span>
-							</div>
-							<div className="text-xs space-y-1.5 min-w-0">
-								<p className="leading-tight">
-									<span className="font-semibold text-white">72%</span>{" "}
-									<span className="text-zinc-400 text-[11px]">Buy Ratings</span>
-								</p>
-								<p className="leading-tight">
-									<span className="text-cyan-400 font-semibold">18%</span>{" "}
-									<span className="text-zinc-500 text-[11px]">| Hold</span>
-								</p>
-								<p className="leading-tight">
-									<span className="text-amber-400 font-semibold">10%</span>{" "}
-									<span className="text-zinc-500 text-[11px]">| Sell</span>
-								</p>
-							</div>
-						</div>
-					</div>
-
-					{/* ─ Portfolio Allocation ─ */}
-					<div className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4">
-						<div className="flex items-center gap-2 mb-3">
-							<div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center">
-								<PieChart className="w-4 h-4 text-blue-400" />
-							</div>
-							<span className="text-[13px] font-medium text-zinc-300">Portfolio Allocation</span>
-						</div>
-						<div className="space-y-2.5 text-xs">
-							{[
-								{ label: "Tech", left: "45%", bar: 75, color: "bg-orange-500", right: "2%" },
-								{ label: "Consumer", left: "", bar: 55, color: "bg-cyan-500", right: "30%" },
-								{ label: "AI", left: "15%", bar: 35, color: "bg-blue-500", right: "10%" },
-								{ label: "Other", left: "10%", bar: 20, color: "bg-slate-500", right: "" },
-							].map((row) => (
-								<div key={row.label} className="flex items-center gap-1.5">
-									<span className="text-zinc-300 w-[70px] shrink-0 font-medium">{row.label}</span>
-									<span className="text-zinc-400 w-7 text-right text-[11px]">{row.left}</span>
-									<div className="flex-1 h-[6px] rounded-full bg-slate-700/60 overflow-hidden">
-										<div className={`h-full rounded-full ${row.color}`} style={{ width: `${row.bar}%` }} />
-									</div>
-									<span className="text-zinc-500 w-7 text-right text-[11px]">{row.right}</span>
-								</div>
-							))}
-						</div>
-					</div>
-
-					{/* ─ Market News ─ */}
-					<div className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4 flex flex-col">
-						<div className="flex items-center gap-2 mb-3">
-							<div className="w-7 h-7 rounded-full bg-slate-600/30 flex items-center justify-center">
-								<Newspaper className="w-4 h-4 text-slate-300" />
-							</div>
-							<span className="text-[13px] font-medium text-zinc-300">Market News</span>
-						</div>
-						<p className="font-semibold text-sm leading-snug mb-1.5">Apple Hits All-Time High</p>
-						<p className="text-zinc-500 text-xs leading-relaxed line-clamp-3 flex-1">
-							AAPL stock surges 5% as they report record earnings...
-						</p>
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/feed" })}
-							className="mt-3 text-xs text-zinc-400 inline-flex items-center gap-0.5 hover:text-zinc-300 transition-colors"
-						>
-							View Details <ChevronRight className="w-3 h-3" />
-						</button>
-					</div>
+					))}
 				</div>
 
 				{/* ════════ TASTE PROFILE ════════ */}
