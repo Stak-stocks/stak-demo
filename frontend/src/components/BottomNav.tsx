@@ -52,7 +52,7 @@ export function BottomNav() {
 
 	return (
 		<nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0b1121]/95 backdrop-blur-lg border-t border-zinc-200 dark:border-slate-800/60 z-40">
-			<div className="max-w-7xl mx-auto px-4">
+			<div className="max-w-7xl mx-auto px-2 sm:px-4">
 				<div className="flex items-center justify-around h-16">
 					{NAV_ITEMS.map((item) => {
 						const active = isActive(item.to);
@@ -61,7 +61,7 @@ export function BottomNav() {
 							<Link
 								key={item.to}
 								to={item.to}
-								className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
+								className={`flex flex-col items-center gap-1 min-w-0 flex-1 py-2 transition-colors ${
 									active
 										? item.activeColor
 										: "text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
@@ -74,7 +74,7 @@ export function BottomNav() {
 								>
 									<Icon className="w-5 h-5" />
 								</div>
-								<span className="text-xs font-medium">{item.label}</span>
+								<span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{item.label}</span>
 							</Link>
 						);
 					})}
