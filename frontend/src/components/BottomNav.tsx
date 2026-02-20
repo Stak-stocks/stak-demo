@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Layers, Newspaper, Trophy } from "lucide-react";
+import { Compass, Layers, Newspaper, Trophy, UserCircle } from "lucide-react";
 
 const NAV_ITEMS = [
 	{
@@ -29,6 +29,13 @@ const NAV_ITEMS = [
 		icon: Trophy,
 		activeColor: "text-yellow-500 dark:text-yellow-500",
 		glow: "bg-gradient-to-br from-yellow-400/30 to-amber-400/30 shadow-[0_0_12px_rgba(250,204,21,0.5),0_0_24px_rgba(245,158,11,0.3)]",
+	},
+	{
+		to: "/profile",
+		label: "Profile",
+		icon: UserCircle,
+		activeColor: "text-emerald-500 dark:text-emerald-400",
+		glow: "bg-gradient-to-br from-emerald-400/30 to-teal-400/30 shadow-[0_0_12px_rgba(52,211,153,0.5),0_0_24px_rgba(20,184,166,0.3)]",
 	},
 ] as const;
 

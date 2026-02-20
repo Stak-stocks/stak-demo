@@ -5,8 +5,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { UserCircle, LogOut, Sun, Moon, Search } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
+import { Search } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchView } from "@/components/SearchView";
 import type { BrandProfile } from "@/data/brands";
 import { saveStak } from "@/lib/api";
@@ -48,9 +48,7 @@ function Root() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
-	const [profileOpen, setProfileOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
-	const { theme, setTheme } = useTheme();
 	const isFeedPage = location.pathname === "/feed";
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
@@ -98,14 +96,6 @@ function Root() {
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
-	// Close dropdown on outside click
-	useEffect(() => {
-		if (!profileOpen) return;
-		const handleClick = () => setProfileOpen(false);
-		document.addEventListener("click", handleClick);
-		return () => document.removeEventListener("click", handleClick);
-	}, [profileOpen]);
-
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-white dark:bg-[#0b1121]">
@@ -133,43 +123,8 @@ function Root() {
 						<div className="w-9" /> /* spacer to keep profile icon right-aligned */
 					)}
 
-					{/* Profile icon */}
-					<div className="relative">
-						<button
-							type="button"
-							onClick={(e) => { e.stopPropagation(); setProfileOpen((v) => !v); }}
-							className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-						>
-							<UserCircle className="w-6 h-6" />
-						</button>
-
-						{profileOpen && (
-							<div
-								className="absolute right-0 mt-2 w-44 rounded-xl bg-white dark:bg-[#0f1629] border border-zinc-200 dark:border-slate-700/50 shadow-xl overflow-hidden z-50"
-								onClick={(e) => e.stopPropagation()}
-							>
-								<button
-									type="button"
-									onClick={() => {
-										setTheme(theme === "dark" ? "light" : "dark");
-										setProfileOpen(false);
-									}}
-									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors"
-								>
-									{theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-									{theme === "dark" ? "Light Mode" : "Dark Mode"}
-								</button>
-								<button
-									type="button"
-									onClick={() => { logout().then(() => navigate({ to: "/welcome" })); }}
-									className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors border-t border-zinc-200 dark:border-slate-700/50"
-								>
-									<LogOut className="w-4 h-4" />
-									Sign Out
-								</button>
-							</div>
-						)}
-					</div>
+					{/* Theme toggle */}
+					<ThemeToggle />
 				</header>
 			)}
 
