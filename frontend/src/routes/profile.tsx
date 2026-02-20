@@ -221,13 +221,14 @@ function ProfilePage() {
 				{/* ════════ SETTINGS LIST ════════ */}
 				<div className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 divide-y divide-slate-700/30 mb-5">
 					{[
-						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400" },
-						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400" },
-						{ icon: HelpCircle, label: "Help & Support", iconBg: "bg-amber-500/15", iconColor: "text-amber-400" },
+						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400", to: "/profile/personal-details" as const },
+						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: null },
+						{ icon: HelpCircle, label: "Help & Support", iconBg: "bg-amber-500/15", iconColor: "text-amber-400", to: null },
 					].map((item) => (
 						<button
 							key={item.label}
 							type="button"
+							onClick={() => item.to && navigate({ to: item.to })}
 							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-slate-800/30 transition-colors first:rounded-t-xl last:rounded-b-xl"
 						>
 							<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.iconBg}`}>

@@ -36,13 +36,14 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, preferences, onboardingCompleted, onboardingProgress } = req.body;
+		const { displayName, phone, preferences, onboardingCompleted, onboardingProgress } = req.body;
 
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
 		};
 
 		if (displayName !== undefined) updates.displayName = displayName;
+		if (phone !== undefined) updates.phone = phone;
 		if (preferences !== undefined) updates.preferences = preferences;
 		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
 		if (onboardingProgress !== undefined) updates.onboardingProgress = onboardingProgress;
