@@ -71,66 +71,53 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#080d1c] text-white pb-28 overflow-hidden relative">
+		<div className="min-h-screen bg-[#080d1c] text-white pb-24 overflow-hidden relative">
 
-			{/* ── Scattered floating brand icons ── */}
-			<div className="absolute inset-0 pointer-events-none select-none" aria-hidden>
-				{/* Row 1 — top */}
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/nike--600.png"               className="w-10 h-10 top-4 left-3 rotate-[-8deg]" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/amazon--600.png"             className="w-9 h-9 top-14 left-12 rotate-6" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/netflix--600.png"            className="w-8 h-8 top-6 left-[38%] -rotate-3" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/tesla--600.png"              className="w-9 h-9 top-2 right-[32%] rotate-[-5deg]" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/spotify-technology--600.png" className="w-10 h-10 top-3 right-4 rotate-12" />
-
-				{/* Row 2 — mid */}
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/meta-platforms--600.png"     className="w-8 h-8 top-[110px] left-[28%] rotate-3" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/apple--600.png"              className="w-8 h-8 top-[105px] right-6 -rotate-12" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/starbucks--600.png"          className="w-7 h-7 top-28 left-2 rotate-12" />
-
-				{/* Row 3 — below avatar area */}
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/alphabet--600.png"           className="w-8 h-8 top-[260px] left-5 -rotate-6" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/microsoft--600.png"          className="w-9 h-9 top-[240px] right-8 rotate-6" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/walt-disney--600.png"        className="w-7 h-7 top-[280px] left-[22%] rotate-[-10deg]" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/nvidia--600.png"             className="w-8 h-8 top-[270px] right-[20%] rotate-4" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/uber--600.png"               className="w-7 h-7 top-[310px] left-[50%] -rotate-8" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/coinbase--600.png"           className="w-7 h-7 top-[340px] right-4 rotate-[-6deg]" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/airbnb--600.png"             className="w-6 h-6 top-[360px] left-8 rotate-10" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/adobe--600.png"              className="w-8 h-8 top-[400px] right-[30%] -rotate-5" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/shopify--600.png"            className="w-7 h-7 top-[430px] left-[35%] rotate-8" />
-				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/robinhood--600.png"          className="w-7 h-7 top-[460px] right-10 rotate-[-4deg]" />
+			{/* ── Scattered floating brand icons (top area only) ── */}
+			<div className="absolute inset-x-0 top-0 h-[200px] pointer-events-none select-none" aria-hidden>
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/nike--600.png"               className="w-8 h-8 top-3 left-3 rotate-[-8deg]" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/amazon--600.png"             className="w-7 h-7 top-10 left-14 rotate-6" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/netflix--600.png"            className="w-6 h-6 top-5 left-[40%] -rotate-3" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/tesla--600.png"              className="w-7 h-7 top-2 right-[30%] rotate-[-5deg]" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/spotify-technology--600.png" className="w-8 h-8 top-3 right-3 rotate-12" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/meta-platforms--600.png"     className="w-6 h-6 top-[90px] left-[26%] rotate-3" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/apple--600.png"              className="w-7 h-7 top-[85px] right-5 -rotate-12" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/starbucks--600.png"          className="w-6 h-6 top-[75px] left-2 rotate-12" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/alphabet--600.png"           className="w-6 h-6 top-[140px] left-6 -rotate-6" />
+				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/microsoft--600.png"          className="w-7 h-7 top-[130px] right-6 rotate-6" />
 			</div>
 
-			<div className="relative max-w-lg mx-auto px-5 pt-14">
+			<div className="relative max-w-lg mx-auto px-4 pt-8">
 
 				{/* ════════ PROFILE HEADER ════════ */}
-				<div className="flex flex-col items-center gap-2.5 mb-8">
-					{/* Avatar with glow ring */}
+				<div className="flex flex-col items-center gap-1.5 mb-5">
+					{/* Avatar */}
 					<div className="relative mb-1">
-						<div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-slate-600/40 to-slate-800/20 blur-md" />
-						<div className="relative w-[100px] h-[100px] rounded-full ring-[3px] ring-slate-600/50 overflow-hidden bg-slate-800 shadow-xl shadow-black/40">
+						<div className="absolute -inset-2 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 blur-lg" />
+						<div className="relative w-[80px] h-[80px] rounded-full ring-[3px] ring-purple-400/40 overflow-hidden bg-slate-800 shadow-xl shadow-purple-900/30">
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full flex items-center justify-center text-4xl font-bold text-slate-400">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-white">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}
 						</div>
 					</div>
 
-					<h1 className="text-[26px] font-bold tracking-tight">{displayName}</h1>
+					<h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
 
-					{/* Badge — green tint matching the design */}
-					<span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-emerald-300 text-sm font-medium">
-						<span className="text-base">🏆</span> Intermediate Investor
+					{/* Badge */}
+					<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-emerald-300 text-xs font-medium">
+						<span className="text-sm">🏆</span> Intermediate Investor
 					</span>
 
 					{/* Email + Edit Profile */}
-					<div className="flex items-center gap-3 mt-0.5">
-						<span className="text-sm text-zinc-400">{email}</span>
+					<div className="flex items-center gap-2.5 mt-0.5">
+						<span className="text-xs text-zinc-400">{email}</span>
 						<button
 							type="button"
-							className="inline-flex items-center gap-1 text-zinc-300 text-xs hover:text-white transition-colors"
+							className="inline-flex items-center gap-1 text-zinc-300 text-[11px] hover:text-white transition-colors"
 						>
 							<Pencil className="w-3 h-3" />
 							Edit Profile
@@ -140,53 +127,53 @@ function ProfilePage() {
 				</div>
 
 				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
-				<div className="grid grid-cols-2 gap-3 mb-6">
+				<div className="grid grid-cols-2 gap-2.5 mb-5">
 					{[0, 1, 2, 3].map((i) => (
-						<div key={i} className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-4 flex items-center justify-center min-h-[140px]">
-							<p className="text-zinc-500 text-sm font-medium">Coming Soon</p>
+						<div key={i} className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-3 flex items-center justify-center min-h-[90px]">
+							<p className="text-zinc-500 text-xs font-medium">Coming Soon</p>
 						</div>
 					))}
 				</div>
 
 				{/* ════════ TASTE PROFILE ════════ */}
-				<div className="mb-6">
-					<h2 className="text-lg font-semibold mb-3">Taste Profile</h2>
+				<div className="mb-5">
+					<h2 className="text-base font-semibold mb-2">Taste Profile</h2>
 
 					{/* Circular brand logos row */}
-					<div className="flex items-center gap-2.5 mb-3 overflow-x-auto scrollbar-hide">
+					<div className="flex items-center gap-2 mb-2 overflow-x-auto scrollbar-hide">
 						{visibleLogos.length > 0 ? (
 							<>
 								{visibleLogos.map((brand) => (
 									<div
 										key={brand.id}
-										className="w-[52px] h-[52px] rounded-full bg-white/10 backdrop-blur border border-white/10 flex items-center justify-center shrink-0 overflow-hidden"
+										className="w-[44px] h-[44px] rounded-full bg-white/10 backdrop-blur border border-white/10 flex items-center justify-center shrink-0 overflow-hidden"
 									>
-										<img src={getBrandLogoUrl(brand)} alt={brand.name} className="w-8 h-8 rounded-full object-contain" />
+										<img src={getBrandLogoUrl(brand)} alt={brand.name} className="w-7 h-7 rounded-full object-contain" />
 									</div>
 								))}
 								{extraCount > 0 && (
-									<div className="w-[52px] h-[52px] rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center shrink-0 text-sm font-semibold text-zinc-400">
+									<div className="w-[44px] h-[44px] rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center shrink-0 text-xs font-semibold text-zinc-400">
 										+{extraCount}
 									</div>
 								)}
 							</>
 						) : (
-							<p className="text-sm text-zinc-500 italic">Swipe brands to build your taste graph</p>
+							<p className="text-xs text-zinc-500 italic">Swipe brands to build your taste graph</p>
 						)}
 					</div>
 
-					<p className="text-xs text-zinc-500 mb-4">Fine-tune your taste graph to discover more stocks you like</p>
+					<p className="text-[11px] text-zinc-500 mb-3">Fine-tune your taste graph to discover more stocks you like</p>
 
 					{/* Taste Profile action bar */}
-					<div className="flex items-center justify-between rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 px-4 py-3">
-						<div className="flex items-center gap-2 text-sm text-zinc-400">
+					<div className="flex items-center justify-between rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 px-3 py-2.5">
+						<div className="flex items-center gap-2 text-xs text-zinc-400">
 							<LayoutGrid className="w-4 h-4" />
 							<span>Taste Profile</span>
 						</div>
 						<button
 							type="button"
 							onClick={() => navigate({ to: "/my-stak" })}
-							className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all active:scale-95"
+							className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-semibold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all active:scale-95"
 						>
 							View &amp; Edit
 						</button>
@@ -194,7 +181,7 @@ function ProfilePage() {
 				</div>
 
 				{/* ════════ SETTINGS LIST ════════ */}
-				<div className="rounded-2xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 divide-y divide-slate-700/30 mb-8">
+				<div className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 divide-y divide-slate-700/30 mb-5">
 					{[
 						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400" },
 						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400" },
@@ -203,12 +190,12 @@ function ProfilePage() {
 						<button
 							key={item.label}
 							type="button"
-							className="w-full flex items-center gap-3 px-4 py-4 hover:bg-slate-800/30 transition-colors first:rounded-t-2xl last:rounded-b-2xl"
+							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-slate-800/30 transition-colors first:rounded-t-xl last:rounded-b-xl"
 						>
-							<div className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.iconBg}`}>
-								<item.icon className={`w-[18px] h-[18px] ${item.iconColor}`} />
+							<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.iconBg}`}>
+								<item.icon className={`w-4 h-4 ${item.iconColor}`} />
 							</div>
-							<span className="flex-1 text-left text-[15px] font-medium">{item.label}</span>
+							<span className="flex-1 text-left text-sm font-medium">{item.label}</span>
 							<ChevronRight className="w-4 h-4 text-zinc-600" />
 						</button>
 					))}
@@ -218,7 +205,7 @@ function ProfilePage() {
 				<button
 					type="button"
 					onClick={handleLogout}
-					className="w-full py-3 text-red-400 font-semibold text-[15px] hover:text-red-300 transition-colors active:scale-95"
+					className="w-full py-2.5 text-red-400 font-semibold text-sm hover:text-red-300 transition-colors active:scale-95"
 				>
 					Log Out
 				</button>
