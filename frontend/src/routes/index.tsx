@@ -60,6 +60,7 @@ function App() {
 
 	// Shuffled queue — persisted in localStorage so no card repeats until all seen
 	const intelQueue = useRef<string[]>([]);
+	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
 	const swipesSinceIntel = useRef(0);
 
@@ -79,7 +80,7 @@ function App() {
 	// Seed local state from Firestore on mount so queue stays in sync across devices
 	useEffect(() => {
 		getIntelState()
-			.then(({ lastDate, queue }) => {
+			.then(({ lastDate, queue, readIds }) => {
 				if (lastDate) {
 					localStorage.setItem("intel-card-last-date", lastDate);
 				} else {
@@ -92,6 +93,7 @@ function App() {
 					localStorage.setItem("intel-card-queue", JSON.stringify(queue));
 					intelQueue.current = queue;
 				}
+				intelReadIds.current = readIds ?? [];
 			})
 			.catch(() => {}); // Not authenticated or offline — local state persists
 	}, []);
@@ -206,8 +208,13 @@ function App() {
 		const nextId = intelQueue.current.shift()!;
 		localStorage.setItem("intel-card-queue", JSON.stringify(intelQueue.current));
 
+		// Track as read for the Intel Library on the profile page
+		if (!intelReadIds.current.includes(nextId)) {
+			intelReadIds.current = [...intelReadIds.current, nextId];
+		}
+
 		// Persist to Firestore so other devices stay in sync
-		saveIntelState(today, intelQueue.current).catch(() => {});
+		saveIntelState(today, intelQueue.current, intelReadIds.current).catch(() => {});
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);

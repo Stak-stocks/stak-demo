@@ -2,8 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
+import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
+import { IntelCardModal } from "@/components/IntelCardModal";
+import { getIntelState } from "@/lib/api";
 import {
 	ChevronRight,
 	Pencil,
@@ -11,6 +15,8 @@ import {
 	Shield,
 	HelpCircle,
 	LayoutGrid,
+	BookOpen,
+	X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
@@ -42,8 +48,21 @@ function ProfilePage() {
 			const saved = localStorage.getItem("my-stak");
 			setStakBrands(saved ? JSON.parse(saved) : []);
 		};
-		window.addEventListener("stak-updated", handler);
-		return () => window.removeEventListener("stak-updated", handler);
+		globalThis.addEventListener("stak-updated", handler);
+		return () => globalThis.removeEventListener("stak-updated", handler);
+	}, []);
+
+	// Intel Library
+	const [readCards, setReadCards] = useState<IntelCard[]>([]);
+	const [showLibrary, setShowLibrary] = useState(false);
+	const [reviewCard, setReviewCard] = useState<IntelCard | null>(null);
+
+	useEffect(() => {
+		getIntelState()
+			.then(({ readIds }) => {
+				setReadCards(INTEL_CARDS.filter((c) => readIds.includes(c.id)));
+			})
+			.catch(() => {});
 	}, []);
 
 	const displayName = user?.displayName || "STAK User";
@@ -128,7 +147,26 @@ function ProfilePage() {
 
 				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
 				<div className="grid grid-cols-2 gap-2.5 mb-5">
-					{[0, 1, 2, 3].map((i) => (
+					{/* Box 1 — Intel Library */}
+					<button
+						type="button"
+						onClick={() => setShowLibrary(true)}
+						className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-cyan-500/20 p-3 flex flex-col justify-between min-h-[90px] text-left hover:border-cyan-500/40 active:scale-95 transition-all"
+					>
+						<div className="flex items-center gap-1.5">
+							<div className="w-6 h-6 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+								<BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+							</div>
+							<span className="text-[11px] font-semibold text-white">Intel Library</span>
+						</div>
+						<div>
+							<p className="text-2xl font-bold text-white">{readCards.length}</p>
+							<p className="text-[10px] text-zinc-500">of {INTEL_CARDS.length} cards read</p>
+						</div>
+					</button>
+
+					{/* Boxes 2–4 — Coming Soon */}
+					{[1, 2, 3].map((i) => (
 						<div key={i} className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 p-3 flex items-center justify-center min-h-[90px]">
 							<p className="text-zinc-500 text-xs font-medium">Coming Soon</p>
 						</div>
@@ -210,6 +248,64 @@ function ProfilePage() {
 					Log Out
 				</button>
 			</div>
+
+			{/* ════════ INTEL LIBRARY BOTTOM SHEET ════════ */}
+			{showLibrary && createPortal(
+				<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+					{/* Backdrop */}
+					<div
+						aria-hidden="true"
+						style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(2px)" }}
+						onClick={() => setShowLibrary(false)}
+					/>
+					{/* Sheet */}
+					<div style={{ position: "relative", zIndex: 1, background: "#0d1525", borderRadius: "1.5rem 1.5rem 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", border: "1px solid rgba(6,182,212,0.2)" }}>
+						{/* Handle + header */}
+						<div className="px-5 pt-4 pb-3 shrink-0">
+							<div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-4" />
+							<div className="flex items-center justify-between">
+								<div>
+									<h3 className="text-base font-bold text-white">Intel Library</h3>
+									<p className="text-[11px] text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
+								</div>
+								<button type="button" onClick={() => setShowLibrary(false)} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+									<X className="w-4 h-4" />
+								</button>
+							</div>
+						</div>
+						{/* Card list */}
+						<div className="overflow-y-auto px-5 pb-8 space-y-2">
+							{readCards.length === 0 ? (
+								<div className="py-12 text-center">
+									<p className="text-3xl mb-3">📚</p>
+									<p className="text-sm text-zinc-400 font-medium">No cards read yet</p>
+									<p className="text-xs text-zinc-600 mt-1">Swipe 5 times on Discover to get your first Intel Card</p>
+								</div>
+							) : (
+								readCards.map((card) => (
+									<button
+										key={card.id}
+										type="button"
+										onClick={() => { setReviewCard(card); setShowLibrary(false); }}
+										className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#0f1729] border border-slate-700/30 text-left hover:border-cyan-500/30 active:scale-[0.98] transition-all"
+									>
+										<span className="text-2xl shrink-0">{card.emoji}</span>
+										<div className="flex-1 min-w-0">
+											<p className="text-sm font-semibold text-white truncate">{card.title}</p>
+											<p className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5">{card.takeaway}</p>
+										</div>
+										<ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
+									</button>
+								))
+							)}
+						</div>
+					</div>
+				</div>,
+				document.body,
+			)}
+
+			{/* ════════ INTEL CARD REVIEW MODAL ════════ */}
+			{reviewCard && <IntelCardModal card={reviewCard} onDismiss={() => setReviewCard(null)} />}
 		</div>
 	);
 }

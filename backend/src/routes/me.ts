@@ -131,14 +131,18 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 	}
 });
 
-// GET /api/me/intel-state — get intel card queue + last shown date
+// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs
 meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const doc = await adminDb.collection("users").doc(uid).get();
 		const data = doc.data();
-		const intelCardState: { lastDate: string; queue: string[] } =
-			data?.intelCardState ?? { lastDate: "", queue: [] };
+		const saved = data?.intelCardState ?? {};
+		const intelCardState: { lastDate: string; queue: string[]; readIds: string[] } = {
+			lastDate: saved.lastDate ?? "",
+			queue: saved.queue ?? [],
+			readIds: saved.readIds ?? [],
+		};
 		res.json(intelCardState);
 	} catch (error) {
 		console.error("Error fetching intel state:", error);
@@ -146,23 +150,23 @@ meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 	}
 });
 
-// PUT /api/me/intel-state — save intel card queue + last shown date
+// PUT /api/me/intel-state — save intel card queue, last shown date, and read card IDs
 meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { lastDate, queue } = req.body;
+		const { lastDate, queue, readIds } = req.body;
 
-		if (typeof lastDate !== "string" || !Array.isArray(queue)) {
+		if (typeof lastDate !== "string" || !Array.isArray(queue) || !Array.isArray(readIds)) {
 			res.status(400).json({ error: "Invalid intel state" });
 			return;
 		}
 
 		await adminDb.collection("users").doc(uid).set(
-			{ intelCardState: { lastDate, queue }, updatedAt: new Date().toISOString() },
+			{ intelCardState: { lastDate, queue, readIds }, updatedAt: new Date().toISOString() },
 			{ merge: true },
 		);
 
-		res.json({ lastDate, queue });
+		res.json({ lastDate, queue, readIds });
 	} catch (error) {
 		console.error("Error saving intel state:", error);
 		res.status(500).json({ error: "Failed to save intel state" });

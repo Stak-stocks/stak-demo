@@ -112,13 +112,13 @@ export function getIntelCards() {
 }
 
 export function getIntelState() {
-	return apiRequest<{ lastDate: string; queue: string[] }>("/api/me/intel-state");
+	return apiRequest<{ lastDate: string; queue: string[]; readIds: string[] }>("/api/me/intel-state");
 }
 
-export function saveIntelState(lastDate: string, queue: string[]) {
+export function saveIntelState(lastDate: string, queue: string[], readIds: string[]) {
 	return apiRequest("/api/me/intel-state", {
 		method: "PUT",
-		body: JSON.stringify({ lastDate, queue }),
+		body: JSON.stringify({ lastDate, queue, readIds }),
 	});
 }
 
