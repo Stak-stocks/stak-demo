@@ -4,10 +4,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchView } from "@/components/SearchView";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import type { BrandProfile } from "@/data/brands";
 import { saveStak } from "@/lib/api";
 
@@ -26,6 +27,7 @@ function Root() {
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
+	const scrollRef = useRef<HTMLDivElement>(null);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const saved = localStorage.getItem("my-stak");
@@ -109,11 +111,15 @@ function Root() {
 				</div>
 			)}
 
-			<ErrorBoundary tagName="main" className="flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4rem+env(safe-area-inset-bottom))]">
-				<PageTransition pathname={location.pathname}>
-					<Outlet />
-				</PageTransition>
-			</ErrorBoundary>
+			<div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4rem+env(safe-area-inset-bottom))]">
+				<PullToRefresh scrollRef={scrollRef}>
+					<ErrorBoundary tagName="main" className="min-h-full">
+						<PageTransition pathname={location.pathname}>
+							<Outlet />
+						</PageTransition>
+					</ErrorBoundary>
+				</PullToRefresh>
+			</div>
 			{!isAuthPage && <BottomNav />}
 			<Toaster position="top-center" />
 			<TanStackRouterDevtools position="bottom-right" />
