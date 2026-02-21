@@ -75,25 +75,27 @@ function Root() {
 	// Prevent iOS bottom-overscroll from snapping to top.
 	// Only blocks pull-up at the bottom; pull-down at top (refresh) is allowed.
 	const touchStartY = useRef(0);
+	const scrollRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
 		const onTouchStart = (e: TouchEvent) => {
 			touchStartY.current = e.touches[0].clientY;
 		};
 		const onTouchMove = (e: TouchEvent) => {
-			const el = document.scrollingElement || document.documentElement;
 			const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
 			const movingDown = e.touches[0].clientY < touchStartY.current; // finger moving up = scrolling down
 			if (atBottom && movingDown) {
 				e.preventDefault();
 			}
 		};
-		document.addEventListener("touchstart", onTouchStart, { passive: true });
-		document.addEventListener("touchmove", onTouchMove, { passive: false });
+		el.addEventListener("touchstart", onTouchStart, { passive: true });
+		el.addEventListener("touchmove", onTouchMove, { passive: false });
 		return () => {
-			document.removeEventListener("touchstart", onTouchStart);
-			document.removeEventListener("touchmove", onTouchMove);
+			el.removeEventListener("touchstart", onTouchStart);
+			el.removeEventListener("touchmove", onTouchMove);
 		};
-	}, []);
+	}, [scrollRef]);
 
 	if (loading) {
 		return (
@@ -104,7 +106,7 @@ function Root() {
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-full bg-background">
+		<div ref={scrollRef} className="relative flex flex-col min-h-full bg-background">
 
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
