@@ -84,7 +84,7 @@ function Root() {
 		<div className="relative flex flex-col min-h-full bg-white dark:bg-[#0b1121] transition-colors duration-300">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
-				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent' }}>
+				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent', background: 'var(--background)' }}>
 					{/* Search icon — hidden on News/Feed page since that page has its own search bar */}
 					{!isFeedPage ? (
 						<button
