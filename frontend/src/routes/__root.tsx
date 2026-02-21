@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchView } from "@/components/SearchView";
@@ -71,6 +71,29 @@ function Root() {
 			navigate({ to: "/onboarding" });
 		}
 	}, [user, loading, isAuthPage, navigate]);
+
+	// Prevent iOS bottom-overscroll from snapping to top.
+	// Only blocks pull-up at the bottom; pull-down at top (refresh) is allowed.
+	const touchStartY = useRef(0);
+	useEffect(() => {
+		const onTouchStart = (e: TouchEvent) => {
+			touchStartY.current = e.touches[0].clientY;
+		};
+		const onTouchMove = (e: TouchEvent) => {
+			const el = document.scrollingElement || document.documentElement;
+			const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+			const movingDown = e.touches[0].clientY < touchStartY.current; // finger moving up = scrolling down
+			if (atBottom && movingDown) {
+				e.preventDefault();
+			}
+		};
+		document.addEventListener("touchstart", onTouchStart, { passive: true });
+		document.addEventListener("touchmove", onTouchMove, { passive: false });
+		return () => {
+			document.removeEventListener("touchstart", onTouchStart);
+			document.removeEventListener("touchmove", onTouchMove);
+		};
+	}, []);
 
 	if (loading) {
 		return (
