@@ -59,8 +59,8 @@ export function FloatingBrands() {
 		iconsRef.current = BRANDS.map((brand, i) => {
 			const col = i % cols;
 			const row = Math.floor(i / cols);
-			const x = col * colW + (Math.random() * 0.6 + 0.2) * colW - brand.s / 2;
-			const startY = -(brand.s + 40 + row * 80 + Math.random() * 120);
+			const x = col * colW + (Math.random() * 0.4 + 0.3) * colW - brand.s / 2;
+			const startY = -(brand.s + 40 + row * 60 + Math.random() * 80);
 
 			return {
 				x: Math.max(0, Math.min(x, W - brand.s)),
@@ -160,9 +160,9 @@ export function FloatingBrands() {
 					const dx = bx - ax;
 					const dy = by - ay;
 					const dist = Math.sqrt(dx * dx + dy * dy);
-					const minDist = (sa + sb) / 2 + 4;
-					if (dist < minDist && dist > 0) {
-						const push = (minDist - dist) * 0.3;
+				const minDist = (sa + sb) / 2 + 24;
+				if (dist < minDist && dist > 0) {
+					const push = (minDist - dist) * 0.4;
 						const nx = dx / dist;
 						const ny = dy / dist;
 						if (ia.phase === "floating") { ia.x -= nx * push; ia.y -= ny * push; }
