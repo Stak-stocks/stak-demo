@@ -141,9 +141,12 @@ input::-webkit-credentials-auto-fill-button {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	header, main, .page-transition {
-		border-color: transparent !important;
+	header {
+		border: 0 !important;
 		box-shadow: none !important;
+		border-color: transparent !important;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
 	}
 	html, body {
 		-webkit-overflow-scrolling: touch;
@@ -173,6 +176,10 @@ input::-webkit-credentials-auto-fill-button {
 
 .page-transition {
 	animation: page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+	will-change: opacity;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+}
 }
 
 /* Flip rotation for brand logos */
