@@ -15,32 +15,8 @@ export const Route = createRootRoute({
 	component: Root,
 });
 
-function PageTransition({ pathname, children }: { pathname: string; children: React.ReactNode }) {
-	const [key, setKey] = useState(pathname);
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (pathname !== key) {
-			// Re-trigger animation by updating key
-			setKey(pathname);
-		}
-	}, [pathname, key]);
-
-	// Force animation restart when key changes
-	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		el.classList.remove("page-transition");
-		// Force reflow to restart animation
-		void el.offsetWidth;
-		el.classList.add("page-transition");
-	}, [key]);
-
-	return (
-		<div ref={ref} className="page-transition">
-			{children}
-		</div>
-	);
+function PageTransition({ children }: { pathname: string; children: React.ReactNode }) {
+	return <>{children}</>;
 }
 
 function Root() {
