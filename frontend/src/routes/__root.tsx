@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchView } from "@/components/SearchView";
@@ -26,25 +26,6 @@ function Root() {
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
-
-	/* ── iOS overscroll-to-top guard ── */
-	useEffect(() => {
-		let lastY = 0;
-		let lastTime = 0;
-		const onScroll = () => {
-			const y = window.scrollY;
-			const now = performance.now();
-			// If scroll jumped from >300px to 0 in <80ms, it's an iOS rubber-band glitch
-			if (y === 0 && lastY > 300 && now - lastTime < 80) {
-				window.scrollTo(0, lastY);
-			} else {
-				lastY = y;
-				lastTime = now;
-			}
-		};
-		window.addEventListener("scroll", onScroll, { passive: true });
-		return () => window.removeEventListener("scroll", onScroll);
-	}, []);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const saved = localStorage.getItem("my-stak");

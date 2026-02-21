@@ -149,6 +149,7 @@ input::-webkit-credentials-auto-fill-button {
 	}
 	html, body {
 		height: 100%;
+		overscroll-behavior-y: none;
 	}
 	#app {
 		height: 100%;
