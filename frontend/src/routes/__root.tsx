@@ -81,11 +81,11 @@ function Root() {
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-full bg-background transition-colors duration-300">
+		<div className="relative flex flex-col min-h-full bg-background">
 
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
-				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3">
+				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background">
 					{!isFeedPage ? (
 						<button
 							type="button"
