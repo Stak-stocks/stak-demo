@@ -72,17 +72,41 @@ function Root() {
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
-	// Prevent iOS bottom-overscroll snap-to-top while keeping pull-to-refresh.
-	// Dynamically toggle overscroll-behavior-y on <html>:
-	//   scrolled to top → 'auto' (pull-to-refresh works)
-	//   scrolled down → 'contain' (blocks bottom rubber-band that snaps to top)
+	// ── iOS scroll-to-top guard ──
+	// On iOS, overscroll bounce at the bottom can cause the page to snap to top.
+	// This guard detects that: if we were scrolled far down and suddenly scroll
+	// jumps to 0 within a very short time (not a real user action), we restore
+	// the previous position. Pull-to-refresh is unaffected because the user is
+	// already at scrollTop ≈ 0 when they pull down.
 	useEffect(() => {
+		// Disable browser's own scroll restoration
+		if ('scrollRestoration' in history) {
+			history.scrollRestoration = 'manual';
+		}
+
+		let lastY = window.scrollY;
+		let guardActive = false;
+		let savedY = 0;
+
 		const onScroll = () => {
-			const scrollEl = document.scrollingElement || document.documentElement;
-			const atTop = scrollEl.scrollTop <= 1;
-			document.documentElement.style.overscrollBehaviorY = atTop ? 'auto' : 'contain';
+			const y = window.scrollY;
+
+			// If we were well below top and now we're at 0, it's likely the iOS snap bug
+			if (lastY > 300 && y === 0 && !guardActive) {
+				guardActive = true;
+				savedY = lastY;
+				// Wait a tick — if we're still at 0 after rAF, restore
+				requestAnimationFrame(() => {
+					if (window.scrollY === 0) {
+						window.scrollTo(0, savedY);
+					}
+					guardActive = false;
+				});
+			} else if (!guardActive) {
+				lastY = y;
+			}
 		};
-		onScroll();
+
 		window.addEventListener('scroll', onScroll, { passive: true });
 		return () => window.removeEventListener('scroll', onScroll);
 	}, []);
