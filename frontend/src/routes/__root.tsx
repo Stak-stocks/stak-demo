@@ -74,17 +74,17 @@ function Root() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-full bg-white dark:bg-[#0b1121]">
+			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-full bg-white dark:bg-[#0b1121] transition-colors duration-300">
+		<div className="relative flex flex-col min-h-full bg-background transition-colors duration-300">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
-				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent', background: 'var(--background)' }}>
+				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent' }}>
 					{/* Search icon — hidden on News/Feed page since that page has its own search bar */}
 					{!isFeedPage ? (
 						<button
