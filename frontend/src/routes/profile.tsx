@@ -90,7 +90,7 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-zinc-50 dark:bg-[#0b1121] text-zinc-900 dark:text-white pb-24 overflow-x-hidden relative">
+		<div className="min-h-screen bg-zinc-50 dark:bg-[#0b1121] text-zinc-900 dark:text-white pb-24 overflow-x-hidden relative" style={{ overscrollBehavior: 'contain' }}>
 
 			{/* ── Scattered floating brand icons (top area only) ── */}
 			<div className="absolute inset-x-0 top-0 h-[200px] pointer-events-none select-none" aria-hidden>
