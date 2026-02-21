@@ -147,11 +147,9 @@ input::-webkit-credentials-auto-fill-button {
 		border-color: transparent !important;
 		outline: none !important;
 	}
-	html, body {
+	html, body, #app {
 		height: 100%;
-	}
-	#app {
-		height: 100%;
+		overflow: hidden;
 	}
 	body {
 		@apply bg-background text-foreground;

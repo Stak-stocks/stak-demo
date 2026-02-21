@@ -51,7 +51,7 @@ export function BottomNav() {
 	};
 
 	return (
-		<nav className="fixed bottom-0 left-0 right-0 bg-background z-40">
+		<nav className="fixed bottom-0 left-0 right-0 bg-background z-40 pb-[env(safe-area-inset-bottom)]">
 			<div className="max-w-7xl mx-auto px-2 sm:px-4">
 				<div className="flex items-center justify-around h-16">
 					{NAV_ITEMS.map((item) => {

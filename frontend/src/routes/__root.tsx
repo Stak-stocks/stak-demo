@@ -72,54 +72,11 @@ function Root() {
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
-	// ── iOS scroll-snap-to-top prevention ──
-	// On iOS Safari, overscroll bounce at bottom can snap page to top.
-	// This uses two layers of protection:
-	// 1. Touch-level: blocks further scrolling when at the very bottom
-	// 2. Scroll-level: detects anomalous jumps to top and restores position
+	// Prevent browser from restoring scroll positions
 	useEffect(() => {
 		if ('scrollRestoration' in history) {
 			history.scrollRestoration = 'manual';
 		}
-
-		let lastStableY = 0;
-		let lastTime = Date.now();
-		let touching = false;
-
-		const onTouchStart = () => { touching = true; };
-		const onTouchEnd = () => {
-			touching = false;
-			// After touch ends, save the stable position
-			lastStableY = window.scrollY;
-		};
-
-		const onScroll = () => {
-			const y = window.scrollY;
-			const now = Date.now();
-			const dt = now - lastTime;
-
-			// Detect anomalous snap: large jump to near-zero in under 100ms
-			// while not actively touching (rubber-band release)
-			if (!touching && lastStableY > 100 && y < 5 && dt < 150) {
-				window.scrollTo({ top: lastStableY, behavior: 'instant' as ScrollBehavior });
-				return;
-			}
-
-			// Only update stable position during normal scrolling
-			if (y > 5) {
-				lastStableY = y;
-			}
-			lastTime = now;
-		};
-
-		window.addEventListener('touchstart', onTouchStart, { passive: true });
-		window.addEventListener('touchend', onTouchEnd, { passive: true });
-		window.addEventListener('scroll', onScroll, { passive: true });
-		return () => {
-			window.removeEventListener('touchstart', onTouchStart);
-			window.removeEventListener('touchend', onTouchEnd);
-			window.removeEventListener('scroll', onScroll);
-		};
 	}, []);
 
 	if (loading) {
@@ -131,11 +88,11 @@ function Root() {
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-full bg-background">
+		<div className="fixed inset-0 flex flex-col bg-background">
 
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
-				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
+				<div className="flex-none z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
 					{!isFeedPage ? (
 						<button
 							type="button"
@@ -152,7 +109,7 @@ function Root() {
 				</div>
 			)}
 
-			<ErrorBoundary tagName="main" className="flex-1 pb-16">
+			<ErrorBoundary tagName="main" className="flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4rem+env(safe-area-inset-bottom))]">
 				<PageTransition pathname={location.pathname}>
 					<Outlet />
 				</PageTransition>
