@@ -81,10 +81,10 @@ function Root() {
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-hidden">
+		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-clip">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
-				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 -mb-px bg-white dark:bg-[#0b1121]" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent', willChange: 'transform' }}>
+				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 -mb-px bg-white dark:bg-[#0b1121]" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent' }}>
 					{/* Search icon — hidden on News/Feed page since that page has its own search bar */}
 					{!isFeedPage ? (
 						<button
