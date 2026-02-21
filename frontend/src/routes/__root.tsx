@@ -108,7 +108,7 @@ function Root() {
 		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-hidden">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
-				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0b1121] shadow-none border-none outline-none">
+				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0b1121]" style={{ border: 'none', boxShadow: 'none', outline: 'none', borderColor: 'transparent' }}>
 					{/* Search icon — hidden on News/Feed page since that page has its own search bar */}
 					{!isFeedPage ? (
 						<button
@@ -128,7 +128,7 @@ function Root() {
 				</header>
 			)}
 
-			<ErrorBoundary tagName="main" className="flex-1 pb-16">
+			<ErrorBoundary tagName="main" className="flex-1 pb-16 border-0 border-transparent">
 				<PageTransition pathname={location.pathname}>
 					<Outlet />
 				</PageTransition>

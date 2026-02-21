@@ -141,6 +141,10 @@ input::-webkit-credentials-auto-fill-button {
 	* {
 		@apply border-border outline-ring/50;
 	}
+	header, main, .page-transition {
+		border-color: transparent !important;
+		box-shadow: none !important;
+	}
 	html, body {
 		-webkit-overflow-scrolling: touch;
 	}
