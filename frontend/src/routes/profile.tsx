@@ -17,6 +17,10 @@ import {
 	LayoutGrid,
 	BookOpen,
 	X,
+	DollarSign,
+	Star,
+	PieChart,
+	Newspaper,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
@@ -132,8 +136,9 @@ function ProfilePage() {
 					</span>
 
 					{/* Email + Edit Profile */}
-					<div className="flex items-center gap-2.5 mt-0.5">
+					<div className="flex items-center justify-center gap-3 w-full mt-0.5">
 						<span className="text-xs text-zinc-500 dark:text-zinc-400">{email}</span>
+						<span className="text-zinc-300 dark:text-zinc-600">|</span>
 						<button
 							type="button"
 							className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 text-[11px] hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -147,30 +152,47 @@ function ProfilePage() {
 
 				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
 				<div className="grid grid-cols-2 gap-2.5 mb-5">
-					{/* Box 1 — Intel Library */}
-					<button
-						type="button"
-						onClick={() => setShowLibrary(true)}
-						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-cyan-500/20 p-3 flex flex-col justify-between min-h-[90px] text-left hover:border-cyan-500/40 active:scale-95 transition-all shadow-sm dark:shadow-none"
-					>
+
+					{/* Card 1 — Dividend Income */}
+					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-cyan-500/20 p-3 flex flex-col justify-between min-h-[110px] shadow-sm dark:shadow-none">
 						<div className="flex items-center gap-1.5">
 							<div className="w-6 h-6 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-								<BookOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+								<DollarSign className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
 							</div>
-							<span className="text-[11px] font-semibold">Intel Library</span>
+							<span className="text-[11px] font-semibold">Dividend Income</span>
 						</div>
 						<div>
-							<p className="text-2xl font-bold">{readCards.length}</p>
-							<p className="text-[10px] text-zinc-400 dark:text-zinc-500">of {INTEL_CARDS.length} cards read</p>
+							<p className="text-2xl font-bold">$234</p>
+							<p className="text-[10px] text-emerald-500 font-medium">+9% This Month</p>
 						</div>
-					</button>
+						{/* Mini sparkline */}
+						<svg viewBox="0 0 120 28" className="w-full h-5 mt-1" preserveAspectRatio="none">
+							<defs>
+								<linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
+									<stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+								</linearGradient>
+							</defs>
+							<path d="M0,22 L10,18 L25,20 L40,14 L55,16 L70,8 L85,10 L100,4 L120,6" fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" />
+							<path d="M0,22 L10,18 L25,20 L40,14 L55,16 L70,8 L85,10 L100,4 L120,6 L120,28 L0,28Z" fill="url(#sparkGrad)" />
+						</svg>
+					</div>
 
-					{/* Boxes 2–4 — Coming Soon */}
-					{[1, 2, 3].map((i) => (
-						<div key={i} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[90px] shadow-sm dark:shadow-none">
-							<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
-						</div>
-					))}
+					{/* Card 2 — Coming Soon */}
+					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
+						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
+					</div>
+
+					{/* Card 3 — Coming Soon */}
+					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
+						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
+					</div>
+
+					{/* Card 4 — Coming Soon */}
+					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
+						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
+					</div>
+
 				</div>
 
 				{/* ════════ TASTE PROFILE ════════ */}
