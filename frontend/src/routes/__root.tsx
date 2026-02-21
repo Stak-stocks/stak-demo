@@ -72,43 +72,54 @@ function Root() {
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
-	// ── iOS scroll-to-top guard ──
-	// On iOS, overscroll bounce at the bottom can cause the page to snap to top.
-	// This guard detects that: if we were scrolled far down and suddenly scroll
-	// jumps to 0 within a very short time (not a real user action), we restore
-	// the previous position. Pull-to-refresh is unaffected because the user is
-	// already at scrollTop ≈ 0 when they pull down.
+	// ── iOS scroll-snap-to-top prevention ──
+	// On iOS Safari, overscroll bounce at bottom can snap page to top.
+	// This uses two layers of protection:
+	// 1. Touch-level: blocks further scrolling when at the very bottom
+	// 2. Scroll-level: detects anomalous jumps to top and restores position
 	useEffect(() => {
-		// Disable browser's own scroll restoration
 		if ('scrollRestoration' in history) {
 			history.scrollRestoration = 'manual';
 		}
 
-		let lastY = window.scrollY;
-		let guardActive = false;
-		let savedY = 0;
+		let lastStableY = 0;
+		let lastTime = Date.now();
+		let touching = false;
+
+		const onTouchStart = () => { touching = true; };
+		const onTouchEnd = () => {
+			touching = false;
+			// After touch ends, save the stable position
+			lastStableY = window.scrollY;
+		};
 
 		const onScroll = () => {
 			const y = window.scrollY;
+			const now = Date.now();
+			const dt = now - lastTime;
 
-			// If we were well below top and now we're at 0, it's likely the iOS snap bug
-			if (lastY > 300 && y === 0 && !guardActive) {
-				guardActive = true;
-				savedY = lastY;
-				// Wait a tick — if we're still at 0 after rAF, restore
-				requestAnimationFrame(() => {
-					if (window.scrollY === 0) {
-						window.scrollTo(0, savedY);
-					}
-					guardActive = false;
-				});
-			} else if (!guardActive) {
-				lastY = y;
+			// Detect anomalous snap: large jump to near-zero in under 100ms
+			// while not actively touching (rubber-band release)
+			if (!touching && lastStableY > 100 && y < 5 && dt < 150) {
+				window.scrollTo({ top: lastStableY, behavior: 'instant' as ScrollBehavior });
+				return;
 			}
+
+			// Only update stable position during normal scrolling
+			if (y > 5) {
+				lastStableY = y;
+			}
+			lastTime = now;
 		};
 
+		window.addEventListener('touchstart', onTouchStart, { passive: true });
+		window.addEventListener('touchend', onTouchEnd, { passive: true });
 		window.addEventListener('scroll', onScroll, { passive: true });
-		return () => window.removeEventListener('scroll', onScroll);
+		return () => {
+			window.removeEventListener('touchstart', onTouchStart);
+			window.removeEventListener('touchend', onTouchEnd);
+			window.removeEventListener('scroll', onScroll);
+		};
 	}, []);
 
 	if (loading) {
