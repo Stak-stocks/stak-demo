@@ -82,7 +82,7 @@ function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-zinc-50 dark:bg-[#0b1121]">
+			<div className="flex items-center justify-center min-h-dvh bg-zinc-50 dark:bg-[#0b1121]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -94,7 +94,7 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white pb-24 relative">
+		<div className="min-h-dvh bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white pb-24 relative">
 
 			{/* ── Scattered floating brand icons (top area only) ── */}
 			<div className="absolute inset-x-0 top-0 h-[200px] pointer-events-none select-none" aria-hidden>
