@@ -90,7 +90,7 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-zinc-50 dark:bg-[#080d1c] text-zinc-900 dark:text-white pb-24 overflow-hidden relative">
+		<div className="min-h-screen bg-zinc-50 dark:bg-[#0b1121] text-zinc-900 dark:text-white pb-24 overflow-hidden relative">
 
 			{/* ── Scattered floating brand icons (top area only) ── */}
 			<div className="absolute inset-x-0 top-0 h-[200px] pointer-events-none select-none" aria-hidden>
@@ -106,7 +106,7 @@ function ProfilePage() {
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/microsoft--600.png"          className="w-7 h-7 top-[130px] right-6 rotate-6" />
 			</div>
 
-			<div className="relative max-w-lg mx-auto px-4 pt-8">
+			<div className="relative max-w-lg mx-auto px-4 pt-2">
 
 				{/* ════════ PROFILE HEADER ════════ */}
 				<div className="flex flex-col items-center gap-1.5 mb-5">
