@@ -105,7 +105,7 @@ function Root() {
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-hidden" style={{ overscrollBehavior: 'contain' }}>
+		<div className="relative flex flex-col min-h-screen bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-hidden">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
 				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0b1121] shadow-none border-none outline-none">

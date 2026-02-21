@@ -142,7 +142,6 @@ input::-webkit-credentials-auto-fill-button {
 		@apply border-border outline-ring/50;
 	}
 	html, body {
-		overscroll-behavior-y: none;
 		-webkit-overflow-scrolling: touch;
 	}
 	body {
