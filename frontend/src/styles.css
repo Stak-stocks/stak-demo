@@ -149,7 +149,11 @@ input::-webkit-credentials-auto-fill-button {
 		-webkit-backface-visibility: hidden;
 	}
 	html, body {
-		/* removed -webkit-overflow-scrolling: touch — deprecated, causes scroll bugs on iOS */
+		height: 100%;
+		overflow: hidden;
+	}
+	#app {
+		height: 100%;
 	}
 	body {
 		@apply bg-background text-foreground;

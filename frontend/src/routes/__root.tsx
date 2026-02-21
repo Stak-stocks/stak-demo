@@ -74,14 +74,14 @@ function Root() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-dvh bg-white dark:bg-[#0b1121]">
+			<div className="flex items-center justify-center h-full bg-white dark:bg-[#0b1121]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col min-h-dvh bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-x-clip">
+		<div className="relative flex flex-col h-full bg-white dark:bg-[#0b1121] transition-colors duration-300 overflow-y-auto overflow-x-clip overscroll-y-contain">
 			{/* Top header bar */}
 			{!isAuthPage && user && (
 				<header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 -mb-px bg-white dark:bg-[#0b1121]" style={{ border: '0', boxShadow: 'none', outline: '0', borderColor: 'transparent' }}>

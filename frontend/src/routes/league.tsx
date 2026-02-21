@@ -214,7 +214,7 @@ function LeagueHomePage() {
 
 	if (!leagueState.hasJoined) {
 		return (
-			<div className="min-h-dvh bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
+			<div className="min-h-full bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 					<div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8">
 						<Trophy className="w-24 h-24 text-yellow-500" />
@@ -270,7 +270,7 @@ function LeagueHomePage() {
 	const emptySlots = 5 - starters.length;
 
 	return (
-		<div className="min-h-dvh bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
+		<div className="min-h-full bg-white dark:bg-[#0b1121] text-zinc-900 dark:text-white transition-colors duration-300">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<header className="mb-8">
 					<div className="flex items-center gap-3 mb-2">
