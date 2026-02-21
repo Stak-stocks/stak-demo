@@ -141,12 +141,11 @@ input::-webkit-credentials-auto-fill-button {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	header {
+	header, main {
 		border: 0 !important;
 		box-shadow: none !important;
 		border-color: transparent !important;
-		backface-visibility: hidden;
-		-webkit-backface-visibility: hidden;
+		outline: none !important;
 	}
 	html, body {
 		height: 100%;
