@@ -73,20 +73,18 @@ function Root() {
 	}, [user, loading, isAuthPage, navigate]);
 
 	// Prevent iOS bottom-overscroll snap-to-top while keeping pull-to-refresh.
-	// #app is the scroll container. We toggle overscroll-behavior-y dynamically:
-	//   at top → 'auto' (allows pull-to-refresh)
-	//   not at top → 'contain' (blocks bottom rubber-band snap)
+	// Dynamically toggle overscroll-behavior-y on <html>:
+	//   scrolled to top → 'auto' (pull-to-refresh works)
+	//   scrolled down → 'contain' (blocks bottom rubber-band that snaps to top)
 	useEffect(() => {
-		const appEl = document.getElementById('app');
-		if (!appEl) return;
 		const onScroll = () => {
-			const atTop = appEl.scrollTop <= 0;
-			appEl.style.overscrollBehaviorY = atTop ? 'auto' : 'contain';
+			const scrollEl = document.scrollingElement || document.documentElement;
+			const atTop = scrollEl.scrollTop <= 1;
+			document.documentElement.style.overscrollBehaviorY = atTop ? 'auto' : 'contain';
 		};
-		// Set initial state
 		onScroll();
-		appEl.addEventListener('scroll', onScroll, { passive: true });
-		return () => appEl.removeEventListener('scroll', onScroll);
+		window.addEventListener('scroll', onScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onScroll);
 	}, []);
 
 	if (loading) {
