@@ -28,7 +28,7 @@ input::-webkit-credentials-auto-fill-button {
 }
 
 :root {
-	--background: oklch(1 0 0);
+	--background: #ffffff;
 	--foreground: oklch(0.141 0.005 285.823);
 	--card: oklch(1 0 0);
 	--card-foreground: oklch(0.141 0.005 285.823);
@@ -149,7 +149,6 @@ input::-webkit-credentials-auto-fill-button {
 	}
 	html, body {
 		height: 100%;
-		overscroll-behavior-y: none;
 	}
 	#app {
 		height: 100%;
