@@ -83,6 +83,25 @@ function Root() {
 	return (
 		<div className="relative flex flex-col min-h-full bg-background transition-colors duration-300">
 
+			{/* Search & theme toggle */}
+			{!isAuthPage && user && (
+				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3">
+					{!isFeedPage ? (
+						<button
+							type="button"
+							onClick={() => setSearchOpen(true)}
+							className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+							aria-label="Search stocks"
+						>
+							<Search className="w-5 h-5" />
+						</button>
+					) : (
+						<div className="w-9" />
+					)}
+					<ThemeToggle />
+				</div>
+			)}
+
 			<ErrorBoundary tagName="main" className="flex-1 pb-16">
 				<PageTransition pathname={location.pathname}>
 					<Outlet />
