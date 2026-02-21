@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchView } from "@/components/SearchView";
@@ -72,30 +72,22 @@ function Root() {
 		}
 	}, [user, loading, isAuthPage, navigate]);
 
-	// Prevent iOS bottom-overscroll from snapping to top.
-	// Only blocks pull-up at the bottom; pull-down at top (refresh) is allowed.
-	const touchStartY = useRef(0);
-	const scrollRef = useRef<HTMLDivElement>(null);
+	// Prevent iOS bottom-overscroll snap-to-top while keeping pull-to-refresh.
+	// #app is the scroll container. We toggle overscroll-behavior-y dynamically:
+	//   at top → 'auto' (allows pull-to-refresh)
+	//   not at top → 'contain' (blocks bottom rubber-band snap)
 	useEffect(() => {
-		const el = scrollRef.current;
-		if (!el) return;
-		const onTouchStart = (e: TouchEvent) => {
-			touchStartY.current = e.touches[0].clientY;
+		const appEl = document.getElementById('app');
+		if (!appEl) return;
+		const onScroll = () => {
+			const atTop = appEl.scrollTop <= 0;
+			appEl.style.overscrollBehaviorY = atTop ? 'auto' : 'contain';
 		};
-		const onTouchMove = (e: TouchEvent) => {
-			const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-			const movingDown = e.touches[0].clientY < touchStartY.current; // finger moving up = scrolling down
-			if (atBottom && movingDown) {
-				e.preventDefault();
-			}
-		};
-		el.addEventListener("touchstart", onTouchStart, { passive: true });
-		el.addEventListener("touchmove", onTouchMove, { passive: false });
-		return () => {
-			el.removeEventListener("touchstart", onTouchStart);
-			el.removeEventListener("touchmove", onTouchMove);
-		};
-	}, [scrollRef]);
+		// Set initial state
+		onScroll();
+		appEl.addEventListener('scroll', onScroll, { passive: true });
+		return () => appEl.removeEventListener('scroll', onScroll);
+	}, []);
 
 	if (loading) {
 		return (
@@ -106,7 +98,7 @@ function Root() {
 	}
 
 	return (
-		<div ref={scrollRef} className="relative flex flex-col min-h-full bg-background">
+		<div className="relative flex flex-col min-h-full bg-background">
 
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
