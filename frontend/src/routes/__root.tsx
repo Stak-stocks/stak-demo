@@ -27,6 +27,25 @@ function Root() {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 
+	/* ── iOS overscroll-to-top guard ── */
+	useEffect(() => {
+		let lastY = 0;
+		let lastTime = 0;
+		const onScroll = () => {
+			const y = window.scrollY;
+			const now = performance.now();
+			// If scroll jumped from >300px to 0 in <80ms, it's an iOS rubber-band glitch
+			if (y === 0 && lastY > 300 && now - lastTime < 80) {
+				window.scrollTo(0, lastY);
+			} else {
+				lastY = y;
+				lastTime = now;
+			}
+		};
+		window.addEventListener("scroll", onScroll, { passive: true });
+		return () => window.removeEventListener("scroll", onScroll);
+	}, []);
+
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const saved = localStorage.getItem("my-stak");
 		const stak: BrandProfile[] = saved ? JSON.parse(saved) : [];

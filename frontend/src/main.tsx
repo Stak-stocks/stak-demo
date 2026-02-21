@@ -32,7 +32,7 @@ const router = createRouter({
 	routeTree,
 	context: {},
 	defaultPreload: "intent",
-	scrollRestoration: true,
+	scrollRestoration: false,
 	defaultStructuralSharing: true,
 	defaultPreloadStaleTime: 0,
 	basepath: import.meta.env.TENANT_ID ? `/${import.meta.env.TENANT_ID}` : "/",
