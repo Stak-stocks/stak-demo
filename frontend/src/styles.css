@@ -141,7 +141,7 @@ input::-webkit-credentials-auto-fill-button {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	header, main {
+	header, main, nav {
 		border: 0 !important;
 		box-shadow: none !important;
 		border-color: transparent !important;

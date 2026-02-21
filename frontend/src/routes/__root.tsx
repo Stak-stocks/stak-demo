@@ -85,7 +85,7 @@ function Root() {
 
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
-				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background">
+				<div className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
 					{!isFeedPage ? (
 						<button
 							type="button"

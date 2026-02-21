@@ -175,7 +175,7 @@ function FeedPage() {
 	}
 
 	return (
-		<div className="min-h-full bg-background transition-colors duration-300">
+		<div className="min-h-full bg-background">
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
 				<div className="mb-4">
