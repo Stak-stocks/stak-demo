@@ -66,14 +66,14 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px] min-h-[220px] sm:min-h-[480px]"
+			className="rounded-[20px] h-full"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden min-h-[220px] sm:min-h-[480px]"
+				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden h-full"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
@@ -414,7 +414,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center"
+								className="shrink-0 transition-transform duration-400 ease-out origin-center h-[380px] sm:h-[520px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
