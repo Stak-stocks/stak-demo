@@ -234,7 +234,7 @@ function BrandDetailPage() {
 									Recent News
 								</h2>
 								<p className="text-zinc-400 text-sm">
-									Latest articles about {brand.name} · simplified by AI
+									Latest articles about {brand.name}
 								</p>
 							</div>
 							<StockNewsTab ticker={brand.ticker} name={brand.name} />

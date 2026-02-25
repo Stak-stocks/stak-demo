@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
-import { Sparkles, Search, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -301,7 +301,7 @@ function MyStakPage() {
 									Recent News
 								</h2>
 							<p className="text-zinc-400 text-xs sm:text-sm">
-								Latest articles about {selectedBrand.name} · simplified by AI
+								Latest articles about {selectedBrand.name}
 							</p>
 						</div>
 						<StockNewsTab ticker={selectedBrand.ticker} name={selectedBrand.name} />
