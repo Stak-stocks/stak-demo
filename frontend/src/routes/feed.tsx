@@ -181,7 +181,7 @@ function FeedPage() {
 				<div className="mb-4">
 					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
 					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-						Simplified for you by AI · last 7 days
+						Simplified for you · last 7 days
 					</p>
 				</div>
 
@@ -321,7 +321,7 @@ function FeedPage() {
 
 								{allArticles.length > 0 && (
 									<p className="text-xs text-zinc-400 dark:text-zinc-600 text-center mt-8">
-										News summarized by AI · Not financial advice
+										News summarized · Not financial advice
 									</p>
 								)}
 							</>
