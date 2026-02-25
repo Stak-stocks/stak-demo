@@ -191,6 +191,16 @@ function App() {
 	}, [swipedBrands]);
 
 	const handleSwipe = useCallback(() => {
+		// Update daily streak (once per day, regardless of intel card timing)
+		const swipeDay = new Date().toISOString().split("T")[0];
+		const streakRaw = localStorage.getItem("stak-streak");
+		const streakData: { date: string; count: number } = streakRaw ? JSON.parse(streakRaw) : { date: "", count: 0 };
+		if (streakData.date !== swipeDay) {
+			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
+			localStorage.setItem("stak-streak", JSON.stringify({ date: swipeDay, count: newCount }));
+		}
+
 		// Trigger after every 5th swipe, but at most once per day
 		swipesSinceIntel.current += 1;
 		if (swipesSinceIntel.current < 5) return;

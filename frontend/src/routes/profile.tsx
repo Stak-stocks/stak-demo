@@ -13,14 +13,35 @@ import {
 	User,
 	Shield,
 	HelpCircle,
-	LayoutGrid,
 	BookOpen,
 	X,
-	DollarSign,
-	Star,
-	PieChart,
-	Newspaper,
+	Flame,
 } from "lucide-react";
+
+/* ── Vibe archetype based on user interests ── */
+const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> = {
+	tech:      { label: "Tech Visionary",    emoji: "🤖", desc: "Betting big on AI & the future."  },
+	fashion:   { label: "Trend Setter",       emoji: "💎", desc: "Where culture meets returns."      },
+	finance:   { label: "Market Maven",       emoji: "📊", desc: "Always following the money trail." },
+	lifestyle: { label: "Lifestyle Investor", emoji: "🌿", desc: "Brands you live and breathe."      },
+	gaming:    { label: "Alpha Gamer",        emoji: "🎮", desc: "Levelling up in markets too."       },
+	music:     { label: "Culture Creator",    emoji: "🎵", desc: "Vibes that pay dividends."          },
+};
+
+function computeVibe(interests: string[]): { label: string; emoji: string; desc: string } {
+	const scores: Record<string, number> = { tech: 0, fashion: 0, finance: 0, lifestyle: 0, gaming: 0, music: 0 };
+	for (const i of interests) {
+		if (i === "Tech") scores.tech += 2;
+		if (i === "Gaming") scores.gaming += 2;
+		if (i === "Streaming") scores.tech += 1;
+		if (i === "Fashion" || i === "Beauty") scores.fashion += 2;
+		if (i === "Music") scores.music += 2;
+		if (i === "Finance" || i === "Energy") scores.finance += 2;
+		if (i === "Food & Drink" || i === "Travel" || i === "Fitness" || i === "Shopping") scores.lifestyle += 1;
+	}
+	const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "tech";
+	return VIBE_MAP[top] ?? VIBE_MAP.tech;
+}
 
 export const Route = createFileRoute("/profile")({
 	component: ProfilePage,
@@ -68,9 +89,28 @@ function ProfilePage() {
 			.catch(() => {});
 	}, []);
 
+	// Streak
+	const streak = (() => {
+		const raw = localStorage.getItem("stak-streak");
+		return raw ? (JSON.parse(raw) as { date: string; count: number }).count : 0;
+	})();
+
+	// Vibe check
+	const interests: string[] = (() => {
+		const raw = localStorage.getItem("user-interests");
+		return raw ? JSON.parse(raw) : [];
+	})();
+	const vibe = computeVibe(interests);
+
+	// Badges
+	const BADGES = [
+		{ id: "first-swipe",  label: "First Swipe",  emoji: "✅", earned: stakBrands.length > 0  },
+		{ id: "stak-builder", label: "Stak Builder",  emoji: "🏗️", earned: stakBrands.length >= 5 },
+		{ id: "intel-junky",  label: "Intel Junky",   emoji: "🧠", earned: readCards.length >= 5  },
+	];
+
 	const displayName = user?.displayName || "STAK User";
-	const visibleLogos = stakBrands.slice(0, 6);
-	const extraCount = Math.max(0, stakBrands.length - 6);
+	const email = user?.email || "";
 
 	// Determine user level from onboarding familiarity
 	let userLevel = "Beginner";
@@ -102,26 +142,19 @@ function ProfilePage() {
 
 			{/* ── Scattered floating brand icons (top area) ── */}
 			<div className="absolute inset-x-0 top-0 h-[220px] pointer-events-none select-none" aria-hidden>
-				{/* Row 1 — spread across width */}
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/nike--600.png"               className="w-8 h-8 top-4 left-[4%] rotate-[-8deg]" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/netflix--600.png"            className="w-6 h-6 top-6 left-[22%] -rotate-3" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/tesla--600.png"              className="w-7 h-7 top-3 left-[42%] rotate-[-5deg]" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/spotify-technology--600.png" className="w-8 h-8 top-5 right-[20%] rotate-12" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/apple--600.png"              className="w-7 h-7 top-2 right-[4%] -rotate-6" />
-
-				{/* Row 2 */}
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/amazon--600.png"             className="w-7 h-7 top-[55px] left-[10%] rotate-6" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/meta-platforms--600.png"     className="w-6 h-6 top-[65px] left-[30%] rotate-3" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/walt-disney--600.png"        className="w-7 h-7 top-[50px] right-[28%] -rotate-8" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/microsoft--600.png"          className="w-7 h-7 top-[60px] right-[8%] rotate-6" />
-
-				{/* Row 3 */}
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/starbucks--600.png"          className="w-6 h-6 top-[110px] left-[5%] rotate-12" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/nvidia--600.png"             className="w-7 h-7 top-[105px] left-[20%] -rotate-4" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/uber--600.png"               className="w-6 h-6 top-[115px] right-[22%] rotate-8" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/alphabet--600.png"           className="w-6 h-6 top-[100px] right-[5%] -rotate-6" />
-
-				{/* Row 4 */}
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/visa--600.png"               className="w-6 h-6 top-[160px] left-[8%] -rotate-5" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/paypal--600.png"             className="w-6 h-6 top-[155px] left-[25%] rotate-10" />
 				<FloatingIcon src="https://s3-symbol-logo.tradingview.com/shopify--600.png"            className="w-6 h-6 top-[165px] right-[25%] -rotate-3" />
@@ -132,7 +165,6 @@ function ProfilePage() {
 
 				{/* ════════ PROFILE HEADER ════════ */}
 				<div className="flex flex-col items-center gap-1.5 mb-5">
-					{/* Avatar */}
 					<div className="relative mb-1">
 						<div className="absolute -inset-2 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 blur-lg" />
 						<div className="relative w-[80px] h-[80px] rounded-full ring-[3px] ring-purple-400/40 overflow-hidden bg-zinc-200 dark:bg-slate-800 shadow-xl shadow-purple-900/30">
@@ -148,92 +180,105 @@ function ProfilePage() {
 
 					<h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
 
-						{/* Badge */}
-						<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
-							<span className="text-sm">🏆</span> {userLevel} Investor
-						</span>
+					<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
+						<span className="text-sm">🏆</span> {userLevel} Investor
+					</span>
+
+					<span className="text-xs text-zinc-400">{email}</span>
 				</div>
 
-				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
+				{/* ════════ DASHBOARD GRID ════════ */}
 				<div className="grid grid-cols-2 gap-2.5 mb-5">
 
-					{/* Card 1 — Intel Library */}
+					{/* Row 1 — Taste Profile */}
 					<button
 						type="button"
-						onClick={() => setShowLibrary(true)}
-						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-cyan-500/20 p-3 flex flex-col justify-between min-h-[110px] text-left hover:border-cyan-500/40 active:scale-95 transition-all shadow-sm dark:shadow-none"
+						onClick={() => navigate({ to: "/my-stak" })}
+						style={{ border: "1px solid rgba(6,182,212,0.35)" }}
+						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[100px] text-left active:scale-95 transition-all hover:brightness-105 shadow-sm dark:shadow-none"
 					>
-						<div className="flex items-center gap-1.5">
-							<div className="w-6 h-6 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-								<BookOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-							</div>
-							<span className="text-[11px] font-semibold">Intel Library</span>
-						</div>
+						<p className="text-xs font-bold">Taste Profile</p>
 						<div>
-							<p className="text-2xl font-bold">{readCards.length}</p>
-							<p className="text-[10px] text-zinc-400 dark:text-zinc-500">of {INTEL_CARDS.length} cards read</p>
+							{stakBrands.length > 0 ? (
+								<div className="flex items-center gap-1 mt-1 mb-1">
+									{stakBrands.slice(0, 3).map((b) => (
+										<div key={b.id} className="w-7 h-7 rounded-full bg-white/10 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
+											<img src={getBrandLogoUrl(b)} alt={b.name} className="w-5 h-5 object-contain" />
+										</div>
+									))}
+									{stakBrands.length > 3 && <span className="text-[10px] text-zinc-400 ml-0.5">+{stakBrands.length - 3}</span>}
+								</div>
+							) : (
+								<p className="text-[10px] text-zinc-500 mt-1 mb-1">No brands yet</p>
+							)}
+							<p className="text-[10px] text-zinc-500">Learn your taste &amp; discover stocks you vibe with</p>
 						</div>
 					</button>
 
-					{/* Card 2 — Coming Soon */}
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
-						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
-					</div>
-
-					{/* Card 3 — Coming Soon */}
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
-						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
-					</div>
-
-					{/* Card 4 — Coming Soon */}
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-3 flex items-center justify-center min-h-[110px] shadow-sm dark:shadow-none">
-						<p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium">Coming Soon</p>
-					</div>
-
-				</div>
-
-				{/* ════════ TASTE PROFILE ════════ */}
-				<div className="mb-5">
-					<h2 className="text-base font-semibold mb-2">Taste Profile</h2>
-
-					{/* Circular brand logos row */}
-					<div className="flex items-center gap-2 mb-2 overflow-x-auto scrollbar-hide">
-						{visibleLogos.length > 0 ? (
-							<>
-								{visibleLogos.map((brand) => (
-									<div
-										key={brand.id}
-										className="w-[44px] h-[44px] rounded-full bg-zinc-100 dark:bg-white/10 backdrop-blur border border-zinc-200 dark:border-white/10 flex items-center justify-center shrink-0 overflow-hidden"
-									>
-										<img src={getBrandLogoUrl(brand)} alt={brand.name} className="w-7 h-7 rounded-full object-contain" />
-									</div>
-								))}
-								{extraCount > 0 && (
-									<div className="w-[44px] h-[44px] rounded-full bg-zinc-100 dark:bg-slate-800/60 border border-zinc-200 dark:border-slate-700/40 flex items-center justify-center shrink-0 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-										+{extraCount}
-									</div>
-								)}
-							</>
-						) : (
-							<p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Swipe brands to build your taste graph</p>
-						)}
-					</div>
-
-					<p className="text-[11px] text-zinc-400 dark:text-zinc-500 mb-3">Fine-tune your taste graph to discover more stocks you like</p>
-
-					{/* Taste Profile action bar */}
-					<div className="flex items-center justify-between rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 px-3 py-2.5 shadow-sm dark:shadow-none">
-						<div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-							<LayoutGrid className="w-4 h-4" />
-							<span>Taste Profile</span>
+					{/* Row 1 — My Vibe Check */}
+					<div style={{ border: "1px solid rgba(168,85,247,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[100px] shadow-sm dark:shadow-none">
+						<div className="flex items-center gap-1.5">
+							<span className="text-sm">🤖</span>
+							<p className="text-[11px] font-bold">My Vibe Check</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/my-stak" })}
-							className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-semibold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all active:scale-95"
-						>
-							View &amp; Edit
-						</button>
+						<div>
+							<p className="text-base font-extrabold" style={{ color: "#d946ef" }}>{vibe.emoji} {vibe.label}</p>
+							<p className="text-[10px] text-zinc-500 mt-0.5">{vibe.desc}</p>
+						</div>
+					</div>
+
+					{/* Row 2 — Intel Library (full width) */}
+					<button
+						type="button"
+						onClick={() => setShowLibrary(true)}
+						style={{ border: "1px solid rgba(6,182,212,0.25)" }}
+						className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex items-center gap-4 active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none"
+					>
+						<div className="w-9 h-9 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0">
+							<BookOpen className="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
+						</div>
+						<div className="flex-1 text-left">
+							<p className="text-sm font-bold">Intel Library</p>
+							<p className="text-[10px] text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} cards read — tap to review</p>
+						</div>
+						{readCards.length > 0 && (
+							<div className="shrink-0">
+								<div className="w-16 h-1.5 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
+									<div className="h-full rounded-full bg-cyan-500" style={{ width: `${(readCards.length / INTEL_CARDS.length) * 100}%` }} />
+								</div>
+							</div>
+						)}
+					</button>
+
+					{/* Row 3 — STAK Streaks & Badges */}
+					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
+						<div className="flex items-center gap-1.5">
+							<Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+							<p className="text-[11px] font-bold">Streaks &amp; Badges</p>
+						</div>
+						<p className="text-2xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">🔥 {streak}-Day</p>
+						<div className="flex items-center gap-2 mt-auto">
+							{BADGES.map((b) => (
+								<div key={b.id} className="flex flex-col items-center gap-0.5">
+									<div className={["w-8 h-8 rounded-full border flex items-center justify-center text-base", b.earned ? "bg-white/10 border-white/20" : "bg-zinc-100 dark:bg-slate-800/60 border-zinc-200 dark:border-slate-700/30 opacity-40"].join(" ")}>
+										{b.emoji}
+									</div>
+									<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+								</div>
+							))}
+						</div>
+					</div>
+
+					{/* Row 3 — Campus Rank */}
+					<div style={{ border: "1px solid rgba(234,179,8,0.35)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] shadow-sm dark:shadow-none">
+						<div className="flex items-center gap-1.5">
+							<span className="text-sm">🏆</span>
+							<p className="text-[11px] font-bold">Campus Rank</p>
+						</div>
+						<div>
+							<p className="text-2xl font-extrabold text-yellow-500 dark:text-yellow-400">Coming</p>
+							<p className="text-[10px] text-zinc-500 mt-0.5">Compete with students at your school</p>
+						</div>
 					</div>
 				</div>
 
@@ -272,15 +317,12 @@ function ProfilePage() {
 			{/* ════════ INTEL LIBRARY BOTTOM SHEET ════════ */}
 			{showLibrary && createPortal(
 				<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-					{/* Backdrop */}
 					<div
 						aria-hidden="true"
 						className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
 						onClick={() => setShowLibrary(false)}
 					/>
-					{/* Sheet */}
 					<div className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-t-3xl max-h-[80vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20">
-						{/* Handle + header */}
 						<div className="px-5 pt-4 pb-3 shrink-0">
 							<div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-slate-600 mx-auto mb-4" />
 							<div className="flex items-center justify-between">
@@ -293,7 +335,6 @@ function ProfilePage() {
 								</button>
 							</div>
 						</div>
-						{/* Card list */}
 						<div className="overflow-y-auto px-5 pb-8 space-y-2">
 							{readCards.length === 0 ? (
 								<div className="py-12 text-center">
