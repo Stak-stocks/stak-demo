@@ -314,6 +314,100 @@ interface FinnhubSymbol {
 	type: string;
 }
 
+// Curated list of ~500 popular US stocks Gen Z investors care about
+const POPULAR_TICKERS: string[] = [
+	// Mega-cap Tech
+	"AAPL", "MSFT", "GOOGL", "GOOG", "META", "NVDA", "TSLA", "AMZN",
+	// Large-cap Tech
+	"AMD", "INTC", "QCOM", "AVGO", "TXN", "MU", "AMAT", "LRCX", "KLAC",
+	"MRVL", "CSCO", "ORCL", "IBM", "HPQ", "DELL", "STX", "WDC", "PSTG",
+	// Cloud / SaaS
+	"CRM", "ADBE", "NOW", "SNOW", "PLTR", "DDOG", "NET", "CRWD", "OKTA",
+	"ZS", "PANW", "MDB", "TWLO", "VEEV", "HUBS", "ZM", "BILL", "GTLB",
+	"ESTC", "CFLT", "APPN", "DOCN", "FSLY", "TTEC", "RNG", "FROG",
+	// Consumer Internet
+	"NFLX", "SPOT", "RBLX", "SNAP", "PINS", "LYFT", "UBER", "ABNB",
+	"BKNG", "EXPE", "TRIP", "YELP", "ETSY", "EBAY", "AMZN", "DASH",
+	// E-commerce / Retail Tech
+	"SHOP", "W", "BIGC", "CART",
+	// Fintech / Payments / Crypto
+	"PYPL", "SQ", "COIN", "HOOD", "SOFI", "AFRM", "UPST", "LC",
+	"V", "MA", "AXP", "FIS", "FISV", "GPN", "WEX", "OPEN",
+	"MSTR", "MARA", "RIOT", "HUT", "BITF",
+	// Gaming / Entertainment
+	"ATVI", "EA", "TTWO", "NTES", "SE", "DKNG", "PENN", "MGM", "WYNN",
+	"LVS", "CZR", "VICI", "GLPI",
+	// EV / Clean Energy
+	"RIVN", "LCID", "NIO", "LI", "XPEV", "FSR", "GOEV",
+	"NEE", "ENPH", "FSLR", "PLUG", "BE", "BLDP", "SPWR", "NOVA",
+	"SEDG", "RUN", "STEM", "ARRY", "SHLS",
+	// Traditional Auto
+	"F", "GM", "TM", "HMC", "STLA", "RACE",
+	// Streaming / Media
+	"DIS", "PARA", "WBD", "FOXA", "FOX", "CMCSA", "CHTR", "NFLX",
+	"LYV", "IMAX", "AMC", "CNK",
+	// Retail
+	"WMT", "COST", "TGT", "HD", "LOW", "BBY", "GME", "DG", "DLTR",
+	"FIVE", "OLLI", "BIG", "JWN", "M", "KSS", "GAP", "ANF", "AEO",
+	// Food & Beverage
+	"MCD", "SBUX", "CMG", "YUM", "QSR", "WEN", "SHAK", "DNUT",
+	"KO", "PEP", "MNST", "CELH", "FIZZ", "COKE", "SAM", "TAP",
+	"STZ", "BUD", "DEO",
+	// Fashion / Apparel
+	"NKE", "LULU", "UAA", "UA", "PVH", "VFC", "RL", "TPR", "CPRI",
+	"HBI", "CROX", "DECK", "SKX", "ONON", "BIRK",
+	// Beauty / Personal Care
+	"ULTA", "ELF", "COTY", "EL", "REV", "USFD", "KVUE",
+	// Healthcare / Biotech / Pharma
+	"JNJ", "PFE", "MRNA", "BNTX", "ABBV", "MRK", "LLY", "BMY",
+	"AMGN", "GILD", "REGN", "BIIB", "VRTX", "DXCM", "ISRG",
+	"MDT", "ABT", "TMO", "DHR", "BDX", "BSX", "SYK", "ZBH",
+	"CVS", "WBA", "MCK", "CAH", "ABC", "TDOC", "HIMS", "ACCD",
+	"ILMN", "PACB", "BEAM", "CRSP", "EDIT", "NTLA", "FATE",
+	// Finance / Banking
+	"JPM", "BAC", "WFC", "GS", "MS", "C", "USB", "PNC", "TFC",
+	"BLK", "BX", "KKR", "APO", "CG", "SCHW", "IBKR", "NDAQ",
+	"ICE", "CME", "CBOE", "MSCI", "SPGI", "MCO", "FDS",
+	// Insurance
+	"BRK.B", "AIG", "MET", "PRU", "AFL", "UNH", "HUM", "CI", "ELV",
+	"CVS", "HIG", "TRV", "ALL", "PGR",
+	// Real Estate / REITs
+	"AMT", "PLD", "CCI", "EQIX", "SPG", "AVB", "O", "WELL",
+	"PSA", "EXR", "DLR", "ARE", "MAA",
+	// Energy
+	"XOM", "CVX", "COP", "EOG", "PXD", "DVN", "MPC", "PSX",
+	"VLO", "SLB", "HAL", "BKR", "OXY", "HES",
+	// Industrial
+	"CAT", "DE", "MMM", "HON", "GE", "ETN", "ITW", "PH",
+	"ROK", "EMR", "AME", "ROP", "IR", "XYL", "GNRC",
+	// Aerospace / Defense
+	"BA", "RTX", "LMT", "GD", "NOC", "HII", "TDG", "HWM", "AXON",
+	// Consumer Staples
+	"PG", "CL", "KMB", "CHD", "MDLZ", "HSY", "GIS", "K",
+	"CPB", "SJM", "MKC", "HRL", "TSN", "KHC",
+	// Travel / Hospitality / Airlines
+	"MAR", "HLT", "H", "IHG", "CCL", "RCL", "NCLH",
+	"LUV", "AAL", "DAL", "UAL", "ALK", "JBLU",
+	// Chinese ADRs (popular with Gen Z)
+	"BABA", "JD", "PDD", "BIDU", "BILI", "IQ",
+	// Semiconductors (additional)
+	"ASML", "TSM", "SMCI", "ONTO", "FORM", "UCTT",
+	// Communications
+	"T", "VZ", "TMUS", "LUMN", "DISH", "SIRI", "WMG",
+	// Meme / notable
+	"GME", "AMC", "BB", "NOK", "BBBY",
+	// Other high-profile
+	"BRKR", "ZG", "OPEN", "LMND", "ROOT", "METC", "ARM", "RDDT",
+];
+
+function getPopularSymbols(): FinnhubSymbol[] {
+	return POPULAR_TICKERS.map((ticker) => ({
+		symbol: ticker,
+		description: ticker,
+		type: "Common Stock",
+	}));
+}
+
 async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
 	const keys = getFinnhubKeys();
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
@@ -330,7 +424,7 @@ async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
 	);
 }
 
-export async function seedAllStocks(limit = 1000): Promise<void> {
+export async function seedAllStocks(limit = 1000, usePopularOnly = true): Promise<void> {
 	const statusRef = adminDb.collection("_system").doc("seed-status");
 
 	await statusRef.set({
@@ -347,19 +441,21 @@ export async function seedAllStocks(limit = 1000): Promise<void> {
 	});
 
 	let symbols: FinnhubSymbol[];
-	try {
-		symbols = await fetchAllUSSymbols();
-	} catch (e) {
-		console.error("[Seed] Failed to fetch symbol list:", e);
-		await statusRef.update({
-			status: "error",
-			updatedAt: FieldValue.serverTimestamp(),
-		});
-		return;
+	if (usePopularOnly) {
+		symbols = getPopularSymbols().slice(0, limit);
+		console.log(`[Seed] Using popular tickers list (${symbols.length} stocks)`);
+	} else {
+		try {
+			symbols = (await fetchAllUSSymbols()).slice(0, limit);
+		} catch (e) {
+			console.error("[Seed] Failed to fetch symbol list:", e);
+			await statusRef.update({
+				status: "error",
+				updatedAt: FieldValue.serverTimestamp(),
+			});
+			return;
+		}
 	}
-
-	// Apply limit — take only the first N symbols
-	symbols = symbols.slice(0, limit);
 
 	await statusRef.update({
 		total: symbols.length,
