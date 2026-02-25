@@ -50,7 +50,8 @@ function computeVibe(stakBrands: BrandProfile[]): { label: string; emoji: string
 	if (stakBrands.length > 0) {
 		// Score from actual swiped brands
 		for (const brand of stakBrands) {
-			const cats = BRAND_TO_CATS[brand.id] ?? [];
+			// Static brands use the hardcoded map; dynamic stocks fall back to their Gemini-generated categories
+			const cats = BRAND_TO_CATS[brand.id] ?? brand.interestCategories ?? [];
 			for (const cat of cats) {
 				scores[cat] = (scores[cat] ?? 0) + 1;
 			}

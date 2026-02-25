@@ -74,6 +74,7 @@ export interface BrandProfile {
 		dividendYield: FinancialMetric;
 	};
 	trends?: TrendCard[];
+	interestCategories?: string[];
 }
 
 const BRAND_DOMAINS: Record<string, string> = {

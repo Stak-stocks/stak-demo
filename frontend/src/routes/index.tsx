@@ -190,7 +190,19 @@ function App() {
 	useEffect(() => {
 		fetchDynamicStocks().then((stocks) => {
 			const staticIds = new Set(brands.map((b) => b.id));
-			setDynamicStocks(stocks.filter((s) => !staticIds.has(s.id)));
+			const filtered = stocks.filter((s) => !staticIds.has(s.id));
+
+			// Sort dynamic stocks: interest-matching ones come before the rest
+			const interests = new Set<string>(
+				JSON.parse(localStorage.getItem("user-interests") || "[]"),
+			);
+			const matching = filtered.filter((s) =>
+				(s.interestCategories ?? []).some((c) => interests.has(c)),
+			);
+			const rest = filtered.filter(
+				(s) => !(s.interestCategories ?? []).some((c) => interests.has(c)),
+			);
+			setDynamicStocks([...shuffleArray(matching), ...shuffleArray(rest)]);
 		});
 	}, []);
 
