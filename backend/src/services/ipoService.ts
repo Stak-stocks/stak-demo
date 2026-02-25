@@ -293,6 +293,20 @@ export async function syncNewIPOs(daysBack = 3): Promise<SyncResult> {
 		try {
 			console.log(`[IPO Sync] Processing ${symbol} (${ipo.name})...`);
 			const profile = await fetchCompanyProfile(symbol);
+
+			// Quality filters — skip penny stocks and obscure companies
+			const MIN_MARKET_CAP = 100; // $100M minimum (Finnhub reports in millions)
+			if (!profile.logo && !profile.weburl) {
+				result.skipped.push(symbol);
+				console.log(`[IPO Sync] Skipping ${symbol} — no logo or web presence`);
+				continue;
+			}
+			if (profile.marketCapitalization > 0 && profile.marketCapitalization < MIN_MARKET_CAP) {
+				result.skipped.push(symbol);
+				console.log(`[IPO Sync] Skipping ${symbol} — market cap too low ($${profile.marketCapitalization}M)`);
+				continue;
+			}
+
 			const brandData = await generateBrandData(symbol, profile);
 			await upsertStockToFirestore(symbol, profile, brandData, ipo.date);
 			result.added.push(symbol);
