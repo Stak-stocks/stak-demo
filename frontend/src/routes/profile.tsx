@@ -94,6 +94,9 @@ function ProfilePage() {
 	const [showLibrary, setShowLibrary] = useState(false);
 	const [reviewCard, setReviewCard] = useState<IntelCard | null>(null);
 
+	// Badge tooltip
+	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string } | null>(null);
+
 	useEffect(() => {
 		getIntelState()
 			.then(({ readIds }) => {
@@ -113,9 +116,13 @@ function ProfilePage() {
 
 	// Badges — only show ones the user has earned
 	const earnedBadges = [
-		{ id: "first-swipe",  label: "First Swipe",  emoji: "✅", earned: stakBrands.length > 0  },
-		{ id: "stak-builder", label: "Stak Builder",  emoji: "🏗️", earned: stakBrands.length >= 5 },
-		{ id: "intel-junky",  label: "Intel Junky",   emoji: "🧠", earned: readCards.length >= 5  },
+		{ id: "first-swipe",    label: "First Swipe",      emoji: "✅", desc: "Added your first brand to the Stak.",          earned: stakBrands.length >= 1  },
+		{ id: "stak-builder",   label: "Stak Builder",      emoji: "🏗️", desc: "Built a Stak of 5 or more brands.",            earned: stakBrands.length >= 5  },
+		{ id: "full-stak",      label: "Full Stak",         emoji: "💯", desc: "Maxed out your Stak with 15 brands.",          earned: stakBrands.length >= 15 },
+		{ id: "intel-junky",    label: "Intel Junky",       emoji: "🧠", desc: "Read 5 Intel cards — you're learning fast.",   earned: readCards.length >= 5   },
+		{ id: "knowledge-hoarder", label: "All-Knowing",    emoji: "📚", desc: "Read every Intel card in the library.",        earned: readCards.length >= INTEL_CARDS.length },
+		{ id: "week-warrior",   label: "Week Warrior",      emoji: "🔥", desc: "Kept a 7-day swiping streak. Consistent!",    earned: streak >= 7             },
+		{ id: "monthly-legend", label: "Monthly Legend",    emoji: "💎", desc: "30-day streak. You're a STAK legend.",        earned: streak >= 30            },
 	].filter((b) => b.earned);
 
 	const displayName = user?.displayName || "STAK User";
@@ -260,22 +267,31 @@ function ProfilePage() {
 					</button>
 
 					{/* Row 3 — STAK Streaks & Badges */}
-					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] shadow-sm dark:shadow-none">
-						<div className="flex items-center gap-1.5">
-							<Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
-							<p className="text-[11px] font-bold">Streaks &amp; Badges</p>
+					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
+						{/* header + streak inline */}
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-1.5">
+								<Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+								<p className="text-[11px] font-bold">Streaks &amp; Badges</p>
+							</div>
+							<span className="text-sm font-extrabold text-orange-500 dark:text-orange-400">🔥 {streak}d</span>
 						</div>
-						<p className="text-2xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">🔥 {streak}-Day</p>
-						<div className="flex items-center gap-2 mt-auto">
+						{/* badges row */}
+						<div className="flex items-center gap-2 flex-wrap">
 							{earnedBadges.length === 0 ? (
 								<p className="text-[10px] text-zinc-400">No badges yet — keep swiping!</p>
 							) : earnedBadges.map((b) => (
-								<div key={b.id} className="flex flex-col items-center gap-0.5">
-									<div className="w-8 h-8 rounded-full border bg-white/10 border-white/20 flex items-center justify-center text-base">
+								<button
+									key={b.id}
+									type="button"
+									onClick={() => setActiveBadge(b)}
+									className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform"
+								>
+									<div className="w-8 h-8 rounded-full border bg-orange-500/10 border-orange-400/30 flex items-center justify-center text-base">
 										{b.emoji}
 									</div>
 									<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
-								</div>
+								</button>
 							))}
 						</div>
 					</div>
@@ -378,6 +394,22 @@ function ProfilePage() {
 
 			{/* ════════ INTEL CARD REVIEW MODAL ════════ */}
 			{reviewCard && <IntelCardModal card={reviewCard} onDismiss={() => setReviewCard(null)} />}
+
+		{/* Badge info tooltip */}
+		{activeBadge && createPortal(
+			<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "6rem" }}>
+				<div aria-hidden="true" className="fixed inset-0" onClick={() => setActiveBadge(null)} />
+				<div className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-2xl border border-zinc-200 dark:border-orange-400/20 shadow-2xl p-5 mx-4 max-w-xs w-full text-center">
+					<div className="text-4xl mb-2">{activeBadge.emoji}</div>
+					<p className="text-base font-bold mb-1">{activeBadge.label}</p>
+					<p className="text-sm text-zinc-500 dark:text-zinc-400">{activeBadge.desc}</p>
+					<button type="button" onClick={() => setActiveBadge(null)} className="mt-4 w-full py-2 rounded-xl bg-orange-500/15 text-orange-400 text-sm font-semibold hover:bg-orange-500/25 transition-colors">
+						Got it
+					</button>
+				</div>
+			</div>,
+			document.body,
+		)}
 		</div>
 	);
 }
