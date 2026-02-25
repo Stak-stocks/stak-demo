@@ -148,12 +148,21 @@ export function getStockData(symbol: string) {
 }
 
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
+
+// Module-level cache — populated on first fetch, readable synchronously by any component
+let _dynamicStocksCache: import("@/data/brands").BrandProfile[] = [];
+
+export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[] {
+	return _dynamicStocksCache;
+}
+
 export async function fetchDynamicStocks(): Promise<import("@/data/brands").BrandProfile[]> {
 	try {
 		const res = await fetch(`${API_BASE_URL}/api/stocks`);
 		if (!res.ok) return [];
 		const { stocks } = await res.json();
-		return (stocks ?? []) as import("@/data/brands").BrandProfile[];
+		_dynamicStocksCache = (stocks ?? []) as import("@/data/brands").BrandProfile[];
+		return _dynamicStocksCache;
 	} catch {
 		return [];
 	}

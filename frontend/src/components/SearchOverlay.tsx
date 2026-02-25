@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Clock } from "lucide-react";
 import { brands, getBrandLogoUrl, type BrandProfile } from "@/data/brands";
+import { fetchDynamicStocks, getCachedDynamicStocks } from "@/lib/api";
 
 const RECENT_KEY = "search-recent";
 const MAX_RECENT = 5;
@@ -29,6 +30,20 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	const [query, setQuery] = useState("");
 	const [recentIds, setRecentIds] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const [allStocks, setAllStocks] = useState<BrandProfile[]>(() => {
+		const staticIds = new Set(brands.map((b) => b.id));
+		return [...brands, ...getCachedDynamicStocks().filter((s) => !staticIds.has(s.id))];
+	});
+
+	// Load dynamic stocks once so search and recents cover them
+	useEffect(() => {
+		if (getCachedDynamicStocks().length === 0) {
+			fetchDynamicStocks().then((dynamic) => {
+				const staticIds = new Set(brands.map((b) => b.id));
+				setAllStocks([...brands, ...dynamic.filter((s) => !staticIds.has(s.id))]);
+			});
+		}
+	}, []);
 
 	useEffect(() => {
 		if (open) {
@@ -58,11 +73,11 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	);
 
 	const recentBrands = recentIds
-		.map((id) => brands.find((b) => b.id === id))
+		.map((id) => allStocks.find((b) => b.id === id))
 		.filter(Boolean) as BrandProfile[];
 
 	const filtered = query.trim()
-		? brands.filter(
+		? allStocks.filter(
 				(b) =>
 					b.name.toLowerCase().includes(query.toLowerCase()) ||
 					b.ticker.toLowerCase().includes(query.toLowerCase()),

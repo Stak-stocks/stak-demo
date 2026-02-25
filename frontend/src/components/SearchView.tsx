@@ -4,6 +4,7 @@ import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
+import { fetchDynamicStocks, getCachedDynamicStocks } from "@/lib/api";
 
 const RECENT_SEARCHES_PREFIX = "recent-searches";
 const MAX_RECENT_SEARCHES = 5;
@@ -95,6 +96,20 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		}
 	}, [open]);
 
+	// Ensure dynamic stocks are loaded so search includes them
+	const [allStocks, setAllStocks] = useState<BrandProfile[]>(() => {
+		const dynamicIds = new Set(getCachedDynamicStocks().map((s) => s.id));
+		return [...brands, ...getCachedDynamicStocks().filter((s) => !dynamicIds.has(s.id) || !brands.some((b) => b.id === s.id))];
+	});
+	useEffect(() => {
+		if (getCachedDynamicStocks().length === 0) {
+			fetchDynamicStocks().then((dynamic) => {
+				const staticIds = new Set(brands.map((b) => b.id));
+				setAllStocks([...brands, ...dynamic.filter((s) => !staticIds.has(s.id))]);
+			});
+		}
+	}, []);
+
 	useEffect(() => {
 		if (!query.trim()) {
 			setResults([]);
@@ -102,14 +117,14 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		}
 
 		const searchQuery = query.toLowerCase();
-		const filtered = brands.filter(
+		const filtered = allStocks.filter(
 			(brand) =>
 				brand.name.toLowerCase().includes(searchQuery) ||
 				brand.ticker.toLowerCase().includes(searchQuery),
 		);
 
 		setResults(filtered);
-	}, [query]);
+	}, [query, allStocks]);
 
 	// Save clicked brand name to recent searches
 	const handleLearnMore = useCallback((brand: BrandProfile) => {
