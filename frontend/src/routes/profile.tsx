@@ -198,11 +198,11 @@ function ProfilePage() {
 
 					<h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
 
-					<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
+					<span style={{ pointerEvents: "none" }} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
 						<span className="text-sm">🏆</span> {userLevel} Investor
 					</span>
 
-					<span className="text-xs text-zinc-400">{email}</span>
+					<span style={{ pointerEvents: "none" }} className="text-xs text-zinc-400 select-none">{email}</span>
 				</div>
 
 				{/* ════════ DASHBOARD GRID ════════ */}
