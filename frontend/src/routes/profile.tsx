@@ -243,28 +243,6 @@ function ProfilePage() {
 						</div>
 					</div>
 
-					{/* Row 2 — Intel Library (full width) */}
-					<button
-						type="button"
-						onClick={() => setShowLibrary(true)}
-						style={{ border: "1px solid rgba(6,182,212,0.25)" }}
-						className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex items-center gap-4 active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none"
-					>
-						<div className="w-9 h-9 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0">
-							<BookOpen className="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
-						</div>
-						<div className="flex-1 text-left">
-							<p className="text-sm font-bold">Intel Library</p>
-							<p className="text-[10px] text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} cards read — tap to review</p>
-						</div>
-						{readCards.length > 0 && (
-							<div className="shrink-0">
-								<div className="w-16 h-1.5 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
-									<div className="h-full rounded-full bg-cyan-500" style={{ width: `${(readCards.length / INTEL_CARDS.length) * 100}%` }} />
-								</div>
-							</div>
-						)}
-					</button>
 
 					{/* Row 3 — STAK Streaks & Badges */}
 					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
@@ -296,17 +274,30 @@ function ProfilePage() {
 						</div>
 					</div>
 
-					{/* Row 3 — Campus Rank */}
-					<div style={{ border: "1px solid rgba(234,179,8,0.35)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] shadow-sm dark:shadow-none">
+					{/* Row 2 — Intel Library */}
+					<button
+						type="button"
+						onClick={() => setShowLibrary(true)}
+						style={{ border: "1px solid rgba(6,182,212,0.25)" }}
+						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none text-left"
+					>
 						<div className="flex items-center gap-1.5">
-							<span className="text-sm">🏆</span>
-							<p className="text-[11px] font-bold">Campus Rank</p>
+							<BookOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+							<p className="text-[11px] font-bold">Intel Library</p>
 						</div>
-						<div>
-							<p className="text-2xl font-extrabold text-yellow-500 dark:text-yellow-400">Coming</p>
-							<p className="text-[10px] text-zinc-500 mt-0.5">Compete with students at your school</p>
+						{readCards.length === 0 ? (
+							<p className="text-[10px] text-zinc-400 leading-tight">Swipe 5× to unlock your first insight</p>
+						) : (
+							<div>
+								<p className="text-2xl font-extrabold text-cyan-500 dark:text-cyan-400 leading-none">{readCards.length}</p>
+								<p className="text-[10px] text-zinc-500 mt-0.5">{readCards.length === 1 ? "insight" : "insights"} unlocked</p>
+							</div>
+						)}
+						<div className="w-full h-1 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
+							<div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${(readCards.length / INTEL_CARDS.length) * 100}%` }} />
 						</div>
-					</div>
+					</button>
+
 				</div>
 
 				{/* ════════ SETTINGS LIST ════════ */}
