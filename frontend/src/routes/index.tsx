@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
+import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState, fetchDynamicStocks } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -184,7 +184,17 @@ function App() {
 		return order;
 	});
 
+	const [dynamicStocks, setDynamicStocks] = useState<BrandProfile[]>([]);
+
+	// Fetch IPO-detected stocks from backend and merge into the deck
 	useEffect(() => {
+		fetchDynamicStocks().then((stocks) => {
+			const staticIds = new Set(brands.map((b) => b.id));
+			setDynamicStocks(stocks.filter((s) => !staticIds.has(s.id)));
+		});
+	}, []);
+
+		useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
 		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
 		globalThis.dispatchEvent(new CustomEvent('stak-updated'));
@@ -312,7 +322,10 @@ function App() {
 				</div>
 
 				<SwipeableCardStack
-					brands={recommendedOrder.filter(
+					brands={[
+						...recommendedOrder,
+						...dynamicStocks,
+					].filter(
 						(brand) =>
 							!swipedBrands.some((b) => b.id === brand.id) &&
 							!passedBrandIds.has(brand.id),

@@ -146,3 +146,15 @@ export interface LiveMetrics {
 export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
 }
+
+// Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
+export async function fetchDynamicStocks(): Promise<import("@/data/brands").BrandProfile[]> {
+	try {
+		const res = await fetch(`${API_BASE_URL}/api/stocks`);
+		if (!res.ok) return [];
+		const { stocks } = await res.json();
+		return (stocks ?? []) as import("@/data/brands").BrandProfile[];
+	} catch {
+		return [];
+	}
+}
