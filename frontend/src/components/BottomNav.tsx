@@ -61,7 +61,7 @@ export function BottomNav() {
 							<Link
 								key={item.to}
 								to={item.to}
-								className={`flex flex-col items-center gap-1 py-2 px-4 transition-colors ${
+								className={`flex flex-col items-center gap-1 py-2 px-2 sm:px-4 transition-colors ${
 									active
 										? item.activeColor
 										: "text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
