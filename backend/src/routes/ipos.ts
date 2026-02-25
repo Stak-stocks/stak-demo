@@ -44,8 +44,10 @@ iposRouter.post("/seed", async (req, res) => {
 	}
 	// Fire and forget — response returns immediately while job runs in background
 	const limit = Number(req.query.limit) || 1000;
-	seedAllStocks(limit).catch((e) => console.error("[Seed] Fatal error:", e));
-	res.json({ message: `Seeding started (limit=${limit}). Check /api/admin/seed-status for progress.` });
+	const usePopularOnly = req.query.all !== "true"; // ?all=true uses full Finnhub list
+	seedAllStocks(limit, usePopularOnly).catch((e) => console.error("[Seed] Fatal error:", e));
+	const mode = usePopularOnly ? "popular tickers" : "all US stocks";
+	res.json({ message: `Seeding started (${mode}, limit=${limit}). Check /api/admin/seed-status for progress.` });
 });
 
 // POST /api/admin/seed-stop — cancel a running seed job
