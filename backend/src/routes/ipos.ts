@@ -43,8 +43,27 @@ iposRouter.post("/seed", async (req, res) => {
 		return;
 	}
 	// Fire and forget — response returns immediately while job runs in background
-	seedAllStocks().catch((e) => console.error("[Seed] Fatal error:", e));
-	res.json({ message: "Seeding started in background. Check /api/admin/seed-status for progress." });
+	const limit = Number(req.query.limit) || 1000;
+	seedAllStocks(limit).catch((e) => console.error("[Seed] Fatal error:", e));
+	res.json({ message: `Seeding started (limit=${limit}). Check /api/admin/seed-status for progress.` });
+});
+
+// POST /api/admin/seed-stop — cancel a running seed job
+iposRouter.post("/seed-stop", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	try {
+		await adminDb.collection("_system").doc("seed-status").update({
+			status: "cancelled",
+		});
+		res.json({ message: "Seed job cancellation requested. Will stop at next batch." });
+	} catch (error) {
+		console.error("Error cancelling seed:", error);
+		res.status(500).json({ error: "Failed to cancel seed" });
+	}
 });
 
 // GET /api/admin/seed-status — check seeding progress
