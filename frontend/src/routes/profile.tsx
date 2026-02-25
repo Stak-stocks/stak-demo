@@ -46,12 +46,24 @@ const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> =
 
 function computeVibe(stakBrands: BrandProfile[]): { label: string; emoji: string; desc: string } {
 	const scores: Record<string, number> = {};
-	for (const brand of stakBrands) {
-		const cats = BRAND_TO_CATS[brand.id] ?? [];
-		for (const cat of cats) {
+
+	if (stakBrands.length > 0) {
+		// Score from actual swiped brands
+		for (const brand of stakBrands) {
+			const cats = BRAND_TO_CATS[brand.id] ?? [];
+			for (const cat of cats) {
+				scores[cat] = (scores[cat] ?? 0) + 1;
+			}
+		}
+	} else {
+		// Fall back to onboarding questionnaire interests
+		const saved = typeof window !== "undefined" ? localStorage.getItem("user-interests") : null;
+		const interests: string[] = saved ? JSON.parse(saved) : [];
+		for (const cat of interests) {
 			scores[cat] = (scores[cat] ?? 0) + 1;
 		}
 	}
+
 	const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "tech";
 	return VIBE_MAP[top] ?? VIBE_MAP.tech;
 }
