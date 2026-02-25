@@ -27,6 +27,7 @@ function Root() {
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
+	const isSearchPage = location.pathname === "/" || location.pathname === "/my-stak";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
@@ -95,7 +96,7 @@ function Root() {
 			{/* Search & theme toggle */}
 			{!isAuthPage && user && (
 				<div className="flex-none z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
-					{!isFeedPage ? (
+					{isSearchPage ? (
 						<button
 							type="button"
 							onClick={() => setSearchOpen(true)}
