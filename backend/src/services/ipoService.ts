@@ -305,3 +305,139 @@ export async function syncNewIPOs(daysBack = 3): Promise<SyncResult> {
 
 	return result;
 }
+
+// ── All-stocks seeding ────────────────────────────────────────────────────────
+
+interface FinnhubSymbol {
+	symbol: string;
+	description: string;
+	type: string;
+}
+
+async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
+	const keys = getFinnhubKeys();
+	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
+
+	const res = await fetch(
+		`https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${keys[0]}`,
+	);
+	if (!res.ok) throw new Error(`Finnhub symbols error: ${res.status}`);
+
+	const data: FinnhubSymbol[] = await res.json();
+	// Only Common Stock — exclude ETFs, warrants, preferred shares, foreign listings
+	return data.filter(
+		(s) => s.type === "Common Stock" && s.symbol && !s.symbol.includes("."),
+	);
+}
+
+export async function seedAllStocks(): Promise<void> {
+	const statusRef = adminDb.collection("admin").doc("seed-status");
+
+	await statusRef.set({
+		status: "running",
+		total: 0,
+		processed: 0,
+		added: 0,
+		skipped: 0,
+		errors: 0,
+		startedAt: FieldValue.serverTimestamp(),
+		updatedAt: FieldValue.serverTimestamp(),
+		recentErrors: [],
+	});
+
+	let symbols: FinnhubSymbol[];
+	try {
+		symbols = await fetchAllUSSymbols();
+	} catch (e) {
+		console.error("[Seed] Failed to fetch symbol list:", e);
+		await statusRef.update({
+			status: "error",
+			updatedAt: FieldValue.serverTimestamp(),
+		});
+		return;
+	}
+
+	await statusRef.update({
+		total: symbols.length,
+		updatedAt: FieldValue.serverTimestamp(),
+	});
+	console.log(`[Seed] Starting: ${symbols.length} common stocks to process`);
+
+	const BATCH_SIZE = 3;
+	const BATCH_DELAY_MS = 1500; // ~120 stocks/min — within Gemini 45 RPM limit
+	const recentErrors: string[] = [];
+	let processed = 0,
+		added = 0,
+		skipped = 0,
+		errors = 0;
+
+	for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+		const batch = symbols.slice(i, i + BATCH_SIZE);
+
+		await Promise.all(
+			batch.map(async (sym) => {
+				const ticker = sym.symbol.toUpperCase();
+				processed++;
+
+				// Skip if already in Firestore
+				const existing = await adminDb
+					.collection("stocks")
+					.doc(ticker.toLowerCase())
+					.get();
+				if (existing.exists) {
+					skipped++;
+					return;
+				}
+
+				try {
+					const profile = await fetchCompanyProfile(ticker);
+					const brandData = await generateBrandData(ticker, profile);
+					await upsertStockToFirestore(ticker, profile, brandData, "");
+					added++;
+				} catch (e) {
+					errors++;
+					const msg = `${ticker}: ${String(e).slice(0, 100)}`;
+					recentErrors.push(msg);
+					if (recentErrors.length > 10) recentErrors.shift();
+				}
+			}),
+		);
+
+		// Update progress in Firestore every batch
+		await statusRef.update({
+			processed,
+			added,
+			skipped,
+			errors,
+			recentErrors,
+			updatedAt: FieldValue.serverTimestamp(),
+		});
+
+		if (i % 50 === 0) {
+			console.log(
+				`[Seed] Progress: ${processed}/${symbols.length} (added=${added}, skip=${skipped}, err=${errors})`,
+			);
+		}
+
+		if (i + BATCH_SIZE < symbols.length) {
+			await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+		}
+	}
+
+	await statusRef.update({
+		status: "completed",
+		processed,
+		added,
+		skipped,
+		errors,
+		updatedAt: FieldValue.serverTimestamp(),
+	});
+	console.log(
+		`[Seed] Complete: added=${added}, skipped=${skipped}, errors=${errors}`,
+	);
+}
+
+export async function getSeedStatus() {
+	const doc = await adminDb.collection("admin").doc("seed-status").get();
+	return doc.exists ? doc.data() : { status: "idle" };
+}

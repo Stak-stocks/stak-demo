@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
-import { syncNewIPOs } from "../services/ipoService.js";
+import { syncNewIPOs, seedAllStocks, getSeedStatus } from "../services/ipoService.js";
 
 export const iposRouter = Router();
 
@@ -32,5 +32,33 @@ iposRouter.post("/sync", async (req, res) => {
 	} catch (error) {
 		console.error("Error during IPO sync:", error);
 		res.status(500).json({ error: "Sync failed" });
+	}
+});
+
+// POST /api/admin/seed — start background seeding of all US-listed stocks (non-blocking)
+iposRouter.post("/seed", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	// Fire and forget — response returns immediately while job runs in background
+	seedAllStocks().catch((e) => console.error("[Seed] Fatal error:", e));
+	res.json({ message: "Seeding started in background. Check /api/admin/seed-status for progress." });
+});
+
+// GET /api/admin/seed-status — check seeding progress
+iposRouter.get("/seed-status", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	try {
+		const status = await getSeedStatus();
+		res.json(status);
+	} catch (error) {
+		console.error("Error fetching seed status:", error);
+		res.status(500).json({ error: "Failed to fetch seed status" });
 	}
 });
