@@ -10,7 +10,6 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { getIntelState } from "@/lib/api";
 import {
 	ChevronRight,
-	Pencil,
 	User,
 	Shield,
 	HelpCircle,
@@ -70,9 +69,14 @@ function ProfilePage() {
 	}, []);
 
 	const displayName = user?.displayName || "STAK User";
-	const email = user?.email || "";
 	const visibleLogos = stakBrands.slice(0, 6);
 	const extraCount = Math.max(0, stakBrands.length - 6);
+
+	// Determine user level from onboarding familiarity
+	let userLevel = "Beginner";
+	const familiarity = (typeof window !== "undefined" ? localStorage.getItem("onboarding-familiarity") : null) || "";
+	if (familiarity === "some") userLevel = "Intermediate";
+	else if (familiarity === "experienced") userLevel = "Advanced";
 
 	async function handleLogout() {
 		await logout();
@@ -144,24 +148,10 @@ function ProfilePage() {
 
 					<h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
 
-					{/* Badge */}
-					<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
-						<span className="text-sm">🏆</span> Intermediate Investor
-					</span>
-
-					{/* Email + Edit Profile */}
-					<div className="flex items-center justify-center gap-3 w-full mt-0.5">
-						<span className="text-xs text-zinc-500 dark:text-zinc-400">{email}</span>
-						<span className="text-zinc-300 dark:text-zinc-600">|</span>
-						<button
-							type="button"
-							className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 text-[11px] hover:text-zinc-900 dark:hover:text-white transition-colors"
-						>
-							<Pencil className="w-3 h-3" />
-							Edit Profile
-							<ChevronRight className="w-3 h-3 -ml-0.5" />
-						</button>
-					</div>
+						{/* Badge */}
+						<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
+							<span className="text-sm">🏆</span> {userLevel} Investor
+						</span>
 				</div>
 
 				{/* ════════ DASHBOARD CARDS 2×2 ════════ */}
