@@ -25,6 +25,7 @@ function Root() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
+	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 	const isSearchPage = location.pathname === "/" || location.pathname === "/my-stak";
@@ -99,7 +100,7 @@ function Root() {
 		<div className="fixed inset-0 flex flex-col bg-background">
 
 			{/* Search & theme toggle */}
-			{!isAuthPage && user && (
+			{!isAuthPage && !isSubPage && user && (
 				<div className="flex-none z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
 					{isSearchPage ? (
 						<button
