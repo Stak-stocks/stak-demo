@@ -30,6 +30,11 @@ function Root() {
 	const isSearchPage = location.pathname === "/" || location.pathname === "/my-stak";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// Reset scroll to top on every route change
+	useEffect(() => {
+		scrollRef.current?.scrollTo({ top: 0 });
+	}, [location.pathname]);
+
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const saved = localStorage.getItem("my-stak");
 		const stak: BrandProfile[] = saved ? JSON.parse(saved) : [];
