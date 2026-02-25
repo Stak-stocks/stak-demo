@@ -331,7 +331,7 @@ async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
 }
 
 export async function seedAllStocks(): Promise<void> {
-	const statusRef = adminDb.collection("admin").doc("seed-status");
+	const statusRef = adminDb.collection("_system").doc("seed-status");
 
 	await statusRef.set({
 		status: "running",
@@ -438,6 +438,6 @@ export async function seedAllStocks(): Promise<void> {
 }
 
 export async function getSeedStatus() {
-	const doc = await adminDb.collection("admin").doc("seed-status").get();
+	const doc = await adminDb.collection("_system").doc("seed-status").get();
 	return doc.exists ? doc.data() : { status: "idle" };
 }
