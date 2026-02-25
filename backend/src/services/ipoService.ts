@@ -330,7 +330,7 @@ async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
 	);
 }
 
-export async function seedAllStocks(): Promise<void> {
+export async function seedAllStocks(limit = 1000): Promise<void> {
 	const statusRef = adminDb.collection("_system").doc("seed-status");
 
 	await statusRef.set({
@@ -340,6 +340,7 @@ export async function seedAllStocks(): Promise<void> {
 		added: 0,
 		skipped: 0,
 		errors: 0,
+		limit,
 		startedAt: FieldValue.serverTimestamp(),
 		updatedAt: FieldValue.serverTimestamp(),
 		recentErrors: [],
@@ -357,11 +358,14 @@ export async function seedAllStocks(): Promise<void> {
 		return;
 	}
 
+	// Apply limit — take only the first N symbols
+	symbols = symbols.slice(0, limit);
+
 	await statusRef.update({
 		total: symbols.length,
 		updatedAt: FieldValue.serverTimestamp(),
 	});
-	console.log(`[Seed] Starting: ${symbols.length} common stocks to process`);
+	console.log(`[Seed] Starting: ${symbols.length} stocks (limit=${limit})`);
 
 	const BATCH_SIZE = 3;
 	const BATCH_DELAY_MS = 1500; // ~120 stocks/min — within Gemini 45 RPM limit
@@ -372,6 +376,13 @@ export async function seedAllStocks(): Promise<void> {
 		errors = 0;
 
 	for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+		// Check for cancellation at the start of each batch
+		const currentStatus = await statusRef.get();
+		if (currentStatus.data()?.status === "cancelled") {
+			console.log("[Seed] Cancelled by user.");
+			return;
+		}
+
 		const batch = symbols.slice(i, i + BATCH_SIZE);
 
 		await Promise.all(
