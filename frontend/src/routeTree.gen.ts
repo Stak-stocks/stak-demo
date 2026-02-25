@@ -20,6 +20,7 @@ import { Route as LeagueRouteImport } from './routes/league'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
 import { Route as ProfilePersonalDetailsRouteImport } from './routes/profile_.personal-details'
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
@@ -81,6 +82,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileSecurityRoute = ProfileSecurityRouteImport.update({
+  id: '/profile_/security',
+  path: '/profile/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfilePersonalDetailsRoute = ProfilePersonalDetailsRouteImport.update({
   id: '/profile_/personal-details',
   path: '/profile/personal-details',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
+  '/profile/security': typeof ProfileSecurityRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
+  '/profile/security': typeof ProfileSecurityRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/league_/performance': typeof LeaguePerformanceRoute
   '/league_/results': typeof LeagueResultsRoute
   '/profile_/personal-details': typeof ProfilePersonalDetailsRoute
+  '/profile_/security': typeof ProfileSecurityRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/league/performance'
     | '/league/results'
     | '/profile/personal-details'
+    | '/profile/security'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/league/performance'
     | '/league/results'
     | '/profile/personal-details'
+    | '/profile/security'
   id:
     | '__root__'
     | '/'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/league_/performance'
     | '/league_/results'
     | '/profile_/personal-details'
+    | '/profile_/security'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
   LeagueResultsRoute: typeof LeagueResultsRoute
   ProfilePersonalDetailsRoute: typeof ProfilePersonalDetailsRoute
+  ProfileSecurityRoute: typeof ProfileSecurityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile_/security': {
+      id: '/profile_/security'
+      path: '/profile/security'
+      fullPath: '/profile/security'
+      preLoaderRoute: typeof ProfileSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile_/personal-details': {
       id: '/profile_/personal-details'
       path: '/profile/personal-details'
@@ -372,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeaguePerformanceRoute: LeaguePerformanceRoute,
   LeagueResultsRoute: LeagueResultsRoute,
   ProfilePersonalDetailsRoute: ProfilePersonalDetailsRoute,
+  ProfileSecurityRoute: ProfileSecurityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

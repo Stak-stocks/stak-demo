@@ -8,6 +8,7 @@ import { getBrandLogoUrl } from "@/data/brands";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { getIntelState } from "@/lib/api";
+import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	ChevronRight,
 	User,
@@ -18,26 +19,38 @@ import {
 	Flame,
 } from "lucide-react";
 
-/* ── Vibe archetype based on user interests ── */
+/* ── Reverse map: brand ID → categories it belongs to ── */
+const BRAND_TO_CATS: Record<string, string[]> = {};
+for (const [cat, ids] of Object.entries(INTEREST_TO_BRANDS)) {
+	for (const id of ids) {
+		if (!BRAND_TO_CATS[id]) BRAND_TO_CATS[id] = [];
+		BRAND_TO_CATS[id].push(cat);
+	}
+}
+
+/* ── Vibe archetype based on swiped brands ── */
 const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> = {
 	tech:      { label: "Tech Visionary",    emoji: "🤖", desc: "Betting big on AI & the future."  },
+	gaming:    { label: "Alpha Gamer",        emoji: "🎮", desc: "Levelling up in markets too."      },
+	streaming: { label: "Culture Creator",    emoji: "📺", desc: "Streaming the future of media."    },
 	fashion:   { label: "Trend Setter",       emoji: "💎", desc: "Where culture meets returns."      },
+	beauty:    { label: "Beauty Guru",        emoji: "✨", desc: "Investing in what looks good."     },
 	finance:   { label: "Market Maven",       emoji: "📊", desc: "Always following the money trail." },
-	lifestyle: { label: "Lifestyle Investor", emoji: "🌿", desc: "Brands you live and breathe."      },
-	gaming:    { label: "Alpha Gamer",        emoji: "🎮", desc: "Levelling up in markets too."       },
-	music:     { label: "Culture Creator",    emoji: "🎵", desc: "Vibes that pay dividends."          },
+	energy:    { label: "Green Investor",     emoji: "⚡", desc: "Powering the future economy."      },
+	music:     { label: "Sound Investor",     emoji: "🎵", desc: "Vibes that pay dividends."         },
+	food_drink: { label: "Taste Maker",       emoji: "🍔", desc: "Investing in everyday cravings."   },
+	shopping:  { label: "Savvy Shopper",      emoji: "🛍️", desc: "Commerce is always in season."    },
+	travel:    { label: "Globe Trotter",      emoji: "✈️", desc: "Investing in the world around you."},
+	fitness:   { label: "Wellness Investor",  emoji: "💪", desc: "Health is wealth, literally."      },
 };
 
-function computeVibe(interests: string[]): { label: string; emoji: string; desc: string } {
-	const scores: Record<string, number> = { tech: 0, fashion: 0, finance: 0, lifestyle: 0, gaming: 0, music: 0 };
-	for (const i of interests) {
-		if (i === "Tech") scores.tech += 2;
-		if (i === "Gaming") scores.gaming += 2;
-		if (i === "Streaming") scores.tech += 1;
-		if (i === "Fashion" || i === "Beauty") scores.fashion += 2;
-		if (i === "Music") scores.music += 2;
-		if (i === "Finance" || i === "Energy") scores.finance += 2;
-		if (i === "Food & Drink" || i === "Travel" || i === "Fitness" || i === "Shopping") scores.lifestyle += 1;
+function computeVibe(stakBrands: BrandProfile[]): { label: string; emoji: string; desc: string } {
+	const scores: Record<string, number> = {};
+	for (const brand of stakBrands) {
+		const cats = BRAND_TO_CATS[brand.id] ?? [];
+		for (const cat of cats) {
+			scores[cat] = (scores[cat] ?? 0) + 1;
+		}
 	}
 	const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "tech";
 	return VIBE_MAP[top] ?? VIBE_MAP.tech;
@@ -95,19 +108,15 @@ function ProfilePage() {
 		return raw ? (JSON.parse(raw) as { date: string; count: number }).count : 0;
 	})();
 
-	// Vibe check
-	const interests: string[] = (() => {
-		const raw = localStorage.getItem("user-interests");
-		return raw ? JSON.parse(raw) : [];
-	})();
-	const vibe = computeVibe(interests);
+	// Vibe check — computed from actual swiped brands
+	const vibe = computeVibe(stakBrands);
 
-	// Badges
-	const BADGES = [
+	// Badges — only show ones the user has earned
+	const earnedBadges = [
 		{ id: "first-swipe",  label: "First Swipe",  emoji: "✅", earned: stakBrands.length > 0  },
 		{ id: "stak-builder", label: "Stak Builder",  emoji: "🏗️", earned: stakBrands.length >= 5 },
 		{ id: "intel-junky",  label: "Intel Junky",   emoji: "🧠", earned: readCards.length >= 5  },
-	];
+	].filter((b) => b.earned);
 
 	const displayName = user?.displayName || "STAK User";
 	const email = user?.email || "";
@@ -251,16 +260,18 @@ function ProfilePage() {
 					</button>
 
 					{/* Row 3 — STAK Streaks & Badges */}
-					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
+					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] shadow-sm dark:shadow-none">
 						<div className="flex items-center gap-1.5">
 							<Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
 							<p className="text-[11px] font-bold">Streaks &amp; Badges</p>
 						</div>
 						<p className="text-2xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">🔥 {streak}-Day</p>
 						<div className="flex items-center gap-2 mt-auto">
-							{BADGES.map((b) => (
+							{earnedBadges.length === 0 ? (
+								<p className="text-[10px] text-zinc-400">No badges yet — keep swiping!</p>
+							) : earnedBadges.map((b) => (
 								<div key={b.id} className="flex flex-col items-center gap-0.5">
-									<div className={["w-8 h-8 rounded-full border flex items-center justify-center text-base", b.earned ? "bg-white/10 border-white/20" : "bg-zinc-100 dark:bg-slate-800/60 border-zinc-200 dark:border-slate-700/30 opacity-40"].join(" ")}>
+									<div className="w-8 h-8 rounded-full border bg-white/10 border-white/20 flex items-center justify-center text-base">
 										{b.emoji}
 									</div>
 									<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
@@ -286,7 +297,7 @@ function ProfilePage() {
 				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5 shadow-sm dark:shadow-none">
 					{[
 						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400", to: "/profile/personal-details" as const },
-						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: null },
+						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: "/profile/security" as const },
 						{ icon: HelpCircle, label: "Help & Support", iconBg: "bg-amber-500/15", iconColor: "text-amber-400", to: null },
 					].map((item) => (
 						<button
