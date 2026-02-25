@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
@@ -92,6 +92,8 @@ function ProfilePage() {
 	// Intel Library
 	const [readCards, setReadCards] = useState<IntelCard[]>([]);
 	const [showLibrary, setShowLibrary] = useState(false);
+	const sheetDragStartY = useRef(0);
+	const [sheetTranslate, setSheetTranslate] = useState(0);
 	const [reviewCard, setReviewCard] = useState<IntelCard | null>(null);
 
 	// Badge tooltip
@@ -338,17 +340,24 @@ function ProfilePage() {
 					<div
 						aria-hidden="true"
 						className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
-						onClick={() => setShowLibrary(false)}
+						onClick={() => { setShowLibrary(false); setSheetTranslate(0); }}
 					/>
-					<div className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-t-3xl max-h-[80vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20">
-						<div className="px-5 pt-4 pb-3 shrink-0">
+					<div
+						className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-t-3xl max-h-[65vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20"
+						style={{ transform: `translateY(${sheetTranslate}px)`, transition: sheetTranslate === 0 ? "transform 0.3s ease" : "none" }}
+						onTouchStart={(e) => { sheetDragStartY.current = e.touches[0].clientY; }}
+						onTouchMove={(e) => { const dy = e.touches[0].clientY - sheetDragStartY.current; if (dy > 0) setSheetTranslate(dy); }}
+						onTouchEnd={() => { if (sheetTranslate > 80) { setShowLibrary(false); setSheetTranslate(0); } else { setSheetTranslate(0); } }}
+					>
+						{/* Drag handle */}
+						<div className="px-5 pt-4 pb-3 shrink-0 cursor-grab active:cursor-grabbing">
 							<div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-slate-600 mx-auto mb-4" />
 							<div className="flex items-center justify-between">
 								<div>
 									<h3 className="text-base font-bold">Intel Library</h3>
 									<p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
 								</div>
-								<button type="button" onClick={() => setShowLibrary(false)} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
+								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
 									<X className="w-4 h-4" />
 								</button>
 							</div>
@@ -365,7 +374,7 @@ function ProfilePage() {
 									<button
 										key={card.id}
 										type="button"
-										onClick={() => { setReviewCard(card); setShowLibrary(false); }}
+										onClick={() => { setReviewCard(card); setShowLibrary(false); setSheetTranslate(0); }}
 										className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-[#0f1729] border border-zinc-200 dark:border-slate-700/30 text-left hover:border-cyan-500/30 active:scale-[0.98] transition-all"
 									>
 										<span className="text-2xl shrink-0">{card.emoji}</span>
