@@ -294,7 +294,7 @@ export function SwipeableCardStack({
 
 	return (
 		<div className="flex flex-col items-center w-full max-w-md mx-auto">
-			<div className="relative w-full h-[350px] sm:h-[550px] bg-white dark:bg-[#0b1121] rounded-2xl">
+			<div className="relative w-full rounded-2xl" style={{ height: 'min(calc(100dvh - 200px), 550px)' }}>
 				{visibleBrands.map((brand, index) => {
 					const isTopCard = index === 0;
 					const scale = index === 0 ? 1 : 0.95;
