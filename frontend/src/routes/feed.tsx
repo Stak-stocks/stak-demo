@@ -177,7 +177,7 @@ function FeedPage() {
 
 	return (
 		<div className="min-h-full bg-background">
-			<MarketBar static />
+			<MarketBar />
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
 				<div className="mb-4">
