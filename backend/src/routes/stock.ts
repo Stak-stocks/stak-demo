@@ -133,8 +133,10 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 
 	const latest = data[0] as { actual?: number; estimate?: number; period?: string };
 	const period = latest.period ?? "";
+	// Finnhub uses fiscal quarter END date, which can be slightly in the future
+	// when a company reports before its quarter closes. Allow ±45 days.
 	const daysAgo = (Date.now() - new Date(period).getTime()) / (1000 * 60 * 60 * 24);
-	const reported = daysAgo >= 0 && daysAgo <= 14;
+	const reported = latest.actual != null && Math.abs(daysAgo) <= 45;
 	const beatEps =
 		latest.actual != null && latest.estimate != null
 			? latest.actual >= latest.estimate

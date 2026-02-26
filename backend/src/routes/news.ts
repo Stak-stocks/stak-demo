@@ -23,16 +23,27 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const { symbol } = req.params;
 		const ticker = symbol.toUpperCase();
 		const companyName = req.query.name as string | undefined;
-		const articles = await getCompanyNews(ticker, 8, companyName);
+
+		// Fetch more candidates so we can re-rank by specificity before capping at 8
+		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
 			res.json({ articles: [] });
 			return;
 		}
 
-		// Classify each article, drop pure macro
-		const classified = articles.map((a) => ({ article: a, type: classifyArticle(a, undefined, ticker) }));
-		const relevant = classified.filter((c) => c.type !== "macro");
+		// Classify each article (pass companyName so "Nvidia" matches, not just "NVDA")
+		const classified = articles.map((a) => ({ article: a, type: classifyArticle(a, companyName, ticker) }));
+
+		// Drop pure macro; sort company-specific headlines first, then sector by recency
+		const relevant = classified
+			.filter((c) => c.type !== "macro")
+			.sort((a, b) => {
+				if (a.type === "company" && b.type !== "company") return -1;
+				if (a.type !== "company" && b.type === "company") return 1;
+				return b.article.datetime - a.article.datetime;
+			})
+			.slice(0, 8);
 
 		if (relevant.length === 0) {
 			res.json({ articles: [] });
