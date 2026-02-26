@@ -72,7 +72,7 @@ async function generateWithGemini(
 	const numberedHeadlines = headlines.map((h, i) => `${i + 1}. ${h}`).join("\n");
 	const headlinesSection =
 		headlines.length > 0
-			? `Recent headlines about ${brandName}:\n${numberedHeadlines}`
+			? `Recent headlines about ${brandName} (sorted by importance — earnings/results headlines appear first):\n${numberedHeadlines}`
 			: `No recent headlines available — use general knowledge about ${brandName} (${ticker}).`;
 
 	const prompt = `You are a Gen Z financial analyst writing for beginner investors aged 18-25. Tone: sharp, casual, honest — no jargon, no fluff. When you use jargon, immediately explain it in plain English.
@@ -134,6 +134,19 @@ Return ONLY the JSON array, no markdown, no extra text.`;
 	throw new Error("All Gemini API keys rate limited");
 }
 
+// Keywords that signal a high-priority financial event (earnings, guidance, results)
+const HIGH_PRIORITY_KEYWORDS = [
+	"earnings", "revenue", "quarterly", "eps", "beat", "beats", "miss", "misses",
+	"reports", "results", "guidance", "outlook", "profit", "loss", "record",
+	"q1", "q2", "q3", "q4", "fiscal", "annual", "raises", "lowers", "cuts",
+	"forecast", "announced", "surpass", "disappoint",
+];
+
+function articlePriority(headline: string): number {
+	const lower = headline.toLowerCase();
+	return HIGH_PRIORITY_KEYWORDS.some((k) => lower.includes(k)) ? 1 : 0;
+}
+
 export async function getTrends(
 	brandId: string,
 	ticker: string,
@@ -150,8 +163,17 @@ export async function getTrends(
 	}
 
 	// Stale or missing — fetch news and generate
-	const articles = await getCompanyNews(ticker, 10, brandName).catch(() => []);
-	const headlines = articles.slice(0, 5).map((a) => a.headline);
+	// Fetch more candidates so we can surface earnings/results headlines even on busy days
+	const articles = await getCompanyNews(ticker, 20, brandName).catch(() => []);
+
+	// Sort: high-priority (earnings/results) headlines first, then by recency
+	const sorted = [...articles].sort((a, b) => {
+		const diff = articlePriority(b.headline) - articlePriority(a.headline);
+		if (diff !== 0) return diff;
+		return b.datetime - a.datetime;
+	});
+
+	const headlines = sorted.slice(0, 8).map((a) => a.headline);
 
 	const cards = await generateWithGemini(ticker, brandName, headlines);
 
