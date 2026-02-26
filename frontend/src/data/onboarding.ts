@@ -40,18 +40,18 @@ export const FAMILIARITY_OPTIONS: FamiliarityOption[] = [
 
 // Maps interest selections to brand IDs from brands.ts
 export const INTEREST_TO_BRANDS: Record<string, string[]> = {
-	gaming: ["rblx", "msft", "nflx", "aapl", "meta", "amd"],
-	streaming: ["nflx", "dis", "spot", "googl", "meta"],
-	fashion: ["nke", "ulta", "elf", "coty", "or", "tgt"],
-	tech: ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd"],
-	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt"],
-	travel: ["uber", "lyft", "amzn", "abnb"],
-	fitness: ["nke", "aapl", "amzn", "cost", "wmt"],
-	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm"],
-	beauty: ["ulta", "elf", "coty", "el", "or", "pg"],
-	music: ["spot", "aapl", "googl"],
-	shopping: ["amzn", "shop", "wmt", "tgt", "cost"],
-	energy: ["tsla", "nee", "enph", "fslr", "xom", "cvx"],
+	gaming: ["rblx", "msft", "sony", "gme", "app", "ttwo", "ea", "aapl", "meta", "amd", "nvda", "dkng"],
+	streaming: ["nflx", "dis", "spot", "googl", "meta", "para", "roku", "wbd", "snap", "rddt"],
+	fashion: ["nke", "ulta", "elf", "coty", "or", "tgt", "lulu", "wrby", "etsy"],
+	tech: ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd", "duol", "app", "arm", "avgo"],
+	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt", "bros", "wing", "shak", "cmg", "dpz", "mnst"],
+	travel: ["uber", "lyft", "amzn", "abnb", "mar", "hlt", "lyv", "rcl", "dal", "ual"],
+	fitness: ["nke", "aapl", "amzn", "cost", "pton", "lulu", "hims", "wmt"],
+	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm", "coin", "ebay", "jpm", "cart"],
+	beauty: ["ulta", "elf", "coty", "el", "or", "pg", "wrby", "hims"],
+	music: ["spot", "aapl", "googl", "sony", "lyv", "rddt"],
+	shopping: ["amzn", "shop", "wmt", "tgt", "cost", "etsy", "ebay", "chwy", "cart", "cvna"],
+	energy: ["tsla", "nee", "enph", "fslr", "xom", "cvx", "rivn", "nio", "lcid", "gm", "f"],
 };
 
 // Curated popular brands for the swipe step
