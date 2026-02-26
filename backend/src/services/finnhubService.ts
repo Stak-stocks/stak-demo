@@ -46,7 +46,7 @@ const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
 // In-memory news cache so repeated reloads don't spam Finnhub
 const newsCache = new Map<string, { data: FinnhubArticle[]; expiresAt: number }>();
-const NEWS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const NEWS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function getCachedNews(key: string): FinnhubArticle[] | null {
 	const entry = newsCache.get(key);
