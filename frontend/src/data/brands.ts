@@ -7588,7 +7588,7 @@ export const brands: BrandProfile[] = [
 		ticker: "DPZ",
 		name: "Domino's Pizza",
 		bio: "the pizza delivery company that became a technology company that also delivers pizza",
-		heroImage: "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=600&fit=crop",
 		personalityDescription: "The logistics nerd who turned pepperoni into a supply chain masterpiece",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -9502,7 +9502,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ROKU",
 		name: "Roku",
 		bio: "the streaming remote that turned into an advertising platform",
-		heroImage: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1593359677879-a4bb92f4834c?w=800&h=600&fit=crop",
 		personalityDescription: "The humble TV device that became the gatekeeper of the streaming revolution",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -10379,7 +10379,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SHAK",
 		name: "Shake Shack Inc",
 		bio: "premium burgers that started as a hot dog cart in NYC. now a global flex for people who refuse to eat at McDonald's",
-		heroImage: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&h=600&fit=crop",
 		personalityDescription: "The bougie foodie who somehow makes a burger feel like an event",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -11039,7 +11039,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CELH",
 		name: "Celsius Holdings",
 		bio: "the energy drink that took over gym bags and became the #3 energy drink in America almost overnight. Pepsi noticed and invested",
-		heroImage: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1544245945-f90425340c7e?w=800&h=600&fit=crop",
 		personalityDescription: "The gym-culture brand that turned 'healthier energy drink' into a billion-dollar category",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
