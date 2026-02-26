@@ -8081,7 +8081,7 @@ export const brands: BrandProfile[] = [
 		ticker: "OXY",
 		name: "Occidental Petroleum",
 		bio: "the oil company Warren Buffett keeps buying shares of — which tells you everything",
-		heroImage: "https://images.unsplash.com/photo-1495568023648-3339cf77a32f?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&h=600&fit=crop",
 		personalityDescription: "The oil stock that even a legendary value investor can love",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
