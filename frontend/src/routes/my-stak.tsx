@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData, getEarnings } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
@@ -35,13 +35,6 @@ function StakCard({
 		retry: 1,
 	});
 
-	const { data: earningsData } = useQuery({
-		queryKey: ["earnings", brand.ticker],
-		queryFn: () => getEarnings(brand.ticker),
-		staleTime: 6 * 60 * 60 * 1000,
-		retry: 1,
-	});
-
 	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	return (
@@ -56,29 +49,8 @@ function StakCard({
 			>
 				<X className="w-4 h-4" />
 			</button>
-
-			{earningsData?.reported && (
-				<div
-					className={`absolute top-3 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-						earningsData.beatEps === true
-							? "bg-green-500/15 text-green-400 border-green-500/30"
-							: earningsData.beatEps === false
-							? "bg-red-500/15 text-red-400 border-red-500/30"
-							: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
-					}`}
-				>
-					📊{" "}
-					{earningsData.beatEps === true
-						? "Beat ✓"
-						: earningsData.beatEps === false
-						? "Missed ✗"
-						: "Reported"}
-				</div>
-			)}
-
 			<div
 				className="flex items-start gap-4 mb-3"
-				style={{ marginTop: earningsData?.reported ? "1.5rem" : undefined }}
 			>
 				<img
 					src={getBrandLogoUrl(brand)}
