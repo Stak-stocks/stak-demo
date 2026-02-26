@@ -41,11 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-			// If a different user logged in, clear their stale swipe count
 			if (firebaseUser) {
 				const lastUid = localStorage.getItem("last-user-uid");
 				if (lastUid && lastUid !== firebaseUser.uid) {
+					// Different user signed in — wipe all previous user's local data
+					// so a fresh account doesn't inherit stale stak/interests/etc.
 					localStorage.removeItem("daily-swipe-state");
+					localStorage.removeItem("my-stak");
+					localStorage.removeItem("passed-brands");
+					localStorage.removeItem("user-interests");
+					localStorage.removeItem("onboardingCompleted");
 				}
 				localStorage.setItem("last-user-uid", firebaseUser.uid);
 			}
@@ -68,30 +73,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 							"user-interests",
 							JSON.stringify(profile.preferences.interests),
 						);
+					} else {
+						localStorage.removeItem("user-interests");
 					}
 				} catch {
 					// Profile fetch failed — continue with whatever localStorage has
 				}
 				setLoading(false);
 
-				// Stak hydration (fire-and-forget)
+				// Stak hydration — always write so a fresh account starts empty
 				getStak()
 					.then(({ brandIds }) => {
-						if (brandIds.length > 0) {
-							const stakBrands = brandIds
-								.map((id) => allBrands.find((b) => b.id === id))
-								.filter(Boolean);
-							localStorage.setItem("my-stak", JSON.stringify(stakBrands));
-						}
+						const stakBrands = brandIds
+							.map((id) => allBrands.find((b) => b.id === id))
+							.filter(Boolean);
+						localStorage.setItem("my-stak", JSON.stringify(stakBrands));
 					})
 					.catch(() => {});
 
-				// Passed brands hydration (fire-and-forget)
+				// Passed brands hydration — always write so a fresh account starts empty
 				getPassedBrands()
 					.then(({ entries }) => {
-						if (entries.length > 0) {
-							localStorage.setItem("passed-brands", JSON.stringify(entries));
-						}
+						localStorage.setItem("passed-brands", JSON.stringify(entries));
 					})
 					.catch(() => {});
 			} else {
