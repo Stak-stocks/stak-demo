@@ -34,8 +34,9 @@ function setCached(key: string, data: unknown, ttl: number) {
 	cache.set(key, { data, expiresAt: Date.now() + ttl });
 }
 
-const QUOTE_TTL_MS = 60 * 1000;          // 1 minute
-const METRICS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
+const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
+const EARNINGS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
 const TICKER_MAP: Record<string, string> = {
@@ -113,4 +114,31 @@ stockRouter.get("/:symbol", async (req, res) => {
 		console.error("Error fetching stock data:", error);
 		res.status(500).json({ error: "Failed to fetch stock data" });
 	}
+});
+
+stockRouter.get("/:symbol/earnings", async (req, res) => {
+	const symbol = req.params.symbol.toUpperCase();
+	const cacheKey = `earnings:${symbol}`;
+
+	let data = getCached(cacheKey) as unknown[] | null;
+	if (!data) {
+		data = (await finnhubGet(`/stock/earnings?symbol=${symbol}&limit=4`)) as unknown[] | null;
+		if (data) setCached(cacheKey, data, EARNINGS_TTL_MS);
+	}
+
+	if (!Array.isArray(data) || data.length === 0) {
+		res.json({ reported: false, beatEps: null, period: null });
+		return;
+	}
+
+	const latest = data[0] as { actual?: number; estimate?: number; period?: string };
+	const period = latest.period ?? "";
+	const daysAgo = (Date.now() - new Date(period).getTime()) / (1000 * 60 * 60 * 24);
+	const reported = daysAgo >= 0 && daysAgo <= 14;
+	const beatEps =
+		latest.actual != null && latest.estimate != null
+			? latest.actual >= latest.estimate
+			: null;
+
+	res.json({ reported, beatEps, period });
 });

@@ -147,6 +147,12 @@ export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
 }
 
+export function getEarnings(symbol: string) {
+	return apiRequest<{ reported: boolean; beatEps: boolean | null; period: string | null }>(
+		`/api/stock/${encodeURIComponent(symbol)}/earnings`,
+	);
+}
+
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
 
 // Module-level cache — populated on first fetch, readable synchronously by any component
