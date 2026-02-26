@@ -46,7 +46,7 @@ function ParticleBackground() {
 
 		function resize() {
 			width = canvas!.width = window.innerWidth;
-			height = canvas!.height = document.documentElement.scrollHeight;
+			height = canvas!.height = window.innerHeight;
 			initParticles();
 		}
 

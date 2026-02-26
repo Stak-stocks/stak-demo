@@ -117,7 +117,7 @@ function Root() {
 				</div>
 			)}
 
-			<div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4rem+env(safe-area-inset-bottom))]">
+			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
 				<PullToRefresh scrollRef={scrollRef}>
 					<ErrorBoundary tagName="main" className="min-h-full">
 						<PageTransition pathname={location.pathname}>
