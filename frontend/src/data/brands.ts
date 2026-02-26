@@ -194,6 +194,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	lcid: "lucidmotors.com", lyv: "livenationentertainment.com",
 	cake: "thecheesecakefactory.com", txrh: "texasroadhouse.com", denn: "dennys.com",
 	jack: "jackinthebox.com", pzza: "papajohns.com", blmn: "bloominbrands.com", eat: "brinker.com",
+	rklb: "rocketlabusa.com", asts: "ast-science.com", celh: "celsius.com", wynn: "wynnresorts.com",
 };
 
 export function getBrandLogoUrl(brand: BrandProfile): string {
@@ -310,6 +311,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	lcid: "lucid-group", lyv: "live-nation-entertainment",
 	cake: "cheesecake-factory", txrh: "texas-roadhouse", denn: "dennys",
 	jack: "jack-in-the-box", pzza: "papa-johns-international", blmn: "bloomin-brands", eat: "brinker-international",
+	rklb: "rocket-lab", asts: "ast-spacemobile", celh: "celsius-holdings", wynn: "wynn-resorts",
 };
 
 export function getBrandHeroUrl(id: string): string {
@@ -10948,6 +10950,126 @@ export const brands: BrandProfile[] = [
 			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividend — reinvesting in the momentum" },
 		},
 		interestCategories: ["food", "lifestyle"],
+	},
+	{
+		id: "rklb",
+		ticker: "RKLB",
+		name: "Rocket Lab USA",
+		bio: "the company actually launching rockets every few weeks while SpaceX gets all the headlines. the scrappy space startup that keeps delivering",
+		heroImage: "https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?w=800&h=600&fit=crop",
+		personalityDescription: "The quietly competent underdog doing real work in space while everyone's distracted by the louder competitor",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 40, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 80, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "SpaceX's Scrappiest Rival",
+			sections: [
+				{ heading: "What They Do", content: "Rocket Lab launches small satellites to orbit with their Electron rocket — the second most frequently launched US rocket after Falcon 9. They're also building Neutron, a medium-lift rocket to compete more directly with SpaceX." },
+				{ heading: "Why Gen Z Cares", content: "Space is having a moment and Rocket Lab is the pure-play space company you can actually invest in (SpaceX is private). They've launched 50+ missions for NASA, DARPA, and commercial clients — and they catch rocket boosters mid-air with a helicopter." },
+				{ heading: "The Bigger Picture", content: "Rocket Lab is expanding beyond launch into space systems — making spacecraft components and full satellites. The space economy is projected to reach $1T+ by 2040 and Rocket Lab wants a seat at every part of the value chain." },
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "not yet profitable — investing heavily in Neutron rocket development" },
+			marketCap: { label: "Market Cap", value: "$10B", explanation: "The total value of all the company's shares combined", culturalTranslation: "significant valuation for a company with real launch cadence" },
+			revenueGrowth: { label: "Revenue Growth", value: "30%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "strong growth as launch frequency and space systems revenue expand" },
+			profitMargin: { label: "Profit Margin", value: "-50%", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "burning cash to build Neutron — needs scale to reach profitability" },
+			beta: { label: "Beta", value: "2.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "high volatility — speculative space stock moves on news and sentiment" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividend — all capital going to rocket development" },
+		},
+		interestCategories: ["tech", "science"],
+	},
+	{
+		id: "asts",
+		ticker: "ASTS",
+		name: "AST SpaceMobile",
+		bio: "building a space-based cell network that connects directly to regular smartphones — no special device needed. if it works, it changes everything",
+		heroImage: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800&h=600&fit=crop",
+		personalityDescription: "The moonshot bet that sounds like science fiction but has AT&T and Verizon already signed on as partners",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 55, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 88, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "The Satellite That Calls Your Regular Phone",
+			sections: [
+				{ heading: "What They Do", content: "AST SpaceMobile is building BlueBird satellites large enough to connect directly to unmodified smartphones — anywhere on earth, even where there's no cell tower. They've already made calls from space to regular iPhones." },
+				{ heading: "Why Gen Z Cares", content: "Dead zones, remote areas, disaster zones — AST's technology would eliminate them. Apple already added satellite SOS to iPhones but AST is aiming for full two-way communication via space. Partnerships with AT&T, Verizon, and international carriers validate the concept." },
+				{ heading: "The Bigger Picture", content: "If AST executes, they could become a wholesale network provider for every mobile carrier on earth — a $1T+ addressable market. The risk is enormous: satellite deployment, regulatory hurdles, and capital requirements make this a high-conviction speculative play." },
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "pre-revenue at scale — this is a pure bet on future potential" },
+			marketCap: { label: "Market Cap", value: "$5B", explanation: "The total value of all the company's shares combined", culturalTranslation: "speculative but backed by real carrier partnerships and successful tests" },
+			revenueGrowth: { label: "Revenue Growth", value: "N/A", explanation: "How much more money the company is making compared to last year", culturalTranslation: "commercial revenue just beginning — early stage company" },
+			profitMargin: { label: "Profit Margin", value: "N/A", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "deeply negative — building a constellation of satellites is expensive" },
+			beta: { label: "Beta", value: "2.5", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "extremely volatile — moves 10-30% on any news" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividend — needs every dollar to build satellites" },
+		},
+		interestCategories: ["tech", "science"],
+	},
+	{
+		id: "celh",
+		ticker: "CELH",
+		name: "Celsius Holdings",
+		bio: "the energy drink that took over gym bags and became the #3 energy drink in America almost overnight. Pepsi noticed and invested",
+		heroImage: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop",
+		personalityDescription: "The gym-culture brand that turned 'healthier energy drink' into a billion-dollar category",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 50, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 82, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "The Energy Drink That Disrupted Red Bull",
+			sections: [
+				{ heading: "What They Do", content: "Celsius makes fitness-focused energy drinks marketed as a healthier alternative to traditional energy drinks — no sugar, no artificial preservatives, with metabolism-boosting ingredients. Available at every gym, grocery store, and convenience store in America." },
+				{ heading: "Why Gen Z Cares", content: "Celsius became the drink of the gym, the study session, and the morning commute. It's everywhere on TikTok and gym culture content. PepsiCo bought an 8.5% stake and took over distribution — giving it the infrastructure of a legacy beverage brand." },
+				{ heading: "The Bigger Picture", content: "Celsius stock had one of the greatest runs in consumer stocks — growing 10,000%+ from 2019 to 2023 — before pulling back significantly. International expansion and new products are key to the next growth chapter." },
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "25x", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "re-rated lower as growth slowed from triple-digit to single-digit" },
+			marketCap: { label: "Market Cap", value: "$8B", explanation: "The total value of all the company's shares combined", culturalTranslation: "still large — the brand is real even if the hypergrowth has cooled" },
+			revenueGrowth: { label: "Revenue Growth", value: "10%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "slowed significantly from 100%+ pandemic-era growth" },
+			profitMargin: { label: "Profit Margin", value: "15%", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "solid margins for a beverage brand — improving as scale benefits kick in" },
+			beta: { label: "Beta", value: "2.0", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "high volatility — growth stock with big swings on earnings" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividend — reinvesting in growth" },
+		},
+		interestCategories: ["fitness", "food", "lifestyle"],
+	},
+	{
+		id: "wynn",
+		ticker: "WYNN",
+		name: "Wynn Resorts",
+		bio: "ultra-luxury casinos in Las Vegas and Macau where the chandeliers cost more than your car and the minimum bet is $50",
+		heroImage: "https://images.unsplash.com/photo-1605870445919-838d190e8e1b?w=800&h=600&fit=crop",
+		personalityDescription: "The definition of opulence — the casino brand that makes MGM feel mid",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 65, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 60, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "Vegas's Most Luxurious Casino Brand",
+			sections: [
+				{ heading: "What They Do", content: "Wynn Resorts operates ultra-luxury integrated resorts in Las Vegas (Wynn and Encore) and Macau — offering casinos, hotels, restaurants, nightclubs, and entertainment for high rollers and luxury travelers." },
+				{ heading: "Why Gen Z Cares", content: "Vegas is back and bigger than ever. Wynn is the aspirational end of the Vegas spectrum — the brand you brag about staying at. Wynn's Macau operations make it a play on China's recovering luxury and gaming market." },
+				{ heading: "The Bigger Picture", content: "Macau has been the growth engine — Chinese VIP gambling is enormous. But regulatory risk in Macau and dependence on high-roller traffic makes revenue volatile. Wynn also has a project in the UAE that could open a new market for casino gaming." },
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "20x", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "reasonable for a luxury resort operator with Macau exposure" },
+			marketCap: { label: "Market Cap", value: "$10B", explanation: "The total value of all the company's shares combined", culturalTranslation: "large-cap casino stock — premium brand at premium price" },
+			revenueGrowth: { label: "Revenue Growth", value: "8%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "steady growth as Macau recovers and Vegas stays strong" },
+			profitMargin: { label: "Profit Margin", value: "10%", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "solid margins for a high fixed-cost resort operator" },
+			beta: { label: "Beta", value: "1.8", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moderately volatile — tied to Chinese tourism and consumer spending" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend suspended — capital going to debt and UAE project" },
+		},
+		interestCategories: ["travel", "lifestyle", "entertainment"],
 	},
 // END AUTO-GENERATED
 ];
