@@ -24,7 +24,7 @@ import { brands as allBrands } from "../data/brands";
 interface AuthContextType {
 	user: User | null;
 	loading: boolean;
-	signInWithGoogle: () => Promise<boolean>;
+	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
 	resetPassword: (email: string) => Promise<void>;
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					localStorage.removeItem("my-stak");
 					localStorage.removeItem("passed-brands");
 					localStorage.removeItem("user-interests");
-					localStorage.removeItem("onboardingCompleted");
+					// Default to needing onboarding — profile fetch below will override if they're existing
+					localStorage.setItem("onboardingCompleted", "false");
 				}
 				localStorage.setItem("last-user-uid", firebaseUser.uid);
 			}
@@ -104,10 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return unsubscribe;
 	}, []);
 
-	async function signInWithGoogle(): Promise<boolean> {
+	async function signInWithGoogle(): Promise<{ isNew: boolean; uid: string }> {
 		const result = await signInWithPopup(auth, googleProvider);
 		const isNew = getAdditionalUserInfo(result)?.isNewUser ?? false;
-		return isNew;
+		return { isNew, uid: result.user.uid };
 	}
 
 	async function signInWithEmail(email: string, password: string) {

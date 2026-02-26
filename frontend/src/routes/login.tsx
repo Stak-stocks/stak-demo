@@ -10,7 +10,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { user, loading, signInWithGoogle, signInWithEmail } = useAuth();
+	const { user, loading, signInWithGoogle, signInWithEmail, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -19,13 +19,22 @@ function LoginPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			if (localStorage.getItem("onboardingCompleted") === "false") {
-				navigate({ to: "/onboarding" });
-			} else {
-				navigate({ to: "/" });
-			}
+			// Force-refresh the token to detect if the account was deleted server-side
+			// (Firebase keeps the client session alive for up to 1 hour after deletion)
+			user.getIdToken(true)
+				.then(() => {
+					if (localStorage.getItem("onboardingCompleted") === "false") {
+						navigate({ to: "/onboarding" });
+					} else {
+						navigate({ to: "/" });
+					}
+				})
+				.catch(() => {
+					// Token refresh failed — account was deleted or disabled on the server
+					logout().catch(() => {});
+				});
 		}
-	}, [user, loading, navigate]);
+	}, [user, loading, navigate, logout]);
 
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
@@ -50,26 +59,26 @@ function LoginPage() {
 	async function handleGoogleSignIn() {
 		setSigningIn(true);
 		try {
-			const isNew = await signInWithGoogle();
+			const { isNew, uid } = await signInWithGoogle();
 			if (isNew) {
-				// Firebase reports "new user" when an existing email/password user links
-				// Google for the first time — verify with backend before overwriting their profile
-				try {
-					const profile = await getProfile();
-					if (profile.onboardingCompleted) {
-						// Existing user who just linked Google — preserve their onboarding status
-						toast.success("Welcome back!");
-					} else {
-						localStorage.setItem("onboardingCompleted", "false");
-						updateProfile({ onboardingCompleted: false }).catch(() => {});
-						toast.success("Welcome to STAK!");
-					}
-				} catch {
-					// Profile doesn't exist yet — truly new user
-					localStorage.setItem("onboardingCompleted", "false");
-					updateProfile({ onboardingCompleted: false }).catch(() => {});
-					toast.success("Welcome to STAK!");
+				const lastUid = localStorage.getItem("last-user-uid");
+				// If the UID matches a previous session, this is an existing email/password
+				// user linking their Google account — check profile before overwriting.
+				// If UID is different (or no previous session), it's a fresh account.
+				const isLinking = !!lastUid && lastUid === uid;
+				if (isLinking) {
+					try {
+						const profile = await getProfile();
+						if (profile.onboardingCompleted) {
+							toast.success("Welcome back!");
+							return;
+						}
+					} catch { /* fall through to new user */ }
 				}
+				// Truly new user or deleted account re-registering — start fresh
+				localStorage.setItem("onboardingCompleted", "false");
+				updateProfile({ onboardingCompleted: false }).catch(() => {});
+				toast.success("Welcome to STAK!");
 			} else {
 				toast.success("Welcome back!");
 			}

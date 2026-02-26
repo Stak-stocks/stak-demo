@@ -10,7 +10,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
+	const { user, loading, signUpWithEmail, signInWithGoogle, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -20,13 +20,19 @@ function SignUpPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			if (localStorage.getItem("onboardingCompleted") === "false") {
-				navigate({ to: "/onboarding" });
-			} else {
-				navigate({ to: "/" });
-			}
+			user.getIdToken(true)
+				.then(() => {
+					if (localStorage.getItem("onboardingCompleted") === "false") {
+						navigate({ to: "/onboarding" });
+					} else {
+						navigate({ to: "/" });
+					}
+				})
+				.catch(() => {
+					logout().catch(() => {});
+				});
 		}
-	}, [user, loading, navigate]);
+	}, [user, loading, navigate, logout]);
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
@@ -63,22 +69,22 @@ function SignUpPage() {
 	async function handleGoogleSignIn() {
 		setSigningUp(true);
 		try {
-			const isNew = await signInWithGoogle();
+			const { isNew, uid } = await signInWithGoogle();
 			if (isNew) {
-				try {
-					const profile = await getProfile();
-					if (profile.onboardingCompleted) {
-						toast.success("Welcome back!");
-					} else {
-						localStorage.setItem("onboardingCompleted", "false");
-						updateProfile({ onboardingCompleted: false }).catch(() => {});
-						toast.success("Welcome to STAK!");
-					}
-				} catch {
-					localStorage.setItem("onboardingCompleted", "false");
-					updateProfile({ onboardingCompleted: false }).catch(() => {});
-					toast.success("Welcome to STAK!");
+				const lastUid = localStorage.getItem("last-user-uid");
+				const isLinking = !!lastUid && lastUid === uid;
+				if (isLinking) {
+					try {
+						const profile = await getProfile();
+						if (profile.onboardingCompleted) {
+							toast.success("Welcome back!");
+							return;
+						}
+					} catch { /* fall through to new user */ }
 				}
+				localStorage.setItem("onboardingCompleted", "false");
+				updateProfile({ onboardingCompleted: false }).catch(() => {});
+				toast.success("Welcome to STAK!");
 			} else {
 				toast.success("Welcome back!");
 			}
