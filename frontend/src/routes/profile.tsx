@@ -144,10 +144,15 @@ function ProfilePage() {
 	const email = user?.email || "";
 
 	// Determine user level from onboarding familiarity
-	let userLevel = "Beginner";
-	const familiarity = (typeof window !== "undefined" ? localStorage.getItem("onboarding-familiarity") : null) || "";
-	if (familiarity === "some") userLevel = "Intermediate";
-	else if (familiarity === "experienced") userLevel = "Advanced";
+	const familiarity = (typeof window !== "undefined" ? localStorage.getItem("onboarding-familiarity") : null) || "new";
+	const LEVEL_MAP: Record<string, { stars: number; label: string }> = {
+		new:          { stars: 1, label: "Beginner" },
+		little:       { stars: 2, label: "Beginner" },
+		some:         { stars: 3, label: "Intermediate" },
+		experienced:  { stars: 4, label: "Expert" },
+	};
+	const level = LEVEL_MAP[familiarity] ?? LEVEL_MAP.new;
+	const starsDisplay = "⭐".repeat(level.stars);
 
 	async function handleLogout() {
 		await logout();
@@ -212,7 +217,7 @@ function ProfilePage() {
 					<h1 className="text-xl font-bold tracking-tight">{displayName}</h1>
 
 					<span style={{ pointerEvents: "none" }} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-400/30 dark:border-emerald-400/25 text-emerald-600 dark:text-emerald-300 text-xs font-medium">
-						<span className="text-sm">🏆</span> {userLevel} Investor
+						<span className="text-sm">{starsDisplay}</span> {level.label} Investor
 					</span>
 
 					<span style={{ pointerEvents: "none" }} className="text-xs text-zinc-400 select-none">{email}</span>

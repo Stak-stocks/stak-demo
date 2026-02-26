@@ -138,7 +138,10 @@ function OnboardingPage() {
 		<FamiliarityStep
 			key="familiarity"
 			selected={selectedFamiliarity}
-			onSelect={setSelectedFamiliarity}
+			onSelect={(f) => {
+				setSelectedFamiliarity(f);
+				localStorage.setItem("onboarding-familiarity", f);
+			}}
 			onNext={() => goTo(5)}
 		/>,
 		<BuildingStep
