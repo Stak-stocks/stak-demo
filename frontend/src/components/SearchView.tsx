@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
 import { brands, type BrandProfile } from "@/data/brands";
+
+const MAX_RESULTS = 20;
+
+const searchIndex = brands.map((b) => ({
+	brand: b,
+	nameLower: b.name.toLowerCase(),
+	tickerLower: b.ticker.toLowerCase(),
+}));
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
@@ -103,23 +111,20 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		return () => clearTimeout(timer);
 	}, [query]);
 
-	const allStocks = brands;
-
 	useEffect(() => {
 		if (!debouncedQuery.trim()) {
 			setResults([]);
 			return;
 		}
 
-		const searchQuery = debouncedQuery.toLowerCase();
-		const filtered = allStocks.filter(
-			(brand) =>
-				brand.name.toLowerCase().includes(searchQuery) ||
-				brand.ticker.toLowerCase().includes(searchQuery),
-		);
+		const q = debouncedQuery.toLowerCase();
+		const filtered = searchIndex
+			.filter(({ nameLower, tickerLower }) => nameLower.includes(q) || tickerLower.includes(q))
+			.map(({ brand }) => brand)
+			.slice(0, MAX_RESULTS);
 
 		setResults(filtered);
-	}, [debouncedQuery, allStocks]);
+	}, [debouncedQuery]);
 
 	// Save clicked brand name to recent searches
 	const handleLearnMore = useCallback((brand: BrandProfile) => {
@@ -189,10 +194,14 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500 z-10" />
 						<input
 							ref={inputRef}
-							type="text"
+							type="search"
+							inputMode="search"
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
+							autoComplete="off"
+							autoCorrect="off"
+							spellCheck={false}
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 							onBlur={() => {/* allow natural blur */}}
 						/>
