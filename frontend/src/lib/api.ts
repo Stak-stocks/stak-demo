@@ -157,6 +157,9 @@ export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[]
 }
 
 export async function fetchDynamicStocks(): Promise<import("@/data/brands").BrandProfile[]> {
+	// Return cache immediately if already populated — avoids redundant network calls
+	if (_dynamicStocksCache.length > 0) return _dynamicStocksCache;
+
 	try {
 		const { brands: staticBrands } = await import("@/data/brands");
 		const staticTickers = new Set(staticBrands.map((b) => b.ticker.toUpperCase()));

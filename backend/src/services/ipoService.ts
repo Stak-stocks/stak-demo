@@ -35,10 +35,11 @@ interface GeneratedBrandData {
 // ── Sector → Unsplash hero image map ─────────────────────────────────────────
 
 const SECTOR_HERO: Record<string, string> = {
+	// Broad sectors
 	Technology: "photo-1518770660439-4636190af475",
 	Healthcare: "photo-1576091160550-2173dba999ef",
-	Finance: "photo-1611974789855-9c2a0a7236a3",
-	"Financial Services": "photo-1611974789855-9c2a0a7236a3",
+	Finance: "photo-1560472354-b33ff0c44a43",
+	"Financial Services": "photo-1560472354-b33ff0c44a43",
 	"Consumer Cyclical": "photo-1441986300917-64674bd600d8",
 	"Consumer Defensive": "photo-1556742049-0cfed4f6a45d",
 	Energy: "photo-1473341304170-971dccb5ac1e",
@@ -47,7 +48,29 @@ const SECTOR_HERO: Record<string, string> = {
 	"Basic Materials": "photo-1504328345606-18bbc8c9d7d1",
 	"Real Estate": "photo-1560518883-ce09059eeffa",
 	Utilities: "photo-1473341304170-971dccb5ac1e",
-	default: "photo-1611974789855-9c2a0a7236a3",
+	// Specific Finnhub industry names
+	Semiconductors: "photo-1518770660439-4636190af475",
+	Software: "photo-1461749280684-dccba630e2f6",
+	"IT Services": "photo-1461749280684-dccba630e2f6",
+	Biotechnology: "photo-1576091160550-2173dba999ef",
+	Pharmaceuticals: "photo-1576091160550-2173dba999ef",
+	"Aerospace & Defense": "photo-1446776811953-b23d57bd21aa",
+	Automobiles: "photo-1503376780353-7e6692767b70",
+	Retail: "photo-1441986300917-64674bd600d8",
+	Media: "photo-1562577309-4932fdd64cd1",
+	Banks: "photo-1560472354-b33ff0c44a43",
+	Insurance: "photo-1560472354-b33ff0c44a43",
+	"Oil & Gas": "photo-1473341304170-971dccb5ac1e",
+	"Internet Content & Information": "photo-1518770660439-4636190af475",
+	"Internet & Direct Marketing Retail": "photo-1441986300917-64674bd600d8",
+	"Electronic Technology": "photo-1518770660439-4636190af475",
+	"Consumer Electronics": "photo-1518770660439-4636190af475",
+	"Health Technology": "photo-1576091160550-2173dba999ef",
+	"Health Services": "photo-1576091160550-2173dba999ef",
+	"Retail Trade": "photo-1441986300917-64674bd600d8",
+	"Transportation": "photo-1503376780353-7e6692767b70",
+	"Commercial Services": "photo-1581091226825-a6a2a5aee158",
+	default: "photo-1535303311272-63661ad60b4b",
 };
 
 function getHeroImage(sector: string): string {
@@ -194,9 +217,9 @@ Generate a JSON object with EXACTLY this structure:
   "bio": "<1-2 sentence Gen Z-friendly company description, max 120 chars>",
   "personalityDescription": "<2-3 sentences on this company's personality/archetype>",
   "vibes": [
-    {"name":"Clout","emoji":"💎","value":<integer 0-100>,"color":"#c084fc"},
-    {"name":"Drama","emoji":"🎭","value":<integer 0-100>,"color":"#f87171"},
-    {"name":"Hype","emoji":"🚀","value":<integer 0-100>,"color":"#22d3ee"}
+    {"name":"Clout","emoji":"🏰","value":<integer 0-100>,"color":"#00d9ff"},
+    {"name":"Drama Level","emoji":"🎭","value":<integer 0-100>,"color":"#ff006e"},
+    {"name":"Internet Hype","emoji":"🔥","value":<integer 0-100>,"color":"#ff9500"}
   ],
   "culturalContext": {
     "title": "<catchy title about this brand's cultural position>",

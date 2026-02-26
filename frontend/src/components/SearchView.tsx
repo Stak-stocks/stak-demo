@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
-import { brands, type BrandProfile } from "@/data/brands";
+import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
 import { StockCard } from "./StockCard";
+import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
-import { getCachedDynamicStocks } from "@/lib/api";
 
 const RECENT_SEARCHES_PREFIX = "recent-searches";
 const MAX_RECENT_SEARCHES = 5;
@@ -50,6 +50,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const { user } = useAuth();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
+	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [results, setResults] = useState<BrandProfile[]>([]);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -91,23 +92,26 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	useEffect(() => {
 		if (!open) {
 			setQuery("");
+			setDebouncedQuery("");
 			setResults([]);
 		}
 	}, [open]);
 
-	// Build stock list from static brands + cache (no async fetch — cache populated by Discover page)
-	const allStocks = useMemo(() => {
-		const staticIds = new Set(brands.map((b) => b.id));
-		return [...brands, ...getCachedDynamicStocks().filter((s) => !staticIds.has(s.id))];
-	}, []);
+	// Debounce query so heavy StockCard re-renders don't fire on every keystroke
+	useEffect(() => {
+		const timer = setTimeout(() => setDebouncedQuery(query), 200);
+		return () => clearTimeout(timer);
+	}, [query]);
+
+	const allStocks = brands;
 
 	useEffect(() => {
-		if (!query.trim()) {
+		if (!debouncedQuery.trim()) {
 			setResults([]);
 			return;
 		}
 
-		const searchQuery = query.toLowerCase();
+		const searchQuery = debouncedQuery.toLowerCase();
 		const filtered = allStocks.filter(
 			(brand) =>
 				brand.name.toLowerCase().includes(searchQuery) ||
@@ -115,25 +119,25 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		);
 
 		setResults(filtered);
-	}, [query, allStocks]);
+	}, [debouncedQuery, allStocks]);
 
-	// Open full card preview when tapping a search result
-	const handleResultClick = useCallback((brand: BrandProfile) => {
+	// Save clicked brand name to recent searches
+	const handleLearnMore = useCallback((brand: BrandProfile) => {
 		saveRecentSearch(brand.name, user?.uid);
 		setRecentSearches(getRecentSearches(user?.uid));
-		setSelectedBrand(brand);
-		setModalOpen(true);
-	}, [user?.uid]);
+		if (modalOpen && selectedBrand?.id === brand.id) {
+			setModalOpen(false);
+			setTimeout(() => setSelectedBrand(null), 200);
+		} else {
+			setSelectedBrand(brand);
+			setModalOpen(true);
+		}
+	}, [user?.uid, modalOpen, selectedBrand]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
 		setTimeout(() => setSelectedBrand(null), 200);
 	};
-
-	const handleAddToStak = useCallback((brand: BrandProfile) => {
-		if (onSwipeRight) onSwipeRight(brand);
-		handleCloseModal();
-	}, [onSwipeRight]);
 
 	const handleRecentClick = (search: string) => {
 		setQuery(search);
@@ -213,12 +217,8 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 								</p>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
 									{results.map((brand) => (
-										<div
-											key={brand.id}
-											onClick={() => handleResultClick(brand)}
-							className="cursor-pointer transform transition-transform hover:scale-[1.02] active:scale-[0.98] h-full"
-										>
-											<StockCard brand={brand} onLearnMore={handleResultClick} />
+										<div key={brand.id} className="h-full">
+											<StockCard brand={brand} onLearnMore={handleLearnMore} />
 										</div>
 									))}
 								</div>
@@ -295,34 +295,12 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 				</div>
 			</div>
 
-			{/* Full card preview — same look as Discover page, no swipe */}
-			{selectedBrand && modalOpen && (
-				<div
-					className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-					onClick={handleCloseModal}
-				>
-					<div
-						className="w-full max-w-[360px] flex flex-col gap-3"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<StockCard brand={selectedBrand} onLearnMore={() => {}} />
-						{onSwipeRight && (
-							<button
-								onClick={() => handleAddToStak(selectedBrand)}
-								className="w-full py-4 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all active:scale-[0.98] shadow-lg"
-							>
-								+ Add to My Stak
-							</button>
-						)}
-						<button
-							onClick={handleCloseModal}
-							className="w-full py-3 text-sm text-zinc-400 hover:text-white transition-colors"
-						>
-							Close
-						</button>
-					</div>
-				</div>
-			)}
+			<BrandContextModal
+				brand={selectedBrand}
+				open={modalOpen}
+				onClose={handleCloseModal}
+				onAddToStak={onSwipeRight}
+			/>
 		</>
 	);
 }

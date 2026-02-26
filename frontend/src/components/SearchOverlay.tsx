@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Clock } from "lucide-react";
-import { brands, getBrandLogoUrl, type BrandProfile } from "@/data/brands";
-import { getCachedDynamicStocks } from "@/lib/api";
+import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
+import { getBrandLogoUrl } from "@/data/brands";
 
 const RECENT_KEY = "search-recent";
 const MAX_RECENT = 5;
@@ -30,11 +30,7 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	const [query, setQuery] = useState("");
 	const [recentIds, setRecentIds] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
-	// Build stock list from static brands + cache (no async fetch — cache populated by Discover page)
-	const allStocks = useMemo(() => {
-		const staticIds = new Set(brands.map((b) => b.id));
-		return [...brands, ...getCachedDynamicStocks().filter((s) => !staticIds.has(s.id))];
-	}, []);
+	const allStocks = brands;
 
 	useEffect(() => {
 		if (open) {

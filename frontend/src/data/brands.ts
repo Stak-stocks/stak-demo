@@ -73,6 +73,7 @@ export interface BrandProfile {
 		beta: FinancialMetric;
 		dividendYield: FinancialMetric;
 	};
+	logo?: string;
 	trends?: TrendCard[];
 	interestCategories?: string[];
 }
@@ -103,6 +104,8 @@ const BRAND_DOMAINS: Record<string, string> = {
 export function getBrandLogoUrl(brand: BrandProfile): string {
 	const slug = TV_LOGO_SLUGS[brand.id];
 	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
+	// Use Finnhub-provided logo for dynamic (Firestore) stocks
+	if (brand.logo) return brand.logo;
 	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
 	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }

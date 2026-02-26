@@ -1,14 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { brands, type BrandProfile } from "@/data/brands";
+import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
 import { ChevronLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
 import { StockNewsTab } from "@/components/StockNewsTab";
-import { getLiveTrends, getStockData, fetchDynamicStocks, getCachedDynamicStocks } from "@/lib/api";
+import { getLiveTrends, getStockData } from "@/lib/api";
 
 
 export const Route = createFileRoute("/brand/$brandId")({
@@ -19,19 +19,7 @@ function BrandDetailPage() {
 	const { brandId } = Route.useParams();
 	const navigate = useNavigate();
 
-	// Try static brands first, then fall back to cached/fetched dynamic stocks
-	const staticBrand = brands.find((b) => b.id === brandId) ?? null;
-	const [brand, setBrand] = useState<BrandProfile | null>(
-		staticBrand ?? getCachedDynamicStocks().find((b) => b.id === brandId) ?? null,
-	);
-
-	useEffect(() => {
-		if (!brand) {
-			fetchDynamicStocks().then((stocks) => {
-				setBrand(stocks.find((s) => s.id === brandId) ?? null);
-			});
-		}
-	}, [brandId]);
+	const brand = brands.find((b) => b.id === brandId) ?? null;
 
 	const { data: liveData } = useQuery({
 		queryKey: ["trends", brandId],

@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { brands, type BrandProfile } from "@/data/brands";
+import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState, fetchDynamicStocks } from "@/lib/api";
+import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -182,29 +182,8 @@ function App() {
 		// Cache the order for this session
 		sessionStorage.setItem("stak-deck-order", JSON.stringify(order.map((b) => b.id)));
 		return order;
-	});
+	});
 
-	const [dynamicStocks, setDynamicStocks] = useState<BrandProfile[]>([]);
-
-	// Fetch IPO-detected stocks from backend and merge into the deck
-	useEffect(() => {
-		fetchDynamicStocks().then((stocks) => {
-			const staticIds = new Set(brands.map((b) => b.id));
-			const filtered = stocks.filter((s) => !staticIds.has(s.id));
-
-			// Sort dynamic stocks: interest-matching ones come before the rest
-			const interests = new Set<string>(
-				JSON.parse(localStorage.getItem("user-interests") || "[]"),
-			);
-			const matching = filtered.filter((s) =>
-				(s.interestCategories ?? []).some((c) => interests.has(c)),
-			);
-			const rest = filtered.filter(
-				(s) => !(s.interestCategories ?? []).some((c) => interests.has(c)),
-			);
-			setDynamicStocks([...shuffleArray(matching), ...shuffleArray(rest)]);
-		});
-	}, []);
 
 		useEffect(() => {
 		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
@@ -336,7 +315,6 @@ function App() {
 				<SwipeableCardStack
 					brands={[
 						...recommendedOrder,
-						...dynamicStocks,
 					].filter(
 						(brand) =>
 							!swipedBrands.some((b) => b.id === brand.id) &&

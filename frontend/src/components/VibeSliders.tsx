@@ -12,18 +12,23 @@ const VIBE_EXPLANATIONS: Record<string, string> = {
 	"Internet Hype": "How much the internet is talking about this brand right now. Trending doesn't always mean good — just loud.",
 };
 
-// Fallback hex colors keyed by vibe name — used when dynamic stocks have Tailwind class strings instead of CSS colors
+// Canonical colors by vibe name — matches static brands and overrides whatever Firestore stored
 const VIBE_NAME_TO_HEX: Record<string, string> = {
-	Clout: "#c084fc",
-	Drama: "#f87171",
-	Hype: "#22d3ee",
-	Basics: "#4ade80",
-	Bag: "#facc15",
+	"Clout": "#00d9ff",
+	"Drama Level": "#ff006e",
+	"Internet Hype": "#ff9500",
+	// Short aliases used by older seeded stocks
+	"Drama": "#ff006e",
+	"Hype": "#ff9500",
+	"Basics": "#4ade80",
+	"Bag": "#facc15",
 };
 
 function resolveColor(vibe: VibeMetric): string {
+	// Name lookup wins — ensures all stocks render identically regardless of stored hex
+	if (VIBE_NAME_TO_HEX[vibe.name]) return VIBE_NAME_TO_HEX[vibe.name];
 	if (vibe.color.startsWith("#") || vibe.color.startsWith("rgb")) return vibe.color;
-	return VIBE_NAME_TO_HEX[vibe.name] ?? "#94a3b8";
+	return "#94a3b8";
 }
 
 /* Animated eye icon that tracks toward center */
