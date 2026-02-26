@@ -8,7 +8,8 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState, getStockData } from "@/lib/api";
+import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
+import { MarketBar } from "@/components/MarketBar";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -41,35 +42,6 @@ export const Route = createFileRoute("/")({
 	component: App,
 });
 
-function MarketBar() {
-	const { data } = useQuery({
-		queryKey: ["stock", "SPY"],
-		queryFn: () => getStockData("SPY"),
-		staleTime: 60 * 1000,
-		refetchInterval: 60 * 1000,
-		retry: 1,
-	});
-
-	if (!data?.quote) return null;
-	const up = data.quote.changePercent >= 0;
-
-	return (
-		<div
-			className={`flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium border-b ${
-				up
-					? "bg-green-500/10 text-green-400 border-green-500/20"
-					: "bg-red-500/10 text-red-400 border-red-500/20"
-			}`}
-		>
-			<span>{up ? "📈" : "📉"}</span>
-			<span className="text-zinc-400">Market Today</span>
-			<span className="font-semibold">S&P 500</span>
-			<span className="font-bold">
-				{up ? "+" : ""}{data.quote.changePercent.toFixed(2)}%
-			</span>
-		</div>
-	);
-}
 
 function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);

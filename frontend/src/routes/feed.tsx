@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { getMarketNews, searchNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
+import { MarketBar } from "@/components/MarketBar";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -176,6 +177,7 @@ function FeedPage() {
 
 	return (
 		<div className="min-h-full bg-background">
+			<MarketBar static />
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
 				<div className="mb-4">
