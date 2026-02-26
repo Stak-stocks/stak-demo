@@ -52,10 +52,27 @@ function LoginPage() {
 		try {
 			const isNew = await signInWithGoogle();
 			if (isNew) {
-				localStorage.setItem("onboardingCompleted", "false");
-				updateProfile({ onboardingCompleted: false }).catch(() => {});
+				// Firebase reports "new user" when an existing email/password user links
+				// Google for the first time — verify with backend before overwriting their profile
+				try {
+					const profile = await getProfile();
+					if (profile.onboardingCompleted) {
+						// Existing user who just linked Google — preserve their onboarding status
+						toast.success("Welcome back!");
+					} else {
+						localStorage.setItem("onboardingCompleted", "false");
+						updateProfile({ onboardingCompleted: false }).catch(() => {});
+						toast.success("Welcome to STAK!");
+					}
+				} catch {
+					// Profile doesn't exist yet — truly new user
+					localStorage.setItem("onboardingCompleted", "false");
+					updateProfile({ onboardingCompleted: false }).catch(() => {});
+					toast.success("Welcome to STAK!");
+				}
+			} else {
+				toast.success("Welcome back!");
 			}
-			toast.success(isNew ? "Welcome to STAK!" : "Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (!message.includes("popup-closed-by-user")) {

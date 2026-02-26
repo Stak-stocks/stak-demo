@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-import { updateProfile } from "@/lib/api";
+import { updateProfile, getProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -63,10 +63,25 @@ function SignUpPage() {
 	async function handleGoogleSignIn() {
 		setSigningUp(true);
 		try {
-			localStorage.setItem("onboardingCompleted", "false");
-			await signInWithGoogle();
-			updateProfile({ onboardingCompleted: false }).catch(() => {});
-			toast.success("Welcome to STAK!");
+			const isNew = await signInWithGoogle();
+			if (isNew) {
+				try {
+					const profile = await getProfile();
+					if (profile.onboardingCompleted) {
+						toast.success("Welcome back!");
+					} else {
+						localStorage.setItem("onboardingCompleted", "false");
+						updateProfile({ onboardingCompleted: false }).catch(() => {});
+						toast.success("Welcome to STAK!");
+					}
+				} catch {
+					localStorage.setItem("onboardingCompleted", "false");
+					updateProfile({ onboardingCompleted: false }).catch(() => {});
+					toast.success("Welcome to STAK!");
+				}
+			} else {
+				toast.success("Welcome back!");
+			}
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (!message.includes("popup-closed-by-user")) {
