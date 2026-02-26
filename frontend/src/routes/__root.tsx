@@ -127,7 +127,19 @@ function Root() {
 				</PullToRefresh>
 			</div>
 			{!isAuthPage && <BottomNav />}
-			<Toaster position="top-center" />
+			<Toaster
+				position="top-center"
+				theme="dark"
+				richColors
+				toastOptions={{
+					style: {
+						background: "#1a2744",
+						border: "1px solid rgba(99,102,241,0.35)",
+						color: "#f1f5f9",
+						fontWeight: 600,
+					},
+				}}
+			/>
 			<TanStackRouterDevtools position="bottom-right" />
 
 		<SearchView

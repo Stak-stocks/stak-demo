@@ -13,6 +13,11 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
+/* Force sonner toasts above all modals */
+[data-sonner-toaster] {
+	z-index: 99999 !important;
+}
+
 code {
 	font-family:
 		source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;

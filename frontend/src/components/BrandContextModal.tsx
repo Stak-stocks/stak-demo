@@ -65,6 +65,7 @@ export function BrandContextModal({
 
 	const handleAddToStak = () => {
 		if (onAddToStak && brand) {
+			onClose();
 			onAddToStak(brand);
 		}
 	};

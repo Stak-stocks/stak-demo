@@ -7,7 +7,7 @@ import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { IntelCardModal } from "@/components/IntelCardModal";
-import { getIntelState } from "@/lib/api";
+import { getIntelState, getIntelCards } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	ChevronRight,
@@ -113,11 +113,17 @@ function ProfilePage() {
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string } | null>(null);
 
 	useEffect(() => {
-		getIntelState()
-			.then(({ readIds }) => {
-				setReadCards(INTEL_CARDS.filter((c) => readIds.includes(c.id)));
-			})
-			.catch(() => {});
+		Promise.all([
+			getIntelState(),
+			getIntelCards().catch(() => ({ cards: [] as IntelCard[] })),
+		]).then(([{ readIds }, { cards: apiCards }]) => {
+			// Merge API cards with hardcoded fallbacks (API cards take precedence by ID)
+			const merged = [...INTEL_CARDS];
+			for (const apiCard of apiCards) {
+				if (!merged.find((c) => c.id === apiCard.id)) merged.push(apiCard);
+			}
+			setReadCards(merged.filter((c) => readIds.includes(c.id)));
+		}).catch(() => {});
 	}, []);
 
 	// Streak

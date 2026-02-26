@@ -63,7 +63,7 @@ function App() {
 	const intelQueue = useRef<string[]>([]);
 	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
-	const swipesSinceIntel = useRef(0);
+	const swipesSinceIntel = useRef(parseInt(localStorage.getItem("swipes-since-intel") ?? "0", 10));
 
 	// Load or initialise the queue from localStorage
 	useEffect(() => {
@@ -205,8 +205,10 @@ function App() {
 
 		// Trigger after every 5th swipe, but at most once per day
 		swipesSinceIntel.current += 1;
+		localStorage.setItem("swipes-since-intel", String(swipesSinceIntel.current));
 		if (swipesSinceIntel.current < 5) return;
 		swipesSinceIntel.current = 0;
+		localStorage.setItem("swipes-since-intel", "0");
 
 		const today = new Date().toISOString().split("T")[0];
 		if (localStorage.getItem("intel-card-last-date") === today) return;
