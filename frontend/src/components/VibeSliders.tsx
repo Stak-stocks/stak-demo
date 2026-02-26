@@ -12,6 +12,20 @@ const VIBE_EXPLANATIONS: Record<string, string> = {
 	"Internet Hype": "How much the internet is talking about this brand right now. Trending doesn't always mean good — just loud.",
 };
 
+// Fallback hex colors keyed by vibe name — used when dynamic stocks have Tailwind class strings instead of CSS colors
+const VIBE_NAME_TO_HEX: Record<string, string> = {
+	Clout: "#c084fc",
+	Drama: "#f87171",
+	Hype: "#22d3ee",
+	Basics: "#4ade80",
+	Bag: "#facc15",
+};
+
+function resolveColor(vibe: VibeMetric): string {
+	if (vibe.color.startsWith("#") || vibe.color.startsWith("rgb")) return vibe.color;
+	return VIBE_NAME_TO_HEX[vibe.name] ?? "#94a3b8";
+}
+
 /* Animated eye icon that tracks toward center */
 function EyeIcon({ color }: { color: string }) {
 	return (
@@ -69,12 +83,13 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 		};
 	}, [openPopover, tappedBar]);
 
-	const glowKeyframes = vibes.map((vibe, i) =>
-		`@keyframes glow-pulse-${i} {
-			0%, 100% { box-shadow: 0 0 8px ${vibe.color}, 0 0 16px ${vibe.color}80, 0 0 32px ${vibe.color}40; }
-			50% { box-shadow: 0 0 14px ${vibe.color}, 0 0 28px ${vibe.color}90, 0 0 48px ${vibe.color}60; }
-		}`
-	).join("\n");
+	const glowKeyframes = vibes.map((vibe, i) => {
+		const c = resolveColor(vibe);
+		return `@keyframes glow-pulse-${i} {
+			0%, 100% { box-shadow: 0 0 8px ${c}, 0 0 16px ${c}80, 0 0 32px ${c}40; }
+			50% { box-shadow: 0 0 14px ${c}, 0 0 28px ${c}90, 0 0 48px ${c}60; }
+		}`;
+	}).join("\n");
 
 	return (
 		<>
@@ -109,7 +124,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 								setTappedBar(null);
 							}}
 						>
-							<EyeIcon color={vibe.color} />
+							<EyeIcon color={resolveColor(vibe)} />
 							{vibe.name}
 						</button>
 
@@ -119,7 +134,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 								className="absolute left-0 bottom-full mb-2 z-50 w-64 sm:w-72 rounded-xl border border-slate-700/50 px-4 py-3 text-sm text-slate-100 leading-relaxed shadow-xl"
 								style={{
 									background: "linear-gradient(145deg, #131929 0%, #0d1222 100%)",
-									boxShadow: `0 0 12px ${vibe.color}40, 0 8px 24px rgba(0,0,0,0.5)`,
+									boxShadow: `0 0 12px ${resolveColor(vibe)}40, 0 8px 24px rgba(0,0,0,0.5)`,
 									animation: "pop-in 0.2s ease-out both",
 								}}
 								onClick={(e) => e.stopPropagation()}
@@ -154,8 +169,8 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 								style={{
 									left: `${vibe.value}%`,
 									transform: "translateX(-50%)",
-									backgroundColor: vibe.color,
-									boxShadow: `0 0 10px ${vibe.color}, 0 0 20px ${vibe.color}60`,
+									backgroundColor: resolveColor(vibe),
+									boxShadow: `0 0 10px ${resolveColor(vibe)}, 0 0 20px ${resolveColor(vibe)}60`,
 								}}
 							>
 								{vibe.value}%
@@ -170,8 +185,8 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 								style={{
 									width: loaded ? `${vibe.value}%` : "0%",
 									transition: `width ${0.8 + i * 0.2}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
-									background: `linear-gradient(90deg, ${vibe.color}99 0%, ${vibe.color} 70%, #ffffffCC 100%)`,
-									boxShadow: `0 0 8px ${vibe.color}, 0 0 16px ${vibe.color}80, 0 0 32px ${vibe.color}40`,
+									background: `linear-gradient(90deg, ${resolveColor(vibe)}99 0%, ${resolveColor(vibe)} 70%, #ffffffCC 100%)`,
+									boxShadow: `0 0 8px ${resolveColor(vibe)}, 0 0 16px ${resolveColor(vibe)}80, 0 0 32px ${resolveColor(vibe)}40`,
 									animation: loaded ? `glow-pulse-${i} ${2 + i * 0.3}s ease-in-out infinite` : "none",
 								}}
 							>

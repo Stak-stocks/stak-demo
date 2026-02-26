@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, X, Clock } from "lucide-react";
 import { brands, getBrandLogoUrl, type BrandProfile } from "@/data/brands";
-import { fetchDynamicStocks, getCachedDynamicStocks } from "@/lib/api";
+import { getCachedDynamicStocks } from "@/lib/api";
 
 const RECENT_KEY = "search-recent";
 const MAX_RECENT = 5;
@@ -30,19 +30,10 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	const [query, setQuery] = useState("");
 	const [recentIds, setRecentIds] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [allStocks, setAllStocks] = useState<BrandProfile[]>(() => {
+	// Build stock list from static brands + cache (no async fetch — cache populated by Discover page)
+	const allStocks = useMemo(() => {
 		const staticIds = new Set(brands.map((b) => b.id));
 		return [...brands, ...getCachedDynamicStocks().filter((s) => !staticIds.has(s.id))];
-	});
-
-	// Load dynamic stocks once so search and recents cover them
-	useEffect(() => {
-		if (getCachedDynamicStocks().length === 0) {
-			fetchDynamicStocks().then((dynamic) => {
-				const staticIds = new Set(brands.map((b) => b.id));
-				setAllStocks([...brands, ...dynamic.filter((s) => !staticIds.has(s.id))]);
-			});
-		}
 	}, []);
 
 	useEffect(() => {

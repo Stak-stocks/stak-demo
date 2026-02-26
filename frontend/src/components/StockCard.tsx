@@ -64,7 +64,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 
 				{/* Vibe sliders */}
 				<div>
-					<VibeSliders vibes={brand.vibes} isTopCard={isTopCard} />
+					<VibeSliders vibes={brand.vibes.slice(0, 3)} isTopCard={isTopCard} />
 				</div>
 
 				{/* CTA button with animated rotating neon glow */}

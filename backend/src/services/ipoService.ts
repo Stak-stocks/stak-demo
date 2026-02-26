@@ -194,11 +194,9 @@ Generate a JSON object with EXACTLY this structure:
   "bio": "<1-2 sentence Gen Z-friendly company description, max 120 chars>",
   "personalityDescription": "<2-3 sentences on this company's personality/archetype>",
   "vibes": [
-    {"name":"Clout","emoji":"💎","value":<integer 0-100>,"color":"from-purple-400 to-pink-400"},
-    {"name":"Drama","emoji":"🎭","value":<integer 0-100>,"color":"from-red-400 to-orange-400"},
-    {"name":"Hype","emoji":"🚀","value":<integer 0-100>,"color":"from-cyan-400 to-blue-400"},
-    {"name":"Basics","emoji":"🎯","value":<integer 0-100>,"color":"from-green-400 to-teal-400"},
-    {"name":"Bag","emoji":"💰","value":<integer 0-100>,"color":"from-yellow-400 to-orange-400"}
+    {"name":"Clout","emoji":"💎","value":<integer 0-100>,"color":"#c084fc"},
+    {"name":"Drama","emoji":"🎭","value":<integer 0-100>,"color":"#f87171"},
+    {"name":"Hype","emoji":"🚀","value":<integer 0-100>,"color":"#22d3ee"}
   ],
   "culturalContext": {
     "title": "<catchy title about this brand's cultural position>",

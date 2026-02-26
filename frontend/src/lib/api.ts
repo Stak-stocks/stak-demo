@@ -158,10 +158,22 @@ export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[]
 
 export async function fetchDynamicStocks(): Promise<import("@/data/brands").BrandProfile[]> {
 	try {
+		const { brands: staticBrands } = await import("@/data/brands");
+		const staticTickers = new Set(staticBrands.map((b) => b.ticker.toUpperCase()));
+
 		const res = await fetch(`${API_BASE_URL}/api/stocks`);
 		if (!res.ok) return [];
 		const { stocks } = await res.json();
-		_dynamicStocksCache = (stocks ?? []) as import("@/data/brands").BrandProfile[];
+
+		// Filter out class-share duplicates (e.g. GOOG when GOOGL is a static brand)
+		const filtered = (stocks ?? []).filter((s: import("@/data/brands").BrandProfile) => {
+			const t = s.ticker?.toUpperCase() ?? "";
+			return ![...staticTickers].some(
+				(st) => st !== t && st.startsWith(t) && st.length === t.length + 1,
+			);
+		}) as import("@/data/brands").BrandProfile[];
+
+		_dynamicStocksCache = filtered;
 		return _dynamicStocksCache;
 	} catch {
 		return [];

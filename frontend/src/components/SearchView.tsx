@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
 import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
-import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
-import { fetchDynamicStocks, getCachedDynamicStocks } from "@/lib/api";
+import { getCachedDynamicStocks } from "@/lib/api";
 
 const RECENT_SEARCHES_PREFIX = "recent-searches";
 const MAX_RECENT_SEARCHES = 5;
@@ -96,18 +95,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		}
 	}, [open]);
 
-	// Ensure dynamic stocks are loaded so search includes them
-	const [allStocks, setAllStocks] = useState<BrandProfile[]>(() => {
-		const dynamicIds = new Set(getCachedDynamicStocks().map((s) => s.id));
-		return [...brands, ...getCachedDynamicStocks().filter((s) => !dynamicIds.has(s.id) || !brands.some((b) => b.id === s.id))];
-	});
-	useEffect(() => {
-		if (getCachedDynamicStocks().length === 0) {
-			fetchDynamicStocks().then((dynamic) => {
-				const staticIds = new Set(brands.map((b) => b.id));
-				setAllStocks([...brands, ...dynamic.filter((s) => !staticIds.has(s.id))]);
-			});
-		}
+	// Build stock list from static brands + cache (no async fetch — cache populated by Discover page)
+	const allStocks = useMemo(() => {
+		const staticIds = new Set(brands.map((b) => b.id));
+		return [...brands, ...getCachedDynamicStocks().filter((s) => !staticIds.has(s.id))];
 	}, []);
 
 	useEffect(() => {
@@ -126,23 +117,23 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		setResults(filtered);
 	}, [query, allStocks]);
 
-	// Save clicked brand name to recent searches
-	const handleLearnMore = useCallback((brand: BrandProfile) => {
+	// Open full card preview when tapping a search result
+	const handleResultClick = useCallback((brand: BrandProfile) => {
 		saveRecentSearch(brand.name, user?.uid);
 		setRecentSearches(getRecentSearches(user?.uid));
-		if (modalOpen && selectedBrand?.id === brand.id) {
-			setModalOpen(false);
-			setTimeout(() => setSelectedBrand(null), 200);
-		} else {
-			setSelectedBrand(brand);
-			setModalOpen(true);
-		}
-	}, [user?.uid, modalOpen, selectedBrand]);
+		setSelectedBrand(brand);
+		setModalOpen(true);
+	}, [user?.uid]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
 		setTimeout(() => setSelectedBrand(null), 200);
 	};
+
+	const handleAddToStak = useCallback((brand: BrandProfile) => {
+		if (onSwipeRight) onSwipeRight(brand);
+		handleCloseModal();
+	}, [onSwipeRight]);
 
 	const handleRecentClick = (search: string) => {
 		setQuery(search);
@@ -224,10 +215,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 									{results.map((brand) => (
 										<div
 											key={brand.id}
-											onClick={() => handleLearnMore(brand)}
-											className="cursor-pointer transform transition-transform hover:scale-[1.02] active:scale-[0.98] h-full"
+											onClick={() => handleResultClick(brand)}
+							className="cursor-pointer transform transition-transform hover:scale-[1.02] active:scale-[0.98] h-full"
 										>
-											<StockCard brand={brand} onLearnMore={handleLearnMore} />
+											<StockCard brand={brand} onLearnMore={handleResultClick} />
 										</div>
 									))}
 								</div>
@@ -304,12 +295,34 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 				</div>
 			</div>
 
-			<BrandContextModal
-				brand={selectedBrand}
-				open={modalOpen}
-				onClose={handleCloseModal}
-				onAddToStak={onSwipeRight}
-			/>
+			{/* Full card preview — same look as Discover page, no swipe */}
+			{selectedBrand && modalOpen && (
+				<div
+					className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+					onClick={handleCloseModal}
+				>
+					<div
+						className="w-full max-w-[360px] flex flex-col gap-3"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<StockCard brand={selectedBrand} onLearnMore={() => {}} />
+						{onSwipeRight && (
+							<button
+								onClick={() => handleAddToStak(selectedBrand)}
+								className="w-full py-4 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 transition-all active:scale-[0.98] shadow-lg"
+							>
+								+ Add to My Stak
+							</button>
+						)}
+						<button
+							onClick={handleCloseModal}
+							className="w-full py-3 text-sm text-zinc-400 hover:text-white transition-colors"
+						>
+							Close
+						</button>
+					</div>
+				</div>
+			)}
 		</>
 	);
 }
