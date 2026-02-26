@@ -224,7 +224,7 @@ function LandingPage() {
 							{/* Bar chart icon */}
 							<svg width="32" height="32" viewBox="0 0 32 32" fill="none">
 								<rect x="4" y="18" width="6" height="10" rx="1" fill="#f97316" />
-								<rect x="13" y="10" width="6" height="18" rx="1" fill="#ef4444" />
+								<rect x="13" y="10" width="6" height="18" rx="1" fill="#f97316" />
 								<rect x="22" y="4" width="6" height="24" rx="1" fill="#f97316" />
 							</svg>
 							<h3 className="text-base font-bold">Discover Stocks</h3>
