@@ -1,10 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue, memo } from "react";
 import { Search, X, Clock } from "lucide-react";
-import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
-import { getBrandLogoUrl } from "@/data/brands";
+import { brands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 
 const RECENT_KEY = "search-recent";
 const MAX_RECENT = 5;
+const MAX_RESULTS = 20;
+
+// Pre-built search index — computed once at module load, not on every keystroke
+const searchIndex = brands.map((b) => ({
+	brand: b,
+	nameLower: b.name.toLowerCase(),
+	tickerLower: b.ticker.toLowerCase(),
+}));
 
 function getRecentIds(): string[] {
 	try {
@@ -28,9 +35,9 @@ interface SearchOverlayProps {
 
 export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayProps) {
 	const [query, setQuery] = useState("");
+	const deferredQuery = useDeferredValue(query);
 	const [recentIds, setRecentIds] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const allStocks = brands;
 
 	useEffect(() => {
 		if (open) {
@@ -58,35 +65,44 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 		[onSelectBrand, onClose],
 	);
 
-	const recentBrands = recentIds
-		.map((id) => allStocks.find((b) => b.id === id))
-		.filter(Boolean) as BrandProfile[];
+	const recentBrands = useMemo(
+		() =>
+			recentIds
+				.map((id) => brands.find((b) => b.id === id))
+				.filter(Boolean) as BrandProfile[],
+		[recentIds],
+	);
 
-	const filtered = query.trim()
-		? allStocks.filter(
-				(b) =>
-					b.name.toLowerCase().includes(query.toLowerCase()) ||
-					b.ticker.toLowerCase().includes(query.toLowerCase()),
-			)
-		: [];
+	const filtered = useMemo(() => {
+		const q = deferredQuery.trim().toLowerCase();
+		if (!q) return [];
+		return searchIndex
+			.filter(({ nameLower, tickerLower }) => nameLower.includes(q) || tickerLower.includes(q))
+			.map(({ brand }) => brand)
+			.slice(0, MAX_RESULTS);
+	}, [deferredQuery]);
 
-	const showRecent = !query.trim() && recentBrands.length > 0;
-	const showPopular = !query.trim();
+	const showRecent = !deferredQuery.trim() && recentBrands.length > 0;
+	const showPopular = !deferredQuery.trim();
 
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col bg-white/95 dark:bg-[#0b1121]/98 backdrop-blur-xl">
+		<div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#0b1121]">
 			{/* Search header */}
 			<div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-slate-800/60">
 				<Search className="w-5 h-5 text-slate-400 shrink-0" />
 				<input
 					ref={inputRef}
-					type="text"
+					type="search"
+					inputMode="search"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder="Search stocks..."
 					autoFocus
+					autoComplete="off"
+					autoCorrect="off"
+					spellCheck={false}
 					className="flex-1 bg-transparent text-white text-base outline-none placeholder:text-slate-500"
 				/>
 				<button
@@ -130,7 +146,7 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 				)}
 
 				{/* Search results */}
-				{query.trim() && (
+				{deferredQuery.trim() && (
 					filtered.length === 0 ? (
 						<p className="text-center text-slate-500 mt-8">No stocks found</p>
 					) : (
@@ -146,7 +162,7 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	);
 }
 
-function BrandRow({ brand, onSelect }: { brand: BrandProfile; onSelect: (b: BrandProfile) => void }) {
+const BrandRow = memo(function BrandRow({ brand, onSelect }: { brand: BrandProfile; onSelect: (b: BrandProfile) => void }) {
 	return (
 		<button
 			type="button"
@@ -156,6 +172,7 @@ function BrandRow({ brand, onSelect }: { brand: BrandProfile; onSelect: (b: Bran
 			<img
 				src={getBrandLogoUrl(brand)}
 				alt={brand.name}
+				decoding="async"
 				className="w-9 h-9 rounded-lg object-contain bg-[#1a1f2e] p-1"
 			/>
 			<div className="flex-1 min-w-0">
@@ -169,4 +186,4 @@ function BrandRow({ brand, onSelect }: { brand: BrandProfile; onSelect: (b: Bran
 			</div>
 		</button>
 	);
-}
+});

@@ -39,7 +39,7 @@ function SecurityPage() {
 	const isGoogle = provider === "google.com";
 
 	async function handleChangePassword() {
-		if (!auth.currentUser || !user.email) return;
+		if (!user || !auth.currentUser || !user.email) return;
 		if (newPassword.length < 6) {
 			toast.error("Password must be at least 6 characters");
 			return;
@@ -72,7 +72,7 @@ function SecurityPage() {
 	}
 
 	async function handleSendReset() {
-		if (!user.email) return;
+		if (!user || !user.email) return;
 		try {
 			await sendPasswordResetEmail(auth, user.email);
 			toast.success("Reset email sent", { description: `Check ${user.email}` });

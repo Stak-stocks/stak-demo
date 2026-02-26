@@ -19,7 +19,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { getProfile, getStak, getPassedBrands } from "../lib/api";
-import { allBrands } from "../data/dynamicBrands";
+import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
 	user: User | null;
