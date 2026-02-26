@@ -25,7 +25,7 @@ function BrandDetailPage() {
 		queryKey: ["trends", brandId],
 		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
-		staleTime: 3 * 24 * 60 * 60 * 1000,
+		staleTime: 60 * 60 * 1000,
 		retry: 1,
 	});
 

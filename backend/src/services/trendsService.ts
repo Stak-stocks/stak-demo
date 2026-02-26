@@ -1,7 +1,7 @@
 import { adminDb } from "../firebaseAdmin.js";
 import { getCompanyNews } from "./finnhubService.js";
 
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export interface TrendCard {
 	type: "macro" | "sector" | "company" | "stak";
@@ -144,7 +144,7 @@ export async function getTrends(
 	if (doc.exists) {
 		const data = doc.data()!;
 		const age = Date.now() - data.generatedAt.toMillis();
-		if (age < THREE_DAYS_MS) {
+		if (age < ONE_HOUR_MS) {
 			return data.cards as TrendCard[];
 		}
 	}
