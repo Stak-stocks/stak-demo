@@ -11,12 +11,116 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData, getEarnings } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
 });
+
+function StakCard({
+	brand,
+	onRemove,
+	onClick,
+}: {
+	brand: BrandProfile;
+	onRemove: (e: React.MouseEvent) => void;
+	onClick: () => void;
+}) {
+	const { data: stockData } = useQuery({
+		queryKey: ["stock", brand.ticker],
+		queryFn: () => getStockData(brand.ticker),
+		staleTime: 60 * 1000,
+		refetchInterval: 60 * 1000,
+		retry: 1,
+	});
+
+	const { data: earningsData } = useQuery({
+		queryKey: ["earnings", brand.ticker],
+		queryFn: () => getEarnings(brand.ticker),
+		staleTime: 6 * 60 * 60 * 1000,
+		retry: 1,
+	});
+
+	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
+
+	return (
+		<div
+			className="group relative overflow-hidden rounded-xl bg-white dark:bg-[#0f1629]/80 border border-zinc-200 dark:border-slate-700/50 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
+			onClick={onClick}
+		>
+			<button
+				onClick={onRemove}
+				className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-[#162036] hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
+				aria-label={`Remove ${brand.name} from Stak`}
+			>
+				<X className="w-4 h-4" />
+			</button>
+
+			{earningsData?.reported && (
+				<div
+					className={`absolute top-3 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+						earningsData.beatEps === true
+							? "bg-green-500/15 text-green-400 border-green-500/30"
+							: earningsData.beatEps === false
+							? "bg-red-500/15 text-red-400 border-red-500/30"
+							: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+					}`}
+				>
+					📊{" "}
+					{earningsData.beatEps === true
+						? "Beat ✓"
+						: earningsData.beatEps === false
+						? "Missed ✗"
+						: "Reported"}
+				</div>
+			)}
+
+			<div
+				className="flex items-start gap-4 mb-3"
+				style={{ marginTop: earningsData?.reported ? "1.5rem" : undefined }}
+			>
+				<img
+					src={getBrandLogoUrl(brand)}
+					alt={`${brand.name} logo`}
+					className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
+				/>
+				<div className="flex-1">
+					<div className="flex items-baseline gap-2 mb-1">
+						<h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">
+							{brand.name}
+						</h3>
+						<span className="text-xs font-mono text-zinc-500 dark:text-zinc-500 uppercase">
+							{brand.ticker}
+						</span>
+					</div>
+					<p className="text-sm text-zinc-600 dark:text-zinc-400 italic">{brand.bio}</p>
+				</div>
+			</div>
+
+			{stockData?.quote && (
+				<div
+					className={`flex items-center gap-2 text-sm font-semibold mb-2 ${up ? "text-green-400" : "text-red-400"}`}
+				>
+					<span className="text-zinc-900 dark:text-white font-bold">
+						${stockData.quote.price.toFixed(2)}
+					</span>
+					<span>
+						{up ? "▲" : "▼"} {up ? "+" : ""}
+						{stockData.quote.changePercent.toFixed(2)}%
+					</span>
+				</div>
+			)}
+
+			<div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-500">
+				<span>Tap to explore</span>
+				<span className="text-cyan-500 dark:text-cyan-400 group-hover:translate-x-1 transition-transform">
+					→
+				</span>
+			</div>
+		</div>
+	);
+}
 
 function MyStakPage() {
 	const [searchOpen, setSearchOpen] = useState(false);
@@ -361,48 +465,12 @@ function MyStakPage() {
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
 					{swipedBrands.map((brand) => (
-						<div
+						<StakCard
 							key={brand.id}
-							className="group relative overflow-hidden rounded-xl bg-white dark:bg-[#0f1629]/80 border border-zinc-200 dark:border-slate-700/50 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all p-6 text-left shadow-sm hover:shadow-lg cursor-pointer"
+							brand={brand}
+							onRemove={(e) => handleRemoveFromStak(e, brand)}
 							onClick={() => handleBrandClick(brand)}
-						>
-							{/* Remove button - always visible on mobile, hover on desktop */}
-							<button
-								onClick={(e) => handleRemoveFromStak(e, brand)}
-								className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-[#162036] hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
-								aria-label={`Remove ${brand.name} from Stak`}
-							>
-								<X className="w-4 h-4" />
-							</button>
-
-							<div className="flex items-start gap-4 mb-4">
-								<img
-									src={getBrandLogoUrl(brand)}
-									alt={`${brand.name} logo`}
-									className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
-								/>
-								<div className="flex-1">
-									<div className="flex items-baseline gap-2 mb-1">
-										<h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">
-											{brand.name}
-										</h3>
-										<span className="text-xs font-mono text-zinc-500 dark:text-zinc-500 uppercase">
-											{brand.ticker}
-										</span>
-									</div>
-									<p className="text-sm text-zinc-600 dark:text-zinc-400 italic">
-										{brand.bio}
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-500">
-								<span>Tap to explore</span>
-								<span className="text-cyan-500 dark:text-cyan-400 group-hover:translate-x-1 transition-transform">
-									→
-								</span>
-							</div>
-						</div>
+						/>
 					))}
 				</div>
 			</div>
