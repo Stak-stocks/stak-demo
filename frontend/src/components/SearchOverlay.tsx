@@ -36,7 +36,6 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 		if (open) {
 			setQuery("");
 			setRecentIds(getRecentIds());
-			setTimeout(() => inputRef.current?.focus(), 100);
 		}
 	}, [open]);
 
@@ -87,6 +86,7 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder="Search stocks..."
+					autoFocus
 					className="flex-1 bg-transparent text-white text-base outline-none placeholder:text-slate-500"
 				/>
 				<button
