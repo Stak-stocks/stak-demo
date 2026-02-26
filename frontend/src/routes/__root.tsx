@@ -28,7 +28,6 @@ function Root() {
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
-	const isSearchPage = location.pathname === "/" || location.pathname === "/my-stak";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	// Reset scroll to top on every route change
@@ -102,7 +101,7 @@ function Root() {
 			{/* Search & theme toggle */}
 			{!isAuthPage && !isSubPage && user && (
 				<div className="flex-none z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
-					{isSearchPage ? (
+					{!isFeedPage && location.pathname !== "/profile" && !location.pathname.startsWith("/league") ? (
 						<button
 							type="button"
 							onClick={() => setSearchOpen(true)}
