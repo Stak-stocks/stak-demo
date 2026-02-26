@@ -44,7 +44,7 @@ export const INTEREST_TO_BRANDS: Record<string, string[]> = {
 	streaming: ["nflx", "dis", "spot", "googl", "meta", "para", "roku", "wbd", "snap", "rddt"],
 	fashion: ["nke", "ulta", "elf", "coty", "or", "tgt", "lulu", "wrby", "etsy"],
 	tech: ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd", "duol", "app", "arm", "avgo"],
-	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt", "bros", "wing", "shak", "cmg", "dpz", "mnst"],
+	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt", "bros", "wing", "shak", "cmg", "dpz", "mnst", "cake", "txrh", "eat"],
 	travel: ["uber", "lyft", "amzn", "abnb", "mar", "hlt", "lyv", "rcl", "dal", "ual"],
 	fitness: ["nke", "aapl", "amzn", "cost", "pton", "lulu", "hims", "wmt"],
 	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm", "coin", "ebay", "jpm", "cart"],
