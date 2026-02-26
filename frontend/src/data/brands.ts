@@ -201,20 +201,28 @@ const BRAND_DOMAINS: Record<string, string> = {
 	kdp: "keurigdrpepper.com", soun: "soundhound.com",
 };
 
+function getBrandDomain(brand: BrandProfile): string {
+	return brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
+}
+
 export function getBrandLogoUrl(brand: BrandProfile): string {
 	const slug = TV_LOGO_SLUGS[brand.id];
 	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
-	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
-	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+	// Clearbit gives proper company logos by domain — much better than a favicon
+	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
 }
 
-/** Fallback logo URL used in onError handlers when TradingView CDN returns a broken image */
+/** First fallback (used in onError): Clearbit logo by domain */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
-	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
+}
+
+/** Final fallback (used in second onError): Google favicon */
+export function getBrandUltimateFallbackUrl(brand: BrandProfile): string {
+	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
 }
 
 // TradingView logo slugs for high-quality company hero images

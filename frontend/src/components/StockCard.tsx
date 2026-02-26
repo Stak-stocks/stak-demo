@@ -1,5 +1,5 @@
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl } from "@/data/brands";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { VibeSliders } from "@/components/VibeSliders";
 
 interface StockCardProps {
@@ -53,7 +53,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 							src={getBrandLogoUrl(brand)}
 							alt={`${brand.name} logo`}
 							className="w-6 h-6 sm:w-7 sm:h-7 rounded-md object-contain shrink-0 animate-[flip-y_2s_linear_infinite]"
-							onError={(e) => { (e.target as HTMLImageElement).src = getBrandFallbackLogoUrl(brand); }}
+							onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = getBrandUltimateFallbackUrl(brand); } else { img.dataset.errored = "1"; img.src = getBrandFallbackLogoUrl(brand); } }}
 						/>
 						<h2 className="text-xl sm:text-2xl font-bold text-white truncate">{brand.name}</h2>
 						<span className="text-[10px] sm:text-xs font-mono font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">

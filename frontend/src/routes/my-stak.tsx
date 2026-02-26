@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl } from "@/data/brands";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
@@ -11,12 +11,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData, getEarnings } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
 });
+
+type EarningsData = {
+	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	date: string | null;
+	hour?: string;
+};
+
+function EarningsBadge({ data }: { data: EarningsData }) {
+	const [expanded, setExpanded] = useState(false);
+	if (data.status === "none") return null;
+
+	const formattedDate = data.date
+		? new Date(`${data.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+		: null;
+	const hourLabel = data.hour === "bmo" ? "pre-market" : data.hour === "amc" ? "after close" : null;
+
+	const configs = {
+		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate ? `${formattedDate}${hourLabel ? ` · ${hourLabel}` : ""}` : null, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+		beat:     { icon: "📊", label: "Beat ✓",   detail: formattedDate, className: "bg-green-500/15 text-green-400 border-green-500/30" },
+		miss:     { icon: "📊", label: "Missed ✗", detail: formattedDate, className: "bg-red-500/15 text-red-400 border-red-500/30" },
+		reported: { icon: "📊", label: "Reported", detail: formattedDate, className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
+	} as const;
+
+	const cfg = configs[data.status as keyof typeof configs];
+
+	return (
+		<button
+			onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+			className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${cfg.className}`}
+		>
+			{cfg.icon} {cfg.label}
+			{expanded && cfg.detail && <span className="ml-1 opacity-80">· {cfg.detail}</span>}
+		</button>
+	);
+}
 
 function StakCard({
 	brand,
@@ -35,6 +70,13 @@ function StakCard({
 		retry: 1,
 	});
 
+	const { data: earningsData } = useQuery({
+		queryKey: ["earnings", brand.ticker],
+		queryFn: () => getEarnings(brand.ticker),
+		staleTime: 60 * 60 * 1000,
+		retry: 1,
+	});
+
 	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	return (
@@ -49,14 +91,22 @@ function StakCard({
 			>
 				<X className="w-4 h-4" />
 			</button>
+
+			{earningsData && earningsData.status !== "none" && (
+				<div className="absolute top-3 left-3">
+					<EarningsBadge data={earningsData} />
+				</div>
+			)}
+
 			<div
 				className="flex items-start gap-4 mb-3"
+				style={{ marginTop: earningsData?.status && earningsData.status !== "none" ? "1.5rem" : undefined }}
 			>
 				<img
 					src={getBrandLogoUrl(brand)}
 					alt={`${brand.name} logo`}
 					className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
-					onError={(e) => { (e.target as HTMLImageElement).src = getBrandFallbackLogoUrl(brand); }}
+					onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = getBrandUltimateFallbackUrl(brand); } else { img.dataset.errored = "1"; img.src = getBrandFallbackLogoUrl(brand); } }}
 				/>
 				<div className="flex-1">
 					<div className="flex items-baseline gap-2 mb-1">

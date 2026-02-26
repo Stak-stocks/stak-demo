@@ -116,31 +116,69 @@ stockRouter.get("/:symbol", async (req, res) => {
 	}
 });
 
+interface CalEntry {
+	date: string;
+	hour: string;
+	epsActual: number | null;
+	epsEstimate: number | null;
+}
+
+interface EarningsStatus {
+	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	date: string | null;
+	hour?: string;
+}
+
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
-	const cacheKey = `earnings:${symbol}`;
+	const cacheKey = `earnings2:${symbol}`;
 
-	let data = getCached(cacheKey) as unknown[] | null;
-	if (!data) {
-		data = (await finnhubGet(`/stock/earnings?symbol=${symbol}&limit=4`)) as unknown[] | null;
-		if (data) setCached(cacheKey, data, EARNINGS_TTL_MS);
+	const cached = getCached(cacheKey) as EarningsStatus | null;
+	if (cached) { res.json(cached); return; }
+
+	const now = new Date();
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+	const todayStr = fmt(now);
+	// Show beat/miss for 2 days: from = yesterday so entries disappear after day+1
+	const from = fmt(new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000));
+	// Upcoming window: next 14 days
+	const to = fmt(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000));
+
+	const calData = await finnhubGet(
+		`/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}`,
+	) as { earningsCalendar?: CalEntry[] } | null;
+
+	const entries = calData?.earningsCalendar ?? [];
+
+	// Entries where earnings already happened and actuals are published
+	const reported = entries
+		.filter((e) => e.date <= todayStr && e.epsActual != null)
+		.sort((a, b) => b.date.localeCompare(a.date));
+
+	// Entries that are still in the future (or today pre-announcement)
+	const upcoming = entries
+		.filter((e) => e.date > todayStr || (e.date === todayStr && e.epsActual == null))
+		.sort((a, b) => a.date.localeCompare(b.date));
+
+	let result: EarningsStatus;
+
+	if (reported.length > 0) {
+		const latest = reported[0];
+		const beat =
+			latest.epsActual != null && latest.epsEstimate != null
+				? latest.epsActual >= latest.epsEstimate
+				: null;
+		result = {
+			status: beat === true ? "beat" : beat === false ? "miss" : "reported",
+			date: latest.date,
+		};
+	} else if (upcoming.length > 0) {
+		const next = upcoming[0];
+		result = { status: "upcoming", date: next.date, hour: next.hour };
+	} else {
+		result = { status: "none", date: null };
 	}
 
-	if (!Array.isArray(data) || data.length === 0) {
-		res.json({ reported: false, beatEps: null, period: null });
-		return;
-	}
-
-	const latest = data[0] as { actual?: number; estimate?: number; period?: string };
-	const period = latest.period ?? "";
-	// Finnhub uses fiscal quarter END date, which can be slightly in the future
-	// when a company reports before its quarter closes. Allow ±45 days.
-	const daysAgo = (Date.now() - new Date(period).getTime()) / (1000 * 60 * 60 * 24);
-	const reported = latest.actual != null && Math.abs(daysAgo) <= 45;
-	const beatEps =
-		latest.actual != null && latest.estimate != null
-			? latest.actual >= latest.estimate
-			: null;
-
-	res.json({ reported, beatEps, period });
+	setCached(cacheKey, result, EARNINGS_TTL_MS);
+	res.json(result);
 });

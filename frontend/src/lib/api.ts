@@ -148,9 +148,11 @@ export function getStockData(symbol: string) {
 }
 
 export function getEarnings(symbol: string) {
-	return apiRequest<{ reported: boolean; beatEps: boolean | null; period: string | null }>(
-		`/api/stock/${encodeURIComponent(symbol)}/earnings`,
-	);
+	return apiRequest<{
+		status: "upcoming" | "beat" | "miss" | "reported" | "none";
+		date: string | null;
+		hour?: string;
+	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings`);
 }
 
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)

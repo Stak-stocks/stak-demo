@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl } from "@/data/brands";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { getIntelState } from "@/lib/api";
@@ -239,7 +239,7 @@ function ProfilePage() {
 								<div className="flex items-center gap-1 mt-1 mb-1">
 									{stakBrands.slice(0, 3).map((b) => (
 										<div key={b.id} className="w-7 h-7 rounded-full bg-white/10 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
-											<img src={getBrandLogoUrl(b)} alt={b.name} className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = getBrandFallbackLogoUrl(b); }} />
+											<img src={getBrandLogoUrl(b)} alt={b.name} className="w-5 h-5 object-contain" onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = getBrandUltimateFallbackUrl(b); } else { img.dataset.errored = "1"; img.src = getBrandFallbackLogoUrl(b); } }} />
 										</div>
 									))}
 									{stakBrands.length > 3 && <span className="text-[10px] text-zinc-400 ml-0.5">+{stakBrands.length - 3}</span>}

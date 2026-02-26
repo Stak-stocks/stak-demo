@@ -1,7 +1,21 @@
 import { Router } from "express";
 import { getTrends } from "../services/trendsService.js";
+import { adminDb } from "../firebaseAdmin.js";
 
 export const trendsRouter = Router();
+
+// DELETE /api/trends/:brandId/cache — bust cached trends so next request regenerates
+trendsRouter.delete("/:brandId/cache", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	const { brandId } = req.params;
+	await adminDb.collection("trends_v5").doc(brandId).delete();
+	console.log(`[Trends] Cache busted for ${brandId}`);
+	res.json({ ok: true, message: `Cache cleared for ${brandId}` });
+});
 
 // GET /api/trends/:brandId?ticker=AAPL&name=Apple
 trendsRouter.get("/:brandId", async (req, res) => {
