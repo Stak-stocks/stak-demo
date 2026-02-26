@@ -179,6 +179,11 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		result = { status: "none", date: null };
 	}
 
-	setCached(cacheKey, result, EARNINGS_TTL_MS);
+	// Use a short 5-min TTL when earnings are today (actuals may arrive any minute)
+	// or when we got no data at all (Finnhub call may have failed transiently).
+	// Use the full 6-hour TTL otherwise.
+	const isToday = result.date === todayStr;
+	const ttl = (isToday || result.status === "none") ? 5 * 60 * 1000 : EARNINGS_TTL_MS;
+	setCached(cacheKey, result, ttl);
 	res.json(result);
 });
