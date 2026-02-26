@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
+import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { IntelCardModal } from "@/components/IntelCardModal";

@@ -10,7 +10,7 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { allBrands } from "@/data/dynamicBrands";
+import { brands as allBrands } from "@/data/brands";
 import { getBrandLogoUrl } from "@/data/brands";
 
 export const Route = createFileRoute("/onboarding")({

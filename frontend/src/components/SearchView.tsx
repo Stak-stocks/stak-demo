@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
-import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
+import { brands, type BrandProfile } from "@/data/brands";
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";

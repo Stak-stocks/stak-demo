@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue } from "react";
 import { Search, X, Clock } from "lucide-react";
-import { allBrands as brands, type BrandProfile } from "@/data/dynamicBrands";
-import { getBrandLogoUrl } from "@/data/brands";
+import { brands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 
 const RECENT_KEY = "search-recent";
 const MAX_RECENT = 5;
@@ -28,6 +27,7 @@ interface SearchOverlayProps {
 
 export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayProps) {
 	const [query, setQuery] = useState("");
+	const deferredQuery = useDeferredValue(query);
 	const [recentIds, setRecentIds] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const allStocks = brands;
@@ -62,16 +62,20 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 		.map((id) => allStocks.find((b) => b.id === id))
 		.filter(Boolean) as BrandProfile[];
 
-	const filtered = query.trim()
-		? allStocks.filter(
-				(b) =>
-					b.name.toLowerCase().includes(query.toLowerCase()) ||
-					b.ticker.toLowerCase().includes(query.toLowerCase()),
-			)
-		: [];
+	const filtered = useMemo(
+		() =>
+			deferredQuery.trim()
+				? allStocks.filter(
+						(b) =>
+							b.name.toLowerCase().includes(deferredQuery.toLowerCase()) ||
+							b.ticker.toLowerCase().includes(deferredQuery.toLowerCase()),
+					)
+				: [],
+		[deferredQuery, allStocks],
+	);
 
-	const showRecent = !query.trim() && recentBrands.length > 0;
-	const showPopular = !query.trim();
+	const showRecent = !deferredQuery.trim() && recentBrands.length > 0;
+	const showPopular = !deferredQuery.trim();
 
 	if (!open) return null;
 
@@ -130,7 +134,7 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 				)}
 
 				{/* Search results */}
-				{query.trim() && (
+				{deferredQuery.trim() && (
 					filtered.length === 0 ? (
 						<p className="text-center text-slate-500 mt-8">No stocks found</p>
 					) : (
