@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl } from "@/data/brands";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl } from "@/data/brands";
 import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
@@ -56,6 +56,7 @@ function StakCard({
 					src={getBrandLogoUrl(brand)}
 					alt={`${brand.name} logo`}
 					className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
+					onError={(e) => { (e.target as HTMLImageElement).src = getBrandFallbackLogoUrl(brand); }}
 				/>
 				<div className="flex-1">
 					<div className="flex items-baseline gap-2 mb-1">

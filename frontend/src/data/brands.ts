@@ -210,6 +210,13 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
 
+/** Fallback logo URL used in onError handlers when TradingView CDN returns a broken image */
+export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
+	if (brand.logo) return brand.logo;
+	const domain = brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
+	return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
+
 // TradingView logo slugs for high-quality company hero images
 const TV_LOGO_SLUGS: Record<string, string> = {
 	tsla: "tesla", aapl: "apple", nvda: "nvidia", rblx: "roblox", meta: "meta-platforms",
