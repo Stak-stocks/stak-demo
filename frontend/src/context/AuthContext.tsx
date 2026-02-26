@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					localStorage.removeItem("my-stak");
 					localStorage.removeItem("passed-brands");
 					localStorage.removeItem("user-interests");
+					localStorage.removeItem("stak-streak");
 					// Default to needing onboarding — profile fetch below will override if they're existing
 					localStorage.setItem("onboardingCompleted", "false");
 				}
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 						);
 					} else {
 						localStorage.removeItem("user-interests");
+					localStorage.removeItem("stak-streak");
 					}
 				} catch {
 					// Profile fetch failed — continue with whatever localStorage has
