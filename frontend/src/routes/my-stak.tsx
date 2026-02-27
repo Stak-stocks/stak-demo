@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData, getEarnings } from "@/lib/api";
+import { saveStak, getCompanyNews, getStockData } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
@@ -70,13 +70,17 @@ function StakCard({
 		retry: 1,
 	});
 
-	const { data: earningsData } = useQuery({
-		queryKey: ["earnings", brand.ticker],
-		queryFn: () => getEarnings(brand.ticker),
-		staleTime: 60 * 60 * 1000,
+	const { data: newsData } = useQuery({
+		queryKey: ["company-news", brand.ticker],
+		queryFn: () => getCompanyNews(brand.ticker, brand.name),
+		staleTime: 30 * 60 * 1000,
+		gcTime: 60 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
+		refetchIntervalInBackground: false,
 		retry: 1,
 	});
 
+	const earningsSignal = newsData?.earningsSignal;
 	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	return (
@@ -92,15 +96,15 @@ function StakCard({
 				<X className="w-4 h-4" />
 			</button>
 
-			{earningsData && earningsData.status !== "none" && (
+			{earningsSignal && earningsSignal.status !== "none" && (
 				<div className="absolute top-3 left-3">
-					<EarningsBadge data={earningsData} />
+					<EarningsBadge data={earningsSignal} />
 				</div>
 			)}
 
 			<div
 				className="flex items-start gap-4 mb-3"
-				style={{ marginTop: earningsData?.status && earningsData.status !== "none" ? "1.5rem" : undefined }}
+				style={{ marginTop: earningsSignal?.status && earningsSignal.status !== "none" ? "1.5rem" : undefined }}
 			>
 				<img
 					src={getBrandLogoUrl(brand)}
@@ -175,11 +179,14 @@ function MyStakPage() {
 		}
 		setDragY(0);
 	}, [dragY]);
-	const { data: liveData } = useQuery({
-		queryKey: ["trends", selectedBrand?.id],
-		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
+	const { data: selectedNewsData } = useQuery({
+		queryKey: ["company-news", selectedBrand?.ticker],
+		queryFn: () => getCompanyNews(selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
-		staleTime: 60 * 60 * 1000,
+		staleTime: 30 * 60 * 1000,
+		gcTime: 60 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
+		refetchIntervalInBackground: false,
 		retry: 1,
 	});
 
@@ -416,7 +423,7 @@ function MyStakPage() {
 
 						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
-								trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(selectedBrand.id)}
+								trends={selectedNewsData?.trendCards?.length ? selectedNewsData.trendCards : getBrandTrends(selectedBrand.id)}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>

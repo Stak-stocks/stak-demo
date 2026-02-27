@@ -92,9 +92,18 @@ export function getLiveTrends(brandId: string, ticker: string, name: string) {
 }
 
 // News
+export interface EarningsSignal {
+	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	date: string | null;
+}
+
 export function getCompanyNews(symbol: string, name?: string) {
 	const query = name ? `?name=${encodeURIComponent(name)}` : "";
-	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(`/api/news/company/${symbol}${query}`);
+	return apiRequest<{
+		articles: import("@/data/brands").NewsArticle[];
+		earningsSignal: EarningsSignal;
+		trendCards: import("@/data/brands").TrendCard[];
+	}>(`/api/news/company/${symbol}${query}`);
 }
 
 export function getMarketNews() {

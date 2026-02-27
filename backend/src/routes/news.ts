@@ -1,8 +1,51 @@
 import { Router } from "express";
-import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles } from "../services/finnhubService.js";
-import { simplifyArticles } from "../services/geminiService.js";
+import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
+import { simplifyArticles, type SimplifiedArticle } from "../services/geminiService.js";
 
 export const newsRouter = Router();
+
+// ── Earnings extraction from article headlines (no extra API call) ──────────
+const EARNINGS_CORE = ["earnings", "eps", "quarterly results", "quarterly earnings", "q1 results", "q2 results", "q3 results", "q4 results", "fiscal quarter", "revenue and earnings"];
+const BEAT_WORDS    = ["beat", "topped", "exceeded", "surpassed", "above expectations", "better than expected", "blew past", "smashed estimates", "topped estimates"];
+const MISS_WORDS    = ["missed", "miss", "fell short", "below expectations", "worse than expected", "disappointed", "came in below", "missed estimates"];
+const UPCOMING_WORDS = ["upcoming earnings", "reports earnings", "will report earnings", "scheduled to report", "earnings date", "earnings call", "due to report", "set to report"];
+
+interface EarningsSignal {
+	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	date: string | null;
+}
+
+function extractEarningsSignal(articles: FinnhubArticle[]): EarningsSignal {
+	for (const article of articles) {
+		const text = `${article.headline} ${article.summary}`.toLowerCase();
+		if (!EARNINGS_CORE.some((k) => text.includes(k))) continue;
+
+		const dateStr = new Date(article.datetime * 1000).toISOString().split("T")[0];
+		if (UPCOMING_WORDS.some((k) => text.includes(k))) return { status: "upcoming", date: dateStr };
+		if (BEAT_WORDS.some((k) => text.includes(k)))     return { status: "beat",     date: dateStr };
+		if (MISS_WORDS.some((k) => text.includes(k)))     return { status: "miss",     date: dateStr };
+		return { status: "reported", date: dateStr };
+	}
+	return { status: "none", date: null };
+}
+
+// ── Convert simplified articles → TrendCards ────────────────────────────────
+function articlesToTrendCards(articles: SimplifiedArticle[], ticker: string) {
+	return articles
+		.filter((a) => a.type === "company")
+		.slice(0, 3)
+		.map((a) => ({
+			type: "company" as const,
+			label: ticker,
+			topic: a.headline,
+			why: a.explanation,
+			impact: a.whyItMatters,
+			takeaway:
+				a.sentiment === "bullish" ? "Positive signal for investors." :
+				a.sentiment === "bearish" ? "Watch for potential downside." :
+				"Monitor for further developments.",
+		}));
+}
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
@@ -17,7 +60,7 @@ newsRouter.get("/market", async (_req, res) => {
 	}
 });
 
-// GET /api/news/company/:symbol — company + sector news (no pure macro)
+// GET /api/news/company/:symbol — company + sector news with earnings signal + trend cards
 newsRouter.get("/company/:symbol", async (req, res) => {
 	try {
 		const { symbol } = req.params;
@@ -28,7 +71,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
-			res.json({ articles: [] });
+			res.json({ articles: [], earningsSignal: { status: "none", date: null }, trendCards: [] });
 			return;
 		}
 
@@ -46,15 +89,22 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			.slice(0, 8);
 
 		if (relevant.length === 0) {
-			res.json({ articles: [] });
+			res.json({ articles: [], earningsSignal: { status: "none", date: null }, trendCards: [] });
 			return;
 		}
+
+		// Extract earnings signal from raw articles before Gemini (keyword-based, instant)
+		const earningsSignal = extractEarningsSignal(relevant.map((c) => c.article));
 
 		const simplified = await simplifyArticles(
 			relevant.map((c) => c.article),
 			relevant.map((c) => c.type),
 		);
-		res.json({ articles: simplified });
+
+		// Convert top company articles into trend cards
+		const trendCards = articlesToTrendCards(simplified, ticker);
+
+		res.json({ articles: simplified, earningsSignal, trendCards });
 	} catch (error) {
 		console.error("Error fetching company news:", error);
 		res.status(500).json({ error: "Failed to fetch company news" });
