@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -20,6 +21,7 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 	}
 	return null;
 }
+
 
 // In-memory cache with per-key TTL
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -93,7 +95,6 @@ stockRouter.get("/calendar", async (_req, res) => {
 	) as { earningsCalendar?: CalendarEntry[] } | null;
 
 	const entries = (data?.earningsCalendar ?? [])
-		// Filter out entries with no symbol or very low-quality data
 		.filter((e) => e.symbol && !e.symbol.includes("."))
 		.map((e) => ({
 			symbol: e.symbol,
@@ -112,6 +113,113 @@ stockRouter.get("/calendar", async (_req, res) => {
 	};
 
 	setCached(cacheKey, result, 15 * 60 * 1000); // 15-min cache
+	res.json(result);
+});
+
+// ── Popular tickers shown in the market-wide earnings calendar ──────────────
+const MARKET_TICKERS: Record<string, string> = {
+	AAPL: "Apple", MSFT: "Microsoft", GOOGL: "Alphabet", AMZN: "Amazon",
+	META: "Meta", NVDA: "NVIDIA", TSLA: "Tesla", NFLX: "Netflix",
+	AVGO: "Broadcom", AMD: "AMD", INTC: "Intel", QCOM: "Qualcomm",
+	ORCL: "Oracle", ADBE: "Adobe", CRM: "Salesforce", CSCO: "Cisco",
+	IBM: "IBM", TXN: "Texas Instruments", INTU: "Intuit", NOW: "ServiceNow",
+	UBER: "Uber", ABNB: "Airbnb", DASH: "DoorDash", LYFT: "Lyft",
+	SPOT: "Spotify", SNAP: "Snap", PINS: "Pinterest", RDDT: "Reddit",
+	COIN: "Coinbase", HOOD: "Robinhood", RBLX: "Roblox", U: "Unity",
+	PLTR: "Palantir", SOUN: "SoundHound AI", DUOL: "Duolingo", AI: "C3.ai",
+	HIMS: "Hims & Hers", ROKU: "Roku", CRWD: "CrowdStrike", SNOW: "Snowflake",
+	DDOG: "Datadog", NET: "Cloudflare", PATH: "UiPath", GTLB: "GitLab",
+	SMCI: "Super Micro", ARM: "Arm Holdings", ANET: "Arista Networks",
+	SHOP: "Shopify", PYPL: "PayPal", SQ: "Block", V: "Visa", MA: "Mastercard",
+	JPM: "JPMorgan", GS: "Goldman Sachs", BAC: "Bank of America", MS: "Morgan Stanley",
+	WFC: "Wells Fargo", C: "Citigroup",
+	WMT: "Walmart", COST: "Costco", TGT: "Target", HD: "Home Depot",
+	MCD: "McDonald's", SBUX: "Starbucks", NKE: "Nike", LULU: "Lululemon",
+	DIS: "Disney", CMCSA: "Comcast", T: "AT&T", VZ: "Verizon", TMUS: "T-Mobile",
+	DELL: "Dell", HPQ: "HP Inc", HPE: "HP Enterprise",
+	RIVN: "Rivian", F: "Ford", GM: "General Motors", NIO: "NIO",
+	BA: "Boeing", GE: "GE", CAT: "Caterpillar", HON: "Honeywell",
+	JNJ: "Johnson & Johnson", PFE: "Pfizer", MRNA: "Moderna", LLY: "Eli Lilly",
+	ABBV: "AbbVie", AMGN: "Amgen", XOM: "ExxonMobil", CVX: "Chevron",
+	BABA: "Alibaba", JD: "JD.com", PDD: "PDD Holdings",
+};
+
+/** Market-wide earnings calendar for popular stocks — MUST be before /:symbol */
+stockRouter.get("/market-earnings", async (req, res) => {
+	const period = (req.query.period as string) ?? "today";
+	const now = new Date();
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+	const todayStr = fmt(now);
+
+	let fromStr: string, toStr: string;
+	if (period === "tomorrow") {
+		const d = new Date(now.getTime() + 86400000);
+		fromStr = toStr = fmt(d);
+	} else if (period === "week") {
+		// Full calendar week: Sunday → Saturday
+		const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+		const weekSunday = new Date(now.getTime() - dayOfWeek * 86400000);
+		const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
+		fromStr = fmt(weekSunday);
+		toStr = fmt(weekSaturday);
+	} else {
+		fromStr = toStr = todayStr;
+	}
+
+	const cacheKey = `market-earnings:${period}:${todayStr}`;
+	const cached = getCached(cacheKey);
+	if (cached) { res.json(cached); return; }
+
+	const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
+
+	const calEntries = (data?.earningsCalendar ?? []).filter((e) => e.symbol in MARKET_TICKERS);
+
+	// Same logic as /:symbol/earnings in My Stak:
+	// - future date → "upcoming" (no Gemini call needed)
+	// - today or past date → Gemini web search for beat/miss (parallel, 24h cached internally)
+	const entries = await Promise.all(
+		calEntries.map(async (e) => {
+			const revChangePct = e.revenueActual != null && e.revenueEstimate != null && e.revenueEstimate !== 0
+				? Math.round(((e.revenueActual - e.revenueEstimate) / Math.abs(e.revenueEstimate)) * 1000) / 10
+				: null;
+
+			if (e.date > todayStr) {
+				// Upcoming — don't call Gemini yet
+				return {
+					symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
+					date: e.date, hour: e.hour || null,
+					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+					revChangePct, status: "upcoming" as const,
+				};
+			}
+
+			// Already reported — use Gemini (same as My Stak)
+			const { result: signal, date: reportDate } = await getEarningsBeatMissFromWeb(
+				e.symbol, MARKET_TICKERS[e.symbol],
+			);
+			// Fallback to Finnhub EPS comparison if Gemini returns "none"
+			const fallbackStatus = e.epsActual != null && e.epsEstimate != null
+				? (e.epsActual >= e.epsEstimate ? "beat" : "miss")
+				: "none";
+			return {
+				symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
+				date: reportDate ?? e.date, hour: e.hour || null,
+				epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+				revChangePct,
+				status: (signal !== "none" ? signal : fallbackStatus) as "beat" | "miss" | "none",
+			};
+		}),
+	);
+
+	entries.sort((a, b) => {
+		if (a.status !== "upcoming" && b.status === "upcoming") return -1;
+		if (a.status === "upcoming" && b.status !== "upcoming") return 1;
+		return a.date.localeCompare(b.date);
+	});
+
+	const result = { entries, from: fromStr, to: toStr };
+	setCached(cacheKey, result, 15 * 60 * 1000);
 	res.json(result);
 });
 
@@ -176,12 +284,7 @@ stockRouter.get("/:symbol", async (req, res) => {
 	}
 });
 
-interface CalEntry {
-	date: string;
-	hour: string;
-	epsActual: number | null;
-	epsEstimate: number | null;
-}
+// ── Earnings beat/miss per symbol ─────────────────────────────────────────────
 
 interface EarningsStatus {
 	status: "upcoming" | "beat" | "miss" | "none";
@@ -189,9 +292,20 @@ interface EarningsStatus {
 	hour?: string;
 }
 
+interface FinnhubCalendarEntry {
+	symbol: string;
+	date: string;
+	hour: string;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	revenueActual: number | null;
+	revenueEstimate: number | null;
+}
+
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
-	const cacheKey = `earnings2:${symbol}`;
+	const companyName = req.query.name as string | undefined;
+	const cacheKey = `earnings:v3:${symbol}`;
 
 	const cached = getCached(cacheKey) as EarningsStatus | null;
 	if (cached) { res.json(cached); return; }
@@ -199,52 +313,27 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const now = new Date();
 	const fmt = (d: Date) => d.toISOString().split("T")[0];
 	const todayStr = fmt(now);
-	// Show beat/miss for 2 days: from = yesterday so entries disappear after day+1
-	const from = fmt(new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000));
-	// Upcoming window: next 14 days
-	const to = fmt(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000));
+	const in14Days = fmt(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000));
 
-	const calData = await finnhubGet(
-		`/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}`,
-	) as { earningsCalendar?: CalEntry[] } | null;
-
-	const entries = calData?.earningsCalendar ?? [];
-
-	// Entries where earnings already happened and actuals are published
-	const reported = entries
-		.filter((e) => e.date <= todayStr && e.epsActual != null)
-		.sort((a, b) => b.date.localeCompare(a.date));
-
-	// Entries that are still in the future (or today pre-announcement)
-	const upcoming = entries
-		.filter((e) => e.date > todayStr || (e.date === todayStr && e.epsActual == null))
-		.sort((a, b) => a.date.localeCompare(b.date));
-
-	let result: EarningsStatus;
-
-	if (reported.length > 0) {
-		const latest = reported[0];
-		if (latest.epsActual != null && latest.epsEstimate != null) {
-			result = {
-				status: latest.epsActual >= latest.epsEstimate ? "beat" : "miss",
-				date: latest.date,
-			};
-		} else {
-			// Can't determine beat/miss without both actuals — skip badge
-			result = { status: "none", date: null };
-		}
-	} else if (upcoming.length > 0) {
-		const next = upcoming[0];
-		result = { status: "upcoming", date: next.date, hour: next.hour };
-	} else {
-		result = { status: "none", date: null };
+	// ── 1. Check Finnhub calendar for upcoming earnings (next 14 days) ──
+	const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in14Days}`) as
+		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
+	const upcoming = calData?.earningsCalendar?.find((e) => e.symbol === symbol);
+	if (upcoming) {
+		const result: EarningsStatus = { status: "upcoming", date: upcoming.date, hour: upcoming.hour };
+		setCached(cacheKey, result, 15 * 60 * 1000);
+		res.json(result);
+		return;
 	}
 
-	// Use a short 5-min TTL when earnings are today (actuals may arrive any minute)
-	// or when we got no data at all (Finnhub call may have failed transiently).
-	// Use the full 6-hour TTL otherwise.
-	const isToday = result.date === todayStr;
-	const ttl = (isToday || result.status === "none") ? 5 * 60 * 1000 : EARNINGS_TTL_MS;
-	setCached(cacheKey, result, ttl);
+	// ── 2. Gemini + Google Search grounding — finds the actual earnings article and reads it ──
+	// Cached 24 hours so we only call Gemini once per day per stock.
+	const { result: signal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
+	const result: EarningsStatus = signal !== "none"
+		? { status: signal, date: reportDate ?? todayStr }
+		: { status: "none", date: null };
+
+	// 24h for beat/miss (Gemini result is already cached internally); 1h for none
+	setCached(cacheKey, result, signal !== "none" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
 	res.json(result);
 });

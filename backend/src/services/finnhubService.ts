@@ -188,7 +188,11 @@ async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 	const cutoff = Math.floor((Date.now() - ONE_WEEK_AGO_MS) / 1000); // unix seconds
 	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news?category=general&token=${key}`);
 	if (!res) return []; // all keys rate-limited
-	if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
+	if (!res.ok) {
+		// 5xx = transient server error — log and return empty rather than throwing
+		console.warn(`Finnhub market news unavailable (${res.status}) — returning empty`);
+		return [];
+	}
 	const data: FinnhubArticle[] = await res.json();
 	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
 	setCachedNews(MARKET_CACHE_KEY, filtered);
@@ -267,8 +271,7 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
 	);
 
-	if (res) {
-		if (!res.ok) throw new Error(`Finnhub error: ${res.status}`);
+	if (res && res.ok) {
 		const data: FinnhubArticle[] = await res.json();
 		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
 		filtered.sort((a, b) => b.datetime - a.datetime);
@@ -277,6 +280,8 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 			setCachedNews(cacheKey, result);
 			return result;
 		}
+	} else if (res && !res.ok) {
+		console.warn(`Finnhub company news unavailable (${res.status}) for ${symbol} — trying fallback`);
 	}
 
 	// Finnhub returned nothing (rate-limited, unsupported ticker, or 0 articles) — try NewsAPI

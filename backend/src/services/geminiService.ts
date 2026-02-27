@@ -165,6 +165,87 @@ type EarningsOutcome = "beat" | "miss" | "none";
 // Cache so we don't re-ask Gemini for the same article headline
 const earningsCache = new Map<string, { result: EarningsOutcome; expiresAt: number }>();
 
+// 24-hour cache for web-grounded earnings lookups
+const webEarningsCache = new Map<string, { result: EarningsOutcome; date: string | null; expiresAt: number }>();
+const WEB_EARNINGS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Use Gemini 2.0 Flash with Google Search grounding to determine if a company
+ * beat or missed earnings in their most recent quarter, along with the report date.
+ * Makes 1 call per stock per 24 hours.
+ */
+export async function getEarningsBeatMissFromWeb(
+	symbol: string,
+	companyName?: string,
+): Promise<{ result: EarningsOutcome; date: string | null }> {
+	const cacheKey = `web:${symbol}`;
+	const cached = webEarningsCache.get(cacheKey);
+	if (cached && cached.expiresAt > Date.now()) return { result: cached.result, date: cached.date };
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return { result: "none", date: null };
+
+	const subject = companyName
+		? `${companyName} (stock ticker: ${symbol})`
+		: `the company with stock ticker ${symbol} on US stock exchanges`;
+	const prompt = `Search for the most recent quarterly earnings report for ${subject}.
+
+Did the company beat or miss analyst EPS (earnings per share) estimates?
+Use the non-GAAP / adjusted EPS figures if available (the ones analysts typically use).
+Only consider earnings reported in the last 60 days.
+
+Return a JSON object with exactly these two fields:
+{
+  "outcome": "beat" | "miss" | "none",
+  "reportDate": "YYYY-MM-DD" | null
+}
+
+Where:
+- "outcome": "beat" if actual EPS >= consensus estimate, "miss" if below, "none" if no recent report found
+- "reportDate": the date the earnings were publicly reported (not the fiscal quarter end date), or null if none
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { temperature: 0 },
+					}),
+				},
+			);
+			if (res.status === 429) continue;
+			if (!res.ok) break;
+			const data = await res.json();
+			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+			// Extract JSON object from the response (Gemini may wrap in markdown fences)
+			const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+			if (jsonMatch) {
+				try {
+					const parsed = JSON.parse(jsonMatch[0]);
+					const result: EarningsOutcome = ["beat", "miss", "none"].includes(parsed.outcome)
+						? parsed.outcome
+						: "none";
+					const date: string | null = typeof parsed.reportDate === "string" ? parsed.reportDate : null;
+					webEarningsCache.set(cacheKey, { result, date, expiresAt: Date.now() + WEB_EARNINGS_TTL_MS });
+					return { result, date };
+				} catch {
+					// JSON parse failed — fall through to next key
+				}
+			}
+		} catch {
+			// ignore, try next key
+		}
+	}
+	return { result: "none", date: null };
+}
+
 /**
  * Ask Gemini to classify an ambiguous earnings article as beat, miss, or none.
  * Used when keyword matching in news.ts can't determine the outcome.

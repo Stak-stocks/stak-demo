@@ -21,18 +21,6 @@ const EARNINGS_CORE = [
 	// Revenue + period patterns
 	"quarterly revenue", "q4 revenue", "q3 revenue", "q2 revenue", "q1 revenue",
 ];
-const BEAT_WORDS = [
-	"beat", "topped", "exceeded", "surpassed", "above expectations",
-	"better than expected", "blew past", "smashed estimates", "topped estimates",
-	"beat on revenue", "revenue beat", "narrowed loss", "smaller loss",
-	"loss narrowed", "ahead of estimates", "ahead of expectations",
-];
-const MISS_WORDS = [
-	"missed", "miss", "fell short", "below expectations", "worse than expected",
-	"disappointed", "came in below", "missed estimates", "below estimate",
-	"widened loss", "loss widened", "miss on revenue", "revenue miss",
-	"below consensus", "trailed estimates",
-];
 const UPCOMING_WORDS = [
 	"upcoming earnings", "reports earnings on", "will report earnings",
 	"scheduled to report", "earnings date", "earnings call scheduled",
@@ -64,13 +52,8 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 			return { status: "upcoming", date: dateStr };
 		}
 
-		// Beat: explicit positive keyword
-		if (BEAT_WORDS.some((k) => text.includes(k))) return { status: "beat", date: dateStr };
-
-		// Miss: explicit negative keyword
-		if (MISS_WORDS.some((k) => text.includes(k))) return { status: "miss", date: dateStr };
-
-		// Ambiguous earnings article — ask Gemini to classify
+		// Let Gemini determine beat/miss — more accurate than keyword matching
+		// which produces false positives (e.g. "misses revenue" ≠ overall miss)
 		const geminiResult = await classifyEarnings(article.headline, article.summary);
 		if (geminiResult !== "none") return { status: geminiResult, date: dateStr };
 	}

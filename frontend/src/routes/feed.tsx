@@ -5,6 +5,7 @@ import { getMarketNews, searchNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
+import { MarketEarningsWidget } from "@/components/EarningsCalendar";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -219,6 +220,9 @@ function FeedPage() {
 						</div>
 					</div>
 				</form>
+
+				{/* ── EARNINGS CALENDAR WIDGET ── */}
+				{!isSearching && <MarketEarningsWidget />}
 
 				{/* ── SEARCH RESULTS ── */}
 				{isSearching && (

@@ -173,12 +173,30 @@ export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
 }
 
-export function getEarnings(symbol: string) {
+export interface MarketEarningsEntry {
+	symbol: string;
+	name: string;
+	date: string;
+	hour: string | null;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	revChangePct: number | null;
+	status: "beat" | "miss" | "upcoming" | "none";
+}
+
+export function getMarketEarnings(period: "today" | "tomorrow" | "week") {
+	return apiRequest<{ entries: MarketEarningsEntry[]; from: string; to: string }>(
+		`/api/stock/market-earnings?period=${period}`,
+	);
+}
+
+export function getEarnings(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
 	return apiRequest<{
 		status: "upcoming" | "beat" | "miss" | "none";
 		date: string | null;
 		hour?: string;
-	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings`);
+	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings${qs}`);
 }
 
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)

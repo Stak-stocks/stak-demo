@@ -73,7 +73,7 @@ function StakCard({
 	// Earnings calendar: most reliable source for upcoming (knows exact date/time)
 	const { data: earningsData } = useQuery({
 		queryKey: ["earnings", brand.ticker],
-		queryFn: () => getEarnings(brand.ticker),
+		queryFn: () => getEarnings(brand.ticker, brand.name),
 		staleTime: 5 * 60 * 1000,
 		refetchInterval: 5 * 60 * 1000,
 		refetchIntervalInBackground: false,
@@ -90,9 +90,10 @@ function StakCard({
 		retry: 1,
 	});
 
-	// Badge priority: upcoming (from calendar) > beat/miss (from news) > nothing
+	// Badge priority: upcoming > beat/miss (FMP) > beat/miss (news signal fallback)
 	const badgeData = (() => {
 		if (earningsData?.status === "upcoming") return earningsData;
+		if (earningsData?.status === "beat" || earningsData?.status === "miss") return earningsData;
 		const sig = newsData?.earningsSignal;
 		if (sig?.status === "beat" || sig?.status === "miss") return sig;
 		return null;

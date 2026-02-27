@@ -1,186 +1,145 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, X } from "lucide-react";
-import { brands, getBrandLogoUrl } from "@/data/brands";
-import { getEarningsCalendar, type CalendarEntry } from "@/lib/api";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { CalendarDays, X, ChevronRight } from "lucide-react";
+import { type BrandProfile } from "@/data/brands";
+import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";
 
-// Lookup map: ticker → brand
-const brandsByTicker = new Map(brands.map((b) => [b.ticker.toUpperCase(), b]));
+type Tab = "today" | "week" | "next-week";
 
-function hourLabel(hour: string): string {
-	if (hour === "bmo") return "Pre-mkt";
-	if (hour === "amc") return "After close";
-	if (hour === "dmh") return "During hours";
-	return hour ?? "";
+interface StakEarningsEntry {
+	brand: BrandProfile;
+	status: "upcoming" | "beat" | "miss";
+	date: string;
+	hour?: string;
 }
 
-function revPercent(actual: number | null, estimate: number | null): number | null {
-	if (actual == null || estimate == null || estimate === 0) return null;
-	return ((actual - estimate) / Math.abs(estimate)) * 100;
+function statusCfg(status: "upcoming" | "beat" | "miss") {
+	if (status === "beat")
+		return { icon: "📊", label: "Beat ✓", cls: "bg-green-500/15 text-green-400 border-green-500/30" };
+	if (status === "miss")
+		return { icon: "📊", label: "Missed ✗", cls: "bg-red-500/15 text-red-400 border-red-500/30" };
+	return { icon: "📅", label: "Upcoming", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
 }
 
-function EarningsRow({ entry }: { entry: CalendarEntry }) {
-	const brand = brandsByTicker.get(entry.symbol.toUpperCase());
-	const hasResult = entry.epsActual != null;
-	const canJudge = hasResult && entry.epsEstimate != null;
-	const beat = canJudge ? (entry.epsActual! >= entry.epsEstimate!) : null;
-	const rev = revPercent(entry.revenueActual, entry.revenueEstimate);
+/** Return YYYY-MM-DD in America/Chicago (CST/CDT) */
+function getCSTDateStr(d: Date): string {
+	return d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+}
+
+/** Compute Mon/Fri bounds for a given week offset (0 = this week, 1 = next) */
+function getWeekBounds(weekOffset: number): { start: string; end: string } {
+	const now = new Date();
+	const todayCST = getCSTDateStr(now);
+	const dowCST = new Date(todayCST + "T12:00:00Z").getUTCDay();
+	const daysToMon = dowCST === 0 ? -6 : 1 - dowCST;
+	const monday = new Date(now.getTime() + (daysToMon + weekOffset * 7) * 86400000);
+	const friday = new Date(monday.getTime() + 4 * 86400000);
+	return { start: getCSTDateStr(monday), end: getCSTDateStr(friday) };
+}
+
+function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
+	const cfg = statusCfg(entry.status);
+	const hl = entry.hour === "bmo" ? "pre-mkt" : entry.hour === "amc" ? "after close" : entry.hour;
 
 	return (
 		<div className="flex items-center gap-3 py-2.5 border-b border-slate-700/30 last:border-0">
-			{/* Logo or ticker initial */}
-			<div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
-				{brand ? (
-					<img
-						src={getBrandLogoUrl(brand)}
-						alt={brand.name}
-						className="w-full h-full object-contain p-0.5"
-						onError={(e) => {
-							const el = e.target as HTMLImageElement;
-							el.style.display = "none";
-							el.parentElement!.textContent = entry.symbol.charAt(0);
-						}}
-					/>
-				) : (
-					<span className="text-xs font-bold text-zinc-300">{entry.symbol.charAt(0)}</span>
-				)}
-			</div>
-
-			{/* Ticker + name */}
 			<div className="flex-1 min-w-0">
-				<div className="font-bold text-white text-sm leading-tight">{entry.symbol}</div>
-				{brand && (
-					<div className="text-[10px] text-zinc-400 truncate leading-tight">{brand.name}</div>
-				)}
-				{!brand && entry.hour && (
-					<div className="text-[10px] text-zinc-500">{hourLabel(entry.hour)}</div>
-				)}
+				<span className="font-bold text-white text-sm">{entry.brand.ticker}</span>
+				<span className="text-[10px] text-zinc-400 ml-2">{entry.brand.name}</span>
 			</div>
-
-			{/* EPS */}
-			<div className="text-right shrink-0 min-w-[70px]">
-				{hasResult ? (
-					<>
-						<div className="text-sm font-semibold text-white leading-tight">
-							${entry.epsActual!.toFixed(2)}
-						</div>
-						{entry.epsEstimate != null && (
-							<div className="text-[10px] text-zinc-400 leading-tight">
-								vs ${entry.epsEstimate.toFixed(2)}
-							</div>
-						)}
-					</>
-				) : entry.epsEstimate != null ? (
-					<>
-						<div className="text-[10px] text-zinc-400 leading-tight">
-							Est. ${entry.epsEstimate.toFixed(2)}
-						</div>
-						{entry.hour && (
-							<div className="text-[10px] text-zinc-500">{hourLabel(entry.hour)}</div>
-						)}
-					</>
-				) : (
-					entry.hour && (
-						<div className="text-[10px] text-zinc-500">{hourLabel(entry.hour)}</div>
-					)
-				)}
-			</div>
-
-			{/* Status badge */}
-			{hasResult && canJudge ? (
-				<span
-					className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-						beat
-							? "bg-green-500/15 text-green-400 border-green-500/30"
-							: "bg-red-500/15 text-red-400 border-red-500/30"
-					}`}
-				>
-					{beat ? "Beat ✓" : "Miss ✗"}
-				</span>
-			) : !hasResult ? (
-				<span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/15 text-amber-400 border-amber-500/30">
-					Upcoming
-				</span>
-			) : null}
-
-			{/* Revenue beat % */}
-			{rev != null && (
-				<span
-					className={`shrink-0 text-[11px] font-semibold min-w-[36px] text-right ${
-						rev >= 0 ? "text-green-400" : "text-red-400"
-					}`}
-				>
-					{rev >= 0 ? "+" : ""}
-					{rev.toFixed(1)}%
-				</span>
+			<span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls}`}>
+				{cfg.icon} {cfg.label}
+			</span>
+			{hl && entry.status === "upcoming" && (
+				<span className="shrink-0 text-[10px] text-zinc-500">{hl}</span>
 			)}
 		</div>
 	);
 }
 
-type Tab = "today" | "tomorrow" | "week";
-
 export function EarningsCalendarButton() {
 	const [open, setOpen] = useState(false);
 	const [tab, setTab] = useState<Tab>("today");
 
-	const { data } = useQuery({
-		queryKey: ["earnings-calendar"],
-		queryFn: getEarningsCalendar,
-		staleTime: 15 * 60 * 1000,
-		refetchInterval: 15 * 60 * 1000,
-		retry: 1,
+	const [stakBrands] = useState<BrandProfile[]>(() => {
+		try {
+			return JSON.parse(localStorage.getItem("my-stak") ?? "[]");
+		} catch {
+			return [];
+		}
 	});
 
-	const todayEntries = data?.today ?? [];
-	const tomorrowEntries = data?.tomorrow ?? [];
-	const weekEntries = data?.week ?? [];
+	const earningsResults = useQueries({
+		queries: stakBrands.map((brand) => ({
+			queryKey: ["earnings", brand.ticker],
+			queryFn: () => getEarnings(brand.ticker),
+			staleTime: 5 * 60 * 1000,
+			refetchInterval: 5 * 60 * 1000,
+			retry: 1,
+		})),
+	});
 
-	// Stats for the "Today" summary bar
-	const todayReported = todayEntries.filter(
-		(e) => e.epsActual != null && e.epsEstimate != null,
+	const newsResults = useQueries({
+		queries: stakBrands.map((brand) => ({
+			queryKey: ["company-news", brand.ticker],
+			queryFn: () => getCompanyNews(brand.ticker, brand.name),
+			staleTime: 5 * 60 * 1000,
+			refetchInterval: 30 * 60 * 1000,
+			retry: 1,
+		})),
+	});
+
+	const isLoading =
+		earningsResults.some((r) => r.isLoading) ||
+		newsResults.some((r) => r.isLoading);
+
+	const todayCST = getCSTDateStr(new Date());
+	const thisWeek = getWeekBounds(0);
+	const nextWeek = getWeekBounds(1);
+
+	const entries: StakEarningsEntry[] = stakBrands.reduce<StakEarningsEntry[]>((acc, brand, i) => {
+		const cal = earningsResults[i]?.data;
+		const news = newsResults[i]?.data;
+
+		if (cal?.status === "upcoming" && cal.date) {
+			acc.push({ brand, status: "upcoming", date: cal.date, hour: cal.hour });
+		} else if ((cal?.status === "beat" || cal?.status === "miss") && cal.date) {
+			acc.push({ brand, status: cal.status, date: cal.date });
+		} else {
+			const sig = news?.earningsSignal;
+			if (sig?.status === "beat" || sig?.status === "miss") {
+				const date = cal?.date ?? sig.date;
+				if (date) acc.push({ brand, status: sig.status, date });
+			}
+		}
+		return acc;
+	}, []);
+
+	const todayEntries = entries.filter((e) => e.date === todayCST);
+	const weekEntries = entries.filter((e) => e.date >= thisWeek.start && e.date <= thisWeek.end);
+	const nextWeekEntries = entries.filter(
+		(e) => e.status === "upcoming" && e.date >= nextWeek.start && e.date <= nextWeek.end,
 	);
-	const todayBeat = todayReported.filter((e) => e.epsActual! >= e.epsEstimate!).length;
-	const positivePercent =
-		todayReported.length > 0 ? Math.round((todayBeat / todayReported.length) * 100) : null;
 
-	const tabEntries: CalendarEntry[] =
-		tab === "today" ? todayEntries : tab === "tomorrow" ? tomorrowEntries : weekEntries;
-
-	const tabCount =
-		tab === "today"
-			? todayEntries.length
-			: tab === "tomorrow"
-				? tomorrowEntries.length
-				: weekEntries.length;
-
-	const tabLabel =
-		tab === "today"
-			? `${tabCount} Reporting Today`
-			: tab === "tomorrow"
-				? `${tabCount} Reporting Tomorrow`
-				: `${tabCount} This Week`;
-
-	const badgeCount = todayEntries.length;
+	const tabEntries =
+		tab === "today" ? todayEntries : tab === "week" ? weekEntries : nextWeekEntries;
 
 	return (
 		<>
-			{/* Trigger button */}
 			<button
 				onClick={() => setOpen(true)}
 				className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all text-sm font-medium"
 			>
 				<CalendarDays className="w-4 h-4 text-cyan-400" />
-				<span>Earnings</span>
-				{badgeCount > 0 && (
+				<span>My Stak</span>
+				{todayEntries.length > 0 && (
 					<span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">
-						{badgeCount > 9 ? "9+" : badgeCount}
+						{todayEntries.length > 9 ? "9+" : todayEntries.length}
 					</span>
 				)}
 			</button>
 
-			{/* Panel */}
 			{open &&
 				createPortal(
 					<div
@@ -189,85 +148,75 @@ export function EarningsCalendarButton() {
 					>
 						<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 						<div
-							className="relative w-full max-w-md bg-[#0b1121] rounded-t-2xl sm:rounded-2xl border border-slate-700/50 max-h-[85vh] flex flex-col shadow-2xl"
+							className="relative w-full max-w-sm bg-[#0b1121] rounded-t-2xl sm:rounded-2xl border border-slate-700/50 max-h-[80vh] flex flex-col shadow-2xl"
 							onClick={(e) => e.stopPropagation()}
 						>
-							{/* Drag handle (mobile) */}
 							<div className="flex justify-center pt-3 pb-1 sm:hidden">
 								<div className="w-10 h-1 bg-slate-600 rounded-full" />
 							</div>
 
-							{/* Header */}
 							<div className="flex items-center justify-between px-5 pt-3 sm:pt-5 pb-3 shrink-0">
-								<h2 className="text-lg font-bold text-white flex items-center gap-2">
-									<CalendarDays className="w-5 h-5 text-cyan-400" />
-									Earnings Calendar
+								<h2 className="text-base font-bold text-white flex items-center gap-2">
+									<CalendarDays className="w-4 h-4 text-cyan-400" />
+									My Stak Earnings
 								</h2>
 								<button
 									onClick={() => setOpen(false)}
 									className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-slate-700/50 transition-all"
 								>
-									<X className="w-5 h-5" />
+									<X className="w-4 h-4" />
 								</button>
 							</div>
 
-							{/* Tabs */}
 							<div className="flex px-5 gap-1.5 shrink-0">
-								{(["today", "tomorrow", "week"] as const).map((t) => (
-									<button
-										key={t}
-										onClick={() => setTab(t)}
-										className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
-											tab === t
-												? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-												: "text-zinc-500 hover:text-zinc-300 border border-transparent"
-										}`}
-									>
-										{t === "today" ? "Today" : t === "tomorrow" ? "Tomorrow" : "This Week"}
-									</button>
-								))}
-							</div>
-
-							{/* Summary bar */}
-							<div className="mx-5 mt-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/40 flex items-center justify-between shrink-0">
-								<div>
-									<p className="text-zinc-200 text-sm font-semibold">{tabLabel}</p>
-									{tab === "today" && todayReported.length > 0 && (
-										<p className="text-zinc-500 text-[10px] mt-0.5">
-											Beat · Miss · Upcoming
-										</p>
-									)}
-								</div>
-								{tab === "today" && positivePercent != null && (
-									<div className="text-right">
-										<p
-											className={`text-xl font-bold ${positivePercent >= 50 ? "text-green-400" : "text-red-400"}`}
+								{(["today", "week", "next-week"] as const).map((t) => {
+									const count =
+										t === "today" ? todayEntries.length
+										: t === "week" ? weekEntries.length
+										: nextWeekEntries.length;
+									const label =
+										t === "today" ? "Today"
+										: t === "week" ? "This Week"
+										: "Next Week";
+									return (
+										<button
+											key={t}
+											onClick={() => setTab(t)}
+											className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+												tab === t
+													? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+													: "text-zinc-500 hover:text-zinc-300 border border-transparent"
+											}`}
 										>
-											{positivePercent}%
-										</p>
-										<p className="text-[10px] text-zinc-500">Positive</p>
-									</div>
-								)}
+											{label}
+											{count > 0 && (
+												<span className={`ml-1 text-[10px] ${tab === t ? "text-cyan-400" : "text-zinc-500"}`}>
+													({count})
+												</span>
+											)}
+										</button>
+									);
+								})}
 							</div>
 
-							{/* Column headers */}
-							<div className="flex items-center gap-3 px-5 mt-2 pb-1 shrink-0">
-								<div className="w-8 shrink-0" />
-								<div className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</div>
-								<div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide min-w-[70px] text-right">EPS</div>
-								<div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Status</div>
-								<div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide min-w-[36px] text-right">Rev.</div>
-							</div>
-
-							{/* Entries list */}
-							<div className="flex-1 overflow-y-auto px-5 pb-6">
-								{tabEntries.length === 0 ? (
-									<div className="text-center text-zinc-500 py-10 text-sm">
-										No earnings scheduled
-									</div>
+							<div className="flex-1 overflow-y-auto px-5 pb-6 mt-3">
+								{stakBrands.length === 0 ? (
+									<p className="text-center text-zinc-500 py-8 text-sm">
+										Add stocks to your Stak to see earnings
+									</p>
+								) : isLoading ? (
+									<p className="text-center text-zinc-500 py-8 text-sm animate-pulse">
+										Loading earnings…
+									</p>
+								) : tabEntries.length === 0 ? (
+									<p className="text-center text-zinc-500 py-8 text-sm">
+										No earnings{" "}
+										{tab === "today" ? "today" : tab === "week" ? "this week" : "next week"}{" "}
+										for your Stak
+									</p>
 								) : (
 									tabEntries.map((entry) => (
-										<EarningsRow key={`${entry.symbol}-${entry.date}`} entry={entry} />
+										<EarningsRow key={`${entry.brand.id}-${entry.date}`} entry={entry} />
 									))
 								)}
 							</div>
@@ -276,5 +225,282 @@ export function EarningsCalendarButton() {
 					document.body,
 				)}
 		</>
+	);
+}
+
+// ── Market-wide Earnings Widget ───────────────────────────────────────────────
+
+type MarketTab = "today" | "tomorrow" | "week";
+
+function tickerColor(symbol: string): string {
+	const palette = [
+		"bg-blue-600", "bg-violet-600", "bg-cyan-600", "bg-emerald-600",
+		"bg-orange-600", "bg-rose-600", "bg-indigo-600", "bg-teal-600",
+	];
+	let hash = 0;
+	for (const c of symbol) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
+	return palette[Math.abs(hash) % palette.length];
+}
+
+function TickerLogo({ symbol }: { symbol: string }) {
+	const [err, setErr] = useState(false);
+	if (!err) {
+		return (
+			<div className="w-9 h-9 rounded-full bg-white/5 border border-slate-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+				<img
+					src={`https://assets.parqet.com/logos/symbol/${symbol}?format=png`}
+					alt={symbol}
+					className="w-7 h-7 object-contain"
+					onError={() => setErr(true)}
+				/>
+			</div>
+		);
+	}
+	return (
+		<div className={`w-9 h-9 rounded-full ${tickerColor(symbol)} flex items-center justify-center flex-shrink-0`}>
+			<span className="text-white text-[11px] font-bold">{symbol.slice(0, 2)}</span>
+		</div>
+	);
+}
+
+function CircularProgress({ pct }: { pct: number }) {
+	const r = 26;
+	const circ = 2 * Math.PI * r;
+	const dash = (pct / 100) * circ;
+	const color = pct >= 50 ? "#22c55e" : "#ef4444";
+	return (
+		<div className="flex flex-col items-center gap-0.5">
+			<svg width="64" height="64" viewBox="0 0 64 64">
+				<circle cx="32" cy="32" r={r} fill="none" stroke="#1e293b" strokeWidth="6" />
+				<circle
+					cx="32" cy="32" r={r} fill="none"
+					stroke={color} strokeWidth="6"
+					strokeDasharray={`${dash} ${circ}`}
+					strokeLinecap="round"
+					transform="rotate(-90 32 32)"
+				/>
+				<text x="32" y="37" textAnchor="middle" fontSize="13" fontWeight="bold" fill="white">
+					{pct}%
+				</text>
+			</svg>
+			<p className="text-[10px] text-zinc-400">Positive</p>
+		</div>
+	);
+}
+
+function formatEps(val: number | null) {
+	if (val == null) return "—";
+	return `$${val.toFixed(2)}`;
+}
+
+function formatHour(hour: string | null, date: string) {
+	const timeLabel = hour === "bmo" ? "Pre-market" : hour === "amc" ? "After close" : null;
+	const d = new Date(date + "T12:00:00Z");
+	const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+	return timeLabel ? `${day} · ${timeLabel}` : day;
+}
+
+function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
+	const beat = entry.status === "beat";
+	const miss = entry.status === "miss";
+	const upcoming = entry.status === "upcoming";
+
+	return (
+		<div className="flex items-center gap-2.5 py-2.5 border-b border-slate-700/20 last:border-0">
+			{/* Logo */}
+			<TickerLogo symbol={entry.symbol} />
+
+			{/* Company */}
+			<div className="flex-1 min-w-0">
+				<div className="flex items-center gap-1.5">
+					<span className="font-bold text-white text-sm">{entry.symbol}</span>
+					{(beat || miss) && (
+						<span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+							beat ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+						}`}>
+							{beat ? "Beat" : "Miss"}
+						</span>
+					)}
+				</div>
+				<p className="text-[10px] text-zinc-500 truncate">
+					{upcoming ? formatHour(entry.hour, entry.date) : entry.name}
+				</p>
+			</div>
+
+			{/* EPS or Upcoming pill */}
+			<div className="text-right shrink-0 w-[5.5rem]">
+				{upcoming ? (
+					<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+						Upcoming
+					</span>
+				) : (
+					<>
+						<p className={`text-sm font-bold tabular-nums ${beat ? "text-green-400" : miss ? "text-red-400" : "text-zinc-200"}`}>
+							{formatEps(entry.epsActual)}
+						</p>
+						<p className="text-[10px] text-zinc-500 tabular-nums">vs {formatEps(entry.epsEstimate)}</p>
+					</>
+				)}
+			</div>
+
+			{/* Rev % pill */}
+			<div className="shrink-0 w-14 text-right">
+				{!upcoming && entry.revChangePct != null ? (
+					<span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${
+						entry.revChangePct >= 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+					}`}>
+						{entry.revChangePct >= 0 ? "+" : ""}{entry.revChangePct.toFixed(1)}%
+					</span>
+				) : (
+					<span className="text-xs text-zinc-700">—</span>
+				)}
+			</div>
+
+			{/* Sentiment bar */}
+			<div className="shrink-0 w-12">
+				<div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+					{(beat || miss) && (
+						<div
+							className={`h-full rounded-full ${beat
+								? "bg-gradient-to-r from-green-700 to-green-400"
+								: "bg-gradient-to-r from-red-700 to-red-400"}`}
+							style={{ width: beat ? "78%" : "22%" }}
+						/>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+export function MarketEarningsWidget() {
+	const [tab, setTab] = useState<MarketTab>("today");
+	const [expanded, setExpanded] = useState(true);
+	const [showAll, setShowAll] = useState(false);
+
+	const { data, isLoading } = useQuery({
+		queryKey: ["market-earnings", tab],
+		queryFn: () => getMarketEarnings(tab),
+		staleTime: 10 * 60 * 1000,
+		refetchInterval: 15 * 60 * 1000,
+		retry: 1,
+	});
+
+	const entries = data?.entries ?? [];
+	const reported = entries.filter((e) => e.status !== "upcoming" && e.status !== "none");
+	const beats = reported.filter((e) => e.status === "beat");
+	const positivePct = reported.length > 0 ? Math.round((beats.length / reported.length) * 100) : 0;
+	const tabLabel = tab === "today" ? "Today" : tab === "tomorrow" ? "Tomorrow" : "This Week";
+	const visibleEntries = showAll ? entries : entries.slice(0, 8);
+
+	if (!expanded) {
+		return (
+			<button
+				onClick={() => setExpanded(true)}
+				className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-[#0b1121]/80 border border-slate-700/50 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:border-cyan-500/30 transition-all"
+			>
+				<span className="flex items-center gap-2">
+					<CalendarDays className="w-4 h-4 text-cyan-400" />
+					Earnings Calendar
+				</span>
+				<ChevronRight className="w-3.5 h-3.5 rotate-90" />
+			</button>
+		);
+	}
+
+	return (
+		<div className="mb-6 bg-[#0b1121] border border-slate-700/50 rounded-2xl overflow-hidden">
+			{/* Header */}
+			<div className="flex items-center justify-between px-4 pt-4 pb-3">
+				<h2 className="text-sm font-bold text-white flex items-center gap-2">
+					<CalendarDays className="w-4 h-4 text-cyan-400" />
+					Earnings Calendar
+				</h2>
+				<button
+					onClick={() => setExpanded(false)}
+					className="p-1 rounded-full text-zinc-500 hover:text-white transition-colors"
+				>
+					<X className="w-3.5 h-3.5" />
+				</button>
+			</div>
+
+			{/* Tabs — segmented control style */}
+			<div className="flex mx-4 mb-3 bg-slate-800/60 rounded-xl p-0.5">
+				{(["today", "tomorrow", "week"] as const).map((t) => (
+					<button
+						key={t}
+						onClick={() => { setTab(t); setShowAll(false); }}
+						className={`flex-1 py-1.5 rounded-[10px] text-[11px] font-semibold transition-all ${
+							tab === t
+								? "bg-[#0b1121] text-white shadow"
+								: "text-zinc-500 hover:text-zinc-300"
+						}`}
+					>
+						{t === "today" ? "Today" : t === "tomorrow" ? "Tomorrow" : "This Week"}
+					</button>
+				))}
+			</div>
+
+			{/* Summary row */}
+			{reported.length > 0 && (
+				<div className="flex items-center justify-between px-4 py-3 mx-4 mb-2 bg-slate-800/30 rounded-xl border border-slate-700/30">
+					<div>
+						<p className="text-white font-bold leading-none">
+							<span className="text-2xl mr-1.5 tabular-nums">{entries.length}</span>
+							<span className="text-sm">Reporting {tabLabel}</span>
+						</p>
+						<div className="flex items-center gap-3 mt-2">
+							<span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
+								<span className="w-2 h-2 rounded-full bg-green-400 inline-block" /> Beat
+							</span>
+							<span className="flex items-center gap-1 text-[10px] text-red-400 font-medium">
+								<span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Miss
+							</span>
+							<span className="flex items-center gap-1 text-[10px] text-amber-400 font-medium">
+								<span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Upcoming
+							</span>
+						</div>
+					</div>
+					<CircularProgress pct={positivePct} />
+				</div>
+			)}
+
+			{/* Column headers */}
+			{entries.length > 0 && (
+				<div className="flex items-center gap-2.5 px-4 pt-2 pb-1">
+					<div className="w-9 shrink-0" />
+					<span className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[5.5rem] text-right">EPS</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-14 text-right">Rev.</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-12">Sent.</span>
+				</div>
+			)}
+
+			{/* Rows */}
+			<div className="px-4 pb-1">
+				{isLoading ? (
+					<div className="py-8 text-center text-zinc-500 text-xs animate-pulse">Loading earnings…</div>
+				) : entries.length === 0 ? (
+					<div className="py-8 text-center text-zinc-500 text-xs">
+						No major earnings {tabLabel.toLowerCase()}
+					</div>
+				) : (
+					visibleEntries.map((e) => <MarketRow key={e.symbol} entry={e} />)
+				)}
+			</div>
+
+			{/* Footer */}
+			{entries.length > 8 && (
+				<div className="px-4 py-3 border-t border-slate-700/30 text-center">
+					<button
+						type="button"
+						onClick={() => setShowAll((s) => !s)}
+						className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+					>
+						{showAll ? "Show less" : `+${entries.length - 8} more — tap to see all`}
+					</button>
+				</div>
+			)}
+		</div>
 	);
 }
