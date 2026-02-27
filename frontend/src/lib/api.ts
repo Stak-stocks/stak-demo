@@ -102,7 +102,6 @@ export function getCompanyNews(symbol: string, name?: string) {
 	return apiRequest<{
 		articles: import("@/data/brands").NewsArticle[];
 		earningsSignal: EarningsSignal;
-		trendCards: import("@/data/brands").TrendCard[];
 	}>(`/api/news/company/${symbol}${query}`);
 }
 
@@ -158,7 +157,7 @@ export function getStockData(symbol: string) {
 
 export function getEarnings(symbol: string) {
 	return apiRequest<{
-		status: "upcoming" | "beat" | "miss" | "reported" | "none";
+		status: "upcoming" | "beat" | "miss" | "none";
 		date: string | null;
 		hour?: string;
 	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings`);

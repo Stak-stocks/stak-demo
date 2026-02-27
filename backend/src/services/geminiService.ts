@@ -162,7 +162,7 @@ export async function simplifyArticles(
 
 type EarningsOutcome = "beat" | "miss" | "none";
 
-// Cache for earnings classifications so we don't re-ask Gemini for the same article
+// Cache so we don't re-ask Gemini for the same article headline
 const earningsCache = new Map<string, { result: EarningsOutcome; expiresAt: number }>();
 
 /**
@@ -204,7 +204,6 @@ Return ONLY one of these exact strings: beat, miss, none`;
 			);
 			if (res.status === 429) continue;
 			if (!res.ok) break;
-
 			const data = await res.json();
 			const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim().toLowerCase();
 			let result: EarningsOutcome = "none";
@@ -213,9 +212,8 @@ Return ONLY one of these exact strings: beat, miss, none`;
 			earningsCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
 			return result;
 		} catch {
-			continue;
+			// ignore, try next key
 		}
 	}
-
 	return "none";
 }

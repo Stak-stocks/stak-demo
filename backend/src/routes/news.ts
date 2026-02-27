@@ -1,16 +1,30 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings, type SimplifiedArticle } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings } from "../services/geminiService.js";
 
 export const newsRouter = Router();
 
-// ── Earnings extraction from article headlines (no extra API call) ──────────
-const EARNINGS_CORE = ["earnings", "eps", "quarterly results", "quarterly earnings", "q1 results", "q2 results", "q3 results", "q4 results", "fiscal quarter", "revenue and earnings"];
-const BEAT_WORDS    = ["beat", "topped", "exceeded", "surpassed", "above expectations", "better than expected", "blew past", "smashed estimates", "topped estimates"];
-const MISS_WORDS    = ["missed", "miss", "fell short", "below expectations", "worse than expected", "disappointed", "came in below", "missed estimates", "below estimate"];
-const UPCOMING_WORDS = ["upcoming earnings", "reports earnings on", "will report earnings", "scheduled to report", "earnings date", "earnings call scheduled", "due to report", "set to report", "preview", "what to expect"];
+// ── Earnings signal extraction from article headlines ────────────────────────
+const EARNINGS_CORE = [
+	"earnings", "eps", "quarterly results", "quarterly earnings",
+	"q1 results", "q2 results", "q3 results", "q4 results",
+	"fiscal quarter", "revenue and earnings",
+];
+const BEAT_WORDS = [
+	"beat", "topped", "exceeded", "surpassed", "above expectations",
+	"better than expected", "blew past", "smashed estimates", "topped estimates",
+];
+const MISS_WORDS = [
+	"missed", "miss", "fell short", "below expectations", "worse than expected",
+	"disappointed", "came in below", "missed estimates", "below estimate",
+];
+const UPCOMING_WORDS = [
+	"upcoming earnings", "reports earnings on", "will report earnings",
+	"scheduled to report", "earnings date", "earnings call scheduled",
+	"due to report", "set to report", "earnings preview", "what to expect from",
+];
 
-// How far ahead we show "upcoming" — articles published within 14 days of today
+// Only flag "upcoming" if the article was published within this window
 const UPCOMING_WINDOW_DAYS = 14;
 
 interface EarningsSignal {
@@ -18,6 +32,7 @@ interface EarningsSignal {
 	date: string | null;
 }
 
+/** Scan articles for an earnings signal. Uses keywords first, Gemini as fallback for ambiguous cases. */
 async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<EarningsSignal> {
 	const nowMs = Date.now();
 	const windowMs = UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -29,40 +44,22 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 		const dateStr = new Date(article.datetime * 1000).toISOString().split("T")[0];
 		const articleAgeMs = nowMs - article.datetime * 1000;
 
-		// Upcoming: article is recent AND mentions a future event
+		// Upcoming: recent article mentioning a future earnings event
 		if (UPCOMING_WORDS.some((k) => text.includes(k)) && articleAgeMs < windowMs) {
 			return { status: "upcoming", date: dateStr };
 		}
 
-		// Beat: clear keyword match
+		// Beat: explicit positive keyword
 		if (BEAT_WORDS.some((k) => text.includes(k))) return { status: "beat", date: dateStr };
 
-		// Miss: clear keyword match
+		// Miss: explicit negative keyword
 		if (MISS_WORDS.some((k) => text.includes(k))) return { status: "miss", date: dateStr };
 
-		// Ambiguous earnings article — ask Gemini to classify it
+		// Ambiguous earnings article — ask Gemini to classify
 		const geminiResult = await classifyEarnings(article.headline, article.summary);
 		if (geminiResult !== "none") return { status: geminiResult, date: dateStr };
 	}
 	return { status: "none", date: null };
-}
-
-// ── Convert simplified articles → TrendCards ────────────────────────────────
-function articlesToTrendCards(articles: SimplifiedArticle[], ticker: string) {
-	return articles
-		.filter((a) => a.type === "company")
-		.slice(0, 3)
-		.map((a) => ({
-			type: "company" as const,
-			label: ticker,
-			topic: a.headline,
-			why: a.explanation,
-			impact: a.whyItMatters,
-			takeaway:
-				a.sentiment === "bullish" ? "Positive signal for investors." :
-				a.sentiment === "bearish" ? "Watch for potential downside." :
-				"Monitor for further developments.",
-		}));
 }
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
@@ -78,7 +75,7 @@ newsRouter.get("/market", async (_req, res) => {
 	}
 });
 
-// GET /api/news/company/:symbol — company + sector news with earnings signal + trend cards
+// GET /api/news/company/:symbol — company + sector news with earnings signal
 newsRouter.get("/company/:symbol", async (req, res) => {
 	try {
 		const { symbol } = req.params;
@@ -89,7 +86,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
-			res.json({ articles: [], earningsSignal: { status: "none", date: null }, trendCards: [] });
+			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
 			return;
 		}
 
@@ -106,23 +103,20 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			})
 			.slice(0, 8);
 
+		// Extract earnings signal from all raw articles in parallel with simplification
+		const [earningsSignal, simplified] = await Promise.all([
+			extractEarningsSignal(articles),
+			relevant.length > 0
+				? simplifyArticles(relevant.map((c) => c.article), relevant.map((c) => c.type))
+				: Promise.resolve([]),
+		]);
+
 		if (relevant.length === 0) {
-			res.json({ articles: [], earningsSignal: { status: "none", date: null }, trendCards: [] });
+			res.json({ articles: [], earningsSignal });
 			return;
 		}
 
-		// Extract earnings signal — keyword-based first, Gemini fallback for ambiguous articles
-		const earningsSignal = await extractEarningsSignal(relevant.map((c) => c.article));
-
-		const simplified = await simplifyArticles(
-			relevant.map((c) => c.article),
-			relevant.map((c) => c.type),
-		);
-
-		// Convert top company articles into trend cards
-		const trendCards = articlesToTrendCards(simplified, ticker);
-
-		res.json({ articles: simplified, earningsSignal, trendCards });
+		res.json({ articles: simplified, earningsSignal });
 	} catch (error) {
 		console.error("Error fetching company news:", error);
 		res.status(500).json({ error: "Failed to fetch company news" });

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getCompanyNews, getStockData } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData, getEarnings, getCompanyNews } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/my-stak")({
 type EarningsData = {
 	status: "upcoming" | "beat" | "miss" | "none";
 	date: string | null;
+	hour?: string;
 };
 
 function EarningsBadge({ data }: { data: EarningsData }) {
@@ -30,9 +31,10 @@ function EarningsBadge({ data }: { data: EarningsData }) {
 	const formattedDate = data.date
 		? new Date(`${data.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 		: null;
+	const hourLabel = data.hour === "bmo" ? "pre-market" : data.hour === "amc" ? "after close" : null;
 
 	const configs = {
-		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate ? `${formattedDate}${hourLabel ? ` · ${hourLabel}` : ""}` : null, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
 		beat:     { icon: "📊", label: "Beat ✓",   detail: formattedDate, className: "bg-green-500/15 text-green-400 border-green-500/30" },
 		miss:     { icon: "📊", label: "Missed ✗", detail: formattedDate, className: "bg-red-500/15 text-red-400 border-red-500/30" },
 	} as const;
@@ -68,17 +70,34 @@ function StakCard({
 		retry: 1,
 	});
 
+	// Earnings calendar: most reliable source for upcoming (knows exact date/time)
+	const { data: earningsData } = useQuery({
+		queryKey: ["earnings", brand.ticker],
+		queryFn: () => getEarnings(brand.ticker),
+		staleTime: 5 * 60 * 1000,
+		refetchInterval: 5 * 60 * 1000,
+		refetchIntervalInBackground: false,
+		retry: 1,
+	});
+
+	// Company news: beat/miss signal from article analysis (covers cases where calendar has no estimate)
 	const { data: newsData } = useQuery({
 		queryKey: ["company-news", brand.ticker],
 		queryFn: () => getCompanyNews(brand.ticker, brand.name),
 		staleTime: 30 * 60 * 1000,
-		gcTime: 60 * 60 * 1000,
 		refetchInterval: 30 * 60 * 1000,
 		refetchIntervalInBackground: false,
 		retry: 1,
 	});
 
-	const earningsSignal = newsData?.earningsSignal;
+	// Badge priority: upcoming (from calendar) > beat/miss (from news) > nothing
+	const badgeData = (() => {
+		if (earningsData?.status === "upcoming") return earningsData;
+		const sig = newsData?.earningsSignal;
+		if (sig?.status === "beat" || sig?.status === "miss") return sig;
+		return null;
+	})();
+
 	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	return (
@@ -94,15 +113,15 @@ function StakCard({
 				<X className="w-4 h-4" />
 			</button>
 
-			{earningsSignal && earningsSignal.status !== "none" && (
+			{badgeData && (
 				<div className="absolute top-3 left-3">
-					<EarningsBadge data={earningsSignal} />
+					<EarningsBadge data={badgeData} />
 				</div>
 			)}
 
 			<div
 				className="flex items-start gap-4 mb-3"
-				style={{ marginTop: earningsSignal?.status && earningsSignal.status !== "none" ? "1.5rem" : undefined }}
+				style={{ marginTop: badgeData ? "1.5rem" : undefined }}
 			>
 				<img
 					src={getBrandLogoUrl(brand)}
@@ -177,14 +196,11 @@ function MyStakPage() {
 		}
 		setDragY(0);
 	}, [dragY]);
-	const { data: selectedNewsData } = useQuery({
-		queryKey: ["company-news", selectedBrand?.ticker],
-		queryFn: () => getCompanyNews(selectedBrand!.ticker, selectedBrand!.name),
+	const { data: liveData } = useQuery({
+		queryKey: ["trends", selectedBrand?.id],
+		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
-		staleTime: 30 * 60 * 1000,
-		gcTime: 60 * 60 * 1000,
-		refetchInterval: 30 * 60 * 1000,
-		refetchIntervalInBackground: false,
+		staleTime: 60 * 60 * 1000,
 		retry: 1,
 	});
 
@@ -421,7 +437,7 @@ function MyStakPage() {
 
 						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
-								trends={selectedNewsData?.trendCards?.length ? selectedNewsData.trendCards : getBrandTrends(selectedBrand.id)}
+								trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(selectedBrand.id)}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>

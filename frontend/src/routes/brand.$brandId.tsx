@@ -8,7 +8,7 @@ import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
 import { StockNewsTab } from "@/components/StockNewsTab";
-import { getCompanyNews, getStockData } from "@/lib/api";
+import { getLiveTrends, getStockData } from "@/lib/api";
 
 
 export const Route = createFileRoute("/brand/$brandId")({
@@ -21,15 +21,11 @@ function BrandDetailPage() {
 
 	const brand = brands.find((b) => b.id === brandId) ?? null;
 
-	// Same queryKey as StockNewsTab — shared cache, no duplicate fetch
-	const { data: newsData } = useQuery({
-		queryKey: ["company-news", brand?.ticker],
-		queryFn: () => getCompanyNews(brand!.ticker, brand!.name),
+	const { data: liveData } = useQuery({
+		queryKey: ["trends", brandId],
+		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
-		staleTime: 30 * 60 * 1000,
-		gcTime: 60 * 60 * 1000,
-		refetchInterval: 30 * 60 * 1000,
-		refetchIntervalInBackground: false,
+		staleTime: 60 * 60 * 1000,
 		retry: 1,
 	});
 
@@ -226,7 +222,7 @@ function BrandDetailPage() {
 
 					<TabsContent value="trends" className="mt-6">
 						<TrendCarousel
-							trends={newsData?.trendCards?.length ? newsData.trendCards : getBrandTrends(brand.id)}
+							trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(brand.id)}
 							ticker={brand.ticker}
 						/>
 					</TabsContent>

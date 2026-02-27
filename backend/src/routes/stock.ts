@@ -124,7 +124,7 @@ interface CalEntry {
 }
 
 interface EarningsStatus {
-	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	status: "upcoming" | "beat" | "miss" | "none";
 	date: string | null;
 	hour?: string;
 }
@@ -164,14 +164,15 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 
 	if (reported.length > 0) {
 		const latest = reported[0];
-		const beat =
-			latest.epsActual != null && latest.epsEstimate != null
-				? latest.epsActual >= latest.epsEstimate
-				: null;
-		result = {
-			status: beat === true ? "beat" : beat === false ? "miss" : "reported",
-			date: latest.date,
-		};
+		if (latest.epsActual != null && latest.epsEstimate != null) {
+			result = {
+				status: latest.epsActual >= latest.epsEstimate ? "beat" : "miss",
+				date: latest.date,
+			};
+		} else {
+			// Can't determine beat/miss without both actuals — skip badge
+			result = { status: "none", date: null };
+		}
 	} else if (upcoming.length > 0) {
 		const next = upcoming[0];
 		result = { status: "upcoming", date: next.date, hour: next.hour };
