@@ -57,6 +57,66 @@ function formatMarketCap(millions: number): string {
 
 export const stockRouter = Router();
 
+// ── Earnings Calendar ────────────────────────────────────────────────────────
+
+interface CalendarEntry {
+	symbol: string;
+	date: string;
+	hour: string;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	revenueActual: number | null;
+	revenueEstimate: number | null;
+}
+
+interface CalendarResponse {
+	today: CalendarEntry[];
+	tomorrow: CalendarEntry[];
+	week: CalendarEntry[];
+}
+
+// GET /api/stock/calendar — earnings calendar for today, tomorrow, and this week
+// IMPORTANT: must be before /:symbol so "calendar" isn't treated as a symbol
+stockRouter.get("/calendar", async (_req, res) => {
+	const cacheKey = "earnings:calendar";
+	const cached = getCached(cacheKey) as CalendarResponse | null;
+	if (cached) { res.json(cached); return; }
+
+	const now = new Date();
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+	const todayStr = fmt(now);
+	const tomorrowStr = fmt(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+	const in7Days = fmt(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+
+	const data = await finnhubGet(
+		`/calendar/earnings?from=${todayStr}&to=${in7Days}`,
+	) as { earningsCalendar?: CalendarEntry[] } | null;
+
+	const entries = (data?.earningsCalendar ?? [])
+		// Filter out entries with no symbol or very low-quality data
+		.filter((e) => e.symbol && !e.symbol.includes("."))
+		.map((e) => ({
+			symbol: e.symbol,
+			date: e.date,
+			hour: e.hour,
+			epsActual: e.epsActual ?? null,
+			epsEstimate: e.epsEstimate ?? null,
+			revenueActual: e.revenueActual ?? null,
+			revenueEstimate: e.revenueEstimate ?? null,
+		}));
+
+	const result: CalendarResponse = {
+		today: entries.filter((e) => e.date === todayStr),
+		tomorrow: entries.filter((e) => e.date === tomorrowStr),
+		week: entries.filter((e) => e.date > tomorrowStr && e.date <= in7Days),
+	};
+
+	setCached(cacheKey, result, 15 * 60 * 1000); // 15-min cache
+	res.json(result);
+});
+
+// ── Stock quote & metrics ─────────────────────────────────────────────────────
+
 stockRouter.get("/:symbol", async (req, res) => {
 	const raw = req.params.symbol.toUpperCase();
 	const symbol = resolveSymbol(raw);

@@ -151,6 +151,24 @@ export interface LiveMetrics {
 	week52Low: number | null;
 }
 
+export interface CalendarEntry {
+	symbol: string;
+	date: string;
+	hour: string;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	revenueActual: number | null;
+	revenueEstimate: number | null;
+}
+
+export function getEarningsCalendar() {
+	return apiRequest<{
+		today: CalendarEntry[];
+		tomorrow: CalendarEntry[];
+		week: CalendarEntry[];
+	}>("/api/stock/calendar");
+}
+
 export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
 }
