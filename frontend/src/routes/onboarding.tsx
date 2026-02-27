@@ -83,11 +83,30 @@ function OnboardingPage() {
 	const { user, loading } = useAuth();
 	const navigate = useNavigate();
 
-	const [step, setStep] = useState(1);
+	// Sync step with the URL hash so browser back/forward works
+	const getStepFromHash = () => {
+		const hash = window.location.hash.replace("#", "");
+		const n = parseInt(hash, 10);
+		return n >= 1 && n <= 5 ? n : 1;
+	};
+
+	const [step, setStep] = useState(getStepFromHash);
 	const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 	const [swipedRight, setSwipedRight] = useState<string[]>([]);
 	const [selectedMotivations, setSelectedMotivations] = useState<string[]>([]);
 	const [selectedFamiliarity, setSelectedFamiliarity] = useState<string | null>(null);
+
+	// Listen for browser back/forward
+	useEffect(() => {
+		const onHashChange = () => setStep(getStepFromHash());
+		window.addEventListener("hashchange", onHashChange);
+		// Also handle popstate for full back/forward support
+		window.addEventListener("popstate", onHashChange);
+		return () => {
+			window.removeEventListener("hashchange", onHashChange);
+			window.removeEventListener("popstate", onHashChange);
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -105,6 +124,7 @@ function OnboardingPage() {
 
 	function goTo(nextStep: number) {
 		setStep(nextStep);
+		window.history.pushState(null, "", `#${nextStep}`);
 	}
 
 	const steps = [
@@ -154,9 +174,6 @@ function OnboardingPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			{/* Back button (not on first or building steps) */}
-			{step > 1 && step < 5 && <BackButton onClick={() => goTo(step - 1)} />}
-
 			{/* Progress dots */}
 			{step < 5 && (
 				<div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2">
