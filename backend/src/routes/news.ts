@@ -6,17 +6,32 @@ export const newsRouter = Router();
 
 // ── Earnings signal extraction from article headlines ────────────────────────
 const EARNINGS_CORE = [
-	"earnings", "eps", "quarterly results", "quarterly earnings",
+	// Direct mentions
+	"earnings", "eps",
+	// Results announcements (the most common phrasing in press releases)
+	"financial results", "quarterly results", "quarterly earnings",
+	"annual results", "full year results", "fourth quarter results",
+	"third quarter results", "second quarter results", "first quarter results",
 	"q1 results", "q2 results", "q3 results", "q4 results",
+	"results for the quarter", "results for the year",
+	// Report/announce patterns
+	"reports results", "reports revenue", "reports earnings",
+	"announces results", "announces earnings", "announces revenue",
 	"fiscal quarter", "revenue and earnings",
+	// Revenue + period patterns
+	"quarterly revenue", "q4 revenue", "q3 revenue", "q2 revenue", "q1 revenue",
 ];
 const BEAT_WORDS = [
 	"beat", "topped", "exceeded", "surpassed", "above expectations",
 	"better than expected", "blew past", "smashed estimates", "topped estimates",
+	"beat on revenue", "revenue beat", "narrowed loss", "smaller loss",
+	"loss narrowed", "ahead of estimates", "ahead of expectations",
 ];
 const MISS_WORDS = [
 	"missed", "miss", "fell short", "below expectations", "worse than expected",
 	"disappointed", "came in below", "missed estimates", "below estimate",
+	"widened loss", "loss widened", "miss on revenue", "revenue miss",
+	"below consensus", "trailed estimates",
 ];
 const UPCOMING_WORDS = [
 	"upcoming earnings", "reports earnings on", "will report earnings",
