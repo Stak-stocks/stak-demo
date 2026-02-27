@@ -19,9 +19,8 @@ export const Route = createFileRoute("/my-stak")({
 });
 
 type EarningsData = {
-	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	status: "upcoming" | "beat" | "miss" | "none";
 	date: string | null;
-	hour?: string;
 };
 
 function EarningsBadge({ data }: { data: EarningsData }) {
@@ -31,16 +30,15 @@ function EarningsBadge({ data }: { data: EarningsData }) {
 	const formattedDate = data.date
 		? new Date(`${data.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 		: null;
-	const hourLabel = data.hour === "bmo" ? "pre-market" : data.hour === "amc" ? "after close" : null;
 
 	const configs = {
-		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate ? `${formattedDate}${hourLabel ? ` · ${hourLabel}` : ""}` : null, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
 		beat:     { icon: "📊", label: "Beat ✓",   detail: formattedDate, className: "bg-green-500/15 text-green-400 border-green-500/30" },
 		miss:     { icon: "📊", label: "Missed ✗", detail: formattedDate, className: "bg-red-500/15 text-red-400 border-red-500/30" },
-		reported: { icon: "📊", label: "Reported", detail: formattedDate, className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 	} as const;
 
 	const cfg = configs[data.status as keyof typeof configs];
+	if (!cfg) return null;
 
 	return (
 		<button

@@ -93,7 +93,7 @@ export function getLiveTrends(brandId: string, ticker: string, name: string) {
 
 // News
 export interface EarningsSignal {
-	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	status: "upcoming" | "beat" | "miss" | "none";
 	date: string | null;
 }
 

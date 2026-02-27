@@ -7,24 +7,40 @@ export const newsRouter = Router();
 // ── Earnings extraction from article headlines (no extra API call) ──────────
 const EARNINGS_CORE = ["earnings", "eps", "quarterly results", "quarterly earnings", "q1 results", "q2 results", "q3 results", "q4 results", "fiscal quarter", "revenue and earnings"];
 const BEAT_WORDS    = ["beat", "topped", "exceeded", "surpassed", "above expectations", "better than expected", "blew past", "smashed estimates", "topped estimates"];
-const MISS_WORDS    = ["missed", "miss", "fell short", "below expectations", "worse than expected", "disappointed", "came in below", "missed estimates"];
-const UPCOMING_WORDS = ["upcoming earnings", "reports earnings", "will report earnings", "scheduled to report", "earnings date", "earnings call", "due to report", "set to report"];
+const MISS_WORDS    = ["missed", "miss", "fell short", "below expectations", "worse than expected", "disappointed", "came in below", "missed estimates", "below estimate"];
+const UPCOMING_WORDS = ["upcoming earnings", "reports earnings on", "will report earnings", "scheduled to report", "earnings date", "earnings call scheduled", "due to report", "set to report", "preview", "what to expect"];
+
+// How far ahead we show "upcoming" — articles published within 14 days of today
+const UPCOMING_WINDOW_DAYS = 14;
 
 interface EarningsSignal {
-	status: "upcoming" | "beat" | "miss" | "reported" | "none";
+	status: "upcoming" | "beat" | "miss" | "none";
 	date: string | null;
 }
 
 function extractEarningsSignal(articles: FinnhubArticle[]): EarningsSignal {
+	const nowMs = Date.now();
+	const windowMs = UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
 	for (const article of articles) {
 		const text = `${article.headline} ${article.summary}`.toLowerCase();
 		if (!EARNINGS_CORE.some((k) => text.includes(k))) continue;
 
 		const dateStr = new Date(article.datetime * 1000).toISOString().split("T")[0];
-		if (UPCOMING_WORDS.some((k) => text.includes(k))) return { status: "upcoming", date: dateStr };
-		if (BEAT_WORDS.some((k) => text.includes(k)))     return { status: "beat",     date: dateStr };
-		if (MISS_WORDS.some((k) => text.includes(k)))     return { status: "miss",     date: dateStr };
-		return { status: "reported", date: dateStr };
+		const articleAgeMs = nowMs - article.datetime * 1000;
+
+		// Upcoming: article is recent (within 14 days) AND mentions a future event
+		if (UPCOMING_WORDS.some((k) => text.includes(k)) && articleAgeMs < windowMs) {
+			return { status: "upcoming", date: dateStr };
+		}
+
+		// Beat: positive earnings news
+		if (BEAT_WORDS.some((k) => text.includes(k))) return { status: "beat", date: dateStr };
+
+		// Miss: negative earnings news
+		if (MISS_WORDS.some((k) => text.includes(k))) return { status: "miss", date: dateStr };
+
+		// Earnings article exists but can't determine beat/miss — skip, don't show badge
 	}
 	return { status: "none", date: null };
 }
