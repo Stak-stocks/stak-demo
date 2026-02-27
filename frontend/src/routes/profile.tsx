@@ -119,7 +119,7 @@ function ProfilePage() {
 		]).then(([{ readIds }, { cards: apiCards }]) => {
 			// Merge API cards with hardcoded fallbacks (API cards take precedence by ID)
 			const merged = [...INTEL_CARDS];
-			for (const apiCard of apiCards) {
+			for (const apiCard of apiCards ?? []) {
 				if (!merged.find((c) => c.id === apiCard.id)) merged.push(apiCard);
 			}
 			setReadCards(merged.filter((c) => readIds.includes(c.id)));
