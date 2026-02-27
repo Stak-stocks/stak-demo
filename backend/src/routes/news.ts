@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, type SimplifiedArticle } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings, type SimplifiedArticle } from "../services/geminiService.js";
 
 export const newsRouter = Router();
 
@@ -18,7 +18,7 @@ interface EarningsSignal {
 	date: string | null;
 }
 
-function extractEarningsSignal(articles: FinnhubArticle[]): EarningsSignal {
+async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<EarningsSignal> {
 	const nowMs = Date.now();
 	const windowMs = UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
@@ -29,18 +29,20 @@ function extractEarningsSignal(articles: FinnhubArticle[]): EarningsSignal {
 		const dateStr = new Date(article.datetime * 1000).toISOString().split("T")[0];
 		const articleAgeMs = nowMs - article.datetime * 1000;
 
-		// Upcoming: article is recent (within 14 days) AND mentions a future event
+		// Upcoming: article is recent AND mentions a future event
 		if (UPCOMING_WORDS.some((k) => text.includes(k)) && articleAgeMs < windowMs) {
 			return { status: "upcoming", date: dateStr };
 		}
 
-		// Beat: positive earnings news
+		// Beat: clear keyword match
 		if (BEAT_WORDS.some((k) => text.includes(k))) return { status: "beat", date: dateStr };
 
-		// Miss: negative earnings news
+		// Miss: clear keyword match
 		if (MISS_WORDS.some((k) => text.includes(k))) return { status: "miss", date: dateStr };
 
-		// Earnings article exists but can't determine beat/miss — skip, don't show badge
+		// Ambiguous earnings article — ask Gemini to classify it
+		const geminiResult = await classifyEarnings(article.headline, article.summary);
+		if (geminiResult !== "none") return { status: geminiResult, date: dateStr };
 	}
 	return { status: "none", date: null };
 }
@@ -109,8 +111,8 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			return;
 		}
 
-		// Extract earnings signal from raw articles before Gemini (keyword-based, instant)
-		const earningsSignal = extractEarningsSignal(relevant.map((c) => c.article));
+		// Extract earnings signal — keyword-based first, Gemini fallback for ambiguous articles
+		const earningsSignal = await extractEarningsSignal(relevant.map((c) => c.article));
 
 		const simplified = await simplifyArticles(
 			relevant.map((c) => c.article),

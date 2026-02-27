@@ -159,3 +159,63 @@ export async function simplifyArticles(
 	cache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
 	return result;
 }
+
+type EarningsOutcome = "beat" | "miss" | "none";
+
+// Cache for earnings classifications so we don't re-ask Gemini for the same article
+const earningsCache = new Map<string, { result: EarningsOutcome; expiresAt: number }>();
+
+/**
+ * Ask Gemini to classify an ambiguous earnings article as beat, miss, or none.
+ * Used when keyword matching in news.ts can't determine the outcome.
+ */
+export async function classifyEarnings(headline: string, summary: string): Promise<EarningsOutcome> {
+	const cacheKey = headline.slice(0, 80);
+	const cached = earningsCache.get(cacheKey);
+	if (cached && cached.expiresAt > Date.now()) return cached.result;
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return "none";
+
+	const prompt = `You are a financial analyst. Read this news article about a company's earnings report and determine the outcome.
+
+Headline: ${headline}
+Summary: ${summary}
+
+Did the company beat or miss earnings expectations?
+- "beat" = results were better than expected (beat estimates, revenue beat, EPS beat, topped forecasts, etc.)
+- "miss" = results were worse than expected (missed estimates, fell short, below forecasts, etc.)
+- "none" = cannot determine from this text, or this is not an earnings results article
+
+Return ONLY one of these exact strings: beat, miss, none`;
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { temperature: 0, maxOutputTokens: 10 },
+					}),
+				},
+			);
+			if (res.status === 429) continue;
+			if (!res.ok) break;
+
+			const data = await res.json();
+			const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim().toLowerCase();
+			let result: EarningsOutcome = "none";
+			if (text === "beat") result = "beat";
+			else if (text === "miss") result = "miss";
+			earningsCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+			return result;
+		} catch {
+			continue;
+		}
+	}
+
+	return "none";
+}
