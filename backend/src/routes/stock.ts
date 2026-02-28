@@ -24,16 +24,38 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 
 // Fetch the stock's price % change on (or after) the earnings report date.
 // AMC reporters react the next trading day; BMO react same day.
-// Uses Yahoo Finance free API for historical daily closes.
+// If reaction day is today, uses Finnhub live quote (dp field) since candle won't have it yet.
+// Otherwise uses Yahoo Finance historical daily closes.
 async function getPriceChangePct(symbol: string, earningsDate: string, hour: string | null): Promise<number | null> {
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+	const todayStr = fmt(new Date());
+	const isAmc = !hour || hour === "amc" || hour === "after_trading_hours";
+
+	// Reaction date: AMC = next calendar day (skip weekend handled by Yahoo), BMO = same day
+	const base = new Date(earningsDate + "T12:00:00Z");
+	const reactionDate = fmt(new Date(base.getTime() + (isAmc ? 86400000 : 0)));
+
+	// If reaction day is today or in the future, use live Finnhub quote dp (daily % change)
+	if (reactionDate >= todayStr) {
+		const cacheKey = `price-chg-live:${symbol}`;
+		const cached = getCached(cacheKey) as number | null;
+		if (cached !== null) return cached;
+
+		const quote = await finnhubGet(`/quote?symbol=${symbol}`) as { dp?: number } | null;
+		if (quote?.dp == null) return null;
+		const pct = Math.round(quote.dp * 10) / 10;
+		// Cache only 2 min — live data changes throughout the day
+		setCached(cacheKey, pct, 2 * 60 * 1000);
+		return pct;
+	}
+
+	// Historical reaction — use Yahoo Finance daily candles
 	const cacheKey = `price-chg:${symbol}:${earningsDate}`;
 	const cached = getCached(cacheKey) as number | null;
 	if (cached !== null) return cached;
 
-	const isAmc = !hour || hour === "amc" || hour === "after_trading_hours";
-	const base = new Date(earningsDate + "T12:00:00Z");
 	const from = Math.floor(new Date(base.getTime() - 5 * 86400000).getTime() / 1000);
-	const to   = Math.floor(new Date(base.getTime() + (isAmc ? 2 : 1) * 86400000).getTime() / 1000);
+	const to   = Math.floor(new Date(base.getTime() + (isAmc ? 3 : 2) * 86400000).getTime() / 1000);
 
 	try {
 		const res = await fetch(
@@ -203,7 +225,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		fromStr = toStr = todayStr;
 	}
 
-	const cacheKey = `market-earnings:v2:${period}:${todayStr}`;
+	const cacheKey = `market-earnings:v3:${period}:${todayStr}`;
 	const cached = getCached(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -232,25 +254,30 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				};
 			}
 
-			// Already reported — run Gemini + price reaction in parallel
-			const [{ result: signal, date: reportDate }, priceChangePct] = await Promise.all([
-				getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol]),
-				getPriceChangePct(e.symbol, e.date, e.hour),
-			]);
-			// Fallback to Finnhub EPS comparison if Gemini returns "none"
-			const fallbackStatus = e.epsActual != null && e.epsEstimate != null
-				? (e.epsActual >= e.epsEstimate ? "beat" : "miss")
-				: "none";
+			// Already reported — EPS comparison is PRIMARY signal (reliable, non-GAAP)
+			// Gemini web search only used as fallback when no EPS data is available
+			const epsStatus = e.epsActual != null && e.epsEstimate != null
+				? (e.epsActual >= e.epsEstimate ? "beat" as const : "miss" as const)
+				: null;
 			const epsSurprisePct = e.epsActual != null && e.epsEstimate != null && e.epsEstimate !== 0
 				? Math.round(((e.epsActual - e.epsEstimate) / Math.abs(e.epsEstimate)) * 1000) / 10
 				: null;
+
+			// Run price reaction always; only call Gemini when no EPS data
+			const [geminiResult, priceChangePct] = await Promise.all([
+				epsStatus == null
+					? getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol])
+					: Promise.resolve({ result: "none" as const, date: null as string | null }),
+				getPriceChangePct(e.symbol, e.date, e.hour),
+			]);
+			const status = epsStatus ?? (geminiResult.result !== "none" ? geminiResult.result : "none");
 			return {
 				symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
-				date: reportDate ?? e.date, hour: e.hour || null,
+				date: e.date, hour: e.hour || null,
 				epsActual: e.epsActual, epsEstimate: e.epsEstimate,
 				epsSurprisePct, priceChangePct,
 				revChangePct,
-				status: (signal !== "none" ? signal : fallbackStatus) as "beat" | "miss" | "none",
+				status,
 			};
 		}),
 	);

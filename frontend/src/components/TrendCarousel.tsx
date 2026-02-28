@@ -73,7 +73,7 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-hidden h-full"
+				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl overflow-y-auto h-full no-scrollbar"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
@@ -414,7 +414,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-								className="shrink-0 transition-transform duration-400 ease-out origin-center h-[380px] sm:h-[520px]"
+								className="shrink-0 transition-transform duration-400 ease-out origin-center h-[440px] sm:h-[520px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
