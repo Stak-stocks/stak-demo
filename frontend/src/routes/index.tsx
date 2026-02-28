@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
+import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
@@ -201,6 +201,46 @@ function App() {
 		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
 		globalThis.dispatchEvent(new CustomEvent('stak-updated'));
 	}, [swipedBrands]);
+
+	// Re-sync stak + passed brands from Firestore when the tab comes back into focus.
+	// This keeps the deck position current across devices without a full page refresh.
+	useEffect(() => {
+		if (!user) return;
+
+		async function syncOnVisible() {
+			if (document.visibilityState !== "visible") return;
+			try {
+				const [stakResult, passedResult] = await Promise.allSettled([
+					getStak(),
+					getPassedBrands(),
+				]);
+
+				if (stakResult.status === "fulfilled") {
+					const { brandIds } = stakResult.value;
+					if (brandIds.length > 0) {
+						const stakBrands = brandIds
+							.map((id) => brands.find((b) => b.id === id))
+							.filter(Boolean) as typeof brands;
+						localStorage.setItem("my-stak", JSON.stringify(stakBrands));
+						setSwipedBrands(stakBrands);
+					}
+				}
+
+				if (passedResult.status === "fulfilled") {
+					const { entries } = passedResult.value;
+					if (entries.length > 0) {
+						const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+						const active = entries.filter((e: { id: string; at: number }) => e.at > twoDaysAgo);
+						localStorage.setItem("passed-brands", JSON.stringify(active));
+						setPassedBrandIds(new Set(active.map((e: { id: string; at: number }) => e.id)));
+					}
+				}
+			} catch { /* offline or unauthenticated — keep current state */ }
+		}
+
+		document.addEventListener("visibilitychange", syncOnVisible);
+		return () => document.removeEventListener("visibilitychange", syncOnVisible);
+	}, [user]);
 
 	const handleSwipe = useCallback(() => {
 		// Update daily streak (once per day, regardless of intel card timing)
