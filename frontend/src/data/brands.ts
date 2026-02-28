@@ -3597,7 +3597,7 @@ export const brands: BrandProfile[] = [
 	},
 	{
 		id: "or",
-		ticker: "OR.PA",
+		ticker: "LRLCY",
 		name: "L'Oréal",
 		bio: "owns everything in your bathroom from CeraVe to YSL",
 		heroImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
