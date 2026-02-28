@@ -11061,7 +11061,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CELH",
 		name: "Celsius Holdings",
 		bio: "the energy drink that took over gym bags and became the #3 energy drink in America almost overnight. Pepsi noticed and invested",
-		heroImage: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&h=600&fit=crop",
+		heroImage: "https://ts2.tech/wp-content/uploads/2025/11/celsius-holdings-celh-stock-on-december-9-2025-q3-earnings-buyback-innovation-push-and-2026-forecast-featured-1.jpg",
 		personalityDescription: "The gym-culture brand that turned 'healthier energy drink' into a billion-dollar category",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
