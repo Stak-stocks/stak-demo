@@ -5,7 +5,7 @@ import { getMarketNews, searchNews } from "@/lib/api";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
-import { MarketEarningsWidget } from "@/components/EarningsCalendar";
+import { MarketEarningsWidget, EarningsCalendarButton } from "@/components/EarningsCalendar";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -181,12 +181,13 @@ function FeedPage() {
 			<MarketBar />
 			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 				{/* Header */}
-				<div className="mb-4">
+				<div className="mb-4 flex items-center gap-3">
+				<EarningsCalendarButton />
+				<div>
 					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
-					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-						Simplified for you · last 7 days
-					</p>
+					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Simplified for you · last 7 days</p>
 				</div>
+			</div>
 
 				{/* Search bar */}
 				<form onSubmit={handleSearch} className="mb-6">
@@ -220,9 +221,6 @@ function FeedPage() {
 						</div>
 					</div>
 				</form>
-
-				{/* ── EARNINGS CALENDAR WIDGET ── */}
-				{!isSearching && <MarketEarningsWidget />}
 
 				{/* ── SEARCH RESULTS ── */}
 				{isSearching && (

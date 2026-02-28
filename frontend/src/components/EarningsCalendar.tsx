@@ -129,12 +129,13 @@ export function EarningsCalendarButton() {
 		<>
 			<button
 				onClick={() => setOpen(true)}
-				className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all text-sm font-medium"
+				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all"
+			title="Earnings Calendar"
 			>
-				<CalendarDays className="w-4 h-4 text-cyan-400" />
-				<span>My Stak</span>
+				<CalendarDays className="w-5 h-5 text-cyan-400" />
+				
 				{todayEntries.length > 0 && (
-					<span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">
+					<span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-cyan-500 text-white text-[9px] font-bold flex items-center justify-center">
 						{todayEntries.length > 9 ? "9+" : todayEntries.length}
 					</span>
 				)}
@@ -143,87 +144,19 @@ export function EarningsCalendarButton() {
 			{open &&
 				createPortal(
 					<div
-						className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
-						onClick={() => setOpen(false)}
+					className="fixed inset-0 z-[70] flex items-center justify-center px-4"
+					onClick={() => setOpen(false)}
+				>
+					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+					<div
+						className="relative w-full max-w-md"
+						onClick={(e) => e.stopPropagation()}
 					>
-						<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-						<div
-							className="relative w-full max-w-sm bg-[#0b1121] rounded-t-2xl sm:rounded-2xl border border-slate-700/50 max-h-[80vh] flex flex-col shadow-2xl"
-							onClick={(e) => e.stopPropagation()}
-						>
-							<div className="flex justify-center pt-3 pb-1 sm:hidden">
-								<div className="w-10 h-1 bg-slate-600 rounded-full" />
-							</div>
-
-							<div className="flex items-center justify-between px-5 pt-3 sm:pt-5 pb-3 shrink-0">
-								<h2 className="text-base font-bold text-white flex items-center gap-2">
-									<CalendarDays className="w-4 h-4 text-cyan-400" />
-									My Stak Earnings
-								</h2>
-								<button
-									onClick={() => setOpen(false)}
-									className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-slate-700/50 transition-all"
-								>
-									<X className="w-4 h-4" />
-								</button>
-							</div>
-
-							<div className="flex px-5 gap-1.5 shrink-0">
-								{(["today", "week", "next-week"] as const).map((t) => {
-									const count =
-										t === "today" ? todayEntries.length
-										: t === "week" ? weekEntries.length
-										: nextWeekEntries.length;
-									const label =
-										t === "today" ? "Today"
-										: t === "week" ? "This Week"
-										: "Next Week";
-									return (
-										<button
-											key={t}
-											onClick={() => setTab(t)}
-											className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-												tab === t
-													? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-													: "text-zinc-500 hover:text-zinc-300 border border-transparent"
-											}`}
-										>
-											{label}
-											{count > 0 && (
-												<span className={`ml-1 text-[10px] ${tab === t ? "text-cyan-400" : "text-zinc-500"}`}>
-													({count})
-												</span>
-											)}
-										</button>
-									);
-								})}
-							</div>
-
-							<div className="flex-1 overflow-y-auto px-5 pb-6 mt-3">
-								{stakBrands.length === 0 ? (
-									<p className="text-center text-zinc-500 py-8 text-sm">
-										Add stocks to your Stak to see earnings
-									</p>
-								) : isLoading ? (
-									<p className="text-center text-zinc-500 py-8 text-sm animate-pulse">
-										Loading earnings…
-									</p>
-								) : tabEntries.length === 0 ? (
-									<p className="text-center text-zinc-500 py-8 text-sm">
-										No earnings{" "}
-										{tab === "today" ? "today" : tab === "week" ? "this week" : "next week"}{" "}
-										for your Stak
-									</p>
-								) : (
-									tabEntries.map((entry) => (
-										<EarningsRow key={`${entry.brand.id}-${entry.date}`} entry={entry} />
-									))
-								)}
-							</div>
-						</div>
-					</div>,
-					document.body,
-				)}
+						<MarketEarningsWidget onClose={() => setOpen(false)} />
+					</div>
+				</div>,
+			document.body,
+		)}
 		</>
 	);
 }
@@ -344,7 +277,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			</div>
 
 			{/* Rev % pill */}
-			<div className="shrink-0 w-14 text-right">
+			<div className="shrink-0 w-20 text-right">
 				{!upcoming && entry.revChangePct != null ? (
 					<span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${
 						entry.revChangePct >= 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -357,7 +290,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			</div>
 
 			{/* Sentiment bar */}
-			<div className="shrink-0 w-12">
+			<div className="shrink-0 w-20">
 				<div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
 					{(beat || miss) && (
 						<div
@@ -373,7 +306,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 	);
 }
 
-export function MarketEarningsWidget() {
+export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {}) {
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [expanded, setExpanded] = useState(true);
 	const [showAll, setShowAll] = useState(false);
@@ -397,7 +330,7 @@ export function MarketEarningsWidget() {
 	const tabLabel = tab === "today" ? "Today" : tab === "tomorrow" ? "Tomorrow" : "This Week";
 	const visibleEntries = showAll ? entries : entries.slice(0, 8);
 
-	if (!expanded) {
+	if (!expanded && !onClose) {
 		return (
 			<button
 				onClick={() => setExpanded(true)}
@@ -477,8 +410,8 @@ export function MarketEarningsWidget() {
 					<div className="w-9 shrink-0" />
 					<span className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</span>
 					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[5.5rem] text-right">EPS</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-14 text-right">Rev.</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-12">Sent.</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-20 text-right">Revenue</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-20">Sentiment</span>
 				</div>
 			)}
 
