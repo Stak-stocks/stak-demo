@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { adminDb } from "../firebaseAdmin.js";
 
 export const intelCardsRouter = Router();
 
@@ -145,17 +146,40 @@ Return ONLY a JSON array of exactly 30 objects:
 	return null;
 }
 
+const FIRESTORE_DOC = adminDb.collection("admin").doc("intel-cards");
+
 // GET /api/intel-cards
 intelCardsRouter.get("/", async (_req, res) => {
+	// 1. In-memory cache (fastest — survives within a single server instance)
 	if (cachedCards && Date.now() < cacheExpiresAt) {
 		res.json({ cards: cachedCards });
 		return;
 	}
 
+	// 2. Firestore cache (survives server restarts / Cloud Run cold starts)
+	try {
+		const doc = await FIRESTORE_DOC.get();
+		if (doc.exists) {
+			const stored = doc.data() as { cards: IntelCardData[]; expiresAt: number };
+			if (stored.expiresAt > Date.now()) {
+				cachedCards = stored.cards;
+				cacheExpiresAt = stored.expiresAt;
+				res.json({ cards: stored.cards });
+				return;
+			}
+		}
+	} catch {
+		// Firestore unavailable — fall through to generation
+	}
+
+	// 3. Generate fresh cards with Gemini and persist to both layers
 	const generated = await generateCardsWithGemini();
 	if (generated) {
+		const expiresAt = Date.now() + CACHE_TTL_MS;
 		cachedCards = generated;
-		cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+		cacheExpiresAt = expiresAt;
+		// Fire-and-forget Firestore write
+		FIRESTORE_DOC.set({ cards: generated, expiresAt }).catch(() => {});
 		res.json({ cards: generated });
 	} else {
 		// Frontend falls back to its hardcoded set

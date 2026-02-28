@@ -211,8 +211,6 @@ function App() {
 		localStorage.setItem("swipes-since-intel", "0");
 
 		const today = new Date().toISOString().split("T")[0];
-		if (localStorage.getItem("intel-card-last-date") === today) return;
-		localStorage.setItem("intel-card-last-date", today);
 
 		// If queue exhausted, reshuffle all cards into a new random order
 		if (intelQueue.current.length === 0) {
