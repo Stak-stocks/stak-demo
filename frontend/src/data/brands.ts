@@ -6160,7 +6160,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SNAP",
 		name: "Snap",
 		bio: "the camera app that Gen Z prefers even though Instagram keeps copying everything",
-		heroImage: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=800&h=600&fit=crop",
+		heroImage: "https://static1.srcdn.com/wordpress/wp-content/uploads/2023/01/snapchat-mutual-friends.jpg",
 		personalityDescription: "The innovator that invents features and watches Meta steal them",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
