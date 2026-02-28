@@ -9524,7 +9524,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ROKU",
 		name: "Roku",
 		bio: "the streaming remote that turned into an advertising platform",
-		heroImage: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800&h=600&fit=crop",
+		heroImage: "https://image.roku.com/podium/newsroom/images/eea0c652-9b91-470c-9786-4e0f6b7c71dc.jpg",
 		personalityDescription: "The humble TV device that became the gatekeeper of the streaming revolution",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
