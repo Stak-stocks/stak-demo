@@ -6218,7 +6218,7 @@ export const brands: BrandProfile[] = [
 		ticker: "RDDT",
 		name: "Reddit",
 		bio: "the front page of the internet that finally IPO'd after 19 years",
-		heroImage: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop",
+		heroImage: "https://www.creativeboom.com/upload/articles/cd/cd1b08cd59d26ad43924fa2df8ed000840ce2136_1280.jpg",
 		personalityDescription: "The internet's most chaotic, authentic, and valuable community platform",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
