@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
@@ -147,6 +147,19 @@ function MyStakPage() {
 		const saved = localStorage.getItem("my-stak");
 		return saved ? JSON.parse(saved) : [];
 	});
+
+	const queryClient = useQueryClient();
+
+	// Prefetch trends for all stak brands on load so data is ready before user clicks
+	useEffect(() => {
+		swipedBrands.forEach((brand) => {
+			queryClient.prefetchQuery({
+				queryKey: ["trends", brand.id],
+				queryFn: () => getLiveTrends(brand.id, brand.ticker, brand.name),
+				staleTime: 60 * 60 * 1000,
+			});
+		});
+	}, [swipedBrands, queryClient]);
 
 	// Re-sync stak from localStorage when updated elsewhere (e.g. search overlay)
 	useEffect(() => {
