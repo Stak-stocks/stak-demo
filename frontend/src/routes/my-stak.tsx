@@ -274,7 +274,7 @@ function MyStakPage() {
 							</TabsTrigger>
 							<TabsTrigger
 								value="trends"
-								className="!text-purple-400/60 data-[state=active]:!bg-purple-500/20 data-[state=active]:!text-purple-400 text-xs sm:text-sm"
+									className="!text-purple-400/60 data-[state=active]:!bg-purple-500/20 data-[state=active]:!text-purple-400 text-xs sm:text-sm"
 							>
 								<TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
 								Trends

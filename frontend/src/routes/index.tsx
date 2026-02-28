@@ -212,6 +212,10 @@ function App() {
 
 		const today = new Date().toISOString().split("T")[0];
 
+		// Only show one intel card per day per account
+		const lastIntelDate = localStorage.getItem("intel-card-last-date");
+		if (lastIntelDate === today) return;
+
 		// If queue exhausted, reshuffle all cards into a new random order
 		if (intelQueue.current.length === 0) {
 			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
@@ -225,7 +229,8 @@ function App() {
 			intelReadIds.current = [...intelReadIds.current, nextId];
 		}
 
-		// Persist to Firestore so other devices stay in sync
+		// Persist to Firestore so other devices stay in sync + mark today as shown
+		localStorage.setItem("intel-card-last-date", today);
 		saveIntelState(today, intelQueue.current, intelReadIds.current).catch(() => {});
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
