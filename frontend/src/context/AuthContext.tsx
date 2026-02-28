@@ -88,6 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 			setUser(firebaseUser);
 			if (firebaseUser) {
+				// Ensure spinner shows during Firestore sync even when logging in
+				// (on fresh page load loading starts true; on post-login it was already false)
+				setLoading(true);
 				// Fetch profile + stak + passed brands in parallel, ALL before setLoading(false),
 				// so every piece of account data is in localStorage when components first mount.
 				// This ensures cross-device sync works and navigation decisions are always correct.
