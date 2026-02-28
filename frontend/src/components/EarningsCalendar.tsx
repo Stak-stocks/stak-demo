@@ -233,6 +233,13 @@ function formatHour(hour: string | null, date: string) {
 	return timeLabel ? `${day} · ${timeLabel}` : day;
 }
 
+function formatDate(dateStr: string): string {
+	if (!dateStr) return "";
+	const [year, month, day] = dateStr.split("-").map(Number);
+	const d = new Date(year, month - 1, day);
+	return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 	const beat = entry.status === "beat";
 	const miss = entry.status === "miss";
@@ -256,7 +263,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 					)}
 				</div>
 				<p className="text-[10px] text-zinc-500 truncate">
-					{upcoming ? formatHour(entry.hour, entry.date) : entry.name}
+					{upcoming ? formatHour(entry.hour, entry.date) : formatDate(entry.date)}
 				</p>
 			</div>
 
@@ -356,7 +363,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					<span className="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">Your Stak</span>
 				</h2>
 				<button
-					onClick={() => setExpanded(false)}
+					onClick={() => onClose ? onClose() : setExpanded(false)}
 					className="p-1 rounded-full text-zinc-500 hover:text-white transition-colors"
 				>
 					<X className="w-3.5 h-3.5" />
