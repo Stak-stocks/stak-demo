@@ -153,17 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					}
 				}
 
-				// Sync Firestore daily swipe count to user-specific localStorage key
+				// Sync Firestore daily swipe count to user-specific localStorage key.
+				// No date comparison here — getDailySwipeState() on this device validates
+				// dates using its own 9AM reset-hour logic, avoiding timezone mismatches.
 				if (swipeResult.status === "fulfilled") {
 					const { date, count } = swipeResult.value;
-					const todayKey = new Date().toISOString().split("T")[0];
-					if (date === todayKey && count > 0) {
-						// Firestore has swipes today — restore (cross-device sync)
+					if (date && count > 0) {
+						// Firestore has swipes — write to local so this device respects the count
 						const key = "daily-swipe-state:" + firebaseUser.uid;
 						const local = localStorage.getItem(key);
 						const localState = local ? JSON.parse(local) : { count: 0, date: "" };
-						// Only overwrite if Firestore count is higher (take the max)
-						if (localState.date !== todayKey || count > localState.count) {
+						// Take whichever is higher for the same date; always update on new date
+						if (localState.date !== date || count > localState.count) {
 							localStorage.setItem(key, JSON.stringify({ date, count }));
 						}
 					}
