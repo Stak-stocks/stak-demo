@@ -194,9 +194,18 @@ async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 		return [];
 	}
 	const data: FinnhubArticle[] = await res.json();
-	const filtered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
-	setCachedNews(MARKET_CACHE_KEY, filtered);
-	return filtered;
+	const finnhubFiltered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
+
+	// Supplement with geopolitical energy news (Iran war, OPEC, Middle East oil)
+	// so major events that move markets surface in the feed even if Finnhub misses them
+	const geoNews = await getGeopoliticalEnergyNews();
+	const seenUrls = new Set(finnhubFiltered.map((a) => a.url));
+	const merged = [
+		...finnhubFiltered,
+		...geoNews.filter((a) => !seenUrls.has(a.url)),
+	];
+	setCachedNews(MARKET_CACHE_KEY, merged);
+	return merged;
 }
 
 /** Fetch general market news (IPOs, interest rates, macro events).
@@ -255,6 +264,50 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 		.slice(0, limit);
 }
 
+/** Oil/energy tickers where geopolitical news (Iran, OPEC, Middle East) is directly price-relevant */
+const OIL_ENERGY_TICKERS = new Set([
+	"XOM", "CVX", "COP", "OXY", "PSX", "VLO", "MPC", "HAL", "SLB", "BKR",
+	"EOG", "PXD", "DVN", "MRO", "BP", "SHEL", "TTE", "ENB", "ET",
+]);
+
+/** Fetch geopolitical energy news (Iran, Middle East, OPEC) from NewsAPI.
+ *  Supplements market feed and oil company news tabs with major events that move prices. */
+async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
+	const CACHE_KEY = "geo:energy";
+	const cached = getCachedNews(CACHE_KEY);
+	if (cached) return cached;
+
+	const apiKey = process.env.NEWSAPI_KEY;
+	if (!apiKey) return [];
+
+	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const q = encodeURIComponent('Iran war oil OR Iran oil sanctions OR Middle East conflict oil OR OPEC crude');
+	const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=10&from=${sevenDaysAgo}&apiKey=${apiKey}`;
+
+	try {
+		const res = await fetch(url);
+		if (!res.ok) return [];
+		const data = await res.json();
+		const articles: FinnhubArticle[] = (data.articles ?? [])
+			.filter((a: { title?: string; description?: string }) => a.title && a.description)
+			.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
+				headline: a.title,
+				summary: a.description,
+				url: a.url,
+				image: a.urlToImage ?? "",
+				source: a.source?.name ?? "NewsAPI",
+				datetime: Math.floor(new Date(a.publishedAt).getTime() / 1000),
+				category: "general",
+				id: 0,
+				related: "",
+			}));
+		setCachedNews(CACHE_KEY, articles);
+		return articles;
+	} catch {
+		return [];
+	}
+}
+
 /** Fetch company-specific news for a given ticker symbol.
  *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
  *  Returns up to `limit` articles from the past 7 days. */
@@ -276,6 +329,18 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
 		filtered.sort((a, b) => b.datetime - a.datetime);
 		if (filtered.length > 0) {
+			// For oil/energy tickers, supplement with geopolitical news (Iran war, OPEC, Middle East)
+			// since these events directly drive oil prices regardless of the company's own headlines
+			if (OIL_ENERGY_TICKERS.has(symbol.toUpperCase())) {
+				const geoNews = await getGeopoliticalEnergyNews();
+				const seenUrls = new Set(filtered.map((a) => a.url));
+				const combined = [
+					...filtered,
+					...geoNews.filter((a) => !seenUrls.has(a.url)),
+				].slice(0, limit);
+				setCachedNews(cacheKey, combined);
+				return combined;
+			}
 			const result = filtered.slice(0, limit);
 			setCachedNews(cacheKey, result);
 			return result;
