@@ -178,7 +178,7 @@ export async function getEarningsBeatMissFromWeb(
 	symbol: string,
 	companyName?: string,
 ): Promise<{ result: EarningsOutcome; date: string | null }> {
-	const cacheKey = `web:${symbol}`;
+	const cacheKey = `web:v2:${symbol}`;
 	const cached = webEarningsCache.get(cacheKey);
 	if (cached && cached.expiresAt > Date.now()) return { result: cached.result, date: cached.date };
 
@@ -190,9 +190,12 @@ export async function getEarningsBeatMissFromWeb(
 		: `the company with stock ticker ${symbol} on US stock exchanges`;
 	const prompt = `Search for the most recent quarterly earnings report for ${subject}.
 
-Did the company beat or miss analyst EPS (earnings per share) estimates?
-Use the non-GAAP / adjusted EPS figures if available (the ones analysts typically use).
-Only consider earnings reported in the last 60 days.
+Determine whether the company OVERALL beat or missed earnings expectations. Use the following approach:
+
+1. Find what financial media (CNBC, Bloomberg, Reuters, Seeking Alpha, MarketWatch) say about the results — did they describe it as a "beat", "topped estimates", "exceeded expectations" OR a "miss", "fell short", "below expectations"?
+2. Check both EPS and revenue results. Prefer non-GAAP / adjusted EPS over GAAP if available (that's what analysts track).
+3. Use the OVERALL narrative: a company can miss EPS but beat revenue and be widely described as a beat — in that case return "beat". Use what the market and analysts actually concluded, not just one metric.
+4. Only consider earnings reported in the last 60 days.
 
 Return a JSON object with exactly these two fields:
 {
@@ -201,7 +204,7 @@ Return a JSON object with exactly these two fields:
 }
 
 Where:
-- "outcome": "beat" if actual EPS >= consensus estimate, "miss" if below, "none" if no recent report found
+- "outcome": "beat" if analysts/media broadly say the company beat or topped expectations, "miss" if they broadly say the company missed or fell short, "none" if no recent report found or the verdict is unclear
 - "reportDate": the date the earnings were publicly reported (not the fiscal quarter end date), or null if none
 
 Return ONLY valid JSON, no markdown, no extra text.`;

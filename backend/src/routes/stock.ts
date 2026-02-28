@@ -305,7 +305,7 @@ interface FinnhubCalendarEntry {
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	const cacheKey = `earnings:v3:${symbol}`;
+	const cacheKey = `earnings:v4:${symbol}`;
 
 	const cached = getCached(cacheKey) as EarningsStatus | null;
 	if (cached) { res.json(cached); return; }
