@@ -2,6 +2,7 @@ import {
 	createContext,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 	type ReactNode,
 } from "react";
@@ -18,7 +19,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { getProfile, getStak, getPassedBrands } from "../lib/api";
+import { getProfile, getStak, getPassedBrands, saveStak, savePassedBrands } from "../lib/api";
 import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
@@ -35,9 +36,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Auto-logout after 30 minutes of inactivity
+	useEffect(() => {
+		if (!user) return;
+
+		function resetTimer() {
+			if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+			inactivityTimer.current = setTimeout(() => {
+				signOut(auth).catch(() => {});
+			}, INACTIVITY_MS);
+		}
+
+		const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+		events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+		resetTimer(); // start the clock immediately on login
+
+		return () => {
+			events.forEach((e) => window.removeEventListener(e, resetTimer));
+			if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+		};
+	}, [user]);
 
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -94,16 +119,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 				if (stakResult.status === "fulfilled") {
 					const { brandIds } = stakResult.value;
-					const stakBrands = brandIds
-						.map((id) => allBrands.find((b) => b.id === id))
-						.filter(Boolean);
-					localStorage.setItem("my-stak", JSON.stringify(stakBrands));
-					window.dispatchEvent(new Event("stak-updated"));
+					if (brandIds.length > 0) {
+						// Firestore has data — write to localStorage (cross-device sync)
+						const stakBrands = brandIds
+							.map((id) => allBrands.find((b) => b.id === id))
+							.filter(Boolean);
+						localStorage.setItem("my-stak", JSON.stringify(stakBrands));
+					} else {
+						// Firestore is empty — if localStorage has data, back-sync it up
+						const local = localStorage.getItem("my-stak");
+						const localBrands: { id: string }[] = local ? JSON.parse(local) : [];
+						if (localBrands.length > 0) {
+							saveStak(localBrands.map((b) => b.id)).catch(() => {});
+						}
+					}
+					// No stak-updated dispatch needed — data is already in localStorage
+					// before setLoading(false), so components mount with correct data
 				}
 
 				if (passedResult.status === "fulfilled") {
 					const { entries } = passedResult.value;
-					localStorage.setItem("passed-brands", JSON.stringify(entries));
+					if (entries.length > 0) {
+						// Firestore has data — write to localStorage
+						localStorage.setItem("passed-brands", JSON.stringify(entries));
+					} else {
+						// Firestore is empty — back-sync localStorage if it has data
+						const local = localStorage.getItem("passed-brands");
+						const localEntries: { id: string; at: number }[] = local ? JSON.parse(local) : [];
+						if (localEntries.length > 0) {
+							savePassedBrands(localEntries).catch(() => {});
+						}
+					}
 				}
 
 				setLoading(false);
