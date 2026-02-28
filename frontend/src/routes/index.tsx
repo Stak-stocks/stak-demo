@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder, getDailySwipeCount } from "@/lib/api";
+import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder, getDailySwipeCount, saveDailySwipeCount } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
@@ -74,12 +74,15 @@ function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
+	const queryClient = useQueryClient();
+
 	// Fetch Firestore swipe count so the daily limit is enforced across devices
+	// staleTime: 0 ensures device 3 always fetches fresh on mount
 	const { data: firestoreSwipeData } = useQuery({
 		queryKey: ["daily-swipes", uid],
 		queryFn: getDailySwipeCount,
 		enabled: !!user,
-		staleTime: 60 * 1000,
+		staleTime: 0,
 		retry: 1,
 	});
 
@@ -324,16 +327,6 @@ function App() {
 	const handleSwipeRight = (brand: BrandProfile) => {
 		// Check if already in stak before showing toast (avoid duplicate toasts from StrictMode)
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
-		// Check cross-device limit via Firestore first, fall back to localStorage for guests
-		const todayKey = getDailySwipeTodayKey();
-		const firestoreLimitReached = !!user && firestoreSwipeData?.date === todayKey && (firestoreSwipeData?.count ?? 0) >= DAILY_SWIPE_LIMIT;
-		if (!alreadyInStak && (firestoreLimitReached || hasDailySwipeLimitReached(uid))) {
-			toast.error("Daily limit reached", {
-				description: "You've used all 20 swipes today. Come back tomorrow!",
-				duration: 3000,
-			});
-			return;
-		}
 		if (!alreadyInStak) {
 			// Check if at capacity
 			if (swipedBrands.length >= STAK_CAPACITY) {
@@ -351,6 +344,37 @@ function App() {
 				});
 				setSwipedBrands((prev) => [...prev, brand]);
 			}
+		}
+	};
+
+	// Separate handler for search adds — writes to Firestore so count is cross-device
+	const handleAddFromSearch = (brand: BrandProfile) => {
+		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
+		const todayKey = getDailySwipeTodayKey();
+		const firestoreCount = firestoreSwipeData?.date === todayKey ? (firestoreSwipeData?.count ?? 0) : 0;
+		const localLimitReached = hasDailySwipeLimitReached(uid);
+		const firestoreLimitReached = !!user && firestoreCount >= DAILY_SWIPE_LIMIT;
+
+		if (!alreadyInStak && (firestoreLimitReached || localLimitReached)) {
+			toast.error("Daily limit reached", {
+				description: "You've used all 20 swipes today. Come back tomorrow!",
+				duration: 3000,
+			});
+			return;
+		}
+
+		// Add to stak first
+		handleSwipeRight(brand);
+
+		// Write updated count to Firestore and refresh the query
+		if (user && !alreadyInStak) {
+			const newCount = firestoreCount + 1;
+			const swipeStateKey = `daily-swipe-state:${uid}`;
+			// Also update localStorage so same-device checks stay in sync
+			localStorage.setItem(swipeStateKey, JSON.stringify({ count: newCount, date: todayKey }));
+			saveDailySwipeCount(todayKey, newCount)
+				.then(() => queryClient.invalidateQueries({ queryKey: ["daily-swipes", uid] }))
+				.catch(() => {});
 		}
 	};
 
@@ -427,7 +451,7 @@ function App() {
 				brand={selectedBrand}
 				open={modalOpen}
 				onClose={handleCloseModal}
-				onAddToStak={handleSwipeRight}
+				onAddToStak={handleAddFromSearch}
 			/>
 
 			{activeIntelCard && (
