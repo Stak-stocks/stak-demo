@@ -180,6 +180,8 @@ export interface MarketEarningsEntry {
 	hour: string | null;
 	epsActual: number | null;
 	epsEstimate: number | null;
+	epsSurprisePct: number | null;
+	priceChangePct: number | null;
 	revChangePct: number | null;
 	status: "beat" | "miss" | "upcoming" | "none";
 }

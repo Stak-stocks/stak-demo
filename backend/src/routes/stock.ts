@@ -22,6 +22,43 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 	return null;
 }
 
+// Fetch the stock's price % change on (or after) the earnings report date.
+// AMC reporters react the next trading day; BMO react same day.
+// Uses Yahoo Finance free API for historical daily closes.
+async function getPriceChangePct(symbol: string, earningsDate: string, hour: string | null): Promise<number | null> {
+	const cacheKey = `price-chg:${symbol}:${earningsDate}`;
+	const cached = getCached(cacheKey) as number | null;
+	if (cached !== null) return cached;
+
+	const isAmc = !hour || hour === "amc" || hour === "after_trading_hours";
+	const base = new Date(earningsDate + "T12:00:00Z");
+	const from = Math.floor(new Date(base.getTime() - 5 * 86400000).getTime() / 1000);
+	const to   = Math.floor(new Date(base.getTime() + (isAmc ? 2 : 1) * 86400000).getTime() / 1000);
+
+	try {
+		const res = await fetch(
+			`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${from}&period2=${to}&interval=1d`,
+			{ headers: { "User-Agent": "Mozilla/5.0" } },
+		);
+		if (!res.ok) return null;
+		const data = await res.json() as {
+			chart?: { result?: Array<{ indicators?: { quote?: Array<{ close?: number[] }> } }> }
+		};
+		const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter((c): c is number => c != null);
+		if (!closes || closes.length < 2) return null;
+
+		const prev = closes[closes.length - 2];
+		const reaction = closes[closes.length - 1];
+		if (prev === 0) return null;
+
+		const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+		setCached(cacheKey, pct, 24 * 60 * 60 * 1000);
+		return pct;
+	} catch {
+		return null;
+	}
+}
+
 
 // In-memory cache with per-key TTL
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -166,7 +203,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		fromStr = toStr = todayStr;
 	}
 
-	const cacheKey = `market-earnings:${period}:${todayStr}`;
+	const cacheKey = `market-earnings:v2:${period}:${todayStr}`;
 	const cached = getCached(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -190,22 +227,28 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
 					date: e.date, hour: e.hour || null,
 					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+					epsSurprisePct: null, priceChangePct: null,
 					revChangePct, status: "upcoming" as const,
 				};
 			}
 
-			// Already reported — use Gemini (same as My Stak)
-			const { result: signal, date: reportDate } = await getEarningsBeatMissFromWeb(
-				e.symbol, MARKET_TICKERS[e.symbol],
-			);
+			// Already reported — run Gemini + price reaction in parallel
+			const [{ result: signal, date: reportDate }, priceChangePct] = await Promise.all([
+				getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol]),
+				getPriceChangePct(e.symbol, e.date, e.hour),
+			]);
 			// Fallback to Finnhub EPS comparison if Gemini returns "none"
 			const fallbackStatus = e.epsActual != null && e.epsEstimate != null
 				? (e.epsActual >= e.epsEstimate ? "beat" : "miss")
 				: "none";
+			const epsSurprisePct = e.epsActual != null && e.epsEstimate != null && e.epsEstimate !== 0
+				? Math.round(((e.epsActual - e.epsEstimate) / Math.abs(e.epsEstimate)) * 1000) / 10
+				: null;
 			return {
 				symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
 				date: reportDate ?? e.date, hour: e.hour || null,
 				epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+				epsSurprisePct, priceChangePct,
 				revChangePct,
 				status: (signal !== "none" ? signal : fallbackStatus) as "beat" | "miss" | "none",
 			};

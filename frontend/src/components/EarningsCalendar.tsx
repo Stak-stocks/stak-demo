@@ -300,18 +300,22 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 				)}
 			</div>
 
-			{/* Sentiment bar */}
-			<div className="shrink-0 w-10">
-				<div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-					{(beat || miss) && (
-						<div
-							className={`h-full rounded-full ${beat
-								? "bg-gradient-to-r from-green-700 to-green-400"
-								: "bg-gradient-to-r from-red-700 to-red-400"}`}
-							style={{ width: beat ? "78%" : "22%" }}
-						/>
-					)}
-				</div>
+			{/* Effect: stock price reaction on earnings day */}
+			<div className="shrink-0 w-14 text-right">
+				{entry.priceChangePct != null ? (
+					<>
+						<p className={`text-xs font-bold tabular-nums ${entry.priceChangePct >= 0 ? "text-green-400" : "text-red-400"}`}>
+							{entry.priceChangePct >= 0 ? "▲" : "▼"} {Math.abs(entry.priceChangePct).toFixed(1)}%
+						</p>
+						{entry.epsSurprisePct != null && (
+							<p className="text-[9px] text-zinc-500 tabular-nums">
+								EPS {entry.epsSurprisePct >= 0 ? "+" : ""}{entry.epsSurprisePct.toFixed(1)}%
+							</p>
+						)}
+					</>
+				) : (
+					<span className="text-[9px] text-zinc-700">—</span>
+				)}
 			</div>
 		</div>
 	);
@@ -424,7 +428,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					<span className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</span>
 					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-16 text-right">EPS</span>
 					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[3.5rem] text-right">Rev</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-10">Sent.</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-14 text-right">Effect</span>
 				</div>
 			)}
 
