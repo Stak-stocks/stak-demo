@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
+import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder, getDailySwipeCount } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
@@ -73,6 +73,15 @@ function App() {
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+
+	// Fetch Firestore swipe count so the daily limit is enforced across devices
+	const { data: firestoreSwipeData } = useQuery({
+		queryKey: ["daily-swipes", uid],
+		queryFn: getDailySwipeCount,
+		enabled: !!user,
+		staleTime: 60 * 1000,
+		retry: 1,
+	});
 
 	// Fetch AI-generated intel cards (falls back to hardcoded set)
 	const { data: intelCardsData } = useQuery({
@@ -315,7 +324,10 @@ function App() {
 	const handleSwipeRight = (brand: BrandProfile) => {
 		// Check if already in stak before showing toast (avoid duplicate toasts from StrictMode)
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
-		if (!alreadyInStak && hasDailySwipeLimitReached(uid)) {
+		// Check cross-device limit via Firestore first, fall back to localStorage for guests
+		const todayKey = getDailySwipeTodayKey();
+		const firestoreLimitReached = !!user && firestoreSwipeData?.date === todayKey && (firestoreSwipeData?.count ?? 0) >= DAILY_SWIPE_LIMIT;
+		if (!alreadyInStak && (firestoreLimitReached || hasDailySwipeLimitReached(uid))) {
 			toast.error("Daily limit reached", {
 				description: "You've used all 20 swipes today. Come back tomorrow!",
 				duration: 3000,
