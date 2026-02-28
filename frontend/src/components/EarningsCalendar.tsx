@@ -339,6 +339,8 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const beats = reported.filter((e) => e.status === "beat");
 	const positivePct = reported.length > 0 ? Math.round((beats.length / reported.length) * 100) : 0;
 	const tabLabel = tab === "today" ? "Today" : tab === "tomorrow" ? "Tomorrow" : "This Week";
+	const upcomingCount = entries.filter((e) => e.status === "upcoming").length;
+	const actionLabel = upcomingCount === entries.length ? "Reporting" : upcomingCount === 0 ? "Reported" : "Earnings";
 	const visibleEntries = showAll ? entries : entries.slice(0, 8);
 
 	if (!expanded && !onClose) {
@@ -397,7 +399,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					<div>
 						<p className="text-white font-bold leading-none">
 							<span className="text-2xl mr-1.5 tabular-nums">{entries.length}</span>
-							<span className="text-sm">Reporting {tabLabel}</span>
+							<span className="text-sm">{actionLabel} {tabLabel}</span>
 						</p>
 						<div className="flex items-center gap-3 mt-2">
 							<span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
