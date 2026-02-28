@@ -209,3 +209,39 @@ meRouter.put("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, 
 		res.status(500).json({ error: "Failed to save daily swipes" });
 	}
 });
+
+// GET /api/me/deck-order — get persisted swipe deck order for cross-device sync
+meRouter.get("/deck-order", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const doc = await adminDb.collection("users").doc(uid).get();
+		const order: string[] = doc.data()?.deckOrder ?? [];
+		res.json({ order });
+	} catch (error) {
+		console.error("Error fetching deck order:", error);
+		res.status(500).json({ error: "Failed to fetch deck order" });
+	}
+});
+
+// PUT /api/me/deck-order — save swipe deck order
+meRouter.put("/deck-order", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { order } = req.body;
+
+		if (!Array.isArray(order) || !order.every((id) => typeof id === "string")) {
+			res.status(400).json({ error: "Invalid deck order" });
+			return;
+		}
+
+		await adminDb.collection("users").doc(uid).set(
+			{ deckOrder: order, updatedAt: new Date().toISOString() },
+			{ merge: true },
+		);
+
+		res.json({ order });
+	} catch (error) {
+		console.error("Error saving deck order:", error);
+		res.status(500).json({ error: "Failed to save deck order" });
+	}
+});

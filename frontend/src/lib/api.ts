@@ -130,6 +130,17 @@ export function saveIntelState(lastDate: string, queue: string[], readIds: strin
 	});
 }
 
+export function getDeckOrder() {
+	return apiRequest<{ order: string[] }>("/api/me/deck-order");
+}
+
+export function saveDeckOrder(order: string[]) {
+	return apiRequest("/api/me/deck-order", {
+		method: "PUT",
+		body: JSON.stringify({ order }),
+	});
+}
+
 export function getDailySwipeCount() {
 	return apiRequest<{ date: string; count: number }>("/api/me/daily-swipes");
 }

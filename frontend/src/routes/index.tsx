@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
+import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
@@ -49,6 +49,7 @@ function App() {
 	const SWIPE_KEY = `swipes-since-intel:${uid}`;
 	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
 	const INTEL_QUEUE_KEY = `intel-card-queue:${uid}`;
+	const DECK_KEY = `stak-deck-order:${uid}`;
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -127,11 +128,11 @@ function App() {
 		return new Set(active.map((e) => e.id));
 	});
 
-	// Compute stable recommended brand order once per session
-	// Persisted in sessionStorage so tab navigation doesn't reshuffle
+	// Compute stable recommended brand order once — persisted in localStorage (user-specific)
+	// and synced to Firestore so all devices show the same deck order.
 	const [recommendedOrder] = useState<BrandProfile[]>(() => {
-		// Check sessionStorage for a previously computed order
-		const cached = sessionStorage.getItem("stak-deck-order");
+		// Check localStorage for a previously synced or computed order
+		const cached = localStorage.getItem(DECK_KEY);
 		if (cached) {
 			try {
 				const ids: string[] = JSON.parse(cached);
@@ -187,8 +188,10 @@ function App() {
 			];
 		}
 
-		// Cache the order for this session
-		sessionStorage.setItem("stak-deck-order", JSON.stringify(order.map((b) => b.id)));
+		// Persist the order cross-session and sync to Firestore for cross-device consistency
+		const ids = order.map((b) => b.id);
+		localStorage.setItem(DECK_KEY, JSON.stringify(ids));
+		saveDeckOrder(ids).catch(() => {});
 		return order;
 	});
 

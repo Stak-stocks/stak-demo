@@ -19,7 +19,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { getProfile, getStak, getPassedBrands, saveStak, savePassedBrands, getDailySwipeCount } from "../lib/api";
+import { getProfile, getStak, getPassedBrands, saveStak, savePassedBrands, getDailySwipeCount, getDeckOrder } from "../lib/api";
 import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
@@ -91,11 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				// Fetch profile + stak + passed brands in parallel, ALL before setLoading(false),
 				// so every piece of account data is in localStorage when components first mount.
 				// This ensures cross-device sync works and navigation decisions are always correct.
-				const [profileResult, stakResult, passedResult, swipeResult] = await Promise.allSettled([
+				const [profileResult, stakResult, passedResult, swipeResult, deckResult] = await Promise.allSettled([
 					getProfile(),
 					getStak(),
 					getPassedBrands(),
 					getDailySwipeCount(),
+					getDeckOrder(),
 				]);
 
 				if (profileResult.status === "fulfilled") {
@@ -167,6 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 						if (localState.date !== date || count > localState.count) {
 							localStorage.setItem(key, JSON.stringify({ date, count }));
 						}
+					}
+				}
+
+				// Sync Firestore deck order to user-specific localStorage key
+				if (deckResult.status === "fulfilled") {
+					const { order } = deckResult.value;
+					if (order.length > 0) {
+						localStorage.setItem("stak-deck-order:" + firebaseUser.uid, JSON.stringify(order));
 					}
 				}
 
