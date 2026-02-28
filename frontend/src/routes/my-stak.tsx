@@ -11,47 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData, getEarnings, getCompanyNews } from "@/lib/api";
+import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
 });
 
-type EarningsData = {
-	status: "upcoming" | "beat" | "miss" | "none";
-	date: string | null;
-	hour?: string;
-};
-
-function EarningsBadge({ data }: { data: EarningsData }) {
-	const [expanded, setExpanded] = useState(false);
-	if (data.status === "none") return null;
-
-	const formattedDate = data.date
-		? new Date(`${data.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-		: null;
-	const hourLabel = data.hour === "bmo" ? "pre-market" : data.hour === "amc" ? "after close" : null;
-
-	const configs = {
-		upcoming: { icon: "📅", label: "Upcoming", detail: formattedDate ? `${formattedDate}${hourLabel ? ` · ${hourLabel}` : ""}` : null, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-		beat:     { icon: "📊", label: "Beat ✓",   detail: formattedDate, className: "bg-green-500/15 text-green-400 border-green-500/30" },
-		miss:     { icon: "📊", label: "Missed ✗", detail: formattedDate, className: "bg-red-500/15 text-red-400 border-red-500/30" },
-	} as const;
-
-	const cfg = configs[data.status as keyof typeof configs];
-	if (!cfg) return null;
-
-	return (
-		<button
-			onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-			className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${cfg.className}`}
-		>
-			{cfg.icon} {cfg.label}
-			{expanded && cfg.detail && <span className="ml-1 opacity-80">· {cfg.detail}</span>}
-		</button>
-	);
-}
 
 function StakCard({
 	brand,
@@ -70,35 +36,6 @@ function StakCard({
 		retry: 1,
 	});
 
-	// Earnings calendar: most reliable source for upcoming (knows exact date/time)
-	const { data: earningsData } = useQuery({
-		queryKey: ["earnings", brand.ticker],
-		queryFn: () => getEarnings(brand.ticker, brand.name),
-		staleTime: 5 * 60 * 1000,
-		refetchInterval: 5 * 60 * 1000,
-		refetchIntervalInBackground: false,
-		retry: 1,
-	});
-
-	// Company news: beat/miss signal from article analysis (covers cases where calendar has no estimate)
-	const { data: newsData } = useQuery({
-		queryKey: ["company-news", brand.ticker],
-		queryFn: () => getCompanyNews(brand.ticker, brand.name),
-		staleTime: 30 * 60 * 1000,
-		refetchInterval: 30 * 60 * 1000,
-		refetchIntervalInBackground: false,
-		retry: 1,
-	});
-
-	// Badge priority: upcoming > beat/miss (FMP) > beat/miss (news signal fallback)
-	const badgeData = (() => {
-		if (earningsData?.status === "upcoming") return earningsData;
-		if (earningsData?.status === "beat" || earningsData?.status === "miss") return earningsData;
-		const sig = newsData?.earningsSignal;
-		if (sig?.status === "beat" || sig?.status === "miss") return sig;
-		return null;
-	})();
-
 	const up = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	return (
@@ -114,16 +51,7 @@ function StakCard({
 				<X className="w-4 h-4" />
 			</button>
 
-			{badgeData && (
-				<div className="absolute top-3 left-3">
-					<EarningsBadge data={badgeData} />
-				</div>
-			)}
-
-			<div
-				className="flex items-start gap-4 mb-3"
-				style={{ marginTop: badgeData ? "1.5rem" : undefined }}
-			>
+			<div className="flex items-start gap-4 mb-3">
 				<img
 					src={getBrandLogoUrl(brand)}
 					alt={`${brand.name} logo`}

@@ -386,7 +386,11 @@ export function MarketEarningsWidget() {
 		retry: 1,
 	});
 
-	const entries = data?.entries ?? [];
+	const stakTickers = new Set<string>(
+		(() => { try { return JSON.parse(localStorage.getItem("my-stak") ?? "[]"); } catch { return []; } })()
+			.map((b: { ticker: string }) => b.ticker.toUpperCase())
+	);
+	const entries = (data?.entries ?? []).filter((e) => stakTickers.has(e.symbol));
 	const reported = entries.filter((e) => e.status !== "upcoming" && e.status !== "none");
 	const beats = reported.filter((e) => e.status === "beat");
 	const positivePct = reported.length > 0 ? Math.round((beats.length / reported.length) * 100) : 0;
@@ -402,6 +406,7 @@ export function MarketEarningsWidget() {
 				<span className="flex items-center gap-2">
 					<CalendarDays className="w-4 h-4 text-cyan-400" />
 					Earnings Calendar
+					<span className="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">Your Stak</span>
 				</span>
 				<ChevronRight className="w-3.5 h-3.5 rotate-90" />
 			</button>
@@ -415,6 +420,7 @@ export function MarketEarningsWidget() {
 				<h2 className="text-sm font-bold text-white flex items-center gap-2">
 					<CalendarDays className="w-4 h-4 text-cyan-400" />
 					Earnings Calendar
+					<span className="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">Your Stak</span>
 				</h2>
 				<button
 					onClick={() => setExpanded(false)}
@@ -482,7 +488,7 @@ export function MarketEarningsWidget() {
 					<div className="py-8 text-center text-zinc-500 text-xs animate-pulse">Loading earnings…</div>
 				) : entries.length === 0 ? (
 					<div className="py-8 text-center text-zinc-500 text-xs">
-						No major earnings {tabLabel.toLowerCase()}
+						No earnings in your Stak {tabLabel.toLowerCase()}
 					</div>
 				) : (
 					visibleEntries.map((e) => <MarketRow key={e.symbol} entry={e} />)
