@@ -250,12 +250,12 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	// Finance
 	jpm: "jpmorgan-chase", gs: "goldman-sachs", ms: "morgan-stanley",
 	c: "citigroup", bac: "bank-of-america", wfc: "wells-fargo",
-	blk: "blackrock", axp: "american-express", cof: "capital-one-financial",
+	blk: "blackrock", axp: "american-express", cof: "capital-one",
 	schw: "charles-schwab", bx: "blackstone", kkr: "kkr",
 	aig: "american-international-group", met: "metlife", pru: "prudential-financial",
 	afl: "aflac", all: "allstate", cb: "chubb", trv: "travelers-companies",
 	adp: "automatic-data-processing", ndaq: "nasdaq", ice: "intercontinental-exchange",
-	cme: "cme-group", spgi: "sp-global", mco: "moodys",
+	cme: "cme", spgi: "sp-global", mco: "moodys",
 	msci: "msci", trow: "t-rowe-price", ivz: "invesco",
 	pnc: "pnc-financial-services-group", usb: "us-bancorp",
 	bk: "bank-of-new-york-mellon", efx: "equifax", payx: "paychex",
@@ -332,8 +332,8 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	jack: "jack-in-the-box", pzza: "papa-johns-international", blmn: "bloomin-brands", eat: "brinker-international",
 	rklb: "rocket-lab", asts: "ast-spacemobile", celh: "celsius-holdings", wynn: "wynn-resorts",
 	acmr: "acm-research", lunr: "intuitive-machines", joby: "joby-aviation", achr: "archer-aviation",
-	gsat: "globalstar", lvs: "las-vegas-sands", penn: "penn-entertainment",
-	mlco: "melco-resorts-and-entertainment", sam: "boston-beer", fizz: "national-beverage",
+	gsat: "globalstar", lvs: "las-vegas-sands", penn: "penn-national-gaming",
+	mlco: "melco", sam: "boston-beer", fizz: "national-beverage",
 	kdp: "keurig-dr-pepper", soun: "soundhound-ai",
 	// Financial services (missing)
 	ajg: "arthur-j-gallagher", ally: "ally-financial", amp: "ameriprise-financial",
@@ -346,7 +346,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	rf: "regions-financial", rjf: "raymond-james-financial", syf: "synchrony-financial",
 	tfc: "truist-financial", upst: "upstart-holdings", wex: "wex",
 	// Tech / Software (missing)
-	bill: "bill-holdings", hpq: "hp", hubs: "hubspot", match: "match-group",
+	bill: "bill-holdings", hpq: "hp", hubs: "hubspot", match: "match-group-inc",
 	mpwr: "monolithic-power-systems", on: "on-semiconductor", path: "uipath",
 	smci: "super-micro-computer", ssnc: "ss-and-c-technologies", swks: "skyworks-solutions",
 	tost: "toast", u: "unity-software",
@@ -1579,7 +1579,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SPY",
 		name: "SPY ETF",
 		bio: "S&P 500 index, the ultimate set & forget",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1542744094-3a31f272c490?w=800&h=600&fit=crop",
 		personalityDescription: "Passive investing icon",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -3984,7 +3984,7 @@ export const brands: BrandProfile[] = [
 		ticker: "GS",
 		name: "Goldman Sachs",
 		bio: "the white-shoe bank that makes money in any market condition",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&h=600&fit=crop",
 		personalityDescription: "The finance villain everyone secretly wants to work for",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -4304,7 +4304,7 @@ export const brands: BrandProfile[] = [
 
 		name: "Apollo Global",
 		bio: "the credit and private equity powerhouse that moves faster than anyone",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop",
 		personalityDescription: "The aggressive dealmaker who never met a situation too complicated",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -4710,7 +4710,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ICE",
 		name: "Intercontinental Exchange",
 		bio: "the exchange operator that owns the NYSE and a lot more",
-		heroImage: "https://images.unsplash.com/photo-1608222351212-18fe0d7045e1?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=800&h=600&fit=crop",
 		personalityDescription: "The parent company of the place where fortunes are made and lost",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -4739,7 +4739,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CME",
 		name: "CME Group",
 		bio: "where traders bet on the future of everything from corn to bitcoin",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=600&fit=crop",
 		personalityDescription: "The casino for serious investors where the stakes are measured in trillions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -4884,7 +4884,7 @@ export const brands: BrandProfile[] = [
 		ticker: "IVZ",
 		name: "Invesco",
 		bio: "ETFs and alternative strategies for investors who want something more",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9?w=800&h=600&fit=crop",
 		personalityDescription: "The fund manager that thought of everything except winning the ETF war against Vanguard",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -5377,7 +5377,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CBOE",
 		name: "Cboe Global Markets",
 		bio: "options trading's original home — where volatility lives",
-		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&h=600&fit=crop",
 		personalityDescription: "The place where traders bet on uncertainty and pay for the privilege",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -6160,7 +6160,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SNAP",
 		name: "Snap",
 		bio: "the camera app that Gen Z prefers even though Instagram keeps copying everything",
-		heroImage: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=800&h=600&fit=crop",
 		personalityDescription: "The innovator that invents features and watches Meta steal them",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -6218,7 +6218,7 @@ export const brands: BrandProfile[] = [
 		ticker: "RDDT",
 		name: "Reddit",
 		bio: "the front page of the internet that finally IPO'd after 19 years",
-		heroImage: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop",
 		personalityDescription: "The internet's most chaotic, authentic, and valuable community platform",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -7233,7 +7233,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ISRG",
 		name: "Intuitive Surgical",
 		bio: "the da Vinci robot that changed surgery and made it a tech business",
-		heroImage: "https://images.unsplash.com/photo-1530026405186-ed1f139313f2?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=600&fit=crop",
 		personalityDescription: "The company that turned surgery into a software-defined recurring revenue model",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 88, color: "#00d9ff" },
@@ -8074,7 +8074,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ETSY",
 		name: "Etsy",
 		bio: "the craft marketplace that makes people feel good about shopping small",
-		heroImage: "https://images.unsplash.com/photo-1513519245088-0e12902e35ca?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800&h=600&fit=crop",
 		personalityDescription: "The handmade economy's most charismatic marketplace for things mass production can't make",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8190,7 +8190,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SLB",
 		name: "SLB",
 		bio: "the world's largest oilfield services company operating across 120 countries",
-		heroImage: "https://images.unsplash.com/photo-1611438836592-bde9c79741af?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&h=600&fit=crop",
 		personalityDescription: "The global oil contractor who answers to every national oil company on Earth",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -8219,7 +8219,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PSX",
 		name: "Phillips 66",
 		bio: "the oil refiner and midstream company that turns crude into cash flow",
-		heroImage: "https://images.unsplash.com/photo-1584824486509-112e4181d12e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=800&h=600&fit=crop",
 		personalityDescription: "The industrial factory that refines something unusable into something everyone needs",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8248,7 +8248,7 @@ export const brands: BrandProfile[] = [
 		ticker: "VLO",
 		name: "Valero Energy",
 		bio: "the largest US independent refiner that prints money when gasoline margins are wide",
-		heroImage: "https://images.unsplash.com/photo-1584824486509-112e4181d12e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1527856263669-12c3a0af2aa6?w=800&h=600&fit=crop",
 		personalityDescription: "The industrial machine that transforms crude oil into the gasoline in your tank every week",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -8277,7 +8277,7 @@ export const brands: BrandProfile[] = [
 		ticker: "KMI",
 		name: "Kinder Morgan",
 		bio: "the natural gas pipeline empire that charges a toll on every molecule",
-		heroImage: "https://images.unsplash.com/photo-1611438836592-bde9c79741af?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=800&h=600&fit=crop",
 		personalityDescription: "The infrastructure king who gets paid whether gas prices are up or down",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -8306,7 +8306,7 @@ export const brands: BrandProfile[] = [
 		ticker: "DVN",
 		name: "Devon Energy",
 		bio: "the Oklahoma oil company that invented the dividend model investors love",
-		heroImage: "https://images.unsplash.com/photo-1495568023648-3339cf77a32f?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1527856263669-12c3a0af2aa6?w=800&h=600&fit=crop",
 		personalityDescription: "The shareholder-friendly driller who pioneered the payout structure everyone copied",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8364,7 +8364,7 @@ export const brands: BrandProfile[] = [
 		ticker: "BKR",
 		name: "Baker Hughes",
 		bio: "the oilfield technology and industrial energy company",
-		heroImage: "https://images.unsplash.com/photo-1611438836592-bde9c79741af?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&h=600&fit=crop",
 		personalityDescription: "The tech-forward contractor bridging old-school oil and clean energy services",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -8596,7 +8596,7 @@ export const brands: BrandProfile[] = [
 		ticker: "NOC",
 		name: "Northrop Grumman",
 		bio: "the stealth bomber and space company that makes things the government classifies immediately",
-		heroImage: "https://images.unsplash.com/photo-1603483080818-04ae1bb5a79e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?w=800&h=600&fit=crop",
 		personalityDescription: "The defense contractor who builds the weapons that the enemy is never supposed to see",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -8625,7 +8625,7 @@ export const brands: BrandProfile[] = [
 		ticker: "LHX",
 		name: "L3Harris Technologies",
 		bio: "the defense electronics company that built itself through mergers",
-		heroImage: "https://images.unsplash.com/photo-1603483080818-04ae1bb5a79e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&h=600&fit=crop",
 		personalityDescription: "The defense electronics integrator who connects sensors, data links, and communications for the military",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 75, color: "#00d9ff" },
@@ -8712,7 +8712,7 @@ export const brands: BrandProfile[] = [
 		ticker: "UNP",
 		name: "Union Pacific",
 		bio: "the railroad that owns the western half of America's freight network",
-		heroImage: "https://images.unsplash.com/photo-1474487548417-781cb6d646b3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&h=600&fit=crop",
 		personalityDescription: "The invisible backbone of Western US commerce that moves everything you don't see moving",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -8741,7 +8741,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CSX",
 		name: "CSX Corporation",
 		bio: "the eastern railroad that moves coal, chemicals, and consumer goods quietly",
-		heroImage: "https://images.unsplash.com/photo-1474487548417-781cb6d646b3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&h=600&fit=crop",
 		personalityDescription: "The eastern freight backbone that nobody thinks about until the economy actually needs to move",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -8770,7 +8770,7 @@ export const brands: BrandProfile[] = [
 		ticker: "UPS",
 		name: "UPS",
 		bio: "the brown trucks that define American package delivery for everyone except Amazon",
-		heroImage: "https://images.unsplash.com/photo-1566933293069-b55c7f326dd4?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&h=600&fit=crop",
 		personalityDescription: "The logistics giant that built the most efficient delivery network before the e-commerce explosion",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8799,7 +8799,7 @@ export const brands: BrandProfile[] = [
 		ticker: "FDX",
 		name: "FedEx",
 		bio: "the overnight express company that invented the hub-and-spoke delivery model",
-		heroImage: "https://images.unsplash.com/photo-1566933293069-b55c7f326dd4?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=800&h=600&fit=crop",
 		personalityDescription: "The urgency specialists who built an empire on the promise that it will absolutely positively be there overnight",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8828,7 +8828,7 @@ export const brands: BrandProfile[] = [
 		ticker: "DAL",
 		name: "Delta Air Lines",
 		bio: "the airline that turned flying from something to endure into something to choose",
-		heroImage: "https://images.unsplash.com/photo-1583418855524-5cc3a8ad3ab4?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&h=600&fit=crop",
 		personalityDescription: "The premium airline that decided economy class could actually be decent",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -9089,7 +9089,7 @@ export const brands: BrandProfile[] = [
 		ticker: "D",
 		name: "Dominion Energy",
 		bio: "the mid-Atlantic utility reorienting around regulated electric and gas delivery",
-		heroImage: "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&h=600&fit=crop",
 		personalityDescription: "The utility simplifying itself after a complicated decade of asset sales and acquisitions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 60, color: "#00d9ff" },
@@ -9495,7 +9495,7 @@ export const brands: BrandProfile[] = [
 		ticker: "TTD",
 		name: "The Trade Desk",
 		bio: "the independent ad-buying platform that makes digital advertising actually work",
-		heroImage: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop",
 		personalityDescription: "The programmatic advertising infrastructure that media agencies can't live without",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -9524,7 +9524,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ROKU",
 		name: "Roku",
 		bio: "the streaming remote that turned into an advertising platform",
-		heroImage: "https://images.unsplash.com/photo-1593359677879-a4bb92f4834c?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800&h=600&fit=crop",
 		personalityDescription: "The humble TV device that became the gatekeeper of the streaming revolution",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -9669,7 +9669,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MDLZ",
 		name: "Mondelez International",
 		bio: "Oreo, Cadbury, Toblerone — the snack company the whole world eats",
-		heroImage: "https://images.unsplash.com/photo-1606312619070-d48b0c7a92d3?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=800&h=600&fit=crop",
 		personalityDescription: "The global snack empire running on chocolate and nostalgia",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -9727,7 +9727,7 @@ export const brands: BrandProfile[] = [
 		ticker: "GIS",
 		name: "General Mills",
 		bio: "Cheerios, Häagen-Dazs, Betty Crocker, Nature Valley — the breakfast empire",
-		heroImage: "https://images.unsplash.com/photo-1484980859524-a41f13a8c48a?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=800&h=600&fit=crop",
 		personalityDescription: "The pantry staple company whose brands have been in every American kitchen for generations",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 70, color: "#00d9ff" },
@@ -9872,7 +9872,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MNST",
 		name: "Monster Beverage",
 		bio: "the energy drink company that made Red Bull sweat with fluorescent cans",
-		heroImage: "https://images.unsplash.com/photo-1565211600-35f90af2c2cc?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=800&h=600&fit=crop",
 		personalityDescription: "The energy drink creator who found the exact marketing aesthetic for teenage boys worldwide",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
@@ -9930,7 +9930,7 @@ export const brands: BrandProfile[] = [
 		ticker: "FCX",
 		name: "Freeport-McMoRan",
 		bio: "the copper miner powering the electric vehicle and clean energy revolution",
-		heroImage: "https://images.unsplash.com/photo-1565177898782-e32a5b0cbbf8?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1581093588401-fbb62a02f120?w=800&h=600&fit=crop",
 		personalityDescription: "The copper empire who discovered their commodity was the backbone of decarbonization",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -11061,7 +11061,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CELH",
 		name: "Celsius Holdings",
 		bio: "the energy drink that took over gym bags and became the #3 energy drink in America almost overnight. Pepsi noticed and invested",
-		heroImage: "https://images.unsplash.com/photo-1544245945-f90425340c7e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&h=600&fit=crop",
 		personalityDescription: "The gym-culture brand that turned 'healthier energy drink' into a billion-dollar category",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 78, color: "#00d9ff" },
@@ -11301,7 +11301,7 @@ export const brands: BrandProfile[] = [
 		ticker: "PENN",
 		name: "PENN Entertainment",
 		bio: "the sports betting and casino company that rebranded from Penn National, owns ESPN Bet, and is trying to win the US sports gambling market",
-		heroImage: "https://images.unsplash.com/photo-1504173010664-32509107de29?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=800&h=600&fit=crop",
 		personalityDescription: "The regional casino operator that bet its future on sports betting and is still figuring out if it was the right move",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 65, color: "#00d9ff" },
@@ -11331,7 +11331,7 @@ export const brands: BrandProfile[] = [
 		ticker: "MLCO",
 		name: "Melco Resorts",
 		bio: "the Macau and Manila luxury casino empire — City of Dreams, Studio City, and the most visually spectacular gaming resorts in Asia",
-		heroImage: "https://images.unsplash.com/photo-1609619385002-f40d3f01c2ac?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=800&h=600&fit=crop",
 		personalityDescription: "The Macau casino brand that makes Las Vegas feel like a rest stop",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
