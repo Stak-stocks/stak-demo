@@ -251,11 +251,11 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			<TickerLogo symbol={entry.symbol} />
 
 			{/* Company */}
-			<div className="flex-1 min-w-0">
+			<div className="flex-1 min-w-0 overflow-hidden">
 				<div className="flex items-center gap-1.5">
-					<span className="font-bold text-white text-sm">{entry.symbol}</span>
+					<span className="font-bold text-white text-sm shrink-0">{entry.symbol}</span>
 					{(beat || miss) && (
-						<span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+						<span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${
 							beat ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
 						}`}>
 							{beat ? "Beat" : "Miss"}
@@ -268,7 +268,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			</div>
 
 			{/* EPS or Upcoming pill */}
-			<div className="text-right shrink-0 w-[5.5rem]">
+			<div className="text-right shrink-0 w-16">
 				{upcoming ? (
 					<>
 					<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
@@ -288,7 +288,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			</div>
 
 			{/* Rev % pill */}
-			<div className="shrink-0 w-20 text-right">
+			<div className="shrink-0 w-[3.5rem] text-right">
 				{!upcoming && entry.revChangePct != null ? (
 					<span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${
 						entry.revChangePct >= 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -301,7 +301,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			</div>
 
 			{/* Sentiment bar */}
-			<div className="shrink-0 w-20">
+			<div className="shrink-0 w-10">
 				<div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
 					{(beat || miss) && (
 						<div
@@ -420,9 +420,9 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 				<div className="flex items-center gap-2.5 px-4 pt-2 pb-1">
 					<div className="w-9 shrink-0" />
 					<span className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[5.5rem] text-right">EPS</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-20 text-right">Revenue</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-20">Sentiment</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-16 text-right">EPS</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[3.5rem] text-right">Rev</span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-10"></span>
 				</div>
 			)}
 
