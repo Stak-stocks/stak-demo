@@ -8074,7 +8074,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ETSY",
 		name: "Etsy",
 		bio: "the craft marketplace that makes people feel good about shopping small",
-		heroImage: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800&h=600&fit=crop",
+		heroImage: "https://thumbor.forbes.com/thumbor/fit-in/x/https://www.forbes.com/uk/advisor/wp-content/uploads/2023/02/How-To-Set-Up-An-Etsy-Shop.png",
 		personalityDescription: "The handmade economy's most charismatic marketplace for things mass production can't make",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
