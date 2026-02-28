@@ -117,10 +117,10 @@ function ProfilePage() {
 			getIntelState(),
 			getIntelCards().catch(() => ({ cards: [] as IntelCard[] })),
 		]).then(([{ readIds }, { cards: apiCards }]) => {
-			// Merge API cards with hardcoded fallbacks (API cards take precedence by ID)
-			const merged = [...INTEL_CARDS];
-			for (const apiCard of apiCards ?? []) {
-				if (!merged.find((c) => c.id === apiCard.id)) merged.push(apiCard);
+			// API cards take precedence; hardcoded cards fill gaps only
+			const merged = [...(apiCards ?? [])];
+			for (const card of INTEL_CARDS) {
+				if (!merged.find((c) => c.id === card.id)) merged.push(card);
 			}
 			setReadCards(merged.filter((c) => readIds.includes(c.id)));
 		}).catch(() => {});
