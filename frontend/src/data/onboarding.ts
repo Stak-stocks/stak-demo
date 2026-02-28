@@ -40,18 +40,18 @@ export const FAMILIARITY_OPTIONS: FamiliarityOption[] = [
 
 // Maps interest selections to brand IDs from brands.ts
 export const INTEREST_TO_BRANDS: Record<string, string[]> = {
-	gaming: ["rblx", "msft", "sony", "gme", "app", "ttwo", "ea", "aapl", "meta", "amd", "nvda", "dkng", "penn"],
-	streaming: ["nflx", "dis", "spot", "googl", "meta", "para", "roku", "wbd", "snap", "rddt"],
-	fashion: ["nke", "ulta", "elf", "coty", "or", "tgt", "lulu", "wrby", "etsy"],
-	tech: ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd", "duol", "app", "arm", "avgo", "rklb", "asts", "acmr", "lunr", "gsat", "soun"],
-	food_drink: ["sbux", "ko", "pep", "cost", "mcd", "wmt", "bros", "wing", "shak", "cmg", "dpz", "mnst", "cake", "txrh", "eat", "sam", "fizz", "kdp"],
-	travel: ["uber", "lyft", "amzn", "abnb", "mar", "hlt", "lyv", "rcl", "dal", "ual", "wynn", "lvs", "mlco", "joby", "achr"],
-	fitness: ["nke", "aapl", "amzn", "cost", "pton", "lulu", "hims", "wmt", "celh"],
-	finance: ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm", "coin", "ebay", "jpm", "cart"],
-	beauty: ["ulta", "elf", "coty", "el", "or", "pg", "wrby", "hims"],
-	music: ["spot", "aapl", "googl", "sony", "lyv", "rddt"],
-	shopping: ["amzn", "shop", "wmt", "tgt", "cost", "etsy", "ebay", "chwy", "cart", "cvna"],
-	energy: ["tsla", "nee", "enph", "fslr", "xom", "cvx", "rivn", "nio", "lcid", "gm", "f"],
+	gaming:    ["rblx", "ttwo", "ea", "sony", "gme", "msft", "nvda", "amd", "app", "u", "dkng", "penn", "meta"],
+	streaming: ["nflx", "dis", "para", "wbd", "roku", "spot", "googl", "snap", "meta"],
+	fashion:   ["nke", "lulu", "wrby", "etsy", "tjx", "rost", "burl"],
+	tech:      ["aapl", "msft", "googl", "tsla", "nvda", "meta", "amd", "duol", "app", "arm", "avgo", "rklb", "asts", "acmr", "lunr", "gsat", "soun", "intc", "qcom", "tsm", "pltr", "ionq"],
+	food_drink:["sbux", "mcd", "cmg", "dpz", "wing", "shak", "bros", "cake", "txrh", "eat", "yum", "denn", "jack", "pzza", "blmn", "ko", "pep", "mnst", "celh", "sam", "fizz", "kdp", "mdlz", "hsy", "gis", "stz", "bynd", "dash"],
+	travel:    ["uber", "lyft", "abnb", "mar", "hlt", "rcl", "dal", "ual", "luv", "aal", "wynn", "lvs", "mlco", "mgm", "joby", "achr"],
+	fitness:   ["nke", "aapl", "pton", "lulu", "hims"],
+	finance:   ["v", "ma", "sq", "hood", "sofi", "pypl", "afrm", "coin", "jpm", "axp", "schw", "brkb", "gs", "bac", "ms", "blk", "cof"],
+	beauty:    ["ulta", "elf", "coty", "el", "or", "pg", "cl", "wrby", "hims"],
+	music:     ["spot", "sony", "lyv", "aapl"],
+	shopping:  ["amzn", "shop", "wmt", "tgt", "cost", "etsy", "ebay", "chwy", "cart", "cvna", "hd", "low", "pins", "dash"],
+	energy:    ["tsla", "nee", "enph", "fslr", "plug", "xom", "cvx", "rivn", "nio", "lcid", "gm", "f", "tm", "alb"],
 };
 
 // Curated popular brands for the swipe step
