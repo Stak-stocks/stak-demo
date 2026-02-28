@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import type { BrandProfile } from "@/data/brands";
@@ -22,6 +23,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 
 function Root() {
 	const { user, loading, logout } = useAuth();
+	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
@@ -130,15 +132,12 @@ function Root() {
 			{!isAuthPage && <BottomNav />}
 			<Toaster
 				position="top-center"
-				theme="dark"
+				theme={resolvedTheme}
 				richColors
 				toastOptions={{
-					style: {
-						background: "#1a2744",
-						border: "1px solid rgba(99,102,241,0.35)",
-						color: "#f1f5f9",
-						fontWeight: 600,
-					},
+					style: resolvedTheme === "dark"
+						? { background: "#1a2744", border: "1px solid rgba(99,102,241,0.35)", color: "#f1f5f9", fontWeight: 600 }
+						: { background: "#ffffff", border: "1px solid rgba(99,102,241,0.2)", color: "#0f172a", fontWeight: 600 },
 				}}
 			/>
 			<TanStackRouterDevtools position="bottom-right" />

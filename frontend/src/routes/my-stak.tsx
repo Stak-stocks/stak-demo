@@ -45,7 +45,7 @@ function StakCard({
 		>
 			<button
 				onClick={onRemove}
-				className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-[#162036] hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100"
+				className="absolute top-3 right-3 p-1.5 rounded-full bg-zinc-200 dark:bg-[#162036] hover:bg-red-500 dark:hover:bg-red-500 text-zinc-500 hover:text-white transition-all"
 				aria-label={`Remove ${brand.name} from Stak`}
 			>
 				<X className="w-4 h-4" />

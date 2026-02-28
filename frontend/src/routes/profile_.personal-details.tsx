@@ -84,7 +84,7 @@ function PersonalDetailsPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-[#080d1c] text-white pb-24"
+			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;
@@ -96,11 +96,11 @@ function PersonalDetailsPage() {
 			}}
 		>
 			{/* Header */}
-			<div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-[#080d1c]/95 backdrop-blur border-b border-slate-800/40">
+			<div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur border-b border-zinc-200 dark:border-slate-800/40">
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -130,7 +130,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Info */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Info</p>
-				<div className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 divide-y divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Display Name */}
 					<div className="flex items-center gap-3 px-4 py-3.5">
@@ -145,12 +145,12 @@ function PersonalDetailsPage() {
 									value={nameValue}
 									onChange={(e) => setNameValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") { saveName(); } else if (e.key === "Escape") { setNameValue(user.displayName ?? ""); setEditingName(false); } }}
-									className="w-full bg-transparent text-sm text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
+									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
 									autoFocus
 									maxLength={50}
 								/>
 							) : (
-								<p className="text-sm font-medium text-white truncate">{user.displayName || "Not set"}</p>
+								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.displayName || "Not set"}</p>
 							)}
 						</div>
 						{editingName ? (
@@ -176,7 +176,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Email</p>
-							<p className="text-sm font-medium text-white truncate">{user.email}</p>
+							<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.email}</p>
 						</div>
 						{user.emailVerified && (
 							<span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">Verified</span>
@@ -197,12 +197,12 @@ function PersonalDetailsPage() {
 									onChange={(e) => setPhoneValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") savePhone(); if (e.key === "Escape") { setPhoneValue(phone); setEditingPhone(false); } }}
 									placeholder="+1 (555) 000-0000"
-									className="w-full bg-transparent text-sm text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
 									autoFocus
 									maxLength={20}
 								/>
 							) : (
-								<p className="text-sm font-medium text-white truncate">{phone || "Not set"}</p>
+								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{phone || "Not set"}</p>
 							)}
 						</div>
 						{editingPhone ? (
@@ -224,7 +224,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Details */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Details</p>
-				<div className="rounded-xl bg-[#0f1729]/80 backdrop-blur border border-slate-700/30 divide-y divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Sign-in method */}
 					<div className="flex items-center gap-3 px-4 py-3.5">
@@ -233,7 +233,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Sign-in Method</p>
-							<p className="text-sm font-medium text-white">
+							<p className="text-sm font-medium text-zinc-900 dark:text-white">
 								{isGoogle ? "Google" : "Email & Password"}
 							</p>
 						</div>
@@ -249,7 +249,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Member Since</p>
-							<p className="text-sm font-medium text-white">{memberSince}</p>
+							<p className="text-sm font-medium text-zinc-900 dark:text-white">{memberSince}</p>
 						</div>
 					</div>
 				</div>
