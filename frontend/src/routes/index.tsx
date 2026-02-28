@@ -19,6 +19,26 @@ import {
 } from "@/components/ui/sheet";
 
 const STAK_CAPACITY = 15;
+const DAILY_SWIPE_LIMIT = 20;
+const SWIPE_RESET_HOUR = 9; // 9 AM
+
+function getDailySwipeTodayKey(): string {
+	const now = new Date();
+	if (now.getHours() < SWIPE_RESET_HOUR) {
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		return yesterday.toISOString().split("T")[0];
+	}
+	return now.toISOString().split("T")[0];
+}
+
+function hasDailySwipeLimitReached(uid: string): boolean {
+	const key = `daily-swipe-state:${uid}`;
+	const saved = localStorage.getItem(key);
+	if (!saved) return false;
+	const state: { count: number; date: string } = JSON.parse(saved);
+	return state.date === getDailySwipeTodayKey() && state.count >= DAILY_SWIPE_LIMIT;
+}
 
 // Reverse mapping: brand ID → interest categories it belongs to
 const BRAND_TO_CATEGORIES: Record<string, string[]> = {};
@@ -295,6 +315,13 @@ function App() {
 	const handleSwipeRight = (brand: BrandProfile) => {
 		// Check if already in stak before showing toast (avoid duplicate toasts from StrictMode)
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
+		if (!alreadyInStak && hasDailySwipeLimitReached(uid)) {
+			toast.error("Daily limit reached", {
+				description: "You've used all 20 swipes today. Come back tomorrow!",
+				duration: 3000,
+			});
+			return;
+		}
 		if (!alreadyInStak) {
 			// Check if at capacity
 			if (swipedBrands.length >= STAK_CAPACITY) {
