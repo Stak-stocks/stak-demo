@@ -8799,7 +8799,7 @@ export const brands: BrandProfile[] = [
 		ticker: "FDX",
 		name: "FedEx",
 		bio: "the overnight express company that invented the hub-and-spoke delivery model",
-		heroImage: "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=800&h=600&fit=crop",
+		heroImage: "https://wallpapers.com/images/hd/fedex-pictures-qwlhv8lye7jam2v2.jpg",
 		personalityDescription: "The urgency specialists who built an empire on the promise that it will absolutely positively be there overnight",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
