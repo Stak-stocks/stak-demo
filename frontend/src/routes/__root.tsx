@@ -46,7 +46,8 @@ function Root() {
 			toast.error("Your Stak is full!", { description: "Remove a stock first (max 15)", duration: 2000 });
 			return;
 		}
-		const swipeStateRaw = localStorage.getItem("daily-swipe-state");
+		const swipeKey = `daily-swipe-state:${user?.uid ?? "guest"}`;
+		const swipeStateRaw = localStorage.getItem(swipeKey);
 		const todayKey = (() => {
 			const now = new Date();
 			if (now.getHours() < 9) {
@@ -63,7 +64,7 @@ function Root() {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
-		localStorage.setItem("daily-swipe-state", JSON.stringify({ count: swipeState.count + 1, date: todayKey }));
+		localStorage.setItem(swipeKey, JSON.stringify({ count: swipeState.count + 1, date: todayKey }));
 		const updated = [...stak, brand];
 		localStorage.setItem("my-stak", JSON.stringify(updated));
 		saveStak(updated.map((b) => b.id)).catch(() => {});

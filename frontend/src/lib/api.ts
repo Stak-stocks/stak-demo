@@ -130,6 +130,17 @@ export function saveIntelState(lastDate: string, queue: string[], readIds: strin
 	});
 }
 
+export function getDailySwipeCount() {
+	return apiRequest<{ date: string; count: number }>("/api/me/daily-swipes");
+}
+
+export function saveDailySwipeCount(date: string, count: number) {
+	return apiRequest("/api/me/daily-swipes", {
+		method: "PUT",
+		body: JSON.stringify({ date, count }),
+	});
+}
+
 export interface LiveQuote {
 	price: number;
 	change: number;

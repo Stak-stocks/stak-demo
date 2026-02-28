@@ -19,7 +19,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { getProfile, getStak, getPassedBrands, saveStak, savePassedBrands } from "../lib/api";
+import { getProfile, getStak, getPassedBrands, saveStak, savePassedBrands, getDailySwipeCount } from "../lib/api";
 import { brands as allBrands } from "../data/brands";
 
 interface AuthContextType {
@@ -91,10 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				// Fetch profile + stak + passed brands in parallel, ALL before setLoading(false),
 				// so every piece of account data is in localStorage when components first mount.
 				// This ensures cross-device sync works and navigation decisions are always correct.
-				const [profileResult, stakResult, passedResult] = await Promise.allSettled([
+				const [profileResult, stakResult, passedResult, swipeResult] = await Promise.allSettled([
 					getProfile(),
 					getStak(),
 					getPassedBrands(),
+					getDailySwipeCount(),
 				]);
 
 				if (profileResult.status === "fulfilled") {
@@ -148,6 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 						const localEntries: { id: string; at: number }[] = local ? JSON.parse(local) : [];
 						if (localEntries.length > 0) {
 							savePassedBrands(localEntries).catch(() => {});
+						}
+					}
+				}
+
+				// Sync Firestore daily swipe count to user-specific localStorage key
+				if (swipeResult.status === "fulfilled") {
+					const { date, count } = swipeResult.value;
+					const todayKey = new Date().toISOString().split("T")[0];
+					if (date === todayKey && count > 0) {
+						// Firestore has swipes today — restore (cross-device sync)
+						const key = "daily-swipe-state:" + firebaseUser.uid;
+						const local = localStorage.getItem(key);
+						const localState = local ? JSON.parse(local) : { count: 0, date: "" };
+						// Only overwrite if Firestore count is higher (take the max)
+						if (localState.date !== todayKey || count > localState.count) {
+							localStorage.setItem(key, JSON.stringify({ date, count }));
 						}
 					}
 				}

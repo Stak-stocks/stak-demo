@@ -173,3 +173,39 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 		res.status(500).json({ error: "Failed to save intel state" });
 	}
 });
+
+// GET /api/me/daily-swipes — get today's swipe count for cross-device sync
+meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const doc = await adminDb.collection("users").doc(uid).get();
+		const saved = doc.data()?.dailySwipeState ?? {};
+		res.json({ date: saved.date ?? "", count: saved.count ?? 0 });
+	} catch (error) {
+		console.error("Error fetching daily swipes:", error);
+		res.status(500).json({ error: "Failed to fetch daily swipes" });
+	}
+});
+
+// PUT /api/me/daily-swipes — save today's swipe count
+meRouter.put("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { date, count } = req.body;
+
+		if (typeof date !== "string" || typeof count !== "number") {
+			res.status(400).json({ error: "Invalid daily swipe state" });
+			return;
+		}
+
+		await adminDb.collection("users").doc(uid).set(
+			{ dailySwipeState: { date, count }, updatedAt: new Date().toISOString() },
+			{ merge: true },
+		);
+
+		res.json({ date, count });
+	} catch (error) {
+		console.error("Error saving daily swipes:", error);
+		res.status(500).json({ error: "Failed to save daily swipes" });
+	}
+});

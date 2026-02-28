@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type MouseEvent, type TouchEv
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
 import { Clock, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react";
-import { recordSwipe } from "@/lib/api";
+import { recordSwipe, saveDailySwipeCount } from "@/lib/api";
 
 const DAILY_LIMIT = 20;
 const RESET_HOUR = 9; // 9 AM
@@ -43,8 +43,8 @@ function getTimeUntilReset(): { hours: number; minutes: number } {
 	return { hours, minutes };
 }
 
-function getDailySwipeState(): DailySwipeState {
-	const saved = localStorage.getItem("daily-swipe-state");
+function getDailySwipeState(key: string): DailySwipeState {
+	const saved = localStorage.getItem(key);
 	if (saved) {
 		const state: DailySwipeState = JSON.parse(saved);
 		const todayKey = getTodayKey();
@@ -55,8 +55,8 @@ function getDailySwipeState(): DailySwipeState {
 	return { count: 0, date: getTodayKey() };
 }
 
-function saveDailySwipeState(state: DailySwipeState): void {
-	localStorage.setItem("daily-swipe-state", JSON.stringify(state));
+function saveDailySwipeState(state: DailySwipeState, key: string): void {
+	localStorage.setItem(key, JSON.stringify(state));
 }
 
 interface SwipeableCardStackProps {
@@ -65,6 +65,7 @@ interface SwipeableCardStackProps {
 	onSwipeRight?: (brand: BrandProfile) => void;
 	onSwipeLeft?: (brand: BrandProfile) => void;
 	onSwipe?: () => void;
+	uid?: string;
 }
 
 export function SwipeableCardStack({
@@ -73,8 +74,10 @@ export function SwipeableCardStack({
 	onSwipeRight,
 	onSwipeLeft,
 	onSwipe,
+	uid = "guest",
 }: SwipeableCardStackProps) {
-	const [dailyState, setDailyState] = useState<DailySwipeState>(getDailySwipeState);
+	const swipeKey = `daily-swipe-state:${uid}`;
+	const [dailyState, setDailyState] = useState<DailySwipeState>(() => getDailySwipeState(swipeKey));
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
@@ -92,13 +95,13 @@ export function SwipeableCardStack({
 	useEffect(() => {
 		const interval = setInterval(() => {
 			setTimeUntilReset(getTimeUntilReset());
-			const newState = getDailySwipeState();
+			const newState = getDailySwipeState(swipeKey);
 			if (newState.date !== dailyState.date) {
 				setDailyState(newState);
 			}
 		}, 60000);
 		return () => clearInterval(interval);
-	}, [dailyState.date]);
+	}, [dailyState.date, swipeKey]);
 
 	const remainingCards = DAILY_LIMIT - dailyState.count;
 	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
@@ -142,7 +145,8 @@ export function SwipeableCardStack({
 
 		const newState = { count: dailyState.count + 1, date: dailyState.date };
 		setDailyState(newState);
-		saveDailySwipeState(newState);
+		saveDailySwipeState(newState, swipeKey);
+		saveDailySwipeCount(newState.date, newState.count).catch(() => {});
 		onSwipe?.();
 
 		setTimeout(() => {

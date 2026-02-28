@@ -9,6 +9,7 @@ import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { saveStak, savePassedBrands, getIntelCards, getIntelState, saveIntelState } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -43,6 +44,12 @@ export const Route = createFileRoute("/")({
 
 
 function App() {
+	const { user } = useAuth();
+	const uid = user?.uid ?? "guest";
+	const SWIPE_KEY = `swipes-since-intel:${uid}`;
+	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
+	const INTEL_QUEUE_KEY = `intel-card-queue:${uid}`;
+
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
@@ -63,12 +70,12 @@ function App() {
 	const intelQueue = useRef<string[]>([]);
 	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
-	const swipesSinceIntel = useRef(parseInt(localStorage.getItem("swipes-since-intel") ?? "0", 10));
+	const swipesSinceIntel = useRef(parseInt(localStorage.getItem(SWIPE_KEY) ?? "0", 10));
 
 	// Load or initialise the queue from localStorage
 	useEffect(() => {
 		if (allIntelCards.length === 0) return;
-		const saved = localStorage.getItem("intel-card-queue");
+		const saved = localStorage.getItem(INTEL_QUEUE_KEY);
 		const remaining: string[] = saved ? JSON.parse(saved) : [];
 		// If queue is empty (first time or fully exhausted), build a new shuffled one
 		if (remaining.length === 0) {
@@ -83,21 +90,21 @@ function App() {
 		getIntelState()
 			.then(({ lastDate, queue, readIds }) => {
 				if (lastDate) {
-					localStorage.setItem("intel-card-last-date", lastDate);
+					localStorage.setItem(INTEL_DATE_KEY, lastDate);
 				} else {
 					// New or re-created account — clear any stale state left from a previous account
-					localStorage.removeItem("intel-card-last-date");
-					localStorage.removeItem("intel-card-queue");
+					localStorage.removeItem(INTEL_DATE_KEY);
+					localStorage.removeItem(INTEL_QUEUE_KEY);
 					intelQueue.current = INTEL_CARDS.map((c) => c.id).sort(() => Math.random() - 0.5);
 				}
 				if (queue.length > 0) {
-					localStorage.setItem("intel-card-queue", JSON.stringify(queue));
+					localStorage.setItem(INTEL_QUEUE_KEY, JSON.stringify(queue));
 					intelQueue.current = queue;
 				}
 				intelReadIds.current = readIds ?? [];
 			})
 			.catch(() => {}); // Not authenticated or offline — local state persists
-	}, []);
+	}, [INTEL_DATE_KEY, INTEL_QUEUE_KEY]);
 
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
 		const saved = localStorage.getItem("my-stak");
@@ -205,15 +212,15 @@ function App() {
 
 		// Trigger after every 5th swipe, but at most once per day
 		swipesSinceIntel.current += 1;
-		localStorage.setItem("swipes-since-intel", String(swipesSinceIntel.current));
+		localStorage.setItem(SWIPE_KEY, String(swipesSinceIntel.current));
 		if (swipesSinceIntel.current < 5) return;
 		swipesSinceIntel.current = 0;
-		localStorage.setItem("swipes-since-intel", "0");
+		localStorage.setItem(SWIPE_KEY, "0");
 
 		const today = new Date().toISOString().split("T")[0];
 
 		// Only show one intel card per day per account
-		const lastIntelDate = localStorage.getItem("intel-card-last-date");
+		const lastIntelDate = localStorage.getItem(INTEL_DATE_KEY);
 		if (lastIntelDate === today) return;
 
 		// If queue exhausted, reshuffle all cards into a new random order
@@ -222,7 +229,7 @@ function App() {
 		}
 
 		const nextId = intelQueue.current.shift()!;
-		localStorage.setItem("intel-card-queue", JSON.stringify(intelQueue.current));
+		localStorage.setItem(INTEL_QUEUE_KEY, JSON.stringify(intelQueue.current));
 
 		// Track as read for the Intel Library on the profile page
 		if (!intelReadIds.current.includes(nextId)) {
@@ -230,7 +237,7 @@ function App() {
 		}
 
 		// Persist to Firestore so other devices stay in sync + mark today as shown
-		localStorage.setItem("intel-card-last-date", today);
+		localStorage.setItem(INTEL_DATE_KEY, today);
 		saveIntelState(today, intelQueue.current, intelReadIds.current).catch(() => {});
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
@@ -330,6 +337,7 @@ function App() {
 					onSwipeRight={handleSwipeRight}
 					onSwipeLeft={handleSwipeLeft}
 					onSwipe={handleSwipe}
+					uid={uid}
 				/>
 			</div>
 
