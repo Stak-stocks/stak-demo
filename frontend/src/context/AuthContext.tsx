@@ -44,8 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			if (firebaseUser) {
 				const lastUid = localStorage.getItem("last-user-uid");
 				if (lastUid && lastUid !== firebaseUser.uid) {
-					// Different user signed in — wipe all previous user's local data
-					// so a fresh account doesn't inherit stale stak/interests/etc.
+					// Different user — wipe all previous user's local data
 					localStorage.removeItem("daily-swipe-state");
 					localStorage.removeItem("my-stak");
 					localStorage.removeItem("passed-brands");
@@ -54,25 +53,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					localStorage.removeItem("swipes-since-intel");
 					localStorage.removeItem("intel-card-queue");
 					localStorage.removeItem("intel-card-last-date");
-					// Default to needing onboarding — profile fetch below will override if they're existing
-					localStorage.setItem("onboardingCompleted", "false");
+					// Remove rather than pre-set "false": getProfile() below will set the
+					// correct value. If that fetch fails, the absent key means __root.tsx
+					// won't redirect to onboarding — much safer than a wrong "false".
+					localStorage.removeItem("onboardingCompleted");
 				}
 				localStorage.setItem("last-user-uid", firebaseUser.uid);
 			}
 
 			setUser(firebaseUser);
 			if (firebaseUser) {
-				// Fetch profile BEFORE setting loading=false so onboarding
-				// status is available for navigation decisions on any device
-				try {
-					const profile = await getProfile();
+				// Fetch profile + stak + passed brands in parallel, ALL before setLoading(false),
+				// so every piece of account data is in localStorage when components first mount.
+				// This ensures cross-device sync works and navigation decisions are always correct.
+				const [profileResult, stakResult, passedResult] = await Promise.allSettled([
+					getProfile(),
+					getStak(),
+					getPassedBrands(),
+				]);
+
+				if (profileResult.status === "fulfilled") {
+					const profile = profileResult.value;
 					if (profile.onboardingCompleted !== undefined) {
 						localStorage.setItem(
 							"onboardingCompleted",
 							profile.onboardingCompleted ? "true" : "false",
 						);
 					}
-					// Hydrate user interests from backend
 					if (profile.preferences?.interests) {
 						localStorage.setItem(
 							"user-interests",
@@ -80,32 +87,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 						);
 					} else {
 						localStorage.removeItem("user-interests");
-					localStorage.removeItem("stak-streak");
-					localStorage.removeItem("swipes-since-intel");
-					localStorage.removeItem("intel-card-queue");
-					localStorage.removeItem("intel-card-last-date");
 					}
-				} catch {
-					// Profile fetch failed — continue with whatever localStorage has
 				}
+				// If profile fetch fails: onboardingCompleted key is absent →
+				// __root.tsx doesn't redirect to onboarding (safe default for network errors)
+
+				if (stakResult.status === "fulfilled") {
+					const { brandIds } = stakResult.value;
+					const stakBrands = brandIds
+						.map((id) => allBrands.find((b) => b.id === id))
+						.filter(Boolean);
+					localStorage.setItem("my-stak", JSON.stringify(stakBrands));
+					window.dispatchEvent(new Event("stak-updated"));
+				}
+
+				if (passedResult.status === "fulfilled") {
+					const { entries } = passedResult.value;
+					localStorage.setItem("passed-brands", JSON.stringify(entries));
+				}
+
 				setLoading(false);
-
-				// Stak hydration — always write so a fresh account starts empty
-				getStak()
-					.then(({ brandIds }) => {
-						const stakBrands = brandIds
-							.map((id) => allBrands.find((b) => b.id === id))
-							.filter(Boolean);
-						localStorage.setItem("my-stak", JSON.stringify(stakBrands));
-					})
-					.catch(() => {});
-
-				// Passed brands hydration — always write so a fresh account starts empty
-				getPassedBrands()
-					.then(({ entries }) => {
-						localStorage.setItem("passed-brands", JSON.stringify(entries));
-					})
-					.catch(() => {});
 			} else {
 				setLoading(false);
 			}

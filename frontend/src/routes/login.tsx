@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-import { updateProfile } from "@/lib/api";
+import { updateProfile, getProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
