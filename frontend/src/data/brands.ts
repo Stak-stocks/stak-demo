@@ -126,7 +126,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	net: "cloudflare.com", okta: "okta.com", ftnt: "fortinet.com", zs: "zscaler.com",
 	s: "sentinelone.com", twlo: "twilio.com", path: "uipath.com", bill: "bill.com",
 	snap: "snap.com", pins: "pinterest.com", rddt: "reddit.com",
-	match: "matchgroup.com", dash: "doordash.com", pton: "onepeloton.com",
+	mtch: "matchgroup.com", dash: "doordash.com", pton: "onepeloton.com",
 	nu: "nu.com.br", meli: "mercadolibre.com", se: "sea.com", dkng: "draftkings.com",
 	arm: "arm.com", on: "onsemi.com", adi: "analog.com", mpwr: "monolithicpower.com",
 	swks: "skyworksinc.com", smci: "supermicro.com", baba: "alibaba.com",
@@ -346,7 +346,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	rf: "regions-financial", rjf: "raymond-james-financial", syf: "synchrony-financial",
 	tfc: "truist-financial", upst: "upstart-holdings", wex: "wex",
 	// Tech / Software (missing)
-	bill: "bill-holdings", hpq: "hp", hubs: "hubspot", match: "match-group-inc",
+	bill: "bill-holdings", hpq: "hp", hubs: "hubspot", mtch: "match-group-inc",
 	mpwr: "monolithic-power-systems", on: "on-semiconductor", path: "uipath",
 	smci: "super-micro-computer", ssnc: "ss-and-c-technologies", swks: "skyworks-solutions",
 	tost: "toast", u: "unity-software",
@@ -6244,7 +6244,7 @@ export const brands: BrandProfile[] = [
 	},
 	{
 		id: "match",
-		ticker: "MATCH",
+		ticker: "MTCH",
 		name: "Match Group",
 		bio: "owns Tinder, Hinge, and basically the entire swipe-based dating economy",
 		heroImage: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&h=600&fit=crop",
