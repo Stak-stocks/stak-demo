@@ -1,4 +1,5 @@
 import type { FinnhubArticle } from "./finnhubService.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
 
 export interface SimplifiedArticle {
 	headline: string;
@@ -13,8 +14,6 @@ export interface SimplifiedArticle {
 	type: "macro" | "sector" | "company";
 }
 
-// Simple in-memory cache: key → { data, expiresAt }
-const cache = new Map<string, { data: SimplifiedArticle[]; expiresAt: number }>();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const BATCH_SIZE = 8;
 
@@ -124,10 +123,8 @@ export async function simplifyArticles(
 	if (articles.length === 0) return [];
 
 	const cacheKey = getCacheKey(articles);
-	const cached = cache.get(cacheKey);
-	if (cached && cached.expiresAt > Date.now()) {
-		return cached.data;
-	}
+	const cached = await cacheGet<SimplifiedArticle[]>(cacheKey);
+	if (cached) return cached;
 
 	// Process batches in parallel for speed
 	const batches = chunk(articles, BATCH_SIZE);
@@ -156,17 +153,12 @@ export async function simplifyArticles(
 		};
 	});
 
-	cache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
+	await cacheSet(cacheKey, result, CACHE_TTL_MS);
 	return result;
 }
 
 type EarningsOutcome = "beat" | "miss" | "none";
 
-// Cache so we don't re-ask Gemini for the same article headline
-const earningsCache = new Map<string, { result: EarningsOutcome; expiresAt: number }>();
-
-// 24-hour cache for web-grounded earnings lookups
-const webEarningsCache = new Map<string, { result: EarningsOutcome; date: string | null; expiresAt: number }>();
 const WEB_EARNINGS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
@@ -179,8 +171,8 @@ export async function getEarningsBeatMissFromWeb(
 	companyName?: string,
 ): Promise<{ result: EarningsOutcome; date: string | null }> {
 	const cacheKey = `web:v2:${symbol}`;
-	const cached = webEarningsCache.get(cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return { result: cached.result, date: cached.date };
+	const cached = await cacheGet<{ result: EarningsOutcome; date: string | null }>(cacheKey);
+	if (cached) return { result: cached.result, date: cached.date };
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return { result: "none", date: null };
@@ -236,7 +228,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 						? parsed.outcome
 						: "none";
 					const date: string | null = typeof parsed.reportDate === "string" ? parsed.reportDate : null;
-					webEarningsCache.set(cacheKey, { result, date, expiresAt: Date.now() + WEB_EARNINGS_TTL_MS });
+					await cacheSet(cacheKey, { result, date }, WEB_EARNINGS_TTL_MS);
 					return { result, date };
 				} catch {
 					// JSON parse failed — fall through to next key
@@ -255,8 +247,8 @@ Return ONLY valid JSON, no markdown, no extra text.`;
  */
 export async function classifyEarnings(headline: string, summary: string): Promise<EarningsOutcome> {
 	const cacheKey = headline.slice(0, 80);
-	const cached = earningsCache.get(cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return cached.result;
+	const cached = await cacheGet<EarningsOutcome>(cacheKey);
+	if (cached) return cached;
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return "none";
@@ -293,7 +285,7 @@ Return ONLY one of these exact strings: beat, miss, none`;
 			let result: EarningsOutcome = "none";
 			if (text === "beat") result = "beat";
 			else if (text === "miss") result = "miss";
-			earningsCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+			await cacheSet(cacheKey, result, CACHE_TTL_MS);
 			return result;
 		} catch {
 			// ignore, try next key

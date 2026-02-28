@@ -1,3 +1,5 @@
+import { cacheGet, cacheSet } from "../lib/cache.js";
+
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 /** Collect all configured Finnhub API keys (FINNHUB_API_KEY, FINNHUB_API_KEY_2, FINNHUB_API_KEY_3) */
@@ -44,19 +46,7 @@ export interface FinnhubArticle {
 
 const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
 
-// In-memory news cache so repeated reloads don't spam Finnhub
-const newsCache = new Map<string, { data: FinnhubArticle[]; expiresAt: number }>();
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-function getCachedNews(key: string): FinnhubArticle[] | null {
-	const entry = newsCache.get(key);
-	if (entry && entry.expiresAt > Date.now()) return entry.data;
-	return null;
-}
-
-function setCachedNews(key: string, data: FinnhubArticle[]): void {
-	newsCache.set(key, { data, expiresAt: Date.now() + NEWS_CACHE_TTL_MS });
-}
 
 
 const FINANCIAL_TERMS = [
@@ -204,14 +194,14 @@ async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 		...finnhubFiltered,
 		...geoNews.filter((a) => !seenUrls.has(a.url)),
 	];
-	setCachedNews(MARKET_CACHE_KEY, merged);
+	await cacheSet(MARKET_CACHE_KEY, merged, NEWS_CACHE_TTL_MS);
 	return merged;
 }
 
 /** Fetch general market news (IPOs, interest rates, macro events).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getMarketNews(limit = 30): Promise<FinnhubArticle[]> {
-	const pool = getCachedNews(MARKET_CACHE_KEY) ?? await fetchFreshMarketNews();
+	const pool = (await cacheGet<FinnhubArticle[]>(MARKET_CACHE_KEY)) ?? await fetchFreshMarketNews();
 	return [...pool].sort((a, b) => b.datetime - a.datetime).slice(0, limit);
 }
 
@@ -274,7 +264,7 @@ const OIL_ENERGY_TICKERS = new Set([
  *  Supplements market feed and oil company news tabs with major events that move prices. */
 async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 	const CACHE_KEY = "geo:energy";
-	const cached = getCachedNews(CACHE_KEY);
+	const cached = await cacheGet<FinnhubArticle[]>(CACHE_KEY);
 	if (cached) return cached;
 
 	const apiKey = process.env.NEWSAPI_KEY;
@@ -301,7 +291,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 				id: 0,
 				related: "",
 			}));
-		setCachedNews(CACHE_KEY, articles);
+		await cacheSet(CACHE_KEY, articles, NEWS_CACHE_TTL_MS);
 		return articles;
 	} catch {
 		return [];
@@ -313,7 +303,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
 	const cacheKey = `company:${symbol}:${limit}`;
-	const cached = getCachedNews(cacheKey);
+	const cached = await cacheGet<FinnhubArticle[]>(cacheKey);
 	if (cached) return cached;
 
 	const newsSymbol = resolveNewsSymbol(symbol);
@@ -338,11 +328,11 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 					...filtered,
 					...geoNews.filter((a) => !seenUrls.has(a.url)),
 				].slice(0, limit);
-				setCachedNews(cacheKey, combined);
+				await cacheSet(cacheKey, combined, NEWS_CACHE_TTL_MS);
 				return combined;
 			}
 			const result = filtered.slice(0, limit);
-			setCachedNews(cacheKey, result);
+			await cacheSet(cacheKey, result, NEWS_CACHE_TTL_MS);
 			return result;
 		}
 	} else if (res && !res.ok) {
@@ -353,7 +343,7 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	if (companyName) {
 		console.info(`Finnhub returned 0 articles for ${symbol} — falling back to NewsAPI for "${companyName}"`);
 		const fallback = await getNewsApiArticles(companyName, limit);
-		if (fallback.length > 0) setCachedNews(cacheKey, fallback);
+		if (fallback.length > 0) await cacheSet(cacheKey, fallback, NEWS_CACHE_TTL_MS);
 		return fallback;
 	}
 
@@ -369,10 +359,10 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 export async function searchNewsArticles(query: string): Promise<FinnhubArticle[]> {
 	const q = query.trim().toLowerCase();
 	const cacheKey = `search:${q}`;
-	const cached = getCachedNews(cacheKey);
+	const cached = await cacheGet<FinnhubArticle[]>(cacheKey);
 	if (cached) return cached;
 
-	const pool = getCachedNews(MARKET_CACHE_KEY) ?? await fetchFreshMarketNews();
+	const pool = (await cacheGet<FinnhubArticle[]>(MARKET_CACHE_KEY)) ?? await fetchFreshMarketNews();
 	const fromFinnhub = pool
 		.filter((a) => a.headline.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q))
 		.sort((a, b) => b.datetime - a.datetime);
@@ -388,6 +378,6 @@ export async function searchNewsArticles(query: string): Promise<FinnhubArticle[
 	}
 
 	result = result.slice(0, 20);
-	setCachedNews(cacheKey, result);
+	await cacheSet(cacheKey, result, NEWS_CACHE_TTL_MS);
 	return result;
 }

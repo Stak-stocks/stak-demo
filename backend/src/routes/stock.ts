@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -38,20 +39,19 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 	// If reaction day is today or in the future, use live Finnhub quote dp (daily % change)
 	if (reactionDate >= todayStr) {
 		const cacheKey = `price-chg-live:${symbol}`;
-		const cached = getCached(cacheKey) as number | null;
+		const cached = await cacheGet<number>(cacheKey);
 		if (cached !== null) return cached;
 
 		const quote = await finnhubGet(`/quote?symbol=${symbol}`) as { dp?: number } | null;
 		if (quote?.dp == null) return null;
 		const pct = Math.round(quote.dp * 10) / 10;
-		// Cache only 2 min — live data changes throughout the day
-		setCached(cacheKey, pct, 2 * 60 * 1000);
+		await cacheSet(cacheKey, pct, 2 * 60 * 1000); // 2 min — live data changes throughout the day
 		return pct;
 	}
 
 	// Historical reaction — use Yahoo Finance daily candles
 	const cacheKey = `price-chg:${symbol}:${earningsDate}`;
-	const cached = getCached(cacheKey) as number | null;
+	const cached = await cacheGet<number>(cacheKey);
 	if (cached !== null) return cached;
 
 	const from = Math.floor(new Date(base.getTime() - 5 * 86400000).getTime() / 1000);
@@ -74,30 +74,15 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 		if (prev === 0) return null;
 
 		const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
-		setCached(cacheKey, pct, 24 * 60 * 60 * 1000);
+		await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
 		return pct;
 	} catch {
 		return null;
 	}
 }
 
-
-// In-memory cache with per-key TTL
-const cache = new Map<string, { data: unknown; expiresAt: number }>();
-
-function getCached(key: string): unknown | null {
-	const entry = cache.get(key);
-	if (entry && entry.expiresAt > Date.now()) return entry.data;
-	return null;
-}
-
-function setCached(key: string, data: unknown, ttl: number) {
-	cache.set(key, { data, expiresAt: Date.now() + ttl });
-}
-
 const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
 const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
-const EARNINGS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
 const TICKER_MAP: Record<string, string> = {
@@ -140,7 +125,7 @@ interface CalendarResponse {
 // IMPORTANT: must be before /:symbol so "calendar" isn't treated as a symbol
 stockRouter.get("/calendar", async (_req, res) => {
 	const cacheKey = "earnings:calendar";
-	const cached = getCached(cacheKey) as CalendarResponse | null;
+	const cached = await cacheGet<CalendarResponse>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
 	const now = new Date();
@@ -171,7 +156,7 @@ stockRouter.get("/calendar", async (_req, res) => {
 		week: entries.filter((e) => e.date > tomorrowStr && e.date <= in7Days),
 	};
 
-	setCached(cacheKey, result, 15 * 60 * 1000); // 15-min cache
+	await cacheSet(cacheKey, result, 15 * 60 * 1000);
 	res.json(result);
 });
 
@@ -226,7 +211,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 	}
 
 	const cacheKey = `market-earnings:v3:${period}:${todayStr}`;
-	const cached = getCached(cacheKey);
+	const cached = await cacheGet(cacheKey);
 	if (cached) { res.json(cached); return; }
 
 	const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
@@ -289,7 +274,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 	});
 
 	const result = { entries, from: fromStr, to: toStr };
-	setCached(cacheKey, result, 15 * 60 * 1000);
+	await cacheSet(cacheKey, result, 15 * 60 * 1000);
 	res.json(result);
 });
 
@@ -302,18 +287,18 @@ stockRouter.get("/:symbol", async (req, res) => {
 	try {
 		// Quote (1-min cache)
 		const quoteKey = `quote:${symbol}`;
-		let quoteRaw = getCached(quoteKey) as Record<string, number> | null;
+		let quoteRaw = await cacheGet<Record<string, number>>(quoteKey);
 		if (!quoteRaw) {
 			quoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-			if (quoteRaw) setCached(quoteKey, quoteRaw, QUOTE_TTL_MS);
+			if (quoteRaw) await cacheSet(quoteKey, quoteRaw, QUOTE_TTL_MS);
 		}
 
 		// Fundamentals (6-hour cache)
 		const metricsKey = `metrics:${symbol}`;
-		let metricsRaw = getCached(metricsKey) as { metric?: Record<string, number> } | null;
+		let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
 		if (!metricsRaw) {
 			metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
-			if (metricsRaw) setCached(metricsKey, metricsRaw, METRICS_TTL_MS);
+			if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
 		}
 
 		const q = quoteRaw ?? {};
@@ -377,7 +362,7 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const companyName = req.query.name as string | undefined;
 	const cacheKey = `earnings:v4:${symbol}`;
 
-	const cached = getCached(cacheKey) as EarningsStatus | null;
+	const cached = await cacheGet<EarningsStatus>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
 	const now = new Date();
@@ -391,7 +376,7 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const upcoming = calData?.earningsCalendar?.find((e) => e.symbol === symbol);
 	if (upcoming) {
 		const result: EarningsStatus = { status: "upcoming", date: upcoming.date, hour: upcoming.hour };
-		setCached(cacheKey, result, 15 * 60 * 1000);
+		await cacheSet(cacheKey, result, 15 * 60 * 1000);
 		res.json(result);
 		return;
 	}
@@ -404,6 +389,6 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		: { status: "none", date: null };
 
 	// 24h for beat/miss (Gemini result is already cached internally); 1h for none
-	setCached(cacheKey, result, signal !== "none" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
+	await cacheSet(cacheKey, result, signal !== "none" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
 	res.json(result);
 });
