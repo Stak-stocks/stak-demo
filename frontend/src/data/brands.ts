@@ -210,14 +210,14 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
-	// Clearbit gives proper company logos by domain — much better than a favicon
-	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
+	// Google favicon — Clearbit shut down, this is the reliable fallback
+	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
 }
 
-/** First fallback (used in onError): Clearbit logo by domain */
+/** First fallback (used in onError): Google favicon by domain */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
+	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
 }
 
 /** Final fallback (used in second onError): Google favicon */
