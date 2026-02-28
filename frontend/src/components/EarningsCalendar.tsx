@@ -263,22 +263,26 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 					)}
 				</div>
 				<p className="text-[10px] text-zinc-500 truncate">
-					{upcoming ? formatHour(entry.hour, entry.date) : formatDate(entry.date)}
+					{upcoming ? formatHour(entry.hour, entry.date) : entry.name}
 				</p>
 			</div>
 
 			{/* EPS or Upcoming pill */}
 			<div className="text-right shrink-0 w-[5.5rem]">
 				{upcoming ? (
+					<>
 					<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
 						Upcoming
 					</span>
+					<p className="text-[9px] text-zinc-500 mt-0.5 tabular-nums">{formatDate(entry.date)}</p>
+					</>
 				) : (
 					<>
 						<p className={`text-sm font-bold tabular-nums ${beat ? "text-green-400" : miss ? "text-red-400" : "text-zinc-200"}`}>
 							{formatEps(entry.epsActual)}
 						</p>
 						<p className="text-[10px] text-zinc-500 tabular-nums">vs {formatEps(entry.epsEstimate)}</p>
+					<p className="text-[9px] text-zinc-600 mt-0.5">{formatDate(entry.date)}</p>
 					</>
 				)}
 			</div>
