@@ -11,7 +11,7 @@ import {
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
 import { brands as allBrands } from "@/data/brands";
-import { getBrandLogoUrl } from "@/data/brands";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
@@ -20,9 +20,9 @@ export const Route = createFileRoute("/onboarding")({
 const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) => {
 	const brand = allBrands.find((b) => b.id === id);
 	return brand
-		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
+		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
 		: null;
-}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
+}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
@@ -326,9 +326,9 @@ function SwipeStep({
 		const mapped = [...picked].map((id) => {
 			const brand = allBrands.find((b) => b.id === id);
 			return brand
-				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), ticker: brand.ticker }
+				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
 				: null;
-		}).filter(Boolean) as { id: string; name: string; logo: string; ticker: string }[];
+		}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
 
 		// Pad with defaults if fewer than 4 brands
 		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
@@ -497,6 +497,7 @@ function SwipeStep({
 											src={brand.logo}
 											alt={brand.name}
 											className="w-28 h-28 rounded-2xl object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+											onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
 										/>
 										<div className="text-center">
 											<p className="text-white font-bold text-lg">{brand.name}</p>
@@ -669,7 +670,7 @@ function BuildingStep({
 	// Fallback if user somehow has no selections
 	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).map((id) => {
 		const brand = allBrands.find((b) => b.id === id)!;
-		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand) };
+		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) };
 	});
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
@@ -776,6 +777,7 @@ function BuildingStep({
 								src={brand.logoUrl}
 								alt={brand.name}
 								className="w-16 h-16 object-contain rounded-2xl"
+								onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
 							/>
 							<span className="text-white text-[11px] font-bold">{brand.name}</span>
 						</div>

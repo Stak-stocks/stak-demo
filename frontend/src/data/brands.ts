@@ -335,6 +335,27 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	gsat: "globalstar", lvs: "las-vegas-sands", penn: "penn-entertainment",
 	mlco: "melco-resorts-and-entertainment", sam: "boston-beer", fizz: "national-beverage",
 	kdp: "keurig-dr-pepper", soun: "soundhound-ai",
+	// Financial services (missing)
+	ajg: "arthur-j-gallagher", ally: "ally-financial", amp: "ameriprise-financial",
+	aon: "aon", apo: "apollo-global-management", ben: "franklin-resources",
+	cboe: "cboe-global-markets", cfg: "citizens-financial-group", evr: "evercore",
+	fds: "factset-research-systems", fis: "fidelity-national-information-services", fisv: "fiserv",
+	gpn: "global-payments", hig: "hartford-financial-services-group", key: "keycorp",
+	lnc: "lincoln-national", mmc: "marsh-and-mclennan", ncno: "ncino",
+	ntrs: "northern-trust", omf: "onemain-holdings", pfg: "principal-financial-group",
+	rf: "regions-financial", rjf: "raymond-james-financial", syf: "synchrony-financial",
+	tfc: "truist-financial", upst: "upstart-holdings", wex: "wex",
+	// Tech / Software (missing)
+	bill: "bill-holdings", hpq: "hp", hubs: "hubspot", match: "match-group",
+	mpwr: "monolithic-power-systems", on: "on-semiconductor", path: "uipath",
+	smci: "super-micro-computer", ssnc: "ss-and-c-technologies", swks: "skyworks-solutions",
+	tost: "toast", u: "unity-software",
+	// Healthcare (missing)
+	hims: "hims-and-hers-health", holx: "hologic", rmd: "resmed",
+	// Energy / Industrial (missing)
+	bkr: "baker-hughes", hes: "hess", ir: "ingersoll-rand",
+	// Other (missing)
+	clsk: "cleanspark", czr: "caesars-entertainment", nu: "nu-holdings", se: "sea",
 };
 
 export function getBrandHeroUrl(id: string): string {
@@ -4280,9 +4301,10 @@ export const brands: BrandProfile[] = [
 	{
 		id: "apo",
 		ticker: "APO",
+
 		name: "Apollo Global",
 		bio: "the credit and private equity powerhouse that moves faster than anyone",
-		heroImage: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
 		personalityDescription: "The aggressive dealmaker who never met a situation too complicated",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 85, color: "#00d9ff" },
@@ -5384,7 +5406,7 @@ export const brands: BrandProfile[] = [
 		ticker: "SSNC",
 		name: "SS&C Technologies",
 		bio: "financial software that runs hedge funds and nobody outside finance knows",
-		heroImage: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1556742212-5b321f3c261b?w=800&h=600&fit=crop",
 		personalityDescription: "The software company powering billion-dollar funds while staying completely invisible",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -7356,7 +7378,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CI",
 		name: "Cigna",
 		bio: "the healthcare company that connects insurance, pharmacy, and care delivery",
-		heroImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=800&h=600&fit=crop",
 		personalityDescription: "The health insurer trying to own every step between you and your doctor",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
@@ -8429,7 +8451,7 @@ export const brands: BrandProfile[] = [
 		ticker: "ETN",
 		name: "Eaton Corporation",
 		bio: "the power management company that owns the EV infrastructure wave",
-		heroImage: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&h=600&fit=crop",
 		personalityDescription: "The industrial conglomerate positioned perfectly at the intersection of electrification and energy",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 80, color: "#00d9ff" },
@@ -9618,7 +9640,7 @@ export const brands: BrandProfile[] = [
 		ticker: "CLSK",
 		name: "CleanSpark",
 		bio: "the clean energy Bitcoin miner focused on sustainable proof-of-work",
-		heroImage: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=600&fit=crop",
 		personalityDescription: "The ESG Bitcoin miner trying to make proof-of-work guilt-free",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 58, color: "#00d9ff" },
@@ -9821,7 +9843,7 @@ export const brands: BrandProfile[] = [
 		ticker: "KMB",
 		name: "Kimberly-Clark",
 		bio: "Kleenex, Huggies, Cottonelle — the tissue and personal care giant",
-		heroImage: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&h=600&fit=crop",
 		personalityDescription: "The bathroom staple company whose products you never think about and always need",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
@@ -10979,7 +11001,7 @@ export const brands: BrandProfile[] = [
 		ticker: "RKLB",
 		name: "Rocket Lab USA",
 		bio: "the company actually launching rockets every few weeks while SpaceX gets all the headlines. the scrappy space startup that keeps delivering",
-		heroImage: "https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?w=800&h=600&fit=crop",
+		heroImage: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800&h=600&fit=crop",
 		personalityDescription: "The quietly competent underdog doing real work in space while everyone's distracted by the louder competitor",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 72, color: "#00d9ff" },
