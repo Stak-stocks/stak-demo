@@ -424,7 +424,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					<span className="flex-1 text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Company</span>
 					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-16 text-right">EPS</span>
 					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-[3.5rem] text-right">Rev</span>
-					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-10"></span>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide w-10">Sent.</span>
 				</div>
 			)}
 
