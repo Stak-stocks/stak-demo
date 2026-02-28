@@ -9089,7 +9089,7 @@ export const brands: BrandProfile[] = [
 		ticker: "D",
 		name: "Dominion Energy",
 		bio: "the mid-Atlantic utility reorienting around regulated electric and gas delivery",
-		heroImage: "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&h=600&fit=crop",
+		heroImage: "https://www.marketbeat.com/logos/articles/med_20250213113719_dominion-energy-renewable-energy-lights-up-investo.png",
 		personalityDescription: "The utility simplifying itself after a complicated decade of asset sales and acquisitions",
 		vibes: [
 			{ name: "Clout", emoji: "🏰", value: 60, color: "#00d9ff" },
