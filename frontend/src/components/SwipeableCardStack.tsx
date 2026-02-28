@@ -2,61 +2,25 @@ import { useState, useRef, useEffect, useCallback, type MouseEvent, type TouchEv
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
 import { Clock, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react";
-import { recordSwipe, saveDailySwipeCount } from "@/lib/api";
-
-const DAILY_LIMIT = 20;
-const RESET_HOUR = 9; // 9 AM
+import { recordSwipe } from "@/lib/api";
 
 /* ── Velocity / flick thresholds ── */
 const FLICK_VELOCITY = 0.4;      // px/ms – a quick flick at this speed triggers swipe
 const DISTANCE_THRESHOLD = 60;   // px – slower drags need this distance
 const TAP_TOLERANCE = 8;         // px – below this is a tap, not a drag
 
-interface DailySwipeState {
-	count: number;
-	date: string;
-}
-
-function getTodayKey(): string {
-	const now = new Date();
-	if (now.getHours() < RESET_HOUR) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		return yesterday.toISOString().split("T")[0];
-	}
-	return now.toISOString().split("T")[0];
-}
+const RESET_HOUR = 9; // 9 AM — used only for the countdown timer UI
 
 function getTimeUntilReset(): { hours: number; minutes: number } {
 	const now = new Date();
 	const resetTime = new Date(now);
-
-	if (now.getHours() >= RESET_HOUR) {
-		resetTime.setDate(resetTime.getDate() + 1);
-	}
+	if (now.getHours() >= RESET_HOUR) resetTime.setDate(resetTime.getDate() + 1);
 	resetTime.setHours(RESET_HOUR, 0, 0, 0);
-
 	const diff = resetTime.getTime() - now.getTime();
-	const hours = Math.floor(diff / (1000 * 60 * 60));
-	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-	return { hours, minutes };
-}
-
-function getDailySwipeState(key: string): DailySwipeState {
-	const saved = localStorage.getItem(key);
-	if (saved) {
-		const state: DailySwipeState = JSON.parse(saved);
-		const todayKey = getTodayKey();
-		if (state.date === todayKey) {
-			return state;
-		}
-	}
-	return { count: 0, date: getTodayKey() };
-}
-
-function saveDailySwipeState(state: DailySwipeState, key: string): void {
-	localStorage.setItem(key, JSON.stringify(state));
+	return {
+		hours: Math.floor(diff / (1000 * 60 * 60)),
+		minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+	};
 }
 
 interface SwipeableCardStackProps {
@@ -65,7 +29,10 @@ interface SwipeableCardStackProps {
 	onSwipeRight?: (brand: BrandProfile) => void;
 	onSwipeLeft?: (brand: BrandProfile) => void;
 	onSwipe?: () => void;
-	uid?: string;
+	/** From useSwipeLimit — controls the daily limit screen */
+	hasReachedLimit: boolean;
+	/** From useSwipeLimit — called on every swipe to increment the shared counter */
+	onIncrement: () => void;
 }
 
 export function SwipeableCardStack({
@@ -74,10 +41,9 @@ export function SwipeableCardStack({
 	onSwipeRight,
 	onSwipeLeft,
 	onSwipe,
-	uid = "guest",
+	hasReachedLimit,
+	onIncrement,
 }: SwipeableCardStackProps) {
-	const swipeKey = `daily-swipe-state:${uid}`;
-	const [dailyState, setDailyState] = useState<DailySwipeState>(() => getDailySwipeState(swipeKey));
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
@@ -93,18 +59,9 @@ export function SwipeableCardStack({
 
 	// Update countdown timer every minute
 	useEffect(() => {
-		const interval = setInterval(() => {
-			setTimeUntilReset(getTimeUntilReset());
-			const newState = getDailySwipeState(swipeKey);
-			if (newState.date !== dailyState.date) {
-				setDailyState(newState);
-			}
-		}, 60000);
+		const interval = setInterval(() => setTimeUntilReset(getTimeUntilReset()), 60000);
 		return () => clearInterval(interval);
-	}, [dailyState.date, swipeKey]);
-
-	const remainingCards = DAILY_LIMIT - dailyState.count;
-	const hasReachedLimit = dailyState.count >= DAILY_LIMIT;
+	}, []);
 
 	const visibleBrands = brands.slice(currentIndex, currentIndex + 2);
 
@@ -142,11 +99,7 @@ export function SwipeableCardStack({
 		setDragOffset({ x: exitX, y: 0 });
 
 		recordSwipe(currentBrand.id, direction).catch(() => {});
-
-		const newState = { count: dailyState.count + 1, date: dailyState.date };
-		setDailyState(newState);
-		saveDailySwipeState(newState, swipeKey);
-		saveDailySwipeCount(newState.date, newState.count).catch(() => {});
+		onIncrement();
 		onSwipe?.();
 
 		setTimeout(() => {
@@ -165,7 +118,7 @@ export function SwipeableCardStack({
 			setExitDirection(null);
 			isProcessingSwipe.current = false;
 		}, 280);
-	}, [brands, currentIndex, dailyState, onSwipe, onSwipeRight, onSwipeLeft]);
+	}, [brands, currentIndex, onIncrement, onSwipe, onSwipeRight, onSwipeLeft]);
 
 	/* ── Drag handlers ── */
 	const handleDragStart = (clientX: number, clientY: number) => {

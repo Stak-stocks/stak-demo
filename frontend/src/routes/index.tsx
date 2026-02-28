@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
@@ -8,7 +8,8 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder, getDailySwipeCount, saveDailySwipeCount } from "@/lib/api";
+import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
+import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { useAuth } from "@/context/AuthContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
@@ -19,26 +20,6 @@ import {
 } from "@/components/ui/sheet";
 
 const STAK_CAPACITY = 15;
-const DAILY_SWIPE_LIMIT = 20;
-const SWIPE_RESET_HOUR = 9; // 9 AM
-
-function getDailySwipeTodayKey(): string {
-	const now = new Date();
-	if (now.getHours() < SWIPE_RESET_HOUR) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		return yesterday.toISOString().split("T")[0];
-	}
-	return now.toISOString().split("T")[0];
-}
-
-function hasDailySwipeLimitReached(uid: string): boolean {
-	const key = `daily-swipe-state:${uid}`;
-	const saved = localStorage.getItem(key);
-	if (!saved) return false;
-	const state: { count: number; date: string } = JSON.parse(saved);
-	return state.date === getDailySwipeTodayKey() && state.count >= DAILY_SWIPE_LIMIT;
-}
 
 // Reverse mapping: brand ID → interest categories it belongs to
 const BRAND_TO_CATEGORIES: Record<string, string[]> = {};
@@ -74,17 +55,7 @@ function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
-	const queryClient = useQueryClient();
-
-	// Fetch Firestore swipe count so the daily limit is enforced across devices
-	// staleTime: 0 ensures device 3 always fetches fresh on mount
-	const { data: firestoreSwipeData } = useQuery({
-		queryKey: ["daily-swipes", uid],
-		queryFn: getDailySwipeCount,
-		enabled: !!user,
-		staleTime: 0,
-		retry: 1,
-	});
+	const { hasReachedLimit, increment: incrementSwipe } = useSwipeLimit(uid, !!user);
 
 	// Fetch AI-generated intel cards (falls back to hardcoded set)
 	const { data: intelCardsData } = useQuery({
@@ -347,35 +318,18 @@ function App() {
 		}
 	};
 
-	// Separate handler for search adds — writes to Firestore so count is cross-device
+	// Search adds go through here — uses the shared hook so limit is enforced cross-device
 	const handleAddFromSearch = (brand: BrandProfile) => {
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
-		const todayKey = getDailySwipeTodayKey();
-		const firestoreCount = firestoreSwipeData?.date === todayKey ? (firestoreSwipeData?.count ?? 0) : 0;
-		const localLimitReached = hasDailySwipeLimitReached(uid);
-		const firestoreLimitReached = !!user && firestoreCount >= DAILY_SWIPE_LIMIT;
-
-		if (!alreadyInStak && (firestoreLimitReached || localLimitReached)) {
+		if (!alreadyInStak && hasReachedLimit) {
 			toast.error("Daily limit reached", {
-				description: "You've used all 20 swipes today. Come back tomorrow!",
+				description: `You've used all ${DAILY_SWIPE_LIMIT} swipes today. Come back tomorrow!`,
 				duration: 3000,
 			});
 			return;
 		}
-
-		// Add to stak first
+		if (!alreadyInStak) incrementSwipe();
 		handleSwipeRight(brand);
-
-		// Write updated count to Firestore and refresh the query
-		if (user && !alreadyInStak) {
-			const newCount = firestoreCount + 1;
-			const swipeStateKey = `daily-swipe-state:${uid}`;
-			// Also update localStorage so same-device checks stay in sync
-			localStorage.setItem(swipeStateKey, JSON.stringify({ count: newCount, date: todayKey }));
-			saveDailySwipeCount(todayKey, newCount)
-				.then(() => queryClient.invalidateQueries({ queryKey: ["daily-swipes", uid] }))
-				.catch(() => {});
-		}
 	};
 
 	const handleSwapStock = (brandToRemove: BrandProfile) => {
@@ -443,7 +397,8 @@ function App() {
 					onSwipeRight={handleSwipeRight}
 					onSwipeLeft={handleSwipeLeft}
 					onSwipe={handleSwipe}
-					uid={uid}
+					hasReachedLimit={hasReachedLimit}
+					onIncrement={incrementSwipe}
 				/>
 			</div>
 
