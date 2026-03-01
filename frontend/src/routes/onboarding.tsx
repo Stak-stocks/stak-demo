@@ -190,10 +190,10 @@ function OnboardingPage() {
 						<div
 							key={i}
 							className={`w-2 h-2 rounded-full transition-all duration-300 ${i === step
-									? "bg-orange-400 w-6"
-									: i < step
-										? "bg-orange-400/60"
-										: "bg-slate-600"
+								? "bg-orange-400 w-6"
+								: i < step
+									? "bg-orange-400/60"
+									: "bg-slate-600"
 								}`}
 						/>
 					))}
@@ -274,8 +274,8 @@ function InterestsStep({
 						type="button"
 						onClick={() => onToggle(interest.id)}
 						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${selected.includes(interest.id)
-								? "bg-orange-500/20 border-orange-500 text-white"
-								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
+							? "bg-orange-500/20 border-orange-500 text-white"
+							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-2xl">{interest.emoji}</span>
@@ -523,8 +523,8 @@ function SwipeStep({
 							>
 								<div
 									className={`text-4xl font-black px-6 py-4 rounded-2xl border-4 ${dragOffset.x > 0
-											? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
-											: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
+										? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
+										: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
 										} shadow-2xl backdrop-blur-sm`}
 								>
 									{dragOffset.x > 0 ? "STAKED" : "PASS"}
@@ -548,8 +548,8 @@ function SwipeStep({
 				type="button"
 				onClick={onNext}
 				className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${done
-						? "bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 shadow-orange-500/25"
-						: "bg-slate-700 hover:bg-slate-600 shadow-none"
+					? "bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 shadow-orange-500/25"
+					: "bg-slate-700 hover:bg-slate-600 shadow-none"
 					}`}
 			>
 				{done ? "Continue" : "Skip"}
@@ -582,8 +582,8 @@ function MotivationStep({
 						type="button"
 						onClick={() => onToggle(option.id)}
 						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${selected.includes(option.id)
-								? `${option.color} text-white border border-transparent`
-								: "bg-[#1a2332] text-white border border-slate-700 hover:border-slate-500"
+							? `${option.color} text-white border border-transparent`
+							: "bg-[#1a2332] text-white border border-slate-700 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-lg">{option.icon}</span>
@@ -628,8 +628,8 @@ function FamiliarityStep({
 						type="button"
 						onClick={() => onSelect(option.id)}
 						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${selected === option.id
-								? "bg-orange-500/20 border-orange-500 text-white"
-								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
+							? "bg-orange-500/20 border-orange-500 text-white"
+							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
 						<p className="font-semibold">{option.label}</p>
