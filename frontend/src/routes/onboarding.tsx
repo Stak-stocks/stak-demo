@@ -596,7 +596,7 @@ function MotivationStep({
 				disabled={selected.length === 0}
 				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
-				Next
+				Continue
 			</button>
 		</div>
 	);
