@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import type { BrandProfile } from "@/data/brands";
+import { useState, useEffect, useMemo } from "react";
+import { brands as allBrands, type BrandProfile } from "@/data/brands";
 import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
 import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAccount } from "@/context/AccountContext";
 
 export const Route = createFileRoute("/league_/lineup")({
 	component: LineupBuilderPage,
@@ -12,15 +13,18 @@ export const Route = createFileRoute("/league_/lineup")({
 
 function LineupBuilderPage() {
 	const navigate = useNavigate();
+	const { account } = useAccount();
 	const [leagueState, setLeagueState] = useState<LeagueState>(() => {
 		const saved = localStorage.getItem("league-state");
 		return saved ? JSON.parse(saved) : INITIAL_LEAGUE_STATE;
 	});
 
-	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
-		const saved = localStorage.getItem("my-stak");
-		return saved ? JSON.parse(saved) : [];
-	});
+	const swipedBrands = useMemo<BrandProfile[]>(() => {
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		return (account?.stakBrandIds ?? [])
+			.map((id) => brandMap.get(id))
+			.filter(Boolean) as BrandProfile[];
+	}, [account?.stakBrandIds]);
 
 	const [selectedStarters, setSelectedStarters] = useState<BrandProfile[]>(
 		leagueState.currentLineup?.starters || [],
@@ -38,14 +42,6 @@ function LineupBuilderPage() {
 		}
 		localStorage.setItem("league-state", JSON.stringify(updatedState));
 	}, [selectedStarters]);
-
-	// Debug: Log MyStak load status
-	useEffect(() => {
-		console.log("[League Lineup] MyStak loaded:", {
-			count: swipedBrands.length,
-			brands: swipedBrands.map((b) => b.ticker),
-		})
-	}, [swipedBrands]);
 
 	// Add card to next available slot
 	const handleAddStarter = (brand: BrandProfile) => {
