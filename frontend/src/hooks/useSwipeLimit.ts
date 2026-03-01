@@ -1,20 +1,20 @@
 /**
- * useSwipeLimit — single source of truth for the daily swipe counter.
+ * useSwipeLimit — daily swipe counter derived from AccountContext.
  *
- * - On mount: fetches Firestore count (account-based, cross-device).
- *   Takes the higher of Firestore vs localStorage so offline swipes
- *   are never lost, then syncs whichever side is behind.
- * - increment(): updates state + localStorage + Firestore atomically.
- * - For guests (not logged in): localStorage only.
+ * For logged-in users: reads from account.dailySwipeState (real-time Firestore).
+ * For guests: localStorage only.
+ *
+ * Writes for logged-in users go through AccountContext.incrementSwipeCount()
+ * which writes directly to Firestore — no separate API call needed.
  */
 
-import { useState, useCallback, useEffect } from "react";
-import { getDailySwipeCount, saveDailySwipeCount } from "@/lib/api";
+import { useState, useCallback } from "react";
+import { useAccount } from "@/context/AccountContext";
 
 export const DAILY_SWIPE_LIMIT = 20;
 const RESET_HOUR = 9; // 9 AM local time
 
-// ── Date key (resets at 9 AM, same logic as before) ──────────────────────────
+// ── Date key (resets at 9 AM) ─────────────────────────────────────────────────
 
 export function getSwipeTodayKey(): string {
 	const now = new Date();
@@ -26,7 +26,7 @@ export function getSwipeTodayKey(): string {
 	return now.toISOString().split("T")[0];
 }
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
+// ── localStorage helpers (guest path only) ────────────────────────────────────
 
 function localStorageKey(uid: string) {
 	return `daily-swipe-state:${uid}`;
@@ -56,69 +56,43 @@ interface SwipeLimitResult {
 	count: number;
 	remaining: number;
 	hasReachedLimit: boolean;
-	/** Call once per swipe (card deck or search add). Writes to localStorage + Firestore. */
+	/** Call once per swipe (card deck or search add). */
 	increment: () => void;
-	/** True once the Firestore fetch has resolved (or failed). */
+	/** True once account data is loaded. */
 	loaded: boolean;
 }
 
 export function useSwipeLimit(uid: string, isLoggedIn: boolean): SwipeLimitResult {
+	const { account, accountLoading, incrementSwipeCount } = useAccount();
 	const todayKey = getSwipeTodayKey();
-	const [count, setCount] = useState<number>(() => readLocalCount(uid));
-	const [loaded, setLoaded] = useState(!isLoggedIn); // guests are immediately "loaded"
 
-	// On mount (or on login), fetch Firestore and reconcile with localStorage
-	useEffect(() => {
-		if (!isLoggedIn) {
-			setCount(readLocalCount(uid));
-			setLoaded(true);
-			return;
-		}
+	// Guest-only local counter
+	const [guestCount, setGuestCount] = useState<number>(() =>
+		isLoggedIn ? 0 : readLocalCount(uid),
+	);
 
-		setLoaded(false);
-		getDailySwipeCount()
-			.then((data) => {
-				const firestoreCount = data?.date === todayKey ? (data.count ?? 0) : 0;
-				const localCount = readLocalCount(uid);
-				// Use the higher — protects against offline swipes being lost
-				const resolved = Math.max(firestoreCount, localCount);
-				setCount(resolved);
-				writeLocalCount(uid, resolved);
-				// Sync whichever side is behind
-				if (localCount > firestoreCount) {
-					saveDailySwipeCount(todayKey, resolved).catch(() => {});
-				}
-			})
-			.catch(() => {
-				// Offline / error — fall back to localStorage
-				setCount(readLocalCount(uid));
-			})
-			.finally(() => setLoaded(true));
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [uid, isLoggedIn]);
+	let count: number;
+	if (!isLoggedIn) {
+		count = guestCount;
+	} else if (account?.dailySwipeState?.date === todayKey) {
+		count = account.dailySwipeState.count ?? 0;
+	} else {
+		count = 0;
+	}
 
-	// Reset counter when the day rolls over (checked every minute)
-	useEffect(() => {
-		const interval = setInterval(() => {
-			const currentKey = getSwipeTodayKey();
-			if (currentKey !== todayKey) {
-				setCount(0);
-				writeLocalCount(uid, 0);
-			}
-		}, 60_000);
-		return () => clearInterval(interval);
-	}, [uid, todayKey]);
+	const loaded = isLoggedIn ? !accountLoading : true;
 
 	const increment = useCallback(() => {
-		setCount((prev) => {
-			const next = prev + 1;
-			writeLocalCount(uid, next);
-			if (isLoggedIn) {
-				saveDailySwipeCount(getSwipeTodayKey(), next).catch(() => {});
-			}
-			return next;
-		});
-	}, [uid, isLoggedIn]);
+		if (isLoggedIn) {
+			incrementSwipeCount().catch(() => {});
+		} else {
+			setGuestCount((prev) => {
+				const next = prev + 1;
+				writeLocalCount(uid, next);
+				return next;
+			});
+		}
+	}, [isLoggedIn, incrementSwipeCount, uid]);
 
 	return {
 		count,

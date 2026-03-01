@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import { brands, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { saveStak, getLiveTrends, getStockData } from "@/lib/api";
+import { getLiveTrends, getStockData } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
+import { useAccount } from "@/context/AccountContext";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
@@ -96,12 +97,21 @@ function StakCard({
 }
 
 function MyStakPage() {
+	const { account, updateStak } = useAccount();
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [dragY, setDragY] = useState(0);
 	const dragging = useRef(false);
 	const startY = useRef(0);
 	const startTime = useRef(0);
+
+	// Derive stak from Firestore account (real-time, cross-device)
+	const swipedBrands = useMemo(() => {
+		const brandMap = new Map(brands.map((b) => [b.id, b]));
+		return (account?.stakBrandIds ?? [])
+			.map((id) => brandMap.get(id))
+			.filter(Boolean) as BrandProfile[];
+	}, [account?.stakBrandIds]);
 
 	const handleDragStart = useCallback((clientY: number) => {
 		dragging.current = true;
@@ -143,11 +153,6 @@ function MyStakPage() {
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 	});
 
-	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
-		const saved = localStorage.getItem("my-stak");
-		return saved ? JSON.parse(saved) : [];
-	});
-
 	const queryClient = useQueryClient();
 
 	// Prefetch trends for all stak brands on load so data is ready before user clicks
@@ -160,16 +165,6 @@ function MyStakPage() {
 			});
 		});
 	}, [swipedBrands, queryClient]);
-
-	// Re-sync stak from localStorage when updated elsewhere (e.g. search overlay)
-	useEffect(() => {
-		const handler = () => {
-			const saved = localStorage.getItem("my-stak");
-			setSwipedBrands(saved ? JSON.parse(saved) : []);
-		};
-		window.addEventListener('stak-updated', handler);
-		return () => window.removeEventListener('stak-updated', handler);
-	}, []);
 
 	// Lock background scroll when overlay is open
 	useEffect(() => {
@@ -190,29 +185,20 @@ function MyStakPage() {
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
-		setSwipedBrands((prev) => {
-			if (!prev.find((b) => b.id === brand.id)) {
-				toast.success("Added to your Stak", {
-					description: brand.name,
-					duration: 2000,
-				});
-				const updated = [...prev, brand];
-				localStorage.setItem("my-stak", JSON.stringify(updated));
-				saveStak(updated.map((b) => b.id)).catch(() => {});
-				return updated;
-			}
-			return prev;
-		});
+		if (!swipedBrands.find((b) => b.id === brand.id)) {
+			toast.success("Added to your Stak", {
+				description: brand.name,
+				duration: 2000,
+			});
+			const updatedIds = [...(account?.stakBrandIds ?? []), brand.id];
+			updateStak(updatedIds).catch(() => {});
+		}
 	};
 
 	const handleRemoveFromStak = (e: React.MouseEvent, brand: BrandProfile) => {
 		e.stopPropagation();
-		setSwipedBrands((prev) => {
-			const updated = prev.filter((b) => b.id !== brand.id);
-			localStorage.setItem("my-stak", JSON.stringify(updated));
-			saveStak(updated.map((b) => b.id)).catch(() => {});
-			return updated;
-		});
+		const updatedIds = (account?.stakBrandIds ?? []).filter((id) => id !== brand.id);
+		updateStak(updatedIds).catch(() => {});
 		toast.success("Removed from your Stak", {
 			description: brand.name,
 			duration: 2000,

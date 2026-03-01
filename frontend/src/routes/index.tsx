@@ -8,9 +8,11 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { saveStak, savePassedBrands, getStak, getPassedBrands, getIntelCards, getIntelState, saveIntelState, saveDeckOrder } from "@/lib/api";
+import { getIntelCards } from "@/lib/api";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { useAuth } from "@/context/AuthContext";
+import { useAccount } from "@/context/AccountContext";
+import type { PassedEntry } from "@/context/AccountContext";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	Sheet,
@@ -46,11 +48,10 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState } = useAccount();
 	const uid = user?.uid ?? "guest";
 	const SWIPE_KEY = `swipes-since-intel:${uid}`;
 	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
-	const INTEL_QUEUE_KEY = `intel-card-queue:${uid}`;
-	const DECK_KEY = `stak-deck-order:${uid}`;
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -70,183 +71,118 @@ function App() {
 		[intelCardsData],
 	);
 
-	// Shuffled queue — persisted in localStorage so no card repeats until all seen
+	// Intel card state — persisted in Firestore via AccountContext
 	const intelQueue = useRef<string[]>([]);
 	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
 	const swipesSinceIntel = useRef(parseInt(localStorage.getItem(SWIPE_KEY) ?? "0", 10));
 
-	// Load or initialise the queue from localStorage
+	// Initialise intel queue from account (Firestore) — only on allIntelCards change
+	// account is guaranteed loaded here (accountLoading gated in __root.tsx)
 	useEffect(() => {
 		if (allIntelCards.length === 0) return;
-		const saved = localStorage.getItem(INTEL_QUEUE_KEY);
-		const remaining: string[] = saved ? JSON.parse(saved) : [];
-		// If queue is empty (first time or fully exhausted), build a new shuffled one
-		if (remaining.length === 0) {
-			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
+
+		const intelState = account?.intelCardState;
+		if (intelState?.queue?.length) {
+			intelQueue.current = intelState.queue;
 		} else {
-			intelQueue.current = remaining;
+			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
 		}
+		intelReadIds.current = intelState?.readIds ?? [];
+
+		// Mirror lastDate to localStorage for fast same-tab read in handleSwipe
+		if (intelState?.lastDate) {
+			localStorage.setItem(INTEL_DATE_KEY, intelState.lastDate);
+		} else {
+			localStorage.removeItem(INTEL_DATE_KEY);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [allIntelCards]);
 
-	// Seed local state from Firestore on mount so queue stays in sync across devices
-	useEffect(() => {
-		getIntelState()
-			.then(({ lastDate, queue, readIds }) => {
-				if (lastDate) {
-					localStorage.setItem(INTEL_DATE_KEY, lastDate);
-				} else {
-					// New or re-created account — clear any stale state left from a previous account
-					localStorage.removeItem(INTEL_DATE_KEY);
-					localStorage.removeItem(INTEL_QUEUE_KEY);
-					intelQueue.current = INTEL_CARDS.map((c) => c.id).sort(() => Math.random() - 0.5);
-				}
-				if (queue.length > 0) {
-					localStorage.setItem(INTEL_QUEUE_KEY, JSON.stringify(queue));
-					intelQueue.current = queue;
-				}
-				intelReadIds.current = readIds ?? [];
-			})
-			.catch(() => {}); // Not authenticated or offline — local state persists
-	}, [INTEL_DATE_KEY, INTEL_QUEUE_KEY]);
-
+	// ── Stak — initialised from Firestore account ──────────────────────────────
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
-		const saved = localStorage.getItem("my-stak");
-		return saved ? JSON.parse(saved) : [];
+		const brandMap = new Map(brands.map((b) => [b.id, b]));
+		return (account?.stakBrandIds ?? [])
+			.map((id) => brandMap.get(id))
+			.filter(Boolean) as BrandProfile[];
 	});
 	const [swapPickerOpen, setSwapPickerOpen] = useState(false);
 	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
 
-	// Track left-swiped (passed) brands so they don't reappear on navigation
-	// Passed brands expire after 2 days so users get another chance
+	// ── Passed brands — initialised from Firestore account ────────────────────
 	const [passedBrandIds, setPassedBrandIds] = useState<Set<string>>(() => {
-		const saved = localStorage.getItem("passed-brands");
-		if (!saved) return new Set();
-		const entries: { id: string; at: number }[] = JSON.parse(saved);
+		const entries = account?.passedBrands ?? [];
 		const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
 		const active = entries.filter((e) => e.at > twoDaysAgo);
-		if (active.length !== entries.length) {
-			localStorage.setItem("passed-brands", JSON.stringify(active));
-		}
 		return new Set(active.map((e) => e.id));
 	});
 
-	// Compute stable recommended brand order once — persisted in localStorage (user-specific)
-	// and synced to Firestore so all devices show the same deck order.
+	// Ref keeps the latest passed entries for use in stable callbacks
+	const passedEntriesRef = useRef<PassedEntry[]>(account?.passedBrands ?? []);
+	useEffect(() => {
+		passedEntriesRef.current = account?.passedBrands ?? [];
+	}, [account?.passedBrands]);
+
+	// ── Deck order — initialised from Firestore account ───────────────────────
 	const [recommendedOrder] = useState<BrandProfile[]>(() => {
-		// Check localStorage for a previously synced or computed order
-		const cached = localStorage.getItem(DECK_KEY);
-		if (cached) {
-			try {
-				const ids: string[] = JSON.parse(cached);
-				const brandMap = new Map(brands.map((b) => [b.id, b]));
-				const restored = ids.map((id) => brandMap.get(id)).filter(Boolean) as BrandProfile[];
-				if (restored.length === brands.length) return restored;
-			} catch { /* fall through to recompute */ }
+		// Use saved deck order from Firestore if available
+		const deckOrder = account?.deckOrder;
+		if (deckOrder?.length) {
+			const brandMap = new Map(brands.map((b) => [b.id, b]));
+			const restored = deckOrder
+				.map((id) => brandMap.get(id))
+				.filter(Boolean) as BrandProfile[];
+			if (restored.length === brands.length) return restored;
 		}
 
-		const interests: string[] = JSON.parse(
-			localStorage.getItem("user-interests") || "[]",
-		);
-
+		// Compute personalised order from user's interests
+		const interests: string[] = account?.preferences?.interests ?? [];
 		let order: BrandProfile[];
 
-		// No interests saved — just shuffle everything
 		if (interests.length === 0) {
 			order = shuffleArray(brands);
 		} else {
-			// Tier 1: Direct interest matches
 			const interestBrandIds = new Set(
 				interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []),
 			);
-
-			// Find expanded categories (all categories that interest brands belong to)
 			const expandedCategories = new Set<string>();
 			for (const id of interestBrandIds) {
 				(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCategories.add(c));
 			}
-
-			// Tier 2: Brands in adjacent categories but not direct interest matches
 			const adjacentBrandIds = new Set<string>();
 			for (const cat of expandedCategories) {
 				(INTEREST_TO_BRANDS[cat] || []).forEach((id) => {
 					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
 				});
 			}
-
 			const tier1 = brands.filter((b) => interestBrandIds.has(b.id));
 			const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id));
 			const tier3 = brands.filter(
 				(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id),
 			);
-
 			const shuffled1 = shuffleArray(tier1);
 			const shuffled2 = shuffleArray(tier2);
 			const shuffled3 = shuffleArray(tier3);
-
 			order = [
 				...shuffled1.slice(0, 5),
 				...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
 				...shuffled3,
 			];
 		}
-
-		// Persist the order cross-session and sync to Firestore for cross-device consistency
-		const ids = order.map((b) => b.id);
-		localStorage.setItem(DECK_KEY, JSON.stringify(ids));
-		saveDeckOrder(ids).catch(() => {});
 		return order;
-	});
+	});
 
-
-		useEffect(() => {
-		localStorage.setItem("my-stak", JSON.stringify(swipedBrands));
-		saveStak(swipedBrands.map((b) => b.id)).catch(() => {});
-		globalThis.dispatchEvent(new CustomEvent('stak-updated'));
-	}, [swipedBrands]);
-
-	// Re-sync stak + passed brands from Firestore when the tab comes back into focus.
-	// This keeps the deck position current across devices without a full page refresh.
+	// Save newly-computed deck order to Firestore on first mount (if none was saved)
+	const hasSavedDeckOrder = !!(account?.deckOrder?.length);
 	useEffect(() => {
-		if (!user) return;
-
-		async function syncOnVisible() {
-			if (document.visibilityState !== "visible") return;
-			try {
-				const [stakResult, passedResult] = await Promise.allSettled([
-					getStak(),
-					getPassedBrands(),
-				]);
-
-				if (stakResult.status === "fulfilled") {
-					const { brandIds } = stakResult.value;
-					if (brandIds.length > 0) {
-						const stakBrands = brandIds
-							.map((id) => brands.find((b) => b.id === id))
-							.filter(Boolean) as typeof brands;
-						localStorage.setItem("my-stak", JSON.stringify(stakBrands));
-						setSwipedBrands(stakBrands);
-					}
-				}
-
-				if (passedResult.status === "fulfilled") {
-					const { entries } = passedResult.value;
-					if (entries.length > 0) {
-						const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
-						const active = entries.filter((e: { id: string; at: number }) => e.at > twoDaysAgo);
-						localStorage.setItem("passed-brands", JSON.stringify(active));
-						setPassedBrandIds(new Set(active.map((e: { id: string; at: number }) => e.id)));
-					}
-				}
-			} catch { /* offline or unauthenticated — keep current state */ }
+		if (!hasSavedDeckOrder) {
+			updateDeckOrder(recommendedOrder.map((b) => b.id)).catch(() => {});
 		}
-
-		document.addEventListener("visibilitychange", syncOnVisible);
-		return () => document.removeEventListener("visibilitychange", syncOnVisible);
-	}, [user]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const handleSwipe = useCallback(() => {
-		// Update daily streak (once per day, regardless of intel card timing)
+		// Update daily streak (once per day)
 		const swipeDay = new Date().toISOString().split("T")[0];
 		const streakRaw = localStorage.getItem("stak-streak");
 		const streakData: { date: string; count: number } = streakRaw ? JSON.parse(streakRaw) : { date: "", count: 0 };
@@ -256,7 +192,7 @@ function App() {
 			localStorage.setItem("stak-streak", JSON.stringify({ date: swipeDay, count: newCount }));
 		}
 
-		// Trigger after every 5th swipe, but at most once per day
+		// Trigger intel card after every 5th swipe, at most once per day
 		swipesSinceIntel.current += 1;
 		localStorage.setItem(SWIPE_KEY, String(swipesSinceIntel.current));
 		if (swipesSinceIntel.current < 5) return;
@@ -264,31 +200,28 @@ function App() {
 		localStorage.setItem(SWIPE_KEY, "0");
 
 		const today = new Date().toISOString().split("T")[0];
-
-		// Only show one intel card per day per account
 		const lastIntelDate = localStorage.getItem(INTEL_DATE_KEY);
 		if (lastIntelDate === today) return;
 
-		// If queue exhausted, reshuffle all cards into a new random order
 		if (intelQueue.current.length === 0) {
 			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
 		}
 
 		const nextId = intelQueue.current.shift()!;
-		localStorage.setItem(INTEL_QUEUE_KEY, JSON.stringify(intelQueue.current));
-
-		// Track as read for the Intel Library on the profile page
 		if (!intelReadIds.current.includes(nextId)) {
 			intelReadIds.current = [...intelReadIds.current, nextId];
 		}
 
-		// Persist to Firestore so other devices stay in sync + mark today as shown
 		localStorage.setItem(INTEL_DATE_KEY, today);
-		saveIntelState(today, intelQueue.current, intelReadIds.current).catch(() => {});
+		updateIntelState({
+			lastDate: today,
+			queue: intelQueue.current,
+			readIds: intelReadIds.current,
+		}).catch(() => {});
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
-	}, [allIntelCards]);
+	}, [allIntelCards, SWIPE_KEY, INTEL_DATE_KEY, updateIntelState]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
@@ -296,29 +229,27 @@ function App() {
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
-		// Check if already in stak before showing toast (avoid duplicate toasts from StrictMode)
-		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
-		if (!alreadyInStak) {
-			// Check if at capacity
-			if (swipedBrands.length >= STAK_CAPACITY) {
-				// Store the pending brand and open swap picker
-				setPendingBrand(brand);
-				setSwapPickerOpen(true);
-				toast.info("Your Stak is full!", {
-					description: "Pick a stock to swap out",
-					duration: 2000,
-				});
-			} else {
-				toast.success("Added to your Stak", {
-					description: brand.name,
-					duration: 2000,
-				});
-				setSwipedBrands((prev) => [...prev, brand]);
-			}
+		if (swipedBrands.find((b) => b.id === brand.id)) return;
+
+		if (swipedBrands.length >= STAK_CAPACITY) {
+			setPendingBrand(brand);
+			setSwapPickerOpen(true);
+			toast.info("Your Stak is full!", {
+				description: "Pick a stock to swap out",
+				duration: 2000,
+			});
+		} else {
+			toast.success("Added to your Stak", {
+				description: brand.name,
+				duration: 2000,
+			});
+			const updated = [...swipedBrands, brand];
+			setSwipedBrands(updated);
+			updateStak(updated.map((b) => b.id)).catch(() => {});
 		}
 	};
 
-	// Search adds go through here — uses the shared hook so limit is enforced cross-device
+	// Search adds: enforce limit cross-device via AccountContext
 	const handleAddFromSearch = (brand: BrandProfile) => {
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
 		if (!alreadyInStak && hasReachedLimit) {
@@ -334,36 +265,28 @@ function App() {
 
 	const handleSwapStock = (brandToRemove: BrandProfile) => {
 		if (!pendingBrand) return;
-
-		setSwipedBrands((prev) => {
-			const filtered = prev.filter((b) => b.id !== brandToRemove.id);
-			return [...filtered, pendingBrand];
-		});
-
+		const updated = [
+			...swipedBrands.filter((b) => b.id !== brandToRemove.id),
+			pendingBrand,
+		];
+		setSwipedBrands(updated);
+		updateStak(updated.map((b) => b.id)).catch(() => {});
 		toast.success(`Swapped ${brandToRemove.name} for ${pendingBrand.name}`, {
 			duration: 2000,
 		});
-
 		setPendingBrand(null);
 		setSwapPickerOpen(false);
 	};
 
-	const handleSwipeLeft = (brand: BrandProfile) => {
-		setPassedBrandIds((prev) => {
-			const next = new Set(prev);
-			next.add(brand.id);
-			// Persist with timestamps for 2-day expiry
-			const saved = localStorage.getItem("passed-brands");
-			const entries: { id: string; at: number }[] = saved ? JSON.parse(saved) : [];
-			if (!entries.some((e) => e.id === brand.id)) {
-				entries.push({ id: brand.id, at: Date.now() });
-			}
-			localStorage.setItem("passed-brands", JSON.stringify(entries));
-			// Sync to backend for cross-device persistence
-			savePassedBrands(entries).catch(() => {});
-			return next;
-		});
-	};
+	const handleSwipeLeft = useCallback((brand: BrandProfile) => {
+		setPassedBrandIds((prev) => new Set([...prev, brand.id]));
+		const existing = passedEntriesRef.current;
+		if (!existing.some((e) => e.id === brand.id)) {
+			const updated = [...existing, { id: brand.id, at: Date.now() }];
+			passedEntriesRef.current = updated;
+			updatePassedBrands(updated).catch(() => {});
+		}
+	}, [updatePassedBrands]);
 
 	const handleCancelSwap = () => {
 		setPendingBrand(null);

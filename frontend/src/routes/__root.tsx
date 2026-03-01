@@ -4,6 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -11,7 +12,6 @@ import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import type { BrandProfile } from "@/data/brands";
-import { saveStak } from "@/lib/api";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -21,8 +21,23 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 	return <>{children}</>;
 }
 
+// Date key for daily swipe reset at 9 AM
+function getTodayKey(): string {
+	const now = new Date();
+	if (now.getHours() < 9) {
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		return yesterday.toISOString().split("T")[0];
+	}
+	return now.toISOString().split("T")[0];
+}
+
+const DAILY_SWIPE_LIMIT = 20;
+const STAK_CAPACITY = 15;
+
 function Root() {
 	const { user, loading, logout } = useAuth();
+	const { account, accountLoading, updateStak, incrementSwipeCount } = useAccount();
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -38,50 +53,35 @@ function Root() {
 	}, [location.pathname]);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
-		const saved = localStorage.getItem("my-stak");
-		const stak: BrandProfile[] = saved ? JSON.parse(saved) : [];
-		if (stak.some((b) => b.id === brand.id)) {
+		const stakIds = account?.stakBrandIds ?? [];
+		if (stakIds.includes(brand.id)) {
 			toast.info("Already in your Stak", { description: brand.name, duration: 2000 });
 			return;
 		}
-		if (stak.length >= 15) {
+		if (stakIds.length >= STAK_CAPACITY) {
 			toast.error("Your Stak is full!", { description: "Remove a stock first (max 15)", duration: 2000 });
 			return;
 		}
-		const swipeKey = `daily-swipe-state:${user?.uid ?? "guest"}`;
-		const swipeStateRaw = localStorage.getItem(swipeKey);
-		const todayKey = (() => {
-			const now = new Date();
-			if (now.getHours() < 9) {
-				const yesterday = new Date(now);
-				yesterday.setDate(yesterday.getDate() - 1);
-				return yesterday.toISOString().split("T")[0];
-			}
-			return now.toISOString().split("T")[0];
-		})();
-		const swipeState = swipeStateRaw
-			? (() => { const s = JSON.parse(swipeStateRaw); return s.date === todayKey ? s : { count: 0, date: todayKey }; })()
-			: { count: 0, date: todayKey };
-		if (swipeState.count >= 20) {
+		const today = getTodayKey();
+		const swipeState = account?.dailySwipeState;
+		const swipeCount = swipeState?.date === today ? (swipeState.count ?? 0) : 0;
+		if (swipeCount >= DAILY_SWIPE_LIMIT) {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
-		localStorage.setItem(swipeKey, JSON.stringify({ count: swipeState.count + 1, date: todayKey }));
-		const updated = [...stak, brand];
-		localStorage.setItem("my-stak", JSON.stringify(updated));
-		saveStak(updated.map((b) => b.id)).catch(() => {});
-		window.dispatchEvent(new CustomEvent('stak-updated'));
+		updateStak([...stakIds, brand.id]).catch(() => {});
+		incrementSwipeCount().catch(() => {});
 		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
-	}, []);
+	}, [account, updateStak, incrementSwipeCount]);
 
 	useEffect(() => {
-		if (!loading && !user && !isAuthPage) {
+		if (!loading && !accountLoading && !user && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && user && !isAuthPage && localStorage.getItem("onboardingCompleted") === "false") {
+		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted === false) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [user, loading, isAuthPage, navigate]);
+	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -90,7 +90,7 @@ function Root() {
 		}
 	}, []);
 
-	if (loading) {
+	if (loading || accountLoading) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />

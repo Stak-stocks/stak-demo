@@ -12,41 +12,7 @@ const searchIndex = brands.map((b) => ({
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
-
-const RECENT_SEARCHES_PREFIX = "recent-searches";
-const MAX_RECENT_SEARCHES = 5;
-
-function getStorageKey(uid: string | undefined) {
-	return uid ? `${RECENT_SEARCHES_PREFIX}-${uid}` : RECENT_SEARCHES_PREFIX;
-}
-
-function getRecentSearches(uid: string | undefined): string[] {
-	try {
-		const saved = localStorage.getItem(getStorageKey(uid));
-		return saved ? JSON.parse(saved) : [];
-	} catch {
-		return [];
-	}
-}
-
-function saveRecentSearch(brandName: string, uid: string | undefined) {
-	const trimmed = brandName.trim();
-	if (!trimmed) return;
-	const key = getStorageKey(uid);
-	const recent = getRecentSearches(uid).filter((s) => s.toLowerCase() !== trimmed.toLowerCase());
-	recent.unshift(trimmed);
-	localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT_SEARCHES)));
-}
-
-function removeRecentSearch(brandName: string, uid: string | undefined) {
-	const key = getStorageKey(uid);
-	const recent = getRecentSearches(uid).filter((s) => s.toLowerCase() !== brandName.toLowerCase());
-	localStorage.setItem(key, JSON.stringify(recent));
-}
-
-function clearRecentSearches(uid: string | undefined) {
-	localStorage.removeItem(getStorageKey(uid));
-}
+import { useAccount } from "@/context/AccountContext";
 
 interface SearchViewProps {
 	open: boolean;
@@ -56,20 +22,16 @@ interface SearchViewProps {
 
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const { user } = useAuth();
+	const { account, addSearchHistory, removeSearchHistoryEntry, clearSearchHistory } = useAccount();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [results, setResults] = useState<BrandProfile[]>([]);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
-	const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-	// Load recent searches when opening (no auto-focus — avoids iOS caret bug)
-	useEffect(() => {
-		if (open) {
-			setRecentSearches(getRecentSearches(user?.uid));
-		}
-	}, [open, user?.uid]);
+	// Recent searches from Firestore (account-based, cross-device)
+	const recentSearches = (account?.searchHistory ?? []).map((e) => e.query);
 
 	// Prevent pull-to-refresh / overscroll on the page behind the search overlay
 	useEffect(() => {
@@ -84,7 +46,6 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	}, [open]);
 
 	// On iOS, blur the input whenever a touch begins *outside* the input.
-	// This hides the caret before any scroll/overscroll can shift it.
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: TouchEvent) => {
@@ -126,10 +87,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		setResults(filtered);
 	}, [debouncedQuery]);
 
-	// Save clicked brand name to recent searches
+	// Save clicked brand name to search history (Firestore via AccountContext)
 	const handleLearnMore = useCallback((brand: BrandProfile) => {
-		saveRecentSearch(brand.name, user?.uid);
-		setRecentSearches(getRecentSearches(user?.uid));
+		if (user) {
+			addSearchHistory(brand.name).catch(() => {});
+		}
 		if (modalOpen && selectedBrand?.id === brand.id) {
 			setModalOpen(false);
 			setTimeout(() => setSelectedBrand(null), 200);
@@ -137,7 +99,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 			setSelectedBrand(brand);
 			setModalOpen(true);
 		}
-	}, [user?.uid, modalOpen, selectedBrand]);
+	}, [user, addSearchHistory, modalOpen, selectedBrand]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
@@ -149,13 +111,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	};
 
 	const handleRemoveRecent = (search: string) => {
-		removeRecentSearch(search, user?.uid);
-		setRecentSearches(getRecentSearches(user?.uid));
+		removeSearchHistoryEntry(search).catch(() => {});
 	};
 
 	const handleClearRecent = () => {
-		clearRecentSearches(user?.uid);
-		setRecentSearches([]);
+		clearSearchHistory().catch(() => {});
 	};
 
 	if (!open) return null;
