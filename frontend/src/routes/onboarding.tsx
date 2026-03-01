@@ -189,13 +189,12 @@ function OnboardingPage() {
 					{[1, 2, 3, 4].map((i) => (
 						<div
 							key={i}
-							className={`w-2 h-2 rounded-full transition-all duration-300 ${
-								i === step
+							className={`w-2 h-2 rounded-full transition-all duration-300 ${i === step
 									? "bg-orange-400 w-6"
 									: i < step
 										? "bg-orange-400/60"
 										: "bg-slate-600"
-							}`}
+								}`}
 						/>
 					))}
 				</div>
@@ -274,11 +273,10 @@ function InterestsStep({
 						key={interest.id}
 						type="button"
 						onClick={() => onToggle(interest.id)}
-						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${
-							selected.includes(interest.id)
+						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${selected.includes(interest.id)
 								? "bg-orange-500/20 border-orange-500 text-white"
 								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
-						}`}
+							}`}
 					>
 						<span className="text-2xl">{interest.emoji}</span>
 						<span className="text-xs font-medium">{interest.label}</span>
@@ -524,11 +522,10 @@ function SwipeStep({
 								style={{ opacity: Math.min(Math.abs(dragOffset.x) / 80, 1) }}
 							>
 								<div
-									className={`text-4xl font-black px-6 py-4 rounded-2xl border-4 ${
-										dragOffset.x > 0
+									className={`text-4xl font-black px-6 py-4 rounded-2xl border-4 ${dragOffset.x > 0
 											? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
 											: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
-									} shadow-2xl backdrop-blur-sm`}
+										} shadow-2xl backdrop-blur-sm`}
 								>
 									{dragOffset.x > 0 ? "STAKED" : "PASS"}
 								</div>
@@ -550,11 +547,10 @@ function SwipeStep({
 			<button
 				type="button"
 				onClick={onNext}
-				className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${
-					done
+				className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${done
 						? "bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 shadow-orange-500/25"
 						: "bg-slate-700 hover:bg-slate-600 shadow-none"
-				}`}
+					}`}
 			>
 				{done ? "Continue" : "Skip"}
 			</button>
@@ -585,11 +581,10 @@ function MotivationStep({
 						key={option.id}
 						type="button"
 						onClick={() => onToggle(option.id)}
-						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${
-							selected.includes(option.id)
+						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${selected.includes(option.id)
 								? `${option.color} text-white border border-transparent`
 								: "bg-[#1a2332] text-white border border-slate-700 hover:border-slate-500"
-						}`}
+							}`}
 					>
 						<span className="text-lg">{option.icon}</span>
 						<span className="font-medium">{option.label}</span>
@@ -632,11 +627,10 @@ function FamiliarityStep({
 						key={option.id}
 						type="button"
 						onClick={() => onSelect(option.id)}
-						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${
-							selected === option.id
+						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${selected === option.id
 								? "bg-orange-500/20 border-orange-500 text-white"
 								: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
-						}`}
+							}`}
 					>
 						<p className="font-semibold">{option.label}</p>
 					</button>
@@ -708,19 +702,19 @@ function BuildingStep({
 			...(familiarity ? { familiarity } : {}),
 			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
 		};
-		updatePreferences(prefs).catch(() => {});
+		updatePreferences(prefs).catch(() => { });
 
 		// Clear any stale deckOrder from previous sessions so index.tsx always
 		// recomputes the deck from the freshly-written preferences above.
-		updateDeckOrder([]).catch(() => {});
+		updateDeckOrder([]).catch(() => { });
 
 		// Also sync via REST so the backend Admin SDK record is up to date
-		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => {});
+		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => { });
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
 		return () => clearTimeout(enterTimer);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Revolving logic — rotate positions around the orbit
