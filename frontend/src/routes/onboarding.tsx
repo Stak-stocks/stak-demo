@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
-import { updateProfile, saveStak, savePassedBrands } from "@/lib/api";
+import { updateProfile } from "@/lib/api";
+import { useAccount } from "@/context/AccountContext";
 
 import {
 	INTEREST_OPTIONS,
@@ -660,6 +661,7 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
+	const { updateStak } = useAccount();
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -688,22 +690,24 @@ function BuildingStep({
 		sessionStorage.removeItem("stak-deck-order");
 		localStorage.removeItem("passed-brands");
 
-		// Start with an empty stak — users add stocks from Discover
-		localStorage.setItem("my-stak", JSON.stringify([]));
 		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
-		// Sync to backend (fire-and-forget)
+		// Seed initial Stak with brands the user liked during onboarding
+		if (swipedBrandIds.length > 0) {
+			updateStak(swipedBrandIds.slice(0, 15)).catch(() => {});
+		}
+
+		// Sync profile to Firestore (fire-and-forget)
 		updateProfile({
 			onboardingCompleted: true,
 			preferences: { interests: selectedInterests, ...(familiarity ? { familiarity } : {}) },
 		}).catch(() => {});
-		saveStak([]).catch(() => {});
-		savePassedBrands([]).catch(() => {});
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
 		return () => clearTimeout(enterTimer);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Revolving logic — rotate positions around the orbit
