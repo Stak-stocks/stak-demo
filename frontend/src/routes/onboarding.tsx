@@ -194,7 +194,7 @@ function OnboardingPage() {
 				</div>
 			)}
 
-			<div className="relative z-10 w-full max-w-sm">{steps[step]}</div>
+			<div className="relative z-10 w-full max-w-sm pt-16">{steps[step]}</div>
 		</div>
 	);
 }
