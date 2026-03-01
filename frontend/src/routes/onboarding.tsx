@@ -547,10 +547,7 @@ function SwipeStep({
 			<button
 				type="button"
 				onClick={onNext}
-				className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] shadow-lg ${done
-					? "bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 shadow-orange-500/25"
-					: "bg-slate-700 hover:bg-slate-600 shadow-none"
-					}`}
+				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 			>
 				{done ? "Continue" : "Skip"}
 			</button>
