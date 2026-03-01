@@ -115,6 +115,13 @@ function OnboardingPage() {
 		}
 	}, [user, loading, navigate]);
 
+	// Prevent navigating back to onboarding after it's been completed
+	useEffect(() => {
+		if (!loading && user && localStorage.getItem("onboardingCompleted") === "true") {
+			navigate({ to: "/", replace: true });
+		}
+	}, [loading, user, navigate]);
+
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
@@ -170,7 +177,7 @@ function OnboardingPage() {
 			selectedInterests={selectedActivities}
 			swipedBrandIds={swipedRight}
 			familiarity={selectedFamiliarity}
-			onDone={() => navigate({ to: "/" })}
+			onDone={() => navigate({ to: "/", replace: true })}
 		/>,
 	];
 
