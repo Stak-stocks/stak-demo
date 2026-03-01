@@ -581,7 +581,7 @@ function MotivationStep({
 						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${
 							selected.includes(option.id)
 								? `${option.color} text-white border border-transparent`
-								: `${option.color}/20 text-white border border-slate-700 hover:border-slate-500`
+								: "bg-[#1a2332] text-white border border-slate-700 hover:border-slate-500"
 						}`}
 					>
 						<span className="text-lg">{option.icon}</span>
