@@ -182,7 +182,7 @@ function OnboardingPage() {
 	];
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-start min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			{/* Progress dots */}
 			{step < 5 && (
 				<div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2">
