@@ -66,6 +66,7 @@ interface AccountContextType {
 	updateDeckOrder: (order: string[]) => Promise<void>;
 	updateIntelState: (state: IntelCardState) => Promise<void>;
 	updateStreak: (streak: { date: string; count: number }) => Promise<void>;
+	updatePreferences: (prefs: UserDoc["preferences"]) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
 	clearSearchHistory: () => Promise<void>;
@@ -205,6 +206,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
+	const updatePreferences = useCallback(
+		async (prefs: UserDoc["preferences"]) => {
+			if (!user) return;
+			await updateDoc(doc(db, "users", user.uid), { preferences: prefs });
+		},
+		[user],
+	);
+
 	return (
 		<AccountContext.Provider
 			value={{
@@ -216,6 +225,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updateDeckOrder,
 				updateIntelState,
 				updateStreak,
+				updatePreferences,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

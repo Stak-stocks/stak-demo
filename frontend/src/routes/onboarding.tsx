@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "@/context/AccountContext";
 import { updateProfile } from "@/lib/api";
 
 import {
@@ -660,6 +661,7 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
+	const { updatePreferences, updateDeckOrder } = useAccount();
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -691,16 +693,22 @@ function BuildingStep({
 		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
-		// Sync profile to Firestore (fire-and-forget)
-		// onboardingSwipes pinned to front of Discover deck in index.tsx
-		updateProfile({
-			onboardingCompleted: true,
-			preferences: {
-				interests: selectedInterests,
-				...(familiarity ? { familiarity } : {}),
-				...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
-			},
-		}).catch(() => {});
+		// Write preferences via client SDK first — updates local Firestore cache
+		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
+		// the correct interests/onboardingSwipes when it mounts after the animation.
+		const prefs = {
+			interests: selectedInterests,
+			...(familiarity ? { familiarity } : {}),
+			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
+		};
+		updatePreferences(prefs).catch(() => {});
+
+		// Clear any stale deckOrder from previous sessions so index.tsx always
+		// recomputes the deck from the freshly-written preferences above.
+		updateDeckOrder([]).catch(() => {});
+
+		// Also sync via REST so the backend Admin SDK record is up to date
+		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => {});
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);

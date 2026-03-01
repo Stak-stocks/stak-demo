@@ -123,22 +123,39 @@ function App() {
 		passedEntriesRef.current = account?.passedBrands ?? [];
 	}, [account?.passedBrands]);
 
-	// ── Deck order — initialised from Firestore account ───────────────────────
-	const [recommendedOrder] = useState<BrandProfile[]>(() => {
-		// Use saved deck order from Firestore if available
-		const deckOrder = account?.deckOrder;
+	// ── Deck order — reactive init so it always reads correct Firestore state ──
+	// Lazy useState would capture account at mount time; if preferences arrive
+	// slightly after (e.g. right after onboarding) the order would be random.
+	// Using useEffect + ref lets us wait until account is definitively ready.
+	const [recommendedOrder, setRecommendedOrder] = useState<BrandProfile[]>([]);
+	const orderInitialized = useRef(false);
+
+	useEffect(() => {
+		// Only initialize once per component lifecycle; skip if account not yet loaded
+		if (orderInitialized.current || !account) return;
+		orderInitialized.current = true;
+
+		let order: BrandProfile[];
+		const deckOrder = account.deckOrder;
+
 		if (deckOrder?.length) {
+			// Restore saved order — append any brands added to the data since it was saved
 			const brandMap = new Map(brands.map((b) => [b.id, b]));
 			const restored = deckOrder
 				.map((id) => brandMap.get(id))
 				.filter(Boolean) as BrandProfile[];
-			if (restored.length === brands.length) return restored;
+			if (restored.length > 0) {
+				const restoredIdSet = new Set(deckOrder);
+				const newBrands = brands.filter((b) => !restoredIdSet.has(b.id));
+				order = newBrands.length > 0 ? [...restored, ...shuffleArray(newBrands)] : restored;
+				setRecommendedOrder(order);
+				return; // already persisted — no need to re-save
+			}
 		}
 
 		// Compute personalised order: onboarding swipes first, then interest tiers
-		const interests: string[] = account?.preferences?.interests ?? [];
-		const onboardingSwipes = new Set<string>(account?.preferences?.onboardingSwipes ?? []);
-		let order: BrandProfile[];
+		const interests: string[] = account.preferences?.interests ?? [];
+		const onboardingSwipes = new Set<string>(account.preferences?.onboardingSwipes ?? []);
 
 		if (interests.length === 0 && onboardingSwipes.size === 0) {
 			order = shuffleArray(brands);
@@ -170,21 +187,15 @@ function App() {
 				...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
 				...shuffled3,
 			];
-			// Onboarding-swiped brands pinned to the very front
 			const pinned = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
 			order = [...pinned, ...tiered];
 		}
-		return order;
-	});
 
-	// Save newly-computed deck order to Firestore on first mount (if none was saved)
-	const hasSavedDeckOrder = !!(account?.deckOrder?.length);
-	useEffect(() => {
-		if (!hasSavedDeckOrder) {
-			updateDeckOrder(recommendedOrder.map((b) => b.id)).catch(() => {});
-		}
+		setRecommendedOrder(order);
+		// Persist this freshly-computed order so reloads restore the same sequence
+		updateDeckOrder(order.map((b) => b.id)).catch(() => {});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [account]);
 
 	const handleSwipe = useCallback(() => {
 		// Update daily streak (once per day)
