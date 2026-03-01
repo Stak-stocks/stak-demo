@@ -135,11 +135,12 @@ function App() {
 			if (restored.length === brands.length) return restored;
 		}
 
-		// Compute personalised order from user's interests
+		// Compute personalised order: onboarding swipes first, then interest tiers
 		const interests: string[] = account?.preferences?.interests ?? [];
+		const onboardingSwipes = new Set<string>(account?.preferences?.onboardingSwipes ?? []);
 		let order: BrandProfile[];
 
-		if (interests.length === 0) {
+		if (interests.length === 0 && onboardingSwipes.size === 0) {
 			order = shuffleArray(brands);
 		} else {
 			const interestBrandIds = new Set(
@@ -155,19 +156,23 @@ function App() {
 					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
 				});
 			}
-			const tier1 = brands.filter((b) => interestBrandIds.has(b.id));
-			const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id));
+			// Exclude onboarding-swiped brands from tiers (they go first)
+			const tier1 = brands.filter((b) => interestBrandIds.has(b.id) && !onboardingSwipes.has(b.id));
+			const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id) && !onboardingSwipes.has(b.id));
 			const tier3 = brands.filter(
-				(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id),
+				(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id) && !onboardingSwipes.has(b.id),
 			);
 			const shuffled1 = shuffleArray(tier1);
 			const shuffled2 = shuffleArray(tier2);
 			const shuffled3 = shuffleArray(tier3);
-			order = [
+			const tiered = [
 				...shuffled1.slice(0, 5),
 				...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
 				...shuffled3,
 			];
+			// Onboarding-swiped brands pinned to the very front
+			const pinned = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
+			order = [...pinned, ...tiered];
 		}
 		return order;
 	});

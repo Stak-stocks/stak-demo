@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { updateProfile } from "@/lib/api";
-import { useAccount } from "@/context/AccountContext";
 
 import {
 	INTEREST_OPTIONS,
@@ -661,7 +660,6 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
-	const { updateStak } = useAccount();
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -693,15 +691,15 @@ function BuildingStep({
 		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
-		// Seed initial Stak with brands the user liked during onboarding
-		if (swipedBrandIds.length > 0) {
-			updateStak(swipedBrandIds.slice(0, 15)).catch(() => {});
-		}
-
 		// Sync profile to Firestore (fire-and-forget)
+		// onboardingSwipes pinned to front of Discover deck in index.tsx
 		updateProfile({
 			onboardingCompleted: true,
-			preferences: { interests: selectedInterests, ...(familiarity ? { familiarity } : {}) },
+			preferences: {
+				interests: selectedInterests,
+				...(familiarity ? { familiarity } : {}),
+				...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
+			},
 		}).catch(() => {});
 
 		// Cards enter, then start shuffling

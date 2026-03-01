@@ -46,7 +46,7 @@ export interface UserDoc {
 	email?: string;
 	displayName?: string;
 	phone?: string;
-	preferences?: { interests?: string[]; familiarity?: string };
+	preferences?: { interests?: string[]; familiarity?: string; onboardingSwipes?: string[] };
 	onboardingCompleted?: boolean;
 	stakBrandIds: string[];
 	passedBrands: PassedEntry[];
