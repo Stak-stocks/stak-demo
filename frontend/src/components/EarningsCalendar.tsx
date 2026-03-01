@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { CalendarDays, X, ChevronRight } from "lucide-react";
-import { type BrandProfile } from "@/data/brands";
+import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import { useAccount } from "@/context/AccountContext";
 import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";
 
 type Tab = "today" | "week" | "next-week";
@@ -61,14 +62,14 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 export function EarningsCalendarButton() {
 	const [open, setOpen] = useState(false);
 	const [tab, setTab] = useState<Tab>("today");
+	const { account } = useAccount();
 
-	const [stakBrands] = useState<BrandProfile[]>(() => {
-		try {
-			return JSON.parse(localStorage.getItem("my-stak") ?? "[]");
-		} catch {
-			return [];
-		}
-	});
+	const stakBrands = useMemo<BrandProfile[]>(() => {
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		return (account?.stakBrandIds ?? [])
+			.map((id) => brandMap.get(id))
+			.filter(Boolean) as BrandProfile[];
+	}, [account?.stakBrandIds]);
 
 	const earningsResults = useQueries({
 		queries: stakBrands.map((brand) => ({
@@ -325,6 +326,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [expanded, setExpanded] = useState(true);
 	const [showAll, setShowAll] = useState(false);
+	const { account } = useAccount();
 
 	const { data, isLoading } = useQuery({
 		queryKey: ["market-earnings", tab],
@@ -334,10 +336,14 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 		retry: 1,
 	});
 
-	const stakTickers = new Set<string>(
-		(() => { try { return JSON.parse(localStorage.getItem("my-stak") ?? "[]"); } catch { return []; } })()
-			.map((b: { ticker: string }) => b.ticker.toUpperCase())
-	);
+	const stakTickers = useMemo(() => {
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		return new Set<string>(
+			(account?.stakBrandIds ?? [])
+				.map((id) => brandMap.get(id)?.ticker.toUpperCase())
+				.filter(Boolean) as string[]
+		);
+	}, [account?.stakBrandIds]);
 	const entries = (data?.entries ?? []).filter((e) => stakTickers.has(e.symbol));
 	const reported = entries.filter((e) => e.status !== "upcoming" && e.status !== "none");
 	const beats = reported.filter((e) => e.status === "beat");
