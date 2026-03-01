@@ -306,10 +306,17 @@ function App() {
 		}
 	}, [updatePassedBrands]);
 
-	const handleCancelSwap = () => {
+	const handleCancelSwap = useCallback(() => {
 		setPendingBrand(null);
 		setSwapPickerOpen(false);
-	};
+	}, []);
+
+	const handleSheetOpenChange = useCallback(
+		(open: boolean) => {
+			if (!open) handleCancelSwap();
+		},
+		[handleCancelSwap],
+	);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);
@@ -358,7 +365,7 @@ function App() {
 			)}
 
 			{/* Swap Picker Sheet - shown when Stak is full */}
-			<Sheet open={swapPickerOpen} onOpenChange={(open) => !open && handleCancelSwap()}>
+			<Sheet open={swapPickerOpen} onOpenChange={handleSheetOpenChange}>
 				<SheetContent side="bottom" className="bg-[#0f1629] border-slate-700/50 h-[70vh]">
 					<SheetHeader className="mb-4">
 						<SheetTitle className="text-white text-xl flex items-center gap-2">
