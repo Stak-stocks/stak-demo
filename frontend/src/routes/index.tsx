@@ -48,7 +48,7 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState } = useAccount();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak } = useAccount();
 	const uid = user?.uid ?? "guest";
 	const SWIPE_KEY = `swipes-since-intel:${uid}`;
 	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
@@ -189,7 +189,9 @@ function App() {
 		if (streakData.date !== swipeDay) {
 			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
-			localStorage.setItem("stak-streak", JSON.stringify({ date: swipeDay, count: newCount }));
+			const newStreak = { date: swipeDay, count: newCount };
+			localStorage.setItem("stak-streak", JSON.stringify(newStreak));
+			updateStreak(newStreak).catch(() => {});
 		}
 
 		// Trigger intel card after every 5th swipe, at most once per day
@@ -221,7 +223,7 @@ function App() {
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
-	}, [allIntelCards, SWIPE_KEY, INTEL_DATE_KEY, updateIntelState]);
+	}, [allIntelCards, SWIPE_KEY, INTEL_DATE_KEY, updateIntelState, updateStreak]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);

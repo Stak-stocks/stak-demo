@@ -46,12 +46,13 @@ export interface UserDoc {
 	email?: string;
 	displayName?: string;
 	phone?: string;
-	preferences?: { interests?: string[] };
+	preferences?: { interests?: string[]; familiarity?: string };
 	onboardingCompleted?: boolean;
 	stakBrandIds: string[];
 	passedBrands: PassedEntry[];
 	intelCardState?: IntelCardState;
 	dailySwipeState?: DailySwipeState;
+	streak?: { date: string; count: number };
 	deckOrder?: string[];
 	searchHistory?: SearchEntry[];
 }
@@ -64,6 +65,7 @@ interface AccountContextType {
 	incrementSwipeCount: () => Promise<void>;
 	updateDeckOrder: (order: string[]) => Promise<void>;
 	updateIntelState: (state: IntelCardState) => Promise<void>;
+	updateStreak: (streak: { date: string; count: number }) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
 	clearSearchHistory: () => Promise<void>;
@@ -195,6 +197,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await updateDoc(doc(db, "users", user.uid), { searchHistory: [] });
 	}, [user]);
 
+	const updateStreak = useCallback(
+		async (streak: { date: string; count: number }) => {
+			if (!user) return;
+			await updateDoc(doc(db, "users", user.uid), { streak });
+		},
+		[user],
+	);
+
 	return (
 		<AccountContext.Provider
 			value={{
@@ -205,6 +215,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				incrementSwipeCount,
 				updateDeckOrder,
 				updateIntelState,
+				updateStreak,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

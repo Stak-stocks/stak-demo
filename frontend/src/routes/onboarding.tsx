@@ -168,6 +168,7 @@ function OnboardingPage() {
 			key="building"
 			selectedInterests={selectedActivities}
 			swipedBrandIds={swipedRight}
+			familiarity={selectedFamiliarity}
 			onDone={() => navigate({ to: "/" })}
 		/>,
 	];
@@ -651,10 +652,12 @@ function FamiliarityStep({
 function BuildingStep({
 	selectedInterests,
 	swipedBrandIds,
+	familiarity,
 	onDone,
 }: {
 	selectedInterests: string[];
 	swipedBrandIds: string[];
+	familiarity: string | null;
 	onDone: () => void;
 }) {
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
@@ -693,7 +696,7 @@ function BuildingStep({
 		// Sync to backend (fire-and-forget)
 		updateProfile({
 			onboardingCompleted: true,
-			preferences: { interests: selectedInterests },
+			preferences: { interests: selectedInterests, ...(familiarity ? { familiarity } : {}) },
 		}).catch(() => {});
 		saveStak([]).catch(() => {});
 		savePassedBrands([]).catch(() => {});

@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "@/context/AccountContext";
 import { toast } from "sonner";
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { BrandProfile } from "@/data/brands";
+import { useQuery } from "@tanstack/react-query";
+import { brands as allBrands, type BrandProfile } from "@/data/brands";
 import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { IntelCardModal } from "@/components/IntelCardModal";
-import { getIntelState, getIntelCards } from "@/lib/api";
+import { getIntelCards } from "@/lib/api";
 import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	ChevronRight,
@@ -44,22 +46,17 @@ const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> =
 	fitness:   { label: "Wellness Investor",  emoji: "💪", desc: "Health is wealth, literally."      },
 };
 
-function computeVibe(stakBrands: BrandProfile[]): { label: string; emoji: string; desc: string } {
+function computeVibe(stakBrands: BrandProfile[], interests: string[]): { label: string; emoji: string; desc: string } {
 	const scores: Record<string, number> = {};
 
 	if (stakBrands.length > 0) {
-		// Score from actual swiped brands
 		for (const brand of stakBrands) {
-			// Static brands use the hardcoded map; dynamic stocks fall back to their Gemini-generated categories
 			const cats = BRAND_TO_CATS[brand.id] ?? brand.interestCategories ?? [];
 			for (const cat of cats) {
 				scores[cat] = (scores[cat] ?? 0) + 1;
 			}
 		}
 	} else {
-		// Fall back to onboarding questionnaire interests
-		const saved = typeof window !== "undefined" ? localStorage.getItem("user-interests") : null;
-		const interests: string[] = saved ? JSON.parse(saved) : [];
 		for (const cat of interests) {
 			scores[cat] = (scores[cat] ?? 0) + 1;
 		}
@@ -86,24 +83,39 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 
 function ProfilePage() {
 	const { user, loading, logout } = useAuth();
+	const { account } = useAccount();
 	const navigate = useNavigate();
 
-	const [stakBrands, setStakBrands] = useState<BrandProfile[]>(() => {
-		const saved = localStorage.getItem("my-stak");
-		return saved ? JSON.parse(saved) : [];
+	// Stak brands — derived from Firestore account
+	const stakBrands = useMemo(() => {
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		return (account?.stakBrandIds ?? [])
+			.map((id) => brandMap.get(id))
+			.filter(Boolean) as BrandProfile[];
+	}, [account?.stakBrandIds]);
+
+	// Intel Library — card objects from API, read IDs from Firestore account
+	const { data: intelCardsData } = useQuery({
+		queryKey: ["intel-cards"],
+		queryFn: getIntelCards,
+		staleTime: 7 * 24 * 60 * 60 * 1000,
+		gcTime: 7 * 24 * 60 * 60 * 1000,
+		retry: 1,
 	});
+	const allIntelCards = useMemo(() => {
+		const apiCards = intelCardsData?.cards ?? [];
+		const merged = [...apiCards];
+		for (const card of INTEL_CARDS) {
+			if (!merged.find((c) => c.id === card.id)) merged.push(card);
+		}
+		return merged;
+	}, [intelCardsData]);
+	const readIds = account?.intelCardState?.readIds ?? [];
+	const readCards = useMemo(
+		() => allIntelCards.filter((c) => readIds.includes(c.id)),
+		[allIntelCards, readIds],
+	);
 
-	useEffect(() => {
-		const handler = () => {
-			const saved = localStorage.getItem("my-stak");
-			setStakBrands(saved ? JSON.parse(saved) : []);
-		};
-		globalThis.addEventListener("stak-updated", handler);
-		return () => globalThis.removeEventListener("stak-updated", handler);
-	}, []);
-
-	// Intel Library
-	const [readCards, setReadCards] = useState<IntelCard[]>([]);
 	const [showLibrary, setShowLibrary] = useState(false);
 	const sheetDragStartY = useRef(0);
 	const [sheetTranslate, setSheetTranslate] = useState(0);
@@ -112,28 +124,23 @@ function ProfilePage() {
 	// Badge tooltip
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string } | null>(null);
 
-	useEffect(() => {
-		Promise.all([
-			getIntelState(),
-			getIntelCards().catch(() => ({ cards: [] as IntelCard[] })),
-		]).then(([{ readIds }, { cards: apiCards }]) => {
-			// API cards take precedence; hardcoded cards fill gaps only
-			const merged = [...(apiCards ?? [])];
-			for (const card of INTEL_CARDS) {
-				if (!merged.find((c) => c.id === card.id)) merged.push(card);
-			}
-			setReadCards(merged.filter((c) => readIds.includes(c.id)));
-		}).catch(() => {});
-	}, []);
+	// Streak — from Firestore account
+	const streak = account?.streak?.count ?? 0;
 
-	// Streak
-	const streak = (() => {
-		const raw = localStorage.getItem("stak-streak");
-		return raw ? (JSON.parse(raw) as { date: string; count: number }).count : 0;
-	})();
+	// Familiarity / investor level — from Firestore account
+	const familiarity = account?.preferences?.familiarity ?? "new";
+	const LEVEL_MAP: Record<string, { stars: number; label: string }> = {
+		new:          { stars: 1, label: "Beginner" },
+		little:       { stars: 2, label: "Beginner" },
+		some:         { stars: 3, label: "Intermediate" },
+		experienced:  { stars: 4, label: "Expert" },
+	};
+	const level = LEVEL_MAP[familiarity] ?? LEVEL_MAP.new;
+	const starsDisplay = "⭐".repeat(level.stars);
 
-	// Vibe check — computed from actual swiped brands
-	const vibe = computeVibe(stakBrands);
+	// Vibe check — computed from stak brands; falls back to account interests
+	const interests = account?.preferences?.interests ?? [];
+	const vibe = computeVibe(stakBrands, interests);
 
 	// Badges — only show ones the user has earned
 	const earnedBadges = [
@@ -148,17 +155,6 @@ function ProfilePage() {
 
 	const displayName = user?.displayName || "STAK User";
 	const email = user?.email || "";
-
-	// Determine user level from onboarding familiarity
-	const familiarity = (typeof window !== "undefined" ? localStorage.getItem("onboarding-familiarity") : null) || "new";
-	const LEVEL_MAP: Record<string, { stars: number; label: string }> = {
-		new:          { stars: 1, label: "Beginner" },
-		little:       { stars: 2, label: "Beginner" },
-		some:         { stars: 3, label: "Intermediate" },
-		experienced:  { stars: 4, label: "Expert" },
-	};
-	const level = LEVEL_MAP[familiarity] ?? LEVEL_MAP.new;
-	const starsDisplay = "⭐".repeat(level.stars);
 
 	async function handleLogout() {
 		await logout();
