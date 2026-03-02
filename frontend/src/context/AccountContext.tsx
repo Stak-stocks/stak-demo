@@ -55,6 +55,7 @@ export interface UserDoc {
 	streak?: { date: string; count: number };
 	deckOrder?: string[];
 	searchHistory?: SearchEntry[];
+	categoryScores?: Record<string, number>;
 }
 
 interface AccountContextType {
@@ -70,6 +71,7 @@ interface AccountContextType {
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
 	clearSearchHistory: () => Promise<void>;
+	updateCategoryScores: (delta: Record<string, number>) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -214,6 +216,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
+	const updateCategoryScores = useCallback(
+		async (delta: Record<string, number>) => {
+			if (!user) return;
+			const current = account?.categoryScores ?? {};
+			const merged: Record<string, number> = { ...current };
+			for (const [cat, score] of Object.entries(delta)) {
+				merged[cat] = (merged[cat] ?? 0) + score;
+			}
+			await updateDoc(doc(db, "users", user.uid), { categoryScores: merged });
+		},
+		[user, account],
+	);
+
 	return (
 		<AccountContext.Provider
 			value={{
@@ -229,6 +244,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
+				updateCategoryScores,
 			}}
 		>
 			{children}

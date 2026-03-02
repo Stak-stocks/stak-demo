@@ -48,7 +48,7 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak } = useAccount();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak, updateCategoryScores } = useAccount();
 	const uid = user?.uid ?? "guest";
 	const SWIPE_KEY = `swipes-since-intel:${uid}`;
 	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
@@ -56,7 +56,7 @@ function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
-	const { hasReachedLimit, increment: incrementSwipe } = useSwipeLimit(uid, !!user);
+	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe } = useSwipeLimit(uid, !!user);
 
 	// Fetch AI-generated intel cards (falls back to hardcoded set)
 	const { data: intelCardsData } = useQuery({
@@ -153,13 +153,19 @@ function App() {
 			}
 		}
 
-		// Compute personalised order: onboarding swipes first, then interest tiers
+		// Compute personalised order using interest tiers as base + behavioural scores on top.
+		// New users (no interests, no scores) → random.
+		// Interest-only users → tier order (same as before).
+		// Returning users with swipe history → scores refine the tiers over time.
 		const interests: string[] = account.preferences?.interests ?? [];
 		const onboardingSwipes = new Set<string>(account.preferences?.onboardingSwipes ?? []);
+		const categoryScores = account.categoryScores ?? {};
+		const hasBehavioralScores = Object.keys(categoryScores).length > 0;
 
-		if (interests.length === 0 && onboardingSwipes.size === 0) {
+		if (interests.length === 0 && onboardingSwipes.size === 0 && !hasBehavioralScores) {
 			order = shuffleArray(brands);
 		} else {
+			// Build interest tier membership for base scores
 			const interestBrandIds = new Set(
 				interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []),
 			);
@@ -173,22 +179,21 @@ function App() {
 					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
 				});
 			}
-			// Exclude onboarding-swiped brands from tiers (they go first)
-			const tier1 = brands.filter((b) => interestBrandIds.has(b.id) && !onboardingSwipes.has(b.id));
-			const tier2 = brands.filter((b) => adjacentBrandIds.has(b.id) && !onboardingSwipes.has(b.id));
-			const tier3 = brands.filter(
-				(b) => !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id) && !onboardingSwipes.has(b.id),
-			);
-			const shuffled1 = shuffleArray(tier1);
-			const shuffled2 = shuffleArray(tier2);
-			const shuffled3 = shuffleArray(tier3);
-			const tiered = [
-				...shuffled1.slice(0, 5),
-				...shuffleArray([...shuffled1.slice(5), ...shuffled2]),
-				...shuffled3,
-			];
+
+			// Score every non-pinned brand: tier base + behavioural boost + small jitter
 			const pinned = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
-			order = [...pinned, ...tiered];
+			const nonPinned = brands
+				.filter((b) => !onboardingSwipes.has(b.id))
+				.map((b) => {
+					const base = interestBrandIds.has(b.id) ? 30 : adjacentBrandIds.has(b.id) ? 20 : 10;
+					const behavioural = (BRAND_TO_CATEGORIES[b.id] ?? [])
+						.reduce((sum, c) => sum + (categoryScores[c] ?? 0) * 2, 0);
+					return { brand: b, score: base + behavioural + Math.random() * 5 };
+				})
+				.sort((a, b) => b.score - a.score)
+				.map(({ brand }) => brand);
+
+			order = [...pinned, ...nonPinned];
 		}
 
 		setRecommendedOrder(order);
@@ -196,6 +201,16 @@ function App() {
 		updateDeckOrder(order.map((b) => b.id)).catch(() => {});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [account]);
+
+	// When the daily swipe limit is hit, clear deckOrder so the next session
+	// recomputes a fresh scored deck rather than restoring today's exhausted order.
+	const limitClearedRef = useRef(false);
+	useEffect(() => {
+		if (!limitClearedRef.current && swipeCount >= DAILY_SWIPE_LIMIT) {
+			limitClearedRef.current = true;
+			updateDeckOrder([]).catch(() => {});
+		}
+	}, [swipeCount, updateDeckOrder]);
 
 	const handleSwipe = useCallback(() => {
 		// Update daily streak (once per day)
@@ -249,6 +264,12 @@ function App() {
 	const handleSwipeRight = (brand: BrandProfile) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
 
+		// +2 per category for right swipe
+		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
+		if (cats.length > 0) {
+			updateCategoryScores(Object.fromEntries(cats.map((c) => [c, 2]))).catch(() => {});
+		}
+
 		if (swipedBrands.length >= STAK_CAPACITY) {
 			setPendingBrand(brand);
 			setSwapPickerOpen(true);
@@ -289,6 +310,13 @@ function App() {
 		];
 		setSwipedBrands(updated);
 		updateStak(updated.map((b) => b.id)).catch(() => {});
+
+		// +3 for brand added, -2 for brand removed
+		const delta: Record<string, number> = {};
+		for (const c of BRAND_TO_CATEGORIES[pendingBrand.id] ?? []) delta[c] = (delta[c] ?? 0) + 3;
+		for (const c of BRAND_TO_CATEGORIES[brandToRemove.id] ?? []) delta[c] = (delta[c] ?? 0) - 2;
+		if (Object.keys(delta).length > 0) updateCategoryScores(delta).catch(() => {});
+
 		toast.success(`Swapped ${brandToRemove.name} for ${pendingBrand.name}`, {
 			duration: 2000,
 		});
@@ -297,6 +325,12 @@ function App() {
 	};
 
 	const handleSwipeLeft = useCallback((brand: BrandProfile) => {
+		// -1 per category for left swipe
+		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
+		if (cats.length > 0) {
+			updateCategoryScores(Object.fromEntries(cats.map((c) => [c, -1]))).catch(() => {});
+		}
+
 		setPassedBrandIds((prev) => new Set([...prev, brand.id]));
 		const existing = passedEntriesRef.current;
 		if (!existing.some((e) => e.id === brand.id)) {
@@ -304,7 +338,7 @@ function App() {
 			passedEntriesRef.current = updated;
 			updatePassedBrands(updated).catch(() => {});
 		}
-	}, [updatePassedBrands]);
+	}, [updatePassedBrands, updateCategoryScores]);
 
 	const handleCancelSwap = useCallback(() => {
 		setPendingBrand(null);
