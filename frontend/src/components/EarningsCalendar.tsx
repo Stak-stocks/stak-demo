@@ -130,9 +130,6 @@ export function EarningsCalendarButton() {
 		(e) => e.status === "upcoming" && e.date >= nextWeek.start && e.date <= nextWeek.end,
 	);
 
-	const tabEntries =
-		tab === "today" ? todayEntries : tab === "week" ? weekEntries : nextWeekEntries;
-
 	return (
 		<>
 			<button
