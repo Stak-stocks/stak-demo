@@ -210,14 +210,14 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
-	// Google favicon — Clearbit shut down, this is the reliable fallback
-	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
+	// Parqet provides higher-quality logos than Google favicon
+	return `https://assets.parqet.com/logos/symbol/${brand.ticker.toUpperCase()}?format=png`;
 }
 
-/** First fallback (used in onError): Google favicon by domain */
+/** First fallback (used in onError): Parqet by ticker, then Google favicon */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
+	return `https://assets.parqet.com/logos/symbol/${brand.ticker.toUpperCase()}?format=png`;
 }
 
 /** Final fallback (used in second onError): Google favicon */
@@ -324,7 +324,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	ebay: "ebay", duol: "duolingo", app: "applovin",
 	cvna: "carvana", bmbl: "bumble", bros: "dutch-bros",
 	wing: "wingstop", shak: "shake-shack", cart: "maplebear",
-	tm: "toyota-motor", sony: "sony-group", bynd: "beyond-meat",
+	tm: "toyota-motor", bynd: "beyond-meat",
 	wrby: "warby-parker", gme: "gamestop", amc: "amc-entertainment-holdings",
 	nio: "nio", chwy: "chewy", para: "paramount-global",
 	lcid: "lucid-group", lyv: "live-nation-entertainment",

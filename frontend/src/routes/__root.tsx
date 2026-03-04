@@ -47,9 +47,10 @@ function Root() {
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	// Reset scroll to top on every route change
+	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0 });
+		document.body.style.overflow = "";
 	}, [location.pathname]);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {

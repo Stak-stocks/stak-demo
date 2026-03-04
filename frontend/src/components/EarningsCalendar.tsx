@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { CalendarDays, X, ChevronRight } from "lucide-react";
@@ -61,8 +61,15 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 
 export function EarningsCalendarButton() {
 	const [open, setOpen] = useState(false);
-	const [tab, setTab] = useState<Tab>("today");
 	const { account } = useAccount();
+
+	// Lock body scroll while the calendar portal is open, and always release on unmount
+	useEffect(() => {
+		if (!open) return;
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => { document.body.style.overflow = prev; };
+	}, [open]);
 
 	const stakBrands = useMemo<BrandProfile[]>(() => {
 		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
