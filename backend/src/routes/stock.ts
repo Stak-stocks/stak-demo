@@ -274,6 +274,63 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		}),
 	);
 
+	// ── Gemini fallback for Stak tickers Finnhub missed entirely ────────────────
+	// extraTickers = all tickers from the user's Stak (sent by the frontend).
+	// If Finnhub had no calendar entry for a Stak ticker, ask Gemini whether
+	// they reported in this period. Results are cached 24h so this is cheap.
+	if (extraTickers.length > 0) {
+		const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
+		const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
+
+		const supplements = await Promise.all(
+			missingStakTickers.map(async (ticker) => {
+				const name = MARKET_TICKERS[ticker] ?? ticker;
+				const geminiResult = await getEarningsBeatMissFromWeb(ticker, name);
+				if (geminiResult.result === "none" || !geminiResult.date) return null;
+				// Only include if the reported date is within the requested window
+				if (geminiResult.date < fromStr || geminiResult.date > toStr) return null;
+
+				// Fetch historical EPS from Finnhub to populate actual/estimate columns
+				type FinnhubEpsEntry = { actual: number | null; estimate: number | null; period: string };
+				const epsKey = `eps-history:${ticker}`;
+				let epsHistory = await cacheGet<FinnhubEpsEntry[]>(epsKey);
+				if (!epsHistory) {
+					epsHistory = await finnhubGet(`/stock/earnings?symbol=${ticker}&limit=2`) as FinnhubEpsEntry[] | null;
+					if (epsHistory) await cacheSet(epsKey, epsHistory, 6 * 60 * 60 * 1000);
+				}
+				const latestEps = Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0] : null;
+				const epsActual = latestEps?.actual ?? null;
+				const epsEstimate = latestEps?.estimate ?? null;
+				const epsSurprisePct = epsActual != null && epsEstimate != null && epsEstimate !== 0
+					? Math.round(((epsActual - epsEstimate) / Math.abs(epsEstimate)) * 1000) / 10
+					: null;
+				// EPS comparison is more reliable than Gemini narrative — use it if available
+				const epsStatus = epsActual != null && epsEstimate != null
+					? (epsActual >= epsEstimate ? "beat" as const : "miss" as const)
+					: null;
+				const status = epsStatus ?? geminiResult.result as "beat" | "miss";
+
+				const priceChangePct = await getPriceChangePct(ticker, geminiResult.date, null);
+				return {
+					symbol: ticker,
+					name,
+					date: geminiResult.date,
+					hour: null as string | null,
+					epsActual,
+					epsEstimate,
+					epsSurprisePct,
+					priceChangePct,
+					revChangePct: null as number | null,
+					status,
+				};
+			}),
+		);
+
+		for (const s of supplements) {
+			if (s) entries.push(s);
+		}
+	}
+
 	entries.sort((a, b) => {
 		if (a.status !== "upcoming" && b.status === "upcoming") return -1;
 		if (a.status === "upcoming" && b.status !== "upcoming") return 1;
