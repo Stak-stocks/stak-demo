@@ -328,14 +328,6 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const [showAll, setShowAll] = useState(false);
 	const { account } = useAccount();
 
-	const { data, isLoading } = useQuery({
-		queryKey: ["market-earnings", tab],
-		queryFn: () => getMarketEarnings(tab),
-		staleTime: 10 * 60 * 1000,
-		refetchInterval: 15 * 60 * 1000,
-		retry: 1,
-	});
-
 	const stakTickers = useMemo(() => {
 		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
 		return new Set<string>(
@@ -344,6 +336,15 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 				.filter(Boolean) as string[]
 		);
 	}, [account?.stakBrandIds]);
+	const stakTickersArray = useMemo(() => Array.from(stakTickers), [stakTickers]);
+
+	const { data, isLoading } = useQuery({
+		queryKey: ["market-earnings", tab, stakTickersArray],
+		queryFn: () => getMarketEarnings(tab, stakTickersArray),
+		staleTime: 10 * 60 * 1000,
+		refetchInterval: 15 * 60 * 1000,
+		retry: 1,
+	});
 	const entries = (data?.entries ?? []).filter((e) => stakTickers.has(e.symbol));
 	const reported = entries.filter((e) => e.status !== "upcoming" && e.status !== "none");
 	const beats = reported.filter((e) => e.status === "beat");

@@ -208,9 +208,10 @@ export interface MarketEarningsEntry {
 	status: "beat" | "miss" | "upcoming" | "none";
 }
 
-export function getMarketEarnings(period: "today" | "tomorrow" | "week") {
+export function getMarketEarnings(period: "today" | "tomorrow" | "week", extraTickers?: string[]) {
+	const tickersQs = extraTickers && extraTickers.length > 0 ? `&tickers=${extraTickers.join(",")}` : "";
 	return apiRequest<{ entries: MarketEarningsEntry[]; from: string; to: string }>(
-		`/api/stock/market-earnings?period=${period}`,
+		`/api/stock/market-earnings?period=${period}${tickersQs}`,
 	);
 }
 

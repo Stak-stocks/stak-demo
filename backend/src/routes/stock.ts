@@ -210,14 +210,21 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		fromStr = toStr = todayStr;
 	}
 
-	const cacheKey = `market-earnings:v3:${period}:${todayStr}`;
+	const extraTickersParam = (req.query.tickers as string) ?? "";
+	const extraTickers = extraTickersParam
+		? extraTickersParam.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean)
+		: [];
+	const extraTickersKey = [...extraTickers].sort().join(",");
+
+	const cacheKey = `market-earnings:v3:${period}:${todayStr}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 	const cached = await cacheGet(cacheKey);
 	if (cached) { res.json(cached); return; }
 
 	const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
 		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 
-	const calEntries = (data?.earningsCalendar ?? []).filter((e) => e.symbol in MARKET_TICKERS);
+	const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
+	const calEntries = (data?.earningsCalendar ?? []).filter((e) => tickerSet.has(e.symbol));
 
 	// Same logic as /:symbol/earnings in My Stak:
 	// - future date → "upcoming" (no Gemini call needed)
@@ -231,7 +238,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			if (e.date > todayStr) {
 				// Upcoming — don't call Gemini yet
 				return {
-					symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
+					symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
 					date: e.date, hour: e.hour || null,
 					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
 					epsSurprisePct: null, priceChangePct: null,
@@ -251,13 +258,13 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			// Run price reaction always; only call Gemini when no EPS data
 			const [geminiResult, priceChangePct] = await Promise.all([
 				epsStatus == null
-					? getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol])
+					? getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol] ?? e.symbol)
 					: Promise.resolve({ result: "none" as const, date: null as string | null }),
 				getPriceChangePct(e.symbol, e.date, e.hour),
 			]);
 			const status = epsStatus ?? (geminiResult.result !== "none" ? geminiResult.result : "none");
 			return {
-				symbol: e.symbol, name: MARKET_TICKERS[e.symbol],
+				symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
 				date: e.date, hour: e.hour || null,
 				epsActual: e.epsActual, epsEstimate: e.epsEstimate,
 				epsSurprisePct, priceChangePct,
