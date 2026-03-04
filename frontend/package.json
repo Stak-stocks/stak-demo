@@ -9,6 +9,7 @@
     "serve": "vite preview",
     "test": "vitest run --config vitest.config.js test/template-tests/suites",
     "test:smoke": "vitest run --config vitest.config.js test/template-tests/smoke",
+    "test:unit": "vitest run --config vitest.unit.config.js",
     "check": "tsgo --noEmit && npm run lint:radix -- --fix && npm run format",
     "check:safe": "timeout 20 npm run check || (echo 'Check timed out after 20 seconds' && exit 1)",
     "format": "biome check --write --unsafe",
