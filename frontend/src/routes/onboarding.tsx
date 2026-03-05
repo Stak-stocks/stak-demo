@@ -500,12 +500,20 @@ function SwipeStep({
 									)}
 
 									<div className="w-64 h-72 flex flex-col items-center justify-center gap-4 cursor-grab active:cursor-grabbing">
-										<img
-											src={brand.logo}
-											alt={brand.name}
-											className="w-28 h-28 rounded-2xl object-contain"
-											onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
-										/>
+										<div className="relative w-28 h-28">
+											<img
+												src={brand.fallbackLogo}
+												alt=""
+												className="absolute inset-0 w-28 h-28 rounded-2xl object-contain"
+												onError={(e) => { (e.target as HTMLImageElement).src = brand.ultimateFallbackLogo; }}
+											/>
+											<img
+												src={brand.logo}
+												alt={brand.name}
+												className="absolute inset-0 w-28 h-28 rounded-2xl object-contain"
+												onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+											/>
+										</div>
 										<div className="text-center">
 											<p className="text-white font-bold text-lg">{brand.name}</p>
 											<p className="text-slate-400 text-sm">${brand.ticker}</p>
