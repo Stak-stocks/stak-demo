@@ -117,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	async function logout() {
 		localStorage.removeItem("swipes-since-intel");
+		localStorage.removeItem("onboardingCompleted");
 		await signOut(auth);
 	}
 

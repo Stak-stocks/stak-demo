@@ -503,7 +503,7 @@ function SwipeStep({
 										<img
 											src={brand.logo}
 											alt={brand.name}
-											className="w-28 h-28 rounded-2xl object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+											className="w-28 h-28 rounded-2xl object-contain"
 											onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
 										/>
 										<div className="text-center">

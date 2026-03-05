@@ -36,7 +36,7 @@ const DAILY_SWIPE_LIMIT = 20;
 const STAK_CAPACITY = 15;
 
 function Root() {
-	const { user, loading, logout } = useAuth();
+	const { user, loading } = useAuth();
 	const { account, accountLoading, updateStak, incrementSwipeCount } = useAccount();
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
@@ -79,7 +79,7 @@ function Root() {
 		if (!loading && !accountLoading && !user && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted === false) {
+		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
@@ -92,6 +92,22 @@ function Root() {
 	}, []);
 
 	if (loading || accountLoading) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+
+	// Block render while a redirect is imminent — prevents one-frame flash of wrong page
+	if (!user && !isAuthPage) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+	if (user && !isAuthPage && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
