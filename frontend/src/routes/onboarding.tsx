@@ -504,14 +504,14 @@ function SwipeStep({
 											<img
 												src={brand.fallbackLogo}
 												alt=""
-												className="absolute inset-0 w-28 h-28 rounded-2xl object-contain"
+												className="absolute inset-0 w-28 h-28 rounded-2xl object-contain opacity-0"
 												onError={(e) => { (e.target as HTMLImageElement).src = brand.ultimateFallbackLogo; }}
 											/>
 											<img
 												src={brand.logo}
 												alt={brand.name}
 												className="absolute inset-0 w-28 h-28 rounded-2xl object-contain"
-												onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+												onError={(e) => { const p = e.target as HTMLImageElement; p.style.display = "none"; const fb = p.previousElementSibling as HTMLImageElement; if (fb) fb.style.opacity = "1"; }}
 											/>
 										</div>
 										<div className="text-center">
