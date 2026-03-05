@@ -1508,7 +1508,7 @@ export const brands: BrandProfile[] = [
 		id: "amd",
 		ticker: "AMD",
 		name: "AMD",
-		bio: "NVIDIA's scrappy competitor",
+		bio: "the GPU and CPU company making NVIDIA and Intel actually sweat",
 		heroImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=600&fit=crop",
 		personalityDescription: "Team Red rising",
 		vibes: [
@@ -1792,7 +1792,7 @@ export const brands: BrandProfile[] = [
 		id: "intc",
 		ticker: "INTC",
 		name: "Intel",
-		bio: "the empire strikes back (or dies trying)",
+		bio: "the semiconductor giant fighting for its life with  B in CHIPS Act backing",
 		heroImage: "https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=800&h=600&fit=crop",
 		personalityDescription: "The tech boomer that finally got a gym membership",
 		vibes: [
@@ -4449,7 +4449,7 @@ export const brands: BrandProfile[] = [
 		id: "all",
 		ticker: "ALL",
 		name: "Allstate",
-		bio: "you're in good hands unless you actually need to file a claim",
+		bio: "you're in good hands—if you can afford their new premiums",
 		heroImage: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&h=600&fit=crop",
 		personalityDescription: "The landlord of risk — everyone needs them but nobody loves paying",
 		vibes: [
@@ -5174,7 +5174,7 @@ export const brands: BrandProfile[] = [
 		id: "tfc",
 		ticker: "TFC",
 		name: "Truist Financial",
-		bio: "the new bank that tried to merge two banks into one and is still figuring it out",
+		bio: "the BB&T + SunTrust mega-merger that's slowly proving two banks can become one",
 		heroImage: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=800&h=600&fit=crop",
 		personalityDescription: "The post-merger identity crisis that has $500 billion in assets",
 		vibes: [
@@ -6044,7 +6044,7 @@ export const brands: BrandProfile[] = [
 		id: "s",
 		ticker: "S",
 		name: "SentinelOne",
-		bio: "AI-powered endpoint security competing head-to-head with CrowdStrike",
+		bio: "the endpoint security upstart where AI makes decisions faster than humans can click",
 		heroImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=600&fit=crop",
 		personalityDescription: "The underdog AI security company that refuses to yield to the market leader",
 		vibes: [
@@ -6827,7 +6827,7 @@ export const brands: BrandProfile[] = [
 		id: "upst",
 		ticker: "UPST",
 		name: "Upstart",
-		bio: "the AI lending company that wanted to replace credit scores with algorithms",
+		bio: "the AI lending company betting it can replace credit scores with algorithms",
 		heroImage: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop",
 		personalityDescription: "The fintech that was either revolutionizing credit or proving AI hype was real",
 		vibes: [
@@ -11211,7 +11211,7 @@ export const brands: BrandProfile[] = [
 		id: "achr",
 		ticker: "ACHR",
 		name: "Archer Aviation",
-		bio: "Joby's main rival in the electric air taxi race — backed by United Airlines and Stellantis, targeting NYC and Miami first",
+		bio: "Joby's scrappier rival—United Airlines' bet on flying over traffic",
 		heroImage: "https://images.unsplash.com/photo-1527786356703-4b100091cd2c?w=800&h=600&fit=crop",
 		personalityDescription: "The electric air taxi startup racing to bring flying taxis to New York before Joby gets to LA",
 		vibes: [
