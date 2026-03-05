@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
-import { brands, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import { brands } from "@/data/brands";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, TrendingDown, Newspaper, Activity, X } from "lucide-react";
 import { SearchView } from "@/components/SearchView";
 import { toast } from "sonner";
@@ -53,12 +54,7 @@ function StakCard({
 			</button>
 
 			<div className="flex items-start gap-4 mb-3">
-				<img
-					src={getBrandLogoUrl(brand)}
-					alt={`${brand.name} logo`}
-					className="w-12 h-12 rounded-lg object-contain bg-white/10 animate-[flip-y_2s_linear_infinite]"
-					onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = getBrandUltimateFallbackUrl(brand); } else { img.dataset.errored = "1"; img.src = getBrandFallbackLogoUrl(brand); } }}
-				/>
+				<BrandLogo brand={brand} className="w-12 h-12 rounded-lg bg-white/10 animate-[flip-y_2s_linear_infinite]" />
 				<div className="flex-1">
 					<div className="flex items-baseline gap-2 mb-1">
 						<h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">

@@ -1,6 +1,6 @@
 import type { BrandProfile } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
 import { VibeSliders } from "@/components/VibeSliders";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface StockCardProps {
 	brand: BrandProfile;
@@ -49,12 +49,7 @@ export function StockCard({ brand, onLearnMore, priority = false, isTopCard = fa
 				{/* Brand name + ticker */}
 				<div className="h-[5.5rem] sm:h-24 overflow-hidden">
 					<div className="flex items-center gap-2">
-						<img
-							src={getBrandLogoUrl(brand)}
-							alt={`${brand.name} logo`}
-							className="w-6 h-6 sm:w-7 sm:h-7 rounded-md object-contain shrink-0 animate-[flip-y_2s_linear_infinite]"
-							onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = getBrandUltimateFallbackUrl(brand); } else { img.dataset.errored = "1"; img.src = getBrandFallbackLogoUrl(brand); } }}
-						/>
+						<BrandLogo brand={brand} className="w-9 h-9 sm:w-10 sm:h-10 rounded-md animate-[flip-y_2s_linear_infinite]" />
 						<h2 className="text-xl sm:text-2xl font-bold text-white truncate">{brand.name}</h2>
 						<span className="text-[10px] sm:text-xs font-mono font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
 							{brand.ticker}
