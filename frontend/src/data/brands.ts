@@ -206,18 +206,18 @@ function getBrandDomain(brand: BrandProfile): string {
 }
 
 export function getBrandLogoUrl(brand: BrandProfile): string {
-	const slug = TV_LOGO_SLUGS[brand.id];
-	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
-	// Clearbit gives proper company logos by domain
-	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
+	// EODHD: 40k+ logos by ticker, free CDN, no API key needed
+	return `https://eodhd.com/img/logos/US/${brand.ticker.toUpperCase()}.png`;
 }
 
 /** First fallback (used in onError) */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
+	const slug = TV_LOGO_SLUGS[brand.id];
+	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
+	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
 }
 
 /** Final fallback (used in second onError): Google favicon */
