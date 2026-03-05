@@ -7,26 +7,31 @@ interface BrandLogoProps {
 }
 
 /**
- * Renders a brand logo with parallel fallback loading.
- * Both primary and fallback images load simultaneously — no blank gap when primary fails.
+ * Renders a brand logo with no-gap fallback.
+ * Fallback preloads in parallel but stays invisible — only shown if primary fails.
  */
 export function BrandLogo({ brand, className = "w-9 h-9 rounded-lg", alt }: BrandLogoProps) {
 	return (
 		<div className={`relative overflow-hidden shrink-0 ${className}`}>
-			{/* Fallback loads in parallel behind primary */}
+			{/* Fallback preloads silently — made visible only when primary errors */}
 			<img
 				src={getBrandFallbackLogoUrl(brand)}
 				alt=""
 				aria-hidden="true"
-				className="absolute inset-0 w-full h-full object-contain"
+				className="absolute inset-0 w-full h-full object-contain opacity-0"
 				onError={(e) => { (e.target as HTMLImageElement).src = getBrandUltimateFallbackUrl(brand); }}
 			/>
-			{/* Primary on top — hides itself on error, revealing fallback */}
+			{/* Primary sits on top — on error, hides itself and reveals the fallback */}
 			<img
 				src={getBrandLogoUrl(brand)}
 				alt={alt ?? brand.name}
 				className="absolute inset-0 w-full h-full object-contain"
-				onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+				onError={(e) => {
+					const primary = e.target as HTMLImageElement;
+					primary.style.display = "none";
+					const fallback = primary.previousElementSibling as HTMLImageElement;
+					if (fallback) fallback.style.opacity = "1";
+				}}
 			/>
 		</div>
 	);
