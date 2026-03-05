@@ -210,14 +210,14 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
-	// Parqet provides higher-quality logos than Google favicon
-	return `https://assets.parqet.com/logos/symbol/${brand.ticker.toUpperCase()}?format=png`;
+	// Clearbit gives proper company logos by domain
+	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
 }
 
-/** First fallback (used in onError): Parqet by ticker, then Google favicon */
+/** First fallback (used in onError) */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	return `https://assets.parqet.com/logos/symbol/${brand.ticker.toUpperCase()}?format=png`;
+	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
 }
 
 /** Final fallback (used in second onError): Google favicon */
@@ -306,6 +306,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	o: "realty-income", amt: "american-tower", eqix: "equinix",
 	spg: "simon-property-group", pld: "prologis", dlr: "digital-realty-trust",
 	// Media / Gaming
+	sony: "sony-group",
 	wbd: "warner-bros-discovery", mgm: "mgm-resorts-international",
 	ea: "electronic-arts", ttwo: "take-two-interactive", ttd: "trade-desk", roku: "roku",
 	// Crypto

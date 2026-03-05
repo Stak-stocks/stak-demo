@@ -1,8 +1,5 @@
-/** biome-ignore-all lint/style/noRestrictedImports: this is a platform-specific component */
-
 import { AlertTriangle } from "lucide-react";
 import React, { type JSX, useReducer } from "react";
-import { reportError } from "@/sdk/core/internal/creao-shell";
 import { ScrollArea } from "./ui/scroll-area";
 
 interface ErrorBoundaryState {
@@ -41,7 +38,6 @@ export class ErrorBoundary extends React.Component<
 	applyClonedContent = (target: HTMLDivElement | null) => {
 		if (!clonedStage || !target) return;
 		for (const node of clonedStage.childNodes) target.appendChild(node);
-		reportError(this.state.error, {});
 	};
 
 	render() {

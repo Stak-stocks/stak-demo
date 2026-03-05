@@ -22,6 +22,7 @@ import { Route as FeedRouteImport } from './routes/feed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
 import { Route as ProfilePersonalDetailsRouteImport } from './routes/profile_.personal-details'
+import { Route as ProfileHelpSupportRouteImport } from './routes/profile_.help-support'
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
@@ -92,6 +93,11 @@ const ProfilePersonalDetailsRoute = ProfilePersonalDetailsRouteImport.update({
   path: '/profile/personal-details',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileHelpSupportRoute = ProfileHelpSupportRouteImport.update({
+  id: '/profile_/help-support',
+  path: '/profile/help-support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeagueResultsRoute = LeagueResultsRouteImport.update({
   id: '/league_/results',
   path: '/league/results',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
+  '/profile/help-support': typeof ProfileHelpSupportRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
 }
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
+  '/profile/help-support': typeof ProfileHelpSupportRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
 }
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
   '/league_/results': typeof LeagueResultsRoute
+  '/profile_/help-support': typeof ProfileHelpSupportRoute
   '/profile_/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile_/security': typeof ProfileSecurityRoute
 }
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
+    | '/profile/help-support'
     | '/profile/personal-details'
     | '/profile/security'
   fileRoutesByTo: FileRoutesByTo
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
+    | '/profile/help-support'
     | '/profile/personal-details'
     | '/profile/security'
   id:
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/league_/lineup'
     | '/league_/performance'
     | '/league_/results'
+    | '/profile_/help-support'
     | '/profile_/personal-details'
     | '/profile_/security'
   fileRoutesById: FileRoutesById
@@ -247,6 +259,7 @@ export interface RootRouteChildren {
   LeagueLineupRoute: typeof LeagueLineupRoute
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
   LeagueResultsRoute: typeof LeagueResultsRoute
+  ProfileHelpSupportRoute: typeof ProfileHelpSupportRoute
   ProfilePersonalDetailsRoute: typeof ProfilePersonalDetailsRoute
   ProfileSecurityRoute: typeof ProfileSecurityRoute
 }
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfilePersonalDetailsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile_/help-support': {
+      id: '/profile_/help-support'
+      path: '/profile/help-support'
+      fullPath: '/profile/help-support'
+      preLoaderRoute: typeof ProfileHelpSupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/league_/results': {
       id: '/league_/results'
       path: '/league/results'
@@ -391,6 +411,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeagueLineupRoute: LeagueLineupRoute,
   LeaguePerformanceRoute: LeaguePerformanceRoute,
   LeagueResultsRoute: LeagueResultsRoute,
+  ProfileHelpSupportRoute: ProfileHelpSupportRoute,
   ProfilePersonalDetailsRoute: ProfilePersonalDetailsRoute,
   ProfileSecurityRoute: ProfileSecurityRoute,
 }

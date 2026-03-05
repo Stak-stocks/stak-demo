@@ -13,10 +13,6 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-	reportElementError,
-	useDelegatedComponentEventHandler,
-} from "@/sdk/core/internal/creao-shell";
 
 /**
  * Calendar component using react-day-picker
@@ -53,29 +49,8 @@ function Calendar({
 	const defaultClassNames = getDefaultClassNames();
 
 	// Wrap month change handler with error reporting
-	const handleMonthChange = useDelegatedComponentEventHandler(
-		onMonthChange,
-		(evt) => ({
-			componentType: "calendar",
-			eventType: "month-change",
-			componentInfo: {
-				month: evt.toISOString(),
-			},
-		}),
-	);
 
 	// Wrap day click handler with error reporting
-	const handleDayClick = useDelegatedComponentEventHandler(
-		onDayClick,
-		(day, modifiers) => ({
-			componentType: "calendar",
-			eventType: "day-click",
-			componentInfo: {
-				day: day.toISOString(),
-				modifiers,
-			},
-		}),
-	);
 
 	return (
 		<DayPicker
@@ -87,8 +62,8 @@ function Calendar({
 				className,
 			)}
 			captionLayout={captionLayout}
-			onMonthChange={handleMonthChange}
-			onDayClick={handleDayClick}
+			onMonthChange={onMonthChange}
+			onDayClick={onDayClick}
 			id={id}
 			formatters={{
 				formatMonthDropdown: (date) =>
@@ -241,37 +216,11 @@ function CalendarDayButton({
 		if (modifiers.focused) ref.current?.focus();
 	}, [modifiers.focused]);
 
-	// Handle click with error reporting
-	const handleClick = useCallback(
-		(event: React.MouseEvent<HTMLButtonElement>) => {
-			try {
-				// Call the original onClick handler if provided
-				if (onClick) {
-					// @ts-ignore - Button accepts onClick
-					onClick(event);
-				}
-			} catch (error) {
-				// Report error using the abstracted utility function
-				reportElementError(event.currentTarget as HTMLButtonElement, error, {
-					componentType: "calendar-day-button",
-					eventType: "click",
-					componentInfo: {
-						day: day.date.toISOString(),
-						modifiers,
-					},
-				});
-				throw error;
-			}
-		},
-		[onClick, day.date, modifiers],
-	);
-
 	return (
 		<Button
 			ref={ref}
 			variant="ghost"
 			size="icon"
-			onClick={handleClick}
 			data-day={day.date.toLocaleDateString()}
 			data-selected-single={
 				modifiers.selected &&

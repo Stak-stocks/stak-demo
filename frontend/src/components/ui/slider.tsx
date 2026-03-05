@@ -3,7 +3,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as React from "react";
 
-import { useDelegatedComponentEventHandler } from "@/sdk/core/internal/creao-shell";
 
 import { cn } from "@/lib/utils";
 
@@ -32,33 +31,7 @@ function Slider({
 		[value, defaultValue, min, max],
 	);
 
-	const handleValueChange = useDelegatedComponentEventHandler(
-		onValueChange,
-		() => ({
-			componentType: "slider",
-			eventType: "value-change",
-			componentInfo: {
-				id,
-				min,
-				max,
-			},
-		}),
-		domRef.current,
-	);
 
-	const handleValueCommit = useDelegatedComponentEventHandler(
-		onValueCommit,
-		() => ({
-			componentType: "slider",
-			eventType: "value-commit",
-			componentInfo: {
-				id,
-				min,
-				max,
-			},
-		}),
-		domRef.current,
-	);
 
 	return (
 		<SliderPrimitive.Root
@@ -69,8 +42,8 @@ function Slider({
 			value={value}
 			min={min}
 			max={max}
-			onValueChange={handleValueChange}
-			onValueCommit={handleValueCommit}
+			onValueChange={onValueChange}
+			onValueCommit={onValueCommit}
 			className={cn(
 				"relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
 				className,

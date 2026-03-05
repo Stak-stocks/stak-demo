@@ -6,15 +6,10 @@ import ReactDOM from "react-dom/client";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 
-import reportWebVitals from "./sdk/core/internal/reportWebVitals.ts";
 import "./styles.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./context/AuthContext";
 import { AccountProvider } from "./context/AccountContext";
-
-// Initialize Creao platform SDK
-import { APP_CONFIG } from "./sdk/core/global.ts";
-export { APP_CONFIG }; // for backward compatibility
 
 // Create a QueryClient instance
 const queryClient = new QueryClient({
@@ -65,7 +60,3 @@ if (rootElement && !rootElement.innerHTML) {
 	);
 }
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();

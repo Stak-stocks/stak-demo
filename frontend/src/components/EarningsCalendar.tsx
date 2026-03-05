@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { CalendarDays, X, ChevronRight } from "lucide-react";
-import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 import { useAccount } from "@/context/AccountContext";
 import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";
 
@@ -181,12 +181,13 @@ function tickerColor(symbol: string): string {
 }
 
 function TickerLogo({ symbol }: { symbol: string }) {
+	const brand = allBrands.find((b) => b.ticker.toUpperCase() === symbol.toUpperCase());
 	const [err, setErr] = useState(false);
-	if (!err) {
+	if (brand && !err) {
 		return (
 			<div className="w-9 h-9 rounded-full bg-white/5 border border-slate-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
 				<img
-					src={`https://assets.parqet.com/logos/symbol/${symbol}?format=png`}
+					src={getBrandLogoUrl(brand)}
 					alt={symbol}
 					className="w-7 h-7 object-contain"
 					onError={() => setErr(true)}
