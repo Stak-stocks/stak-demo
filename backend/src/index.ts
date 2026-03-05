@@ -10,6 +10,7 @@ import { trendsRouter } from "./routes/trends.js";
 import { stockRouter } from "./routes/stock.js";
 import { intelCardsRouter } from "./routes/intelCards.js";
 import { iposRouter } from "./routes/ipos.js";
+import { vibesRouter } from "./routes/vibes.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use("/api/stock", stockRouter);
 app.use("/api/intel-cards", intelCardsRouter);
 app.use("/api/stocks", iposRouter);
 app.use("/api/admin", iposRouter);
+app.use("/api/vibes", vibesRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

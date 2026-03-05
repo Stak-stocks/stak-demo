@@ -115,6 +115,17 @@ export function searchNews(query: string) {
 	);
 }
 
+export interface DynamicVibes {
+	ticker: string;
+	internetHype: number | null;
+	dramaLevel: number | null;
+	clout: number | null;
+}
+
+export function getVibes(ticker: string) {
+	return apiRequest<DynamicVibes>(`/api/vibes/${encodeURIComponent(ticker)}`);
+}
+
 export function getIntelCards() {
 	return apiRequest<{ cards: import("@/data/intelCards").IntelCard[] | null }>("/api/intel-cards");
 }

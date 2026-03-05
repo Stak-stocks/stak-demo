@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { getLiveTrends, getStockData } from "@/lib/api";
+import { getLiveTrends, getStockData, getVibes } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 import { useAccount } from "@/context/AccountContext";
 
@@ -151,6 +151,14 @@ function MyStakPage() {
 		refetchInterval: 60 * 1000,
 		retry: 3,
 		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+	});
+
+	const { data: vibesData } = useQuery({
+		queryKey: ["vibes", selectedBrand?.ticker],
+		queryFn: () => getVibes(selectedBrand!.ticker),
+		enabled: !!selectedBrand,
+		staleTime: 60 * 60 * 1000,
+		retry: 1,
 	});
 
 	const queryClient = useQueryClient();
@@ -302,7 +310,12 @@ function MyStakPage() {
 
 							<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-3 sm:p-6">
 								<h3 className="font-semibold text-sm sm:text-lg text-white mb-2 sm:mb-4">Vibe Metrics</h3>
-								<VibeSliders vibes={selectedBrand.vibes} />
+								<VibeSliders vibes={selectedBrand.vibes.map((v) => {
+									if (v.name === "Internet Hype" && vibesData?.internetHype != null) return { ...v, value: vibesData.internetHype };
+									if (v.name === "Drama Level" && vibesData?.dramaLevel != null) return { ...v, value: vibesData.dramaLevel };
+									if (v.name === "Clout" && vibesData?.clout != null) return { ...v, value: vibesData.clout };
+									return v;
+								})} />
 							</div>
 						</TabsContent>
 

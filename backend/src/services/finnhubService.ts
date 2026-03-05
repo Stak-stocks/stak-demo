@@ -381,3 +381,47 @@ export async function searchNewsArticles(query: string): Promise<FinnhubArticle[
 	await cacheSet(cacheKey, result, NEWS_CACHE_TTL_MS);
 	return result;
 }
+
+export interface NewsSentiment {
+	buzz: number;           // 0–1: how much the stock is talked about vs weekly average
+	bullishPercent: number; // 0–1
+	bearishPercent: number; // 0–1
+}
+
+/** Fetch news sentiment + buzz for a ticker. Cached 1 hour. */
+export async function getNewsSentiment(ticker: string): Promise<NewsSentiment | null> {
+	const cacheKey = `sentiment:${ticker}`;
+	const cached = await cacheGet<NewsSentiment>(cacheKey);
+	if (cached) return cached;
+
+	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news-sentiment?symbol=${ticker}&token=${key}`);
+	if (!res || !res.ok) return null;
+
+	const data = await res.json();
+	if (!data?.buzz?.buzz) return null;
+
+	const result: NewsSentiment = {
+		buzz: data.buzz.buzz ?? 0,
+		bullishPercent: data.sentiment?.bullishPercent ?? 0.5,
+		bearishPercent: data.sentiment?.bearishPercent ?? 0.5,
+	};
+	await cacheSet(cacheKey, result, 60 * 60 * 1000); // 1 hour
+	return result;
+}
+
+/** Fetch market cap (in millions USD) for a ticker. Cached 7 days. */
+export async function getMarketCap(ticker: string): Promise<number | null> {
+	const cacheKey = `marketcap:${ticker}`;
+	const cached = await cacheGet<number>(cacheKey);
+	if (cached) return cached;
+
+	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/stock/profile2?symbol=${ticker}&token=${key}`);
+	if (!res || !res.ok) return null;
+
+	const data = await res.json();
+	const marketCap: number | undefined = data?.marketCapitalization;
+	if (!marketCap) return null;
+
+	await cacheSet(cacheKey, marketCap, 7 * 24 * 60 * 60 * 1000); // 7 days
+	return marketCap;
+}
