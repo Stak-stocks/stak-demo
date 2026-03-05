@@ -54,7 +54,7 @@ function StakCard({
 			</button>
 
 			<div className="flex items-start gap-4 mb-3">
-				<BrandLogo brand={brand} className="w-12 h-12 rounded-lg bg-white/10 animate-[flip-y_2s_linear_infinite]" />
+				<BrandLogo brand={brand} className="w-12 h-12 rounded-lg animate-[flip-y_2s_linear_infinite]" />
 				<div className="flex-1">
 					<div className="flex items-baseline gap-2 mb-1">
 						<h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">

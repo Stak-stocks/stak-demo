@@ -13,6 +13,8 @@ interface BrandLogoProps {
 export function BrandLogo({ brand, className = "w-9 h-9 rounded-lg", alt }: BrandLogoProps) {
 	return (
 		<div className={`relative overflow-hidden shrink-0 ${className}`}>
+			{/* Chip background — dark so white-icon logos (TradingView) and white-bg logos (EODHD) both look clean */}
+			<div className="absolute inset-0 bg-white dark:bg-zinc-800" />
 			{/* Fallback preloads silently — made visible only when primary errors */}
 			<img
 				src={getBrandFallbackLogoUrl(brand)}

@@ -170,7 +170,7 @@ const BrandRow = memo(function BrandRow({ brand, onSelect }: { brand: BrandProfi
 			onClick={() => onSelect(brand)}
 			className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-800/50 transition-colors text-left"
 		>
-			<BrandLogo brand={brand} className="w-9 h-9 rounded-lg bg-[#1a1f2e]" />
+			<BrandLogo brand={brand} className="w-9 h-9 rounded-lg" />
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2">
 					<span className="font-semibold text-white text-sm">{brand.name}</span>
