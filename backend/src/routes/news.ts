@@ -4,6 +4,42 @@ import { simplifyArticles, classifyEarnings } from "../services/geminiService.js
 
 export const newsRouter = Router();
 
+// ── Topic diversity cap ───────────────────────────────────────────────────────
+const STOP_WORDS = new Set([
+	"the","and","for","that","with","this","from","have","will","been","their",
+	"about","more","also","into","after","over","when","than","then","were","what",
+	"which","there","they","some","other","would","could","said","says","new","its",
+	"has","are","was","but","not","can","may","all","had","one","our","out","who",
+]);
+
+function extractTerms(headline: string): string[] {
+	return headline.toLowerCase()
+		.replace(/[^a-z\s]/g, " ")
+		.split(/\s+/)
+		.filter((w) => w.length > 4 && !STOP_WORDS.has(w));
+}
+
+/** Ensure no single topic dominates — max `maxPerCluster` articles per topic cluster. */
+function capByTopicDiversity(articles: FinnhubArticle[], maxPerCluster = 2): FinnhubArticle[] {
+	const clusters: { terms: Set<string>; count: number }[] = [];
+	const result: FinnhubArticle[] = [];
+
+	for (const article of articles) {
+		const terms = new Set(extractTerms(article.headline));
+		const match = clusters.find((c) => [...terms].some((t) => c.terms.has(t)));
+
+		if (match) {
+			if (match.count >= maxPerCluster) continue;
+			match.count++;
+			for (const t of terms) match.terms.add(t);
+		} else {
+			clusters.push({ terms, count: 1 });
+		}
+		result.push(article);
+	}
+	return result;
+}
+
 // ── Earnings signal extraction from article headlines ────────────────────────
 const EARNINGS_CORE = [
 	// Direct mentions
@@ -63,7 +99,9 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
 	try {
-		const articles = await getMarketNews(16);
+		// Fetch extra candidates so diversity cap still yields enough articles
+		const raw = await getMarketNews(40);
+		const articles = capByTopicDiversity(raw, 2).slice(0, 16);
 		// All general news is treated as macro — no extra filtering needed
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		res.json({ articles: simplified });
