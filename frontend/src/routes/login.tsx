@@ -83,10 +83,10 @@ function LoginPage() {
 				toast.success("Welcome back!");
 			}
 		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "";
-			if (!message.includes("popup-closed-by-user")) {
-				toast.error("Sign in failed. Please try again.");
-			}
+			const code = (error as { code?: string }).code ?? "";
+			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
+			if (!cancelled) toast.error("Sign in failed. Please try again.");
+		} finally {
 			setSigningIn(false);
 		}
 	}
