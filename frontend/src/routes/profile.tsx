@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import { toast } from "sonner";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { brands as allBrands, type BrandProfile } from "@/data/brands";
@@ -162,6 +162,12 @@ function ProfilePage() {
 		navigate({ to: "/login" });
 	}
 
+	useEffect(() => {
+		if (!loading && !user) {
+			navigate({ to: "/login" });
+		}
+	}, [loading, user, navigate]);
+
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
@@ -171,7 +177,6 @@ function ProfilePage() {
 	}
 
 	if (!user) {
-		navigate({ to: "/login" });
 		return null;
 	}
 
@@ -240,7 +245,7 @@ function ProfilePage() {
 							{stakBrands.length > 0 ? (
 								<div className="flex items-center gap-1 mt-1 mb-1">
 									{stakBrands.slice(0, 3).map((b) => (
-										<BrandLogo brand={b} className="w-7 h-7 rounded-full bg-white/10 border border-white/10" />
+										<BrandLogo key={b.id} brand={b} className="w-7 h-7 rounded-full bg-white/10 border border-white/10" />
 									))}
 									{stakBrands.length > 3 && <span className="text-[10px] text-zinc-400 ml-0.5">+{stakBrands.length - 3}</span>}
 								</div>

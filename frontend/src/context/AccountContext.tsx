@@ -94,11 +94,16 @@ const MAX_SEARCH_HISTORY = 20;
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-	const { user } = useAuth();
+	const { user, loading: authLoading } = useAuth();
 	const [account, setAccount] = useState<UserDoc | null>(null);
 	const [accountLoading, setAccountLoading] = useState(true);
 
+	// Wait for Firebase auth to fully resolve before acting.
+	// This prevents the race where user=User but accountLoading=false
+	// (stale from the logged-out state) causes a false redirect to /onboarding.
 	useEffect(() => {
+		if (authLoading) return;
+
 		if (!user) {
 			setAccount(null);
 			setAccountLoading(false);
@@ -121,7 +126,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		);
 
 		return unsubscribe;
-	}, [user]);
+	}, [user, authLoading]);
 
 	const updateStak = useCallback(
 		async (brandIds: string[]) => {

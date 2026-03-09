@@ -110,12 +110,18 @@ function App() {
 	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
 
 	// ── Passed brands — initialised from Firestore account ────────────────────
-	const [passedBrandIds, setPassedBrandIds] = useState<Set<string>>(() => {
-		const entries = account?.passedBrands ?? [];
+	// Must use useEffect (not lazy useState) so we wait for account to load from
+	// Firestore — same race condition fix as recommendedOrder below.
+	const [passedBrandIds, setPassedBrandIds] = useState<Set<string>>(new Set());
+	const passedInitialized = useRef(false);
+	useEffect(() => {
+		if (passedInitialized.current || !account) return;
+		passedInitialized.current = true;
+		const entries = account.passedBrands ?? [];
 		const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
 		const active = entries.filter((e) => e.at > twoDaysAgo);
-		return new Set(active.map((e) => e.id));
-	});
+		setPassedBrandIds(new Set(active.map((e) => e.id)));
+	}, [account]);
 
 	// Ref keeps the latest passed entries for use in stable callbacks
 	const passedEntriesRef = useRef<PassedEntry[]>(account?.passedBrands ?? []);

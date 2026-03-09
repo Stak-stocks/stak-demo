@@ -82,6 +82,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function OnboardingPage() {
 	const { user, loading } = useAuth();
+	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
 	// Sync step with the URL hash so browser back/forward works
@@ -122,7 +123,15 @@ function OnboardingPage() {
 		}
 	}, [loading, user, navigate]);
 
-	if (loading) {
+	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
+	// a false redirect caused by a race condition on reload), send them back.
+	useEffect(() => {
+		if (!loading && !accountLoading && user && account?.onboardingCompleted === true) {
+			navigate({ to: "/", replace: true });
+		}
+	}, [loading, accountLoading, user, account, navigate]);
+
+	if (loading || accountLoading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
