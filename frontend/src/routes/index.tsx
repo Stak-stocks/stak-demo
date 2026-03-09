@@ -118,8 +118,9 @@ function App() {
 		if (passedInitialized.current || !account) return;
 		passedInitialized.current = true;
 		const entries = account.passedBrands ?? [];
-		const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
-		const active = entries.filter((e) => e.at > twoDaysAgo);
+		const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+		// Permanently hide after 5 left-swipes; otherwise hide for 1 day
+		const active = entries.filter((e) => (e.count ?? 0) >= 5 || e.at > oneDayAgo);
 		setPassedBrandIds(new Set(active.map((e) => e.id)));
 	}, [account]);
 
@@ -340,11 +341,13 @@ function App() {
 
 		setPassedBrandIds((prev) => new Set([...prev, brand.id]));
 		const existing = passedEntriesRef.current;
-		if (!existing.some((e) => e.id === brand.id)) {
-			const updated = [...existing, { id: brand.id, at: Date.now() }];
-			passedEntriesRef.current = updated;
-			updatePassedBrands(updated).catch(() => {});
-		}
+		const prev = existing.find((e) => e.id === brand.id);
+		const newCount = (prev?.count ?? 0) + 1;
+		const updated = prev
+			? existing.map((e) => e.id === brand.id ? { ...e, at: Date.now(), count: newCount } : e)
+			: [...existing, { id: brand.id, at: Date.now(), count: 1 }];
+		passedEntriesRef.current = updated;
+		updatePassedBrands(updated).catch(() => {});
 	}, [updatePassedBrands, updateCategoryScores]);
 
 	const handleCancelSwap = useCallback(() => {

@@ -23,6 +23,7 @@ import { useAuth } from "./AuthContext";
 export interface PassedEntry {
 	id: string;
 	at: number;
+	count: number; // total times swiped left; >= 5 = permanently hidden
 }
 
 export interface SearchEntry {
