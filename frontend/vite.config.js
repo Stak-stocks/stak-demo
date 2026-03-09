@@ -30,6 +30,10 @@ export default defineConfig({
 		host: "0.0.0.0",
 		port: 3000,
 		allowedHosts: true, // respond to *any* Host header
+		headers: {
+			"Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+			"Cross-Origin-Embedder-Policy": "unsafe-none",
+		},
 		watch: {
 			usePolling: true,
 			interval: 300, // ms; tune if CPU gets high
