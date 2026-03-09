@@ -33,6 +33,8 @@ interface SwipeableCardStackProps {
 	hasReachedLimit: boolean;
 	/** From useSwipeLimit — called on every swipe to increment the shared counter */
 	onIncrement: () => void;
+	/** Number of brands currently in the user's Stak — logged for ML training */
+	stakSize?: number;
 }
 
 export function SwipeableCardStack({
@@ -43,6 +45,7 @@ export function SwipeableCardStack({
 	onSwipe,
 	hasReachedLimit,
 	onIncrement,
+	stakSize,
 }: SwipeableCardStackProps) {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -98,7 +101,11 @@ export function SwipeableCardStack({
 		const exitX = direction === "right" ? 1200 : -1200;
 		setDragOffset({ x: exitX, y: 0 });
 
-		recordSwipe(currentBrand.id, direction).catch(() => {});
+		recordSwipe(currentBrand.id, direction, {
+			ticker: currentBrand.ticker,
+			categories: currentBrand.interestCategories,
+			stakSize,
+		}).catch(() => {});
 		onIncrement();
 		onSwipe?.();
 

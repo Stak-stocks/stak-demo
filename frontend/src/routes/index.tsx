@@ -381,6 +381,7 @@ function App() {
 					onSwipe={handleSwipe}
 					hasReachedLimit={hasReachedLimit}
 					onIncrement={incrementSwipe}
+					stakSize={account?.stakBrandIds?.length ?? 0}
 				/>
 			</div>
 

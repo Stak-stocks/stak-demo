@@ -7,7 +7,7 @@ export const swipeRouter = Router();
 // POST /api/swipe — record a swipe action (requires auth)
 swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { brandId, direction } = req.body;
+		const { brandId, direction, ticker, categories, stakSize } = req.body;
 		const uid = req.user!.uid;
 
 		if (!brandId || !direction) {
@@ -25,6 +25,9 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			brandId,
 			direction,
 			timestamp: new Date().toISOString(),
+			...(ticker != null && { ticker }),
+			...(categories != null && { categories }),
+			...(stakSize != null && { stakSize }),
 		});
 
 		res.json({ success: true });

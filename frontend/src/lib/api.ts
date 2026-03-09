@@ -77,10 +77,14 @@ export function savePassedBrands(entries: { id: string; at: number }[]) {
 }
 
 // Swipe
-export function recordSwipe(brandId: string, direction: "left" | "right") {
+export function recordSwipe(
+	brandId: string,
+	direction: "left" | "right",
+	meta?: { ticker?: string; categories?: string[]; stakSize?: number },
+) {
 	return apiRequest("/api/swipe", {
 		method: "POST",
-		body: JSON.stringify({ brandId, direction }),
+		body: JSON.stringify({ brandId, direction, ...meta }),
 	});
 }
 
