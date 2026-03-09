@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { getLiveTrends, getStockData, getVibes } from "@/lib/api";
+import { getLiveTrends, getStockData, getVibes, recordEngagement } from "@/lib/api";
 import { StockNewsTab } from "@/components/StockNewsTab";
 import { useAccount } from "@/context/AccountContext";
 
@@ -203,6 +203,7 @@ function MyStakPage() {
 		e.stopPropagation();
 		const updatedIds = (account?.stakBrandIds ?? []).filter((id) => id !== brand.id);
 		updateStak(updatedIds).catch(() => {});
+		recordEngagement("removed_from_stak", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 		toast.success("Removed from your Stak", {
 			description: brand.name,
 			duration: 2000,

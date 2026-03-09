@@ -59,6 +59,14 @@ export function SwipeableCardStack({
 	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const isProcessingSwipe = useRef(false);
+	const cardShownAt = useRef(Date.now());
+	const lastSwipeVelocity = useRef<number | undefined>(undefined);
+
+	// Reset card timer whenever the top card changes
+	useEffect(() => {
+		cardShownAt.current = Date.now();
+		lastSwipeVelocity.current = undefined;
+	}, [currentIndex]);
 
 	// Update countdown timer every minute
 	useEffect(() => {
@@ -105,6 +113,8 @@ export function SwipeableCardStack({
 			ticker: currentBrand.ticker,
 			categories: currentBrand.interestCategories,
 			stakSize,
+			timeOnCardMs: Date.now() - cardShownAt.current,
+			swipeVelocity: lastSwipeVelocity.current,
 		}).catch(() => {});
 		onIncrement();
 		onSwipe?.();
@@ -170,6 +180,7 @@ export function SwipeableCardStack({
 
 		if (isFlick || isDrag) {
 			const direction = (velocity !== 0 ? velocity : dragOffset.x) > 0 ? "right" : "left";
+			lastSwipeVelocity.current = Math.round(Math.abs(velocity) * 100) / 100;
 			executeSwipe(direction);
 		} else {
 			setDragOffset({ x: 0, y: 0 });
