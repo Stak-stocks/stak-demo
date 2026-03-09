@@ -7,7 +7,7 @@ export const swipeRouter = Router();
 // POST /api/swipe — record a swipe action (requires auth)
 swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { brandId, direction, ticker, categories, stakSize } = req.body;
+		const { brandId, direction, ticker, categories, stakSize, timeOnCardMs, swipeVelocity } = req.body;
 		const uid = req.user!.uid;
 
 		if (!brandId || !direction) {
@@ -28,12 +28,41 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
 			...(stakSize != null && { stakSize }),
+			...(timeOnCardMs != null && { timeOnCardMs }),
+			...(swipeVelocity != null && { swipeVelocity }),
 		});
 
 		res.json({ success: true });
 	} catch (error) {
 		console.error("Error recording swipe:", error);
 		res.status(500).json({ error: "Failed to record swipe" });
+	}
+});
+
+// POST /api/swipe/event — record an engagement event (learn_more, removed_from_stak)
+swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const { type, brandId, ticker, categories } = req.body;
+		const uid = req.user!.uid;
+
+		if (!type || !brandId) {
+			res.status(400).json({ error: "type and brandId are required" });
+			return;
+		}
+
+		await adminDb.collection("events").add({
+			uid,
+			type,
+			brandId,
+			timestamp: new Date().toISOString(),
+			...(ticker != null && { ticker }),
+			...(categories != null && { categories }),
+		});
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error("Error recording event:", error);
+		res.status(500).json({ error: "Failed to record event" });
 	}
 });
 

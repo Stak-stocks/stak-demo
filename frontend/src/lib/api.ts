@@ -80,11 +80,22 @@ export function savePassedBrands(entries: { id: string; at: number }[]) {
 export function recordSwipe(
 	brandId: string,
 	direction: "left" | "right",
-	meta?: { ticker?: string; categories?: string[]; stakSize?: number },
+	meta?: { ticker?: string; categories?: string[]; stakSize?: number; timeOnCardMs?: number; swipeVelocity?: number },
 ) {
 	return apiRequest("/api/swipe", {
 		method: "POST",
 		body: JSON.stringify({ brandId, direction, ...meta }),
+	});
+}
+
+export function recordEngagement(
+	type: "learn_more" | "removed_from_stak",
+	brandId: string,
+	meta?: { ticker?: string; categories?: string[] },
+) {
+	return apiRequest("/api/swipe/event", {
+		method: "POST",
+		body: JSON.stringify({ type, brandId, ...meta }),
 	});
 }
 

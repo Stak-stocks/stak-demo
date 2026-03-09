@@ -8,7 +8,7 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { getIntelCards } from "@/lib/api";
+import { getIntelCards, recordEngagement } from "@/lib/api";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
@@ -21,7 +21,7 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 
-const STAK_CAPACITY = 15;
+const STAK_CAPACITY = 30;
 
 // Reverse mapping: brand ID → interest categories it belongs to
 const BRAND_TO_CATEGORIES: Record<string, string[]> = {};
@@ -259,6 +259,7 @@ function App() {
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
 		setModalOpen(true);
+		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
