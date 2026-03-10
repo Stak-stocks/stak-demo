@@ -72,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				const lastUid = localStorage.getItem("last-user-uid");
 				if (lastUid && lastUid !== firebaseUser.uid) {
 					const keys = [
-						"my-stak", "passed-brands",
 						`daily-swipe-state:${lastUid}`, `stak-deck-order:${lastUid}`,
 					];
 					keys.forEach((k) => localStorage.removeItem(k));
