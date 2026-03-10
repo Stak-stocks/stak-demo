@@ -75,7 +75,7 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl h-full"
+				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl h-full min-h-0"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
@@ -111,7 +111,7 @@ function Badge({ type, label }: { type: TrendCard["type"]; label: string }) {
 function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: string; rgb: string }) {
 	return (
 		<div
-			className="flex items-center gap-2 mt-auto pt-3 sm:pt-4 pb-2"
+			className="flex items-center gap-2 shrink-0 pt-3 sm:pt-4 pb-2"
 			style={{ borderTop: `1px solid rgba(${rgb}, 0.15)` }}
 		>
 			<div>
@@ -136,7 +136,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			<GlassCard type={card.type}>
 				<Badge type={card.type} label={card.label} />
 
-				<div className="flex-1 overflow-y-auto no-scrollbar">
+				<div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
 					{card.topic && (
 						<h3 className="text-base sm:text-[1.65rem] font-extrabold text-white leading-tight mb-3 sm:mb-5">
 							{card.topic}
@@ -198,7 +198,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<GlassCard type="stak">
 				<Badge type="stak" label={card.label} />
 
-				<div className="flex-1 overflow-y-auto no-scrollbar">
+				<div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
 					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
 						{card.synthesis}
 					</p>
@@ -234,7 +234,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<GlassCard type="stak">
 				<Badge type="stak" label={card.label} />
 
-				<div className="flex flex-col gap-3 mt-1 flex-1 overflow-y-auto no-scrollbar">
+				<div className="flex flex-col gap-3 mt-1 flex-1 min-h-0 overflow-y-auto no-scrollbar">
 					{cleanIntro && (
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
 							{cleanIntro}
