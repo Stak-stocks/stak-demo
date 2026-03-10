@@ -58,9 +58,6 @@ const BRAND_COLORS: Record<string, string> = {
 	sq: "#1a1a2e",
 };
 
-function clearProgress() {
-	localStorage.removeItem("onboardingProgress");
-}
 
 // ─── Back button ─────────────────────────────────────────────────────────────
 
@@ -181,7 +178,6 @@ function OnboardingPage() {
 			selected={selectedFamiliarity}
 			onSelect={(f) => {
 				setSelectedFamiliarity(f);
-				localStorage.setItem("onboarding-familiarity", f);
 			}}
 			onNext={() => goTo(5)}
 		/>,
@@ -705,9 +701,6 @@ function BuildingStep({
 	useEffect(() => {
 		// Clear any cached deck order and passed brands so Discover starts fresh
 		sessionStorage.removeItem("stak-deck-order");
-		localStorage.removeItem("passed-brands");
-
-		clearProgress();
 
 		// Write preferences via client SDK first — updates local Firestore cache
 		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
