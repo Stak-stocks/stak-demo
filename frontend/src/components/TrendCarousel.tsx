@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { TrendCard } from "@/data/brands";
 
+const FALLBACK_IMPACT = "📊 Volatile / Mixed Pressure";
+
 /* ── colour system ── */
 const COLOR_MAP: Record<
 	TrendCard["type"],
@@ -144,9 +146,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					{card.why}
 				</p>
 
-				{card.impact && (
-					<ImpactFooter impact={card.impact} badgeText={c.badgeText} rgb={c.rgb} />
-				)}
+				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 			</GlassCard>
 		);
 	}
@@ -212,9 +212,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 					</div>
 				)}
 
-				{card.impact && (
-					<ImpactFooter impact={card.impact} badgeText={c.badgeText} rgb={c.rgb} />
-				)}
+				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 			</GlassCard>
 		);
 	}
@@ -250,7 +248,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 						</ul>
 					)}
 
-					{card.stockReflects && (
+						{card.stockReflects && (
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
 							{card.stockReflects}
 						</p>
@@ -269,13 +267,11 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 					)}
 				</div>
 
-				{(card.impact ?? card.pressure) && (
-					<ImpactFooter
-						impact={card.impact ?? card.pressure ?? ""}
-						badgeText={c.badgeText}
-						rgb={c.rgb}
-					/>
-				)}
+				<ImpactFooter
+					impact={card.impact ?? card.pressure ?? FALLBACK_IMPACT}
+					badgeText={c.badgeText}
+					rgb={c.rgb}
+				/>
 			</GlassCard>
 		);
 	}
