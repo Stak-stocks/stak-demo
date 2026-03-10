@@ -13,6 +13,7 @@ import {
 } from "@/data/onboarding";
 import { brands as allBrands } from "@/data/brands";
 import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
@@ -221,22 +222,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 		<div className="text-center space-y-8 animate-in fade-in duration-500">
 			{/* Logo */}
 			<div className="flex items-center justify-center gap-2">
-				<svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-white">
-					<path
-						d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-					<path
-						d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
+				<StakLogoIcon width={48} height={48} />
 				<span className="text-white text-4xl font-bold tracking-wider">STAK</span>
 			</div>
 

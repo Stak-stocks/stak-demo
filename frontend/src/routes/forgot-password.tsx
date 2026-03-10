@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
+import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/forgot-password")({
 	component: ForgotPasswordPage,
@@ -41,10 +42,7 @@ function ForgotPasswordPage() {
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Logo */}
 				<div className="flex items-center justify-center gap-2 mb-2">
-					<svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-white">
-						<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-						<path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-					</svg>
+					<StakLogoIcon width={32} height={32} />
 					<span className="text-white text-2xl font-bold tracking-wider">STAK</span>
 				</div>
 

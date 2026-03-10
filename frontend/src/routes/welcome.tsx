@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useRef } from "react";
+import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
@@ -164,10 +165,7 @@ function LandingPage() {
 				{/* ── Navbar ── */}
 				<nav className="w-full px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
 					<div className="flex items-center gap-2">
-						<svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-white">
-							<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-							<path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
+						<StakLogoIcon width={28} height={28} />
 						<span className="text-white text-xl font-bold tracking-wider">STAK</span>
 					</div>
 
@@ -300,10 +298,7 @@ function LandingPage() {
 				{/* ── Footer ── */}
 				<footer className="px-6 py-8 flex flex-col items-center gap-2 border-t border-slate-800/50">
 					<div className="flex items-center gap-2">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
-							<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-							<path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
+						<StakLogoIcon width={24} height={24} />
 						<span className="text-white text-lg font-bold tracking-wider">STAK</span>
 					</div>
 					<p className="text-slate-500 text-xs">&copy; 2026 STAK. All rights reserved.</p>
