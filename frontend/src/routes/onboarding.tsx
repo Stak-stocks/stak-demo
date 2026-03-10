@@ -117,20 +117,25 @@ function OnboardingPage() {
 		}
 	}, [user, loading, navigate]);
 
-	// Prevent navigating back to onboarding after it's been completed
+	// Prevent navigating back to onboarding after it's been completed.
+	// Skip this guard on step 5 (BuildingStep) so the personalized loading
+	// animation always plays through — the BuildingStep manages its own exit.
 	useEffect(() => {
+		if (step === 5) return;
 		if (!loading && user && localStorage.getItem("onboardingCompleted") === "true") {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, user, navigate]);
+	}, [loading, user, navigate, step]);
 
 	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
 	// a false redirect caused by a race condition on reload), send them back.
+	// Also suppressed on step 5 so the building animation isn't interrupted.
 	useEffect(() => {
+		if (step === 5) return;
 		if (!loading && !accountLoading && user && account?.onboardingCompleted === true) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, accountLoading, user, account, navigate]);
+	}, [loading, accountLoading, user, account, navigate, step]);
 
 	if (loading || accountLoading) {
 		return (
