@@ -326,24 +326,49 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 	const goPrev = useCallback(() => { setIsTransitioning(true); setPos((p) => p - 1); }, []);
 	const goTo = useCallback((i: number) => { setIsTransitioning(true); setPos(i + 1); }, []);
 
-	const handlePointerDown = useCallback((e: React.PointerEvent) => {
+	const handleTouchStart = useCallback((e: React.TouchEvent) => {
 		isDragging.current = true;
-		startX.current = e.clientX;
-		currentX.current = e.clientX;
-		(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		startX.current = e.touches[0].clientX;
+		currentX.current = e.touches[0].clientX;
 	}, []);
 
-	const handlePointerMove = useCallback((e: React.PointerEvent) => {
+	const handleTouchMove = useCallback((e: React.TouchEvent) => {
 		if (!isDragging.current) return;
-		currentX.current = e.clientX;
+		currentX.current = e.touches[0].clientX;
+		// Prevent vertical scroll when swiping horizontally
+		const diffX = Math.abs(currentX.current - startX.current);
+		if (diffX > 10) e.preventDefault();
 	}, []);
 
-	const handlePointerUp = useCallback(() => {
+	const handleTouchEnd = useCallback(() => {
 		if (!isDragging.current) return;
 		isDragging.current = false;
 		const diff = startX.current - currentX.current;
-		if (diff > 50) goNext();
-		else if (diff < -50) goPrev();
+		if (diff > 30) goNext();
+		else if (diff < -30) goPrev();
+	}, [goNext, goPrev]);
+
+	const handlePointerDown = useCallback((e: React.PointerEvent) => {
+		if (e.pointerType === "touch") return; // handled by touch events
+		isDragging.current = true;
+		startX.current = e.clientX;
+		currentX.current = e.clientX;
+		// Capture so we keep tracking even if the mouse leaves the carousel
+		(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		e.preventDefault(); // prevent text selection while dragging
+	}, []);
+
+	const handlePointerMove = useCallback((e: React.PointerEvent) => {
+		if (e.pointerType === "touch" || !isDragging.current) return;
+		currentX.current = e.clientX;
+	}, []);
+
+	const handlePointerUp = useCallback((e: React.PointerEvent) => {
+		if (e.pointerType === "touch" || !isDragging.current) return;
+		isDragging.current = false;
+		const diff = startX.current - currentX.current;
+		if (diff > 30) goNext();
+		else if (diff < -30) goPrev();
 	}, [goNext, goPrev]);
 
 	useEffect(() => {
@@ -394,11 +419,16 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 			{/* Carousel */}
 			<div className="relative">
 				<div
-					className="overflow-hidden touch-pan-y select-none py-4"
+					className="overflow-hidden select-none py-4 cursor-grab active:cursor-grabbing"
 					ref={trackRef}
+					style={{ touchAction: "pan-y" }}
+					onTouchStart={handleTouchStart}
+					onTouchMove={handleTouchMove}
+					onTouchEnd={handleTouchEnd}
 					onPointerDown={handlePointerDown}
 					onPointerMove={handlePointerMove}
 					onPointerUp={handlePointerUp}
+					onPointerCancel={() => { isDragging.current = false; }}
 				>
 					<div
 						className={`flex ${isTransitioning ? "transition-transform duration-400 ease-out" : ""}`}
@@ -410,7 +440,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[440px] sm:h-[520px]"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[500px] sm:h-[560px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
