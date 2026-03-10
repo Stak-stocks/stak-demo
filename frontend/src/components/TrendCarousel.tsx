@@ -73,10 +73,9 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl h-full grid"
+				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl h-full flex flex-col"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
-					gridTemplateRows: "2fr 1fr",
 				}}
 			>
 				{children}
@@ -170,10 +169,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					</p>
 
 					{card.takeaway && (
-						<div
-							className="pb-3 sm:pb-4"
-							style={{ borderBottom: `1px solid rgba(${c.rgb}, 0.15)` }}
-						>
+						<div className="pb-3 sm:pb-4">
 							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
 								<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
 								{card.takeaway}
@@ -182,8 +178,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					)}
 				</div>
 
-				<div />
-			</GlassCard>
+				</GlassCard>
 			);
 	}
 
@@ -239,8 +234,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					</div>
 				</div>
 
-				<div />
-			</GlassCard>
+				</GlassCard>
 			);
 	}
 
@@ -264,8 +258,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					)}
 				</div>
 
-				<div />
-			</GlassCard>
+				</GlassCard>
 			);
 }
 
