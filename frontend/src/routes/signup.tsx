@@ -104,14 +104,13 @@ function SignUpPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+			{/* Logo — top left */}
+			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
+				<StakLogoIcon width={28} height={28} />
+				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+			</Link>
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
-				{/* Logo */}
-				<Link to="/welcome" className="inline-flex items-center gap-2 justify-center hover:opacity-80 transition-opacity">
-					<StakLogoIcon width={36} height={36} />
-					<span className="text-white text-xl font-bold tracking-wider">STAK</span>
-				</Link>
-
 				{/* Heading */}
 				<div>
 					<h1 className="text-3xl font-bold text-white">Create Account</h1>
