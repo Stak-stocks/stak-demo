@@ -488,8 +488,8 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							key={card.type}
 							onClick={() => goTo(i)}
 							className={`rounded-full transition-all duration-300 ${i === realIndex
-									? `w-7 h-2.5 ${dotColor.dotActive}`
-									: "w-2.5 h-2.5 bg-zinc-600 hover:bg-zinc-500"
+								? `w-7 h-2.5 ${dotColor.dotActive}`
+								: "w-2.5 h-2.5 bg-zinc-600 hover:bg-zinc-500"
 								}`}
 						/>
 					);
