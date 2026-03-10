@@ -1790,7 +1790,7 @@ export const brands: BrandProfile[] = [
 			},
 		},
 	},
-{
+	{
 		id: "intc",
 		ticker: "INTC",
 		name: "Intel",
@@ -11479,5 +11479,5 @@ export const brands: BrandProfile[] = [
 		},
 		interestCategories: ["tech"],
 	},
-// END AUTO-GENERATED
+	// END AUTO-GENERATED
 ];

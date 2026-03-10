@@ -248,7 +248,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 						</ul>
 					)}
 
-						{card.stockReflects && (
+					{card.stockReflects && (
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
 							{card.stockReflects}
 						</p>
@@ -410,7 +410,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-								className="shrink-0 transition-transform duration-400 ease-out origin-center h-[440px] sm:h-[520px]"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[440px] sm:h-[520px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
@@ -457,11 +457,10 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							type="button"
 							key={card.type}
 							onClick={() => goTo(i)}
-							className={`rounded-full transition-all duration-300 ${
-								i === realIndex
+							className={`rounded-full transition-all duration-300 ${i === realIndex
 									? `w-7 h-2.5 ${dotColor.dotActive}`
 									: "w-2.5 h-2.5 bg-zinc-600 hover:bg-zinc-500"
-							}`}
+								}`}
 						/>
 					);
 				})}
