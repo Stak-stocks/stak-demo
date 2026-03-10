@@ -128,6 +128,18 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					</p>
 				</div>
 
+				{(card.impact || card.pressure) && (
+					<div
+						className="mt-auto pt-3 shrink-0"
+						style={{ borderTop: `1px solid rgba(${c.rgb}, 0.2)` }}
+					>
+						<p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Direction</p>
+						<p className={`text-sm sm:text-lg font-bold ${c.badgeText}`}>
+							{card.impact || `${card.pressureEmoji || "\u{1F4CA}"} ${card.pressure}`}
+						</p>
+					</div>
+				)}
+
 				</GlassCard>
 		);
 	}
@@ -148,6 +160,18 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					{card.explanation}
 				</p>
 			</div>
+
+			{(card.impact || card.pressure) && (
+				<div
+					className="mt-auto pt-3 shrink-0"
+					style={{ borderTop: `1px solid rgba(${c.rgb}, 0.2)` }}
+				>
+					<p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Direction</p>
+					<p className={`text-sm sm:text-lg font-bold ${c.badgeText}`}>
+						{card.impact || `${card.pressureEmoji || "\u{1F4CA}"} ${card.pressure}`}
+					</p>
+				</div>
+			)}
 
 			</GlassCard>
 	);
