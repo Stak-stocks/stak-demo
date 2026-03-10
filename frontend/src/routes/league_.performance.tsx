@@ -10,10 +10,7 @@ export const Route = createFileRoute("/league_/performance")({
 
 function PerformancePage() {
 	const navigate = useNavigate();
-	const [leagueState] = useState<LeagueState>(() => {
-		const saved = localStorage.getItem("league-state");
-		return saved ? JSON.parse(saved) : INITIAL_LEAGUE_STATE;
-	});
+	const [leagueState] = useState<LeagueState>(INITIAL_LEAGUE_STATE);
 
 	const starters = leagueState.currentLineup?.starters || [];
 

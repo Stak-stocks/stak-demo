@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { brands as allBrands, type BrandProfile } from "@/data/brands";
 import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
@@ -14,10 +14,7 @@ export const Route = createFileRoute("/league_/lineup")({
 function LineupBuilderPage() {
 	const navigate = useNavigate();
 	const { account } = useAccount();
-	const [leagueState, setLeagueState] = useState<LeagueState>(() => {
-		const saved = localStorage.getItem("league-state");
-		return saved ? JSON.parse(saved) : INITIAL_LEAGUE_STATE;
-	});
+	const [leagueState, setLeagueState] = useState<LeagueState>(INITIAL_LEAGUE_STATE);
 
 	const swipedBrands = useMemo<BrandProfile[]>(() => {
 		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
@@ -30,18 +27,6 @@ function LineupBuilderPage() {
 		leagueState.currentLineup?.starters || [],
 	)
 
-	// Persist state changes to localStorage
-	useEffect(() => {
-		const updatedState: LeagueState = {
-			...leagueState,
-			currentLineup: {
-				starters: selectedStarters,
-				locked: false,
-				weekStartDate: leagueState.currentLineup?.weekStartDate || getWeekKey(),
-			},
-		}
-		localStorage.setItem("league-state", JSON.stringify(updatedState));
-	}, [selectedStarters]);
 
 	// Add card to next available slot
 	const handleAddStarter = (brand: BrandProfile) => {
@@ -75,7 +60,6 @@ function LineupBuilderPage() {
 			},
 		}
 		setLeagueState(newLeagueState);
-		localStorage.setItem("league-state", JSON.stringify(newLeagueState));
 		navigate({ to: "/league" });
 	}
 

@@ -133,17 +133,13 @@ function ParticleBackground() {
 }
 
 function LandingPage() {
-	const { user, loading } = useAuth();
+	const { user, loading, onboardingCompleted } = useAuth();
 	const navigate = useNavigate();
 
 	// If already logged in, skip to home or onboarding
 	useEffect(() => {
 		if (!loading && user) {
-			if (localStorage.getItem("onboardingCompleted") === "false") {
-				navigate({ to: "/onboarding" });
-			} else {
-				navigate({ to: "/" });
-			}
+			navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
 		}
 	}, [user, loading, navigate]);
 
