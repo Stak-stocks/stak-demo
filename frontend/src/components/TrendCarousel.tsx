@@ -68,14 +68,14 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px]"
+			className="rounded-[20px] h-full flex flex-col"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl"
+				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl h-full"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
@@ -111,7 +111,7 @@ function Badge({ type, label }: { type: TrendCard["type"]; label: string }) {
 function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: string; rgb: string }) {
 	return (
 		<div
-			className="flex items-center gap-2 mt-auto pt-3 sm:pt-4"
+			className="flex items-center gap-2 mt-auto pt-3 sm:pt-4 pb-2"
 			style={{ borderTop: `1px solid rgba(${rgb}, 0.15)` }}
 		>
 			<div>
@@ -136,15 +136,17 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 			<GlassCard type={card.type}>
 				<Badge type={card.type} label={card.label} />
 
-				{card.topic && (
-					<h3 className="text-base sm:text-[1.65rem] font-extrabold text-white leading-tight mb-3 sm:mb-5">
-						{card.topic}
-					</h3>
-				)}
+				<div className="flex-1 overflow-y-auto no-scrollbar">
+					{card.topic && (
+						<h3 className="text-base sm:text-[1.65rem] font-extrabold text-white leading-tight mb-3 sm:mb-5">
+							{card.topic}
+						</h3>
+					)}
 
-				<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed flex-1">
-					{card.why}
-				</p>
+					<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
+						{card.why}
+					</p>
+				</div>
 
 				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 			</GlassCard>
@@ -196,21 +198,23 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<GlassCard type="stak">
 				<Badge type="stak" label={card.label} />
 
-				<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5 flex-1">
-					{card.synthesis}
-				</p>
+				<div className="flex-1 overflow-y-auto no-scrollbar">
+					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
+						{card.synthesis}
+					</p>
 
-				{card.takeaway && (
-					<div
-						className="pb-3 sm:pb-4"
-						style={{ borderBottom: `1px solid rgba(${c.rgb}, 0.15)` }}
-					>
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-							{card.takeaway}
-						</p>
-					</div>
-				)}
+					{card.takeaway && (
+						<div
+							className="pb-3 sm:pb-4"
+							style={{ borderBottom: `1px solid rgba(${c.rgb}, 0.15)` }}
+						>
+							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+								<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+								{card.takeaway}
+							</p>
+						</div>
+					)}
+				</div>
 
 				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 			</GlassCard>
@@ -230,7 +234,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<GlassCard type="stak">
 				<Badge type="stak" label={card.label} />
 
-				<div className="flex flex-col gap-3 mt-1 flex-1">
+				<div className="flex flex-col gap-3 mt-1 flex-1 overflow-y-auto no-scrollbar">
 					{cleanIntro && (
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
 							{cleanIntro}
@@ -440,7 +444,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center min-h-[420px]"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[580px] sm:h-[620px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
