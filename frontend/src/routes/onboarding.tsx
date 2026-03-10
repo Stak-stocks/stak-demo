@@ -81,7 +81,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-	const { user, loading } = useAuth();
+	const { user, loading, onboardingCompleted: claimsOnboardingCompleted } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
@@ -117,13 +117,13 @@ function OnboardingPage() {
 		}
 	}, [user, loading, navigate]);
 
-	// Prevent navigating back to onboarding after it's been completed.
+	// JWT claim guard — fast, cross-device, no Firestore read needed.
 	// Silent while the user is actively progressing through the flow.
 	useEffect(() => {
-		if (!loading && user && !hasProgressed.current && localStorage.getItem("onboardingCompleted") === "true") {
+		if (!loading && user && !hasProgressed.current && claimsOnboardingCompleted) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, user, navigate]);
+	}, [loading, user, claimsOnboardingCompleted, navigate]);
 
 	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
 	// a false redirect caused by a race condition on reload), send them back.
@@ -681,6 +681,7 @@ function BuildingStep({
 	onDone: () => void;
 }) {
 	const { updatePreferences, updateDeckOrder } = useAccount();
+	const { refreshClaims } = useAuth();
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -702,14 +703,10 @@ function BuildingStep({
 	const shuffleCount = useRef(0);
 
 	useEffect(() => {
-		// Save user interests so Discover page can recommend similar brands
-		localStorage.setItem("user-interests", JSON.stringify(selectedInterests));
-
 		// Clear any cached deck order and passed brands so Discover starts fresh
 		sessionStorage.removeItem("stak-deck-order");
 		localStorage.removeItem("passed-brands");
 
-		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
 		// Write preferences via client SDK first — updates local Firestore cache
@@ -726,8 +723,11 @@ function BuildingStep({
 		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
 
-		// Also sync via REST so the backend Admin SDK record is up to date
-		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => { });
+		// Sync via REST — backend sets onboardingCompleted in Firestore AND
+		// writes a JWT custom claim so future loads skip this page instantly.
+		updateProfile({ onboardingCompleted: true, preferences: prefs })
+			.then(() => refreshClaims())
+			.catch(() => { });
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);

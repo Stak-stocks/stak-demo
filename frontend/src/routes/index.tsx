@@ -50,8 +50,6 @@ function App() {
 	const { user } = useAuth();
 	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak, updateCategoryScores } = useAccount();
 	const uid = user?.uid ?? "guest";
-	const SWIPE_KEY = `swipes-since-intel:${uid}`;
-	const INTEL_DATE_KEY = `intel-card-last-date:${uid}`;
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -75,7 +73,9 @@ function App() {
 	const intelQueue = useRef<string[]>([]);
 	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
-	const swipesSinceIntel = useRef(parseInt(localStorage.getItem(SWIPE_KEY) ?? "0", 10));
+	const swipesSinceIntel = useRef(0);
+	const lastIntelDateRef = useRef<string | null>(null);
+	const streakRef = useRef<{ date: string; count: number }>(account?.streak ?? { date: "", count: 0 });
 
 	// Initialise intel queue from account (Firestore) — only on allIntelCards change
 	// account is guaranteed loaded here (accountLoading gated in __root.tsx)
@@ -90,14 +90,14 @@ function App() {
 		}
 		intelReadIds.current = intelState?.readIds ?? [];
 
-		// Mirror lastDate to localStorage for fast same-tab read in handleSwipe
-		if (intelState?.lastDate) {
-			localStorage.setItem(INTEL_DATE_KEY, intelState.lastDate);
-		} else {
-			localStorage.removeItem(INTEL_DATE_KEY);
-		}
+		lastIntelDateRef.current = intelState?.lastDate ?? null;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [allIntelCards]);
+
+	// Keep streakRef in sync with Firestore (handles new-device loads)
+	useEffect(() => {
+		if (account?.streak) streakRef.current = account.streak;
+	}, [account?.streak]);
 
 	// ── Stak — initialised from Firestore account ──────────────────────────────
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
@@ -222,26 +222,22 @@ function App() {
 	const handleSwipe = useCallback(() => {
 		// Update daily streak (once per day)
 		const swipeDay = new Date().toISOString().split("T")[0];
-		const streakRaw = localStorage.getItem("stak-streak");
-		const streakData: { date: string; count: number } = streakRaw ? JSON.parse(streakRaw) : { date: "", count: 0 };
+		const streakData = streakRef.current;
 		if (streakData.date !== swipeDay) {
 			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
 			const newStreak = { date: swipeDay, count: newCount };
-			localStorage.setItem("stak-streak", JSON.stringify(newStreak));
+			streakRef.current = newStreak;
 			updateStreak(newStreak).catch(() => {});
 		}
 
 		// Trigger intel card after every 5th swipe, at most once per day
 		swipesSinceIntel.current += 1;
-		localStorage.setItem(SWIPE_KEY, String(swipesSinceIntel.current));
 		if (swipesSinceIntel.current < 5) return;
 		swipesSinceIntel.current = 0;
-		localStorage.setItem(SWIPE_KEY, "0");
 
 		const today = new Date().toISOString().split("T")[0];
-		const lastIntelDate = localStorage.getItem(INTEL_DATE_KEY);
-		if (lastIntelDate === today) return;
+		if (lastIntelDateRef.current === today) return;
 
 		if (intelQueue.current.length === 0) {
 			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
@@ -252,7 +248,7 @@ function App() {
 			intelReadIds.current = [...intelReadIds.current, nextId];
 		}
 
-		localStorage.setItem(INTEL_DATE_KEY, today);
+		lastIntelDateRef.current = today;
 		updateIntelState({
 			lastDate: today,
 			queue: intelQueue.current,
@@ -261,7 +257,7 @@ function App() {
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
-	}, [allIntelCards, SWIPE_KEY, INTEL_DATE_KEY, updateIntelState, updateStreak]);
+	}, [allIntelCards, updateIntelState, updateStreak]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);

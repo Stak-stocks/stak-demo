@@ -3,14 +3,14 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-import { updateProfile, getProfile } from "@/lib/api";
+import { getProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
 });
 
 function SignUpPage() {
-	const { user, loading, signUpWithEmail, signInWithGoogle, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signUpWithEmail, signInWithGoogle, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,12 +21,12 @@ function SignUpPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			user.getIdToken(true)
-				.then(() => {
-					if (localStorage.getItem("onboardingCompleted") === "false") {
-						navigate({ to: "/onboarding" });
-					} else {
-						navigate({ to: "/" });
-					}
+				.then(() => getProfile())
+				.then(() => user.getIdToken(true))
+				.then(() => user.getIdTokenResult())
+				.then((result) => {
+					const done = result.claims.onboardingCompleted === true;
+					navigate({ to: done ? "/" : "/onboarding" });
 				})
 				.catch(() => {
 					logout().catch(() => {});
@@ -47,9 +47,7 @@ function SignUpPage() {
 		}
 		setSigningUp(true);
 		try {
-			localStorage.setItem("onboardingCompleted", "false");
 			await signUpWithEmail(email, password);
-			updateProfile({ onboardingCompleted: false }).catch(() => {});
 			toast.success("Account created! Welcome to STAK!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
@@ -82,8 +80,6 @@ function SignUpPage() {
 						}
 					} catch { /* fall through to new user */ }
 				}
-				localStorage.setItem("onboardingCompleted", "false");
-				updateProfile({ onboardingCompleted: false }).catch(() => {});
 				toast.success("Welcome to STAK!");
 			} else {
 				toast.success("Welcome back!");

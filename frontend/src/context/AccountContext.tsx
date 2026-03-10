@@ -16,6 +16,7 @@ import {
 } from "react";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getProfile } from "../lib/api";
 import { useAuth } from "./AuthContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ const MAX_SEARCH_HISTORY = 20;
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-	const { user, loading: authLoading } = useAuth();
+	const { user, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
 	const [account, setAccount] = useState<UserDoc | null>(null);
 	const [accountLoading, setAccountLoading] = useState(true);
 
@@ -128,6 +129,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 		return unsubscribe;
 	}, [user, authLoading]);
+
+	// Backfill: existing users have onboardingCompleted=true in Firestore but no
+	// JWT custom claim yet. Calling GET /api/me triggers the backend to set the
+	// claim, then refreshClaims() force-refreshes the token to pick it up.
+	useEffect(() => {
+		if (accountLoading || authLoading) return;
+		if (!account || !user) return;
+		if (account.onboardingCompleted === true && !claimsOnboardingCompleted) {
+			getProfile()
+				.then(() => refreshClaims())
+				.catch(() => {});
+		}
+	}, [account, accountLoading, authLoading, user, claimsOnboardingCompleted, refreshClaims]);
 
 	const updateStak = useCallback(
 		async (brandIds: string[]) => {

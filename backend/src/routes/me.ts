@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 
 export const meRouter = Router();
@@ -25,6 +25,13 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			return;
 		}
 
+		// Backfill: set the JWT custom claim for users who completed onboarding
+		// before this claim was introduced. Runs once per user then is a no-op.
+		const data = doc.data();
+		if (data?.onboardingCompleted === true && !req.user!.onboardingCompleted) {
+			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+		}
+
 		res.json({ id: doc.id, ...doc.data() });
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -47,6 +54,12 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		if (preferences !== undefined) updates.preferences = preferences;
 		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
 		if (onboardingProgress !== undefined) updates.onboardingProgress = onboardingProgress;
+
+		// Embed onboardingCompleted in the Firebase ID token so clients can
+		// read it instantly on any device without a Firestore round trip.
+		if (onboardingCompleted === true) {
+			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+		}
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
 
