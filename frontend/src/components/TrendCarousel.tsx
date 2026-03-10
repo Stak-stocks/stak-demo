@@ -111,7 +111,7 @@ function Badge({ type, label }: { type: TrendCard["type"]; label: string }) {
 function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: string; rgb: string }) {
 	return (
 		<div
-			className="flex items-center gap-2 shrink-0 pt-3 sm:pt-4 pb-2"
+			className="flex items-center gap-2 shrink-0 pt-3 sm:pt-4 pb-5 sm:pb-6"
 			style={{ borderTop: `1px solid rgba(${rgb}, 0.15)` }}
 		>
 			<div>
