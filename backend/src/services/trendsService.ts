@@ -54,6 +54,10 @@ async function tryGeminiKey(key: string, prompt: string): Promise<TrendCard[] | 
 		if (!Array.isArray(parsed) || parsed.length !== 4) {
 			throw new Error("Gemini returned unexpected structure");
 		}
+		// Ensure every card has an impact field (Gemini sometimes omits it)
+		for (const card of parsed) {
+			if (!card.impact) card.impact = "📊 Volatile / Mixed Pressure";
+		}
 		return parsed;
 	}
 

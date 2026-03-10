@@ -35,6 +35,8 @@ interface SwipeableCardStackProps {
 	onIncrement: () => void;
 	/** Number of brands currently in the user's Stak — logged for ML training */
 	stakSize?: number;
+	/** Show skeleton loading state while deck is being prepared */
+	loading?: boolean;
 }
 
 export function SwipeableCardStack({
@@ -46,6 +48,7 @@ export function SwipeableCardStack({
 	hasReachedLimit,
 	onIncrement,
 	stakSize,
+	loading,
 }: SwipeableCardStackProps) {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -220,6 +223,48 @@ export function SwipeableCardStack({
 			onLearnMore(brand);
 		}
 	};
+
+	// Show skeleton loading state while deck is being prepared
+	if (loading) {
+		return (
+			<div className="flex flex-col items-center w-full max-w-md mx-auto">
+				<div className="relative w-full rounded-2xl" style={{ height: 'min(calc(100dvh - 200px), 550px)' }}>
+					{/* Stacked skeleton cards */}
+					{[0, 1].map((i) => (
+						<div
+							key={i}
+							className="absolute inset-0 rounded-2xl overflow-hidden border border-slate-700/50 bg-[#0f1629]"
+							style={{
+								transform: `scale(${1 - i * 0.04}) translateY(${i * 12}px)`,
+								zIndex: 2 - i,
+								opacity: 1 - i * 0.3,
+							}}
+						>
+							{/* Hero image skeleton */}
+							<div className="w-full h-[55%] bg-slate-800/80 animate-pulse" />
+							{/* Content skeleton */}
+							<div className="p-4 space-y-3">
+								<div className="flex items-center gap-3">
+									<div className="w-10 h-10 rounded-lg bg-slate-700/60 animate-pulse" />
+									<div className="space-y-2 flex-1">
+										<div className="h-4 w-32 bg-slate-700/60 rounded animate-pulse" />
+										<div className="h-3 w-16 bg-slate-700/60 rounded animate-pulse" />
+									</div>
+								</div>
+								<div className="h-3 w-full bg-slate-700/60 rounded animate-pulse" />
+								<div className="h-3 w-3/4 bg-slate-700/60 rounded animate-pulse" />
+							</div>
+						</div>
+					))}
+				</div>
+				{/* Action buttons skeleton */}
+				<div className="flex items-center justify-center gap-6 mt-4">
+					<div className="w-14 h-14 rounded-full bg-slate-800/60 animate-pulse" />
+					<div className="w-14 h-14 rounded-full bg-slate-800/60 animate-pulse" />
+				</div>
+			</div>
+		);
+	}
 
 	// Show "all caught up" screen when daily limit is reached
 	if (hasReachedLimit) {

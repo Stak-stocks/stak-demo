@@ -208,6 +208,9 @@ function getBrandDomain(brand: BrandProfile): string {
 export function getBrandLogoUrl(brand: BrandProfile): string {
 	// Use Finnhub-provided logo for dynamic (Firestore) stocks
 	if (brand.logo) return brand.logo;
+	// TradingView: high-quality, up-to-date logos — prefer when available
+	const slug = TV_LOGO_SLUGS[brand.id];
+	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
 	// EODHD: 40k+ logos by ticker, free CDN, no API key needed
 	return `https://eodhd.com/img/logos/US/${brand.ticker.toUpperCase()}.png`;
 }
@@ -215,9 +218,8 @@ export function getBrandLogoUrl(brand: BrandProfile): string {
 /** First fallback (used in onError) */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 	if (brand.logo) return brand.logo;
-	const slug = TV_LOGO_SLUGS[brand.id];
-	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
-	return `https://logo.clearbit.com/${getBrandDomain(brand)}`;
+	// EODHD as fallback since TradingView is now primary
+	return `https://eodhd.com/img/logos/US/${brand.ticker.toUpperCase()}.png`;
 }
 
 /** Final fallback (used in second onError): Google favicon */
@@ -1788,7 +1790,7 @@ export const brands: BrandProfile[] = [
 			},
 		},
 	},
-{
+	{
 		id: "intc",
 		ticker: "INTC",
 		name: "Intel",
@@ -11477,5 +11479,5 @@ export const brands: BrandProfile[] = [
 		},
 		interestCategories: ["tech"],
 	},
-// END AUTO-GENERATED
+	// END AUTO-GENERATED
 ];

@@ -392,6 +392,7 @@ function App() {
 					hasReachedLimit={hasReachedLimit}
 					onIncrement={incrementSwipe}
 					stakSize={account?.stakBrandIds?.length ?? 0}
+					loading={recommendedOrder.length === 0 && !hasReachedLimit}
 				/>
 			</div>
 
