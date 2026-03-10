@@ -206,19 +206,18 @@ function getBrandDomain(brand: BrandProfile): string {
 }
 
 export function getBrandLogoUrl(brand: BrandProfile): string {
-	// Use Finnhub-provided logo for dynamic (Firestore) stocks
-	if (brand.logo) return brand.logo;
-	// TradingView: high-quality, up-to-date logos — prefer when available
-	const slug = TV_LOGO_SLUGS[brand.id];
-	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
-	// EODHD: 40k+ logos by ticker, free CDN, no API key needed
-	return `https://eodhd.com/img/logos/US/${brand.ticker.toUpperCase()}.png`;
+	// Brandfetch CDN: consistent, high-quality logos by domain — no API key needed
+	return `https://cdn.brandfetch.io/${getBrandDomain(brand)}/w/400/h/400`;
 }
 
 /** First fallback (used in onError) */
 export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
+	// Finnhub-provided logo for dynamic stocks
 	if (brand.logo) return brand.logo;
-	// EODHD as fallback since TradingView is now primary
+	// TradingView slug when available
+	const slug = TV_LOGO_SLUGS[brand.id];
+	if (slug) return `https://s3-symbol-logo.tradingview.com/${slug}--600.png`;
+	// EODHD as last resort
 	return `https://eodhd.com/img/logos/US/${brand.ticker.toUpperCase()}.png`;
 }
 

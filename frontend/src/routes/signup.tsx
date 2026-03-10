@@ -3,14 +3,15 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-import { updateProfile, getProfile } from "@/lib/api";
+import { getProfile } from "@/lib/api";
+import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
 });
 
 function SignUpPage() {
-	const { user, loading, signUpWithEmail, signInWithGoogle, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signUpWithEmail, signInWithGoogle, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,12 +22,12 @@ function SignUpPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			user.getIdToken(true)
-				.then(() => {
-					if (localStorage.getItem("onboardingCompleted") === "false") {
-						navigate({ to: "/onboarding" });
-					} else {
-						navigate({ to: "/" });
-					}
+				.then(() => getProfile())
+				.then(() => user.getIdToken(true))
+				.then(() => user.getIdTokenResult())
+				.then((result) => {
+					const done = result.claims.onboardingCompleted === true;
+					navigate({ to: done ? "/" : "/onboarding" });
 				})
 				.catch(() => {
 					logout().catch(() => {});
@@ -47,9 +48,7 @@ function SignUpPage() {
 		}
 		setSigningUp(true);
 		try {
-			localStorage.setItem("onboardingCompleted", "false");
 			await signUpWithEmail(email, password);
-			updateProfile({ onboardingCompleted: false }).catch(() => {});
 			toast.success("Account created! Welcome to STAK!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
@@ -82,8 +81,6 @@ function SignUpPage() {
 						}
 					} catch { /* fall through to new user */ }
 				}
-				localStorage.setItem("onboardingCompleted", "false");
-				updateProfile({ onboardingCompleted: false }).catch(() => {});
 				toast.success("Welcome to STAK!");
 			} else {
 				toast.success("Welcome back!");
@@ -107,6 +104,11 @@ function SignUpPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+			{/* Logo — top left */}
+			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
+				<StakLogoIcon width={28} height={28} />
+				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+			</Link>
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Heading */}

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 
 export const meRouter = Router();
@@ -25,6 +25,13 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			return;
 		}
 
+		// Backfill: set the JWT custom claim for users who completed onboarding
+		// before this claim was introduced. Runs once per user then is a no-op.
+		const data = doc.data();
+		if (data?.onboardingCompleted === true && !req.user!.onboardingCompleted) {
+			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+		}
+
 		res.json({ id: doc.id, ...doc.data() });
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -36,7 +43,24 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, phone, preferences, onboardingCompleted, onboardingProgress } = req.body;
+		const { displayName, phone, preferences, onboardingCompleted } = req.body;
+
+		if (displayName !== undefined && (typeof displayName !== "string" || displayName.length > 100)) {
+			res.status(400).json({ error: "displayName must be a string ≤ 100 characters" });
+			return;
+		}
+		if (phone !== undefined && (typeof phone !== "string" || phone.length > 20)) {
+			res.status(400).json({ error: "phone must be a string ≤ 20 characters" });
+			return;
+		}
+		if (preferences !== undefined && (typeof preferences !== "object" || preferences === null || Array.isArray(preferences))) {
+			res.status(400).json({ error: "preferences must be an object" });
+			return;
+		}
+		if (onboardingCompleted !== undefined && typeof onboardingCompleted !== "boolean") {
+			res.status(400).json({ error: "onboardingCompleted must be a boolean" });
+			return;
+		}
 
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
@@ -46,7 +70,12 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		if (phone !== undefined) updates.phone = phone;
 		if (preferences !== undefined) updates.preferences = preferences;
 		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
-		if (onboardingProgress !== undefined) updates.onboardingProgress = onboardingProgress;
+
+		// Embed onboardingCompleted in the Firebase ID token so clients can
+		// read it instantly on any device without a Firestore round trip.
+		if (onboardingCompleted === true) {
+			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+		}
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
 

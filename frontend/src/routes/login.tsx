@@ -2,15 +2,16 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
-import { updateProfile, getProfile } from "@/lib/api";
+import { getProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
 function LoginPage() {
-	const { user, loading, signInWithGoogle, signInWithEmail, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,13 +22,15 @@ function LoginPage() {
 		if (!loading && user) {
 			// Force-refresh the token to detect if the account was deleted server-side
 			// (Firebase keeps the client session alive for up to 1 hour after deletion)
-			user.getIdToken(true)
-				.then(() => {
-					if (localStorage.getItem("onboardingCompleted") === "false") {
-						navigate({ to: "/onboarding" });
-					} else {
-						navigate({ to: "/" });
-					}
+			// Force-refresh then read fresh claims — avoids stale React state from
+		// the previous onAuthStateChanged call.
+		user.getIdToken(true)
+				.then(() => getProfile())
+				.then(() => user.getIdToken(true))
+				.then(() => user.getIdTokenResult())
+				.then((result) => {
+					const done = result.claims.onboardingCompleted === true;
+					navigate({ to: done ? "/" : "/onboarding" });
 				})
 				.catch(() => {
 					// Token refresh failed — account was deleted or disabled on the server
@@ -76,8 +79,6 @@ function LoginPage() {
 					} catch { /* fall through to new user */ }
 				}
 				// Truly new user or deleted account re-registering — start fresh
-				localStorage.setItem("onboardingCompleted", "false");
-				updateProfile({ onboardingCompleted: false }).catch(() => {});
 				toast.success("Welcome to STAK!");
 			} else {
 				toast.success("Welcome back!");
@@ -101,6 +102,12 @@ function LoginPage() {
 
 	return (
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+			{/* Logo — top left */}
+			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
+				<StakLogoIcon width={28} height={28} />
+				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+			</Link>
+
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Heading */}
 				<div>
