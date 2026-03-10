@@ -93,6 +93,7 @@ function OnboardingPage() {
 	};
 
 	const [step, setStep] = useState(getStepFromHash);
+	const hasProgressed = useRef(false);
 	const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 	const [swipedRight, setSwipedRight] = useState<string[]>([]);
 	const [selectedMotivations, setSelectedMotivations] = useState<string[]>([]);
@@ -116,22 +117,22 @@ function OnboardingPage() {
 		}
 	}, [user, loading, navigate]);
 
-	// Prevent navigating back to onboarding after it's been completed
+	// Prevent navigating back to onboarding after it's been completed.
+	// Silent while the user is actively progressing through the flow.
 	useEffect(() => {
-		if (!loading && user && localStorage.getItem("onboardingCompleted") === "true") {
+		if (!loading && user && !hasProgressed.current && localStorage.getItem("onboardingCompleted") === "true") {
 			navigate({ to: "/", replace: true });
 		}
 	}, [loading, user, navigate]);
 
 	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
 	// a false redirect caused by a race condition on reload), send them back.
-	// Skip on step 5 (BuildingStep) — it writes onboardingCompleted immediately
-	// and we need the animation to finish before navigating.
+	// Silent while the user is actively progressing through the flow.
 	useEffect(() => {
-		if (!loading && !accountLoading && user && account?.onboardingCompleted === true && step < 5) {
+		if (!loading && !accountLoading && user && !hasProgressed.current && account?.onboardingCompleted === true) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, accountLoading, user, account, navigate, step]);
+	}, [loading, accountLoading, user, account, navigate]);
 
 	if (loading || accountLoading) {
 		return (
@@ -142,6 +143,7 @@ function OnboardingPage() {
 	}
 
 	function goTo(nextStep: number) {
+		hasProgressed.current = true;
 		setStep(nextStep);
 		window.history.pushState(null, "", `#${nextStep}`);
 	}
