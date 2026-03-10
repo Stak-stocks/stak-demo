@@ -4,14 +4,19 @@
   "description": "Swipe through brands, build your portfolio, and follow market news.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "type": "image/x-icon",
-      "sizes": "256x256"
+      "src": "favicon-96x96.png",
+      "type": "image/png",
+      "sizes": "96x96"
     },
     {
-      "src": "creao_icon.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192 512x512"
+      "src": "web-app-manifest-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
   "start_url": "/",
