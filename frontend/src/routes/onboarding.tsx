@@ -683,6 +683,15 @@ function BuildingStep({
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
 
+	// Save preferences and clear stale state on mount — but defer marking
+	// onboarding as completed until the animation finishes so the navigation
+	// guards don't kick in and skip the "Building your STAK" animation.
+	const prefsRef = useRef({
+		interests: selectedInterests,
+		...(familiarity ? { familiarity } : {}),
+		...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
+	});
+
 	useEffect(() => {
 		// Save user interests so Discover page can recommend similar brands
 		localStorage.setItem("user-interests", JSON.stringify(selectedInterests));
@@ -691,25 +700,16 @@ function BuildingStep({
 		sessionStorage.removeItem("stak-deck-order");
 		localStorage.removeItem("passed-brands");
 
-		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
 		// Write preferences via client SDK first — updates local Firestore cache
 		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
 		// the correct interests/onboardingSwipes when it mounts after the animation.
-		const prefs = {
-			interests: selectedInterests,
-			...(familiarity ? { familiarity } : {}),
-			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
-		};
-		updatePreferences(prefs).catch(() => { });
+		updatePreferences(prefsRef.current).catch(() => { });
 
 		// Clear any stale deckOrder from previous sessions so index.tsx always
 		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
-
-		// Also sync via REST so the backend Admin SDK record is up to date
-		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => { });
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
@@ -729,10 +729,12 @@ function BuildingStep({
 				return next;
 			});
 
-			// After 10 rotations, finish and redirect
+			// After 10 rotations, mark onboarding complete and redirect
 			if (shuffleCount.current >= 10) {
 				clearInterval(interval);
 				setPhase("done");
+				localStorage.setItem("onboardingCompleted", "true");
+				updateProfile({ onboardingCompleted: true, preferences: prefsRef.current }).catch(() => { });
 				setTimeout(() => onDone(), 800);
 			}
 		}, 500);
