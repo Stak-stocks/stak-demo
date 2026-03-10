@@ -16,7 +16,7 @@ const RESET_HOUR = 9; // 9 AM local time
 
 // ── Date key (resets at 9 AM) ─────────────────────────────────────────────────
 
-export function getSwipeTodayKey(): string {
+export function getTodayKey(): string {
 	const now = new Date();
 	if (now.getHours() < RESET_HOUR) {
 		const yesterday = new Date(now);
@@ -37,7 +37,7 @@ function readLocalCount(uid: string): number {
 		const raw = localStorage.getItem(localStorageKey(uid));
 		if (!raw) return 0;
 		const parsed: { count: number; date: string } = JSON.parse(raw);
-		return parsed.date === getSwipeTodayKey() ? parsed.count : 0;
+		return parsed.date === getTodayKey() ? parsed.count : 0;
 	} catch {
 		return 0;
 	}
@@ -46,7 +46,7 @@ function readLocalCount(uid: string): number {
 function writeLocalCount(uid: string, count: number): void {
 	localStorage.setItem(
 		localStorageKey(uid),
-		JSON.stringify({ count, date: getSwipeTodayKey() }),
+		JSON.stringify({ count, date: getTodayKey() }),
 	);
 }
 
@@ -64,7 +64,7 @@ interface SwipeLimitResult {
 
 export function useSwipeLimit(uid: string, isLoggedIn: boolean): SwipeLimitResult {
 	const { account, accountLoading, incrementSwipeCount } = useAccount();
-	const todayKey = getSwipeTodayKey();
+	const todayKey = getTodayKey();
 
 	// Guest-only local counter
 	const [guestCount, setGuestCount] = useState<number>(() =>

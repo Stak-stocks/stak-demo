@@ -205,7 +205,7 @@ function App() {
 
 		setRecommendedOrder(order);
 		// Persist this freshly-computed order so reloads restore the same sequence
-		updateDeckOrder(order.map((b) => b.id)).catch(() => {});
+		updateDeckOrder(order.map((b) => b.id)).catch((e) => console.error("Failed to save deck order:", e));
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [account]);
 
@@ -215,7 +215,7 @@ function App() {
 	useEffect(() => {
 		if (!limitClearedRef.current && swipeCount >= DAILY_SWIPE_LIMIT) {
 			limitClearedRef.current = true;
-			updateDeckOrder([]).catch(() => {});
+			updateDeckOrder([]).catch((e) => console.error("Failed to save deck order:", e));
 		}
 	}, [swipeCount, updateDeckOrder]);
 
@@ -228,7 +228,7 @@ function App() {
 			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
 			const newStreak = { date: swipeDay, count: newCount };
 			streakRef.current = newStreak;
-			updateStreak(newStreak).catch(() => {});
+			updateStreak(newStreak).catch((e) => console.error("Failed to save streak:", e));
 		}
 
 		// Trigger intel card after every 5th swipe, at most once per day
@@ -253,7 +253,7 @@ function App() {
 			lastDate: today,
 			queue: intelQueue.current,
 			readIds: intelReadIds.current,
-		}).catch(() => {});
+		}).catch((e) => console.error("Failed to save intel state:", e));
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
@@ -288,7 +288,10 @@ function App() {
 			});
 			const updated = [...swipedBrands, brand];
 			setSwipedBrands(updated);
-			updateStak(updated.map((b) => b.id)).catch(() => {});
+			updateStak(updated.map((b) => b.id)).catch((e) => {
+			console.error("Failed to save stak:", e);
+			toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
+		});
 		}
 	};
 
@@ -313,7 +316,10 @@ function App() {
 			pendingBrand,
 		];
 		setSwipedBrands(updated);
-		updateStak(updated.map((b) => b.id)).catch(() => {});
+		updateStak(updated.map((b) => b.id)).catch((e) => {
+		console.error("Failed to save stak:", e);
+		toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
+	});
 
 		// +3 for brand added, -2 for brand removed
 		const delta: Record<string, number> = {};
@@ -343,7 +349,7 @@ function App() {
 			? existing.map((e) => e.id === brand.id ? { ...e, at: Date.now(), count: newCount } : e)
 			: [...existing, { id: brand.id, at: Date.now(), count: 1 }];
 		passedEntriesRef.current = updated;
-		updatePassedBrands(updated).catch(() => {});
+		updatePassedBrands(updated).catch((e) => console.error("Failed to save passed brands:", e));
 	}, [updatePassedBrands, updateCategoryScores]);
 
 	const handleCancelSwap = useCallback(() => {

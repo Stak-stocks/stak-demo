@@ -106,11 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function resetPassword(email: string) {
-		const baseUrl = import.meta.env.DEV
-			? "http://localhost:3000"
-			: "https://stak-demo-goodluck-badewoles-projects.vercel.app";
 		await sendPasswordResetEmail(auth, email, {
-			url: `${baseUrl}/reset-password`,
+			url: `${window.location.origin}/reset-password`,
 			handleCodeInApp: true,
 		});
 	}
