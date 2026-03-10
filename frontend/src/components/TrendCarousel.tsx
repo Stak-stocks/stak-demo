@@ -2,8 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { TrendCard } from "@/data/brands";
 
-const FALLBACK_IMPACT = "📊 Volatile / Mixed Pressure";
-
 /* ── colour system ── */
 const COLOR_MAP: Record<
 	TrendCard["type"],
@@ -108,22 +106,6 @@ function Badge({ type, label }: { type: TrendCard["type"]; label: string }) {
 	);
 }
 
-/* ── impact footer (matches the image style) ── */
-function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: string; rgb: string }) {
-	return (
-		<div
-			className="flex flex-col justify-center gap-1 pt-3 sm:pt-4"
-			style={{ borderTop: `1px solid rgba(${rgb}, 0.15)` }}
-		>
-			<p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-500">
-				Direction
-			</p>
-			<p className={`text-sm sm:text-lg font-semibold ${badgeText}`}>
-				{impact}
-			</p>
-		</div>
-	);
-}
 
 /* ── Standard trend card (Macro / Sector / Company) ── */
 function StandardTrendCard({ card }: { card: TrendCard }) {
@@ -147,8 +129,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					</p>
 				</div>
 
-				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
-			</GlassCard>
+				</GlassCard>
 		);
 	}
 
@@ -169,11 +150,8 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 				</p>
 			</div>
 
-			{card.pressure ? (
-				<ImpactFooter impact={card.pressure} badgeText={c.badgeText} rgb={c.rgb} />
-			) : (
-				<ImpactFooter impact={FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
-			);
+			</GlassCard>
+	);
 }
 
 			/* ── Stak Insight card ── */
