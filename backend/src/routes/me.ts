@@ -45,6 +45,23 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const uid = req.user!.uid;
 		const { displayName, phone, preferences, onboardingCompleted } = req.body;
 
+		if (displayName !== undefined && (typeof displayName !== "string" || displayName.length > 100)) {
+			res.status(400).json({ error: "displayName must be a string ≤ 100 characters" });
+			return;
+		}
+		if (phone !== undefined && (typeof phone !== "string" || phone.length > 20)) {
+			res.status(400).json({ error: "phone must be a string ≤ 20 characters" });
+			return;
+		}
+		if (preferences !== undefined && (typeof preferences !== "object" || preferences === null || Array.isArray(preferences))) {
+			res.status(400).json({ error: "preferences must be an object" });
+			return;
+		}
+		if (onboardingCompleted !== undefined && typeof onboardingCompleted !== "boolean") {
+			res.status(400).json({ error: "onboardingCompleted must be a boolean" });
+			return;
+		}
+
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
 		};

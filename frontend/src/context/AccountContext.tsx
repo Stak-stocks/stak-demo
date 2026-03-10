@@ -14,7 +14,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile } from "../lib/api";
 import { useAuth } from "./AuthContext";
@@ -150,12 +150,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const incrementSwipeCount = useCallback(async () => {
 		if (!user) return;
 		const today = getTodayKey();
-		const cur = account?.dailySwipeState;
-		const currentCount = cur?.date === today ? (cur.count ?? 0) : 0;
-		await updateDoc(doc(db, "users", user.uid), {
-			dailySwipeState: { date: today, count: currentCount + 1 },
+		const userRef = doc(db, "users", user.uid);
+		await runTransaction(db, async (tx) => {
+			const snap = await tx.get(userRef);
+			const cur = snap.data()?.dailySwipeState;
+			const currentCount = cur?.date === today ? (cur.count ?? 0) : 0;
+			tx.update(userRef, { dailySwipeState: { date: today, count: currentCount + 1 } });
 		});
-	}, [user, account]);
+	}, [user]);
 
 	const updateDeckOrder = useCallback(
 		async (order: string[]) => {

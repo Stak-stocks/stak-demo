@@ -19,6 +19,26 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			res.status(400).json({ error: "direction must be 'left' or 'right'" });
 			return;
 		}
+		if (ticker != null && typeof ticker !== "string") {
+			res.status(400).json({ error: "ticker must be a string" });
+			return;
+		}
+		if (categories != null && (!Array.isArray(categories) || !categories.every((c: unknown) => typeof c === "string"))) {
+			res.status(400).json({ error: "categories must be an array of strings" });
+			return;
+		}
+		if (stakSize != null && typeof stakSize !== "number") {
+			res.status(400).json({ error: "stakSize must be a number" });
+			return;
+		}
+		if (timeOnCardMs != null && typeof timeOnCardMs !== "number") {
+			res.status(400).json({ error: "timeOnCardMs must be a number" });
+			return;
+		}
+		if (swipeVelocity != null && typeof swipeVelocity !== "number") {
+			res.status(400).json({ error: "swipeVelocity must be a number" });
+			return;
+		}
 
 		await adminDb.collection("swipes").add({
 			uid,
@@ -47,6 +67,14 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 
 		if (!type || !brandId) {
 			res.status(400).json({ error: "type and brandId are required" });
+			return;
+		}
+		if (ticker != null && typeof ticker !== "string") {
+			res.status(400).json({ error: "ticker must be a string" });
+			return;
+		}
+		if (categories != null && (!Array.isArray(categories) || !categories.every((c: unknown) => typeof c === "string"))) {
+			res.status(400).json({ error: "categories must be an array of strings" });
 			return;
 		}
 
