@@ -204,7 +204,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					)}
 				</div>
 
-				<ImpactFooter impact={card.impact || FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
+				<div />
 			</GlassCard>
 			);
 	}
