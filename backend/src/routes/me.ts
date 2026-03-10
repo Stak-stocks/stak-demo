@@ -43,7 +43,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, phone, preferences, onboardingCompleted, onboardingProgress } = req.body;
+		const { displayName, phone, preferences, onboardingCompleted } = req.body;
 
 		const updates: Record<string, unknown> = {
 			updatedAt: new Date().toISOString(),
@@ -53,7 +53,6 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		if (phone !== undefined) updates.phone = phone;
 		if (preferences !== undefined) updates.preferences = preferences;
 		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
-		if (onboardingProgress !== undefined) updates.onboardingProgress = onboardingProgress;
 
 		// Embed onboardingCompleted in the Firebase ID token so clients can
 		// read it instantly on any device without a Firestore round trip.

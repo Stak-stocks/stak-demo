@@ -12,6 +12,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import type { BrandProfile } from "@/data/brands";
+import { getTodayKey } from "@/lib/utils";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -22,18 +23,9 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 // Date key for daily swipe reset at 9 AM
-function getTodayKey(): string {
-	const now = new Date();
-	if (now.getHours() < 9) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		return yesterday.toISOString().split("T")[0];
-	}
-	return now.toISOString().split("T")[0];
-}
 
 const DAILY_SWIPE_LIMIT = 20;
-const STAK_CAPACITY = 15;
+const STAK_CAPACITY = 30;
 
 function Root() {
 	const { user, loading } = useAuth();
@@ -60,7 +52,7 @@ function Root() {
 			return;
 		}
 		if (stakIds.length >= STAK_CAPACITY) {
-			toast.error("Your Stak is full!", { description: "Remove a stock first (max 15)", duration: 2000 });
+			toast.error("Your Stak is full!", { description: "Remove a stock first (max 30)", duration: 2000 });
 			return;
 		}
 		const today = getTodayKey();

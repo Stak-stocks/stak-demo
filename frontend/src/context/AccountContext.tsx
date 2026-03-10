@@ -18,6 +18,7 @@ import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile } from "../lib/api";
 import { useAuth } from "./AuthContext";
+import { getTodayKey } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,19 +78,6 @@ interface AccountContextType {
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Returns today's date key (resets at 9 AM, same logic as useSwipeLimit). */
-function getTodayKey(): string {
-	const now = new Date();
-	if (now.getHours() < 9) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		return yesterday.toISOString().split("T")[0];
-	}
-	return now.toISOString().split("T")[0];
-}
 
 const MAX_SEARCH_HISTORY = 20;
 
