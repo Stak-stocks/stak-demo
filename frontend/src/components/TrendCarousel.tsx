@@ -440,7 +440,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[500px] sm:h-[560px]"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[580px] sm:h-[620px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
