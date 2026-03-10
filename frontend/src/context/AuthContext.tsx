@@ -23,6 +23,8 @@ import { auth, googleProvider } from "../lib/firebase";
 interface AuthContextType {
 	user: User | null;
 	loading: boolean;
+	onboardingCompleted: boolean;
+	refreshClaims: () => Promise<void>;
 	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -39,6 +41,7 @@ const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 	const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Auto-logout after 30 minutes of inactivity
@@ -63,19 +66,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [user]);
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+		const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
 			if (firebaseUser) {
 				// Wipe localStorage if this is a different user logging in
 				const lastUid = localStorage.getItem("last-user-uid");
 				if (lastUid && lastUid !== firebaseUser.uid) {
 					const keys = [
-						"my-stak", "passed-brands", "user-interests", "stak-streak",
-						"swipes-since-intel", "intel-card-queue", "intel-card-last-date",
+						"my-stak", "passed-brands",
 						`daily-swipe-state:${lastUid}`, `stak-deck-order:${lastUid}`,
 					];
 					keys.forEach((k) => localStorage.removeItem(k));
 				}
 				localStorage.setItem("last-user-uid", firebaseUser.uid);
+
+				// Read onboardingCompleted from the JWT claim — available instantly,
+				// cross-device, no Firestore read needed.
+				const tokenResult = await firebaseUser.getIdTokenResult();
+				setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+			} else {
+				setOnboardingCompleted(false);
 			}
 			setUser(firebaseUser);
 			setLoading(false);
@@ -115,15 +124,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		await confirmPasswordReset(auth, code, newPassword);
 	}
 
+	async function refreshClaims() {
+		if (!auth.currentUser) return;
+		const tokenResult = await auth.currentUser.getIdToken(true).then(() =>
+			auth.currentUser!.getIdTokenResult(),
+		);
+		setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+	}
+
 	async function logout() {
-		localStorage.removeItem("swipes-since-intel");
 		localStorage.removeItem("onboardingCompleted");
 		await signOut(auth);
 	}
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, verifyResetCode, confirmReset, logout }}
 		>
 			{children}
 		</AuthContext.Provider>

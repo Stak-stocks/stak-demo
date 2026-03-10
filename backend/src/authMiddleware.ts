@@ -5,6 +5,7 @@ export interface AuthenticatedRequest extends Request {
 	user?: {
 		uid: string;
 		email?: string;
+		onboardingCompleted?: boolean;
 	};
 }
 
@@ -27,6 +28,7 @@ export async function authMiddleware(
 		req.user = {
 			uid: decoded.uid,
 			email: decoded.email,
+			onboardingCompleted: decoded.onboardingCompleted === true,
 		};
 		next();
 	} catch {
