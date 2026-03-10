@@ -46,24 +46,41 @@ const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> =
 	fitness:   { label: "Wellness Investor",  emoji: "💪", desc: "Health is wealth, literally."      },
 };
 
-function computeVibe(stakBrands: BrandProfile[], interests: string[]): { label: string; emoji: string; desc: string } {
+function computeVibes(
+	stakBrands: BrandProfile[],
+	interests: string[],
+	categoryScores: Record<string, number>,
+): Array<{ label: string; emoji: string; desc: string; pct: number }> {
 	const scores: Record<string, number> = {};
 
-	if (stakBrands.length > 0) {
-		for (const brand of stakBrands) {
-			const cats = BRAND_TO_CATS[brand.id] ?? brand.interestCategories ?? [];
-			for (const cat of cats) {
-				scores[cat] = (scores[cat] ?? 0) + 1;
-			}
-		}
-	} else {
-		for (const cat of interests) {
-			scores[cat] = (scores[cat] ?? 0) + 1;
+	// Primary signal: weighted swipe history (right=+2, left=-1 already accumulated)
+	for (const [cat, score] of Object.entries(categoryScores)) {
+		if (VIBE_MAP[cat] && score > 0) scores[cat] = score;
+	}
+
+	// Commitment boost: brands currently in stak add +3 per category
+	for (const brand of stakBrands) {
+		const cats = BRAND_TO_CATS[brand.id] ?? brand.interestCategories ?? [];
+		for (const cat of cats) {
+			if (VIBE_MAP[cat]) scores[cat] = (scores[cat] ?? 0) + 3;
 		}
 	}
 
-	const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "tech";
-	return VIBE_MAP[top] ?? VIBE_MAP.tech;
+	// Fallback: use onboarding interests if no swipe data yet
+	if (Object.keys(scores).length === 0) {
+		for (const cat of interests) {
+			if (VIBE_MAP[cat]) scores[cat] = (scores[cat] ?? 0) + 1;
+		}
+	}
+
+	const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, 3);
+	if (ranked.length === 0) return [{ ...VIBE_MAP.tech, pct: 100 }];
+
+	const total = ranked.reduce((s, [, v]) => s + v, 0);
+	return ranked.map(([cat, score]) => ({
+		...VIBE_MAP[cat],
+		pct: total > 0 ? Math.round((score / total) * 100) : 0,
+	}));
 }
 
 export const Route = createFileRoute("/profile")({
@@ -138,9 +155,10 @@ function ProfilePage() {
 	const level = LEVEL_MAP[familiarity] ?? LEVEL_MAP.new;
 	const starsDisplay = "⭐".repeat(level.stars);
 
-	// Vibe check — computed from stak brands; falls back to account interests
+	// Vibe check — weighted from swipe history + stak commitment; falls back to interests
 	const interests = account?.preferences?.interests ?? [];
-	const vibe = computeVibe(stakBrands, interests);
+	const categoryScores = account?.categoryScores ?? {};
+	const vibes = computeVibes(stakBrands, interests, categoryScores);
 
 	// Badges — only show ones the user has earned
 	const earnedBadges = [
@@ -238,36 +256,58 @@ function ProfilePage() {
 						type="button"
 						onClick={() => navigate({ to: "/my-stak" })}
 						style={{ border: "1px solid rgba(6,182,212,0.35)" }}
-						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[100px] text-left active:scale-95 transition-all hover:brightness-105 shadow-sm dark:shadow-none"
+						className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 text-left active:scale-95 transition-all hover:brightness-105 shadow-sm dark:shadow-none"
 					>
-						<p className="text-xs font-bold">Taste Profile</p>
-						<div>
-							{stakBrands.length > 0 ? (
-								<div className="flex items-center gap-1 mt-1 mb-1">
-									{stakBrands.slice(0, 3).map((b) => (
-										<BrandLogo key={b.id} brand={b} className="w-7 h-7 rounded-full bg-white/10 border border-white/10" />
-									))}
-									{stakBrands.length > 3 && <span className="text-[10px] text-zinc-400 ml-0.5">+{stakBrands.length - 3}</span>}
-								</div>
-							) : (
-								<p className="text-[10px] text-zinc-500 mt-1 mb-1">No brands yet</p>
-							)}
-							<p className="text-[10px] text-zinc-500">Learn your taste &amp; discover stocks you vibe with</p>
+						<div className="flex items-center justify-between">
+							<p className="text-xs font-bold">Taste Profile</p>
+							<span className="text-[10px] text-cyan-400 font-medium">{stakBrands.length} stocks &rarr;</span>
 						</div>
+						{stakBrands.length > 0 ? (
+							<>
+								<div className="flex items-center gap-1.5 flex-wrap">
+									{stakBrands.slice(0, 8).map((b) => (
+										<BrandLogo key={b.id} brand={b} className="w-8 h-8 rounded-full bg-white/10 border border-white/10" />
+									))}
+								{stakBrands.length > 8 && <span className="text-[10px] text-zinc-400">+{stakBrands.length - 8}</span>}
+								</div>
+								{vibes.length > 0 && (
+									<div className="flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200/50 dark:border-slate-700/30">
+										<p className="text-[10px] text-zinc-500 leading-relaxed">{vibes[0].desc}</p>
+										<div className="flex items-center gap-1 flex-wrap">
+											{vibes.slice(0, 3).map((v) => (
+												<span key={v.label} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-[9px] font-semibold text-fuchsia-400">
+													{v.emoji} {v.label}
+												</span>
+											))}
+										</div>
+									</div>
+								)}
+							</>
+						) : (
+							<p className="text-[10px] text-zinc-500">No brands yet — start swiping to build your stak</p>
+						)}
 					</button>
 
-					{/* Row 1 — My Vibe Check */}
-					<div style={{ border: "1px solid rgba(168,85,247,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[100px] shadow-sm dark:shadow-none">
-						<div className="flex items-center gap-1.5">
-							<span className="text-sm">🤖</span>
-							<p className="text-[11px] font-bold">My Vibe Check</p>
-						</div>
-						<div>
-							<p className="text-base font-extrabold" style={{ color: "#d946ef" }}>{vibe.emoji} {vibe.label}</p>
-							<p className="text-[10px] text-zinc-500 mt-0.5">{vibe.desc}</p>
-						</div>
+					{/* Row 1 — My Vibe Check (full width) */}
+				<div style={{ border: "1px solid rgba(168,85,247,0.4)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
+					<div className="flex items-center gap-1.5 mb-2">
+						<span className="text-sm">✨</span>
+						<p className="text-[11px] font-bold">My Vibe Check</p>
 					</div>
-
+					<p className="text-base font-extrabold" style={{ color: "#d946ef" }}>{vibes[0].emoji} {vibes[0].label}</p>
+					<p className="text-[10px] text-zinc-500 mt-0.5 mb-3">{vibes[0].desc}</p>
+					<div className="space-y-1.5">
+						{vibes.map((v) => (
+							<div key={v.label} className="flex items-center gap-2">
+								<span className="text-xs w-4 shrink-0">{v.emoji}</span>
+								<div className="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700/50 overflow-hidden">
+									<div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 transition-all duration-500" style={{ width: v.pct + "%" }} />
+								</div>
+								<span className="text-[10px] text-zinc-400 w-7 text-right shrink-0">{v.pct}%</span>
+							</div>
+						))}
+					</div>
+				</div>
 
 					{/* Row 3 — STAK Streaks & Badges */}
 					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
