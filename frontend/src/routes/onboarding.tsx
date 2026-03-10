@@ -689,9 +689,10 @@ function BuildingStep({
 	}, [selectedInterests, swipedBrandIds]);
 
 	// Fallback if user somehow has no selections
-	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).map((id) => {
-		const brand = allBrands.find((b) => b.id === id)!;
-		return { id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) };
+	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).flatMap((id) => {
+		const brand = allBrands.find((b) => b.id === id);
+		if (!brand) return [];
+		return [{ id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) }];
 	});
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
