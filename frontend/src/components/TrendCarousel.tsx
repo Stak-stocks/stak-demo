@@ -68,16 +68,17 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px] h-full flex flex-col"
+			className="rounded-[20px] h-full"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 flex flex-col backdrop-blur-xl h-full min-h-0"
+				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl h-full grid"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
+					gridTemplateRows: "2fr 1fr",
 				}}
 			>
 				{children}
@@ -111,17 +112,15 @@ function Badge({ type, label }: { type: TrendCard["type"]; label: string }) {
 function ImpactFooter({ impact, badgeText, rgb }: { impact: string; badgeText: string; rgb: string }) {
 	return (
 		<div
-			className="flex items-center gap-2 shrink-0 pt-3 sm:pt-4 pb-5 sm:pb-6"
+			className="flex flex-col justify-center gap-1 pt-3 sm:pt-4"
 			style={{ borderTop: `1px solid rgba(${rgb}, 0.15)` }}
 		>
-			<div>
-				<p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-0.5">
-					Direction
-				</p>
-				<p className={`text-xs sm:text-sm font-semibold ${badgeText}`}>
-					{impact}
-				</p>
-			</div>
+			<p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-500">
+				Direction
+			</p>
+			<p className={`text-sm sm:text-lg font-semibold ${badgeText}`}>
+				{impact}
+			</p>
 		</div>
 	);
 }
@@ -134,9 +133,9 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 	if (card.why ?? card.topic) {
 		return (
 			<GlassCard type={card.type}>
-				<Badge type={card.type} label={card.label} />
+				<div className="overflow-y-auto no-scrollbar">
+					<Badge type={card.type} label={card.label} />
 
-				<div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
 					{card.topic && (
 						<h3 className="text-base sm:text-[1.65rem] font-extrabold text-white leading-tight mb-3 sm:mb-5">
 							{card.topic}
@@ -156,35 +155,24 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 	/* LEGACY FORMAT — static fallback data */
 	return (
 		<GlassCard type={card.type}>
-			<Badge type={card.type} label={card.label} />
+				<div className="overflow-y-auto no-scrollbar">
+					<Badge type={card.type} label={card.label} />
 
-			{card.headline && (
-				<h3 className="text-base sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mb-2 sm:mb-4">
-					{card.headline}
-				</h3>
-			)}
+					{card.headline && (
+						<h3 className="text-base sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mb-2 sm:mb-4">
+							{card.headline}
+						</h3>
+					)}
 
-			<p className="text-zinc-300 text-xs sm:text-[15px] leading-relaxed flex-1">
-				{card.explanation}
-			</p>
-
-			{card.pressure && (
-				<div
-					className="flex items-center gap-2 mt-auto pt-3"
-					style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
-				>
-					{card.pressureEmoji && <span className="text-lg">{card.pressureEmoji}</span>}
-					<div>
-						<p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-0.5">
-							Direction
-						</p>
-						<span className={`text-xs sm:text-sm font-semibold ${c.badgeText}`}>
-							{card.pressure}
-						</span>
-					</div>
+					<p className="text-zinc-300 text-xs sm:text-[15px] leading-relaxed">
+						{card.explanation}
+					</p>
 				</div>
-			)}
-		</GlassCard>
+
+				{card.pressure ? (
+					<ImpactFooter impact={card.pressure} badgeText={c.badgeText} rgb={c.rgb} />
+				) : (
+					<ImpactFooter impact={FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 	);
 }
 
@@ -196,9 +184,9 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 	if (card.synthesis) {
 		return (
 			<GlassCard type="stak">
-				<Badge type="stak" label={card.label} />
+				<div className="overflow-y-auto no-scrollbar">
+					<Badge type="stak" label={card.label} />
 
-				<div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
 					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
 						{card.synthesis}
 					</p>
@@ -232,43 +220,45 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 
 		return (
 			<GlassCard type="stak">
-				<Badge type="stak" label={card.label} />
+				<div className="overflow-y-auto no-scrollbar">
+					<Badge type="stak" label={card.label} />
 
-				<div className="flex flex-col gap-3 mt-1 flex-1 min-h-0 overflow-y-auto no-scrollbar">
-					{cleanIntro && (
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-							{cleanIntro}
-						</p>
-					)}
-
-					{cleanForces.length > 0 && (
-						<ul className="space-y-1.5">
-							{cleanForces.map((force, i) => (
-								<li key={i} className="flex items-start gap-2">
-									<span className="text-amber-400 font-bold mt-0.5 shrink-0">•</span>
-									<span className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">{force}</span>
-								</li>
-							))}
-						</ul>
-					)}
-
-					{card.stockReflects && (
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-							{card.stockReflects}
-						</p>
-					)}
-
-					{card.takeaway && (
-						<div
-							className="pt-3"
-							style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
-						>
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
-								<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-								{card.takeaway}
+					<div className="flex flex-col gap-3 mt-1">
+						{cleanIntro && (
+							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+								{cleanIntro}
 							</p>
-						</div>
-					)}
+						)}
+
+						{cleanForces.length > 0 && (
+							<ul className="space-y-1.5">
+								{cleanForces.map((force, i) => (
+									<li key={i} className="flex items-start gap-2">
+										<span className="text-amber-400 font-bold mt-0.5 shrink-0">•</span>
+										<span className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">{force}</span>
+									</li>
+								))}
+							</ul>
+						)}
+
+						{card.stockReflects && (
+							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+								{card.stockReflects}
+							</p>
+						)}
+
+						{card.takeaway && (
+							<div
+								className="pt-3"
+								style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
+							>
+								<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
+									<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+									{card.takeaway}
+								</p>
+							</div>
+						)}
+					</div>
 				</div>
 
 				<ImpactFooter
@@ -283,20 +273,24 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 	/* LEGACY FORMAT — static fallback data */
 	return (
 		<GlassCard type="stak">
-			<Badge type="stak" label={card.label} />
+			<div className="overflow-y-auto no-scrollbar">
+				<Badge type="stak" label={card.label} />
 
-			<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-1 flex-1">
-				{highlightTrendRefs(card.explanation ?? "")}
-			</p>
+				<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-1">
+					{highlightTrendRefs(card.explanation ?? "")}
+				</p>
 
-			{card.takeaway && (
-				<div className="mt-3 sm:mt-5">
-					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
-						<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-						{card.takeaway}
-					</p>
-				</div>
-			)}
+				{card.takeaway && (
+					<div className="mt-3 sm:mt-5">
+						<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
+							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+							{card.takeaway}
+						</p>
+					</div>
+				)}
+			</div>
+
+			<ImpactFooter impact={card.pressure ?? FALLBACK_IMPACT} badgeText={c.badgeText} rgb={c.rgb} />
 		</GlassCard>
 	);
 }
