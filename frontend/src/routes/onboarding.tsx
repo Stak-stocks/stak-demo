@@ -13,7 +13,6 @@ import {
 } from "@/data/onboarding";
 import { brands as allBrands } from "@/data/brands";
 import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
@@ -94,7 +93,6 @@ function OnboardingPage() {
 	};
 
 	const [step, setStep] = useState(getStepFromHash);
-	const hasProgressed = useRef(false);
 	const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 	const [swipedRight, setSwipedRight] = useState<string[]>([]);
 	const [selectedMotivations, setSelectedMotivations] = useState<string[]>([]);
@@ -118,11 +116,8 @@ function OnboardingPage() {
 		}
 	}, [user, loading, navigate]);
 
-	// Prevent navigating back to onboarding after it's been completed.
-	// Once the user has actively clicked through any step, disable these guards
-	// so late-arriving Firestore data doesn't yank them away mid-flow.
+	// Prevent navigating back to onboarding after it's been completed
 	useEffect(() => {
-		if (hasProgressed.current) return;
 		if (!loading && user && localStorage.getItem("onboardingCompleted") === "true") {
 			navigate({ to: "/", replace: true });
 		}
@@ -130,13 +125,13 @@ function OnboardingPage() {
 
 	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
 	// a false redirect caused by a race condition on reload), send them back.
-	// Also suppressed once the user has started progressing through the flow.
+	// Skip on step 5 (BuildingStep) — it writes onboardingCompleted immediately
+	// and we need the animation to finish before navigating.
 	useEffect(() => {
-		if (hasProgressed.current) return;
-		if (!loading && !accountLoading && user && account?.onboardingCompleted === true) {
+		if (!loading && !accountLoading && user && account?.onboardingCompleted === true && step < 5) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, accountLoading, user, account, navigate]);
+	}, [loading, accountLoading, user, account, navigate, step]);
 
 	if (loading || accountLoading) {
 		return (
@@ -147,7 +142,6 @@ function OnboardingPage() {
 	}
 
 	function goTo(nextStep: number) {
-		hasProgressed.current = true;
 		setStep(nextStep);
 		window.history.pushState(null, "", `#${nextStep}`);
 	}
@@ -229,7 +223,22 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 		<div className="text-center space-y-8 animate-in fade-in duration-500">
 			{/* Logo */}
 			<div className="flex items-center justify-center gap-2">
-				<StakLogoIcon width={48} height={48} />
+				<svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-white">
+					<path
+						d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+					<path
+						d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</svg>
 				<span className="text-white text-4xl font-bold tracking-wider">STAK</span>
 			</div>
 
@@ -690,15 +699,6 @@ function BuildingStep({
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
 
-	// Save preferences and clear stale state on mount — but defer marking
-	// onboarding as completed until the animation finishes so the navigation
-	// guards don't kick in and skip the "Building your STAK" animation.
-	const prefsRef = useRef({
-		interests: selectedInterests,
-		...(familiarity ? { familiarity } : {}),
-		...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
-	});
-
 	useEffect(() => {
 		// Save user interests so Discover page can recommend similar brands
 		localStorage.setItem("user-interests", JSON.stringify(selectedInterests));
@@ -707,16 +707,25 @@ function BuildingStep({
 		sessionStorage.removeItem("stak-deck-order");
 		localStorage.removeItem("passed-brands");
 
+		localStorage.setItem("onboardingCompleted", "true");
 		clearProgress();
 
 		// Write preferences via client SDK first — updates local Firestore cache
 		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
 		// the correct interests/onboardingSwipes when it mounts after the animation.
-		updatePreferences(prefsRef.current).catch(() => { });
+		const prefs = {
+			interests: selectedInterests,
+			...(familiarity ? { familiarity } : {}),
+			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
+		};
+		updatePreferences(prefs).catch(() => { });
 
 		// Clear any stale deckOrder from previous sessions so index.tsx always
 		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
+
+		// Also sync via REST so the backend Admin SDK record is up to date
+		updateProfile({ onboardingCompleted: true, preferences: prefs }).catch(() => { });
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
@@ -736,12 +745,10 @@ function BuildingStep({
 				return next;
 			});
 
-			// After 10 rotations, mark onboarding complete and redirect
+			// After 10 rotations, finish and redirect
 			if (shuffleCount.current >= 10) {
 				clearInterval(interval);
 				setPhase("done");
-				localStorage.setItem("onboardingCompleted", "true");
-				updateProfile({ onboardingCompleted: true, preferences: prefsRef.current }).catch(() => { });
 				setTimeout(() => onDone(), 800);
 			}
 		}, 500);
