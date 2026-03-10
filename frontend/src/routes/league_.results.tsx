@@ -16,10 +16,7 @@ export const Route = createFileRoute("/league_/results")({
 
 function ResultsPage() {
 	const navigate = useNavigate();
-	const [leagueState, setLeagueState] = useState<LeagueState>(() => {
-		const saved = localStorage.getItem("league-state");
-		return saved ? JSON.parse(saved) : INITIAL_LEAGUE_STATE;
-	});
+	const [leagueState, setLeagueState] = useState<LeagueState>(INITIAL_LEAGUE_STATE);
 
 	const weekKey = getWeekKey();
 	const starters = leagueState.currentLineup?.starters || [];
@@ -65,7 +62,6 @@ function ResultsPage() {
 			},
 		}
 
-		localStorage.setItem("league-state", JSON.stringify(updatedState));
 		setLeagueState(updatedState);
 	}, []);
 
