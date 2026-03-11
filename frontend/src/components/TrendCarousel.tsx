@@ -390,13 +390,13 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 		return () => mq.removeEventListener("change", handler);
 	}, []);
 
-	const CARD_WIDTH_PCT = isMobile ? 92 : 57;
+	const CARD_WIDTH_PCT = isMobile ? 92 : 75;
 	const GAP_PCT = 2;
 	const STEP = CARD_WIDTH_PCT + GAP_PCT;
 	const PEEK_OFFSET = (100 - CARD_WIDTH_PCT) / 2;
 
 	return (
-		<div className="space-y-4 mx-auto">
+		<div className="space-y-2 mx-auto max-w-4xl">
 			{/* Header */}
 			<h2
 				className={`text-center text-base sm:text-2xl font-black tracking-[0.08em] uppercase ${colors.dominance}`}
@@ -408,7 +408,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 			{/* Carousel */}
 			<div className="relative">
 				<div
-					className="overflow-hidden select-none py-4 cursor-grab active:cursor-grabbing"
+					className="overflow-hidden select-none py-2 cursor-grab active:cursor-grabbing"
 					ref={trackRef}
 					style={{ touchAction: "pan-y" }}
 					onTouchStart={handleTouchStart}
