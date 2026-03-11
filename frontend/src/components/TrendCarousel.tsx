@@ -405,6 +405,24 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 				{headerText}
 			</h2>
 
+			{/* Dots */}
+			<div className="flex justify-center gap-2.5">
+				{trends.map((card, i) => {
+					const dotColor = COLOR_MAP[card.type];
+					return (
+						<button
+							type="button"
+							key={card.type}
+							onClick={() => goTo(i)}
+							className={`rounded-full transition-all duration-300 ${i === realIndex
+								? `w-7 h-2.5 ${dotColor.dotActive}`
+								: "w-2.5 h-2.5 bg-zinc-600 hover:bg-zinc-500"
+								}`}
+						/>
+					);
+				})}
+			</div>
+
 			{/* Carousel */}
 			<div className="relative">
 				<div
@@ -429,7 +447,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[580px] sm:h-[620px]"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
@@ -465,24 +483,6 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 				>
 					<ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
 				</button>
-			</div>
-
-			{/* Dots */}
-			<div className="flex justify-center gap-2.5 pt-1">
-				{trends.map((card, i) => {
-					const dotColor = COLOR_MAP[card.type];
-					return (
-						<button
-							type="button"
-							key={card.type}
-							onClick={() => goTo(i)}
-							className={`rounded-full transition-all duration-300 ${i === realIndex
-								? `w-7 h-2.5 ${dotColor.dotActive}`
-								: "w-2.5 h-2.5 bg-zinc-600 hover:bg-zinc-500"
-								}`}
-						/>
-					);
-				})}
 			</div>
 		</div>
 	);
