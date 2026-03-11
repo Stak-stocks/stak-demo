@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { getNewsSentiment, getMarketCap } from "../services/finnhubService.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
+
+const VIBES_TTL_MS = 60 * 60 * 1000; // 1 hour — sentiment & market cap don't change minute-to-minute
 
 export const vibesRouter = Router();
 
@@ -15,8 +18,12 @@ function marketCapToClout(marketCapMillion: number): number {
 // GET /api/vibes/:ticker
 vibesRouter.get("/:ticker", async (req, res) => {
 	const ticker = req.params.ticker.toUpperCase();
+	const cacheKey = `vibes:${ticker}`;
 
 	try {
+		const cached = await cacheGet<object>(cacheKey);
+		if (cached) { res.json(cached); return; }
+
 		const [sentiment, marketCapMillion] = await Promise.all([
 			getNewsSentiment(ticker),
 			getMarketCap(ticker),
@@ -38,7 +45,9 @@ vibesRouter.get("/:ticker", async (req, res) => {
 		// Clout: log-scaled market cap
 		const clout = marketCapMillion ? marketCapToClout(marketCapMillion) : null;
 
-		res.json({ ticker, internetHype, dramaLevel, clout });
+		const result = { ticker, internetHype, dramaLevel, clout };
+		await cacheSet(cacheKey, result, VIBES_TTL_MS);
+		res.json(result);
 	} catch (error) {
 		console.error(`Error fetching vibes for ${ticker}:`, error);
 		res.status(500).json({ error: "Failed to fetch vibes" });
