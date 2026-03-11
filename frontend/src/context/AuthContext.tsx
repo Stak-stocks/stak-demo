@@ -12,6 +12,7 @@ import {
 	getAdditionalUserInfo,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
+	sendEmailVerification,
 	sendPasswordResetEmail,
 	verifyPasswordResetCode,
 	confirmPasswordReset,
@@ -28,6 +29,7 @@ interface AuthContextType {
 	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
+	sendVerificationEmail: () => Promise<void>;
 	resetPassword: (email: string) => Promise<void>;
 	verifyResetCode: (code: string) => Promise<string>;
 	confirmReset: (code: string, newPassword: string) => Promise<void>;
@@ -105,6 +107,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		await createUserWithEmailAndPassword(auth, email, password);
 	}
 
+	async function sendVerificationEmail() {
+		if (!auth.currentUser) return;
+		await sendEmailVerification(auth.currentUser, {
+			url: `${window.location.origin}/verify-email`,
+			handleCodeInApp: false,
+		});
+	}
+
 	async function resetPassword(email: string) {
 		await sendPasswordResetEmail(auth, email, {
 			url: `${window.location.origin}/reset-password`,
@@ -135,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
 		>
 			{children}
 		</AuthContext.Provider>
