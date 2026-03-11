@@ -191,16 +191,16 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
 						{card.synthesis}
 					</p>
-
-					{card.takeaway && (
-						<div className="pb-3 sm:pb-4">
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-								<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-								{card.takeaway}
-							</p>
-						</div>
-					)}
 				</div>
+
+				{card.takeaway && (
+					<div className="mt-auto pt-3 shrink-0">
+						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+							{card.takeaway}
+						</p>
+					</div>
+				)}
 
 			</GlassCard>
 		);
@@ -243,20 +243,20 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 								{card.stockReflects}
 							</p>
 						)}
-
-						{card.takeaway && (
-							<div
-								className="pt-3"
-								style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
-							>
-								<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
-									<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-									{card.takeaway}
-								</p>
-							</div>
-						)}
 					</div>
 				</div>
+
+				{card.takeaway && (
+					<div
+						className="mt-auto pt-3 shrink-0"
+						style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
+					>
+						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
+							<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+							{card.takeaway}
+						</p>
+					</div>
+				)}
 
 			</GlassCard>
 		);
@@ -271,16 +271,16 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 				<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-1">
 					{highlightTrendRefs(card.explanation ?? "")}
 				</p>
-
-				{card.takeaway && (
-					<div className="mt-3 sm:mt-5">
-						<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
-							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
-							{card.takeaway}
-						</p>
-					</div>
-				)}
 			</div>
+
+			{card.takeaway && (
+				<div className="mt-auto pt-3 shrink-0">
+					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
+						<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+						{card.takeaway}
+					</p>
+				</div>
+			)}
 
 		</GlassCard>
 	);
