@@ -73,7 +73,7 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl flex flex-col"
+				className="rounded-[20px] p-4 sm:p-6 backdrop-blur-xl h-full flex flex-col"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
@@ -118,7 +118,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					<Badge type={card.type} label={card.label} />
 
 					{card.topic && (
-						<h3 className="text-base sm:text-[1.65rem] font-extrabold text-white leading-tight mb-3 sm:mb-5">
+						<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-3 sm:mb-5">
 							{card.topic}
 						</h3>
 					)}
@@ -151,12 +151,12 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 				<Badge type={card.type} label={card.label} />
 
 				{card.headline && (
-					<h3 className="text-base sm:text-[1.9rem] font-extrabold text-white leading-[1.18] mb-2 sm:mb-4">
+					<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-2 sm:mb-4">
 						{card.headline}
 					</h3>
 				)}
 
-				<p className="text-zinc-300 text-xs sm:text-[15px] leading-relaxed">
+				<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
 					{card.explanation}
 				</p>
 			</div>
@@ -447,7 +447,7 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 							return (
 								<div
 									key={`${card.type}-${i}`}
-									className="shrink-0 transition-transform duration-400 ease-out origin-center"
+									className="shrink-0 transition-transform duration-400 ease-out origin-center h-[420px] sm:h-[450px]"
 									style={{
 										width: `${CARD_WIDTH_PCT}%`,
 										marginRight: `${GAP_PCT}%`,
