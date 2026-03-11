@@ -37,6 +37,8 @@ function VerifyEmailPage() {
 				await auth.currentUser?.reload();
 				if (auth.currentUser?.emailVerified) {
 					clearInterval(pollRef.current!);
+					// Force-refresh JWT so backend sees email_verified: true
+					await auth.currentUser.getIdToken(true);
 					toast.success("Email verified! Welcome to STAK!");
 					navigate({ to: "/onboarding" });
 				}
@@ -78,6 +80,8 @@ function VerifyEmailPage() {
 		try {
 			await auth.currentUser?.reload();
 			if (auth.currentUser?.emailVerified) {
+				// Force-refresh JWT so backend sees email_verified: true
+				await auth.currentUser.getIdToken(true);
 				toast.success("Email verified! Welcome to STAK!");
 				navigate({ to: "/onboarding" });
 			} else {

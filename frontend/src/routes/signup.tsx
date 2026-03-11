@@ -56,7 +56,8 @@ function SignUpPage() {
 		try {
 			await signUpWithEmail(email, password);
 			await sendVerificationEmail();
-			navigate({ to: "/verify-email" });
+			// Don't navigate here — let the useEffect handle it once auth state
+			// updates with the new unverified user (prevents stale-user race condition)
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (message.includes("email-already-in-use")) {
