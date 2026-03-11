@@ -66,7 +66,7 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px]"
+			className="rounded-[20px] h-full"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
