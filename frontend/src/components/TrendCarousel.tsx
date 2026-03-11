@@ -66,14 +66,14 @@ function GlassCard({ type, children }: { type: TrendCard["type"]; children: Reac
 	const c = COLOR_MAP[type];
 	return (
 		<div
-			className="rounded-[20px] h-full"
+			className="rounded-[20px]"
 			style={{
 				border: `1.5px solid rgba(${c.rgb}, 0.85)`,
 				boxShadow: `0 0 6px rgba(${c.rgb}, 0.6), 0 0 15px rgba(${c.rgb}, 0.35), 0 0 40px rgba(${c.rgb}, 0.12), inset 0 0 15px rgba(${c.rgb}, 0.08)`,
 			}}
 		>
 			<div
-				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl h-full flex flex-col"
+				className="rounded-[20px] p-4 sm:p-7 backdrop-blur-xl flex flex-col"
 				style={{
 					background: "linear-gradient(155deg, rgba(14,20,38,0.95) 0%, rgba(10,15,30,0.90) 100%)",
 				}}
