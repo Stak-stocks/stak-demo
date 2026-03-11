@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
 import { simplifyArticles, classifyEarnings } from "../services/geminiService.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
+
+const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
+const COMPANY_NEWS_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const SEARCH_NEWS_TTL_MS  =  5 * 60 * 1000; //  5 minutes
 
 export const newsRouter = Router();
 
@@ -98,13 +103,17 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
+	const cacheKey = "news:market";
 	try {
-		// Fetch extra candidates so diversity cap still yields enough articles
+		const cached = await cacheGet<object>(cacheKey);
+		if (cached) { res.json(cached); return; }
+
 		const raw = await getMarketNews(40);
 		const articles = capByTopicDiversity(raw, 2).slice(0, 16);
-		// All general news is treated as macro — no extra filtering needed
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
-		res.json({ articles: simplified });
+		const result = { articles: simplified };
+		await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);
+		res.json(result);
 	} catch (error) {
 		console.error("Error fetching market news:", error);
 		res.status(500).json({ error: "Failed to fetch market news" });
@@ -113,23 +122,25 @@ newsRouter.get("/market", async (_req, res) => {
 
 // GET /api/news/company/:symbol — company + sector news with earnings signal
 newsRouter.get("/company/:symbol", async (req, res) => {
+	const { symbol } = req.params;
+	const ticker = symbol.toUpperCase();
+	const companyName = req.query.name as string | undefined;
+	const cacheKey = `news:company:${ticker}`;
 	try {
-		const { symbol } = req.params;
-		const ticker = symbol.toUpperCase();
-		const companyName = req.query.name as string | undefined;
+		const cached = await cacheGet<object>(cacheKey);
+		if (cached) { res.json(cached); return; }
 
-		// Fetch more candidates so we can re-rank by specificity before capping at 8
 		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
-			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
+			const result = { articles: [], earningsSignal: { status: "none", date: null } };
+			await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
+			res.json(result);
 			return;
 		}
 
-		// Classify each article (pass companyName so "Nvidia" matches, not just "NVDA")
 		const classified = articles.map((a) => ({ article: a, type: classifyArticle(a, companyName, ticker) }));
 
-		// Drop pure macro; sort company-specific headlines first, then sector by recency
 		const relevant = classified
 			.filter((c) => c.type !== "macro")
 			.sort((a, b) => {
@@ -139,7 +150,6 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			})
 			.slice(0, 8);
 
-		// Extract earnings signal from all raw articles in parallel with simplification
 		const [earningsSignal, simplified] = await Promise.all([
 			extractEarningsSignal(articles),
 			relevant.length > 0
@@ -147,12 +157,12 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 				: Promise.resolve([]),
 		]);
 
-		if (relevant.length === 0) {
-			res.json({ articles: [], earningsSignal });
-			return;
-		}
+		const result = relevant.length === 0
+			? { articles: [], earningsSignal }
+			: { articles: simplified, earningsSignal };
 
-		res.json({ articles: simplified, earningsSignal });
+		await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
+		res.json(result);
 	} catch (error) {
 		console.error("Error fetching company news:", error);
 		res.status(500).json({ error: "Failed to fetch company news" });
@@ -166,7 +176,11 @@ newsRouter.get("/search", async (req, res) => {
 		res.status(400).json({ error: "Query must be at least 2 characters" });
 		return;
 	}
+	const cacheKey = `news:search:${q.toLowerCase()}`;
 	try {
+		const cached = await cacheGet<object>(cacheKey);
+		if (cached) { res.json(cached); return; }
+
 		const articles = await searchNewsArticles(q);
 		if (articles.length === 0) {
 			res.json({ articles: [] });
@@ -176,7 +190,9 @@ newsRouter.get("/search", async (req, res) => {
 			articles,
 			articles.map(() => "sector" as const),
 		);
-		res.json({ articles: simplified });
+		const result = { articles: simplified };
+		await cacheSet(cacheKey, result, SEARCH_NEWS_TTL_MS);
+		res.json(result);
 	} catch (error) {
 		console.error("Error searching news:", error);
 		res.status(500).json({ error: "Failed to search news" });
