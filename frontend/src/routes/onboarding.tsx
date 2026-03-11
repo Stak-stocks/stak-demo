@@ -109,8 +109,11 @@ function OnboardingPage() {
 	}, []);
 
 	useEffect(() => {
-		if (!loading && !user) {
-			navigate({ to: "/login" });
+		if (loading) return;
+		if (!user) { navigate({ to: "/login" }); return; }
+		const isPasswordProvider = user.providerData[0]?.providerId === "password";
+		if (isPasswordProvider && !user.emailVerified) {
+			navigate({ to: "/verify-email" });
 		}
 	}, [user, loading, navigate]);
 
