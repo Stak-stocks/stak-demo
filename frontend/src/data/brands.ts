@@ -119,7 +119,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	rjf: "raymondjames.com", cboe: "cboe.com", ssnc: "ssctech.com",
 	fds: "factset.com", brkb: "berkshirehathaway.com", omf: "onemainfinancial.com",
 	evr: "evercore.com", pfg: "principal.com", lnc: "lfg.com",
-	key: "key.com", rf: "regions.com", cfg: "citizensbank.com",
+	key: "keybank.com", rf: "regions.com", cfg: "citizensbank.com",
 	// Tech
 	orcl: "oracle.com", ibm: "ibm.com", hpq: "hp.com", dell: "dell.com",
 	acn: "accenture.com", sap: "sap.com", hubs: "hubspot.com", team: "atlassian.com",
@@ -173,7 +173,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	wbd: "wbd.com", mgm: "mgmresorts.com", czr: "caesars.com",
 	ea: "ea.com", ttwo: "take2games.com", ttd: "thetradedesk.com", roku: "roku.com",
 	// Crypto
-	mstr: "strategy.com", mara: "marathon.io", riot: "riotplatforms.com", clsk: "cleanspark.com",
+	mstr: "strategy.com", mara: "mara.com", riot: "riotplatforms.com", clsk: "cleanspark.com",
 	// Consumer Staples
 	mdlz: "mondelezinternational.com", hsy: "thehersheycompany.com", gis: "generalmills.com",
 	kr: "kroger.com", stz: "cbrands.com", cl: "colgate.com",
@@ -196,7 +196,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	jack: "jackinthebox.com", pzza: "papajohns.com", blmn: "bloominbrands.com", eat: "brinker.com",
 	rklb: "rocketlabusa.com", asts: "ast-science.com", celh: "celsius.com", wynn: "wynnresorts.com",
 	acmr: "acmrcsh.com", lunr: "intuitivemachines.com", joby: "jobyaviation.com", achr: "archer.com",
-	gsat: "globalstar.com", lvs: "lasvegassands.com", penn: "pnnentertainment.com",
+	gsat: "globalstar.com", lvs: "lasvegassands.com", penn: "pennentertainment.com",
 	mlco: "melco-resorts.com", sam: "bostonbeer.com", fizz: "nationalbeveragecorp.com",
 	kdp: "keurigdrpepper.com", soun: "soundhound.com",
 };
