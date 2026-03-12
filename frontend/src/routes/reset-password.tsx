@@ -12,11 +12,12 @@ export const Route = createFileRoute("/reset-password")({
 	validateSearch: (search: Record<string, unknown>) => ({
 		mode: (search.mode as string) || "",
 		oobCode: (search.oobCode as string) || "",
+		continueUrl: (search.continueUrl as string) || "",
 	}),
 });
 
 function ResetPasswordPage() {
-	const { mode, oobCode } = Route.useSearch();
+	const { mode, oobCode, continueUrl } = Route.useSearch();
 	const { verifyResetCode, confirmReset } = useAuth();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
@@ -37,10 +38,15 @@ function ResetPasswordPage() {
 		// Email verification link from Firebase
 		if (mode === "verifyEmail") {
 			applyActionCode(auth, oobCode)
-				.then(() => auth.currentUser?.getIdToken(true))
 				.then(() => {
 					toast.success("Email verified! Welcome to STAK!");
-					navigate({ to: "/onboarding" });
+					// Redirect to continueUrl (handles cross-origin dev→localhost redirects).
+					// Fall back to /verify-email so the poll can detect verification.
+					if (continueUrl) {
+						window.location.href = continueUrl;
+					} else {
+						navigate({ to: "/verify-email" });
+					}
 				})
 				.catch(() => {
 					setInvalidCode(true);

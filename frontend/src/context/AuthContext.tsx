@@ -82,8 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 				// Read onboardingCompleted from the JWT claim — available instantly,
 				// cross-device, no Firestore read needed.
-				const tokenResult = await firebaseUser.getIdTokenResult();
-				setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+				try {
+					const tokenResult = await firebaseUser.getIdTokenResult();
+					setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+				} catch {
+					// Token is invalid — most likely the account was deleted from Firebase
+					// Console while a local session was still cached. Sign out cleanly.
+					setOnboardingCompleted(false);
+					setUser(null);
+					setLoading(false);
+					await signOut(auth).catch(() => {});
+					return;
+				}
 			} else {
 				setOnboardingCompleted(false);
 			}
@@ -109,10 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	async function sendVerificationEmail() {
 		if (!auth.currentUser) return;
-		await sendEmailVerification(auth.currentUser, {
-			url: `${window.location.origin}/verify-email`,
-			handleCodeInApp: false,
-		});
+		await sendEmailVerification(auth.currentUser);
 	}
 
 	async function resetPassword(email: string) {

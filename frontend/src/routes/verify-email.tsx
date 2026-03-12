@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useRef, useState } from "react";
 import { auth } from "../lib/firebase";
+import { applyActionCode } from "firebase/auth";
 import { toast } from "sonner";
 import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
@@ -16,23 +17,41 @@ function VerifyEmailPage() {
 	const [checking, setChecking] = useState(false);
 	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-	// Redirect away if no user or already verified
+	// If Firebase redirected here with an oobCode (action handler flow), apply it
+	// immediately. The poll below will detect emailVerified=true within 3 s.
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("mode") !== "verifyEmail" || !params.get("oobCode")) return;
+		const oobCode = params.get("oobCode")!;
+		// Clean up URL so the code isn't reused on refresh
+		window.history.replaceState({}, "", window.location.pathname);
+		applyActionCode(auth, oobCode).catch((err: unknown) => {
+			const code = (err as { code?: string }).code ?? "";
+			if (code === "auth/invalid-action-code") {
+				toast.error("Verification link expired or already used.");
+			}
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Only redirect to /signup if there is no user.
+	// Do NOT redirect to /onboarding here — the poll below handles that via a
+	// fresh reload() from Firebase's servers, which prevents acting on stale
+	// React state (the Firebase User object is mutable; cached emailVerified
+	// values can be wrong right after account creation).
 	useEffect(() => {
 		if (loading) return;
-		if (!user) {
-			navigate({ to: "/signup" });
-			return;
-		}
-		if (user.emailVerified) {
-			navigate({ to: "/onboarding" });
-		}
+		if (!user) navigate({ to: "/signup" });
 	}, [user, loading, navigate]);
 
-	// Poll every 3s — auto-advance as soon as Firebase confirms verification
+	// Poll — runs an immediate check on mount, then every 3 s.
+	// This is the ONLY code path that navigates to /onboarding.
+	// Always starts (regardless of user.emailVerified in React state) so that
+	// already-verified users are handled correctly too.
 	useEffect(() => {
-		if (!user || user.emailVerified) return;
+		if (!user) return;
 
-		pollRef.current = setInterval(async () => {
+		async function check() {
 			try {
 				await auth.currentUser?.reload();
 				if (auth.currentUser?.emailVerified) {
@@ -52,8 +71,10 @@ function VerifyEmailPage() {
 					navigate({ to: "/signup" });
 				}
 			}
-		}, 3000);
+		}
 
+		check(); // immediate check — no 3 s wait on first load
+		pollRef.current = setInterval(check, 3000);
 		return () => { if (pollRef.current) clearInterval(pollRef.current); };
 	}, [user, navigate, logout]);
 
