@@ -33,7 +33,7 @@ function Root() {
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";

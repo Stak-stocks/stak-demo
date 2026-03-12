@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, signInWithGoogle, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,6 +21,12 @@ function SignUpPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
+			// Email/password users who haven't verified yet → go to verify screen
+			const isPasswordProvider = user.providerData[0]?.providerId === "password";
+			if (isPasswordProvider && !user.emailVerified) {
+				navigate({ to: "/verify-email" });
+				return;
+			}
 			user.getIdToken(true)
 				.then(() => getProfile())
 				.then(() => user.getIdToken(true))
@@ -49,7 +55,9 @@ function SignUpPage() {
 		setSigningUp(true);
 		try {
 			await signUpWithEmail(email, password);
-			toast.success("Account created! Welcome to STAK!");
+			await sendVerificationEmail();
+			// Don't navigate here — let the useEffect handle it once auth state
+			// updates with the new unverified user (prevents stale-user race condition)
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (message.includes("email-already-in-use")) {

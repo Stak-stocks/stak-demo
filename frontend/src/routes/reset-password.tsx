@@ -4,16 +4,20 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { applyActionCode } from "firebase/auth";
+import { auth } from "../lib/firebase";
 
 export const Route = createFileRoute("/reset-password")({
 	component: ResetPasswordPage,
 	validateSearch: (search: Record<string, unknown>) => ({
+		mode: (search.mode as string) || "",
 		oobCode: (search.oobCode as string) || "",
+		continueUrl: (search.continueUrl as string) || "",
 	}),
 });
 
 function ResetPasswordPage() {
-	const { oobCode } = Route.useSearch();
+	const { mode, oobCode, continueUrl } = Route.useSearch();
 	const { verifyResetCode, confirmReset } = useAuth();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
@@ -30,6 +34,27 @@ function ResetPasswordPage() {
 			setVerifying(false);
 			return;
 		}
+
+		// Email verification link from Firebase
+		if (mode === "verifyEmail") {
+			applyActionCode(auth, oobCode)
+				.then(() => {
+					toast.success("Email verified! Welcome to STAK!");
+					// Redirect to continueUrl (handles cross-origin dev→localhost redirects).
+					// Fall back to /verify-email so the poll can detect verification.
+					if (continueUrl) {
+						window.location.href = continueUrl;
+					} else {
+						navigate({ to: "/verify-email" });
+					}
+				})
+				.catch(() => {
+					setInvalidCode(true);
+					setVerifying(false);
+				});
+			return;
+		}
+
 		verifyResetCode(oobCode)
 			.then((userEmail) => {
 				setEmail(userEmail);
@@ -39,7 +64,7 @@ function ResetPasswordPage() {
 				setInvalidCode(true);
 				setVerifying(false);
 			});
-	}, [oobCode, verifyResetCode]);
+	}, [mode, oobCode, verifyResetCode, navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();

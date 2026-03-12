@@ -20,6 +20,13 @@ function LoginPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
+			// Block unverified email/password users — redirect them to verify their inbox
+			const isPasswordProvider = user.providerData[0]?.providerId === "password";
+			if (isPasswordProvider && !user.emailVerified) {
+				navigate({ to: "/verify-email" });
+				return;
+			}
+
 			// Force-refresh the token to detect if the account was deleted server-side
 			// (Firebase keeps the client session alive for up to 1 hour after deletion)
 			// Force-refresh then read fresh claims — avoids stale React state from
