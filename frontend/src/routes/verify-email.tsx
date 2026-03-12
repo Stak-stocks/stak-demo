@@ -76,8 +76,9 @@ function VerifyEmailPage() {
 	// Poll — runs an immediate check on mount, then every 3 s.
 	// Skipped when the user arrived via email link (pendingCode set) — they must
 	// click the Verify button first. Resumes after they do.
+	// Also check sessionStorage directly to avoid racing setPendingCode's async state update.
 	useEffect(() => {
-		if (!user || pendingCode) return;
+		if (!user || pendingCode || sessionStorage.getItem("pendingVerifyCode") || dispatchingRef.current) return;
 
 		async function check() {
 			try {
