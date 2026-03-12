@@ -20,6 +20,8 @@ function VerifyEmailPage() {
 	// null = still checking, true = valid, false = expired/invalid
 	const [codeValid, setCodeValid] = useState<boolean | null>(null);
 	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	// Set synchronously before location.replace so the guard doesn't race it
+	const dispatchingRef = useRef(false);
 
 	// Firebase sends all action-handler links to this page (it's the Console action URL).
 	// Dispatch non-verification modes to their correct pages before auth state resolves.
@@ -31,12 +33,13 @@ function VerifyEmailPage() {
 
 		if (oobCode) {
 			if (mode === "resetPassword" || mode === "recoverEmail") {
+				dispatchingRef.current = true; // prevent guard from redirecting to /signup
 				globalThis.location.replace(`/reset-password?${params.toString()}`);
 				return;
 			}
 			if (mode === "verifyEmail") {
 				globalThis.history.replaceState({}, "", globalThis.location.pathname);
-				sessionStorage.setItem("pendingVerifyCode", oobCode);
+				sessionStorage.setItem("pendingVerifyCode", oobCode); // sync — guard reads this
 				setPendingCode(oobCode);
 				return;
 			}
@@ -61,17 +64,21 @@ function VerifyEmailPage() {
 	}, [pendingCode]);
 
 	// Only redirect to /signup if there is no user and no pending verification code.
-	// If pendingCode is set, keep the user here so they can verify without being logged in.
+	// Check sessionStorage directly (sync) to avoid racing setPendingCode's async state update.
 	useEffect(() => {
 		if (loading) return;
-		if (!user && !pendingCode) navigate({ to: "/signup" });
+		if (dispatchingRef.current) return;
+		if (!user && !pendingCode && !sessionStorage.getItem("pendingVerifyCode")) {
+			navigate({ to: "/signup" });
+		}
 	}, [user, loading, pendingCode, navigate]);
 
 	// Poll — runs an immediate check on mount, then every 3 s.
 	// Skipped when the user arrived via email link (pendingCode set) — they must
 	// click the Verify button first. Resumes after they do.
+	// Also check sessionStorage directly to avoid racing setPendingCode's async state update.
 	useEffect(() => {
-		if (!user || pendingCode) return;
+		if (!user || pendingCode || sessionStorage.getItem("pendingVerifyCode") || dispatchingRef.current) return;
 
 		async function check() {
 			try {
