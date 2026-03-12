@@ -12,6 +12,6 @@ jobs:
     steps:
       - name: Delete unverified accounts
         run: |
-          curl -s -X POST "${{ secrets.BACKEND_URL }}/api/admin/cleanup-unverified" \
+          curl -s -X POST "${{ secrets.BACKEND_URL }}/api/stocks/cleanup-unverified" \
             -H "X-Admin-Secret: ${{ secrets.ADMIN_SECRET }}" \
             --fail-with-body
