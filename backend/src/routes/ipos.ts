@@ -5,7 +5,8 @@ import { syncNewIPOs, seedAllStocks, getSeedStatus } from "../services/ipoServic
 export const iposRouter = Router();
 
 /** Delete Firebase Auth users who signed up with email/password but never verified
- *  their email and whose account is older than `maxAgeHours` (default 24). */
+ *  their email and whose account is older than `maxAgeHours` (default 24).
+ *  Skips users who have completed onboarding (they have real data). */
 export async function deleteUnverifiedAccounts(maxAgeHours = 24): Promise<{ deleted: number; errors: number }> {
 	const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
 	let deleted = 0;
@@ -19,8 +20,20 @@ export async function deleteUnverifiedAccounts(maxAgeHours = 24): Promise<{ dele
 			if (!isPassword || user.emailVerified) continue;
 			const createdAt = new Date(user.metadata.creationTime).getTime();
 			if (createdAt > cutoff) continue; // too recent, keep
+
+			// Never delete users who have completed onboarding — they have real data
+			const firestoreDoc = await adminDb.collection("users").doc(user.uid).get();
+			if (firestoreDoc.exists && firestoreDoc.data()?.onboardingCompleted === true) {
+				console.log(`[Cleanup] Skipping ${user.uid} (${user.email}) — onboarding completed`);
+				continue;
+			}
+
 			try {
 				await adminAuth.deleteUser(user.uid);
+				// Also remove any partial Firestore data
+				if (firestoreDoc.exists) {
+					await adminDb.collection("users").doc(user.uid).delete();
+				}
 				deleted++;
 				console.log(`[Cleanup] Deleted unverified user ${user.uid} (${user.email})`);
 			} catch (e) {
@@ -111,6 +124,42 @@ iposRouter.get("/seed-status", async (req, res) => {
 	} catch (error) {
 		console.error("Error fetching seed status:", error);
 		res.status(500).json({ error: "Failed to fetch seed status" });
+	}
+});
+
+// POST /api/admin/cleanup-orphaned-docs — delete Firestore user docs with no Firebase Auth account
+// Useful after manually deleting users from Firebase Console during testing
+iposRouter.post("/cleanup-orphaned-docs", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	try {
+		const snapshot = await adminDb.collection("users").get();
+		let deleted = 0;
+		let errors = 0;
+		for (const doc of snapshot.docs) {
+			try {
+				await adminAuth.getUser(doc.id);
+				// Auth user exists — keep the doc
+			} catch (e: unknown) {
+				const code = (e as { code?: string }).code ?? "";
+				if (code === "auth/user-not-found") {
+					await doc.ref.delete();
+					deleted++;
+					console.log(`[Orphan Cleanup] Deleted orphaned doc for ${doc.id}`);
+				} else {
+					errors++;
+					console.error(`[Orphan Cleanup] Error checking ${doc.id}:`, e);
+				}
+			}
+		}
+		console.log(`[Orphan Cleanup] Done: deleted=${deleted}, errors=${errors}`);
+		res.json({ deleted, errors });
+	} catch (error) {
+		console.error("[Orphan Cleanup] Error:", error);
+		res.status(500).json({ error: "Orphan cleanup failed" });
 	}
 });
 
