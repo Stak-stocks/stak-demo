@@ -1,4 +1,5 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { logEvent } from "@/lib/firebase";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
@@ -64,6 +65,7 @@ function Root() {
 		}
 		updateStak([...stakIds, brand.id]).catch(() => {});
 		incrementSwipeCount().catch(() => {});
+		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
 		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
 	}, [account, updateStak, incrementSwipeCount]);
 
