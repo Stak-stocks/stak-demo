@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Search, Newspaper, Trophy, UserCircle } from "lucide-react";
+import { Compass, Layers, Newspaper, Trophy, UserCircle } from "lucide-react";
 
 const NAV_ITEMS = [
 	{
@@ -10,9 +10,9 @@ const NAV_ITEMS = [
 		glow: "bg-gradient-to-br from-purple-400/30 to-cyan-400/30 shadow-[0_0_12px_rgba(168,130,255,0.5),0_0_24px_rgba(0,200,255,0.3)]",
 	},
 	{
-		to: "__search__",
-		label: "Search",
-		icon: Search,
+		to: "/my-stak",
+		label: "My Stak",
+		icon: Layers,
 		activeColor: "text-violet-500 dark:text-violet-400",
 		glow: "bg-gradient-to-br from-violet-400/30 to-indigo-400/30 shadow-[0_0_12px_rgba(139,92,246,0.5),0_0_24px_rgba(99,102,241,0.3)]",
 	},
@@ -39,7 +39,7 @@ const NAV_ITEMS = [
 	},
 ] as const;
 
-export function BottomNav({ onSearchClick, onSearchClose, searchActive }: { onSearchClick?: () => void; onSearchClose?: () => void; searchActive?: boolean }) {
+export function BottomNav({ onSearchClose, searchActive }: { onSearchClick?: () => void; onSearchClose?: () => void; searchActive?: boolean }) {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
 
@@ -47,7 +47,6 @@ export function BottomNav({ onSearchClick, onSearchClose, searchActive }: { onSe
 		if (path === "/") {
 			return !searchActive && currentPath === "/" && !currentPath.startsWith("/my-stak") && !currentPath.startsWith("/feed") && !currentPath.startsWith("/league");
 		}
-		if (path === "__search__") return !!searchActive;
 		return !searchActive && currentPath.startsWith(path);
 	};
 
@@ -58,28 +57,6 @@ export function BottomNav({ onSearchClick, onSearchClose, searchActive }: { onSe
 					{NAV_ITEMS.map((item) => {
 						const active = isActive(item.to);
 						const Icon = item.icon;
-
-						if (item.to === "__search__") {
-							return (
-								<button
-									key={item.to}
-									type="button"
-									onClick={searchActive ? onSearchClose : onSearchClick}
-									className={`flex flex-col items-center gap-1 py-2 px-2 sm:px-4 transition-colors ${
-										active
-											? item.activeColor
-											: "text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
-									}`}
-								>
-									<div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-										active ? item.glow : "bg-transparent"
-									}`}>
-										<Icon className="w-5 h-5" />
-									</div>
-									<span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{item.label}</span>
-								</button>
-							);
-						}
 
 						return (
 							<Link
