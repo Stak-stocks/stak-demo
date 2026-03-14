@@ -23,7 +23,7 @@ function TestThemeToggle() {
 		<div>
 			<span id="theme-toggle-label">
 				{isDark ? "Dark mode" : "Light mode"}
-			</span>
+		logout: vi.fn(),
 			<button
 				role="switch"
 				aria-checked={isDark}
