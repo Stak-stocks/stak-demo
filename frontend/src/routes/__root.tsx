@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
@@ -6,8 +6,6 @@ import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Search } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -110,24 +108,6 @@ function Root() {
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			{/* Search & theme toggle */}
-			{!isAuthPage && !isSubPage && user && (
-				<div className="flex-none z-40 flex items-center justify-between px-4 py-3 bg-background border-0 border-none shadow-none outline-none" style={{ border: 'none' }}>
-					{!isFeedPage && location.pathname !== "/profile" && !location.pathname.startsWith("/league") ? (
-						<button
-							type="button"
-							onClick={() => setSearchOpen(true)}
-							className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-							aria-label="Search stocks"
-						>
-							<Search className="w-5 h-5" />
-						</button>
-					) : (
-						<div className="w-9" />
-					)}
-					<ThemeToggle />
-				</div>
-			)}
 
 			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
 				<PullToRefresh scrollRef={scrollRef}>
@@ -138,7 +118,7 @@ function Root() {
 					</ErrorBoundary>
 				</PullToRefresh>
 			</div>
-			{!isAuthPage && <BottomNav />}
+			{!isAuthPage && <BottomNav onSearchClick={() => setSearchOpen(true)} onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
 			<Toaster
 				position="top-center"
 				theme={resolvedTheme}

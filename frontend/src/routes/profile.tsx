@@ -19,7 +19,10 @@ import {
 	BookOpen,
 	X,
 	Flame,
+	Moon,
+	Sun,
 } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 
 /* ── Reverse map: brand ID → categories it belongs to ── */
 const BRAND_TO_CATS: Record<string, string[]> = {};
@@ -101,6 +104,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 function ProfilePage() {
 	const { user, loading, logout } = useAuth();
 	const { account } = useAccount();
+	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();
 
 	// Stak brands — derived from Firestore account
@@ -370,13 +374,12 @@ function ProfilePage() {
 					{[
 						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400", to: "/profile/personal-details" as const },
 						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: "/profile/security" as const },
-						{ icon: HelpCircle, label: "Help & Support", iconBg: "bg-amber-500/15", iconColor: "text-amber-400", to: "/profile/help-support" as const },
 					].map((item) => (
 						<button
 							key={item.label}
 							type="button"
 							onClick={() => item.to && navigate({ to: item.to })}
-							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-50 dark:hover:bg-slate-800/30 transition-colors first:rounded-t-xl last:rounded-b-xl"
+							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-50 dark:hover:bg-slate-800/30 transition-colors first:rounded-t-xl"
 						>
 							<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.iconBg}`}>
 								<item.icon className={`w-4 h-4 ${item.iconColor}`} />
@@ -385,6 +388,47 @@ function ProfilePage() {
 							<ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
 						</button>
 					))}
+
+					{/* Dark/Light mode toggle */}
+					<div className="flex items-center gap-3 px-3.5 py-3">
+						<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${resolvedTheme === "dark" ? "bg-indigo-500/15" : "bg-amber-500/15"}`}>
+							{resolvedTheme === "dark" ? (
+								<Moon className="w-4 h-4 text-indigo-400" />
+							) : (
+								<Sun className="w-4 h-4 text-amber-400" />
+							)}
+						</div>
+						<span className="flex-1 text-sm font-medium">
+							{resolvedTheme === "dark" ? "Dark mode" : "Light mode"}
+						</span>
+						<button
+							type="button"
+							onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+							className={`relative w-11 h-6 rounded-full transition-colors ${
+								resolvedTheme === "dark"
+									? "bg-violet-500"
+									: "bg-zinc-300"
+							}`}
+						>
+							<span
+								className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+									resolvedTheme === "dark" ? "translate-x-5" : "translate-x-0"
+								}`}
+							/>
+						</button>
+					</div>
+
+					<button
+						type="button"
+						onClick={() => navigate({ to: "/profile/help-support" })}
+						className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-50 dark:hover:bg-slate-800/30 transition-colors last:rounded-b-xl"
+					>
+						<div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15">
+							<HelpCircle className="w-4 h-4 text-amber-400" />
+						</div>
+						<span className="flex-1 text-left text-sm font-medium">Help & Support</span>
+						<ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+					</button>
 				</div>
 
 				{/* ════════ LOG OUT ════════ */}

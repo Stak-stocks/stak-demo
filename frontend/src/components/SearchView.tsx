@@ -123,7 +123,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	return (
 		<>
 			<div
-				className="fixed inset-0 bg-white dark:bg-[#0b1121] z-50 flex flex-col"
+				className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#0b1121] z-50 flex flex-col"
 				style={{
 					transform: 'translate3d(0,0,0)',
 					WebkitTransform: 'translate3d(0,0,0)',
@@ -137,13 +137,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					style={{ touchAction: 'pan-x' }}
 				>
 					{/* Header */}
-					<div className="flex items-center gap-4 mb-6">
-						<button
-							onClick={onClose}
-							className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors"
-						>
-							<X className="w-6 h-6 text-zinc-900 dark:text-white" />
-						</button>
+					<div className="mb-6">
 						<h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
 							Search Stocks
 						</h2>
