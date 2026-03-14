@@ -4,7 +4,7 @@ import { createElement } from "react";
 
 // Mock all dependencies for feed page
 vi.mock("@tanstack/react-router", () => ({
-	createFileRoute: () => () => ({}),
+	createFileRoute: () => (options: any) => ({ options }),
 	Link: ({ children, ...props }: any) => createElement("a", props, children),
 }));
 
@@ -40,11 +40,7 @@ describe("Feed Page Layout", () => {
 		const mod = await import("../../routes/feed");
 		// The feed page component
 		const FeedPage = (mod as any).Route?.options?.component;
-		if (!FeedPage) {
-			// If we can't extract component from route, just verify mock exists
-			expect(true).toBe(true);
-			return;
-		}
+		expect(FeedPage).toBeDefined();
 
 		render(createElement(FeedPage));
 		const calBtn = screen.getByTestId("earnings-calendar-btn");
@@ -58,10 +54,7 @@ describe("Feed Page Layout", () => {
 	it("renders Market News header text", async () => {
 		const mod = await import("../../routes/feed");
 		const FeedPage = (mod as any).Route?.options?.component;
-		if (!FeedPage) {
-			expect(true).toBe(true);
-			return;
-		}
+		expect(FeedPage).toBeDefined();
 
 		render(createElement(FeedPage));
 		expect(screen.getByText("Market News")).toBeInTheDocument();

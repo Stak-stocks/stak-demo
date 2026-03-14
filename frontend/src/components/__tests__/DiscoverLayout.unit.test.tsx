@@ -4,7 +4,7 @@ import { createElement } from "react";
 
 // Mock all dependencies for index/discover page
 vi.mock("@tanstack/react-router", () => ({
-	createFileRoute: () => () => ({}),
+	createFileRoute: () => (options: any) => ({ options }),
 	Link: ({ children, to, className, ...props }: any) => (
 		<a href={to} className={className} {...props}>
 			{children}
@@ -62,12 +62,12 @@ vi.mock("@/context/AccountContext", () => ({
 			streakLastDate: null,
 			categoryScores: {},
 		},
-		updateStak: vi.fn(),
-		updatePassedBrands: vi.fn(),
-		updateDeckOrder: vi.fn(),
-		updateIntelState: vi.fn(),
-		updateStreak: vi.fn(),
-		updateCategoryScores: vi.fn(),
+		updateStak: vi.fn().mockResolvedValue(undefined),
+		updatePassedBrands: vi.fn().mockResolvedValue(undefined),
+		updateDeckOrder: vi.fn().mockResolvedValue(undefined),
+		updateIntelState: vi.fn().mockResolvedValue(undefined),
+		updateStreak: vi.fn().mockResolvedValue(undefined),
+		updateCategoryScores: vi.fn().mockResolvedValue(undefined),
 	}),
 }));
 
@@ -90,10 +90,7 @@ describe("Discover Page Layout", () => {
 	it("renders My Stak link pinned to the right", async () => {
 		const mod = await import("../../routes/index");
 		const DiscoverPage = (mod as any).Route?.options?.component;
-		if (!DiscoverPage) {
-			expect(true).toBe(true);
-			return;
-		}
+		expect(DiscoverPage).toBeDefined();
 
 		render(createElement(DiscoverPage));
 
@@ -109,10 +106,7 @@ describe("Discover Page Layout", () => {
 	it("renders STAK title and subtitle", async () => {
 		const mod = await import("../../routes/index");
 		const DiscoverPage = (mod as any).Route?.options?.component;
-		if (!DiscoverPage) {
-			expect(true).toBe(true);
-			return;
-		}
+		expect(DiscoverPage).toBeDefined();
 
 		render(createElement(DiscoverPage));
 		expect(screen.getByText("STAK")).toBeInTheDocument();
