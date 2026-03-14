@@ -168,9 +168,7 @@ function LandingPage() {
 					<div className="hidden md:flex items-center gap-8 text-sm text-slate-300">
 						<a href="#home" className="hover:text-white transition-colors">Home</a>
 						<a href="#features" className="hover:text-white transition-colors">Features</a>
-						<a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-						<a href="#blog" className="hover:text-white transition-colors">Blog</a>
-						<a href="#pro" className="hover:text-white transition-colors">Pro</a>
+						<a href="#contact" className="hover:text-white transition-colors">Contact</a>
 					</div>
 
 					<button
@@ -183,7 +181,7 @@ function LandingPage() {
 				</nav>
 
 				{/* ── Hero ── */}
-				<section className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16 max-w-3xl mx-auto">
+				<section id="home" className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16 max-w-3xl mx-auto">
 					<h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight">
 						Invest in what you love.
 					</h1>
@@ -289,6 +287,23 @@ function LandingPage() {
 						</button>
 					</div>
 					<p className="text-slate-500 text-xs font-medium">Coming Soon</p>
+				</section>
+
+				{/* ── Contact ── */}
+				<section id="contact" className="px-6 py-16 max-w-2xl mx-auto w-full text-center">
+					<h2 className="text-2xl font-bold text-white mb-3">Get in Touch</h2>
+					<p className="text-slate-400 text-sm leading-relaxed mb-6">
+						Have a question, feedback, or just want to say hi? We'd love to hear from you.
+					</p>
+					<a
+						href="mailto:stak.swiping@gmail.com"
+						className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+					>
+						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+							<path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						</svg>
+						stak.swiping@gmail.com
+					</a>
 				</section>
 
 				{/* ── Footer ── */}
