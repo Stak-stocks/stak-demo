@@ -398,11 +398,17 @@ function ProfilePage() {
 								<Sun className="w-4 h-4 text-amber-400" />
 							)}
 						</div>
-						<span className="flex-1 text-sm font-medium">
+						<span
+							id="theme-toggle-label"
+							className="flex-1 text-sm font-medium"
+						>
 							{resolvedTheme === "dark" ? "Dark mode" : "Light mode"}
 						</span>
 						<button
 							type="button"
+							role="switch"
+							aria-checked={resolvedTheme === "dark"}
+							aria-labelledby="theme-toggle-label"
 							onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
 							className={`relative w-11 h-6 rounded-full transition-colors ${
 								resolvedTheme === "dark"

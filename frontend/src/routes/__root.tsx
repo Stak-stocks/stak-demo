@@ -107,9 +107,15 @@ function Root() {
 		);
 	}
 
+	// Close search overlay on route change or auth redirect
+	useEffect(() => {
+		if (searchOpen) {
+			setSearchOpen(false);
+		}
+	}, [location.pathname, isAuthPage, user]);
+
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
-
 
 			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
 				<PullToRefresh scrollRef={scrollRef}>
