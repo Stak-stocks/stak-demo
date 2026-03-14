@@ -141,7 +141,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 						<button
 							type="button"
 							onClick={onClose}
-							className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+							className="p-2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-white hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
 							aria-label="Close search"
 							title="Cancel"
 						>
