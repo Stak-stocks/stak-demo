@@ -378,6 +378,7 @@ function App() {
 					to="/my-stak"
 					className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
 					aria-label="My Stak"
+					title="My Stak"
 				>
 					<Layers className="w-5 h-5" />
 				</Link>
