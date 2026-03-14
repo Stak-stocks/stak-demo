@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SearchView } from "../SearchView";
 
@@ -44,14 +44,34 @@ describe("SearchView", () => {
 		expect(screen.getByText("Search Stocks")).toBeInTheDocument();
 	});
 
-	it("does NOT render an X close button", () => {
+	it("renders X close button at top-left with 'Cancel' tooltip", () => {
 		render(<SearchView open={true} onClose={vi.fn()} />);
-		// The header should have "Search Stocks" but no X/close button next to it
+		const closeBtn = screen.getByLabelText("Close search");
+		expect(closeBtn).toBeInTheDocument();
+		expect(closeBtn.tagName).toBe("BUTTON");
+		expect(closeBtn).toHaveAttribute("title", "Cancel");
+	});
+
+	it("X close button appears before the Search Stocks title", () => {
+		render(<SearchView open={true} onClose={vi.fn()} />);
+		const closeBtn = screen.getByLabelText("Close search");
 		const header = screen.getByText("Search Stocks");
-		const headerContainer = header.closest("div");
-		// No button with an X icon in the header area
-		const buttons = headerContainer?.querySelectorAll("button");
-		expect(buttons?.length ?? 0).toBe(0);
+		const container = closeBtn.closest("div");
+		// Both should be in the same flex container
+		expect(container).toContainElement(header);
+		// Close button should come before the title (top-left position)
+		const children = Array.from(container!.children);
+		const closeBtnIndex = children.indexOf(closeBtn);
+		const headerIndex = children.indexOf(header);
+		expect(closeBtnIndex).toBeLessThan(headerIndex);
+	});
+
+	it("calls onClose when X close button is clicked", () => {
+		const onClose = vi.fn();
+		render(<SearchView open={true} onClose={onClose} />);
+		const closeBtn = screen.getByLabelText("Close search");
+		fireEvent.click(closeBtn);
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it("leaves space for bottom nav (not full screen)", () => {
@@ -60,9 +80,7 @@ describe("SearchView", () => {
 			".fixed",
 		) as HTMLElement;
 		expect(overlay).toBeInTheDocument();
-		// Should NOT have inset-0 (full screen)
 		expect(overlay.className).not.toContain("inset-0");
-		// Should have bottom offset for nav
 		expect(overlay.className).toContain("bottom-[calc(4rem+env(safe-area-inset-bottom))]");
 	});
 

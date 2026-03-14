@@ -137,7 +137,16 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					style={{ touchAction: 'pan-x' }}
 				>
 					{/* Header */}
-					<div className="mb-6">
+					<div className="mb-6 flex items-center gap-3">
+						<button
+							type="button"
+							onClick={onClose}
+							className="p-2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-white hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
+							aria-label="Close search"
+							title="Cancel"
+						>
+							<X className="w-5 h-5" />
+						</button>
 						<h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
 							Search Stocks
 						</h2>
