@@ -83,6 +83,13 @@ function Root() {
 		}
 	}, []);
 
+	// Close search overlay on route change or auth redirect
+	useEffect(() => {
+		if (searchOpen) {
+			setSearchOpen(false);
+		}
+	}, [location.pathname, isAuthPage, user]);
+
 	if (loading || accountLoading) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
@@ -106,13 +113,6 @@ function Root() {
 			</div>
 		);
 	}
-
-	// Close search overlay on route change or auth redirect
-	useEffect(() => {
-		if (searchOpen) {
-			setSearchOpen(false);
-		}
-	}, [location.pathname, isAuthPage, user]);
 
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
