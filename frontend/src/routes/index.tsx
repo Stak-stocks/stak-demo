@@ -6,8 +6,7 @@ import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
-import { AlertTriangle, Layers } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getIntelCards, recordEngagement } from "@/lib/api";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
@@ -372,16 +371,17 @@ function App() {
 
 	return (
 		<div className="bg-background text-zinc-900 dark:text-white">
-			{/* My Stak shortcut — pinned top-right */}
-			<div className="flex justify-end px-4 pt-4">
-				<Link
-					to="/my-stak"
+			{/* Search icon — pinned top-left */}
+			<div className="flex justify-start px-4 pt-4">
+				<button
+					type="button"
+					onClick={() => window.dispatchEvent(new Event("open-search"))}
 					className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-					aria-label="My Stak"
-					title="My Stak"
+					aria-label="Search"
+					title="Search"
 				>
-					<Layers className="w-5 h-5" />
-				</Link>
+					<Search className="w-5 h-5" />
+				</button>
 			</div>
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-6">
 				<div className="flex flex-col items-center mb-2 sm:mb-6">

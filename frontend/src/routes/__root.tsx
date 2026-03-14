@@ -90,6 +90,13 @@ function Root() {
 		}
 	}, [location.pathname, isAuthPage, user]);
 
+	// Listen for custom event to open search from child pages
+	useEffect(() => {
+		const handler = () => setSearchOpen(true);
+		window.addEventListener("open-search", handler);
+		return () => window.removeEventListener("open-search", handler);
+	}, []);
+
 	if (loading || accountLoading) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
@@ -126,7 +133,7 @@ function Root() {
 					</ErrorBoundary>
 				</PullToRefresh>
 			</div>
-			{!isAuthPage && <BottomNav onSearchClick={() => setSearchOpen(true)} onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
+			{!isAuthPage && <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
 			<Toaster
 				position="top-center"
 				theme={resolvedTheme}
