@@ -1,4 +1,5 @@
-import { createRootRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { logEvent } from "@/lib/firebase";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
@@ -31,7 +32,7 @@ function Root() {
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
@@ -62,6 +63,7 @@ function Root() {
 		}
 		updateStak([...stakIds, brand.id]).catch(() => {});
 		incrementSwipeCount().catch(() => {});
+		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
 		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
 	}, [account, updateStak, incrementSwipeCount]);
 

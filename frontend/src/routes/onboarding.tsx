@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent 
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import { updateProfile } from "@/lib/api";
+import { auth } from "@/lib/firebase";
 
 import {
 	INTEREST_OPTIONS,
@@ -109,8 +110,16 @@ function OnboardingPage() {
 	}, []);
 
 	useEffect(() => {
-		if (!loading && !user) {
-			navigate({ to: "/login" });
+		if (loading) return;
+		if (!user) { navigate({ to: "/login" }); return; }
+		const isPasswordProvider = user.providerData[0]?.providerId === "password";
+		// Use auth.currentUser?.emailVerified (the live Firebase object) instead of
+		// user.emailVerified (React state) — the poll mutates auth.currentUser in-place
+		// via reload() before React state has a chance to update, so reading React state
+		// here causes a false redirect back to verify-email and a ping-pong loop.
+		const emailVerified = auth.currentUser?.emailVerified ?? user.emailVerified;
+		if (isPasswordProvider && !emailVerified) {
+			navigate({ to: "/verify-email" });
 		}
 	}, [user, loading, navigate]);
 

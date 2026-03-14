@@ -6,12 +6,14 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
+import { logEvent } from "@/lib/firebase";
 import {
 	onAuthStateChanged,
 	signInWithPopup,
 	getAdditionalUserInfo,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
+	sendEmailVerification,
 	sendPasswordResetEmail,
 	verifyPasswordResetCode,
 	confirmPasswordReset,
@@ -28,6 +30,7 @@ interface AuthContextType {
 	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
+	sendVerificationEmail: () => Promise<void>;
 	resetPassword: (email: string) => Promise<void>;
 	verifyResetCode: (code: string) => Promise<string>;
 	confirmReset: (code: string, newPassword: string) => Promise<void>;
@@ -80,8 +83,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 				// Read onboardingCompleted from the JWT claim — available instantly,
 				// cross-device, no Firestore read needed.
-				const tokenResult = await firebaseUser.getIdTokenResult();
-				setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+				try {
+					const tokenResult = await firebaseUser.getIdTokenResult();
+					setOnboardingCompleted(tokenResult.claims.onboardingCompleted === true);
+				} catch {
+					// Token is invalid — most likely the account was deleted from Firebase
+					// Console while a local session was still cached. Sign out cleanly.
+					setOnboardingCompleted(false);
+					setUser(null);
+					setLoading(false);
+					await signOut(auth).catch(() => {});
+					return;
+				}
 			} else {
 				setOnboardingCompleted(false);
 			}
@@ -94,15 +107,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	async function signInWithGoogle(): Promise<{ isNew: boolean; uid: string }> {
 		const result = await signInWithPopup(auth, googleProvider);
 		const isNew = getAdditionalUserInfo(result)?.isNewUser ?? false;
+		if (isNew) logEvent("sign_up", { method: "google" });
+		else logEvent("login", { method: "google" });
 		return { isNew, uid: result.user.uid };
 	}
 
 	async function signInWithEmail(email: string, password: string) {
 		await signInWithEmailAndPassword(auth, email, password);
+		logEvent("login", { method: "email" });
 	}
 
 	async function signUpWithEmail(email: string, password: string) {
 		await createUserWithEmailAndPassword(auth, email, password);
+		logEvent("sign_up", { method: "email" });
+	}
+
+	async function sendVerificationEmail() {
+		if (!auth.currentUser) return;
+		await sendEmailVerification(auth.currentUser);
 	}
 
 	async function resetPassword(email: string) {
@@ -135,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
 		>
 			{children}
 		</AuthContext.Provider>

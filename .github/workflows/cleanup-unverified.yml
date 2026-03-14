@@ -1,0 +1,17 @@
+name: Cleanup Unverified Accounts
+
+on:
+  schedule:
+    # Runs every hour at :30 past the hour (UTC)
+    - cron: "30 * * * *"
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete unverified accounts
+        run: |
+          curl -s -X POST "${{ secrets.BACKEND_URL }}/api/stocks/cleanup-unverified" \
+            -H "X-Admin-Secret: ${{ secrets.ADMIN_SECRET }}" \
+            --fail-with-body

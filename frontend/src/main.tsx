@@ -8,6 +8,7 @@ import ReactDOM from "react-dom/client";
 import { routeTree } from "./routeTree.gen";
 
 import "./styles.css";
+import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./context/AuthContext";
 import { AccountProvider } from "./context/AccountContext";
@@ -42,6 +43,7 @@ if (rootElement && !rootElement.innerHTML) {
 					<AccountProvider>
 						<QueryClientProvider client={queryClient}>
 							<RouterProvider router={router} />
+							<Analytics />
 						</QueryClientProvider>
 					</AccountProvider>
 				</AuthProvider>
