@@ -402,7 +402,7 @@ function ProfilePage() {
 							id="theme-toggle-label"
 							className="flex-1 text-sm font-medium"
 						>
-							{resolvedTheme === "dark" ? "Dark mode" : "Light mode"}
+							{resolvedTheme === "dark" ? "Dark Mode" : "Light Mode"}
 						</span>
 						<button
 							type="button"

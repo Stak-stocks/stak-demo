@@ -22,15 +22,15 @@ function TestThemeToggle() {
 	return (
 		<div>
 			<span id="theme-toggle-label">
-				{isDark ? "Dark mode" : "Light mode"}
-		logout: vi.fn(),
+				{isDark ? "Dark Mode" : "Light Mode"}
+			</span>
 			<button
 				role="switch"
 				aria-checked={isDark}
 				aria-labelledby="theme-toggle-label"
 				onClick={() => setTheme(isDark ? "light" : "dark")}
 			>
-				{isDark ? "Dark mode" : "Light mode"}
+				{isDark ? "Dark Mode" : "Light Mode"}
 			</button>
 		</div>
 	);
@@ -42,16 +42,16 @@ describe("Profile Theme Toggle", () => {
 		currentTheme = "dark";
 	});
 
-	it("shows 'Dark mode' text when theme is dark", () => {
+	it("shows 'Dark Mode' text when theme is dark", () => {
 		currentTheme = "dark";
 		render(<TestThemeToggle />);
-		expect(screen.getByText("Dark mode", { selector: "span" })).toBeInTheDocument();
+		expect(screen.getByText("Dark Mode", { selector: "span" })).toBeInTheDocument();
 	});
 
-	it("shows 'Light mode' text when theme is light", () => {
+	it("shows 'Light Mode' text when theme is light", () => {
 		currentTheme = "light";
 		render(<TestThemeToggle />);
-		expect(screen.getByText("Light mode", { selector: "span" })).toBeInTheDocument();
+		expect(screen.getByText("Light Mode", { selector: "span" })).toBeInTheDocument();
 	});
 
 	it("calls setTheme with 'light' when toggling from dark mode", () => {
