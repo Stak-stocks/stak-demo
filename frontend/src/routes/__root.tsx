@@ -90,6 +90,13 @@ function Root() {
 		}
 	}, [location.pathname, isAuthPage, user]);
 
+	// Listen for custom event to open search from child pages
+	useEffect(() => {
+		const handler = () => setSearchOpen(true);
+		window.addEventListener("open-search", handler);
+		return () => window.removeEventListener("open-search", handler);
+	}, []);
+
 	if (loading || accountLoading) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">

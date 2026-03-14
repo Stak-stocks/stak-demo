@@ -46,9 +46,9 @@ describe("Feed Page Layout", () => {
 		const calBtn = screen.getByTestId("earnings-calendar-btn");
 		expect(calBtn).toBeInTheDocument();
 
-		// Calendar button should be in a flex justify-end container
+		// Calendar button should be in a flex justify-start container (top-left)
 		const container = calBtn.closest("div");
-		expect(container?.className).toContain("justify-end");
+		expect(container?.className).toContain("justify-start");
 	});
 
 	it("renders Market News header text", async () => {
