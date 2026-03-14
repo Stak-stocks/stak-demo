@@ -98,9 +98,9 @@ describe("Discover Page Layout", () => {
 		expect(stakLink).toBeInTheDocument();
 		expect(stakLink.getAttribute("href")).toBe("/my-stak");
 
-		// Should be in a flex justify-end container
+		// Should be in a flex justify-between container (search left, my stak right)
 		const container = stakLink.closest("div");
-		expect(container?.className).toContain("justify-end");
+		expect(container?.className).toContain("justify-between");
 	});
 
 	it("renders STAK title and subtitle", async () => {

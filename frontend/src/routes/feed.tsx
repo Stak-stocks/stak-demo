@@ -179,8 +179,8 @@ function FeedPage() {
 	return (
 		<div className="min-h-full bg-background">
 			<MarketBar />
-			{/* Earnings calendar — pinned top-right */}
-			<div className="flex justify-end px-4 pt-4">
+			{/* Earnings calendar — pinned top-left */}
+			<div className="flex justify-start px-4 pt-4">
 				<EarningsCalendarButton />
 			</div>
 			<div className="max-w-2xl mx-auto px-4 pt-2 pb-24">
