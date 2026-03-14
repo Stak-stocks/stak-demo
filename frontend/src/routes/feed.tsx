@@ -179,15 +179,16 @@ function FeedPage() {
 	return (
 		<div className="min-h-full bg-background">
 			<MarketBar />
-			<div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
-				{/* Header */}
-				<div className="mb-4 flex items-center gap-3">
+			{/* Earnings calendar — pinned top-right */}
+			<div className="flex justify-end px-4 pt-4">
 				<EarningsCalendarButton />
-				<div>
+			</div>
+			<div className="max-w-2xl mx-auto px-4 pt-2 pb-24">
+				{/* Header */}
+				<div className="mb-4">
 					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
 					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Simplified for you · last 7 days</p>
 				</div>
-			</div>
 
 				{/* Search bar */}
 				<form onSubmit={handleSearch} className="mb-6">

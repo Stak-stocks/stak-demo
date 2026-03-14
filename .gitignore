@@ -5,6 +5,7 @@ dist
 .env
 *.env.local
 serviceAccountKey.json
+service-account.json
 .env*.local
 .claude/
 functions/lib/
