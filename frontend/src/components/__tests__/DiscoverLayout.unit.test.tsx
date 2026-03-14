@@ -1,10 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeAll } from "vitest";
 import { createElement } from "react";
+
+// Capture the component directly from createFileRoute call
+let capturedComponent: any = null;
 
 // Mock all dependencies for index/discover page
 vi.mock("@tanstack/react-router", () => ({
-	createFileRoute: () => (options: any) => ({ options }),
+	createFileRoute: (_path: string) => (options: any) => {
+		capturedComponent = options.component;
+		return { options, update: () => ({ options }) };
+	},
+	lazyRouteComponent: (fn: any) => fn,
 	Link: ({ children, to, className, ...props }: any) => (
 		<a href={to} className={className} {...props}>
 			{children}
@@ -61,6 +68,7 @@ vi.mock("@/context/AccountContext", () => ({
 			streakDays: 0,
 			streakLastDate: null,
 			categoryScores: {},
+			streak: { date: "", count: 0 },
 		},
 		updateStak: vi.fn().mockResolvedValue(undefined),
 		updatePassedBrands: vi.fn().mockResolvedValue(undefined),
@@ -87,12 +95,13 @@ vi.mock("@/components/ui/sheet", () => ({
 }));
 
 describe("Discover Page Layout", () => {
-	it("renders Search button pinned to the top-left", async () => {
-		const mod = await import("../../routes/index");
-		const DiscoverPage = (mod as any).Route?.options?.component;
-		expect(DiscoverPage).toBeDefined();
+	beforeAll(async () => {
+		await import("../../routes/index");
+	});
 
-		render(createElement(DiscoverPage));
+	it("renders Search button pinned to the top-left", () => {
+		expect(capturedComponent).toBeDefined();
+		render(createElement(capturedComponent));
 
 		const searchBtn = screen.getByLabelText("Search");
 		expect(searchBtn).toBeInTheDocument();
@@ -103,12 +112,10 @@ describe("Discover Page Layout", () => {
 		expect(container?.className).toContain("justify-start");
 	});
 
-	it("renders STAK title and subtitle", async () => {
-		const mod = await import("../../routes/index");
-		const DiscoverPage = (mod as any).Route?.options?.component;
-		expect(DiscoverPage).toBeDefined();
+	it("renders STAK title and subtitle", () => {
+		expect(capturedComponent).toBeDefined();
+		render(createElement(capturedComponent));
 
-		render(createElement(DiscoverPage));
 		expect(screen.getByText("STAK")).toBeInTheDocument();
 		expect(screen.getByText(/swipe right to vibe/i)).toBeInTheDocument();
 	});

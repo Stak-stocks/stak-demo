@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeAll } from "vitest";
 import { createElement } from "react";
 
-// Mock all dependencies for feed page
+// Capture the component directly from createFileRoute call
+let capturedComponent: any = null;
+
 vi.mock("@tanstack/react-router", () => ({
-	createFileRoute: () => (options: any) => ({ options }),
+	createFileRoute: (_path: string) => (options: any) => {
+		capturedComponent = options.component;
+		return { options, update: () => ({ options }) };
+	},
+	lazyRouteComponent: (fn: any) => fn,
 	Link: ({ children, ...props }: any) => createElement("a", props, children),
 }));
 
@@ -35,28 +41,25 @@ vi.mock("@/components/EarningsCalendar", () => ({
 }));
 
 describe("Feed Page Layout", () => {
-	it("renders earnings calendar button in a top-right container", async () => {
-		// Dynamically import after mocks
-		const mod = await import("../../routes/feed");
-		// The feed page component
-		const FeedPage = (mod as any).Route?.options?.component;
-		expect(FeedPage).toBeDefined();
+	beforeAll(async () => {
+		await import("../../routes/feed");
+	});
 
-		render(createElement(FeedPage));
+	it("renders earnings calendar button in a top-left container", () => {
+		expect(capturedComponent).toBeDefined();
+		render(createElement(capturedComponent));
+
 		const calBtn = screen.getByTestId("earnings-calendar-btn");
 		expect(calBtn).toBeInTheDocument();
 
-		// Calendar button should be in a flex justify-start container (top-left)
 		const container = calBtn.closest("div");
 		expect(container?.className).toContain("justify-start");
 	});
 
-	it("renders Market News header text", async () => {
-		const mod = await import("../../routes/feed");
-		const FeedPage = (mod as any).Route?.options?.component;
-		expect(FeedPage).toBeDefined();
+	it("renders Market News header text", () => {
+		expect(capturedComponent).toBeDefined();
+		render(createElement(capturedComponent));
 
-		render(createElement(FeedPage));
 		expect(screen.getByText("Market News")).toBeInTheDocument();
 		expect(screen.getByText(/simplified for you/i)).toBeInTheDocument();
 	});

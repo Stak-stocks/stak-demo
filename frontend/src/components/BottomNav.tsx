@@ -39,15 +39,15 @@ const NAV_ITEMS = [
 	},
 ] as const;
 
-export function BottomNav({ onSearchClose, searchActive }: { onSearchClick?: () => void; onSearchClose?: () => void; searchActive?: boolean }) {
+export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
 
 	const isActive = (path: string) => {
 		if (path === "/") {
-			return !searchActive && currentPath === "/" && !currentPath.startsWith("/my-stak") && !currentPath.startsWith("/feed") && !currentPath.startsWith("/league");
+			return currentPath === "/";
 		}
-		return !searchActive && currentPath.startsWith(path);
+		return currentPath.startsWith(path);
 	};
 
 	return (

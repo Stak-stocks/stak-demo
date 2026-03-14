@@ -133,7 +133,7 @@ function Root() {
 					</ErrorBoundary>
 				</PullToRefresh>
 			</div>
-			{!isAuthPage && <BottomNav onSearchClick={() => setSearchOpen(true)} onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
+			{!isAuthPage && <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
 			<Toaster
 				position="top-center"
 				theme={resolvedTheme}
