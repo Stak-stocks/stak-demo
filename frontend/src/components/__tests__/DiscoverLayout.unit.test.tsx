@@ -87,20 +87,20 @@ vi.mock("@/components/ui/sheet", () => ({
 }));
 
 describe("Discover Page Layout", () => {
-	it("renders My Stak link pinned to the right", async () => {
+	it("renders Search button pinned to the top-left", async () => {
 		const mod = await import("../../routes/index");
 		const DiscoverPage = (mod as any).Route?.options?.component;
 		expect(DiscoverPage).toBeDefined();
 
 		render(createElement(DiscoverPage));
 
-		const stakLink = screen.getByLabelText("My Stak");
-		expect(stakLink).toBeInTheDocument();
-		expect(stakLink.getAttribute("href")).toBe("/my-stak");
+		const searchBtn = screen.getByLabelText("Search");
+		expect(searchBtn).toBeInTheDocument();
+		expect(searchBtn.tagName).toBe("BUTTON");
 
-		// Should be in a flex justify-between container (search left, my stak right)
-		const container = stakLink.closest("div");
-		expect(container?.className).toContain("justify-between");
+		// Should be in a flex justify-start container (top-left)
+		const container = searchBtn.closest("div");
+		expect(container?.className).toContain("justify-start");
 	});
 
 	it("renders STAK title and subtitle", async () => {
