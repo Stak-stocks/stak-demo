@@ -311,9 +311,9 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 		else if (pos === total + 1) setPos(1);
 	}, [pos, total]);
 
-	const goNext = useCallback(() => { setIsTransitioning(true); setPos((p) => p + 1); }, []);
-	const goPrev = useCallback(() => { setIsTransitioning(true); setPos((p) => p - 1); }, []);
-	const goTo = useCallback((i: number) => { setIsTransitioning(true); setPos(i + 1); }, []);
+	const goNext = useCallback(() => { if (isTransitioning) return; setIsTransitioning(true); setPos((p) => p + 1); }, [isTransitioning]);
+	const goPrev = useCallback(() => { if (isTransitioning) return; setIsTransitioning(true); setPos((p) => p - 1); }, [isTransitioning]);
+	const goTo = useCallback((i: number) => { if (isTransitioning) return; setIsTransitioning(true); setPos(i + 1); }, [isTransitioning]);
 
 	const handleTouchStart = useCallback((e: React.TouchEvent) => {
 		isDragging.current = true;

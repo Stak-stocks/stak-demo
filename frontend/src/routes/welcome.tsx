@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
 
 export const Route = createFileRoute("/welcome")({
@@ -135,6 +135,7 @@ function ParticleBackground() {
 function LandingPage() {
 	const { user, loading, onboardingCompleted } = useAuth();
 	const navigate = useNavigate();
+	const [menuOpen, setMenuOpen] = useState(false);
 
 	// If already logged in, skip to home or onboarding
 	useEffect(() => {
@@ -159,25 +160,52 @@ function LandingPage() {
 			<div className="relative z-10 flex flex-col min-h-screen">
 
 				{/* ── Navbar ── */}
-				<nav className="w-full px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-					<div className="flex items-center gap-2">
-						<StakLogoIcon width={28} height={28} />
-						<span className="text-white text-xl font-bold tracking-wider">STAK</span>
+				<nav className={`w-full px-6 py-4 max-w-6xl mx-auto transition-colors ${menuOpen ? "bg-[#0b0f1a]" : ""}`}>
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<StakLogoIcon width={28} height={28} />
+							<span className="text-white text-xl font-bold tracking-wider">STAK</span>
+						</div>
+
+						<div className="hidden md:flex items-center gap-8 text-sm text-slate-300">
+							<a href="#home" className="hover:text-white transition-colors">Home</a>
+							<a href="#features" className="hover:text-white transition-colors">Features</a>
+							<a href="#contact" className="hover:text-white transition-colors">Contact</a>
+						</div>
+
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => navigate({ to: "/login" })}
+								className="px-5 py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
+							>
+								Sign In
+							</button>
+							<button
+								type="button"
+								onClick={() => setMenuOpen((v) => !v)}
+								className="md:hidden flex flex-col justify-center items-center w-9 h-9 gap-1.5"
+								aria-label="Toggle menu"
+							>
+								<span className={`block w-5 h-0.5 bg-white transition-all duration-200 ${menuOpen ? "rotate-45 translate-y-2" : ""}`} />
+								<span className={`block w-5 h-0.5 bg-white transition-all duration-200 ${menuOpen ? "opacity-0" : ""}`} />
+								<span className={`block w-5 h-0.5 bg-white transition-all duration-200 ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+							</button>
+						</div>
 					</div>
 
-					<div className="hidden md:flex items-center gap-8 text-sm text-slate-300">
-						<a href="#home" className="hover:text-white transition-colors">Home</a>
-						<a href="#features" className="hover:text-white transition-colors">Features</a>
-						<a href="#contact" className="hover:text-white transition-colors">Contact</a>
-					</div>
-
-					<button
-						type="button"
-						onClick={() => navigate({ to: "/login" })}
-						className="px-5 py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
-					>
-						Sign In
-					</button>
+					{/* Mobile dropdown */}
+					{menuOpen && (
+						<>
+							{/* Invisible backdrop — tap outside to close */}
+							<div className="fixed inset-0 z-0" onClick={() => setMenuOpen(false)} />
+							<div className="relative z-10 md:hidden mt-3 pb-3 border-t border-white/10 flex flex-col gap-4 pt-4 text-sm text-slate-300">
+								<a href="#home" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Home</a>
+								<a href="#features" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Features</a>
+								<a href="#contact" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Contact</a>
+							</div>
+						</>
+					)}
 				</nav>
 
 				{/* ── Hero ── */}

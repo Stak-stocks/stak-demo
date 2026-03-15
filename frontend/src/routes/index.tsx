@@ -73,7 +73,7 @@ function App() {
 	const intelQueue = useRef<string[]>([]);
 	const intelReadIds = useRef<string[]>([]);
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
-	const swipesSinceIntel = useRef(0);
+	const swipesSinceIntel = useRef(Number(sessionStorage.getItem("swipesSinceIntel") ?? 0) || 0);
 	const lastIntelDateRef = useRef<string | null>(null);
 	const streakRef = useRef<{ date: string; count: number }>(account?.streak ?? { date: "", count: 0 });
 
@@ -155,6 +155,21 @@ function App() {
 				const restoredIdSet = new Set(deckOrder);
 				const newBrands = brands.filter((b) => !restoredIdSet.has(b.id));
 				order = newBrands.length > 0 ? [...restored, ...shuffleArray(newBrands)] : restored;
+
+				// Re-queued (expired passed) cards go to the bottom, not wherever they sat before
+				const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+				const requeuedIds = new Set(
+					(account.passedBrands ?? [])
+						.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
+						.map((e) => e.id),
+				);
+				if (requeuedIds.size > 0) {
+					order = [
+						...order.filter((b) => !requeuedIds.has(b.id)),
+						...shuffleArray(order.filter((b) => requeuedIds.has(b.id))),
+					];
+				}
+
 				setRecommendedOrder(order);
 				return; // already persisted — no need to re-save
 			}
@@ -233,8 +248,10 @@ function App() {
 
 		// Trigger intel card after every 5th swipe, at most once per day
 		swipesSinceIntel.current += 1;
+		sessionStorage.setItem("swipesSinceIntel", String(swipesSinceIntel.current));
 		if (swipesSinceIntel.current < 5) return;
 		swipesSinceIntel.current = 0;
+		sessionStorage.setItem("swipesSinceIntel", "0");
 
 		const today = new Date().toISOString().split("T")[0];
 		if (lastIntelDateRef.current === today) return;
