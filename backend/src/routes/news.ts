@@ -112,7 +112,7 @@ newsRouter.get("/market", async (_req, res) => {
 		const articles = capByTopicDiversity(raw, 2).slice(0, 16);
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		const result = { articles: simplified };
-		await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);
+		if (simplified.length > 0) await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);
 		res.json(result);
 	} catch (error) {
 		console.error("Error fetching market news:", error);
@@ -133,9 +133,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
-			const result = { articles: [], earningsSignal: { status: "none", date: null } };
-			await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
-			res.json(result);
+			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
 			return;
 		}
 
@@ -161,7 +159,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			? { articles: [], earningsSignal }
 			: { articles: simplified, earningsSignal };
 
-		await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
+		if (simplified.length > 0) await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
 		res.json(result);
 	} catch (error) {
 		console.error("Error fetching company news:", error);
