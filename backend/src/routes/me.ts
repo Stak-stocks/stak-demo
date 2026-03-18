@@ -10,10 +10,16 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const uid = req.user!.uid;
 
 		// Track login session for today — fire-and-forget, one doc per user per day
-		const today = new Date().toISOString().split("T")[0];
-		adminDb.collection("sessions").doc(`${uid}_${today}`)
-			.set({ uid, date: today })
-			.catch(() => {});
+		// Skip internal team emails to keep analytics clean
+		const excludedEmails = (process.env.ANALYTICS_EXCLUDED_EMAILS ?? "")
+			.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+		const userEmail = (req.user!.email ?? "").toLowerCase();
+		if (userEmail && !excludedEmails.includes(userEmail)) {
+			const today = new Date().toISOString().split("T")[0];
+			adminDb.collection("sessions").doc(`${uid}_${today}`)
+				.set({ uid, date: today })
+				.catch(() => {});
+		}
 
 		const doc = await adminDb.collection("users").doc(uid).get();
 
