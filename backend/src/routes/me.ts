@@ -8,6 +8,13 @@ export const meRouter = Router();
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
+
+		// Track login session for today — fire-and-forget, one doc per user per day
+		const today = new Date().toISOString().split("T")[0];
+		adminDb.collection("sessions").doc(`${uid}_${today}`)
+			.set({ uid, date: today })
+			.catch(() => {});
+
 		const doc = await adminDb.collection("users").doc(uid).get();
 
 		if (!doc.exists) {

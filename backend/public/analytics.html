@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STAK Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0b0f1a;
+      color: white;
+      min-height: 100vh;
+      padding: 28px 32px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .logo { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+    .badge {
+      background: #f97316;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 100px;
+      letter-spacing: 0.5px;
+    }
+    #lastFetched { font-size: 12px; color: #334155; }
+
+    /* ── Config ── */
+    .config {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 180px; }
+    label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    input[type="text"], input[type="password"], input[type="date"] {
+      background: #0b0f1a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 9px 13px;
+      color: white;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      height: 38px;
+    }
+    input[type="date"] { color-scheme: dark; }
+    input:focus { border-color: #f97316; }
+
+    .btn {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0 20px;
+      height: 38px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.secondary {
+      background: transparent;
+      border: 1px solid #1e293b;
+      color: #64748b;
+    }
+    .btn.secondary:hover { border-color: #334155; color: #94a3b8; opacity: 1; }
+
+    /* ── Status ── */
+    .status {
+      font-size: 13px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .status.error { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; display: block; }
+    .status.info { background: #0f172a; color: #64748b; border: 1px solid #1e293b; display: block; }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      margin-top: 28px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ── Metric cards ── */
+    .grid { display: grid; gap: 10px; }
+    .g4 { grid-template-columns: repeat(4, 1fr); }
+    .g3 { grid-template-columns: repeat(3, 1fr); }
+    .g2 { grid-template-columns: repeat(2, 1fr); }
+
+    @media (max-width: 900px) { .g4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .g4, .g3, .g2 { grid-template-columns: 1fr 1fr; } }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .card-label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .card-value { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+    .card-sub { font-size: 11px; color: #334155; }
+
+    .blue  { border-color: #1e40af; } .blue  .card-value { color: #60a5fa; }
+    .purple{ border-color: #6d28d9; } .purple .card-value { color: #a78bfa; }
+    .cyan  { border-color: #0e7490; } .cyan  .card-value { color: #22d3ee; }
+    .green { border-color: #166534; } .green .card-value { color: #4ade80; }
+    .orange{ border-color: #9a3412; } .orange .card-value { color: #f97316; }
+
+    /* ── Period selector ── */
+    .period-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .period-btn {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 7px 14px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .period-btn:hover { border-color: #334155; color: #94a3b8; }
+    .period-btn.active { background: #f97316; border-color: #f97316; color: white; }
+
+    .custom-dates {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .custom-dates input { width: 140px; }
+    #customRow { display: none; }
+
+    /* ── Swipe table ── */
+    .swipe-table { width: 100%; border-collapse: collapse; }
+    .swipe-table th, .swipe-table td {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .swipe-table th {
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #0b0f1a;
+    }
+    .swipe-table tr:last-child td { border-bottom: none; }
+    .swipe-table tbody tr:hover td { background: #111827; }
+
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 100px;
+    }
+    .pill.r { background: #14532d; color: #4ade80; }
+    .pill.l { background: #450a0a; color: #f87171; }
+
+    .table-wrap {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* ── Period stats ── */
+    #periodStats { display: none; }
+
+    /* ── Footer ── */
+    footer { margin-top: 48px; text-align: center; font-size: 11px; color: #1e293b; }
+
+    #dashboard { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">STAK</span>
+      <span class="badge">Analytics</span>
+    </div>
+    <span id="lastFetched"></span>
+  </div>
+
+  <!-- Config -->
+  <div class="config">
+    <div class="field">
+      <label>Backend URL</label>
+      <input type="text" id="backendUrl" placeholder="https://your-service.run.app" />
+    </div>
+    <div class="field">
+      <label>Admin Secret</label>
+      <input type="password" id="adminSecret" placeholder="••••••••" />
+    </div>
+    <button class="btn" id="loadBtn" onclick="loadDashboard()">Load Dashboard</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <!-- Dashboard -->
+  <div id="dashboard">
+
+    <!-- Active Users -->
+    <div class="section-label">Active Users</div>
+    <div class="grid g4">
+      <div class="card blue">
+        <div class="card-label">DAU</div>
+        <div class="card-value blue" id="dau">—</div>
+        <div class="card-sub">Active today</div>
+      </div>
+      <div class="card purple">
+        <div class="card-label">WAU</div>
+        <div class="card-value purple" id="wau">—</div>
+        <div class="card-sub">Last 7 days</div>
+      </div>
+      <div class="card cyan">
+        <div class="card-label">MAU</div>
+        <div class="card-value cyan" id="mau">—</div>
+        <div class="card-sub">Last 30 days</div>
+      </div>
+      <div class="card">
+        <div class="card-label">All Time Users</div>
+        <div class="card-value" id="totalUsers">—</div>
+        <div class="card-sub">Unique swipers</div>
+      </div>
+    </div>
+
+    <!-- Engagement -->
+    <div class="section-label">Engagement (All Time)</div>
+    <div class="grid g3">
+      <div class="card orange">
+        <div class="card-label">Avg Login Days / Week</div>
+        <div class="card-value orange" id="avgLogin">—</div>
+        <div class="card-sub" id="avgLoginSub">out of 7 days</div>
+      </div>
+      <div class="card green">
+        <div class="card-label">Avg Daily Swipes / User</div>
+        <div class="card-value green" id="avgSwipes">—</div>
+        <div class="card-sub">on active days</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Avg Time on Card</div>
+        <div class="card-value" id="avgTime">—</div>
+        <div class="card-sub">seconds per card</div>
+      </div>
+    </div>
+
+    <!-- Period breakdown -->
+    <div class="section-label">Swipe Breakdown</div>
+
+    <!-- Period selector -->
+    <div class="period-bar">
+      <button class="period-btn active" onclick="selectPeriod(this,'today')">Today</button>
+      <button class="period-btn" onclick="selectPeriod(this,'week')">This Week</button>
+      <button class="period-btn" onclick="selectPeriod(this,'month')">This Month</button>
+      <button class="period-btn" onclick="selectPeriod(this,'alltime')">All Time</button>
+      <button class="period-btn" onclick="selectPeriod(this,'custom')">Custom Range</button>
+    </div>
+
+    <div id="customRow">
+      <div class="custom-dates" style="margin-bottom:14px;">
+        <input type="date" id="fromDate" />
+        <span style="color:#334155;font-size:13px;">→</span>
+        <input type="date" id="toDate" />
+        <button class="btn" style="font-size:12px;padding:0 16px;" onclick="loadRange()">Apply</button>
+      </div>
+    </div>
+
+    <div id="periodStats">
+      <div class="grid g4" style="margin-bottom:14px;">
+        <div class="card">
+          <div class="card-label">Total Swipes</div>
+          <div class="card-value" id="p-total">—</div>
+          <div class="card-sub" id="p-avg">Daily avg: —</div>
+        </div>
+        <div class="card green">
+          <div class="card-label">Right Swipes</div>
+          <div class="card-value green" id="p-right">—</div>
+          <div class="card-sub" id="p-right-pct">—% of total</div>
+        </div>
+        <div class="card" style="border-color:#7f1d1d;">
+          <div class="card-label">Left Swipes</div>
+          <div class="card-value" style="color:#f87171;" id="p-left">—</div>
+          <div class="card-sub" id="p-left-pct">—% of total</div>
+        </div>
+        <div class="card purple">
+          <div class="card-label">Unique Users</div>
+          <div class="card-value purple" id="p-users">—</div>
+          <div class="card-sub" id="p-period">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All time extras -->
+    <div id="allTimeExtras" style="display:none;">
+      <div class="grid g3" style="margin-top:10px;">
+        <div class="card">
+          <div class="card-label">Weekly Avg</div>
+          <div class="card-value" id="at-wavg">—</div>
+          <div class="card-sub">swipes / week</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Monthly Avg</div>
+          <div class="card-value" id="at-mavg">—</div>
+          <div class="card-sub">swipes / month</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Days Since Launch</div>
+          <div class="card-value" id="at-days">—</div>
+          <div class="card-sub">first swipe recorded</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>STAK Internal Analytics · Confidential</footer>
+
+  <script>
+    let analyticsData = null;
+    let currentPeriod = 'today';
+
+    window.onload = () => {
+      document.getElementById("backendUrl").value = localStorage.getItem("stak_backend_url") || window.location.origin;
+      const secret = localStorage.getItem("stak_admin_secret");
+      if (secret) document.getElementById("adminSecret").value = secret;
+
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("fromDate").value = "2026-03-12";
+      document.getElementById("toDate").value = today;
+    };
+
+    function setStatus(msg, type) {
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      el.className = "status " + type;
+    }
+    function hideStatus() { document.getElementById("status").className = "status"; }
+
+    function pct(part, total) {
+      return total > 0 ? Math.round((part / total) * 100) + "%" : "0%";
+    }
+
+    async function loadDashboard() {
+      const url = document.getElementById("backendUrl").value.trim().replace(/\/$/, "");
+      const secret = document.getElementById("adminSecret").value.trim();
+      if (!url || !secret) { setStatus("Please enter both the backend URL and admin secret.", "error"); return; }
+
+      localStorage.setItem("stak_backend_url", url);
+      localStorage.setItem("stak_admin_secret", secret);
+
+      const btn = document.getElementById("loadBtn");
+      btn.disabled = true;
+      btn.textContent = "Loading...";
+      setStatus("Fetching data...", "info");
+
+      try {
+        const res = await fetch(`${url}/api/admin/analytics`, { headers: { "X-Admin-Secret": secret } });
+        if (res.status === 403) { setStatus("Forbidden — check your admin secret.", "error"); return; }
+        if (!res.ok) { setStatus(`Error ${res.status}: ${res.statusText}`, "error"); return; }
+
+        analyticsData = await res.json();
+        renderOverview(analyticsData);
+        showPeriod("today");
+        document.getElementById("dashboard").style.display = "block";
+        document.getElementById("lastFetched").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        hideStatus();
+      } catch (e) {
+        setStatus(`Could not connect. Check the URL and try again.`, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Load Dashboard";
+      }
+    }
+
+    function renderOverview(d) {
+      document.getElementById("dau").textContent = d.activeUsers.dau.toLocaleString();
+      document.getElementById("wau").textContent = d.activeUsers.wau.toLocaleString();
+      document.getElementById("mau").textContent = d.activeUsers.mau.toLocaleString();
+      document.getElementById("totalUsers").textContent = d.swipes.allTime.uniqueUsers.toLocaleString();
+      document.getElementById("avgLogin").textContent = `${d.engagement.avgLoginDaysPerWeekAllTime} / 7`;
+      document.getElementById("avgSwipes").textContent = d.engagement.avgDailySwipesPerUser;
+      document.getElementById("avgTime").textContent = `${d.engagement.avgTimeOnCardSec}s`;
+      document.getElementById("at-wavg").textContent = d.swipes.allTime.weeklyAverage.toLocaleString();
+      document.getElementById("at-mavg").textContent = d.swipes.allTime.monthlyAverage.toLocaleString();
+      document.getElementById("at-days").textContent = d.swipes.allTime.daysSinceFirst;
+    }
+
+    function selectPeriod(btn, period) {
+      document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentPeriod = period;
+      document.getElementById("customRow").style.display = period === "custom" ? "block" : "none";
+      document.getElementById("allTimeExtras").style.display = period === "alltime" ? "block" : "none";
+      if (period !== "custom") showPeriod(period);
+    }
+
+    function showPeriod(period) {
+      if (!analyticsData) return;
+      const map = { today: analyticsData.swipes.today, week: analyticsData.swipes.week, month: analyticsData.swipes.month, alltime: analyticsData.swipes.allTime };
+      const labels = { today: "Today", week: "Last 7 days", month: "Last 30 days", alltime: "All time" };
+      const s = map[period];
+      fillPeriodCards(s, labels[period]);
+    }
+
+    function fillPeriodCards(s, label) {
+      document.getElementById("p-total").textContent = s.total.toLocaleString();
+      document.getElementById("p-avg").textContent = `Daily avg: ${s.dailyAverage}`;
+      document.getElementById("p-right").textContent = s.right.toLocaleString();
+      document.getElementById("p-right-pct").textContent = `${pct(s.right, s.total)} of total`;
+      document.getElementById("p-left").textContent = s.left.toLocaleString();
+      document.getElementById("p-left-pct").textContent = `${pct(s.left, s.total)} of total`;
+      document.getElementById("p-users").textContent = s.uniqueUsers.toLocaleString();
+      document.getElementById("p-period").textContent = label;
+      document.getElementById("periodStats").style.display = "block";
+    }
+
+    async function loadRange() {
+      const url = document.getElementById("backendUrl").value.trim().replace(/\/$/, "");
+      const secret = document.getElementById("adminSecret").value.trim();
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      if (!from || !to) { setStatus("Select both a from and to date.", "error"); return; }
+
+      setStatus("Loading range...", "info");
+      try {
+        const res = await fetch(`${url}/api/admin/analytics/range?from=${from}&to=${to}`, { headers: { "X-Admin-Secret": secret } });
+        const d = await res.json();
+        if (!res.ok) { setStatus(`Error: ${d.error}`, "error"); return; }
+        fillPeriodCards(d.swipes, `${from} → ${to} (${d.days} days)`);
+        hideStatus();
+      } catch (e) {
+        setStatus(`Failed: ${e.message}`, "error");
+      }
+    }
+  </script>
+</body>
+</html>
