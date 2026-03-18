@@ -7,6 +7,7 @@ RUN npm install --omit=dev
 
 COPY src/ ./src/
 COPY tsconfig.json ./
+COPY public/ ./public/
 
 ENV NODE_ENV=production
 EXPOSE 8080
