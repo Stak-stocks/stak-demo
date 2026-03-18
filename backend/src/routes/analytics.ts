@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { adminDb, adminAuth } from "../firebaseAdmin.js";
 
 export const analyticsRouter = Router();
 
@@ -10,6 +10,28 @@ function checkAdminSecret(req: Request, res: Response): boolean {
 		return false;
 	}
 	return true;
+}
+
+// Resolve excluded emails to UIDs once and cache in memory
+// Promise lock prevents duplicate lookups on concurrent requests
+let excludedUidsPromise: Promise<Set<string>> | null = null;
+function getExcludedUids(): Promise<Set<string>> {
+	if (excludedUidsPromise) return excludedUidsPromise;
+	excludedUidsPromise = (async () => {
+		const emails = (process.env.ANALYTICS_EXCLUDED_EMAILS ?? "")
+			.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+		const uids = new Set<string>();
+		await Promise.all(emails.map(async (email) => {
+			try {
+				const user = await adminAuth.getUserByEmail(email);
+				uids.add(user.uid);
+			} catch {
+				// email not found in Firebase Auth — skip
+			}
+		}));
+		return uids;
+	})();
+	return excludedUidsPromise;
 }
 
 interface SwipeDoc {
@@ -41,7 +63,7 @@ analyticsRouter.get("/", async (req: Request, res: Response) => {
 	if (!checkAdminSecret(req, res)) return;
 
 	try {
-		const now = new Date();
+		const [excluded, now] = [await getExcludedUids(), new Date()];
 
 		const todayStart = new Date(now);
 		todayStart.setHours(0, 0, 0, 0);
@@ -66,10 +88,10 @@ analyticsRouter.get("/", async (req: Request, res: Response) => {
 			adminDb.collection("sessions").get(),
 		]);
 
-		const monthSwipes = monthSwipeSnap.docs.map((d) => d.data() as SwipeDoc);
-		const allSwipes = allSwipeSnap.docs.map((d) => d.data() as SwipeDoc);
-		const monthSessions = monthSessionSnap.docs.map((d) => d.data() as SessionDoc);
-		const allSessions = allSessionSnap.docs.map((d) => d.data() as SessionDoc);
+		const monthSwipes = monthSwipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
+		const allSwipes = allSwipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
+		const monthSessions = monthSessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
+		const allSessions = allSessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
 
 		// Slice periods from already-fetched data
 		const todaySwipes = monthSwipes.filter((s) => s.timestamp >= todayStart.toISOString());
@@ -182,6 +204,7 @@ analyticsRouter.get("/range", async (req: Request, res: Response) => {
 	}
 
 	try {
+		const excluded = await getExcludedUids();
 		const days = Math.max(1, Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)));
 
 		const [swipeSnap, sessionSnap] = await Promise.all([
@@ -195,8 +218,8 @@ analyticsRouter.get("/range", async (req: Request, res: Response) => {
 				.get(),
 		]);
 
-		const swipes = swipeSnap.docs.map((d) => d.data() as SwipeDoc);
-		const sessions = sessionSnap.docs.map((d) => d.data() as SessionDoc);
+		const swipes = swipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
+		const sessions = sessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
 
 		const total = swipes.length;
 		const right = swipes.filter((s) => s.direction === "right").length;
@@ -258,13 +281,16 @@ analyticsRouter.post("/backfill-sessions", async (req: Request, res: Response) =
 	if (!checkAdminSecret(req, res)) return;
 
 	try {
-		const snapshot = await adminDb.collection("swipes").get();
+		const [snapshot, excluded] = await Promise.all([
+			adminDb.collection("swipes").get(),
+			getExcludedUids(),
+		]);
 		const swipes = snapshot.docs.map((d) => d.data() as SwipeDoc);
 
-		// Collect unique uid+date pairs
+		// Collect unique uid+date pairs, skipping internal team members
 		const seen = new Set<string>();
 		for (const s of swipes) {
-			if (!s.uid || !s.timestamp) continue;
+			if (!s.uid || !s.timestamp || excluded.has(s.uid)) continue;
 			const date = s.timestamp.split("T")[0];
 			seen.add(`${s.uid}_${date}`);
 		}
