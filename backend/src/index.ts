@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import { fileURLToPath } from "url";
 import cron from "node-cron";
 import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
@@ -12,6 +14,7 @@ import { stockRouter } from "./routes/stock.js";
 import { intelCardsRouter } from "./routes/intelCards.js";
 import { iposRouter, deleteUnverifiedAccounts } from "./routes/ipos.js";
 import { vibesRouter } from "./routes/vibes.js";
+import { analyticsRouter } from "./routes/analytics.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 dotenv.config();
@@ -29,9 +32,12 @@ const allowedOrigins = [
 	"https://www.thestak.org",
 ];
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 app.set("trust proxy", 1); // Trust GCP Cloud Run load balancer — enables real client IP for rate limiting
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "1mb" }));
+app.use(express.static(path.join(__dirname, "../public")));
 
 // Rate limiters
 const publicLimiter = rateLimit({
@@ -60,6 +66,7 @@ app.use("/api/stock", publicLimiter, stockRouter);
 app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, iposRouter);
 app.use("/api/vibes", publicLimiter, vibesRouter);
+app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {
