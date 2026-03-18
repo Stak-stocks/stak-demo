@@ -284,6 +284,62 @@ function LandingPage() {
 					</div>
 				</section>
 
+				{/* ── Testimonial / Feedback ── */}
+				<section className="px-6 py-16 max-w-2xl mx-auto w-full text-center">
+					<div className="rounded-2xl bg-[#141a2e]/80 backdrop-blur-sm border border-slate-700/50 p-8 flex flex-col items-center gap-4">
+						<div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
+							<svg className="w-6 h-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
+							</svg>
+						</div>
+						<h2 className="text-2xl font-bold text-white">Share Your Experience</h2>
+						<p className="text-slate-400 text-sm leading-relaxed max-w-md">
+							As an early user, your feedback helps shape STAK. Tell us what's working, what's helped you, and how we can improve. Takes 5–10 minutes.
+						</p>
+						<a
+							href="https://docs.google.com/forms/d/e/1FAIpQLSe9D05YUIkpd6midQ7eaAgXBff6G3P6FxsWxUx7cJgiy_ISCw/viewform?usp=dialog"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="mt-2 inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+							</svg>
+							Give Feedback
+						</a>
+					</div>
+				</section>
+
+				{/* ── Contact ── */}
+				<section id="contact" className="px-6 py-16 max-w-2xl mx-auto w-full text-center">
+					<h2 className="text-2xl font-bold text-white mb-3">Get in Touch</h2>
+					<p className="text-slate-400 text-sm leading-relaxed mb-8">
+						Have a question, feedback, or found a bug? We'd love to hear from you. We typically reply within 24–48 hours.
+					</p>
+					<div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+						<a
+							href="mailto:stak.swiping@gmail.com"
+							className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+							</svg>
+							stak.swiping@gmail.com
+						</a>
+						<a
+							href="https://forms.gle/6v8mDfyN1DHFsK5M6"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white border border-slate-600 hover:border-slate-400 transition-all active:scale-[0.98]"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
+							</svg>
+							Help & Support Form
+						</a>
+					</div>
+				</section>
+
 				{/* ── App Store Badges ── */}
 				<section className="flex flex-col items-center gap-3 px-6 py-8">
 					<div className="flex items-center justify-center gap-4">
@@ -315,36 +371,6 @@ function LandingPage() {
 						</button>
 					</div>
 					<p className="text-slate-500 text-xs font-medium">Coming Soon</p>
-				</section>
-
-				{/* ── Contact ── */}
-				<section id="contact" className="px-6 py-16 max-w-2xl mx-auto w-full text-center">
-					<h2 className="text-2xl font-bold text-white mb-3">Get in Touch</h2>
-					<p className="text-slate-400 text-sm leading-relaxed mb-8">
-						Have a question, feedback, or found a bug? We'd love to hear from you. We typically reply within 24–48 hours.
-					</p>
-					<div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-						<a
-							href="mailto:stak.swiping@gmail.com"
-							className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
-						>
-							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-								<path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-							</svg>
-							stak.swiping@gmail.com
-						</a>
-						<a
-							href="https://forms.gle/6v8mDfyN1DHFsK5M6"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white border border-slate-600 hover:border-slate-400 transition-all active:scale-[0.98]"
-						>
-							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-								<path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
-							</svg>
-							Help & Support Form
-						</a>
-					</div>
 				</section>
 
 				{/* ── Footer ── */}

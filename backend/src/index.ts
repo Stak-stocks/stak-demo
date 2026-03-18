@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import cron from "node-cron";
 import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
@@ -28,19 +29,37 @@ const allowedOrigins = [
 	"https://www.thestak.org",
 ];
 
+app.set("trust proxy", 1); // Trust GCP Cloud Run load balancer — enables real client IP for rate limiting
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "1mb" }));
 
+// Rate limiters
+const publicLimiter = rateLimit({
+	windowMs: 60 * 1000,       // 1 minute
+	max: 120,                  // 120 req/min per IP — allows batch stock loads (my-stak loads one per portfolio brand)
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: { error: "Too many requests, please try again later." },
+});
+
+const authLimiter = rateLimit({
+	windowMs: 60 * 1000,       // 1 minute
+	max: 120,                  // 120 req/min per IP for authenticated endpoints
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: { error: "Too many requests, please try again later." },
+});
+
 // Routes
-app.use("/api/brands", brandsRouter);
-app.use("/api/swipe", swipeRouter);
-app.use("/api/me", meRouter);
-app.use("/api/news", newsRouter);
-app.use("/api/trends", trendsRouter);
-app.use("/api/stock", stockRouter);
-app.use("/api/intel-cards", intelCardsRouter);
-app.use("/api/stocks", iposRouter);
-app.use("/api/vibes", vibesRouter);
+app.use("/api/brands", publicLimiter, brandsRouter);
+app.use("/api/swipe", authLimiter, swipeRouter);
+app.use("/api/me", authLimiter, meRouter);
+app.use("/api/news", publicLimiter, newsRouter);
+app.use("/api/trends", publicLimiter, trendsRouter);
+app.use("/api/stock", publicLimiter, stockRouter);
+app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
+app.use("/api/stocks", publicLimiter, iposRouter);
+app.use("/api/vibes", publicLimiter, vibesRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {
