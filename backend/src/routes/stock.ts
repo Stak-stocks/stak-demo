@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
+import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
@@ -248,6 +249,26 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				};
 			}
 
+			// Date is today or past — but if epsActual is null, Finnhub may have the wrong date.
+			// Run consensus across Yahoo, FMP, and Gemini to verify.
+			if (e.epsActual === null) {
+				const consensus = await getConsensusEarningsDate(
+					e.symbol,
+					MARKET_TICKERS[e.symbol] ?? e.symbol,
+					e.date,
+				);
+				if (consensus.date && consensus.date > todayStr) {
+					// Consensus says it hasn't reported yet — show as upcoming with correct date
+					return {
+						symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
+						date: consensus.date, hour: e.hour || null,
+						epsActual: null, epsEstimate: e.epsEstimate,
+						epsSurprisePct: null, priceChangePct: null,
+						revChangePct: null, status: "upcoming" as const,
+					};
+				}
+			}
+
 			// Already reported — EPS comparison is PRIMARY signal (reliable, non-GAAP)
 			// Gemini web search only used as fallback when no EPS data is available
 			const epsStatus = e.epsActual != null && e.epsEstimate != null
@@ -438,18 +459,31 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const todayStr = fmt(now);
 	const in14Days = fmt(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000));
 
-	// ── 1. Check Finnhub calendar for upcoming earnings (next 14 days) ──
-	const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in14Days}`) as
+	// ── 1. Check Finnhub calendar for upcoming earnings (next 90 days) ──
+	const in90Days = fmt(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
+	const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
 		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 	const upcoming = calData?.earningsCalendar?.find((e) => e.symbol === symbol);
 	if (upcoming) {
-		const result: EarningsStatus = { status: "upcoming", date: upcoming.date, hour: upcoming.hour };
-		await cacheSet(cacheKey, result, 15 * 60 * 1000);
+		// Verify with consensus before trusting Finnhub date
+		const consensus = await getConsensusEarningsDate(symbol, companyName, upcoming.date);
+		const confirmedDate = consensus.date ?? upcoming.date;
+		const result: EarningsStatus = { status: "upcoming", date: confirmedDate, hour: upcoming.hour };
+		await cacheSet(cacheKey, result, 60 * 60 * 1000);
 		res.json(result);
 		return;
 	}
 
-	// ── 2. Gemini + Google Search grounding — finds the actual earnings article and reads it ──
+	// ── 2. Finnhub missed it — run consensus to check for upcoming date ──
+	const consensus = await getConsensusEarningsDate(symbol, companyName, null);
+	if (consensus.date && consensus.date > todayStr) {
+		const result: EarningsStatus = { status: "upcoming", date: consensus.date };
+		await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000);
+		res.json(result);
+		return;
+	}
+
+	// ── 3. No upcoming date found — Gemini for beat/miss on most recent report ──
 	// Cached 24 hours so we only call Gemini once per day per stock.
 	const { result: signal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
 	const result: EarningsStatus = signal !== "none"
