@@ -94,9 +94,21 @@ function App() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [allIntelCards]);
 
-	// Keep streakRef in sync with Firestore (handles new-device loads)
+	// Keep streakRef in sync with Firestore and update streak on login/app open
 	useEffect(() => {
-		if (account?.streak) streakRef.current = account.streak;
+		if (!account) return;
+		if (account.streak) streakRef.current = account.streak;
+
+		const today = new Date().toISOString().split("T")[0];
+		const streakData = streakRef.current;
+		if (streakData.date !== today) {
+			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
+			const newStreak = { date: today, count: newCount };
+			streakRef.current = newStreak;
+			updateStreak(newStreak).catch((e) => console.error("Failed to save streak:", e));
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [account?.streak]);
 
 	// ── Stak — initialised from Firestore account ──────────────────────────────
@@ -235,17 +247,6 @@ function App() {
 	}, [swipeCount, updateDeckOrder]);
 
 	const handleSwipe = useCallback(() => {
-		// Update daily streak (once per day)
-		const swipeDay = new Date().toISOString().split("T")[0];
-		const streakData = streakRef.current;
-		if (streakData.date !== swipeDay) {
-			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
-			const newStreak = { date: swipeDay, count: newCount };
-			streakRef.current = newStreak;
-			updateStreak(newStreak).catch((e) => console.error("Failed to save streak:", e));
-		}
-
 		// Trigger intel card after every 5th swipe, at most once per day
 		swipesSinceIntel.current += 1;
 		sessionStorage.setItem("swipesSinceIntel", String(swipesSinceIntel.current));
@@ -274,7 +275,7 @@ function App() {
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
-	}, [allIntelCards, updateIntelState, updateStreak]);
+	}, [allIntelCards, updateIntelState]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);

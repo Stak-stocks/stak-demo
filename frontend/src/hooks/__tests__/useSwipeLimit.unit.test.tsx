@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DAILY_SWIPE_LIMIT, getSwipeTodayKey, useSwipeLimit } from "../useSwipeLimit";
+import { DAILY_SWIPE_LIMIT, getTodayKey, useSwipeLimit } from "../useSwipeLimit";
 import { useAccount } from "@/context/AccountContext";
 
 vi.mock("@/context/AccountContext", () => ({
@@ -21,9 +21,9 @@ describe("useSwipeLimit", () => {
 		} as any);
 	});
 
-	it("getSwipeTodayKey returns previous day before 9 AM", () => {
+	it("getTodayKey returns previous day before 9 AM", () => {
 		vi.setSystemTime(new Date("2026-03-02T08:59:00.000Z"));
-		expect(getSwipeTodayKey()).toBe("2026-03-01");
+		expect(getTodayKey()).toBe("2026-03-01");
 	});
 
 	it("guest increment updates localStorage and count", () => {
@@ -54,7 +54,7 @@ describe("useSwipeLimit", () => {
 	it("reports hasReachedLimit at DAILY_SWIPE_LIMIT", () => {
 		// Derive the key the same way the hook does so timezone/fake-timer
 		// interactions don't cause a mismatch.
-		const today = getSwipeTodayKey();
+		const today = getTodayKey();
 		mockedUseAccount.mockReturnValue({
 			account: { dailySwipeState: { date: today, count: DAILY_SWIPE_LIMIT } },
 			accountLoading: false,
