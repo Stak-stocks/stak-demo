@@ -6,8 +6,9 @@
  */
 
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { getYahooCrumb, invalidateYahooCrumb, type YahooCrumbCache } from "../lib/yahooAuth.js";
 
-const FMP_BASE = "https://financialmodelingprep.com/api/v3";
+const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
 
 function getGeminiKeys(): string[] {
@@ -26,23 +27,54 @@ function todayStr(): string {
 	return fmt(new Date());
 }
 
+/** Normalise any date string to YYYY-MM-DD, stripping any time component. */
+function toDateOnly(s: string): string {
+	return s.substring(0, 10);
+}
+
 // ── Source 1: Yahoo Finance calendarEvents ───────────────────────────────────
 
 async function getYahooEarningsDate(symbol: string): Promise<string | null> {
-	try {
-		const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=calendarEvents`;
-		const res = await fetch(url, {
-			headers: { "User-Agent": "Mozilla/5.0" },
+	const doFetch = async (auth: YahooCrumbCache | null): Promise<Response> => {
+		const crumbParam = auth ? `&crumb=${encodeURIComponent(auth.crumb)}` : "";
+		const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=calendarEvents${crumbParam}`;
+		return fetch(url, {
+			headers: {
+				"User-Agent": "Mozilla/5.0",
+				...(auth?.cookie ? { "Cookie": auth.cookie } : {}),
+			},
 			signal: AbortSignal.timeout(8000),
 		});
+	};
+
+	try {
+		let auth = await getYahooCrumb();
+		let res = await doFetch(auth);
+
+		// If Yahoo rejects the crumb (401/403), invalidate and retry once with a fresh one
+		if (res.status === 401 || res.status === 403) {
+			invalidateYahooCrumb();
+			auth = await getYahooCrumb();
+			res = await doFetch(auth);
+		}
+
 		if (!res.ok) return null;
 		const data = await res.json();
+
+		// Detect an "Invalid Crumb" error in the response body
+		if (data?.quoteSummary?.error?.code === "Unauthorized") {
+			invalidateYahooCrumb();
+			return null;
+		}
+
 		const dates: { raw: number; fmt: string }[] =
 			data?.quoteSummary?.result?.[0]?.calendarEvents?.earnings?.earningsDate ?? [];
 		if (dates.length === 0) return null;
+
 		// Yahoo returns a [start, end] range — take the midpoint date
 		const timestamps = dates.map((d) => d.raw * 1000);
-		const mid = new Date((timestamps[0] + (timestamps[timestamps.length - 1] ?? timestamps[0])) / 2);
+		const last = timestamps[timestamps.length - 1] ?? timestamps[0]!;
+		const mid = new Date((timestamps[0]! + last) / 2);
 		return fmt(mid);
 	} catch {
 		return null;
@@ -56,15 +88,16 @@ async function getFMPEarningsDate(symbol: string): Promise<string | null> {
 	try {
 		const today = todayStr();
 		const sixMonthsOut = fmt(new Date(Date.now() + 180 * 86400000));
-		const url = `${FMP_BASE}/earning_calendar?symbol=${encodeURIComponent(symbol)}&from=${today}&to=${sixMonthsOut}&apikey=${FMP_KEY}`;
+		const url = `${FMP_BASE}/earnings-calendar?symbol=${encodeURIComponent(symbol)}&from=${today}&to=${sixMonthsOut}&apikey=${FMP_KEY}`;
 		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 		if (!res.ok) return null;
 		const data: { date: string; symbol: string }[] = await res.json();
 		if (!Array.isArray(data) || data.length === 0) return null;
-		// Return the nearest upcoming date
+
+		// FMP dates can include a time component ("2026-03-31 16:00:00") — strip to YYYY-MM-DD
 		const sorted = data
-			.map((e) => e.date)
-			.filter((d) => d >= today)
+			.map((e) => toDateOnly(e.date))
+			.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today)
 			.sort();
 		return sorted[0] ?? null;
 	} catch {
@@ -107,10 +140,10 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			if (!res.ok) break;
 			const data = await res.json();
 			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-			const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+			const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
 			if (!jsonMatch) continue;
-			const parsed = JSON.parse(jsonMatch[0]);
-			const date: string | null = parsed?.date ?? null;
+			const parsed = JSON.parse(jsonMatch[0]) as { date?: unknown };
+			const date = typeof parsed?.date === "string" ? parsed.date : null;
 			if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
 		} catch {
 			continue;
@@ -134,23 +167,23 @@ function majorityVote(dates: (string | null)[]): string | null {
 	// Find max votes
 	const maxVotes = Math.max(...Object.values(votes));
 
-	// If any date has 2+ votes, use it (prefer most future if tie)
+	// If any date has 2+ votes, use it (prefer furthest future if tie)
 	if (maxVotes >= 2) {
 		const winners = Object.entries(votes)
 			.filter(([, v]) => v === maxVotes)
 			.map(([d]) => d)
 			.sort()
 			.reverse(); // most future first
-		return winners[0];
+		return winners[0] ?? null;
 	}
 
-	// All different — prefer the most future date >= today (safest for upcoming)
+	// All sources disagree — prefer the nearest future date >= today (safest)
 	const today = todayStr();
 	const future = valid.filter((d) => d >= today).sort();
-	if (future.length > 0) return future[0];
+	if (future.length > 0) return future[0] ?? null;
 
 	// All in past — return the most recent
-	return valid.sort().reverse()[0];
+	return [...valid].sort().reverse()[0] ?? null;
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -204,7 +237,7 @@ export async function getConsensusEarningsDate(
 
 	const result: ConsensusEarningsDate = { date, sources, confidence };
 
-	// Cache longer if high confidence
+	// Only cache when at least one source responded; cache longer when confidence is high
 	const ttl = confidence === "high" ? 24 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
 	if (validDates.length > 0) await cacheSet(cacheKey, result, ttl);
 
