@@ -216,7 +216,9 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		: [];
 	const extraTickersKey = [...extraTickers].sort().join(",");
 
-	const cacheKey = `market-earnings:v3:${period}:${todayStr}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+	// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
+	const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
+	const cacheKey = `market-earnings:v4:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 	const cached = await cacheGet(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -338,7 +340,9 @@ stockRouter.get("/market-earnings", async (req, res) => {
 	});
 
 	const result = { entries, from: fromStr, to: toStr };
-	await cacheSet(cacheKey, result, 15 * 60 * 1000);
+	// today: 1h (earnings reported once); week/tomorrow: 6h (dates don't shift mid-period)
+	const cacheTtl = period === "today" ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
+	await cacheSet(cacheKey, result, cacheTtl);
 	res.json(result);
 });
 

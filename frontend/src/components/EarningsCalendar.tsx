@@ -4,6 +4,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, X, ChevronRight } from "lucide-react";
 import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 import { useAccount } from "@/context/AccountContext";
+import { useStakTickers } from "@/hooks/useStakTickers";
 import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";
 
 type Tab = "today" | "week" | "next-week";
@@ -77,24 +78,6 @@ export function EarningsCalendarButton() {
 			.map((id) => brandMap.get(id))
 			.filter(Boolean) as BrandProfile[];
 	}, [account?.stakBrandIds]);
-
-	const queryClient = useQueryClient();
-	const stakTickersForPrefetch = useMemo(
-		() => stakBrands.map((b) => b.ticker.toUpperCase()),
-		[stakBrands],
-	);
-
-	// Prefetch market earnings for all tabs so the modal opens instantly
-	useEffect(() => {
-		if (stakTickersForPrefetch.length === 0) return;
-		for (const tab of ["today", "tomorrow", "week"] as const) {
-			queryClient.prefetchQuery({
-				queryKey: ["market-earnings", tab, stakTickersForPrefetch],
-				queryFn: () => getMarketEarnings(tab, stakTickersForPrefetch),
-				staleTime: 10 * 60 * 1000,
-			});
-		}
-	}, [queryClient, stakTickersForPrefetch]);
 
 	const earningsResults = useQueries({
 		queries: stakBrands.map((brand) => ({
@@ -349,17 +332,9 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [expanded, setExpanded] = useState(true);
 	const [showAll, setShowAll] = useState(false);
-	const { account } = useAccount();
 
-	const stakTickers = useMemo(() => {
-		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
-		return new Set<string>(
-			(account?.stakBrandIds ?? [])
-				.map((id) => brandMap.get(id)?.ticker.toUpperCase())
-				.filter(Boolean) as string[]
-		);
-	}, [account?.stakBrandIds]);
-	const stakTickersArray = useMemo(() => Array.from(stakTickers), [stakTickers]);
+	const stakTickersArray = useStakTickers();
+	const stakTickersSet = useMemo(() => new Set(stakTickersArray), [stakTickersArray]);
 
 	const { data, isLoading } = useQuery({
 		queryKey: ["market-earnings", tab, stakTickersArray],
@@ -368,7 +343,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 		refetchInterval: 30 * 60 * 1000,
 		retry: 1,
 	});
-	const entries = (data?.entries ?? []).filter((e) => stakTickers.has(e.symbol));
+	const entries = (data?.entries ?? []).filter((e) => stakTickersSet.has(e.symbol));
 	const reported = entries.filter((e) => e.status !== "upcoming" && e.status !== "none");
 	const beats = reported.filter((e) => e.status === "beat");
 	const positivePct = reported.length > 0 ? Math.round((beats.length / reported.length) * 100) : 0;
