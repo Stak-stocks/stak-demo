@@ -12,6 +12,9 @@ import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import type { BrandProfile } from "@/data/brands";
 import { getTodayKey } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { getMarketEarnings } from "@/lib/api";
+import { useStakTickers } from "@/hooks/useStakTickers";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -43,6 +46,20 @@ function Root() {
 		scrollRef.current?.scrollTo({ top: 0 });
 		document.body.style.overflow = "";
 	}, [location.pathname]);
+
+	// Prefetch earnings calendar as soon as account loads so modal opens instantly
+	const queryClient = useQueryClient();
+	const stakTickers = useStakTickers();
+	useEffect(() => {
+		if (!user || stakTickers.length === 0) return;
+		for (const tab of ["today", "tomorrow", "week"] as const) {
+			queryClient.prefetchQuery({
+				queryKey: ["market-earnings", tab, stakTickers],
+				queryFn: () => getMarketEarnings(tab, stakTickers),
+				staleTime: 10 * 60 * 1000,
+			});
+		}
+	}, [queryClient, stakTickers, user]);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
