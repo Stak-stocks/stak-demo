@@ -143,7 +143,7 @@ function ProfilePage() {
 	const [reviewCard, setReviewCard] = useState<IntelCard | null>(null);
 
 	// Badge tooltip
-	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string } | null>(null);
+	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string; progress: number; progressLabel?: string } | null>(null);
 
 	// Streak — from Firestore account
 	const streak = account?.streak?.count ?? 0;
@@ -164,16 +164,48 @@ function ProfilePage() {
 	const categoryScores = account?.categoryScores ?? {};
 	const vibes = computeVibes(stakBrands, interests, categoryScores);
 
-	// Badges — only show ones the user has earned
-	const earnedBadges = [
-		{ id: "first-swipe",    label: "First Swipe",      emoji: "✅", desc: "Added your first brand to the Stak.",          earned: stakBrands.length >= 1  },
-		{ id: "stak-builder",   label: "Stak Builder",      emoji: "🏗️", desc: "Built a Stak of 5 or more brands.",            earned: stakBrands.length >= 5  },
-		{ id: "full-stak",      label: "Full Stak",         emoji: "💯", desc: "Maxed out your Stak with 15 brands.",          earned: stakBrands.length >= 15 },
-		{ id: "intel-junky",    label: "Intel Junky",       emoji: "🧠", desc: "Read 5 Intel cards — you're learning fast.",   earned: readCards.length >= 5   },
-		{ id: "knowledge-hoarder", label: "All-Knowing",    emoji: "📚", desc: "Read every Intel card in the library.",        earned: readCards.length >= INTEL_CARDS.length },
-		{ id: "week-warrior",   label: "Week Warrior",      emoji: "🔥", desc: "Kept a 7-day swiping streak. Consistent!",    earned: streak >= 7             },
-		{ id: "monthly-legend", label: "Monthly Legend",    emoji: "💎", desc: "30-day streak. You're a STAK legend.",        earned: streak >= 30            },
-	].filter((b) => b.earned);
+	// Badges — all badges with progress tracking
+	const maxCategoryScore = Math.max(0, ...Object.values(categoryScores));
+	const categoriesEngaged = Object.keys(categoryScores).length;
+	const hasStaked = stakBrands.length >= 1;
+	const hasReadIntel = readCards.length >= 1;
+
+	const allBadges = [
+		{ id: "first-swipe",        label: "First Swipe",       emoji: "✅", desc: "Added your first brand to the Stak.",         earned: hasStaked,                      progress: Math.min(stakBrands.length, 1),          progressLabel: `${Math.min(stakBrands.length, 1)}/1 brand`      },
+		{ id: "stak-builder",       label: "Stak Builder",      emoji: "🏗️", desc: "Built a Stak of 5 or more brands.",           earned: stakBrands.length >= 5,         progress: Math.min(stakBrands.length / 5, 1),      progressLabel: `${stakBrands.length}/5 brands`                  },
+		{ id: "full-stak",          label: "Full Stak",         emoji: "💯", desc: "Maxed out your Stak with 15 brands.",         earned: stakBrands.length >= 15,        progress: Math.min(stakBrands.length / 15, 1),     progressLabel: `${stakBrands.length}/15 brands`                 },
+		{ id: "three-day-streak",   label: "3-Day Streak",      emoji: "🔥", desc: "Logged in 3 days in a row.",                  earned: streak >= 3,                    progress: Math.min(streak / 3, 1),                 progressLabel: `${streak}/3 days`                               },
+		{ id: "week-warrior",       label: "Week Warrior",      emoji: "⚡", desc: "Logged in 7 days in a row. Consistent!",      earned: streak >= 7,                    progress: Math.min(streak / 7, 1),                 progressLabel: `${streak}/7 days`                               },
+		{ id: "monthly-legend",     label: "Monthly Legend",    emoji: "💎", desc: "30-day streak. You're a STAK legend.",        earned: streak >= 30,                   progress: Math.min(streak / 30, 1),                progressLabel: `${streak}/30 days`                              },
+		{ id: "intel-junky",        label: "Insight Seeker",    emoji: "🧠", desc: "Read 5 Intel cards — you're learning fast.", earned: readCards.length >= 5,          progress: Math.min(readCards.length / 5, 1),       progressLabel: `${readCards.length}/5 cards`                    },
+		{ id: "knowledge-hoarder",  label: "All-Knowing",       emoji: "📚", desc: "Read every Intel card in the library.",       earned: readCards.length >= INTEL_CARDS.length, progress: readCards.length / Math.max(INTEL_CARDS.length, 1), progressLabel: `${readCards.length}/${INTEL_CARDS.length} cards` },
+		{ id: "explorer",           label: "Explorer",          emoji: "🌍", desc: "Engaged with 3+ different market sectors.",   earned: categoriesEngaged >= 3,         progress: Math.min(categoriesEngaged / 3, 1),      progressLabel: `${categoriesEngaged}/3 sectors`                 },
+		{ id: "conviction-builder", label: "Conviction Builder",emoji: "🎯", desc: "Deep focus on one sector — you know your edge.", earned: maxCategoryScore >= 20,      progress: Math.min(maxCategoryScore / 20, 1),      progressLabel: `${maxCategoryScore}/20 score`                   },
+		{ id: "signal-finder",      label: "Signal Finder",     emoji: "📡", desc: "Staked brands and read intel — the full loop.", earned: hasStaked && hasReadIntel,   progress: (hasStaked ? 0.5 : 0) + (hasReadIntel ? 0.5 : 0),  progressLabel: hasStaked && hasReadIntel ? "Complete" : !hasStaked ? "Stake a brand first" : "Read an Intel card" },
+	];
+	const earnedBadges = allBadges.filter((b) => b.earned);
+	const inProgressBadges = allBadges.filter((b) => !b.earned && b.progress > 0);
+
+	// Toast when a new badge is unlocked
+	const prevEarnedRef = useRef<Set<string>>(new Set());
+	const badgeInitRef = useRef(false);
+	useEffect(() => {
+		if (!account) return;
+		const currentEarned = new Set(earnedBadges.map((b) => b.id));
+		if (!badgeInitRef.current) {
+			prevEarnedRef.current = currentEarned;
+			badgeInitRef.current = true;
+			return;
+		}
+		for (const id of currentEarned) {
+			if (!prevEarnedRef.current.has(id)) {
+				const badge = allBadges.find((b) => b.id === id);
+				if (badge) toast.success(`${badge.emoji} Badge unlocked: ${badge.label}!`);
+			}
+		}
+		prevEarnedRef.current = currentEarned;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [account]);
 
 	const displayName = user?.displayName || "STAK User";
 	const email = user?.email || "";
@@ -325,21 +357,41 @@ function ProfilePage() {
 						</div>
 						{/* badges row */}
 						<div className="flex items-center gap-2 flex-wrap">
-							{earnedBadges.length === 0 ? (
+							{earnedBadges.length === 0 && inProgressBadges.length === 0 ? (
 								<p className="text-[10px] text-zinc-400">No badges yet — keep swiping!</p>
-							) : earnedBadges.map((b) => (
-								<button
-									key={b.id}
-									type="button"
-									onClick={() => setActiveBadge(b)}
-									className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform"
-								>
-									<div className="w-8 h-8 rounded-full border bg-orange-500/10 border-orange-400/30 flex items-center justify-center text-base">
-										{b.emoji}
-									</div>
-									<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
-								</button>
-							))}
+							) : (
+								<>
+									{earnedBadges.map((b) => (
+										<button
+											key={b.id}
+											type="button"
+											onClick={() => setActiveBadge(b)}
+											className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform"
+										>
+											<div className="w-8 h-8 rounded-full border bg-orange-500/10 border-orange-400/30 flex items-center justify-center text-base">
+												{b.emoji}
+											</div>
+											<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+										</button>
+									))}
+									{inProgressBadges.map((b) => (
+										<button
+											key={b.id}
+											type="button"
+											onClick={() => setActiveBadge(b)}
+											className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform opacity-40"
+										>
+											<div className="relative w-8 h-8 rounded-full border border-zinc-600/40 bg-zinc-800/40 flex items-center justify-center text-base grayscale">
+												{b.emoji}
+												<div className="absolute inset-0 rounded-full overflow-hidden">
+													<div className="absolute bottom-0 left-0 right-0 bg-orange-500/20 transition-all" style={{ height: `${b.progress * 100}%` }} />
+												</div>
+											</div>
+											<span className="text-[8px] text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+										</button>
+									))}
+								</>
+							)}
 						</div>
 					</div>
 
@@ -513,9 +565,23 @@ function ProfilePage() {
 			<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "6rem" }}>
 				<div aria-hidden="true" className="fixed inset-0" onClick={() => setActiveBadge(null)} />
 				<div className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-2xl border border-zinc-200 dark:border-orange-400/20 shadow-2xl p-5 mx-4 max-w-xs w-full text-center">
-					<div className="text-4xl mb-2">{activeBadge.emoji}</div>
+					<div className={`text-4xl mb-2 ${activeBadge.progress < 1 ? "grayscale opacity-50" : ""}`}>{activeBadge.emoji}</div>
 					<p className="text-base font-bold mb-1">{activeBadge.label}</p>
 					<p className="text-sm text-zinc-500 dark:text-zinc-400">{activeBadge.desc}</p>
+					{activeBadge.progress < 1 && (
+						<div className="mt-3">
+							<div className="flex justify-between text-[10px] text-zinc-500 mb-1">
+								<span>Progress</span>
+								<span>{activeBadge.progressLabel}</span>
+							</div>
+							<div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
+								<div className="h-full rounded-full bg-orange-400 transition-all" style={{ width: `${activeBadge.progress * 100}%` }} />
+							</div>
+						</div>
+					)}
+					{activeBadge.progress >= 1 && (
+						<p className="text-[11px] text-orange-400 font-semibold mt-2">✓ Earned</p>
+					)}
 					<button type="button" onClick={() => setActiveBadge(null)} className="mt-4 w-full py-2 rounded-xl bg-orange-500/15 text-orange-400 text-sm font-semibold hover:bg-orange-500/25 transition-colors">
 						Got it
 					</button>
