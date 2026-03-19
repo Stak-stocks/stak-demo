@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, X, ChevronRight } from "lucide-react";
 import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 import { useAccount } from "@/context/AccountContext";
@@ -77,6 +77,24 @@ export function EarningsCalendarButton() {
 			.map((id) => brandMap.get(id))
 			.filter(Boolean) as BrandProfile[];
 	}, [account?.stakBrandIds]);
+
+	const queryClient = useQueryClient();
+	const stakTickersForPrefetch = useMemo(
+		() => stakBrands.map((b) => b.ticker.toUpperCase()),
+		[stakBrands],
+	);
+
+	// Prefetch market earnings for all tabs so the modal opens instantly
+	useEffect(() => {
+		if (stakTickersForPrefetch.length === 0) return;
+		for (const tab of ["today", "tomorrow", "week"] as const) {
+			queryClient.prefetchQuery({
+				queryKey: ["market-earnings", tab, stakTickersForPrefetch],
+				queryFn: () => getMarketEarnings(tab, stakTickersForPrefetch),
+				staleTime: 10 * 60 * 1000,
+			});
+		}
+	}, [queryClient, stakTickersForPrefetch]);
 
 	const earningsResults = useQueries({
 		queries: stakBrands.map((brand) => ({
@@ -346,8 +364,8 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const { data, isLoading } = useQuery({
 		queryKey: ["market-earnings", tab, stakTickersArray],
 		queryFn: () => getMarketEarnings(tab, stakTickersArray),
-		staleTime: 10 * 60 * 1000,
-		refetchInterval: 15 * 60 * 1000,
+		staleTime: 30 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
 		retry: 1,
 	});
 	const entries = (data?.entries ?? []).filter((e) => stakTickers.has(e.symbol));
