@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
+import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
+import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
@@ -57,28 +59,50 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 	const from = Math.floor(new Date(base.getTime() - 5 * 86400000).getTime() / 1000);
 	const to   = Math.floor(new Date(base.getTime() + (isAmc ? 3 : 2) * 86400000).getTime() / 1000);
 
+	// Primary: Yahoo Finance historical daily candles
 	try {
 		const res = await fetch(
 			`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${from}&period2=${to}&interval=1d`,
 			{ headers: { "User-Agent": "Mozilla/5.0" } },
 		);
-		if (!res.ok) return null;
-		const data = await res.json() as {
-			chart?: { result?: Array<{ indicators?: { quote?: Array<{ close?: number[] }> } }> }
-		};
-		const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter((c): c is number => c != null);
-		if (!closes || closes.length < 2) return null;
-
-		const prev = closes[closes.length - 2];
-		const reaction = closes[closes.length - 1];
-		if (prev === 0) return null;
-
-		const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
-		await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
-		return pct;
+		if (res.ok) {
+			const data = await res.json() as {
+				chart?: { result?: Array<{ indicators?: { quote?: Array<{ close?: number[] }> } }> }
+			};
+			const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter((c): c is number => c != null);
+			if (closes && closes.length >= 2) {
+				const prev = closes[closes.length - 2]!;
+				const reaction = closes[closes.length - 1]!;
+				if (prev !== 0) {
+					const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+					await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
+					return pct;
+				}
+			}
+		}
 	} catch {
-		return null;
+		// fall through to Finnhub candle
 	}
+
+	// Fallback: Finnhub daily candle (same date range)
+	try {
+		const candle = await finnhubGet(
+			`/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}`,
+		) as { c?: number[]; s?: string } | null;
+		if (candle?.s === "ok" && Array.isArray(candle.c) && candle.c.length >= 2) {
+			const prev = candle.c[candle.c.length - 2]!;
+			const reaction = candle.c[candle.c.length - 1]!;
+			if (prev !== 0) {
+				const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+				await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
+				return pct;
+			}
+		}
+	} catch {
+		// both sources failed
+	}
+
+	return null;
 }
 
 const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
@@ -248,33 +272,58 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				};
 			}
 
-			// Already reported — EPS comparison is PRIMARY signal (reliable, non-GAAP)
-			// Gemini web search only used as fallback when no EPS data is available
-			const epsStatus = e.epsActual != null && e.epsEstimate != null
-				? (e.epsActual >= e.epsEstimate ? "beat" as const : "miss" as const)
-				: null;
-			const epsSurprisePct = e.epsActual != null && e.epsEstimate != null && e.epsEstimate !== 0
-				? Math.round(((e.epsActual - e.epsEstimate) / Math.abs(e.epsEstimate)) * 1000) / 10
-				: null;
+			// Date is today or past — but if epsActual is null, Finnhub may have the wrong date.
+			// Run consensus across Yahoo, FMP, and Gemini to verify.
+			if (e.epsActual === null) {
+				const consensus = await getConsensusEarningsDate(
+					e.symbol,
+					MARKET_TICKERS[e.symbol] ?? e.symbol,
+					e.date,
+				);
+				if (consensus.date && consensus.date > todayStr) {
+					// Consensus says it hasn't reported yet — but if the corrected date falls outside
+					// the requested period window, exclude it entirely rather than leaking into the wrong tab.
+					if (consensus.date > toStr) return null;
+					return {
+						symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
+						date: consensus.date, hour: e.hour || null,
+						epsActual: null, epsEstimate: e.epsEstimate,
+						epsSurprisePct: null, priceChangePct: null,
+						revChangePct: null, status: "upcoming" as const,
+					};
+				}
+			}
 
-			// Run price reaction always; only call Gemini when no EPS data
-			const [geminiResult, priceChangePct] = await Promise.all([
-				epsStatus == null
-					? getEarningsBeatMissFromWeb(e.symbol, MARKET_TICKERS[e.symbol] ?? e.symbol)
-					: Promise.resolve({ result: "none" as const, date: null as string | null }),
+			// Already reported — cross-check beat/miss, EPS, and revenue across 4 sources
+			const [consensusResult, priceChangePct] = await Promise.all([
+				getConsensusEarningsResult(
+					e.symbol,
+					MARKET_TICKERS[e.symbol] ?? e.symbol,
+					e.date,
+					{
+						epsActual: e.epsActual,
+						epsEstimate: e.epsEstimate,
+						revenueActual: e.revenueActual,
+						revenueEstimate: e.revenueEstimate,
+					},
+				),
 				getPriceChangePct(e.symbol, e.date, e.hour),
 			]);
-			const status = epsStatus ?? (geminiResult.result !== "none" ? geminiResult.result : "none");
 			return {
 				symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
 				date: e.date, hour: e.hour || null,
-				epsActual: e.epsActual, epsEstimate: e.epsEstimate,
-				epsSurprisePct, priceChangePct,
-				revChangePct,
-				status,
+				epsActual: consensusResult.epsActual,
+				epsEstimate: consensusResult.epsEstimate,
+				epsSurprisePct: consensusResult.epsSurprisePct,
+				priceChangePct,
+				revChangePct: consensusResult.revChangePct,
+				status: consensusResult.status,
 			};
 		}),
 	);
+
+	// Filter out nulls (entries excluded by period-window guard after consensus date correction)
+	const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
 
 	// ── Gemini fallback for Stak tickers Finnhub missed entirely ────────────────
 	// extraTickers = all tickers from the user's Stak (sent by the frontend).
@@ -301,45 +350,42 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					if (epsHistory) await cacheSet(epsKey, epsHistory, 6 * 60 * 60 * 1000);
 				}
 				const latestEps = Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0] : null;
-				const epsActual = latestEps?.actual ?? null;
-				const epsEstimate = latestEps?.estimate ?? null;
-				const epsSurprisePct = epsActual != null && epsEstimate != null && epsEstimate !== 0
-					? Math.round(((epsActual - epsEstimate) / Math.abs(epsEstimate)) * 1000) / 10
-					: null;
-				// EPS comparison is more reliable than Gemini narrative — use it if available
-				const epsStatus = epsActual != null && epsEstimate != null
-					? (epsActual >= epsEstimate ? "beat" as const : "miss" as const)
-					: null;
-				const status = epsStatus ?? geminiResult.result as "beat" | "miss";
 
-				const priceChangePct = await getPriceChangePct(ticker, geminiResult.date, null);
+				// Cross-check beat/miss and EPS across all 4 sources
+				const [consensusResult, priceChangePct] = await Promise.all([
+					getConsensusEarningsResult(ticker, name, geminiResult.date, {
+						epsActual: latestEps?.actual ?? null,
+						epsEstimate: latestEps?.estimate ?? null,
+					}),
+					getPriceChangePct(ticker, geminiResult.date, null),
+				]);
 				return {
 					symbol: ticker,
 					name,
 					date: geminiResult.date,
 					hour: null as string | null,
-					epsActual,
-					epsEstimate,
-					epsSurprisePct,
+					epsActual: consensusResult.epsActual,
+					epsEstimate: consensusResult.epsEstimate,
+					epsSurprisePct: consensusResult.epsSurprisePct,
 					priceChangePct,
-					revChangePct: null as number | null,
-					status,
+					revChangePct: consensusResult.revChangePct,
+					status: consensusResult.status,
 				};
 			}),
 		);
 
 		for (const s of supplements) {
-			if (s) entries.push(s);
+			if (s) filteredEntries.push(s);
 		}
 	}
 
-	entries.sort((a, b) => {
+	filteredEntries.sort((a, b) => {
 		if (a.status !== "upcoming" && b.status === "upcoming") return -1;
 		if (a.status === "upcoming" && b.status !== "upcoming") return 1;
 		return a.date.localeCompare(b.date);
 	});
 
-	const result = { entries, from: fromStr, to: toStr };
+	const result = { entries: filteredEntries, from: fromStr, to: toStr };
 	// today: 1h (earnings reported once); week/tomorrow: 6h (dates don't shift mid-period)
 	const cacheTtl = period === "today" ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
 	await cacheSet(cacheKey, result, cacheTtl);
@@ -436,27 +482,64 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const now = new Date();
 	const fmt = (d: Date) => d.toISOString().split("T")[0];
 	const todayStr = fmt(now);
-	const in14Days = fmt(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000));
 
-	// ── 1. Check Finnhub calendar for upcoming earnings (next 14 days) ──
-	const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in14Days}`) as
+	// ── 1. Check Finnhub calendar for upcoming earnings (next 90 days) ──
+	const in90Days = fmt(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
+	const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
 		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 	const upcoming = calData?.earningsCalendar?.find((e) => e.symbol === symbol);
 	if (upcoming) {
-		const result: EarningsStatus = { status: "upcoming", date: upcoming.date, hour: upcoming.hour };
-		await cacheSet(cacheKey, result, 15 * 60 * 1000);
+		// Verify with consensus before trusting Finnhub date
+		const consensus = await getConsensusEarningsDate(symbol, companyName, upcoming.date);
+		const confirmedDate = consensus.date ?? upcoming.date;
+		// If consensus says it's already past (all sources agree it reported), fall through to beat/miss
+		if (confirmedDate > todayStr) {
+			const result: EarningsStatus = { status: "upcoming", date: confirmedDate, hour: upcoming.hour };
+			await cacheSet(cacheKey, result, 60 * 60 * 1000);
+			res.json(result);
+			return;
+		}
+	}
+
+	// ── 2. Finnhub missed it — run consensus to check for upcoming date ──
+	const consensus = await getConsensusEarningsDate(symbol, companyName, null);
+	if (consensus.date && consensus.date > todayStr) {
+		const result: EarningsStatus = { status: "upcoming", date: consensus.date };
+		await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000);
 		res.json(result);
 		return;
 	}
 
-	// ── 2. Gemini + Google Search grounding — finds the actual earnings article and reads it ──
-	// Cached 24 hours so we only call Gemini once per day per stock.
-	const { result: signal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
-	const result: EarningsStatus = signal !== "none"
-		? { status: signal, date: reportDate ?? todayStr }
-		: { status: "none", date: null };
+	// ── 3. No upcoming date found — consensus across 4 sources for beat/miss ──
+	// First ask Gemini to determine IF/WHEN the company last reported (gives us the date anchor).
+	// Then run full consensus with Finnhub EPS history + FMP + Yahoo + Gemini.
+	const { result: geminiSignal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
+	if (geminiSignal === "none" || !reportDate) {
+		const noneResult: EarningsStatus = { status: "none", date: null };
+		await cacheSet(cacheKey, noneResult, 60 * 60 * 1000); // 1h — retry sooner
+		res.json(noneResult);
+		return;
+	}
 
-	// 24h for beat/miss (Gemini result is already cached internally); 1h for none
-	await cacheSet(cacheKey, result, signal !== "none" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
+	// Fetch Finnhub EPS history to pass into the consensus (cached 6h)
+	type FinnhubEpsEntry = { actual: number | null; estimate: number | null; period: string };
+	const epsHistKey = `eps-history:${symbol}`;
+	let epsHistory = await cacheGet<FinnhubEpsEntry[]>(epsHistKey);
+	if (!epsHistory) {
+		epsHistory = await finnhubGet(`/stock/earnings?symbol=${symbol}&limit=1`) as FinnhubEpsEntry[] | null;
+		if (epsHistory) await cacheSet(epsHistKey, epsHistory, 6 * 60 * 60 * 1000);
+	}
+	const latestEps = Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0] : null;
+
+	const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDate, {
+		epsActual: latestEps?.actual ?? null,
+		epsEstimate: latestEps?.estimate ?? null,
+	});
+
+	// Use consensus status; fall back to geminiSignal if consensus found nothing
+	const finalStatus = consensusResult.status !== "none" ? consensusResult.status : geminiSignal as "beat" | "miss";
+	const result: EarningsStatus = { status: finalStatus, date: reportDate };
+
+	await cacheSet(cacheKey, result, 24 * 60 * 60 * 1000);
 	res.json(result);
 });
