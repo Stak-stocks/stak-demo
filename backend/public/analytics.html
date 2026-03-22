@@ -231,10 +231,17 @@
       letter-spacing: 0.5px;
       background: #0b0f1a;
     }
+    .brands-table th .th-sub { display: block; font-size: 9px; font-weight: 500; color: #334155; text-transform: none; letter-spacing: 0; margin-top: 2px; }
     .brands-table tr:last-child td { border-bottom: none; }
     .brands-table tbody tr:hover td { background: #111827; }
     .rank { font-size: 12px; color: #334155; font-weight: 700; }
-    .ticker-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #1e293b; color: #94a3b8; }
+    .ticker-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #1e293b; color: #94a3b8; margin-left: 6px; }
+    .brand-bar-wrap { height: 4px; background: #1e293b; border-radius: 2px; margin-top: 5px; min-width: 60px; }
+    .brand-bar { height: 4px; background: #f97316; border-radius: 2px; }
+    .engage-rate { font-size: 12px; font-weight: 700; }
+    .engage-high { color: #4ade80; }
+    .engage-mid  { color: #facc15; }
+    .engage-low  { color: #94a3b8; }
 
     /* ── Tab breakdown ── */
     .tab-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
@@ -411,9 +418,10 @@
           <tr>
             <th>#</th>
             <th>Brand</th>
-            <th>Taps</th>
-            <th>Learn More</th>
-            <th>Total</th>
+            <th>Taps <span class="th-sub">opened brand detail</span></th>
+            <th>Learn More <span class="th-sub">tapped "learn more" link</span></th>
+            <th>Engagement % <span class="th-sub">learn more ÷ taps</span></th>
+            <th>Total Interactions <span class="th-sub">share of all brand activity</span></th>
           </tr>
         </thead>
         <tbody id="brandsBody"></tbody>
@@ -540,19 +548,31 @@
       // Top brands table
       const tbody = document.getElementById("brandsBody");
       tbody.innerHTML = "";
-      (d.topBrands || []).forEach((b, i) => {
+      const brands = d.topBrands || [];
+      const grandTotal = brands.reduce((sum, b) => sum + b.total, 0);
+      const maxTotal = brands.length > 0 ? brands[0].total : 1;
+      brands.forEach((b, i) => {
         const ticker = b.ticker ? `<span class="ticker-pill">${b.ticker}</span>` : "";
+        const engPct = b.taps > 0 ? Math.round((b.learnMore / b.taps) * 100) : 0;
+        const engClass = engPct >= 30 ? "engage-high" : engPct >= 10 ? "engage-mid" : "engage-low";
+        const sharePct = grandTotal > 0 ? Math.round((b.total / grandTotal) * 100) : 0;
+        const barWidth = maxTotal > 0 ? Math.round((b.total / maxTotal) * 100) : 0;
         tbody.innerHTML += `
           <tr>
             <td class="rank">${i + 1}</td>
-            <td>${b.brandId} ${ticker}</td>
-            <td>${b.taps}</td>
-            <td>${b.learnMore}</td>
-            <td><strong>${b.total}</strong></td>
+            <td><span style="font-weight:600;">${b.brandId}</span>${ticker}</td>
+            <td>${b.taps.toLocaleString()}</td>
+            <td>${b.learnMore.toLocaleString()}</td>
+            <td><span class="engage-rate ${engClass}">${engPct}%</span></td>
+            <td>
+              <strong>${b.total.toLocaleString()}</strong>
+              <span style="color:#475569;font-size:11px;margin-left:6px;">${sharePct}% of all</span>
+              <div class="brand-bar-wrap"><div class="brand-bar" style="width:${barWidth}%"></div></div>
+            </td>
           </tr>`;
       });
-      if ((d.topBrands || []).length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="color:#475569;text-align:center;padding:20px;">No brand interactions recorded yet.</td></tr>`;
+      if (brands.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px;">No brand interactions recorded yet.</td></tr>`;
       }
     }
 
