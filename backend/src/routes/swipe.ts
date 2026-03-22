@@ -59,14 +59,20 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 	}
 });
 
-// POST /api/swipe/event — record an engagement event (learn_more, removed_from_stak)
+// POST /api/swipe/event — record an engagement event
+// brandId is optional — supports both brand events (learn_more, brand_tap) and
+// non-brand events (tab_view, earnings_calendar_open, news_search, intel_card_view, etc.)
 swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { type, brandId, ticker, categories } = req.body;
+		const { type, brandId, ticker, categories, params } = req.body;
 		const uid = req.user!.uid;
 
-		if (!type || !brandId) {
-			res.status(400).json({ error: "type and brandId are required" });
+		if (!type) {
+			res.status(400).json({ error: "type is required" });
+			return;
+		}
+		if (brandId != null && typeof brandId !== "string") {
+			res.status(400).json({ error: "brandId must be a string" });
 			return;
 		}
 		if (ticker != null && typeof ticker !== "string") {
@@ -81,10 +87,11 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 		await adminDb.collection("events").add({
 			uid,
 			type,
-			brandId,
 			timestamp: new Date().toISOString(),
+			...(brandId != null && { brandId }),
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
+			...(params != null && { params }),
 		});
 
 		res.json({ success: true });

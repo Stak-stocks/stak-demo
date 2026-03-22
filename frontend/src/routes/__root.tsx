@@ -45,6 +45,7 @@ function Root() {
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0 });
 		document.body.style.overflow = "";
+		logEvent("page_view", { page_path: location.pathname });
 	}, [location.pathname]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly

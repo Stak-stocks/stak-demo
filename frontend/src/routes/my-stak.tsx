@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
 import { getBrandTrends } from "@/data/trends";
-import { getLiveTrends, getStockData, getVibes, recordEngagement } from "@/lib/api";
+import { getLiveTrends, getStockData, getVibes, recordEngagement, trackEvent } from "@/lib/api";
+import { logEvent } from "@/lib/firebase";
 import { StockNewsTab } from "@/components/StockNewsTab";
 import { useAccount } from "@/context/AccountContext";
 
@@ -182,6 +183,8 @@ function MyStakPage() {
 
 	const handleBrandClick = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
+		logEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
+		trackEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker }).catch(() => {});
 	};
 
 	const handleCloseDetail = () => {
@@ -255,7 +258,10 @@ function MyStakPage() {
 
 				{/* Scrollable content */}
 				<div className="flex-1 overflow-y-auto px-3 pb-[env(safe-area-inset-bottom,12px)] sm:px-6 sm:pb-6">
-					<Tabs defaultValue="vibe" className="w-full">
+					<Tabs defaultValue="vibe" className="w-full" onValueChange={(tab) => {
+						logEvent("tab_view", { tab, brand_id: selectedBrand?.id, brand_name: selectedBrand?.name });
+						trackEvent("tab_view", { tab, brand_id: selectedBrand?.id, brand_name: selectedBrand?.name }).catch(() => {});
+					}}>
 						<TabsList className="grid w-full grid-cols-4 bg-[#0f1629] border border-slate-700/50 shrink-0">
 							<TabsTrigger
 								value="vibe"

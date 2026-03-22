@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
-import { getMarketNews, searchNews } from "@/lib/api";
+import { getMarketNews, searchNews, trackEvent } from "@/lib/api";
+import { logEvent } from "@/lib/firebase";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
@@ -166,6 +167,8 @@ function FeedPage() {
 		if (q.length >= 2) {
 			setActiveQuery(q);
 			setVisibleCount(PAGE_SIZE);
+			logEvent("news_search", { query: q });
+			trackEvent("news_search", { query: q }).catch(() => {});
 		}
 	}
 
@@ -181,7 +184,10 @@ function FeedPage() {
 			<MarketBar />
 			{/* Earnings calendar — pinned top-left */}
 			<div className="flex justify-start px-4 pt-4">
-				<EarningsCalendarButton />
+				<EarningsCalendarButton onOpen={() => {
+				logEvent("earnings_calendar_open");
+				trackEvent("earnings_calendar_open").catch(() => {});
+			}} />
 			</div>
 			<div className="max-w-2xl mx-auto px-4 pt-2 pb-24">
 				{/* Header */}

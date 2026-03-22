@@ -212,10 +212,41 @@
     /* ── Period stats ── */
     #periodStats { display: none; }
 
+    /* ── Feature usage ── */
+    .event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+
+    /* ── Top brands table ── */
+    .brands-table { width: 100%; border-collapse: collapse; }
+    .brands-table th, .brands-table td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .brands-table th {
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #0b0f1a;
+    }
+    .brands-table tr:last-child td { border-bottom: none; }
+    .brands-table tbody tr:hover td { background: #111827; }
+    .rank { font-size: 12px; color: #334155; font-weight: 700; }
+    .ticker-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #1e293b; color: #94a3b8; }
+
+    /* ── Tab breakdown ── */
+    .tab-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    .tab-item { background: #111827; border: 1px solid #1e293b; border-radius: 10px; padding: 10px 16px; min-width: 100px; }
+    .tab-item-label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .tab-item-value { font-size: 22px; font-weight: 800; color: #22d3ee; }
+
     /* ── Footer ── */
     footer { margin-top: 48px; text-align: center; font-size: 11px; color: #1e293b; }
 
     #dashboard { display: none; }
+    #eventsSection { display: none; }
   </style>
 </head>
 <body>
@@ -361,6 +392,36 @@
 
   </div>
 
+  <!-- Events / Feature Usage (loaded separately) -->
+  <div id="eventsSection">
+
+    <!-- Feature usage counts -->
+    <div class="section-label" style="margin-top:36px;">Feature Usage · Last 30 Days</div>
+    <div class="event-grid" id="eventGrid"></div>
+
+    <!-- Tab view breakdown -->
+    <div class="section-label" style="margin-top:28px;">Tab Views · Last 30 Days</div>
+    <div class="tab-bar" id="tabBar"></div>
+
+    <!-- Top Brands -->
+    <div class="section-label" style="margin-top:28px;">Top Brands · Last 30 Days</div>
+    <div class="table-wrap">
+      <table class="brands-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Brand</th>
+            <th>Taps</th>
+            <th>Learn More</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="brandsBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
   <footer>STAK Internal Analytics · Confidential</footer>
 
   <script>
@@ -402,7 +463,10 @@
       setStatus("Fetching data...", "info");
 
       try {
-        const res = await fetch(`${url}/api/admin/analytics`, { headers: { "X-Admin-Secret": secret } });
+        const [res, eventsRes] = await Promise.all([
+          fetch(`${url}/api/admin/analytics`, { headers: { "X-Admin-Secret": secret } }),
+          fetch(`${url}/api/admin/analytics/events`, { headers: { "X-Admin-Secret": secret } }),
+        ]);
         if (res.status === 403) { setStatus("Forbidden — check your admin secret.", "error"); return; }
         if (!res.ok) { setStatus(`Error ${res.status}: ${res.statusText}`, "error"); return; }
 
@@ -410,6 +474,13 @@
         renderOverview(analyticsData);
         showPeriod("today");
         document.getElementById("dashboard").style.display = "block";
+
+        if (eventsRes.ok) {
+          const eventsData = await eventsRes.json();
+          renderEvents(eventsData);
+          document.getElementById("eventsSection").style.display = "block";
+        }
+
         document.getElementById("lastFetched").textContent = `Updated ${new Date().toLocaleTimeString()}`;
         hideStatus();
       } catch (e) {
@@ -417,6 +488,71 @@
       } finally {
         btn.disabled = false;
         btn.textContent = "Load Dashboard";
+      }
+    }
+
+    const EVENT_LABELS = {
+      swipe_right: "Swipe Right",
+      swipe_left: "Swipe Left",
+      brand_tap: "Brand Tap",
+      learn_more: "Learn More",
+      tab_view: "Tab View",
+      search_open: "Search Open",
+      news_search: "News Search",
+      earnings_calendar_open: "Earnings Calendar",
+      intel_card_view: "Intel Card View",
+      onboarding_complete: "Onboarding Complete",
+      page_view: "Page View",
+    };
+
+    const EVENT_COLORS = ["blue","purple","cyan","green","orange","","blue","purple","cyan","green","orange"];
+
+    function renderEvents(d) {
+      // Feature usage cards
+      const grid = document.getElementById("eventGrid");
+      grid.innerHTML = "";
+      const entries = Object.entries(d.countByType).sort((a,b) => b[1]-a[1]);
+      entries.forEach(([type, count], i) => {
+        const color = EVENT_COLORS[i % EVENT_COLORS.length];
+        const label = EVENT_LABELS[type] || type.replace(/_/g, " ");
+        grid.innerHTML += `
+          <div class="card ${color}">
+            <div class="card-label">${label}</div>
+            <div class="card-value ${color}">${count.toLocaleString()}</div>
+            <div class="card-sub">events</div>
+          </div>`;
+      });
+      if (entries.length === 0) grid.innerHTML = `<p style="color:#475569;font-size:13px;">No events recorded yet.</p>`;
+
+      // Tab breakdown
+      const tabBar = document.getElementById("tabBar");
+      tabBar.innerHTML = "";
+      const tabEntries = Object.entries(d.tabCounts || {}).sort((a,b) => b[1]-a[1]);
+      tabEntries.forEach(([tab, count]) => {
+        tabBar.innerHTML += `
+          <div class="tab-item">
+            <div class="tab-item-label">${tab}</div>
+            <div class="tab-item-value">${count.toLocaleString()}</div>
+          </div>`;
+      });
+      if (tabEntries.length === 0) tabBar.innerHTML = `<p style="color:#475569;font-size:13px;">No tab views recorded yet.</p>`;
+
+      // Top brands table
+      const tbody = document.getElementById("brandsBody");
+      tbody.innerHTML = "";
+      (d.topBrands || []).forEach((b, i) => {
+        const ticker = b.ticker ? `<span class="ticker-pill">${b.ticker}</span>` : "";
+        tbody.innerHTML += `
+          <tr>
+            <td class="rank">${i + 1}</td>
+            <td>${b.brandId} ${ticker}</td>
+            <td>${b.taps}</td>
+            <td>${b.learnMore}</td>
+            <td><strong>${b.total}</strong></td>
+          </tr>`;
+      });
+      if ((d.topBrands || []).length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:#475569;text-align:center;padding:20px;">No brand interactions recorded yet.</td></tr>`;
       }
     }
 

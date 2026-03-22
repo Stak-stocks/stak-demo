@@ -8,7 +8,8 @@ import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
-import { getIntelCards, recordEngagement } from "@/lib/api";
+import { getIntelCards, recordEngagement, trackEvent } from "@/lib/api";
+import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
@@ -275,16 +276,20 @@ function App() {
 
 		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
 		setActiveIntelCard(card);
+		logEvent("intel_card_view", { card_id: nextId });
+		trackEvent("intel_card_view", { card_id: nextId }).catch(() => {});
 	}, [allIntelCards, updateIntelState]);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
 		setModalOpen(true);
+		logEvent("learn_more", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	};
 
 	const handleSwipeRight = (brand: BrandProfile) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
+		logEvent("swipe_right", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 
 		// +2 per category for right swipe
 		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
@@ -353,6 +358,7 @@ function App() {
 	};
 
 	const handleSwipeLeft = useCallback((brand: BrandProfile) => {
+		logEvent("swipe_left", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		// -1 per category for left swipe
 		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
 		if (cats.length > 0) {
@@ -393,7 +399,11 @@ function App() {
 			<div className="flex justify-start px-4 pt-4">
 				<button
 					type="button"
-					onClick={() => window.dispatchEvent(new Event("open-search"))}
+					onClick={() => {
+					window.dispatchEvent(new Event("open-search"));
+					logEvent("search_open");
+					trackEvent("search_open").catch(() => {});
+				}}
 					className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
 					aria-label="Search"
 					title="Search"
