@@ -212,42 +212,23 @@
     /* ── Period stats ── */
     #periodStats { display: none; }
 
-    /* ── Feature usage ── */
-    .event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-
-    /* ── Top brands table ── */
-    .brands-table { width: 100%; border-collapse: collapse; }
-    .brands-table th, .brands-table td {
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 13px;
-      border-bottom: 1px solid #1e293b;
+    /* ── Feature engagement chart ── */
+    .feat-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid #0f172a;
     }
-    .brands-table th {
-      font-size: 10px;
-      font-weight: 700;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: #0b0f1a;
-    }
-    .brands-table th .th-sub { display: block; font-size: 9px; font-weight: 500; color: #334155; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-    .brands-table tr:last-child td { border-bottom: none; }
-    .brands-table tbody tr:hover td { background: #111827; }
-    .rank { font-size: 12px; color: #334155; font-weight: 700; }
-    .ticker-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #1e293b; color: #94a3b8; margin-left: 6px; }
-    .brand-bar-wrap { height: 4px; background: #1e293b; border-radius: 2px; margin-top: 5px; min-width: 60px; }
-    .brand-bar { height: 4px; background: #f97316; border-radius: 2px; }
-    .engage-rate { font-size: 12px; font-weight: 700; }
-    .engage-high { color: #4ade80; }
-    .engage-mid  { color: #facc15; }
-    .engage-low  { color: #94a3b8; }
-
-    /* ── Tab breakdown ── */
-    .tab-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
-    .tab-item { background: #111827; border: 1px solid #1e293b; border-radius: 10px; padding: 10px 16px; min-width: 100px; }
-    .tab-item-label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .tab-item-value { font-size: 22px; font-weight: 800; color: #22d3ee; }
+    .feat-row:last-child { border-bottom: none; }
+    .feat-rank { font-size: 11px; font-weight: 700; color: #334155; width: 18px; flex-shrink: 0; text-align: right; }
+    .feat-meta { width: 220px; flex-shrink: 0; }
+    .feat-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .feat-desc { font-size: 11px; color: #475569; margin-top: 2px; }
+    .feat-bar-wrap { flex: 1; height: 8px; background: #1e293b; border-radius: 4px; }
+    .feat-bar { height: 8px; border-radius: 4px; transition: width 0.4s ease; }
+    .feat-count { font-size: 13px; font-weight: 700; color: #e2e8f0; width: 60px; flex-shrink: 0; text-align: right; }
+    .feat-pct { font-size: 11px; color: #475569; width: 40px; flex-shrink: 0; text-align: right; }
 
     /* ── Footer ── */
     footer { margin-top: 48px; text-align: center; font-size: 11px; color: #1e293b; }
@@ -399,34 +380,12 @@
 
   </div>
 
-  <!-- Events / Feature Usage (loaded separately) -->
+  <!-- Feature Engagement (loaded separately) -->
   <div id="eventsSection">
 
-    <!-- Feature usage counts -->
-    <div class="section-label" style="margin-top:36px;">Feature Usage · Last 30 Days</div>
-    <div class="event-grid" id="eventGrid"></div>
-
-    <!-- Tab view breakdown -->
-    <div class="section-label" style="margin-top:28px;">Tab Views · Last 30 Days</div>
-    <div class="tab-bar" id="tabBar"></div>
-
-    <!-- Top Brands -->
-    <div class="section-label" style="margin-top:28px;">Top Brands · Last 30 Days</div>
-    <div class="table-wrap">
-      <table class="brands-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Brand</th>
-            <th>Taps <span class="th-sub">opened brand detail</span></th>
-            <th>Learn More <span class="th-sub">tapped "learn more" link</span></th>
-            <th>Engagement % <span class="th-sub">learn more ÷ taps</span></th>
-            <th>Total Interactions <span class="th-sub">share of all brand activity</span></th>
-          </tr>
-        </thead>
-        <tbody id="brandsBody"></tbody>
-      </table>
-    </div>
+    <div class="section-label" style="margin-top:36px;">Feature Engagement · Last 30 Days</div>
+    <p style="font-size:12px;color:#475569;margin-bottom:16px;">Ranked by total events — shows which parts of the app users interact with most.</p>
+    <div class="table-wrap" style="padding:8px 20px;" id="featChart"></div>
 
   </div>
 
@@ -499,81 +458,75 @@
       }
     }
 
-    const EVENT_LABELS = {
-      swipe_right: "Swipe Right",
-      swipe_left: "Swipe Left",
-      brand_tap: "Brand Tap",
-      learn_more: "Learn More",
-      tab_view: "Tab View",
-      search_open: "Search Open",
-      news_search: "News Search",
-      earnings_calendar_open: "Earnings Calendar",
-      intel_card_view: "Intel Card View",
-      onboarding_complete: "Onboarding Complete",
-      page_view: "Page View",
+    // Features we care about — explicit order + descriptions
+    const FEATURE_META = {
+      swipe_right:            { label: "Swipe Right",          desc: "User added a brand to their Stak",                  color: "#4ade80" },
+      swipe_left:             { label: "Swipe Left",           desc: "User passed on a brand",                            color: "#f87171" },
+      brand_tap:              { label: "Brand Tap",            desc: "Opened a brand detail sheet (My Stak)",             color: "#60a5fa" },
+      tab_view:               { label: "Tab View (any)",       desc: "Switched tabs inside a brand detail (all tabs)",    color: "#a78bfa" },
+      learn_more:             { label: "Learn More",           desc: "Tapped the external article / learn more link",     color: "#f97316" },
+      news_search:            { label: "News Search",          desc: "Searched for a topic in the Market News feed",      color: "#22d3ee" },
+      earnings_calendar_open: { label: "Earnings Calendar",    desc: "Opened the upcoming earnings calendar",             color: "#facc15" },
+      intel_card_view:        { label: "Intel Card",           desc: "Viewed a daily intel / insight card",               color: "#fb923c" },
+      search_open:            { label: "Search Open",          desc: "Opened the brand search / filter panel",            color: "#818cf8" },
+      onboarding_complete:    { label: "Onboarding Complete",  desc: "Finished onboarding and entered the app",           color: "#34d399" },
+      page_view:              { label: "Page View",            desc: "Any screen/route navigation",                       color: "#94a3b8" },
     };
 
-    const EVENT_COLORS = ["blue","purple","cyan","green","orange","","blue","purple","cyan","green","orange"];
-
     function renderEvents(d) {
-      // Feature usage cards
-      const grid = document.getElementById("eventGrid");
-      grid.innerHTML = "";
-      const entries = Object.entries(d.countByType).sort((a,b) => b[1]-a[1]);
-      entries.forEach(([type, count], i) => {
-        const color = EVENT_COLORS[i % EVENT_COLORS.length];
-        const label = EVENT_LABELS[type] || type.replace(/_/g, " ");
-        grid.innerHTML += `
-          <div class="card ${color}">
-            <div class="card-label">${label}</div>
-            <div class="card-value ${color}">${count.toLocaleString()}</div>
-            <div class="card-sub">events</div>
-          </div>`;
-      });
-      if (entries.length === 0) grid.innerHTML = `<p style="color:#475569;font-size:13px;">No events recorded yet.</p>`;
+      const chart = document.getElementById("featChart");
+      chart.innerHTML = "";
 
-      // Tab breakdown
-      const tabBar = document.getElementById("tabBar");
-      tabBar.innerHTML = "";
-      const tabEntries = Object.entries(d.tabCounts || {}).sort((a,b) => b[1]-a[1]);
-      tabEntries.forEach(([tab, count]) => {
-        tabBar.innerHTML += `
-          <div class="tab-item">
-            <div class="tab-item-label">${tab}</div>
-            <div class="tab-item-value">${count.toLocaleString()}</div>
-          </div>`;
-      });
-      if (tabEntries.length === 0) tabBar.innerHTML = `<p style="color:#475569;font-size:13px;">No tab views recorded yet.</p>`;
+      // Merge tab breakdown into countByType as sub-entries
+      const counts = { ...d.countByType };
 
-      // Top brands table
-      const tbody = document.getElementById("brandsBody");
-      tbody.innerHTML = "";
-      const brands = d.topBrands || [];
-      const grandTotal = brands.reduce((sum, b) => sum + b.total, 0);
-      const maxTotal = brands.length > 0 ? brands[0].total : 1;
-      brands.forEach((b, i) => {
-        const ticker = b.ticker ? `<span class="ticker-pill">${b.ticker}</span>` : "";
-        const engPct = b.taps > 0 ? Math.round((b.learnMore / b.taps) * 100) : 0;
-        const engClass = engPct >= 30 ? "engage-high" : engPct >= 10 ? "engage-mid" : "engage-low";
-        const sharePct = grandTotal > 0 ? Math.round((b.total / grandTotal) * 100) : 0;
-        const barWidth = maxTotal > 0 ? Math.round((b.total / maxTotal) * 100) : 0;
-        tbody.innerHTML += `
-          <tr>
-            <td class="rank">${i + 1}</td>
-            <td><span style="font-weight:600;">${b.brandId}</span>${ticker}</td>
-            <td>${b.taps.toLocaleString()}</td>
-            <td>${b.learnMore.toLocaleString()}</td>
-            <td><span class="engage-rate ${engClass}">${engPct}%</span></td>
-            <td>
-              <strong>${b.total.toLocaleString()}</strong>
-              <span style="color:#475569;font-size:11px;margin-left:6px;">${sharePct}% of all</span>
-              <div class="brand-bar-wrap"><div class="brand-bar" style="width:${barWidth}%"></div></div>
-            </td>
-          </tr>`;
-      });
-      if (brands.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px;">No brand interactions recorded yet.</td></tr>`;
+      // Build ranked list: known features first (in FEATURE_META order), then any unknown ones
+      const allTypes = [
+        ...Object.keys(FEATURE_META).filter(k => counts[k] > 0),
+        ...Object.keys(counts).filter(k => !FEATURE_META[k] && k !== "tab_view"),
+      ];
+
+      // Expand tab_view into per-tab rows right after the tab_view row
+      const rows = [];
+      for (const type of allTypes) {
+        rows.push({ type, count: counts[type] || 0, isTab: false });
+        if (type === "tab_view" && d.tabCounts) {
+          const tabs = Object.entries(d.tabCounts).sort((a, b) => b[1] - a[1]);
+          for (const [tab, cnt] of tabs) {
+            rows.push({ type: `  ↳ ${tab} tab`, count: cnt, isTab: true });
+          }
+        }
       }
+
+      if (rows.length === 0) {
+        chart.innerHTML = `<p style="color:#475569;font-size:13px;padding:12px 0;">No events recorded yet.</p>`;
+        return;
+      }
+
+      const maxCount = Math.max(...rows.filter(r => !r.isTab).map(r => r.count), 1);
+      const totalEvents = rows.filter(r => !r.isTab).reduce((s, r) => s + r.count, 0);
+
+      rows.forEach((row, i) => {
+        const meta = FEATURE_META[row.type] || { label: row.type.replace(/_/g, " "), desc: "", color: "#64748b" };
+        const barColor = row.isTab ? "#334155" : meta.color;
+        const barWidth = row.isTab ? 0 : Math.round((row.count / maxCount) * 100);
+        const sharePct = (!row.isTab && totalEvents > 0) ? ((row.count / totalEvents) * 100).toFixed(1) : null;
+        const rank = row.isTab ? "" : (i + 1 - rows.slice(0, i).filter(r => r.isTab).length);
+
+        chart.innerHTML += `
+          <div class="feat-row" style="${row.isTab ? "padding-left:30px;opacity:0.7;" : ""}">
+            <span class="feat-rank">${row.isTab ? "" : rank}</span>
+            <div class="feat-meta">
+              <div class="feat-name" style="color:${row.isTab ? "#64748b" : "#e2e8f0"}">${row.isTab ? row.type : meta.label}</div>
+              ${!row.isTab && meta.desc ? `<div class="feat-desc">${meta.desc}</div>` : ""}
+            </div>
+            <div class="feat-bar-wrap">
+              <div class="feat-bar" style="width:${row.isTab ? Math.round((row.count / (counts.tab_view || 1)) * 100) : barWidth}%;background:${barColor};"></div>
+            </div>
+            <span class="feat-count">${row.count.toLocaleString()}</span>
+            <span class="feat-pct">${sharePct !== null ? sharePct + "%" : ""}</span>
+          </div>`;
+      });
     }
 
     function renderOverview(d) {
