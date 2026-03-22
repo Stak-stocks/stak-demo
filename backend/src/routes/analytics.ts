@@ -275,6 +275,64 @@ analyticsRouter.get("/range", async (req: Request, res: Response) => {
 	}
 });
 
+// GET /api/admin/analytics/events — feature usage from the events collection
+analyticsRouter.get("/events", async (req: Request, res: Response) => {
+	if (!checkAdminSecret(req, res)) return;
+
+	try {
+		const excluded = await getExcludedUids();
+		const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+		const snap = await adminDb.collection("events")
+			.where("timestamp", ">=", since)
+			.get();
+
+		interface EventDoc {
+			uid: string;
+			type: string;
+			brandId?: string;
+			ticker?: string;
+			params?: Record<string, unknown>;
+			timestamp: string;
+		}
+
+		const events = snap.docs
+			.map((d) => d.data() as EventDoc)
+			.filter((e) => !excluded.has(e.uid));
+
+		// ── Feature usage counts ──────────────────────────────────────────────
+		const countByType: Record<string, number> = {};
+		for (const e of events) {
+			countByType[e.type] = (countByType[e.type] ?? 0) + 1;
+		}
+
+		// ── Tab view breakdown ────────────────────────────────────────────────
+		const tabCounts: Record<string, number> = {};
+		for (const e of events.filter((e) => e.type === "tab_view")) {
+			const tab = (e.params?.tab as string) ?? "unknown";
+			tabCounts[tab] = (tabCounts[tab] ?? 0) + 1;
+		}
+
+		// ── Top brands by brand_tap + learn_more ──────────────────────────────
+		const brandCounts: Record<string, { brandId: string; ticker?: string; taps: number; learnMore: number }> = {};
+		for (const e of events.filter((e) => e.brandId && (e.type === "brand_tap" || e.type === "learn_more"))) {
+			const id = e.brandId!;
+			if (!brandCounts[id]) brandCounts[id] = { brandId: id, ticker: e.ticker, taps: 0, learnMore: 0 };
+			if (e.type === "brand_tap") brandCounts[id].taps++;
+			if (e.type === "learn_more") brandCounts[id].learnMore++;
+		}
+		const topBrands = Object.values(brandCounts)
+			.map((b) => ({ ...b, total: b.taps + b.learnMore }))
+			.sort((a, b) => b.total - a.total)
+			.slice(0, 20);
+
+		res.json({ periodDays: 30, countByType, tabCounts, topBrands });
+	} catch (error) {
+		console.error("Error fetching event analytics:", error);
+		res.status(500).json({ error: "Failed to fetch event analytics" });
+	}
+});
+
 // POST /api/admin/analytics/backfill-sessions
 // One-time: populates sessions collection from historical swipe data
 analyticsRouter.post("/backfill-sessions", async (req: Request, res: Response) => {

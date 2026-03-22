@@ -60,7 +60,7 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 	);
 }
 
-export function EarningsCalendarButton() {
+export function EarningsCalendarButton({ onOpen }: { onOpen?: () => void } = {}) {
 	const [open, setOpen] = useState(false);
 	const { account } = useAccount();
 
@@ -134,7 +134,7 @@ export function EarningsCalendarButton() {
 	return (
 		<>
 			<button
-				onClick={() => setOpen(true)}
+				onClick={() => { setOpen(true); onOpen?.(); }}
 				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all"
 			title="Earnings Calendar"
 			>

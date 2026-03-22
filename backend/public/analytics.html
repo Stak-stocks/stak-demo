@@ -212,10 +212,57 @@
     /* ── Period stats ── */
     #periodStats { display: none; }
 
+    /* ── Feature engagement table ── */
+    .feat-table { width: 100%; border-collapse: collapse; }
+    .feat-table th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #0b0f1a;
+      border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
+    }
+    .feat-table td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #0f172a;
+      vertical-align: middle;
+    }
+    .feat-table tbody tr:last-child td { border-bottom: none; }
+    .feat-table tbody tr:hover td { background: #0f172a; }
+    .feat-table tbody tr.tab-sub td { background: transparent; padding-top: 6px; padding-bottom: 6px; }
+    .feat-table tbody tr.tab-sub:hover td { background: #0a0f1a; }
+    .feat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+    .feat-action { font-weight: 600; color: #e2e8f0; }
+    .feat-action-desc { font-size: 11px; color: #475569; margin-top: 2px; }
+    .page-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .page-discover  { background: #1e3a5f; color: #60a5fa; }
+    .page-mystak    { background: #1a2e40; color: #22d3ee; }
+    .page-feed      { background: #1e293b; color: #a78bfa; }
+    .page-onboarding{ background: #14291e; color: #4ade80; }
+    .feat-bar-cell { min-width: 140px; }
+    .feat-bar-bg { height: 6px; background: #1e293b; border-radius: 3px; }
+    .feat-bar-fill { height: 6px; border-radius: 3px; }
+    .feat-num { font-weight: 700; color: #e2e8f0; text-align: right; white-space: nowrap; }
+    .feat-pct-cell { color: #475569; font-size: 12px; text-align: right; white-space: nowrap; }
+    .rank-num { color: #334155; font-weight: 700; font-size: 12px; }
+
     /* ── Footer ── */
     footer { margin-top: 48px; text-align: center; font-size: 11px; color: #1e293b; }
 
     #dashboard { display: none; }
+    #eventsSection { display: none; }
   </style>
 </head>
 <body>
@@ -361,6 +408,29 @@
 
   </div>
 
+  <!-- Feature Engagement (loaded separately) -->
+  <div id="eventsSection">
+
+    <div class="section-label" style="margin-top:36px;">Feature Engagement · Last 30 Days</div>
+    <p style="font-size:12px;color:#475569;margin-bottom:16px;">Which actions users take most, and on which screen.</p>
+    <div class="table-wrap" id="featChart">
+      <table class="feat-table">
+        <thead>
+          <tr>
+            <th style="width:28px;">#</th>
+            <th>Action</th>
+            <th>Screen</th>
+            <th class="feat-bar-cell">Usage</th>
+            <th style="text-align:right;">Events</th>
+            <th style="text-align:right;">% of total</th>
+          </tr>
+        </thead>
+        <tbody id="featTbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
   <footer>STAK Internal Analytics · Confidential</footer>
 
   <script>
@@ -402,7 +472,10 @@
       setStatus("Fetching data...", "info");
 
       try {
-        const res = await fetch(`${url}/api/admin/analytics`, { headers: { "X-Admin-Secret": secret } });
+        const [res, eventsRes] = await Promise.all([
+          fetch(`${url}/api/admin/analytics`, { headers: { "X-Admin-Secret": secret } }),
+          fetch(`${url}/api/admin/analytics/events`, { headers: { "X-Admin-Secret": secret } }),
+        ]);
         if (res.status === 403) { setStatus("Forbidden — check your admin secret.", "error"); return; }
         if (!res.ok) { setStatus(`Error ${res.status}: ${res.statusText}`, "error"); return; }
 
@@ -410,6 +483,13 @@
         renderOverview(analyticsData);
         showPeriod("today");
         document.getElementById("dashboard").style.display = "block";
+
+        if (eventsRes.ok) {
+          const eventsData = await eventsRes.json();
+          renderEvents(eventsData);
+          document.getElementById("eventsSection").style.display = "block";
+        }
+
         document.getElementById("lastFetched").textContent = `Updated ${new Date().toLocaleTimeString()}`;
         hideStatus();
       } catch (e) {
@@ -418,6 +498,88 @@
         btn.disabled = false;
         btn.textContent = "Load Dashboard";
       }
+    }
+
+    const FEATURE_META = {
+      swipe_right:            { label: "Swipe Right",         desc: "Added a brand to their Stak",              page: "Discover",    pageClass: "page-discover",   color: "#4ade80" },
+      swipe_left:             { label: "Swipe Left",          desc: "Passed on a brand",                        page: "Discover",    pageClass: "page-discover",   color: "#f87171" },
+      brand_tap:              { label: "Brand Tap",           desc: "Opened a brand detail sheet",              page: "My Stak",     pageClass: "page-mystak",     color: "#60a5fa" },
+      tab_view:               { label: "Tab View",            desc: "Switched tabs in brand detail",            page: "My Stak",     pageClass: "page-mystak",     color: "#a78bfa" },
+      learn_more:             { label: "Learn More",          desc: "Tapped the external article link",         page: "My Stak",     pageClass: "page-mystak",     color: "#f97316" },
+      removed_from_stak:      { label: "Removed from Stak",  desc: "Removed a brand from their portfolio",     page: "My Stak",     pageClass: "page-mystak",     color: "#fb7185" },
+      news_search:            { label: "News Search",         desc: "Searched for a topic in the news feed",    page: "Feed",        pageClass: "page-feed",       color: "#22d3ee" },
+      earnings_calendar_open: { label: "Earnings Calendar",  desc: "Opened the upcoming earnings calendar",    page: "Feed",        pageClass: "page-feed",       color: "#facc15" },
+      intel_card_view:        { label: "Intel Card",          desc: "Viewed a daily insight card",              page: "Discover",    pageClass: "page-discover",   color: "#fb923c" },
+      search_open:            { label: "Search Open",         desc: "Opened the brand search panel",            page: "Discover",    pageClass: "page-discover",   color: "#818cf8" },
+      onboarding_complete:    { label: "Onboarding Complete", desc: "Finished onboarding and entered the app",  page: "Onboarding",  pageClass: "page-onboarding", color: "#34d399" },
+      page_view:              { label: "Page View",           desc: "Any screen navigation",                    page: "All screens", pageClass: "",                color: "#94a3b8" },
+    };
+
+    function renderEvents(d) {
+      const tbody = document.getElementById("featTbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      const counts = { ...d.countByType };
+
+      // Known types in display order, then any unknown extras
+      const orderedTypes = [
+        ...Object.keys(FEATURE_META).filter(k => counts[k] > 0),
+        ...Object.keys(counts).filter(k => !FEATURE_META[k]),
+      ].sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+
+      if (orderedTypes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px;">No events recorded yet.</td></tr>`;
+        return;
+      }
+
+      const maxCount = Math.max(...orderedTypes.map(t => counts[t] || 0), 1);
+      const totalEvents = orderedTypes.reduce((s, t) => s + (counts[t] || 0), 0);
+      let rank = 0;
+
+      orderedTypes.forEach(type => {
+        const meta = FEATURE_META[type] || { label: type.replace(/_/g, " "), desc: "", page: "—", pageClass: "", color: "#64748b" };
+        const count = counts[type] || 0;
+        rank++;
+        const barWidth = Math.round((count / maxCount) * 100);
+        const sharePct = totalEvents > 0 ? ((count / totalEvents) * 100).toFixed(1) : "0.0";
+        const pagePill = meta.page ? `<span class="page-pill ${meta.pageClass}">${meta.page}</span>` : "—";
+
+        tbody.innerHTML += `
+          <tr>
+            <td class="rank-num">${rank}</td>
+            <td>
+              <span class="feat-dot" style="background:${meta.color};"></span><span class="feat-action">${meta.label}</span>
+              ${meta.desc ? `<div class="feat-action-desc" style="padding-left:16px;">${meta.desc}</div>` : ""}
+            </td>
+            <td>${pagePill}</td>
+            <td class="feat-bar-cell">
+              <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${barWidth}%;background:${meta.color};"></div></div>
+            </td>
+            <td class="feat-num">${count.toLocaleString()}</td>
+            <td class="feat-pct-cell">${sharePct}%</td>
+          </tr>`;
+
+        // Expand tab_view into sub-rows
+        if (type === "tab_view" && d.tabCounts) {
+          const tabs = Object.entries(d.tabCounts).sort((a, b) => b[1] - a[1]);
+          const tabTotal = Math.max(...tabs.map(t => t[1]), 1);
+          tabs.forEach(([tab, cnt]) => {
+            const tabBar = Math.round((cnt / tabTotal) * 100);
+            tbody.innerHTML += `
+              <tr class="tab-sub">
+                <td></td>
+                <td style="color:#475569;font-size:12px;padding-left:32px;">↳ ${tab} tab</td>
+                <td></td>
+                <td class="feat-bar-cell">
+                  <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${tabBar}%;background:#334155;"></div></div>
+                </td>
+                <td class="feat-num" style="color:#475569;font-size:12px;">${cnt.toLocaleString()}</td>
+                <td class="feat-pct-cell">${count > 0 ? ((cnt/count)*100).toFixed(0) : 0}%</td>
+              </tr>`;
+          });
+        }
+      });
     }
 
     function renderOverview(d) {

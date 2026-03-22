@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
-import { updateProfile } from "@/lib/api";
-import { auth } from "@/lib/firebase";
+import { updateProfile, trackEvent } from "@/lib/api";
+import { auth, logEvent } from "@/lib/firebase";
 
 import {
 	INTEREST_OPTIONS,
@@ -731,6 +731,9 @@ function BuildingStep({
 		updateProfile({ onboardingCompleted: true, preferences: prefs })
 			.then(() => refreshClaims())
 			.catch(() => { });
+
+		logEvent("onboarding_complete", { interests: prefs.interests });
+		trackEvent("onboarding_complete", { interests: prefs.interests }).catch(() => {});
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);

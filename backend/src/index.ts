@@ -68,6 +68,9 @@ app.use("/api/stocks", publicLimiter, iposRouter);
 app.use("/api/vibes", publicLimiter, vibesRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
 
+// Convenience redirect: /analytics → /analytics.html
+app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));
+
 // Health check
 app.get("/api/health", (_req, res) => {
 	res.json({ status: "ok" });

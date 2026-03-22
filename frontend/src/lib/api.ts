@@ -99,6 +99,17 @@ export function recordEngagement(
 	});
 }
 
+/** Track any named event to Firestore (shows up in the analytics dashboard). */
+export function trackEvent(
+	type: string,
+	params?: Record<string, unknown>,
+) {
+	return apiRequest("/api/swipe/event", {
+		method: "POST",
+		body: JSON.stringify({ type, params }),
+	});
+}
+
 // Live Trends (Gemini-generated, cached 3 days in Firestore)
 export function getLiveTrends(brandId: string, ticker: string, name: string) {
 	return apiRequest<{ cards: import("@/data/brands").TrendCard[]; brandId: string }>(
