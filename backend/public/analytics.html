@@ -212,23 +212,51 @@
     /* ── Period stats ── */
     #periodStats { display: none; }
 
-    /* ── Feature engagement chart ── */
-    .feat-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 0;
-      border-bottom: 1px solid #0f172a;
+    /* ── Feature engagement table ── */
+    .feat-table { width: 100%; border-collapse: collapse; }
+    .feat-table th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #0b0f1a;
+      border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
     }
-    .feat-row:last-child { border-bottom: none; }
-    .feat-rank { font-size: 11px; font-weight: 700; color: #334155; width: 18px; flex-shrink: 0; text-align: right; }
-    .feat-meta { width: 220px; flex-shrink: 0; }
-    .feat-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
-    .feat-desc { font-size: 11px; color: #475569; margin-top: 2px; }
-    .feat-bar-wrap { flex: 1; height: 8px; background: #1e293b; border-radius: 4px; }
-    .feat-bar { height: 8px; border-radius: 4px; transition: width 0.4s ease; }
-    .feat-count { font-size: 13px; font-weight: 700; color: #e2e8f0; width: 60px; flex-shrink: 0; text-align: right; }
-    .feat-pct { font-size: 11px; color: #475569; width: 40px; flex-shrink: 0; text-align: right; }
+    .feat-table td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #0f172a;
+      vertical-align: middle;
+    }
+    .feat-table tbody tr:last-child td { border-bottom: none; }
+    .feat-table tbody tr:hover td { background: #0f172a; }
+    .feat-table tbody tr.tab-sub td { background: transparent; padding-top: 6px; padding-bottom: 6px; }
+    .feat-table tbody tr.tab-sub:hover td { background: #0a0f1a; }
+    .feat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+    .feat-action { font-weight: 600; color: #e2e8f0; }
+    .feat-action-desc { font-size: 11px; color: #475569; margin-top: 2px; }
+    .page-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .page-discover  { background: #1e3a5f; color: #60a5fa; }
+    .page-mystak    { background: #1a2e40; color: #22d3ee; }
+    .page-feed      { background: #1e293b; color: #a78bfa; }
+    .page-onboarding{ background: #14291e; color: #4ade80; }
+    .feat-bar-cell { min-width: 140px; }
+    .feat-bar-bg { height: 6px; background: #1e293b; border-radius: 3px; }
+    .feat-bar-fill { height: 6px; border-radius: 3px; }
+    .feat-num { font-weight: 700; color: #e2e8f0; text-align: right; white-space: nowrap; }
+    .feat-pct-cell { color: #475569; font-size: 12px; text-align: right; white-space: nowrap; }
+    .rank-num { color: #334155; font-weight: 700; font-size: 12px; }
 
     /* ── Footer ── */
     footer { margin-top: 48px; text-align: center; font-size: 11px; color: #1e293b; }
@@ -384,8 +412,22 @@
   <div id="eventsSection">
 
     <div class="section-label" style="margin-top:36px;">Feature Engagement · Last 30 Days</div>
-    <p style="font-size:12px;color:#475569;margin-bottom:16px;">Ranked by total events — shows which parts of the app users interact with most.</p>
-    <div class="table-wrap" style="padding:8px 20px;" id="featChart"></div>
+    <p style="font-size:12px;color:#475569;margin-bottom:16px;">Which actions users take most, and on which screen.</p>
+    <div class="table-wrap" id="featChart">
+      <table class="feat-table">
+        <thead>
+          <tr>
+            <th style="width:28px;">#</th>
+            <th>Action</th>
+            <th>Screen</th>
+            <th class="feat-bar-cell">Usage</th>
+            <th style="text-align:right;">Events</th>
+            <th style="text-align:right;">% of total</th>
+          </tr>
+        </thead>
+        <tbody id="featTbody"></tbody>
+      </table>
+    </div>
 
   </div>
 
@@ -458,75 +500,85 @@
       }
     }
 
-    // Features we care about — explicit order + descriptions
     const FEATURE_META = {
-      swipe_right:            { label: "Swipe Right",          desc: "User added a brand to their Stak",                  color: "#4ade80" },
-      swipe_left:             { label: "Swipe Left",           desc: "User passed on a brand",                            color: "#f87171" },
-      brand_tap:              { label: "Brand Tap",            desc: "Opened a brand detail sheet (My Stak)",             color: "#60a5fa" },
-      tab_view:               { label: "Tab View (any)",       desc: "Switched tabs inside a brand detail (all tabs)",    color: "#a78bfa" },
-      learn_more:             { label: "Learn More",           desc: "Tapped the external article / learn more link",     color: "#f97316" },
-      news_search:            { label: "News Search",          desc: "Searched for a topic in the Market News feed",      color: "#22d3ee" },
-      earnings_calendar_open: { label: "Earnings Calendar",    desc: "Opened the upcoming earnings calendar",             color: "#facc15" },
-      intel_card_view:        { label: "Intel Card",           desc: "Viewed a daily intel / insight card",               color: "#fb923c" },
-      search_open:            { label: "Search Open",          desc: "Opened the brand search / filter panel",            color: "#818cf8" },
-      onboarding_complete:    { label: "Onboarding Complete",  desc: "Finished onboarding and entered the app",           color: "#34d399" },
-      removed_from_stak:      { label: "Removed from Stak",   desc: "User removed a brand from their portfolio",         color: "#f87171" },
-      page_view:              { label: "Page View",            desc: "Any screen/route navigation",                       color: "#94a3b8" },
+      swipe_right:            { label: "Swipe Right",         desc: "Added a brand to their Stak",              page: "Discover",    pageClass: "page-discover",   color: "#4ade80" },
+      swipe_left:             { label: "Swipe Left",          desc: "Passed on a brand",                        page: "Discover",    pageClass: "page-discover",   color: "#f87171" },
+      brand_tap:              { label: "Brand Tap",           desc: "Opened a brand detail sheet",              page: "My Stak",     pageClass: "page-mystak",     color: "#60a5fa" },
+      tab_view:               { label: "Tab View",            desc: "Switched tabs in brand detail",            page: "My Stak",     pageClass: "page-mystak",     color: "#a78bfa" },
+      learn_more:             { label: "Learn More",          desc: "Tapped the external article link",         page: "My Stak",     pageClass: "page-mystak",     color: "#f97316" },
+      removed_from_stak:      { label: "Removed from Stak",  desc: "Removed a brand from their portfolio",     page: "My Stak",     pageClass: "page-mystak",     color: "#fb7185" },
+      news_search:            { label: "News Search",         desc: "Searched for a topic in the news feed",    page: "Feed",        pageClass: "page-feed",       color: "#22d3ee" },
+      earnings_calendar_open: { label: "Earnings Calendar",  desc: "Opened the upcoming earnings calendar",    page: "Feed",        pageClass: "page-feed",       color: "#facc15" },
+      intel_card_view:        { label: "Intel Card",          desc: "Viewed a daily insight card",              page: "Discover",    pageClass: "page-discover",   color: "#fb923c" },
+      search_open:            { label: "Search Open",         desc: "Opened the brand search panel",            page: "Discover",    pageClass: "page-discover",   color: "#818cf8" },
+      onboarding_complete:    { label: "Onboarding Complete", desc: "Finished onboarding and entered the app",  page: "Onboarding",  pageClass: "page-onboarding", color: "#34d399" },
+      page_view:              { label: "Page View",           desc: "Any screen navigation",                    page: "All screens", pageClass: "",                color: "#94a3b8" },
     };
 
     function renderEvents(d) {
-      const chart = document.getElementById("featChart");
-      chart.innerHTML = "";
+      const tbody = document.getElementById("featTbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
 
-      // Merge tab breakdown into countByType as sub-entries
       const counts = { ...d.countByType };
 
-      // Build ranked list: known features first (in FEATURE_META order), then any unknown ones
-      const allTypes = [
+      // Known types in display order, then any unknown extras
+      const orderedTypes = [
         ...Object.keys(FEATURE_META).filter(k => counts[k] > 0),
-        ...Object.keys(counts).filter(k => !FEATURE_META[k] && k !== "tab_view"),
-      ];
+        ...Object.keys(counts).filter(k => !FEATURE_META[k]),
+      ].sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
 
-      // Expand tab_view into per-tab rows right after the tab_view row
-      const rows = [];
-      for (const type of allTypes) {
-        rows.push({ type, count: counts[type] || 0, isTab: false });
-        if (type === "tab_view" && d.tabCounts) {
-          const tabs = Object.entries(d.tabCounts).sort((a, b) => b[1] - a[1]);
-          for (const [tab, cnt] of tabs) {
-            rows.push({ type: `  ↳ ${tab} tab`, count: cnt, isTab: true });
-          }
-        }
-      }
-
-      if (rows.length === 0) {
-        chart.innerHTML = `<p style="color:#475569;font-size:13px;padding:12px 0;">No events recorded yet.</p>`;
+      if (orderedTypes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px;">No events recorded yet.</td></tr>`;
         return;
       }
 
-      const maxCount = Math.max(...rows.filter(r => !r.isTab).map(r => r.count), 1);
-      const totalEvents = rows.filter(r => !r.isTab).reduce((s, r) => s + r.count, 0);
+      const maxCount = Math.max(...orderedTypes.map(t => counts[t] || 0), 1);
+      const totalEvents = orderedTypes.reduce((s, t) => s + (counts[t] || 0), 0);
+      let rank = 0;
 
-      rows.forEach((row, i) => {
-        const meta = FEATURE_META[row.type] || { label: row.type.replace(/_/g, " "), desc: "", color: "#64748b" };
-        const barColor = row.isTab ? "#334155" : meta.color;
-        const barWidth = row.isTab ? 0 : Math.round((row.count / maxCount) * 100);
-        const sharePct = (!row.isTab && totalEvents > 0) ? ((row.count / totalEvents) * 100).toFixed(1) : null;
-        const rank = row.isTab ? "" : (i + 1 - rows.slice(0, i).filter(r => r.isTab).length);
+      orderedTypes.forEach(type => {
+        const meta = FEATURE_META[type] || { label: type.replace(/_/g, " "), desc: "", page: "—", pageClass: "", color: "#64748b" };
+        const count = counts[type] || 0;
+        rank++;
+        const barWidth = Math.round((count / maxCount) * 100);
+        const sharePct = totalEvents > 0 ? ((count / totalEvents) * 100).toFixed(1) : "0.0";
+        const pagePill = meta.page ? `<span class="page-pill ${meta.pageClass}">${meta.page}</span>` : "—";
 
-        chart.innerHTML += `
-          <div class="feat-row" style="${row.isTab ? "padding-left:30px;opacity:0.7;" : ""}">
-            <span class="feat-rank">${row.isTab ? "" : rank}</span>
-            <div class="feat-meta">
-              <div class="feat-name" style="color:${row.isTab ? "#64748b" : "#e2e8f0"}">${row.isTab ? row.type : meta.label}</div>
-              ${!row.isTab && meta.desc ? `<div class="feat-desc">${meta.desc}</div>` : ""}
-            </div>
-            <div class="feat-bar-wrap">
-              <div class="feat-bar" style="width:${row.isTab ? Math.round((row.count / (counts.tab_view || 1)) * 100) : barWidth}%;background:${barColor};"></div>
-            </div>
-            <span class="feat-count">${row.count.toLocaleString()}</span>
-            <span class="feat-pct">${sharePct !== null ? sharePct + "%" : ""}</span>
-          </div>`;
+        tbody.innerHTML += `
+          <tr>
+            <td class="rank-num">${rank}</td>
+            <td>
+              <span class="feat-dot" style="background:${meta.color};"></span><span class="feat-action">${meta.label}</span>
+              ${meta.desc ? `<div class="feat-action-desc" style="padding-left:16px;">${meta.desc}</div>` : ""}
+            </td>
+            <td>${pagePill}</td>
+            <td class="feat-bar-cell">
+              <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${barWidth}%;background:${meta.color};"></div></div>
+            </td>
+            <td class="feat-num">${count.toLocaleString()}</td>
+            <td class="feat-pct-cell">${sharePct}%</td>
+          </tr>`;
+
+        // Expand tab_view into sub-rows
+        if (type === "tab_view" && d.tabCounts) {
+          const tabs = Object.entries(d.tabCounts).sort((a, b) => b[1] - a[1]);
+          const tabTotal = Math.max(...tabs.map(t => t[1]), 1);
+          tabs.forEach(([tab, cnt]) => {
+            const tabBar = Math.round((cnt / tabTotal) * 100);
+            tbody.innerHTML += `
+              <tr class="tab-sub">
+                <td></td>
+                <td style="color:#475569;font-size:12px;padding-left:32px;">↳ ${tab} tab</td>
+                <td></td>
+                <td class="feat-bar-cell">
+                  <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${tabBar}%;background:#334155;"></div></div>
+                </td>
+                <td class="feat-num" style="color:#475569;font-size:12px;">${cnt.toLocaleString()}</td>
+                <td class="feat-pct-cell">${count > 0 ? ((cnt/count)*100).toFixed(0) : 0}%</td>
+              </tr>`;
+          });
+        }
       });
     }
 
