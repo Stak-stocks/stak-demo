@@ -9,6 +9,30 @@ const SEARCH_NEWS_TTL_MS  =  5 * 60 * 1000; //  5 minutes
 
 export const newsRouter = Router();
 
+// ── Non-financial content filter ─────────────────────────────────────────────
+const NON_FINANCIAL_KEYWORDS = [
+	// Academic / research
+	"researchgate", "abstract", "methodology", "case study", "literature review",
+	"peer-reviewed", "peer reviewed", "scientific american", "arxiv", "pubmed",
+	"scientific reports", "journal of", "clinical trial", "meta-analysis",
+	// Entertainment
+	"movie", "film review", "tv show", "trailer", "director", "cast member",
+	"actor", "actress", "celebrity", "album release", "concert", "spoiler",
+	"streaming now", "box office", "grammy", "oscar", "emmy", "golden globe",
+	// Sports (non-financial)
+	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
+	"match result", "game recap", "touchdown", "hat trick", "transfer window",
+	// Personal finance / lifestyle
+	"side hustle", "passive income", "how i earned", "quit my job", "started a business",
+	"budgeting tips", "credit score", "retirement tips", "career advice",
+	"entrepreneurship tips", "get rich", "financial freedom", "dave ramsey",
+];
+
+function isNonFinancial(headline: string, summary: string): boolean {
+	const text = `${headline} ${summary}`.toLowerCase();
+	return NON_FINANCIAL_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 // ── Topic diversity cap ───────────────────────────────────────────────────────
 const STOP_WORDS = new Set([
 	"the","and","for","that","with","this","from","have","will","been","their",
@@ -179,7 +203,8 @@ newsRouter.get("/search", async (req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const articles = await searchNewsArticles(q);
+		const raw = await searchNewsArticles(q);
+		const articles = raw.filter((a) => !isNonFinancial(a.headline, a.summary));
 		if (articles.length === 0) {
 			res.json({ articles: [] });
 			return;

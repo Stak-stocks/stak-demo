@@ -293,3 +293,4 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	}
 	return "none";
 }
+
