@@ -307,9 +307,11 @@ export async function filterMarketRelevant(
 ): Promise<FinnhubArticle[]> {
 	if (articles.length === 0) return articles;
 
-	const cacheKey = `filter:${query.toLowerCase()}:${getCacheKey(articles)}`;
-	const cached = await cacheGet<boolean[]>(cacheKey);
-	if (cached) return articles.filter((_, i) => cached[i] !== false);
+	// Cache keyed by query only (not article IDs) so it survives Finnhub cache refreshes.
+	// Stores a Record<headline, boolean> so new articles not yet seen pass through by default.
+	const cacheKey = `filter:${query.toLowerCase()}`;
+	const cached = await cacheGet<Record<string, boolean>>(cacheKey);
+	if (cached) return articles.filter((a) => cached[a.headline] !== false);
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return articles;
@@ -347,7 +349,9 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
 			const flags: boolean[] = JSON.parse(raw);
 			if (!Array.isArray(flags) || flags.length !== articles.length) return articles;
-			await cacheSet(cacheKey, flags, FILTER_CACHE_TTL_MS);
+			const record: Record<string, boolean> = {};
+			articles.forEach((a, i) => { record[a.headline] = flags[i]; });
+			await cacheSet(cacheKey, record, FILTER_CACHE_TTL_MS);
 			return articles.filter((_, i) => flags[i] !== false);
 		} catch {
 			// timeout or error — try next key

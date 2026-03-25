@@ -14,18 +14,30 @@ const NON_FINANCIAL_KEYWORDS = [
 	// Academic / research
 	"researchgate", "abstract", "methodology", "case study", "literature review",
 	"peer-reviewed", "peer reviewed", "scientific american", "arxiv", "pubmed",
-	"scientific reports", "journal of", "clinical trial", "meta-analysis",
+	"scientific reports", "journal of", "meta-analysis", "randomized trial",
+	"research paper", "university study", "hypothesis", "clinical study",
 	// Entertainment
-	"movie", "film review", "tv show", "trailer", "director", "cast member",
+	"film review", "tv show", "trailer", "director", "cast member",
 	"actor", "actress", "celebrity", "album release", "concert", "spoiler",
-	"streaming now", "box office", "grammy", "oscar", "emmy", "golden globe",
+	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
+	"new album", "season finale", "reality show", "podcast episode", "box office hit",
+	"tiktok viral", "youtube video", "viral video",
 	// Sports (non-financial)
 	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
 	"match result", "game recap", "touchdown", "hat trick", "transfer window",
+	"super bowl", "world cup", "nba finals", "stanley cup", "ufc fight",
+	"boxing match", "tennis tournament", "golf tournament", "olympic games",
+	"mlb season", "nhl season", "sports highlights",
 	// Personal finance / lifestyle
 	"side hustle", "passive income", "how i earned", "quit my job", "started a business",
-	"budgeting tips", "credit score", "retirement tips", "career advice",
-	"entrepreneurship tips", "get rich", "financial freedom", "dave ramsey",
+	"budgeting tips", "credit score tips", "retirement tips", "career advice",
+	"entrepreneurship tips", "get rich quick", "financial freedom", "dave ramsey",
+	"weight loss", "fitness tips", "diet plan", "mental health tips",
+	"relationship advice", "travel guide", "travel tips", "recipe", "cooking tips",
+	"home decor", "fashion tips", "beauty tips", "skincare routine",
+	// Political (no market angle)
+	"political rally", "campaign trail", "election debate", "poll numbers",
+	"approval rating", "political speech", "party convention",
 ];
 
 function isNonFinancial(headline: string, summary: string): boolean {
