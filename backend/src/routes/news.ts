@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
@@ -14,18 +14,48 @@ const NON_FINANCIAL_KEYWORDS = [
 	// Academic / research
 	"researchgate", "abstract", "methodology", "case study", "literature review",
 	"peer-reviewed", "peer reviewed", "scientific american", "arxiv", "pubmed",
-	"scientific reports", "journal of", "clinical trial", "meta-analysis",
+	"scientific reports", "journal of", "meta-analysis", "randomized trial",
+	"research paper", "university study", "hypothesis", "clinical study",
+	"dissertation", "scholarly", "academic journal", "neuroscience", "paleontology",
+	"archaeology", "astronomy", "astrophysics", "marine biology", "ecology study",
 	// Entertainment
-	"movie", "film review", "tv show", "trailer", "director", "cast member",
-	"actor", "actress", "celebrity", "album release", "concert", "spoiler",
-	"streaming now", "box office", "grammy", "oscar", "emmy", "golden globe",
+	"film review", "tv show", "movie trailer", "cast member",
+	"actor", "actress", "celebrity gossip", "album release", "concert tour", "spoiler",
+	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
+	"new album", "season finale", "reality show", "podcast episode", "box office hit",
+	"tiktok viral", "youtube video", "viral video", "movie review", "new movie",
+	"new series", "binge watch", "fan theory", "comic con", "anime", "manga",
+	"video game release", "game review", "esports tournament", "twitch stream",
+	"new song", "music tour", "festival lineup", "celebrity gossip", "red carpet",
+	"award show", "mtv awards", "bet awards", "billboard chart",
+	// Wrestling / combat entertainment
+	"wwe", "wrestlemania", "wwe raw", "smackdown", "aew wrestling", "wwe champion",
+	"wrestling match", "royal rumble", "summerslam", "monday night raw",
+	"pro wrestling", "ufc fight night", "bellator mma",
 	// Sports (non-financial)
 	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
 	"match result", "game recap", "touchdown", "hat trick", "transfer window",
+	"super bowl", "world cup", "nba finals", "stanley cup",
+	"boxing match", "tennis tournament", "golf tournament", "olympic games",
+	"mlb season", "nhl season", "sports highlights", "sports scores",
+	"fantasy football", "fantasy sports", "draft picks", "trade deadline",
+	"roster move", "injury report", "player stats", "game preview", "halftime",
+	"march madness", "ncaa tournament", "college football", "college basketball",
+	"formula 1 race", "f1 race", "nascar race", "motogp",
 	// Personal finance / lifestyle
 	"side hustle", "passive income", "how i earned", "quit my job", "started a business",
-	"budgeting tips", "credit score", "retirement tips", "career advice",
-	"entrepreneurship tips", "get rich", "financial freedom", "dave ramsey",
+	"budgeting tips", "credit score tips", "retirement tips", "career advice",
+	"entrepreneurship tips", "get rich quick", "financial freedom", "dave ramsey",
+	"weight loss", "fitness tips", "diet plan", "mental health tips",
+	"relationship advice", "travel guide", "travel tips", "recipe", "cooking tips",
+	"home decor", "fashion tips", "beauty tips", "skincare routine",
+	"horoscope", "astrology reading", "meditation guide", "self help",
+	"morning routine", "productivity tips", "life hack", "parenting tips",
+	"pet care", "dog training", "cat care", "gardening tips",
+	// Political (no market angle)
+	"political rally", "campaign trail", "election debate", "poll numbers",
+	"approval rating", "political speech", "party convention",
+	"gun control debate", "abortion rights rally", "social justice protest",
 ];
 
 function isNonFinancial(headline: string, summary: string): boolean {
@@ -43,7 +73,7 @@ const STOP_WORDS = new Set([
 
 function extractTerms(headline: string): string[] {
 	return headline.toLowerCase()
-		.replace(/[^a-z\s]/g, " ")
+		.replaceAll(/[^a-z\s]/g, " ")
 		.split(/\s+/)
 		.filter((w) => w.length > 4 && !STOP_WORDS.has(w));
 }
@@ -204,7 +234,8 @@ newsRouter.get("/search", async (req, res) => {
 		if (cached) { res.json(cached); return; }
 
 		const raw = await searchNewsArticles(q);
-		const articles = raw.filter((a) => !isNonFinancial(a.headline, a.summary));
+		const keywordFiltered = raw.filter((a) => !isNonFinancial(a.headline, a.summary));
+		const articles = await filterMarketRelevant(keywordFiltered, q);
 		if (articles.length === 0) {
 			res.json({ articles: [] });
 			return;
