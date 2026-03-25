@@ -19,8 +19,8 @@ const NON_FINANCIAL_KEYWORDS = [
 	"dissertation", "scholarly", "academic journal", "neuroscience", "paleontology",
 	"archaeology", "astronomy", "astrophysics", "marine biology", "ecology study",
 	// Entertainment
-	"film review", "tv show", "trailer", "director", "cast member",
-	"actor", "actress", "celebrity", "album release", "concert tour", "spoiler",
+	"film review", "tv show", "movie trailer", "cast member",
+	"actor", "actress", "celebrity gossip", "album release", "concert tour", "spoiler",
 	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
 	"new album", "season finale", "reality show", "podcast episode", "box office hit",
 	"tiktok viral", "youtube video", "viral video", "movie review", "new movie",
@@ -49,7 +49,7 @@ const NON_FINANCIAL_KEYWORDS = [
 	"weight loss", "fitness tips", "diet plan", "mental health tips",
 	"relationship advice", "travel guide", "travel tips", "recipe", "cooking tips",
 	"home decor", "fashion tips", "beauty tips", "skincare routine",
-	"horoscope", "zodiac", "astrology", "meditation guide", "self help",
+	"horoscope", "astrology reading", "meditation guide", "self help",
 	"morning routine", "productivity tips", "life hack", "parenting tips",
 	"pet care", "dog training", "cat care", "gardening tips",
 	// Political (no market angle)
@@ -73,7 +73,7 @@ const STOP_WORDS = new Set([
 
 function extractTerms(headline: string): string[] {
 	return headline.toLowerCase()
-		.replace(/[^a-z\s]/g, " ")
+		.replaceAll(/[^a-z\s]/g, " ")
 		.split(/\s+/)
 		.filter((w) => w.length > 4 && !STOP_WORDS.has(w));
 }
