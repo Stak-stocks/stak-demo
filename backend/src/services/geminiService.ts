@@ -326,10 +326,9 @@ ${articles.map((a, i) => `${i + 1}. ${a.headline}`).join("\n")}
 
 Return ONLY valid JSON, no markdown, no extra text.`;
 
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), 2500);
-
 	for (const key of keys) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 2500);
 		try {
 			const res = await fetch(
 				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
@@ -351,7 +350,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			await cacheSet(cacheKey, flags, FILTER_CACHE_TTL_MS);
 			return articles.filter((_, i) => flags[i] !== false);
 		} catch {
-			// timeout or error — try next key, fall back to unfiltered
+			// timeout or error — try next key
 		} finally {
 			clearTimeout(timeout);
 		}
