@@ -293,3 +293,55 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	}
 	return "none";
 }
+
+/**
+ * Filter a list of articles to only those relevant to financial markets
+ * for the given search query. One Gemini call for the whole batch.
+ * Falls back to returning all articles if Gemini is unavailable.
+ */
+export async function filterMarketRelevant(
+	articles: FinnhubArticle[],
+	query: string,
+): Promise<FinnhubArticle[]> {
+	if (articles.length === 0) return [];
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return articles;
+
+	const prompt = `You are a financial relevance filter. A user searched for "${query}" in a stock market news app.
+
+For each article below, return true if it is relevant to financial markets, investing, stocks, or the economic impact of "${query}". Return false if it is unrelated to finance or markets (e.g. pure science, sports, entertainment, health with no market angle).
+
+Return a JSON array of booleans with exactly ${articles.length} values, one per article, in the same order.
+Example: [true, false, true, true]
+
+Articles:
+${articles.map((a, i) => `${i + 1}. ${a.headline}`).join("\n")}
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { temperature: 0, responseMimeType: "application/json" },
+					}),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json();
+			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+			const flags: boolean[] = JSON.parse(raw);
+			if (!Array.isArray(flags) || flags.length !== articles.length) return articles;
+			return articles.filter((_, i) => flags[i] !== false);
+		} catch {
+			// try next key
+		}
+	}
+	return articles;
+}
