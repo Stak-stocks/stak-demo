@@ -16,18 +16,32 @@ const NON_FINANCIAL_KEYWORDS = [
 	"peer-reviewed", "peer reviewed", "scientific american", "arxiv", "pubmed",
 	"scientific reports", "journal of", "meta-analysis", "randomized trial",
 	"research paper", "university study", "hypothesis", "clinical study",
+	"dissertation", "scholarly", "academic journal", "neuroscience", "paleontology",
+	"archaeology", "astronomy", "astrophysics", "marine biology", "ecology study",
 	// Entertainment
 	"film review", "tv show", "trailer", "director", "cast member",
 	"actor", "actress", "celebrity", "album release", "concert", "spoiler",
 	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
 	"new album", "season finale", "reality show", "podcast episode", "box office hit",
-	"tiktok viral", "youtube video", "viral video",
+	"tiktok viral", "youtube video", "viral video", "movie review", "new movie",
+	"new series", "binge watch", "fan theory", "comic con", "anime", "manga",
+	"video game release", "game review", "esports tournament", "twitch stream",
+	"new song", "music tour", "festival lineup", "celebrity gossip", "red carpet",
+	"award show", "mtv awards", "bet awards", "billboard chart",
+	// Wrestling / combat entertainment
+	"wwe", "wrestlemania", "raw", "smackdown", "aew", "wwe champion",
+	"wrestling match", "royal rumble", "summerslam", "monday night raw",
+	"pro wrestling", "mma fight", "ufc fight night", "bellator",
 	// Sports (non-financial)
 	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
 	"match result", "game recap", "touchdown", "hat trick", "transfer window",
-	"super bowl", "world cup", "nba finals", "stanley cup", "ufc fight",
+	"super bowl", "world cup", "nba finals", "stanley cup",
 	"boxing match", "tennis tournament", "golf tournament", "olympic games",
-	"mlb season", "nhl season", "sports highlights",
+	"mlb season", "nhl season", "sports highlights", "sports scores",
+	"fantasy football", "fantasy sports", "draft picks", "trade deadline",
+	"roster move", "injury report", "player stats", "game preview", "halftime",
+	"march madness", "ncaa tournament", "college football", "college basketball",
+	"formula 1 race", "f1 race", "nascar race", "motogp",
 	// Personal finance / lifestyle
 	"side hustle", "passive income", "how i earned", "quit my job", "started a business",
 	"budgeting tips", "credit score tips", "retirement tips", "career advice",
@@ -35,9 +49,14 @@ const NON_FINANCIAL_KEYWORDS = [
 	"weight loss", "fitness tips", "diet plan", "mental health tips",
 	"relationship advice", "travel guide", "travel tips", "recipe", "cooking tips",
 	"home decor", "fashion tips", "beauty tips", "skincare routine",
+	"horoscope", "zodiac", "astrology", "meditation guide", "self help",
+	"morning routine", "productivity tips", "life hack", "parenting tips",
+	"pet care", "dog training", "cat care", "gardening tips",
 	// Political (no market angle)
 	"political rally", "campaign trail", "election debate", "poll numbers",
-	"approval rating", "political speech", "party convention",
+	"approval rating", "political speech", "party convention", "voting results",
+	"senate hearing", "congressional hearing", "immigration policy",
+	"gun control", "abortion rights", "lgbtq policy", "social justice",
 ];
 
 function isNonFinancial(headline: string, summary: string): boolean {
