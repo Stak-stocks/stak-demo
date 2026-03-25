@@ -27,3 +27,6 @@ steps:
 
 images:
   - gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
