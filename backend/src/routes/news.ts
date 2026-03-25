@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings } from "../services/geminiService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
@@ -179,12 +179,7 @@ newsRouter.get("/search", async (req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const raw = await searchNewsArticles(q);
-		if (raw.length === 0) {
-			res.json({ articles: [] });
-			return;
-		}
-		const articles = await filterMarketRelevant(raw, q);
+		const articles = await searchNewsArticles(q);
 		if (articles.length === 0) {
 			res.json({ articles: [] });
 			return;
