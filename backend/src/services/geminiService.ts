@@ -296,6 +296,10 @@ Return ONLY one of these exact strings: beat, miss, none`;
 
 const FILTER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+// In-flight deduplication: if two requests arrive for the same query simultaneously,
+// the second waits for the first Gemini call rather than firing a duplicate.
+const filterInFlight = new Map<string, Promise<Record<string, boolean>>>();
+
 /**
  * Filter articles to only those relevant to financial markets for the given query.
  * Sends headlines only to Gemini for speed. Times out after 2.5s and falls back
@@ -316,6 +320,13 @@ export async function filterMarketRelevant(
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return articles;
 
+	// Deduplicate concurrent requests for the same query
+	const inflight = filterInFlight.get(cacheKey);
+	if (inflight) {
+		const record = await inflight;
+		return articles.filter((a) => record[a.headline] !== false);
+	}
+
 	const prompt = `Stak is a stock market app for young investors. A user searched for "${query}".
 
 For each article headline below, return true if it is relevant to financial markets, stocks, investing, or the economic impact of "${query}". Return false if it has no financial angle (e.g. pure entertainment, sports scores, academic research, lifestyle).
@@ -328,36 +339,53 @@ ${articles.map((a, i) => `${i + 1}. ${a.headline}`).join("\n")}
 
 Return ONLY valid JSON, no markdown, no extra text.`;
 
-	for (const key of keys) {
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 2500);
-		try {
-			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0, responseMimeType: "application/json" },
-					}),
-					signal: controller.signal,
-				},
-			);
-			if (!res.ok) continue;
-			const data = await res.json();
-			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-			const flags: boolean[] = JSON.parse(raw);
-			if (!Array.isArray(flags) || flags.length !== articles.length) return articles;
-			const record: Record<string, boolean> = {};
-			articles.forEach((a, i) => { record[a.headline] = flags[i]; });
-			await cacheSet(cacheKey, record, FILTER_CACHE_TTL_MS);
-			return articles.filter((_, i) => flags[i] !== false);
-		} catch {
-			// timeout or error — try next key
-		} finally {
-			clearTimeout(timeout);
+	const doFilter = async (): Promise<Record<string, boolean>> => {
+		for (const key of keys) {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 2500);
+			try {
+				const res = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							contents: [{ parts: [{ text: prompt }] }],
+							generationConfig: { temperature: 0, responseMimeType: "application/json" },
+						}),
+						signal: controller.signal,
+					},
+				);
+				if (!res.ok) continue;
+				const data = await res.json();
+				const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+				const flags: unknown[] = JSON.parse(raw);
+				// Validate: must be a boolean array of the correct length
+				if (
+					!Array.isArray(flags) ||
+					flags.length !== articles.length ||
+					!flags.every((f) => typeof f === "boolean")
+				) continue;
+				const record: Record<string, boolean> = {};
+				articles.forEach((a, i) => { record[a.headline] = flags[i] as boolean; });
+				cacheSet(cacheKey, record, FILTER_CACHE_TTL_MS).catch(() => {});
+				return record;
+			} catch {
+				// timeout or error — try next key
+			} finally {
+				clearTimeout(timeout);
+			}
 		}
+		// All keys failed — empty record means all articles pass through
+		return {};
+	};
+
+	const promise = doFilter();
+	filterInFlight.set(cacheKey, promise);
+	try {
+		const record = await promise;
+		return articles.filter((a) => record[a.headline] !== false);
+	} finally {
+		filterInFlight.delete(cacheKey);
 	}
-	return articles;
 }
