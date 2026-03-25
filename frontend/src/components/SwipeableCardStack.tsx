@@ -23,6 +23,12 @@ function getTimeUntilReset(): { hours: number; minutes: number } {
 	};
 }
 
+export interface StreakUpdate {
+	streak: number;
+	newBadges: { id: string; name: string; description: string }[];
+	bonusSwipesAdded: number;
+}
+
 interface SwipeableCardStackProps {
 	brands: BrandProfile[];
 	onLearnMore: (brand: BrandProfile) => void;
@@ -37,6 +43,8 @@ interface SwipeableCardStackProps {
 	stakSize?: number;
 	/** Show skeleton loading state while deck is being prepared */
 	loading?: boolean;
+	/** Called with streak result after each swipe */
+	onStreakUpdate?: (result: StreakUpdate) => void;
 }
 
 export function SwipeableCardStack({
@@ -49,6 +57,7 @@ export function SwipeableCardStack({
 	onIncrement,
 	stakSize,
 	loading,
+	onStreakUpdate,
 }: SwipeableCardStackProps) {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -118,6 +127,8 @@ export function SwipeableCardStack({
 			stakSize,
 			timeOnCardMs: Date.now() - cardShownAt.current,
 			swipeVelocity: lastSwipeVelocity.current,
+		}).then((res: { streakUpdate?: StreakUpdate }) => {
+			if (res?.streakUpdate) onStreakUpdate?.(res.streakUpdate);
 		}).catch(() => {});
 		onIncrement();
 		onSwipe?.();

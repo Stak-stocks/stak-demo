@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { getIntelCards, recordEngagement, trackEvent } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
+import type { StreakUpdate } from "@/components/SwipeableCardStack";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import type { PassedEntry } from "@/context/AccountContext";
@@ -393,6 +394,26 @@ function App() {
 		setTimeout(() => setSelectedBrand(null), 200);
 	};
 
+	const handleStreakUpdate = useCallback((result: StreakUpdate) => {
+		if (result.newBadges.length > 0) {
+			result.newBadges.forEach((badge) => {
+				toast.success(`Badge unlocked: ${badge.name}`, {
+					description: badge.description,
+					duration: 4000,
+				});
+			});
+		}
+		if (result.bonusSwipesAdded > 0) {
+			toast.success(`+${result.bonusSwipesAdded} bonus swipes unlocked!`, {
+				description: `You now have ${DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0)} swipes per day.`,
+				duration: 4000,
+			});
+		}
+		if (result.streak > 0 && result.newBadges.length === 0 && result.bonusSwipesAdded === 0) {
+			toast(`🔥 ${result.streak}-day streak`, { duration: 2000 });
+		}
+	}, [account?.bonusSwipes]);
+
 	return (
 		<div className="bg-background text-zinc-900 dark:text-white">
 			{/* Search icon — pinned top-left */}
@@ -435,6 +456,7 @@ function App() {
 					onIncrement={incrementSwipe}
 					stakSize={account?.stakBrandIds?.length ?? 0}
 					loading={recommendedOrder.length === 0 && !hasReachedLimit}
+				onStreakUpdate={handleStreakUpdate}
 				/>
 			</div>
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
+import { recordActivity } from "../services/streakService.js";
 
 export const swipeRouter = Router();
 
@@ -52,7 +53,8 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			...(swipeVelocity != null && { swipeVelocity }),
 		});
 
-		res.json({ success: true });
+		const streakResult = await recordActivity(uid, "swipe");
+		res.json({ success: true, streakUpdate: streakResult });
 	} catch (error) {
 		console.error("Error recording swipe:", error);
 		res.status(500).json({ error: "Failed to record swipe" });
@@ -93,6 +95,12 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 			...(categories != null && { categories }),
 			...(params != null && { params }),
 		});
+
+		if (type === "intel_card_view") {
+			recordActivity(uid, "intel_view").catch(() => {});
+		} else if (type === "brand_tap") {
+			recordActivity(uid, "brand_tap").catch(() => {});
+		}
 
 		res.json({ success: true });
 	} catch (error) {

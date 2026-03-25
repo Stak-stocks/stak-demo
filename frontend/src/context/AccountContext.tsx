@@ -56,6 +56,13 @@ export interface UserDoc {
 	intelCardState?: IntelCardState;
 	dailySwipeState?: DailySwipeState;
 	streak?: { date: string; count: number };
+	streakCount?: number;
+	lastStreakDate?: string;
+	graceUsed?: boolean;
+	badges?: string[];
+	bonusSwipes?: number;
+	totalSwipeCount?: number;
+	totalIntelViews?: number;
 	deckOrder?: string[];
 	searchHistory?: SearchEntry[];
 	categoryScores?: Record<string, number>;

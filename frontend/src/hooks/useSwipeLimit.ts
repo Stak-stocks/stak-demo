@@ -80,6 +80,9 @@ export function useSwipeLimit(uid: string, isLoggedIn: boolean): SwipeLimitResul
 		count = 0;
 	}
 
+	const bonusSwipes = (isLoggedIn ? account?.bonusSwipes : 0) ?? 0;
+	const effectiveLimit = DAILY_SWIPE_LIMIT + bonusSwipes;
+
 	const loaded = isLoggedIn ? !accountLoading : true;
 
 	const increment = useCallback(() => {
@@ -96,8 +99,8 @@ export function useSwipeLimit(uid: string, isLoggedIn: boolean): SwipeLimitResul
 
 	return {
 		count,
-		remaining: Math.max(0, DAILY_SWIPE_LIMIT - count),
-		hasReachedLimit: count >= DAILY_SWIPE_LIMIT,
+		remaining: Math.max(0, effectiveLimit - count),
+		hasReachedLimit: count >= effectiveLimit,
 		increment,
 		loaded,
 	};
