@@ -20,7 +20,7 @@ const NON_FINANCIAL_KEYWORDS = [
 	"archaeology", "astronomy", "astrophysics", "marine biology", "ecology study",
 	// Entertainment
 	"film review", "tv show", "trailer", "director", "cast member",
-	"actor", "actress", "celebrity", "album release", "concert", "spoiler",
+	"actor", "actress", "celebrity", "album release", "concert tour", "spoiler",
 	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
 	"new album", "season finale", "reality show", "podcast episode", "box office hit",
 	"tiktok viral", "youtube video", "viral video", "movie review", "new movie",
@@ -29,9 +29,9 @@ const NON_FINANCIAL_KEYWORDS = [
 	"new song", "music tour", "festival lineup", "celebrity gossip", "red carpet",
 	"award show", "mtv awards", "bet awards", "billboard chart",
 	// Wrestling / combat entertainment
-	"wwe", "wrestlemania", "raw", "smackdown", "aew", "wwe champion",
+	"wwe", "wrestlemania", "wwe raw", "smackdown", "aew wrestling", "wwe champion",
 	"wrestling match", "royal rumble", "summerslam", "monday night raw",
-	"pro wrestling", "mma fight", "ufc fight night", "bellator",
+	"pro wrestling", "ufc fight night", "bellator mma",
 	// Sports (non-financial)
 	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
 	"match result", "game recap", "touchdown", "hat trick", "transfer window",
@@ -54,9 +54,8 @@ const NON_FINANCIAL_KEYWORDS = [
 	"pet care", "dog training", "cat care", "gardening tips",
 	// Political (no market angle)
 	"political rally", "campaign trail", "election debate", "poll numbers",
-	"approval rating", "political speech", "party convention", "voting results",
-	"senate hearing", "congressional hearing", "immigration policy",
-	"gun control", "abortion rights", "lgbtq policy", "social justice",
+	"approval rating", "political speech", "party convention",
+	"gun control debate", "abortion rights rally", "social justice protest",
 ];
 
 function isNonFinancial(headline: string, summary: string): boolean {
