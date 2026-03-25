@@ -294,3 +294,67 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	return "none";
 }
 
+const FILTER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Filter articles to only those relevant to financial markets for the given query.
+ * Sends headlines only to Gemini for speed. Times out after 2.5s and falls back
+ * to returning all articles so the app never blocks on this call.
+ */
+export async function filterMarketRelevant(
+	articles: FinnhubArticle[],
+	query: string,
+): Promise<FinnhubArticle[]> {
+	if (articles.length === 0) return articles;
+
+	const cacheKey = `filter:${query.toLowerCase()}:${getCacheKey(articles)}`;
+	const cached = await cacheGet<boolean[]>(cacheKey);
+	if (cached) return articles.filter((_, i) => cached[i] !== false);
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return articles;
+
+	const prompt = `Stak is a stock market app for young investors. A user searched for "${query}".
+
+For each article headline below, return true if it is relevant to financial markets, stocks, investing, or the economic impact of "${query}". Return false if it has no financial angle (e.g. pure entertainment, sports scores, academic research, lifestyle).
+
+Return a JSON array of booleans with exactly ${articles.length} values in the same order.
+Example: [true, false, true]
+
+Headlines:
+${articles.map((a, i) => `${i + 1}. ${a.headline}`).join("\n")}
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 2500);
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { temperature: 0, responseMimeType: "application/json" },
+					}),
+					signal: controller.signal,
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json();
+			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+			const flags: boolean[] = JSON.parse(raw);
+			if (!Array.isArray(flags) || flags.length !== articles.length) return articles;
+			await cacheSet(cacheKey, flags, FILTER_CACHE_TTL_MS);
+			return articles.filter((_, i) => flags[i] !== false);
+		} catch {
+			// timeout or error — try next key, fall back to unfiltered
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+	return articles;
+}
