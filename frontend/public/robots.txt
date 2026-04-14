@@ -1,4 +1,6 @@
 User-agent: *
+Allow: /sitemap.xml
+Allow: /robots.txt
 Allow: /welcome
 Allow: /login
 Allow: /signup
