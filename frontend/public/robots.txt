@@ -1,4 +1,16 @@
 User-agent: *
-Allow: /
+Allow: /welcome
+Allow: /login
+Allow: /signup
+Disallow: /feed
+Disallow: /my-stak
+Disallow: /fantasy
+Disallow: /profile/
+Disallow: /brand/
+Disallow: /onboarding
+Disallow: /verify-email
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /
 
 Sitemap: https://thestak.org/sitemap.xml
