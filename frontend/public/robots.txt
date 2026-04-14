@@ -1,9 +1,4 @@
 User-agent: *
-Allow: /sitemap.xml
-Allow: /robots.txt
-Allow: /welcome
-Allow: /login
-Allow: /signup
 Disallow: /feed
 Disallow: /my-stak
 Disallow: /fantasy
@@ -13,6 +8,5 @@ Disallow: /onboarding
 Disallow: /verify-email
 Disallow: /forgot-password
 Disallow: /reset-password
-Disallow: /
 
 Sitemap: https://thestak.org/sitemap.xml
