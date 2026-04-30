@@ -25,7 +25,7 @@ function BrandDetailPage() {
 		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
 		staleTime: 60 * 60 * 1000,
-		retry: 1,
+		retry: 0,
 	});
 
 	const { data: stockData, isLoading: stockLoading } = useQuery({

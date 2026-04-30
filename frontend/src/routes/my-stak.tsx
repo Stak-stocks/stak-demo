@@ -136,7 +136,7 @@ function MyStakPage() {
 		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
 		staleTime: 60 * 60 * 1000,
-		retry: 1,
+		retry: 0,
 	});
 
 	const { data: stockData, isLoading: stockLoading } = useQuery({

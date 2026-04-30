@@ -157,37 +157,36 @@ export async function getTrends(
 	ticker: string,
 	brandName: string,
 ): Promise<TrendCard[]> {
-	// Check Firestore cache first (v3 collection)
 	const doc = await adminDb.collection("trends_v5").doc(brandId).get();
-	if (doc.exists) {
-		const data = doc.data()!;
-		const age = Date.now() - data.generatedAt.toMillis();
-		if (age < ONE_HOUR_MS) {
-			return data.cards as TrendCard[];
-		}
-	}
+	const cached = doc.exists ? (doc.data()!.cards as TrendCard[]) : null;
+
+	const age = doc.exists ? Date.now() - doc.data()!.generatedAt.toMillis() : Infinity;
+	if (age < ONE_HOUR_MS && cached) return cached;
 
 	// Stale or missing — fetch news and generate
-	// Fetch more candidates so we can surface earnings/results headlines even on busy days
-	const articles = await getCompanyNews(ticker, 20, brandName).catch(() => []);
+	try {
+		const articles = await getCompanyNews(ticker, 20, brandName).catch(() => []);
+		const sorted = [...articles].sort((a, b) => {
+			const diff = articlePriority(b.headline) - articlePriority(a.headline);
+			if (diff !== 0) return diff;
+			return b.datetime - a.datetime;
+		});
+		const headlines = sorted.slice(0, 8).map((a) => a.headline);
+		const cards = await generateWithGemini(ticker, brandName, headlines);
 
-	// Sort: high-priority (earnings/results) headlines first, then by recency
-	const sorted = [...articles].sort((a, b) => {
-		const diff = articlePriority(b.headline) - articlePriority(a.headline);
-		if (diff !== 0) return diff;
-		return b.datetime - a.datetime;
-	});
+		adminDb
+			.collection("trends_v5")
+			.doc(brandId)
+			.set({ cards, ticker, generatedAt: new Date() })
+			.catch((err) => console.error("Failed to cache trends:", err));
 
-	const headlines = sorted.slice(0, 8).map((a) => a.headline);
-
-	const cards = await generateWithGemini(ticker, brandName, headlines);
-
-	// Persist to Firestore (fire-and-forget — don't block response)
-	adminDb
-		.collection("trends_v5")
-		.doc(brandId)
-		.set({ cards, ticker, generatedAt: new Date() })
-		.catch((err) => console.error("Failed to cache trends:", err));
-
-	return cards;
+		return cards;
+	} catch (err) {
+		// Gemini failed — return stale cache if available rather than erroring
+		if (cached) {
+			console.warn(`[Trends] Gemini failed for ${ticker}, serving stale cache`);
+			return cached;
+		}
+		throw err;
+	}
 }
