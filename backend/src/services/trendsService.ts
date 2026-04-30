@@ -40,6 +40,7 @@ async function tryGeminiKey(key: string, prompt: string): Promise<TrendCard[] | 
 					contents: [{ parts: [{ text: prompt }] }],
 					generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
 				}),
+				signal: AbortSignal.timeout(15000),
 			},
 		);
 

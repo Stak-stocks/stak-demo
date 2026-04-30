@@ -20,7 +20,7 @@ function BrandDetailPage() {
 
 	const brand = brands.find((b) => b.id === brandId) ?? null;
 
-	const { data: liveData, isLoading: trendsLoading } = useQuery({
+	const { data: liveData, isLoading: trendsLoading, isError: trendsError } = useQuery({
 		queryKey: ["trends", brandId],
 		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
@@ -236,7 +236,7 @@ function BrandDetailPage() {
 						<TrendCarousel
 							trends={liveData?.cards ?? []}
 							ticker={brand.ticker}
-							isLoading={trendsLoading}
+							isLoading={trendsLoading && !trendsError}
 						/>
 					</TabsContent>
 
