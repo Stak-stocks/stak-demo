@@ -290,9 +290,10 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 interface TrendCarouselProps {
 	trends: TrendCard[];
 	ticker: string;
+	isLoading?: boolean;
 }
 
-export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
+export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarouselProps) {
 	const total = trends.length;
 	const [pos, setPos] = useState(1);
 	const [isTransitioning, setIsTransitioning] = useState(false);
@@ -372,8 +373,15 @@ export function TrendCarousel({ trends, ticker: _ticker }: TrendCarouselProps) {
 	if (!trends || trends.length === 0) {
 		return (
 			<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-				<div className="flex flex-col items-center justify-center py-12 text-center">
-					<p className="text-zinc-400 text-sm">No trend data available yet.</p>
+				<div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+					{isLoading ? (
+						<>
+							<div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+							<p className="text-zinc-400 text-sm">Generating trends…</p>
+						</>
+					) : (
+						<p className="text-zinc-400 text-sm">No trend data available yet.</p>
+					)}
 				</div>
 			</div>
 		);

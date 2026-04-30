@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
-import { getBrandTrends } from "@/data/trends";
 import { getLiveTrends, getStockData, getVibes, recordEngagement, trackEvent } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
 import { StockNewsTab } from "@/components/StockNewsTab";
@@ -132,7 +131,7 @@ function MyStakPage() {
 		}
 		setDragY(0);
 	}, [dragY]);
-	const { data: liveData } = useQuery({
+	const { data: liveData, isLoading: trendsLoading } = useQuery({
 		queryKey: ["trends", selectedBrand?.id],
 		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
@@ -381,7 +380,8 @@ function MyStakPage() {
 
 						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
-								trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(selectedBrand.id)}
+								trends={liveData?.cards ?? []}
+								isLoading={trendsLoading}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>

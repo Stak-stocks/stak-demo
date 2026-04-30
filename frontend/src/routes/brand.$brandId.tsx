@@ -6,7 +6,6 @@ import { ChevronLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VibeSliders } from "@/components/VibeSliders";
 import { TrendCarousel } from "@/components/TrendCarousel";
-import { getBrandTrends } from "@/data/trends";
 import { StockNewsTab } from "@/components/StockNewsTab";
 import { getLiveTrends, getStockData, getVibes } from "@/lib/api";
 
@@ -21,7 +20,7 @@ function BrandDetailPage() {
 
 	const brand = brands.find((b) => b.id === brandId) ?? null;
 
-	const { data: liveData } = useQuery({
+	const { data: liveData, isLoading: trendsLoading } = useQuery({
 		queryKey: ["trends", brandId],
 		queryFn: () => getLiveTrends(brandId, brand!.ticker, brand!.name),
 		enabled: !!brand,
@@ -235,8 +234,9 @@ function BrandDetailPage() {
 
 					<TabsContent value="trends" className="mt-6">
 						<TrendCarousel
-							trends={liveData?.cards?.length ? liveData.cards : getBrandTrends(brand.id)}
+							trends={liveData?.cards ?? []}
 							ticker={brand.ticker}
+							isLoading={trendsLoading}
 						/>
 					</TabsContent>
 
