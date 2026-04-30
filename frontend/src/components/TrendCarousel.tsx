@@ -377,7 +377,8 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 					{isLoading ? (
 						<>
 							<div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-							<p className="text-zinc-400 text-sm">Generating trends…</p>
+							<p className="text-zinc-400 text-sm font-medium">Generating trends…</p>
+							<p className="text-zinc-500 text-xs">Our AI is reading the latest news.<br />This takes ~10 seconds on first load.</p>
 						</>
 					) : (
 						<p className="text-zinc-400 text-sm">No trend data available yet.</p>
