@@ -131,12 +131,12 @@ function MyStakPage() {
 		}
 		setDragY(0);
 	}, [dragY]);
-	const { data: liveData, isLoading: trendsLoading } = useQuery({
+	const { data: liveData, isLoading: trendsLoading, isError: trendsError } = useQuery({
 		queryKey: ["trends", selectedBrand?.id],
 		queryFn: () => getLiveTrends(selectedBrand!.id, selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
 		staleTime: 60 * 60 * 1000,
-		retry: 1,
+		retry: 0,
 	});
 
 	const { data: stockData, isLoading: stockLoading } = useQuery({
@@ -381,7 +381,7 @@ function MyStakPage() {
 						<TabsContent value="trends" className="mt-1 sm:mt-6">
 							<TrendCarousel
 								trends={liveData?.cards ?? []}
-								isLoading={trendsLoading}
+								isLoading={trendsLoading && !trendsError}
 								ticker={selectedBrand.ticker}
 							/>
 						</TabsContent>
