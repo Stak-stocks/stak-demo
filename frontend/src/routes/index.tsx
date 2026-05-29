@@ -2,15 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
+import { STAK_WEIGHTED_STOCK_TAGS } from "@/data/stockTags";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
-import { AlertTriangle, Search } from "lucide-react";
+import React from "react";
+import { AlertTriangle, Search, Brain, Flame, BarChart3, Coffee, Zap, Shield, MessageCircle, Gamepad2, ShoppingBag, Music } from "lucide-react";
+import stakLogo from "@/assets/stak-logo-icon.svg";
 import { toast } from "sonner";
-import { getIntelCards, recordEngagement, trackEvent } from "@/lib/api";
+import { getIntelCards, recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
+import { STAK_CAPACITY, INTEL_CARD_INTERVAL } from "@/lib/constants";
 import type { StreakUpdate } from "@/components/SwipeableCardStack";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
@@ -23,7 +27,23 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 
-const STAK_CAPACITY = 30;
+// ── Category display config ────────────────────────────────────────────────────
+const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: "blue" | "purple" | "yellow" }> = {
+	tech:       { label: "Tech Curious",      icon: <Brain size={11} />,        color: "blue"   },
+	gaming:     { label: "Gaming",             icon: <Gamepad2 size={11} />,     color: "purple" },
+	streaming:  { label: "Streaming",          icon: <MessageCircle size={11} />,color: "purple" },
+	fashion:    { label: "Fashion",            icon: <ShoppingBag size={11} />,  color: "blue"   },
+	food_drink: { label: "Consumer Brands",    icon: <Coffee size={11} />,       color: "purple" },
+	travel:     { label: "Travel & Leisure",   icon: <Zap size={11} />,          color: "blue"   },
+	fitness:    { label: "Fitness & Health",   icon: <Shield size={11} />,       color: "yellow" },
+	finance:    { label: "Finance Savvy",      icon: <BarChart3 size={11} />,    color: "blue"   },
+	beauty:     { label: "Beauty & Wellness",  icon: <Shield size={11} />,       color: "yellow" },
+	music:      { label: "Music & Media",      icon: <Music size={11} />,        color: "purple" },
+	shopping:   { label: "Retail & Shopping",  icon: <ShoppingBag size={11} />,  color: "blue"   },
+	energy:     { label: "Clean Energy",       icon: <Zap size={11} />,          color: "purple" },
+};
+
+
 
 // Reverse mapping: brand ID → interest categories it belongs to
 const BRAND_TO_CATEGORIES: Record<string, string[]> = {};
@@ -34,6 +54,10 @@ for (const [category, brandIds] of Object.entries(INTEREST_TO_BRANDS)) {
 	}
 }
 
+const TICKER_TAG_MAP = new Map(
+	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s]),
+);
+
 function shuffleArray<T>(array: T[]): T[] {
 	const shuffled = [...array];
 	for (let i = shuffled.length - 1; i > 0; i--) {
@@ -43,6 +67,70 @@ function shuffleArray<T>(array: T[]): T[] {
 	return shuffled;
 }
 
+// Maps Daily Brief deck theme IDs → stock tags / primaryCategories that qualify for the boost
+const THEME_TAG_MAP: Record<string, { tags: string[]; categories: string[] }> = {
+	high_growth:  { tags: ["high_growth", "innovation", "cloud", "saas", "ai", "ai_supply_chain", "semiconductor"], categories: ["mega_cap_tech", "consumer_tech", "enterprise_software", "semiconductor", "semiconductor_equipment", "automation_ai", "database_data"] },
+	consumer_tech:{ tags: ["technology", "consumer_brand", "consumer_platform", "hardware", "software", "gaming", "streaming"], categories: ["consumer_tech", "mega_cap_tech", "streaming_media", "social_media", "gaming"] },
+	defensive:    { tags: ["defensive", "consumer_staples", "dividend_income", "everyday_spending", "familiar_brand", "utilities"], categories: ["consumer_staples", "utilities", "health_insurance", "insurance", "telecom"] },
+	dividend:     { tags: ["dividend_income", "income", "reit"], categories: ["reit", "utilities", "telecom", "insurance"] },
+	value:        { tags: ["familiar_brand", "consumer_staples", "financials", "banking"], categories: ["bank", "insurance", "retail", "consumer_staples", "industrial"] },
+	quality:      { tags: ["mega_cap", "recurring_revenue", "network_effects", "high_growth", "saas"], categories: ["mega_cap_tech", "payment_network", "enterprise_software", "consumer_tech"] },
+	momentum:     { tags: ["high_growth", "speculative", "meme_stock"], categories: ["meme_stock", "space_airmobility"] },
+	explore:      { tags: [], categories: [] },
+	diversified:  { tags: [], categories: [] },
+};
+
+interface FreshnessContext {
+	earningsTickers: Set<string>;
+	majorNewsTickers: Set<string>;
+	unusualMovers: Set<string>;
+	analystUpdatedTickers: Set<string>;
+}
+
+// ── Recommendation scoring ────────────────────────────────────────────────────
+// finalScore = tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment
+// clamped to [0, 1]
+function computeRecommendationScore(
+	brand: BrandProfile,
+	tagScores: Record<string, number>,
+	freshness: FreshnessContext,
+	recentlyShownCats: string[],
+	todayThemes: string[],
+): number {
+	const stock = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "");
+	const ticker = brand.ticker?.toUpperCase() ?? "";
+
+	// 1. tasteMatchScore (0–1): weighted sum of user's tag scores for this stock's learning tags
+	const weightedSum = stock
+		? stock.learningTags.reduce((sum, lt) => sum + (tagScores[lt.tag] ?? 0) * lt.weight, 0)
+		: 0;
+	const tasteMatchScore = Math.min(1, weightedSum / 10);
+
+	// 2. freshnessBoost (0–0.20): boost stocks with imminent activity
+	const earningsBoost    = freshness.earningsTickers.has(ticker)       ? 0.08 : 0;
+	const newsBoost        = freshness.majorNewsTickers.has(ticker)      ? 0.06 : 0;
+	const unusualMoveBoost = freshness.unusualMovers.has(ticker)         ? 0.06 : 0;
+	const analystBoost     = freshness.analystUpdatedTickers.has(ticker) ? 0.04 : 0;
+	const freshnessBoost = Math.min(0.20, earningsBoost + newsBoost + unusualMoveBoost + analystBoost);
+
+	// 3. dailyBriefThemeBoost: +0.03 per Daily Brief theme the stock matches (max 0.12)
+	const stockTags = new Set(stock?.learningTags.map((lt) => lt.tag) ?? []);
+	const stockCat = stock?.primaryCategory ?? "";
+	const themeMatchCount = todayThemes.reduce((sum, themeId) => {
+		const mapping = THEME_TAG_MAP[themeId];
+		if (!mapping) return sum;
+		return sum + (mapping.tags.some((t) => stockTags.has(t)) || mapping.categories.includes(stockCat) ? 1 : 0);
+	}, 0);
+	const dailyBriefThemeBoost = Math.min(0.12, themeMatchCount * 0.03);
+
+	// 4. diversityAdjustment: penalise if same primaryCategory appears 3+ times in last 5 shown
+	const primaryCat = stockCat;
+	const catCountInRecent = recentlyShownCats.slice(0, 5).filter((c) => c === primaryCat).length;
+	const diversityAdjustment = primaryCat && catCountInRecent >= 3 ? -0.10 : 0;
+
+	return Math.max(0, Math.min(1, tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment));
+}
+
 export const Route = createFileRoute("/")({
 	component: App,
 });
@@ -50,7 +138,7 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak, updateCategoryScores } = useAccount();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak } = useAccount();
 	const uid = user?.uid ?? "guest";
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
@@ -69,6 +157,56 @@ function App() {
 	const allIntelCards: IntelCard[] = useMemo(
 		() => intelCardsData?.cards ?? INTEL_CARDS,
 		[intelCardsData],
+	);
+
+	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
+	const { data: dailyBriefData } = useQuery({
+		queryKey: ["daily-brief"],
+		queryFn: getDailyBrief,
+		staleTime: 30 * 60 * 1000,
+		gcTime: 60 * 60 * 1000,
+		retry: 0,
+	});
+	const todayThemes = useMemo(
+		() => dailyBriefData?.decks.map((d) => d.id) ?? [],
+		[dailyBriefData],
+	);
+
+	// Earnings calendar for freshnessBoost — tickers with upcoming earnings in the next ~7 days
+	const { data: earningsWeekData } = useQuery({
+		queryKey: ["earnings-week-recommend"],
+		queryFn: () => getMarketEarnings("week"),
+		staleTime: 60 * 60 * 1000,
+		gcTime: 2 * 60 * 60 * 1000,
+		retry: 0,
+	});
+	const earningsTickerSet = useMemo(() => {
+		const set = new Set<string>();
+		for (const entry of earningsWeekData?.entries ?? []) {
+			if (entry.status === "upcoming") set.add(entry.symbol.toUpperCase());
+		}
+		return set;
+	}, [earningsWeekData]);
+
+	// Freshness signals: major news (48h), unusual movers (≥3%), analyst updates (7d)
+	const { data: freshnessData } = useQuery({
+		queryKey: ["recommendation-freshness"],
+		queryFn: getRecommendationFreshness,
+		staleTime: 30 * 60 * 1000,
+		gcTime: 60 * 60 * 1000,
+		retry: 0,
+	});
+	const majorNewsTickers = useMemo(
+		() => new Set<string>((freshnessData?.majorNewsLast48h ?? []).map((t) => t.toUpperCase())),
+		[freshnessData],
+	);
+	const unusualMoverSet = useMemo(
+		() => new Set<string>((freshnessData?.unusualMovers ?? []).map((t) => t.toUpperCase())),
+		[freshnessData],
+	);
+	const analystUpdatedTickers = useMemo(
+		() => new Set<string>((freshnessData?.analystUpdatesLast7d ?? []).map((t) => t.toUpperCase())),
+		[freshnessData],
 	);
 
 	// Intel card state — persisted in Firestore via AccountContext
@@ -151,26 +289,62 @@ function App() {
 	const [recommendedOrder, setRecommendedOrder] = useState<BrandProfile[]>([]);
 	const orderInitialized = useRef(false);
 
+	// Refs used inside re-sort effects to avoid stale closures
+	const freshnessRef = useRef<FreshnessContext>({
+		earningsTickers: earningsTickerSet,
+		majorNewsTickers: new Set(),
+		unusualMovers: new Set(),
+		analystUpdatedTickers: new Set(),
+	});
 	useEffect(() => {
-		// Only initialize once per component lifecycle; skip if account not yet loaded
+		freshnessRef.current = { earningsTickers: earningsTickerSet, majorNewsTickers, unusualMovers: unusualMoverSet, analystUpdatedTickers };
+	}, [earningsTickerSet, majorNewsTickers, unusualMoverSet, analystUpdatedTickers]);
+	const recentlyShownCatsRef = useRef<string[]>([]); // last 5 primaryCategories shown (for diversity)
+	const recommendedOrderRef = useRef<BrandProfile[]>([]);
+	useEffect(() => { recommendedOrderRef.current = recommendedOrder; }, [recommendedOrder]);
+	const swipedBrandsRef = useRef(swipedBrands);
+	useEffect(() => { swipedBrandsRef.current = swipedBrands; }, [swipedBrands]);
+	const passedBrandIdsRef = useRef(passedBrandIds);
+	useEffect(() => { passedBrandIdsRef.current = passedBrandIds; }, [passedBrandIds]);
+	const todayThemesRef = useRef(todayThemes);
+	useEffect(() => { todayThemesRef.current = todayThemes; }, [todayThemes]);
+
+	useEffect(() => {
 		if (orderInitialized.current || !account) return;
 		orderInitialized.current = true;
 
-		let order: BrandProfile[];
+		const totalSwipes = account.totalSwipeCount ?? 0;
 		const deckOrder = account.deckOrder;
+		let order: BrandProfile[];
 
+		// ── Phase A: Users with 20+ swipes → always use live recommendation score ──
+		if (totalSwipes >= 20) {
+			// Clear any stale saved order — we always recompute for returning users
+			if (deckOrder?.length) {
+				updateDeckOrder([]).catch(() => {});
+			}
+			const tagScores = account.tagScores ?? {};
+			order = [...brands]
+				.map((b) => ({
+					brand: b,
+					score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
+				}))
+				.sort((a, b) => b.score - a.score)
+				.map(({ brand }) => brand);
+			setRecommendedOrder(order);
+			return; // don't persist — will always recompute on load
+		}
+
+		// ── Phase B: New users (<20 swipes) → restore or build fixed onboarding deck ──
 		if (deckOrder?.length) {
-			// Restore saved order — append any brands added to the data since it was saved
 			const brandMap = new Map(brands.map((b) => [b.id, b]));
-			const restored = deckOrder
-				.map((id) => brandMap.get(id))
-				.filter(Boolean) as BrandProfile[];
+			const restored = deckOrder.map((id) => brandMap.get(id)).filter(Boolean) as BrandProfile[];
 			if (restored.length > 0) {
 				const restoredIdSet = new Set(deckOrder);
 				const newBrands = brands.filter((b) => !restoredIdSet.has(b.id));
 				order = newBrands.length > 0 ? [...restored, ...shuffleArray(newBrands)] : restored;
 
-				// Re-queued (expired passed) cards go to the bottom, not wherever they sat before
+				// Re-queued (expired passed) cards go to the bottom
 				const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 				const requeuedIds = new Set(
 					(account.passedBrands ?? [])
@@ -183,57 +357,39 @@ function App() {
 						...shuffleArray(order.filter((b) => requeuedIds.has(b.id))),
 					];
 				}
-
 				setRecommendedOrder(order);
-				return; // already persisted — no need to re-save
+				return;
 			}
 		}
 
-		// Compute personalised order using interest tiers as base + behavioural scores on top.
-		// New users (no interests, no scores) → random.
-		// Interest-only users → tier order (same as before).
-		// Returning users with swipe history → scores refine the tiers over time.
+		// First-ever session: build onboarding deck shuffled within interest tiers
 		const interests: string[] = account.preferences?.interests ?? [];
 		const onboardingSwipes = new Set<string>(account.preferences?.onboardingSwipes ?? []);
-		const categoryScores = account.categoryScores ?? {};
-		const hasBehavioralScores = Object.keys(categoryScores).length > 0;
 
-		if (interests.length === 0 && onboardingSwipes.size === 0 && !hasBehavioralScores) {
+		if (interests.length === 0 && onboardingSwipes.size === 0) {
 			order = shuffleArray(brands);
 		} else {
-			// Build interest tier membership for base scores
-			const interestBrandIds = new Set(
-				interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []),
-			);
-			const expandedCategories = new Set<string>();
+			const interestBrandIds = new Set(interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []));
+			const expandedCats = new Set<string>();
 			for (const id of interestBrandIds) {
-				(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCategories.add(c));
+				(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCats.add(c));
 			}
 			const adjacentBrandIds = new Set<string>();
-			for (const cat of expandedCategories) {
+			for (const cat of expandedCats) {
 				(INTEREST_TO_BRANDS[cat] || []).forEach((id) => {
 					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
 				});
 			}
 
-			// Score every non-pinned brand: tier base + behavioural boost + small jitter
-			const pinned = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
-			const nonPinned = brands
-				.filter((b) => !onboardingSwipes.has(b.id))
-				.map((b) => {
-					const base = interestBrandIds.has(b.id) ? 30 : adjacentBrandIds.has(b.id) ? 20 : 10;
-					const behavioural = (BRAND_TO_CATEGORIES[b.id] ?? [])
-						.reduce((sum, c) => sum + (categoryScores[c] ?? 0) * 2, 0);
-					return { brand: b, score: base + behavioural + Math.random() * 5 };
-				})
-				.sort((a, b) => b.score - a.score)
-				.map(({ brand }) => brand);
-
-			order = [...pinned, ...nonPinned];
+			// Shuffle independently within each tier — no behavioural scoring yet
+			const tier0 = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
+			const tier1 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && interestBrandIds.has(b.id)));
+			const tier2 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && adjacentBrandIds.has(b.id)));
+			const tier3 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id)));
+			order = [...tier0, ...tier1, ...tier2, ...tier3];
 		}
 
 		setRecommendedOrder(order);
-		// Persist this freshly-computed order so reloads restore the same sequence
 		updateDeckOrder(order.map((b) => b.id)).catch((e) => console.error("Failed to save deck order:", e));
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [account]);
@@ -248,11 +404,47 @@ function App() {
 		}
 	}, [swipeCount, updateDeckOrder]);
 
+	// Live re-sort: fires after every tagScores update for users with 20+ swipes.
+	// Keeps the first 3 brands in the current filtered view locked (they're visible on screen)
+	// and re-scores + re-sorts every other brand so the deck always reflects the latest taste.
+	useEffect(() => {
+		if (!account || !orderInitialized.current) return;
+		if ((account.totalSwipeCount ?? 0) < 20) return;
+		if (recommendedOrderRef.current.length === 0) return;
+
+		const tagScores = account.tagScores ?? {};
+
+		// Identify the 3 brands currently visible (top of the filtered deck)
+		const swipedIds = new Set(swipedBrandsRef.current.map((b) => b.id));
+		const filtered = recommendedOrderRef.current.filter(
+			(b) => !swipedIds.has(b.id) && !passedBrandIdsRef.current.has(b.id),
+		);
+		const lockedIds = new Set(
+			[filtered[0]?.id, filtered[1]?.id, filtered[2]?.id].filter(Boolean),
+		);
+		const lockedInOrder = [filtered[0], filtered[1], filtered[2]].filter(Boolean);
+
+		// Score and sort all remaining brands (including ones not yet in recommendedOrder)
+		const sortedRest = brands
+			.filter((b) => !lockedIds.has(b.id))
+			.map((b) => ({
+				brand: b,
+				score: computeRecommendationScore(
+					b, tagScores, freshnessRef.current, recentlyShownCatsRef.current, todayThemes,
+				),
+			}))
+			.sort((a, b) => b.score - a.score)
+			.map(({ brand }) => brand);
+
+		setRecommendedOrder([...lockedInOrder, ...sortedRest]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [account?.tagScores, todayThemes]);
+
 	const handleSwipe = useCallback(() => {
-		// Trigger intel card after every 5th swipe, at most once per day
+		// Trigger intel card after every Nth swipe, at most once per day
 		swipesSinceIntel.current += 1;
 		sessionStorage.setItem("swipesSinceIntel", String(swipesSinceIntel.current));
-		if (swipesSinceIntel.current < 5) return;
+		if (swipesSinceIntel.current < INTEL_CARD_INTERVAL) return;
 		swipesSinceIntel.current = 0;
 		sessionStorage.setItem("swipesSinceIntel", "0");
 
@@ -291,12 +483,8 @@ function App() {
 	const handleSwipeRight = (brand: BrandProfile) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
 		logEvent("swipe_right", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
-
-		// +2 per category for right swipe
-		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
-		if (cats.length > 0) {
-			updateCategoryScores(Object.fromEntries(cats.map((c) => [c, 2]))).catch(() => {});
-		}
+		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
+		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
 
 		if (swipedBrands.length >= STAK_CAPACITY) {
 			setPendingBrand(brand);
@@ -345,12 +533,6 @@ function App() {
 		toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
 	});
 
-		// +3 for brand added, -2 for brand removed
-		const delta: Record<string, number> = {};
-		for (const c of BRAND_TO_CATEGORIES[pendingBrand.id] ?? []) delta[c] = (delta[c] ?? 0) + 3;
-		for (const c of BRAND_TO_CATEGORIES[brandToRemove.id] ?? []) delta[c] = (delta[c] ?? 0) - 2;
-		if (Object.keys(delta).length > 0) updateCategoryScores(delta).catch(() => {});
-
 		toast.success(`Swapped ${brandToRemove.name} for ${pendingBrand.name}`, {
 			duration: 2000,
 		});
@@ -360,11 +542,8 @@ function App() {
 
 	const handleSwipeLeft = useCallback((brand: BrandProfile) => {
 		logEvent("swipe_left", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
-		// -1 per category for left swipe
-		const cats = BRAND_TO_CATEGORIES[brand.id] ?? [];
-		if (cats.length > 0) {
-			updateCategoryScores(Object.fromEntries(cats.map((c) => [c, -1]))).catch(() => {});
-		}
+		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
+		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
 
 		setPassedBrandIds((prev) => new Set([...prev, brand.id]));
 		const existing = passedEntriesRef.current;
@@ -375,7 +554,7 @@ function App() {
 			: [...existing, { id: brand.id, at: Date.now(), count: 1 }];
 		passedEntriesRef.current = updated;
 		updatePassedBrands(updated).catch((e) => console.error("Failed to save passed brands:", e));
-	}, [updatePassedBrands, updateCategoryScores]);
+	}, [updatePassedBrands]);
 
 	const handleCancelSwap = useCallback(() => {
 		setPendingBrand(null);
@@ -409,37 +588,47 @@ function App() {
 				duration: 4000,
 			});
 		}
-		if (result.streak > 0 && result.newBadges.length === 0 && result.bonusSwipesAdded === 0) {
-			toast(`🔥 ${result.streak}-day streak`, { duration: 2000 });
-		}
+		// Streak count is shown live in the top-bar flame counter — no toast needed
 	}, [account?.bonusSwipes]);
+
+	const todayKey = new Date().toISOString().split("T")[0];
+	const streakCount = account?.streak?.date === todayKey ? (account.streak.count ?? 0) : 0;
 
 	return (
 		<div className="bg-background text-zinc-900 dark:text-white">
-			{/* Search icon — pinned top-left */}
-			<div className="flex justify-start px-4 pt-4">
-				<button
-					type="button"
-					onClick={() => {
-					window.dispatchEvent(new Event("open-search"));
-					logEvent("search_open");
-					trackEvent("search_open").catch(() => {});
-				}}
-					className="p-2 rounded-full text-zinc-500 dark:text-slate-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-					aria-label="Search"
-					title="Search"
-				>
-					<Search className="w-5 h-5" />
-				</button>
-			</div>
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-6">
-				<div className="flex flex-col items-center mb-2 sm:mb-6">
-					<h1 className="text-4xl sm:text-5xl font-extrabold tracking-wider italic bg-gradient-to-b from-purple-300 to-purple-500 bg-clip-text text-transparent">
-						STAK
-					</h1>
-					<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Swipe right to vibe, left to pass</p>
+			{/* Top bar */}
+			<div className="relative flex items-center justify-center px-[18px] pt-5 pb-2">
+				{/* Centered logo + name */}
+				<div className="flex items-center gap-[8px]">
+					<img src={stakLogo} alt="STAK" className="h-[28px] w-[28px]" />
+					<h1 className="text-[22px] font-semibold tracking-[0.13em] text-[#e8f0ff]">STAK</h1>
 				</div>
+				{/* Right side actions */}
+				<div className="absolute right-[18px] flex items-center gap-2">
+					{/* Streak */}
+					<div className="flex h-[25px] items-center gap-1 rounded-full bg-white/[0.055] px-2 text-[11px] ring-1 ring-white/10">
+						<Flame className="w-[13px] h-[13px] text-orange-400" />
+						<span className="text-white font-medium">{streakCount > 0 ? streakCount : "—"}</span>
+					</div>
+					{/* Avatar */}
+					<button
+						type="button"
+						onClick={() => {
+							window.dispatchEvent(new Event("open-search"));
+							logEvent("search_open");
+							trackEvent("search_open").catch(() => {});
+						}}
+						aria-label="Search"
+						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-700/80 ring-1 ring-white/20 text-slate-300 hover:text-white transition-colors"
+					>
+						<Search className="w-[17px] h-[17px]" />
+					</button>
+				</div>
+			</div>
 
+
+			<div className="max-w-7xl mx-auto px-[18px] pt-8 pb-2 sm:pb-4">
+				<div className="relative flex flex-col items-center">
 				<SwipeableCardStack
 					brands={[
 						...recommendedOrder,
@@ -458,13 +647,13 @@ function App() {
 					loading={recommendedOrder.length === 0 && !hasReachedLimit}
 				onStreakUpdate={handleStreakUpdate}
 				/>
+
 			</div>
 
 			<BrandContextModal
 				brand={selectedBrand}
 				open={modalOpen}
 				onClose={handleCloseModal}
-				onAddToStak={handleAddFromSearch}
 			/>
 
 			{activeIntelCard && (
@@ -522,5 +711,6 @@ function App() {
 				</SheetContent>
 			</Sheet>
 		</div>
+	</div>
 	);
 }

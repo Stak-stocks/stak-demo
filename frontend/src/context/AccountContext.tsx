@@ -65,7 +65,8 @@ export interface UserDoc {
 	totalIntelViews?: number;
 	deckOrder?: string[];
 	searchHistory?: SearchEntry[];
-	categoryScores?: Record<string, number>;
+	tagScores?: Record<string, number>;
+	lastBriefDate?: string;
 }
 
 interface AccountContextType {
@@ -81,7 +82,7 @@ interface AccountContextType {
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
 	clearSearchHistory: () => Promise<void>;
-	updateCategoryScores: (delta: Record<string, number>) => Promise<void>;
+	updateLastBriefDate: (date: string) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -233,17 +234,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
-	const updateCategoryScores = useCallback(
-		async (delta: Record<string, number>) => {
+	const updateLastBriefDate = useCallback(
+		async (date: string) => {
 			if (!user) return;
-			const current = account?.categoryScores ?? {};
-			const merged: Record<string, number> = { ...current };
-			for (const [cat, score] of Object.entries(delta)) {
-				merged[cat] = (merged[cat] ?? 0) + score;
-			}
-			await updateDoc(doc(db, "users", user.uid), { categoryScores: merged });
+			await updateDoc(doc(db, "users", user.uid), { lastBriefDate: date });
 		},
-		[user, account],
+		[user],
 	);
 
 	return (
@@ -261,7 +257,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
-				updateCategoryScores,
+				updateLastBriefDate,
 			}}
 		>
 			{children}

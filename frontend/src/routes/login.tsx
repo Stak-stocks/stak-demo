@@ -32,7 +32,7 @@ function LoginPage() {
 			// Force-refresh then read fresh claims — avoids stale React state from
 		// the previous onAuthStateChanged call.
 		user.getIdToken(true)
-				.then(() => getProfile())
+				.then(() => getProfile().catch(() => {}))
 				.then(() => user.getIdToken(true))
 				.then(() => user.getIdTokenResult())
 				.then((result) => {

@@ -3,6 +3,7 @@ import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { PEER_GROUPS } from "../data/peerGroups.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -542,4 +543,114 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 
 	await cacheSet(cacheKey, result, 24 * 60 * 60 * 1000);
 	res.json(result);
+});
+
+// ── Analyst price targets + consensus recommendation ─────────────────────────
+// GET /api/stock/:symbol/analyst
+// IMPORTANT: must come after /:symbol/earnings so "analyst" isn't matched as "earnings"
+
+stockRouter.get("/:symbol/analyst", async (req, res) => {
+	const raw = req.params.symbol.toUpperCase();
+	const symbol = resolveSymbol(raw);
+	const cacheKey = `analyst:${symbol}`;
+
+	const cached = await cacheGet(cacheKey);
+	if (cached) { res.json(cached); return; }
+
+	const [targetRaw, recRaw] = await Promise.all([
+		finnhubGet(`/stock/price-target?symbol=${symbol}`),
+		finnhubGet(`/stock/recommendation?symbol=${symbol}`),
+	]) as [
+		{ targetHigh?: number; targetLow?: number; targetMean?: number; targetMedian?: number } | null,
+		Array<{ strongBuy?: number; buy?: number; hold?: number; sell?: number; strongSell?: number; period?: string }> | null,
+	];
+
+	const latest = Array.isArray(recRaw) && recRaw.length > 0 ? recRaw[0] : null;
+
+	const result = {
+		priceTarget: targetRaw?.targetMean != null ? {
+			low:  targetRaw.targetLow  ?? null,
+			avg:  targetRaw.targetMean ?? null,
+			high: targetRaw.targetHigh ?? null,
+		} : null,
+		recommendation: latest ? {
+			strongBuy:  latest.strongBuy  ?? 0,
+			buy:        latest.buy        ?? 0,
+			hold:       latest.hold       ?? 0,
+			sell:       latest.sell       ?? 0,
+			strongSell: latest.strongSell ?? 0,
+			period:     latest.period     ?? null,
+		} : null,
+	};
+
+	await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000); // 6 hours
+	res.json(result);
+});
+
+// ── Peer metrics ────────────────────────────────────────────────────────────
+// Returns median P/E, revenue growth, profit margin, and beta for a stock's
+// peer group. Cached 24 h — these numbers don't need to be real-time.
+
+interface FinnhubMetricAll {
+	metric: {
+		peNormalizedAnnual?: number;
+		revenueGrowthTTMYoy?: number;
+		netProfitMarginTTM?: number;
+		beta?: number;
+	};
+}
+
+function numericMedian(values: number[]): number | null {
+	if (values.length === 0) return null;
+	const sorted = [...values].sort((a, b) => a - b);
+	const mid = Math.floor(sorted.length / 2);
+	return sorted.length % 2 !== 0
+		? sorted[mid]!
+		: (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
+	const ticker = (req.params["ticker"] as string).toUpperCase();
+	const peerTickers = PEER_GROUPS[ticker] ?? [];
+
+	const cacheKey = `peer-metrics:${ticker}`;
+	const cached = await cacheGet<unknown>(cacheKey);
+	if (cached !== null) return res.json(cached);
+
+	// Fetch Finnhub basic metrics for each peer in parallel; ignore failures.
+	const metricResults = await Promise.allSettled(
+		peerTickers.map(async (t) => {
+			const data = await finnhubGet(`/stock/metric?symbol=${encodeURIComponent(t)}&metric=all`);
+			return data as FinnhubMetricAll | null;
+		}),
+	);
+
+	const pes:    number[] = [];
+	const growths: number[] = [];
+	const margins: number[] = [];
+	const betas:  number[] = [];
+
+	for (const r of metricResults) {
+		if (r.status !== "fulfilled" || !r.value?.metric) continue;
+		const m = r.value.metric;
+		if (m.peNormalizedAnnual != null && isFinite(m.peNormalizedAnnual) && m.peNormalizedAnnual > 0) pes.push(m.peNormalizedAnnual);
+		if (m.revenueGrowthTTMYoy != null && isFinite(m.revenueGrowthTTMYoy)) growths.push(m.revenueGrowthTTMYoy);
+		if (m.netProfitMarginTTM != null && isFinite(m.netProfitMarginTTM)) margins.push(m.netProfitMarginTTM);
+		if (m.beta != null && isFinite(m.beta) && m.beta > 0) betas.push(m.beta);
+	}
+
+	const round1 = (v: number | null) => v !== null ? Math.round(v * 10) / 10 : null;
+
+	const payload = {
+		ticker,
+		peerTickers,
+		peerCount: peerTickers.length,
+		pe:             round1(numericMedian(pes)),
+		revenueGrowth:  round1(numericMedian(growths)),
+		profitMargin:   round1(numericMedian(margins)),
+		beta:           round1(numericMedian(betas)),
+	};
+
+	await cacheSet(cacheKey, payload, 24 * 60 * 60 * 1000); // 24 h
+	res.json(payload);
 });

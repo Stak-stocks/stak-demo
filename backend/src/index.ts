@@ -16,6 +16,8 @@ import { intelCardsRouter } from "./routes/intelCards.js";
 import { iposRouter, deleteUnverifiedAccounts } from "./routes/ipos.js";
 import { vibesRouter } from "./routes/vibes.js";
 import { analyticsRouter } from "./routes/analytics.js";
+import { recommendationsRouter } from "./routes/recommendations.js";
+import { dailyBriefRouter } from "./routes/dailyBrief.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 dotenv.config();
@@ -68,6 +70,8 @@ app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, iposRouter);
 app.use("/api/vibes", publicLimiter, vibesRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
+app.use("/api/recommendations", authLimiter, recommendationsRouter);
+app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 
 // Convenience redirect: /analytics → /analytics.html
 app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));

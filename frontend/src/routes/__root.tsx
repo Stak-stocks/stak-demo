@@ -10,11 +10,14 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { DailyBriefModal } from "@/components/DailyBriefModal";
 import type { BrandProfile } from "@/data/brands";
 import { getTodayKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
+import { DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
+import { STAK_CAPACITY } from "@/lib/constants";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -24,29 +27,26 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 	return <>{children}</>;
 }
 
-// Date key for daily swipe reset at 9 AM
-
-const DAILY_SWIPE_LIMIT = 20;
-const STAK_CAPACITY = 30;
-
 function Root() {
 	const { user, loading } = useAuth();
-	const { account, accountLoading, updateStak, incrementSwipeCount } = useAccount();
+	const { account, accountLoading, updateStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [briefOpen, setBriefOpen] = useState(false);
+	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0 });
-		document.body.style.overflow = "";
+		if (!briefOpen) document.body.style.overflow = "";
 		logEvent("page_view", { page_path: location.pathname });
-	}, [location.pathname]);
+	}, [location.pathname, briefOpen]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly
 	const queryClient = useQueryClient();
@@ -94,6 +94,16 @@ function Root() {
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
 
+	// Show Daily Brief once per day after user is authenticated and onboarded.
+	// Stored in Firestore so it's cross-device — seeing it on phone won't show it again on iPad.
+	// Write to Firestore first so a failed write doesn't cause the modal to reappear every session.
+	// TODO: remove always-open override before shipping
+	useEffect(() => {
+		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		const t = setTimeout(() => setBriefOpen(true), 400);
+		return () => clearTimeout(t);
+	}, [user, account?.onboardingCompleted, isAuthPage]);
+
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
 		if ('scrollRestoration' in history) {
@@ -113,6 +123,17 @@ function Root() {
 		const handler = () => setSearchOpen(true);
 		window.addEventListener("open-search", handler);
 		return () => window.removeEventListener("open-search", handler);
+	}, []);
+
+	// Listen for custom event to open daily brief from child pages
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const source = (e as CustomEvent<{ source?: string }>).detail?.source;
+			setBriefSource(source === "mystak" ? "mystak" : "auto");
+			setBriefOpen(true);
+		};
+		window.addEventListener("open-brief", handler);
+		return () => window.removeEventListener("open-brief", handler);
 	}, []);
 
 	if (loading || accountLoading) {
@@ -142,7 +163,7 @@ function Root() {
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
+			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
 				<PullToRefresh scrollRef={scrollRef}>
 					<ErrorBoundary tagName="main" className="min-h-full">
 						<PageTransition pathname={location.pathname}>
@@ -169,6 +190,8 @@ function Root() {
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>
+
+		{briefOpen && <DailyBriefModal onClose={() => setBriefOpen(false)} source={briefSource} />}
 
 		</div>
 	);

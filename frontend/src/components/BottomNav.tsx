@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Layers, Newspaper, Trophy, UserCircle } from "lucide-react";
+import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
 
 const NAV_ITEMS = [
 	{
@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 	},
 	{
 		to: "/my-stak",
-		label: "My Stak",
+		label: "My STAK",
 		icon: Layers,
 		activeColor: "text-violet-500 dark:text-violet-400",
 		glow: "bg-gradient-to-br from-violet-400/30 to-indigo-400/30 shadow-[0_0_12px_rgba(139,92,246,0.5),0_0_24px_rgba(99,102,241,0.3)]",
@@ -24,11 +24,11 @@ const NAV_ITEMS = [
 		glow: "bg-gradient-to-br from-orange-400/30 to-amber-400/30 shadow-[0_0_12px_rgba(251,146,60,0.5),0_0_24px_rgba(245,158,11,0.3)]",
 	},
 	{
-		to: "/league",
-		label: "League",
-		icon: Trophy,
-		activeColor: "text-yellow-500 dark:text-yellow-500",
-		glow: "bg-gradient-to-br from-yellow-400/30 to-amber-400/30 shadow-[0_0_12px_rgba(250,204,21,0.5),0_0_24px_rgba(245,158,11,0.3)]",
+		to: "/playground",
+		label: "Playground",
+		icon: Gamepad2,
+		activeColor: "text-pink-500 dark:text-pink-400",
+		glow: "bg-gradient-to-br from-pink-400/30 to-rose-400/30 shadow-[0_0_12px_rgba(244,114,182,0.5),0_0_24px_rgba(251,113,133,0.3)]",
 	},
 	{
 		to: "/profile",

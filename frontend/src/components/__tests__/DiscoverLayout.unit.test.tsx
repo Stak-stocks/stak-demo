@@ -67,7 +67,7 @@ vi.mock("@/context/AccountContext", () => ({
 			interests: [],
 			streakDays: 0,
 			streakLastDate: null,
-			categoryScores: {},
+			tagScores: {},
 			streak: { date: "", count: 0 },
 		},
 		updateStak: vi.fn().mockResolvedValue(undefined),
@@ -75,7 +75,6 @@ vi.mock("@/context/AccountContext", () => ({
 		updateDeckOrder: vi.fn().mockResolvedValue(undefined),
 		updateIntelState: vi.fn().mockResolvedValue(undefined),
 		updateStreak: vi.fn().mockResolvedValue(undefined),
-		updateCategoryScores: vi.fn().mockResolvedValue(undefined),
 	}),
 }));
 

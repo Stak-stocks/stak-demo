@@ -76,7 +76,10 @@ export interface BrandProfile {
 	logo?: string;
 	trends?: TrendCard[];
 	interestCategories?: string[];
+	peerTickers?: string[];
 }
+
+import { PEER_GROUPS } from "./peerGroups";
 
 const BRAND_DOMAINS: Record<string, string> = {
 	tsla: "tesla.com", aapl: "apple.com", nvda: "nvidia.com", rblx: "roblox.com",
@@ -368,7 +371,7 @@ export function getBrandHeroUrl(id: string): string {
 	return "";
 }
 
-export const brands: BrandProfile[] = [
+const rawBrands: BrandProfile[] = [
 	{
 		id: "tsla",
 		ticker: "TSLA",
@@ -5463,7 +5466,7 @@ export const brands: BrandProfile[] = [
 	},
 	{
 		id: "brkb",
-		ticker: "BRKB",
+		ticker: "BRK.B",
 		name: "Berkshire Hathaway B",
 		bio: "Warren Buffett's everything company — the ultimate holding company",
 		heroImage: "https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9?w=800&h=600&fit=crop",
@@ -10699,36 +10702,6 @@ export const brands: BrandProfile[] = [
 		interestCategories: ["lifestyle", "shopping", "pets"],
 	},
 	{
-		id: "para",
-		ticker: "PARA",
-		name: "Paramount Global",
-		bio: "the 100-year-old studio behind the mountain logo. Paramount+, MTV, Nickelodeon, CBS, SpongeBob — fighting for your streaming attention",
-		heroImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&h=600&fit=crop",
-		personalityDescription: "The legacy media empire trying to stay relevant in a streaming war it didn't start",
-		vibes: [
-			{ name: "Clout", emoji: "🏰", value: 68, color: "#00d9ff" },
-			{ name: "Drama Level", emoji: "🎭", value: 72, color: "#ff006e" },
-			{ name: "Internet Hype", emoji: "🔥", value: 48, color: "#ff9500" },
-		],
-		culturalContext: {
-			title: "The Old Hollywood Giant Fighting for Streaming",
-			sections: [
-				{ heading: "What They Do", content: "Paramount owns Paramount Pictures (Mission Impossible, Top Gun), CBS, MTV, Nickelodeon, Comedy Central, BET, and the Paramount+ streaming service." },
-				{ heading: "Why Gen Z Cares", content: "Paramount's IP catalog is massive — SpongeBob, Transformers, Star Trek, South Park. They're in the streaming race but are smaller than Netflix, Disney+, and HBO Max, making their path harder." },
-				{ heading: "The Bigger Picture", content: "Paramount merged with Skydance Media in 2024 to gain a technology and production partner. The streaming wars are consolidating — Paramount needs to find its lane before the market decides it for them." },
-			],
-		},
-		financials: {
-			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "restructuring costs have suppressed earnings" },
-			marketCap: { label: "Market Cap", value: "$10B", explanation: "The total value of all the company's shares combined", culturalTranslation: "massive asset base trading at a discount — reflecting streaming uncertainty" },
-			revenueGrowth: { label: "Revenue Growth", value: "5%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "modest growth as streaming gains offset declining linear TV" },
-			profitMargin: { label: "Profit Margin", value: "-3%", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "investing heavily in streaming content while traditional TV declines" },
-			beta: { label: "Beta", value: "1.4", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "moderately volatile media stock" },
-			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "dividend eliminated to conserve cash for streaming investment" },
-		},
-		interestCategories: ["media", "entertainment", "streaming"],
-	},
-	{
 		id: "lcid",
 		ticker: "LCID",
 		name: "Lucid Group Inc",
@@ -11480,3 +11453,8 @@ export const brands: BrandProfile[] = [
 	},
 	// END AUTO-GENERATED
 ];
+
+export const brands: BrandProfile[] = rawBrands.map(b => ({
+	...b,
+	peerTickers: PEER_GROUPS[b.ticker] ?? [],
+}));

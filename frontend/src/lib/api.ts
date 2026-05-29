@@ -52,6 +52,10 @@ export function getBrands() {
 	return apiRequest<{ brands: unknown[] }>("/api/brands");
 }
 
+export function getPopularBrands() {
+	return apiRequest<{ brandIds: string[] }>("/api/brands/popular");
+}
+
 // Stak
 export function getStak() {
 	return apiRequest<{ brandIds: string[] }>("/api/me/stak");
@@ -252,6 +256,32 @@ export function getMarketEarnings(period: "today" | "tomorrow" | "week", extraTi
 	);
 }
 
+export interface AnalystData {
+	priceTarget: { low: number | null; avg: number | null; high: number | null } | null;
+	recommendation: {
+		strongBuy: number; buy: number; hold: number; sell: number; strongSell: number;
+		period: string | null;
+	} | null;
+}
+
+export function getAnalystData(symbol: string) {
+	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst`);
+}
+
+export interface PeerMetrics {
+	ticker: string;
+	peerTickers: string[];
+	peerCount: number;
+	pe: number | null;
+	revenueGrowth: number | null;
+	profitMargin: number | null;
+	beta: number | null;
+}
+
+export function getPeerMetrics(symbol: string) {
+	return apiRequest<PeerMetrics>(`/api/stock/peer-metrics/${encodeURIComponent(symbol)}`);
+}
+
 export function getEarnings(symbol: string, name?: string) {
 	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
 	return apiRequest<{
@@ -259,6 +289,71 @@ export function getEarnings(symbol: string, name?: string) {
 		date: string | null;
 		hour?: string;
 	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings${qs}`);
+}
+
+export interface DailyBriefDeck {
+	id: string;
+	title: string;
+	subtitle: string;
+	icon: string;
+	color: "green" | "purple" | "blue";
+	bars?: boolean;
+}
+
+export interface DailyBriefResponse {
+	mood: "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
+	session: "open" | "midday" | "close";
+	moodExplanation: string;
+	plainEnglish: string;
+	personalizedImpact: string;
+	decks: DailyBriefDeck[];
+	marketSnapshot: {
+		spyChange: number | null;
+		qqqChange: number | null;
+		diaChange: number | null;
+	};
+	generatedAt: string;
+}
+
+export function getDailyBrief() {
+	return apiRequest<DailyBriefResponse>("/api/daily-brief");
+}
+
+export interface RecommendationDebugStock {
+	ticker: string;
+	primaryCategory: string;
+	displayTags: string[];
+	finalScore: number;
+	scoreBreakdown: {
+		tasteMatchScore: number;
+		freshnessBoost: number;
+		dailyBriefThemeBoost: number;
+		diversityAdjustment: number;
+	};
+	matchedUserTags: string[];
+}
+
+export interface FreshnessSignals {
+	majorNewsLast48h: string[];
+	unusualMovers: string[];
+	analystUpdatesLast7d: string[];
+}
+
+export function getRecommendationFreshness() {
+	return apiRequest<FreshnessSignals>("/api/recommendations/freshness");
+}
+
+export function getRecommendationDebug(limit = 50) {
+	return apiRequest<{
+		uid: string;
+		hasTagScores: boolean;
+		tagScoreCount: number;
+		upcomingEarningsCount: number;
+		upcomingEarningsTickers: string[];
+		totalStocks: number;
+		returnedCount: number;
+		stocks: RecommendationDebugStock[];
+	}>(`/api/recommendations/debug?limit=${limit}`);
 }
 
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)

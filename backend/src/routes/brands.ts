@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
 
 export const brandsRouter = Router();
 
@@ -15,6 +16,41 @@ brandsRouter.get("/", async (_req, res) => {
 	} catch (error) {
 		console.error("Error fetching brands:", error);
 		res.status(500).json({ error: "Failed to fetch brands" });
+	}
+});
+
+// GET /api/brands/popular — brand IDs saved by 50+ users (4h cache)
+brandsRouter.get("/popular", async (_req, res) => {
+	const CACHE_KEY = "brands:popular";
+	const MIN_SAVES = 50;
+
+	try {
+		const cached = await cacheGet<{ brandIds: string[] }>(CACHE_KEY);
+		if (cached) {
+			res.json(cached);
+			return;
+		}
+
+		const snapshot = await adminDb.collection("users").get();
+		const countMap: Record<string, number> = {};
+
+		for (const doc of snapshot.docs) {
+			const ids: string[] = doc.data().stakBrandIds ?? [];
+			for (const id of ids) {
+				countMap[id] = (countMap[id] ?? 0) + 1;
+			}
+		}
+
+		const brandIds = Object.entries(countMap)
+			.filter(([, count]) => count >= MIN_SAVES)
+			.map(([id]) => id);
+
+		const result = { brandIds };
+		await cacheSet(CACHE_KEY, result, 4 * 60 * 60 * 1000);
+		res.json(result);
+	} catch (error) {
+		console.error("Error fetching popular brands:", error);
+		res.status(500).json({ error: "Failed to fetch popular brands" });
 	}
 });
 

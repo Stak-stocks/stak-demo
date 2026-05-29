@@ -6,11 +6,10 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { brands as allBrands, type BrandProfile } from "@/data/brands";
-import { BrandLogo } from "@/components/BrandLogo";
 import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
+import { TAG_SCORE_MAX } from "@/lib/constants";
 import { IntelCardModal } from "@/components/IntelCardModal";
 import { getIntelCards } from "@/lib/api";
-import { INTEREST_TO_BRANDS } from "@/data/onboarding";
 import {
 	ChevronRight,
 	User,
@@ -21,69 +20,65 @@ import {
 	Flame,
 	Moon,
 	Sun,
+	TrendingUp,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
-/* ── Reverse map: brand ID → categories it belongs to ── */
-const BRAND_TO_CATS: Record<string, string[]> = {};
-for (const [cat, ids] of Object.entries(INTEREST_TO_BRANDS)) {
-	for (const id of ids) {
-		if (!BRAND_TO_CATS[id]) BRAND_TO_CATS[id] = [];
-		BRAND_TO_CATS[id].push(cat);
-	}
-}
-
-/* ── Vibe archetype based on swiped brands ── */
-const VIBE_MAP: Record<string, { label: string; emoji: string; desc: string }> = {
-	tech:      { label: "Tech Visionary",    emoji: "🤖", desc: "Betting big on AI & the future."  },
-	gaming:    { label: "Alpha Gamer",        emoji: "🎮", desc: "Levelling up in markets too."      },
-	streaming: { label: "Culture Creator",    emoji: "📺", desc: "Streaming the future of media."    },
-	fashion:   { label: "Trend Setter",       emoji: "💎", desc: "Where culture meets returns."      },
-	beauty:    { label: "Beauty Guru",        emoji: "✨", desc: "Investing in what looks good."     },
-	finance:   { label: "Market Maven",       emoji: "📊", desc: "Always following the money trail." },
-	energy:    { label: "Green Investor",     emoji: "⚡", desc: "Powering the future economy."      },
-	music:     { label: "Sound Investor",     emoji: "🎵", desc: "Vibes that pay dividends."         },
-	food_drink: { label: "Taste Maker",       emoji: "🍔", desc: "Investing in everyday cravings."   },
-	shopping:  { label: "Savvy Shopper",      emoji: "🛍️", desc: "Commerce is always in season."    },
-	travel:    { label: "Globe Trotter",      emoji: "✈️", desc: "Investing in the world around you."},
-	fitness:   { label: "Wellness Investor",  emoji: "💪", desc: "Health is wealth, literally."      },
+const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
+	adtech: ["techCurious"], ai_supply_chain: ["techCurious"], chip_equipment: ["techCurious"],
+	cybersecurity: ["techCurious"], digital_media: ["techCurious"], enterprise_software: ["techCurious"],
+	hardware: ["techCurious"], services: ["techCurious"], software: ["techCurious"], technology: ["techCurious"],
+	ai: ["techCurious", "highGrowth"], analytics: ["techCurious", "highGrowth"],
+	automation: ["techCurious", "highGrowth"], cloud: ["techCurious", "highGrowth"],
+	data_center: ["techCurious", "highGrowth"], data_cloud: ["techCurious", "highGrowth"],
+	innovation: ["techCurious", "highGrowth"], network_effects: ["techCurious", "highGrowth"],
+	semiconductor: ["techCurious", "highGrowth"],
+	apparel_beauty: ["consumerBrands"], beverage: ["consumerBrands"], consumer_brand: ["consumerBrands"],
+	consumer_platform: ["consumerBrands"], consumer_service: ["consumerBrands"],
+	consumer_spending: ["consumerBrands"], entertainment: ["consumerBrands"],
+	everyday_spending: ["consumerBrands"], familiar_brand: ["consumerBrands"],
+	home_retail: ["consumerBrands"], marketplace: ["consumerBrands"], media: ["consumerBrands"],
+	restaurant: ["consumerBrands"], retail: ["consumerBrands"], streaming: ["consumerBrands"],
+	subscription: ["consumerBrands"], travel: ["consumerBrands"],
+	ecommerce: ["consumerBrands", "highGrowth"], electric_vehicles: ["consumerBrands", "highGrowth", "speculativePlays"],
+	consumer_staples: ["consumerBrands", "incomeDividends"], auto: ["consumerBrands"],
+	gaming: ["consumerBrands", "speculativePlays"],
+	high_growth: ["highGrowth"], saas: ["highGrowth"], fintech: ["highGrowth"],
+	air_mobility: ["highGrowth", "speculativePlays"], crypto: ["highGrowth", "speculativePlays"],
+	meme_stock: ["highGrowth", "speculativePlays"], space: ["highGrowth", "speculativePlays"],
+	speculative: ["highGrowth", "speculativePlays"], clean_energy: ["highGrowth", "speculativePlays"],
+	solar: ["highGrowth", "speculativePlays"], biotech: ["highGrowth", "speculativePlays"],
+	digital_health: ["highGrowth", "speculativePlays"],
+	dividend_income: ["incomeDividends"], telecom: ["incomeDividends"], utilities: ["incomeDividends"],
+	energy: ["incomeDividends"], oil_gas: ["incomeDividends"], asset_management: ["incomeDividends"],
+	banking: ["incomeDividends"], capital_markets: ["incomeDividends"], financials: ["incomeDividends"],
+	insurance: ["incomeDividends"], defensive: ["incomeDividends"], income: ["incomeDividends"],
+	real_estate: ["incomeDividends"], reit: ["incomeDividends"],
+	casino_gaming: ["speculativePlays"], trading_platform: ["speculativePlays"], volatile: ["speculativePlays"],
+	commodity_sensitive: ["speculativePlays"], policy_linked: ["speculativePlays"],
 };
 
-function computeVibes(
-	stakBrands: BrandProfile[],
-	interests: string[],
-	categoryScores: Record<string, number>,
-): Array<{ label: string; emoji: string; desc: string; pct: number }> {
-	const scores: Record<string, number> = {};
+const DISPLAY_CATEGORIES = [
+	{ key: "techCurious",     label: "Tech Curious",       color: "from-blue-500 to-cyan-500",    bg: "bg-blue-500/10",    text: "text-blue-300"    },
+	{ key: "consumerBrands",  label: "Consumer Brands",    color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", text: "text-fuchsia-300" },
+	{ key: "highGrowth",      label: "High Growth",        color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", text: "text-emerald-300" },
+	{ key: "incomeDividends", label: "Income & Dividends", color: "from-amber-500 to-yellow-400", bg: "bg-amber-500/10",   text: "text-amber-300"   },
+	{ key: "speculativePlays",label: "Speculative Plays",  color: "from-orange-500 to-red-500",   bg: "bg-orange-500/10",  text: "text-orange-300"  },
+] as const;
 
-	// Primary signal: weighted swipe history (right=+2, left=-1 already accumulated)
-	for (const [cat, score] of Object.entries(categoryScores)) {
-		if (VIBE_MAP[cat] && score > 0) scores[cat] = score;
-	}
-
-	// Commitment boost: brands currently in stak add +3 per category
-	for (const brand of stakBrands) {
-		const cats = BRAND_TO_CATS[brand.id] ?? brand.interestCategories ?? [];
-		for (const cat of cats) {
-			if (VIBE_MAP[cat]) scores[cat] = (scores[cat] ?? 0) + 3;
+function computeDisplayCategories(tagScores: Record<string, number>): Record<string, number> {
+	const raw: Record<string, number> = {
+		techCurious: 0, consumerBrands: 0, highGrowth: 0, incomeDividends: 0, speculativePlays: 0,
+	};
+	for (const [tag, score] of Object.entries(tagScores)) {
+		for (const bucket of TAG_TO_DISPLAY_BUCKETS[tag] ?? []) {
+			if (bucket in raw) raw[bucket] += score;
 		}
 	}
-
-	// Fallback: use onboarding interests if no swipe data yet
-	if (Object.keys(scores).length === 0) {
-		for (const cat of interests) {
-			if (VIBE_MAP[cat]) scores[cat] = (scores[cat] ?? 0) + 1;
-		}
-	}
-
-	const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, 3);
-	if (ranked.length === 0) return [{ ...VIBE_MAP.tech, pct: 100 }];
-
-	const total = ranked.reduce((s, [, v]) => s + v, 0);
-	return ranked.map(([cat, score]) => ({
-		...VIBE_MAP[cat],
-		pct: total > 0 ? Math.round((score / total) * 100) : 0,
-	}));
+	const maxScore = Math.max(1, ...Object.values(raw));
+	return Object.fromEntries(
+		Object.entries(raw).map(([k, v]) => [k, Math.round((v / maxScore) * 100)]),
+	);
 }
 
 export const Route = createFileRoute("/profile")({
@@ -159,14 +154,14 @@ function ProfilePage() {
 	const level = LEVEL_MAP[familiarity] ?? LEVEL_MAP.new;
 	const starsDisplay = "⭐".repeat(level.stars);
 
-	// Vibe check — weighted from swipe history + stak commitment; falls back to interests
-	const interests = account?.preferences?.interests ?? [];
-	const categoryScores = account?.categoryScores ?? {};
-	const vibes = computeVibes(stakBrands, interests, categoryScores);
+	// STAK Taste — derived from weighted tagScores (set by backend on every swipe)
+	const tagScores = account?.tagScores ?? {};
+	const displayCategories = computeDisplayCategories(tagScores);
+	const hasTagScores = Object.keys(tagScores).length > 0;
 
 	// Badges — all badges with progress tracking
-	const maxCategoryScore = Math.max(0, ...Object.values(categoryScores));
-	const categoriesEngaged = Object.keys(categoryScores).length;
+	const maxTagScore = Math.max(0, ...Object.values(tagScores));
+	const categoriesEngaged = Object.keys(tagScores).length;
 	const hasStaked = stakBrands.length >= 1;
 	const hasReadIntel = readCards.length >= 1;
 
@@ -180,7 +175,7 @@ function ProfilePage() {
 		{ id: "intel-junky",        label: "Insight Seeker",    emoji: "🧠", desc: "Read 5 Intel cards — you're learning fast.", earned: readCards.length >= 5,          progress: Math.min(readCards.length / 5, 1),       progressLabel: `${readCards.length}/5 cards`                    },
 		{ id: "knowledge-hoarder",  label: "All-Knowing",       emoji: "📚", desc: "Read every Intel card in the library.",       earned: readCards.length >= INTEL_CARDS.length, progress: readCards.length / Math.max(INTEL_CARDS.length, 1), progressLabel: `${readCards.length}/${INTEL_CARDS.length} cards` },
 		{ id: "explorer",           label: "Explorer",          emoji: "🌍", desc: "Engaged with 3+ different market sectors.",   earned: categoriesEngaged >= 3,         progress: Math.min(categoriesEngaged / 3, 1),      progressLabel: `${categoriesEngaged}/3 sectors`                 },
-		{ id: "conviction-builder", label: "Conviction Builder",emoji: "🎯", desc: "Deep focus on one sector — you know your edge.", earned: maxCategoryScore >= 20,      progress: Math.min(maxCategoryScore / 20, 1),      progressLabel: `${maxCategoryScore}/20 score`                   },
+		{ id: "conviction-builder", label: "Conviction Builder",emoji: "🎯", desc: "Deep focus on one sector — you know your edge.", earned: maxTagScore >= 20,      progress: Math.min(maxTagScore / 20, 1),      progressLabel: `${Math.round(maxTagScore)}/20 score`                   },
 		{ id: "signal-finder",      label: "Signal Finder",     emoji: "📡", desc: "Staked brands and read intel — the full loop.", earned: hasStaked && hasReadIntel,   progress: (hasStaked ? 0.5 : 0) + (hasReadIntel ? 0.5 : 0),  progressLabel: hasStaked && hasReadIntel ? "Complete" : !hasStaked ? "Stake a brand first" : "Read an Intel card" },
 	];
 	const earnedBadges = allBadges.filter((b) => b.earned);
@@ -287,62 +282,44 @@ function ProfilePage() {
 				{/* ════════ DASHBOARD GRID ════════ */}
 				<div className="grid grid-cols-2 gap-2.5 mb-5">
 
-					{/* Row 1 — Taste Profile */}
-					<button
-						type="button"
-						onClick={() => navigate({ to: "/my-stak" })}
-						style={{ border: "1px solid rgba(6,182,212,0.35)" }}
-						className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 text-left active:scale-95 transition-all hover:brightness-105 shadow-sm dark:shadow-none"
-					>
-						<div className="flex items-center justify-between">
-							<p className="text-xs font-bold">Taste Profile</p>
-							<span className="text-[10px] text-cyan-400 font-medium">{stakBrands.length} stocks &rarr;</span>
+					{/* Your STAK Taste (full width) */}
+				<div style={{ border: "1px solid rgba(99,102,241,0.35)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
+					<div className="flex items-center justify-between mb-3">
+						<div className="flex items-center gap-1.5">
+							<TrendingUp className="w-3.5 h-3.5 text-violet-400" />
+							<p className="text-[11px] font-bold">Your STAK Taste</p>
 						</div>
-						{stakBrands.length > 0 ? (
-							<>
-								<div className="flex items-center gap-1.5 flex-wrap">
-									{stakBrands.slice(0, 8).map((b) => (
-										<BrandLogo key={b.id} brand={b} className="w-8 h-8 rounded-full bg-white/10 border border-white/10" />
-									))}
-								{stakBrands.length > 8 && <span className="text-[10px] text-zinc-400">+{stakBrands.length - 8}</span>}
-								</div>
-								{vibes.length > 0 && (
-									<div className="flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200/50 dark:border-slate-700/30">
-										<p className="text-[10px] text-zinc-500 leading-relaxed">{vibes[0].desc}</p>
-										<div className="flex items-center gap-1 flex-wrap">
-											{vibes.slice(0, 3).map((v) => (
-												<span key={v.label} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-[9px] font-semibold text-fuchsia-400">
-													{v.emoji} {v.label}
-												</span>
-											))}
+						<button
+							type="button"
+							onClick={() => navigate({ to: "/my-stak" })}
+							className="text-[10px] text-violet-400 font-medium"
+						>
+							{stakBrands.length} stocks &rarr;
+						</button>
+					</div>
+					{hasTagScores ? (
+						<div className="space-y-[9px]">
+							{DISPLAY_CATEGORIES.map(({ key, label, color, text }) => {
+								const pct = displayCategories[key] ?? 0;
+								return (
+									<div key={key} className="flex items-center gap-2">
+										<span className={`text-[10px] font-medium w-[110px] shrink-0 ${text}`}>{label}</span>
+										<div className="flex-1 h-[5px] rounded-full bg-zinc-200 dark:bg-slate-700/60 overflow-hidden">
+											<div
+												className={`h-full rounded-full bg-gradient-to-r ${color} transition-all duration-700`}
+												style={{ width: `${pct}%` }}
+											/>
 										</div>
+										<span className="text-[10px] text-zinc-400 w-7 text-right shrink-0 tabular-nums">{pct}%</span>
 									</div>
-								)}
-							</>
-						) : (
-							<p className="text-[10px] text-zinc-500">No brands yet — start swiping to build your stak</p>
-						)}
-					</button>
-
-					{/* Row 1 — My Vibe Check (full width) */}
-				<div style={{ border: "1px solid rgba(168,85,247,0.4)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
-					<div className="flex items-center gap-1.5 mb-2">
-						<span className="text-sm">✨</span>
-						<p className="text-[11px] font-bold">My Vibe Check</p>
-					</div>
-					<p className="text-base font-extrabold" style={{ color: "#d946ef" }}>{vibes[0].emoji} {vibes[0].label}</p>
-					<p className="text-[10px] text-zinc-500 mt-0.5 mb-3">{vibes[0].desc}</p>
-					<div className="space-y-1.5">
-						{vibes.map((v) => (
-							<div key={v.label} className="flex items-center gap-2">
-								<span className="text-xs w-4 shrink-0">{v.emoji}</span>
-								<div className="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700/50 overflow-hidden">
-									<div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 transition-all duration-500" style={{ width: v.pct + "%" }} />
-								</div>
-								<span className="text-[10px] text-zinc-400 w-7 text-right shrink-0">{v.pct}%</span>
-							</div>
-						))}
-					</div>
+								);
+							})}
+						</div>
+					) : (
+						<p className="text-[10px] text-zinc-500 leading-relaxed">
+							Start swiping to build your taste profile — the more you swipe, the more accurate this gets.
+						</p>
+					)}
 				</div>
 
 					{/* Row 3 — STAK Streaks & Badges */}

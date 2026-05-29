@@ -1,21 +1,22 @@
-import { useState, useRef, useEffect, useCallback, type MouseEvent, type TouchEvent } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent, type TouchEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
-import { Clock, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react";
-import { recordSwipe } from "@/lib/api";
+import { Clock, Sparkles, X, Bookmark, BookOpen, ChevronDown, Brain, CheckCircle2, XCircle, Eye, Layers } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { recordSwipe, getStockData, getPopularBrands } from "@/lib/api";
+import { PICKS_RESET_HOUR } from "@/lib/constants";
 
 /* ── Velocity / flick thresholds ── */
 const FLICK_VELOCITY = 0.4;      // px/ms – a quick flick at this speed triggers swipe
 const DISTANCE_THRESHOLD = 60;   // px – slower drags need this distance
-const TAP_TOLERANCE = 8;         // px – below this is a tap, not a drag
 
-const RESET_HOUR = 9; // 9 AM — used only for the countdown timer UI
 
 function getTimeUntilReset(): { hours: number; minutes: number } {
 	const now = new Date();
 	const resetTime = new Date(now);
-	if (now.getHours() >= RESET_HOUR) resetTime.setDate(resetTime.getDate() + 1);
-	resetTime.setHours(RESET_HOUR, 0, 0, 0);
+	if (now.getHours() >= PICKS_RESET_HOUR) resetTime.setDate(resetTime.getDate() + 1);
+	resetTime.setHours(PICKS_RESET_HOUR, 0, 0, 0);
 	const diff = resetTime.getTime() - now.getTime();
 	return {
 		hours: Math.floor(diff / (1000 * 60 * 60)),
@@ -47,6 +48,68 @@ interface SwipeableCardStackProps {
 	onStreakUpdate?: (result: StreakUpdate) => void;
 }
 
+
+const ACTION_COLORS = {
+	red:   "border-2 border-red-500 text-red-400 bg-[#0d1117] shadow-[0_0_22px_rgba(239,68,68,.22)]",
+	cyan:  "border-2 border-green-500 text-green-400 bg-green-500/10 shadow-[0_0_22px_rgba(34,197,94,.2)]",
+	dark:  "border-2 border-blue-500/60 text-blue-400 bg-[#0d1117]",
+	gray:  "border-2 border-zinc-600 text-zinc-400 bg-[#0d1117]",
+};
+
+const GLOW_COLOR = {
+	red:  "rgba(239,68,68,",
+	cyan: "rgba(34,197,94,",
+	dark: "rgba(59,130,246,",
+	gray: "rgba(113,113,122,",
+};
+
+const DEEP_BG: Record<keyof typeof ACTION_COLORS, (h: number) => string | undefined> = {
+	red:  (h) => h > 0 ? `rgba(239,68,68,${(h * 0.35).toFixed(2)})` : undefined,
+	cyan: (h) => h > 0 ? `rgba(34,197,94,${(0.04 + h * 0.30).toFixed(2)})` : undefined,
+	dark: ()  => undefined,
+	gray: ()  => undefined,
+};
+
+function ActionBtn({ icon, label, sub, color, onClick, highlight = 0, isDragging = false }: {
+	icon: React.ReactNode;
+	label: string;
+	sub: string;
+	color: keyof typeof ACTION_COLORS;
+	onClick: () => void;
+	highlight?: number;
+	isDragging?: boolean;
+}) {
+	const btnScale = 1 + highlight * 0.45;
+	const glowSize = Math.round(22 + highlight * 28);
+	const glowOpacity = (0.22 + highlight * 0.6).toFixed(2);
+	const boxShadow = highlight > 0
+		? `0 0 ${glowSize}px ${GLOW_COLOR[color]}${glowOpacity})`
+		: undefined;
+	const backgroundColor = DEEP_BG[color](highlight);
+	const transition = isDragging
+		? "transform 0.06s linear, box-shadow 0.06s linear, background-color 0.06s linear"
+		: "transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, background-color 0.35s ease";
+
+	return (
+		<div
+			className="flex flex-col items-center"
+			style={{ transform: `scale(${btnScale})`, transition }}
+		>
+			<button
+				type="button"
+				onClick={onClick}
+				aria-label={label}
+				className={`grid h-[60px] w-[60px] place-items-center rounded-full active:scale-95 ${ACTION_COLORS[color]}`}
+				style={{ boxShadow, backgroundColor, transition }}
+			>
+				{icon}
+			</button>
+			<p className="mt-[8px] text-[11px] font-semibold text-white">{label}</p>
+			<p className="mt-[2px] text-[9px] leading-[11px] text-slate-500">{sub}</p>
+		</div>
+	);
+}
+
 export function SwipeableCardStack({
 	brands,
 	onLearnMore,
@@ -59,12 +122,34 @@ export function SwipeableCardStack({
 	loading,
 	onStreakUpdate,
 }: SwipeableCardStackProps) {
+	const navigate = useNavigate();
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [isExiting, setIsExiting] = useState(false);
-	const [exitDirection, setExitDirection] = useState<"left" | "right" | null>(null);
 	const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilReset);
+	const [scale, setScale] = useState(1);
+	const [savedCount, setSavedCount] = useState(0);
+	const [passedCount, setPassedCount] = useState(0);
+	const [skipSet, setSkipSet] = useState<Set<string>>(new Set());
+
+	// Deck with skipped cards shuffled to the end
+	const deck = useMemo(() => {
+		const active = brands.filter((b) => !skipSet.has(b.id));
+		const skipped = brands.filter((b) => skipSet.has(b.id));
+		return [...active, ...skipped];
+	}, [brands, skipSet]);
+
+	useEffect(() => {
+		const update = () => {
+			const wScale = Math.min(1, (window.innerWidth - 20) / 355);
+			const hScale = Math.min(1, (window.innerHeight - 260) / 550);
+			setScale(Math.max(0.75, Math.min(wScale, hScale)));
+		};
+		update();
+		window.addEventListener('resize', update);
+		return () => window.removeEventListener('resize', update);
+	}, []);
 
 	const dragStartPos = useRef({ x: 0, y: 0 });
 	const dragStartTime = useRef(0);
@@ -73,6 +158,24 @@ export function SwipeableCardStack({
 	const isProcessingSwipe = useRef(false);
 	const cardShownAt = useRef(Date.now());
 	const lastSwipeVelocity = useRef<number | undefined>(undefined);
+
+	const topBrand = deck[currentIndex];
+	const { data: stockData } = useQuery({
+		queryKey: ["stock-price", topBrand?.ticker],
+		queryFn: () => getStockData(topBrand!.ticker),
+		enabled: !!topBrand,
+		staleTime: 2 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: popularData } = useQuery({
+		queryKey: ["popular-brands"],
+		queryFn: getPopularBrands,
+		staleTime: 4 * 60 * 60 * 1000,
+		retry: 0,
+	});
+	const popularSet = useMemo(() => new Set(popularData?.brandIds ?? []), [popularData]);
 
 	// Reset card timer whenever the top card changes
 	useEffect(() => {
@@ -86,40 +189,41 @@ export function SwipeableCardStack({
 		return () => clearInterval(interval);
 	}, []);
 
-	const visibleBrands = brands.slice(currentIndex, currentIndex + 2);
 
 	// Preload images
 	useEffect(() => {
-		const preloadCount = Math.min(15, brands.length);
+		const preloadCount = Math.min(15, deck.length);
 		for (let i = 0; i < preloadCount; i++) {
 			const img = new Image();
-			img.src = brands[i].heroImage;
+			img.src = deck[i].heroImage;
 		}
-	}, [brands]);
+	}, [deck]);
 
 	useEffect(() => {
 		const preloadStart = Math.max(currentIndex + 3, 15);
-		const preloadEnd = Math.min(preloadStart + 5, brands.length);
+		const preloadEnd = Math.min(preloadStart + 5, deck.length);
 		for (let i = preloadStart; i < preloadEnd; i++) {
 			const img = new Image();
-			img.src = brands[i].heroImage;
+			img.src = deck[i].heroImage;
 		}
-	}, [currentIndex, brands]);
+	}, [currentIndex, deck]);
 
 	/* ── Execute a swipe (shared by drag-end & button taps) ── */
 	const executeSwipe = useCallback((direction: "left" | "right") => {
 		if (isProcessingSwipe.current) return;
 		isProcessingSwipe.current = true;
 
-		const currentBrand = brands[currentIndex];
+		const currentBrand = deck[currentIndex];
 		if (!currentBrand) { isProcessingSwipe.current = false; return; }
 
 		setIsDragging(false);
 		setIsExiting(true);
-		setExitDirection(direction);
 
 		const exitX = direction === "right" ? 1200 : -1200;
 		setDragOffset({ x: exitX, y: 0 });
+
+		if (direction === "right") setSavedCount((n) => n + 1);
+		else setPassedCount((n) => n + 1);
 
 		recordSwipe(currentBrand.id, direction, {
 			ticker: currentBrand.ticker,
@@ -141,15 +245,33 @@ export function SwipeableCardStack({
 				if (onSwipeLeft) {
 					onSwipeLeft(currentBrand);
 				} else {
-					setCurrentIndex((prev) => Math.min(prev + 1, brands.length - 1));
+					setCurrentIndex((prev) => Math.min(prev + 1, deck.length - 1));
 				}
 			}
 			setDragOffset({ x: 0, y: 0 });
 			setIsExiting(false);
-			setExitDirection(null);
 			isProcessingSwipe.current = false;
 		}, 280);
-	}, [brands, currentIndex, onIncrement, onSwipe, onSwipeRight, onSwipeLeft]);
+	}, [deck, currentIndex, onIncrement, onSwipe, onSwipeRight, onSwipeLeft]);
+
+	/* ── Skip (shuffle current card to bottom, no recording) ── */
+	const executeSkip = useCallback(() => {
+		if (isProcessingSwipe.current) return;
+		isProcessingSwipe.current = true;
+		const current = deck[currentIndex];
+		if (!current) { isProcessingSwipe.current = false; return; }
+
+		setIsDragging(false);
+		setIsExiting(true);
+		setDragOffset({ x: 0, y: 4000 }); // slide card down off screen
+
+		setTimeout(() => {
+			setSkipSet((prev) => new Set([...prev, current.id]));
+			setDragOffset({ x: 0, y: 0 });
+			setIsExiting(false);
+			isProcessingSwipe.current = false;
+		}, 280);
+	}, [deck, currentIndex]);
 
 	/* ── Drag handlers ── */
 	const handleDragStart = (clientX: number, clientY: number) => {
@@ -229,11 +351,6 @@ export function SwipeableCardStack({
 		handleDragEnd();
 	};
 
-	const handleCardClick = (brand: BrandProfile) => {
-		if (!isDragging && Math.abs(dragOffset.x) < TAP_TOLERANCE) {
-			onLearnMore(brand);
-		}
-	};
 
 	// Show skeleton loading state while deck is being prepared
 	if (loading) {
@@ -277,137 +394,236 @@ export function SwipeableCardStack({
 		);
 	}
 
-	// Show "all caught up" screen when daily limit is reached
-	if (hasReachedLimit) {
+	// Shared recap/limit screen
+	if (hasReachedLimit || currentIndex >= deck.length) {
+		const total = savedCount + passedCount;
+		const isLimit = hasReachedLimit;
 		return (
-			<div className="flex items-center justify-center min-h-[350px] sm:min-h-[600px] pb-20">
-				<div className="text-center space-y-6 px-8">
-					<div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/20 to-pink-500/20 mb-4">
-						<Sparkles className="w-10 h-10 text-cyan-400" />
+			<div className="flex flex-col items-center justify-center min-h-[350px] pb-16 px-[18px] w-full">
+				{/* Header icon */}
+				<div className="grid h-[64px] w-[64px] place-items-center rounded-full border border-cyan-400/30 bg-cyan-500/10 text-cyan-400 shadow-[0_0_32px_rgba(34,211,238,.18)] mb-[20px]">
+					<Sparkles className="w-[30px] h-[30px]" />
+				</div>
+
+				<h2 className="text-[22px] font-bold text-white tracking-[-0.02em]">
+					{isLimit ? "Daily limit reached" : "Deck complete"}
+				</h2>
+				<p className="mt-[6px] text-[13px] text-slate-400 text-center max-w-[260px]">
+					{isLimit
+						? `You've hit today's swipe limit. Fresh picks drop at ${PICKS_RESET_HOUR} AM.`
+						: "You've seen every card in today's deck."}
+				</p>
+
+				{/* Stats row */}
+				{total > 0 && (
+					<div className="mt-[24px] flex gap-[10px] w-full max-w-[340px]">
+						<div className="flex-1 rounded-[14px] border border-white/[0.07] bg-[#0b1728]/80 py-[14px] flex flex-col items-center gap-[5px]">
+							<Eye className="w-[16px] h-[16px] text-slate-400" />
+							<p className="text-[22px] font-bold text-white leading-none">{total}</p>
+							<p className="text-[10px] text-slate-500">Seen</p>
+						</div>
+						<div className="flex-1 rounded-[14px] border border-emerald-500/20 bg-emerald-500/[0.07] py-[14px] flex flex-col items-center gap-[5px]">
+							<CheckCircle2 className="w-[16px] h-[16px] text-emerald-400" />
+							<p className="text-[22px] font-bold text-emerald-400 leading-none">{savedCount}</p>
+							<p className="text-[10px] text-slate-500">Saved</p>
+						</div>
+						<div className="flex-1 rounded-[14px] border border-red-500/20 bg-red-500/[0.07] py-[14px] flex flex-col items-center gap-[5px]">
+							<XCircle className="w-[16px] h-[16px] text-red-400" />
+							<p className="text-[22px] font-bold text-red-400 leading-none">{passedCount}</p>
+							<p className="text-[10px] text-slate-500">Passed</p>
+						</div>
 					</div>
-					<h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">
-						You're all caught up!
-					</h2>
-					<p className="text-zinc-400 text-lg max-w-sm mx-auto">
-						You've swiped through today's daily drop. Come back for fresh picks!
-					</p>
-					<div className="flex items-center justify-center gap-2 text-zinc-500">
-						<Clock className="w-5 h-5" />
-						<span>
-							New drop in{" "}
-							<span className="font-bold text-cyan-400">
-								{timeUntilReset.hours}h {timeUntilReset.minutes}m
-							</span>
-						</span>
-					</div>
-					<p className="text-xs text-zinc-600">
-						Daily drops refresh at 9 AM
-					</p>
+				)}
+
+				{/* View Stak CTA */}
+				<button
+					type="button"
+					onClick={() => navigate({ to: "/my-stak" })}
+					className="mt-[20px] w-full max-w-[340px] py-[13px] rounded-xl bg-gradient-to-r from-cyan-400 to-purple-500 font-semibold text-white flex items-center justify-center gap-2 text-[14px] hover:opacity-90 active:scale-[0.98] transition-all"
+				>
+					<Layers className="w-[16px] h-[16px]" />
+					View My Stak
+				</button>
+
+				{/* Reset timer */}
+				<div className="mt-[14px] flex items-center gap-[6px] text-[11px] text-slate-500">
+					<Clock className="w-[13px] h-[13px]" />
+					<span>New drop in <span className="font-semibold text-slate-300">{timeUntilReset.hours}h {timeUntilReset.minutes}m</span></span>
 				</div>
 			</div>
 		);
 	}
 
-	if (currentIndex >= brands.length) {
-		return (
-			<div className="flex items-center justify-center min-h-[350px] sm:min-h-[600px] pb-20">
-				<div className="text-center space-y-4">
-					<p className="text-2xl font-bold text-zinc-300">
-						You've seen all the vibes!
-					</p>
-					<p className="text-zinc-500">
-						Refresh to explore the brands again
-					</p>
-				</div>
-			</div>
-		);
-	}
+	const translateX = dragOffset.x;
+	const translateY = dragOffset.y * 0.15;
+	const rotation = dragOffset.x * 0.06;
+	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 120, 0.45);
+	const swipeProgress = Math.min(Math.abs(dragOffset.x) / 100, 1);
+	const passHighlight  = dragOffset.x < -5  ? swipeProgress : 0;
+	const saveHighlight  = dragOffset.x > 5   ? swipeProgress : 0;
+
+	// Derived dimensions — all scale proportionally from the base 355×550 design
+	const cW  = Math.round(355 * scale);
+	const cH  = Math.round(550 * scale);
+	const cardW = Math.round(295 * scale);
+	const cardH = Math.round(520 * scale);
+	const c2Left = Math.round(70  * scale);
+	const c2Top  = Math.round(20  * scale);
+	const c2W    = Math.round(290 * scale);
+	const c2H    = Math.round(505 * scale);
+	const c3Left = Math.round(140 * scale);
+	const c3Top  = Math.round(40  * scale);
+	const c3W    = Math.round(280 * scale);
+	const c3H    = Math.round(490 * scale);
+	const stakLeft = Math.round(148 * scale);
 
 	return (
-		<div className="flex flex-col items-center w-full max-w-md mx-auto">
-			<div className="relative w-full rounded-2xl" style={{ height: 'min(calc(100dvh - 200px), 550px)' }}>
-				{visibleBrands.map((brand, index) => {
-					const isTopCard = index === 0;
-					const scale = index === 0 ? 1 : 0.95;
-					const yOffset = index * 8;
-					const opacity = index === 0 ? 1 : 0.5;
+		<div className="flex flex-col w-full max-w-md mx-auto">
+			{/* Card section */}
+			<div className="relative mx-auto" style={{ width: cW, height: cH }}>
 
-					const rotation = isTopCard ? dragOffset.x * 0.06 : 0;
-					const translateX = isTopCard ? dragOffset.x : 0;
-					const translateY = isTopCard ? dragOffset.y * 0.15 : 0;
-
-					const swipeIntensity = isTopCard ? Math.abs(dragOffset.x) / 120 : 0;
-					const tintOpacity = Math.min(swipeIntensity, 0.45);
-
-					return (
-						<div
-							key={brand.id}
-							ref={isTopCard ? cardRef : null}
-							className="absolute inset-0 cursor-grab active:cursor-grabbing select-none"
-							style={{
-								transform: `
-									translateX(${translateX}px)
-									translateY(${translateY + yOffset}px)
-									scale(${scale})
-									rotate(${rotation}deg)
-								`,
-								opacity,
-								transition:
-									isTopCard && !isDragging
-										? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease"
-										: "transform 0s, opacity 0.28s ease",
-								zIndex: visibleBrands.length - index,
-								pointerEvents: isTopCard ? "auto" : "none",
-								touchAction: "none",
-								willChange: "transform",
-							}}
-							onMouseDown={isTopCard ? handleMouseDown : undefined}
-							onMouseMove={isTopCard && isDragging ? handleMouseMove : undefined}
-							onMouseUp={isTopCard && isDragging ? handleMouseUp : undefined}
-							onMouseLeave={isTopCard && isDragging ? handleMouseUp : undefined}
-							onTouchStart={isTopCard ? handleTouchStart : undefined}
-							onTouchMove={isTopCard && isDragging ? handleTouchMove : undefined}
-							onTouchEnd={isTopCard && isDragging ? handleTouchEnd : undefined}
-						>
-							{/* Swipe Direction Tint Overlay */}
-							{isTopCard && Math.abs(dragOffset.x) > 15 && (
-								<div
-									className="absolute inset-0 rounded-2xl pointer-events-none z-10"
-									style={{
-										backgroundColor:
-											dragOffset.x > 0
-												? `rgba(34, 197, 94, ${tintOpacity})`
-												: `rgba(239, 68, 68, ${tintOpacity})`,
-									}}
-								/>
-							)}
-							<div className="select-none" style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}>
-								<StockCard brand={brand} onLearnMore={onLearnMore} priority={isTopCard} isTopCard={isTopCard} />
-							</div>
-						</div>
-					);
-				})}
-
-				{/* Swipe label feedback */}
-				{Math.abs(dragOffset.x) > 30 && (
+				{/* Card 3 -- furthest back */}
+				{deck[currentIndex + 2] && (
 					<div
-						className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"
+						className="absolute overflow-hidden rounded-[24px] border border-zinc-700/40 shadow-xl pointer-events-none"
 						style={{
-							opacity: Math.min(Math.abs(dragOffset.x) / 80, 1),
+							left:      isExiting ? c2Left : c3Left,
+							top:       isExiting ? c2Top  : c3Top,
+							width:     isExiting ? c2W    : c3W,
+							height:    isExiting ? c2H    : c3H,
+							transform: isExiting ? 'rotate(4deg)' : 'rotate(6deg)',
+							opacity: 1,
+							zIndex: 10,
+							transition: isExiting
+								? 'left 0.28s cubic-bezier(0.22,1,0.36,1), top 0.28s cubic-bezier(0.22,1,0.36,1), width 0.28s cubic-bezier(0.22,1,0.36,1), height 0.28s cubic-bezier(0.22,1,0.36,1), transform 0.28s cubic-bezier(0.22,1,0.36,1)'
+								: 'none',
 						}}
 					>
+						<StockCard brand={deck[currentIndex + 2]} isTopCard={false} scale={scale} />
+					</div>
+				)}
+
+				{/* Card 2 -- middle */}
+				{deck[currentIndex + 1] && (
+					<div
+						className="absolute overflow-hidden rounded-[24px] border border-zinc-700/50 shadow-xl pointer-events-none"
+						style={{
+							left:      isExiting ? 0      : c2Left,
+							top:       isExiting ? 0      : c2Top,
+							width:     isExiting ? cardW  : c2W,
+							height:    isExiting ? cardH  : c2H,
+							transform: isExiting ? 'rotate(0deg)' : 'rotate(4deg)',
+							opacity: 1,
+							zIndex: 15,
+							transition: isExiting
+								? 'left 0.28s cubic-bezier(0.22,1,0.36,1), top 0.28s cubic-bezier(0.22,1,0.36,1), width 0.28s cubic-bezier(0.22,1,0.36,1), height 0.28s cubic-bezier(0.22,1,0.36,1), transform 0.28s cubic-bezier(0.22,1,0.36,1)'
+								: 'none',
+						}}
+					>
+						<StockCard brand={deck[currentIndex + 1]} isTopCard={false} scale={scale} />
+					</div>
+				)}
+
+				{/* Main card (draggable) */}
+				<div
+					key={deck[currentIndex]?.id ?? currentIndex}
+					ref={cardRef}
+					className="absolute cursor-grab active:cursor-grabbing select-none"
+					style={{
+						width: cardW,
+						height: cardH,
+						left: 0,
+						top: 0,
+						zIndex: 20,
+						transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg)`,
+						transition: !isDragging ? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)" : "none",
+						touchAction: "none",
+						willChange: "transform",
+					}}
+					onMouseDown={handleMouseDown}
+					onMouseMove={isDragging ? handleMouseMove : undefined}
+					onMouseUp={isDragging ? handleMouseUp : undefined}
+					onMouseLeave={isDragging ? handleMouseUp : undefined}
+					onTouchStart={handleTouchStart}
+					onTouchMove={isDragging ? handleTouchMove : undefined}
+					onTouchEnd={isDragging ? handleTouchEnd : undefined}
+				>
+					{/* Swipe tint */}
+					{Math.abs(dragOffset.x) > 15 && (
 						<div
-							className={`text-5xl sm:text-7xl font-black px-8 py-5 rounded-3xl border-[6px] ${
-								dragOffset.x > 0
-									? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
-									: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
-							} shadow-2xl backdrop-blur-sm`}
-						>
-							{dragOffset.x > 0 ? "STAKED" : "PASS"}
+							className="absolute inset-0 rounded-[24px] pointer-events-none z-10"
+							style={{
+								backgroundColor: dragOffset.x > 0
+									? `rgba(34, 197, 94, ${tintOpacity})`
+									: `rgba(239, 68, 68, ${tintOpacity})`,
+							}}
+						/>
+					)}
+					<div style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', height: '100%' }}>
+						<StockCard brand={deck[currentIndex]} quote={stockData?.quote} isTopCard scale={scale} isPopular={popularSet.has(deck[currentIndex]?.id)} />
+					</div>
+				</div>
+
+				{/* STAK / PASS label */}
+				{Math.abs(dragOffset.x) > 30 && (
+					<div
+						className="absolute pointer-events-none z-50"
+						style={{ left: stakLeft, top: '35%', transform: 'translate(-50%, -50%)', opacity: Math.min(Math.abs(dragOffset.x) / 80, 1) }}
+					>
+						<div className={`text-4xl font-black px-5 py-3 rounded-2xl border-4 shadow-2xl ${
+							dragOffset.x > 0
+								? "text-green-400 border-green-400 bg-green-400/20 rotate-12"
+								: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
+						}`}>
+							{dragOffset.x > 0 ? "STAK" : "PASS"}
 						</div>
 					</div>
 				)}
 			</div>
+
+			{/* Every swipe insight row */}
+			<section className="flex items-center justify-center gap-4 text-center text-[13px] leading-[18px] text-slate-300 mt-3 px-4">
+				<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full border border-blue-400/35 bg-blue-500/10 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,.18)]">
+					<Brain className="w-[26px] h-[26px]" />
+				</div>
+				<p>Every swipe <span className="text-cyan-400 font-semibold">teaches</span> STAK what kind<br />of investor you're becoming.</p>
+			</section>
+
+			{/* Action buttons */}
+			<section className="mt-4 grid grid-cols-4 gap-3 px-6 text-center">
+				<ActionBtn
+					icon={<X className="w-[24px] h-[24px]" strokeWidth={2.5} />}
+					label="Pass"
+					sub="Not for me"
+					color="red"
+					onClick={() => executeSwipe("left")}
+					highlight={passHighlight}
+					isDragging={isDragging}
+				/>
+				<ActionBtn
+					icon={<Bookmark className="w-[24px] h-[24px]" />}
+					label="Save"
+					sub="Add to watchlist"
+					color="cyan"
+					onClick={() => executeSwipe("right")}
+					highlight={saveHighlight}
+					isDragging={isDragging}
+				/>
+				<ActionBtn
+					icon={<BookOpen className="w-[24px] h-[24px]" />}
+					label="Learn More"
+					sub="Tell me more"
+					color="dark"
+					onClick={() => topBrand && onLearnMore(topBrand)}
+				/>
+				<ActionBtn
+					icon={<ChevronDown className="w-[24px] h-[24px]" />}
+					label="Skip"
+					sub="See it later"
+					color="gray"
+					onClick={executeSkip}
+				/>
+			</section>
 		</div>
 	);
 }

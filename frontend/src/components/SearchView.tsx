@@ -33,36 +33,15 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	// Recent searches from Firestore (account-based, cross-device)
 	const recentSearches = (account?.searchHistory ?? []).map((e) => e.query);
 
-	// Prevent pull-to-refresh / overscroll on the page behind the search overlay
-	useEffect(() => {
-		if (!open) return;
-		const prev = document.body.style.overscrollBehavior;
-		document.body.style.overscrollBehavior = 'none';
-		document.documentElement.style.overscrollBehavior = 'none';
-		return () => {
-			document.body.style.overscrollBehavior = prev;
-			document.documentElement.style.overscrollBehavior = '';
-		};
-	}, [open]);
-
-	// On iOS, blur the input whenever a touch begins *outside* the input.
-	useEffect(() => {
-		if (!open) return;
-		const handler = (e: TouchEvent) => {
-			if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
-				inputRef.current.blur();
-			}
-		};
-		document.addEventListener('touchstart', handler, { passive: true });
-		return () => document.removeEventListener('touchstart', handler);
-	}, [open]);
-
-	// Clear search when closing
+	// Clear search when closing; auto-focus when opening
 	useEffect(() => {
 		if (!open) {
 			setQuery("");
 			setDebouncedQuery("");
 			setResults([]);
+		} else {
+			const t = setTimeout(() => inputRef.current?.focus(), 120);
+			return () => clearTimeout(t);
 		}
 	}, [open]);
 
@@ -122,20 +101,9 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	return (
 		<>
-			<div
-				className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#0b1121] z-50 flex flex-col"
-				style={{
-					transform: 'translate3d(0,0,0)',
-					WebkitTransform: 'translate3d(0,0,0)',
-					overscrollBehavior: 'none',
-					WebkitOverflowScrolling: 'auto',
-				} as React.CSSProperties}
-			>
+			<div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#0b1121] z-50 flex flex-col">
 				{/* Sticky header + search — never scrolls */}
-				<div
-					className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4"
-					style={{ touchAction: 'pan-x' }}
-				>
+				<div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
 					{/* Header */}
 					<div className="mb-6 flex items-center gap-3">
 						<button
@@ -166,18 +134,12 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							autoCorrect="off"
 							spellCheck={false}
 							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
-							onBlur={() => {/* allow natural blur */}}
 						/>
 					</div>
 				</div>
 
-				{/* Scrollable results area — blur input on scroll so caret hides */}
-				<div
-					className="flex-1 overflow-y-auto"
-					style={{ overscrollBehavior: 'none' } as React.CSSProperties}
-					onTouchMove={() => inputRef.current?.blur()}
-					onScroll={() => inputRef.current?.blur()}
-				>
+				{/* Scrollable results area */}
+				<div className="flex-1 overflow-y-auto">
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
 
 					{/* Results */}
@@ -187,10 +149,14 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 								<p className="text-sm text-zinc-500 dark:text-zinc-400">
 									Search results — tap to explore the vibe.
 								</p>
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 									{results.map((brand) => (
-										<div key={brand.id} className="h-full">
-											<StockCard brand={brand} onLearnMore={handleLearnMore} />
+										<div
+											key={brand.id}
+											className="h-[420px] cursor-pointer"
+											onClick={() => handleLearnMore(brand)}
+										>
+											<StockCard brand={brand} />
 										</div>
 									))}
 								</div>
