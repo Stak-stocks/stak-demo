@@ -97,12 +97,14 @@ function Root() {
 	// Show Daily Brief once per day after user is authenticated and onboarded.
 	// Stored in Firestore so it's cross-device — seeing it on phone won't show it again on iPad.
 	// Write to Firestore first so a failed write doesn't cause the modal to reappear every session.
-	// TODO: remove always-open override before shipping
 	useEffect(() => {
 		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		const today = new Date().toISOString().split("T")[0];
+		if (account.lastBriefDate === today) return;
+		updateLastBriefDate(today).catch(() => {});
 		const t = setTimeout(() => setBriefOpen(true), 400);
 		return () => clearTimeout(t);
-	}, [user, account?.onboardingCompleted, isAuthPage]);
+	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
