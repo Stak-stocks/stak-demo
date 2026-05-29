@@ -291,6 +291,20 @@ export function getEarnings(symbol: string, name?: string) {
 	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings${qs}`);
 }
 
+export interface EarningsQuick {
+	period: string;
+	quarter: number;
+	year: number;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	beat: boolean | null;
+	surprisePercent: number | null;
+}
+
+export function getEarningsQuick(symbol: string) {
+	return apiRequest<EarningsQuick | null>(`/api/stock/${encodeURIComponent(symbol)}/earnings-quick`);
+}
+
 export interface DailyBriefDeck {
 	id: string;
 	title: string;

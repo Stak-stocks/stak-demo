@@ -472,6 +472,42 @@ interface FinnhubCalendarEntry {
 	revenueEstimate: number | null;
 }
 
+// ── Quick earnings (EPS actual vs estimate) — fast single Finnhub call ──────
+// MUST be before /:symbol/earnings so "earnings-quick" isn't parsed as a symbol.
+stockRouter.get("/:symbol/earnings-quick", async (req, res) => {
+	const symbol = (req.params["symbol"] as string).toUpperCase();
+	const cacheKey = `earnings-quick:${symbol}`;
+
+	const cached = await cacheGet<unknown>(cacheKey);
+	if (cached !== null) return res.json(cached);
+
+	type FinnhubEpsEntry = {
+		actual: number | null;
+		estimate: number | null;
+		period: string;
+		quarter: number;
+		year: number;
+		surprise: number | null;
+		surprisePercent: number | null;
+	};
+
+	const data = await finnhubGet(`/stock/earnings?symbol=${encodeURIComponent(symbol)}&limit=1`) as FinnhubEpsEntry[] | null;
+	const latest = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+	const payload = latest ? {
+		period:          latest.period,
+		quarter:         latest.quarter,
+		year:            latest.year,
+		epsActual:       latest.actual,
+		epsEstimate:     latest.estimate,
+		beat:            latest.actual !== null && latest.estimate !== null ? latest.actual >= latest.estimate : null,
+		surprisePercent: latest.surprisePercent ?? null,
+	} : null;
+
+	await cacheSet(cacheKey, payload, 12 * 60 * 60 * 1000); // 12 h
+	res.json(payload);
+});
+
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;

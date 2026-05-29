@@ -5,11 +5,11 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { useAccount } from "@/context/AccountContext";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getPeerMetrics } from "@/lib/api";
+import {
+	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick,
+} from "@/lib/api";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
-	Building2, Shield, Zap, DollarSign, Rocket,
-	Users, Globe, Info,
 } from "lucide-react";
 
 interface BrandContextModalProps {
@@ -30,39 +30,16 @@ const COLOR_MAP: Record<IconColor, string> = {
 	slate:  "border-slate-400/20  bg-slate-500/10  text-slate-400  shadow-none",
 };
 
-function getSectionMeta(heading: string): { icon: React.ReactElement; color: IconColor } {
-	const h = heading.toLowerCase();
-	if (h.includes("does") || h.includes("overview") || h.includes("coffee") || h.includes("product") || h.includes("service"))
-		return { icon: <Coffee size={21} />,        color: "green"  };
-	if (h.includes("crypto") || h.includes("bitcoin") || h.includes("coin") || h.includes("token") || h.includes("web3") || h.includes("defi"))
-		return { icon: <Zap size={22} />,           color: "purple" };
-	if (h.includes("meme") || h.includes("trade") || h.includes("trading") || h.includes("stock") || h.includes("invest") || h.includes("moved") || h.includes("why") || h.includes("perform") || h.includes("rally") || h.includes("rise") || h.includes("fell") || h.includes("matter"))
-		return { icon: <TrendingUp size={23} />,    color: "green"  };
-	if (h.includes("risk") || h.includes("concern") || h.includes("challenge") || h.includes("threat") || h.includes("warn") || h.includes("danger"))
-		return { icon: <AlertTriangle size={22} />, color: "amber"  };
-	if (h.includes("earning") || h.includes("revenue") || h.includes("result") || h.includes("quarter") || h.includes("recent") || h.includes("number"))
-		return { icon: <BarChart3 size={22} />,     color: "purple" };
-	if (h.includes("gold") || h.includes("card") || h.includes("premium") || h.includes("financ") || h.includes("profit") || h.includes("margin") || h.includes("cash") || h.includes("money") || h.includes("payment"))
-		return { icon: <DollarSign size={22} />,    color: "green"  };
-	if (h.includes("price") || h.includes("target") || h.includes("analyst") || h.includes("upside") || h.includes("valuat"))
-		return { icon: <Target size={22} />,        color: "blue"   };
-	if (h.includes("growth") || h.includes("expand") || h.includes("scale") || h.includes("future") || h.includes("next") || h.includes("opportun"))
-		return { icon: <Rocket size={22} />,        color: "cyan"   };
-	if (h.includes("competi") || h.includes("moat") || h.includes("advantage") || h.includes("position") || h.includes("against"))
-		return { icon: <Shield size={22} />,        color: "blue"   };
-	if (h.includes("customer") || h.includes("user") || h.includes("audience") || h.includes("communit") || h.includes("people"))
-		return { icon: <Users size={22} />,         color: "purple" };
-	if (h.includes("global") || h.includes("market") || h.includes("international") || h.includes("world"))
-		return { icon: <Globe size={22} />,         color: "cyan"   };
-	if (h.includes("innovat") || h.includes("tech") || h.includes("ai") || h.includes("model") || h.includes("engine") || h.includes("platform") || h.includes("system") || h.includes("power"))
-		return { icon: <Zap size={22} />,           color: "purple" };
-	if (h.includes("brand") || h.includes("identity") || h.includes("culture") || h.includes("story") || h.includes("histor") || h.includes("origin"))
-		return { icon: <Building2 size={22} />,     color: "slate"  };
-	return   { icon: <Info size={22} />,            color: "slate"  };
+interface InfoRowProps {
+	heading: string;
+	content: string | null;
+	icon: React.ReactElement;
+	color: IconColor;
+	loading?: boolean;
+	right?: React.ReactElement | null;
 }
 
-function InfoRow({ heading, content }: { heading: string; content: string }) {
-	const { icon, color } = getSectionMeta(heading);
+function InfoRow({ heading, content, icon, color, loading = false, right = null }: InfoRowProps) {
 	return (
 		<div className="flex min-h-[74px] items-center rounded-[14px] border border-white/[0.055] bg-[#0b1e32]/82 px-[12px] py-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-md">
 			<div className={`grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[12px] border ${COLOR_MAP[color]}`}>
@@ -70,8 +47,13 @@ function InfoRow({ heading, content }: { heading: string; content: string }) {
 			</div>
 			<div className="ml-[13px] min-w-0 flex-1">
 				<p className="text-[12px] font-semibold leading-[15px] text-white/95">{heading}</p>
-				<p className="mt-[3px] text-[10px] leading-[13px] text-slate-300/82">{content}</p>
+				{loading ? (
+					<div className="mt-[5px] h-[10px] w-2/3 rounded bg-slate-700/40 animate-pulse" />
+				) : (
+					<p className="mt-[3px] text-[10px] leading-[13px] text-slate-300/82">{content ?? "—"}</p>
+				)}
 			</div>
+			{right && <div className="ml-3 shrink-0 text-right">{right}</div>}
 		</div>
 	);
 }
@@ -79,7 +61,6 @@ function InfoRow({ heading, content }: { heading: string; content: string }) {
 // ── Peer comparison strip ────────────────────────────────────────────────────
 
 function parseStaticValue(raw: string): number | null {
-	// Strips trailing %, x, $, B, T, M — returns the leading number or null
 	const cleaned = raw.replace(/[%x$,]/g, "").trim();
 	if (cleaned === "N/A" || cleaned === "") return null;
 	const n = parseFloat(cleaned);
@@ -88,7 +69,7 @@ function parseStaticValue(raw: string): number | null {
 
 interface PeerStatProps {
 	label: string;
-	stockVal: string;  // static string from brand.financials
+	stockVal: string;
 	peerVal: number | null;
 	format?: (v: number) => string;
 	higherIsBetter?: boolean;
@@ -104,9 +85,7 @@ function PeerStat({ label, stockVal, peerVal, format, higherIsBetter = true }: P
 		const isGood = higherIsBetter ? abovePeer : !abovePeer;
 		badge = (
 			<span className={`text-[9px] font-semibold px-[5px] py-[1px] rounded-full ${
-				isGood
-					? "bg-emerald-500/15 text-emerald-400"
-					: "bg-amber-500/15 text-amber-400"
+				isGood ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
 			}`}>
 				{abovePeer ? "▲" : "▼"} vs peers
 			</span>
@@ -127,11 +106,28 @@ function PeerStat({ label, stockVal, peerVal, format, higherIsBetter = true }: P
 	);
 }
 
+// ── Helpers for section content ──────────────────────────────────────────────
+
+function quarterLabel(quarter: number, year: number): string {
+	return `Q${quarter} ${year}`;
+}
+
+function fmtEps(v: number | null): string {
+	if (v === null) return "N/A";
+	return `$${Math.abs(v).toFixed(2)}`;
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
 export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandContextModalProps) {
 	const { account } = useAccount();
 	const inStak = brand ? (account?.stakBrandIds?.includes(brand.id) ?? false) : false;
 	const [dragY, setDragY] = useState(0);
+	const dragging = useRef(false);
+	const startY = useRef(0);
+	const startTime = useRef(0);
 
+	// Live data queries — all fire only when the modal is open
 	const { data: peerData } = useQuery({
 		queryKey: ["peer-metrics", brand?.ticker],
 		queryFn: () => getPeerMetrics(brand!.ticker),
@@ -140,9 +136,42 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		gcTime:    25 * 60 * 60 * 1000,
 		retry: 0,
 	});
-	const dragging = useRef(false);
-	const startY = useRef(0);
-	const startTime = useRef(0);
+
+	const { data: stockData } = useQuery({
+		queryKey: ["stock", brand?.ticker],
+		queryFn: () => getStockData(brand!.ticker),
+		enabled: !!brand && open,
+		staleTime: 5 * 60 * 1000,
+		gcTime:    10 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: newsData } = useQuery({
+		queryKey: ["news", brand?.ticker],
+		queryFn: () => getCompanyNews(brand!.ticker, brand!.name),
+		enabled: !!brand && open,
+		staleTime: 15 * 60 * 1000,
+		gcTime:    20 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: analystData } = useQuery({
+		queryKey: ["analyst", brand?.ticker],
+		queryFn: () => getAnalystData(brand!.ticker),
+		enabled: !!brand && open,
+		staleTime: 3 * 24 * 60 * 60 * 1000,
+		gcTime:    4 * 24 * 60 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: earningsData, isLoading: earningsLoading } = useQuery({
+		queryKey: ["earnings-quick", brand?.ticker],
+		queryFn: () => getEarningsQuick(brand!.ticker),
+		enabled: !!brand && open,
+		staleTime: 12 * 60 * 60 * 1000,
+		gcTime:    13 * 60 * 60 * 1000,
+		retry: 0,
+	});
 
 	useEffect(() => {
 		if (brand && open) {
@@ -178,21 +207,68 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 
 	if (!brand || !open) return null;
 
-	const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+	// ── Derive section content ──────────────────────────────────────────────
+
+	// 1. What the company does — first culturalContext section
+	const whatContent = brand.culturalContext.sections[0]?.content ?? brand.bio;
+
+	// 2. Why it moved — most recent company news whyItMatters, fallback to price %
+	const topArticle = newsData?.articles?.find(a => a.type === "company" && a.whyItMatters);
+	const pct = stockData?.quote?.changePercent;
+	const whyLoading = !stockData && !newsData;
+	const whyContent = topArticle?.whyItMatters
+		?? (pct !== undefined
+			? `Shares ${pct >= 0 ? "rose" : "fell"} ${Math.abs(pct).toFixed(1)}% in the latest trading session.`
+			: null);
+	const priceUp = pct !== undefined ? pct >= 0 : true;
+
+	// 3. Key risks — find section with risk keyword, else last section
+	const riskSection =
+		brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
+		?? brand.culturalContext.sections[brand.culturalContext.sections.length - 1];
+	const riskContent = riskSection?.content ?? null;
+
+	// 4. Recent earnings — EPS actual vs estimate
+	const earningsContent = (() => {
+		if (earningsLoading) return null;
+		if (!earningsData) return "No recent earnings data available.";
+		const { quarter, year, epsActual, epsEstimate, beat } = earningsData;
+		if (epsActual === null && epsEstimate === null) return "Earnings data unavailable.";
+		const label = quarterLabel(quarter, year);
+		const verdict = beat === true ? "beat" : beat === false ? "missed" : "vs";
+		return `${label}: EPS ${fmtEps(epsActual)} ${verdict} est. ${fmtEps(epsEstimate)}`;
+	})();
+	const earningsBeat = earningsData?.beat === true;
+
+	// 5. Price target — analyst avg target + % upside from current price
+	const targetAvg = analystData?.priceTarget?.avg ?? null;
+	const currentPrice = stockData?.quote?.price ?? null;
+	const upsidePct = targetAvg !== null && currentPrice !== null && currentPrice > 0
+		? ((targetAvg - currentPrice) / currentPrice) * 100
+		: null;
+	const priceTargetContent = targetAvg !== null
+		? `Average analyst target is $${targetAvg.toFixed(2)}${upsidePct !== null ? ` (${upsidePct > 0 ? "+" : ""}${upsidePct.toFixed(1)}% potential upside)` : ""}.`
+		: null;
+	const priceTargetRight = targetAvg !== null ? (
+		<div>
+			<p className="text-[14px] font-bold text-emerald-400">${targetAvg.toFixed(0)}</p>
+			{upsidePct !== null && (
+				<p className="text-[10px] text-emerald-400/80">{upsidePct > 0 ? "+" : ""}{upsidePct.toFixed(1)}% upside</p>
+			)}
+		</div>
+	) : null;
 
 	return createPortal(
 		<div
 			className="fixed inset-0 z-[100] flex flex-col justify-end"
 			onClick={onClose}
 		>
-			{/* Backdrop — light enough to see the card above */}
 			<div className="absolute inset-0 bg-black/50" />
 
-			{/* Half-sheet */}
 			<div
 				className="relative w-full max-w-lg mx-auto rounded-t-[24px] flex flex-col overflow-hidden"
 				style={{
-					maxHeight: "68dvh",
+					maxHeight: "80dvh",
 					background: "linear-gradient(180deg,#0b1b2f 0%,#071526 55%,#051120 100%)",
 					transform: `translateY(${dragY}px)`,
 					transition: dragging.current ? "none" : "transform 0.35s cubic-bezier(0.22,1,0.36,1)",
@@ -203,8 +279,8 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 				{/* Drag handle */}
 				<div
 					className="flex justify-center pt-[10px] pb-[4px] cursor-grab active:cursor-grabbing touch-none shrink-0"
-					onTouchStart={(e) => handleDragStart(e.touches[0].clientY)}
-					onTouchMove={(e) => handleDragMove(e.touches[0].clientY)}
+					onTouchStart={(e) => handleDragStart(e.touches[0]!.clientY)}
+					onTouchMove={(e) => handleDragMove(e.touches[0]!.clientY)}
 					onTouchEnd={handleDragEnd}
 					onPointerDown={(e) => { handleDragStart(e.clientY); (e.target as HTMLElement).setPointerCapture(e.pointerId); }}
 					onPointerMove={(e) => handleDragMove(e.clientY)}
@@ -224,60 +300,84 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 				</div>
 
 				{/* Peer comparison strip */}
-				{(peerData || brand.financials) && (
-					<div className="shrink-0 mx-[22px] mb-[10px] rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-[14px] py-[11px]">
-						<p className="text-[9px] font-semibold text-slate-400/70 uppercase tracking-wider mb-[10px]">
-							By the Numbers
-							{peerData && peerData.peerCount > 0 && (
-								<span className="ml-[6px] normal-case font-normal text-slate-500/60">
-									vs. {peerData.peerCount} peers
-								</span>
-							)}
-						</p>
-						<div className="grid grid-cols-3 gap-x-[12px] gap-y-[10px]">
-							<PeerStat
-								label="P/E"
-								stockVal={brand.financials.peRatio.value}
-								peerVal={peerData?.pe ?? null}
-								format={(v) => `${v.toFixed(1)}x`}
-								higherIsBetter={false}
-							/>
-							<PeerStat
-								label="Rev Growth"
-								stockVal={brand.financials.revenueGrowth.value}
-								peerVal={peerData?.revenueGrowth ?? null}
-								format={(v) => `${v.toFixed(1)}%`}
-								higherIsBetter={true}
-							/>
-							<PeerStat
-								label="Net Margin"
-								stockVal={brand.financials.profitMargin.value}
-								peerVal={peerData?.profitMargin ?? null}
-								format={(v) => `${v.toFixed(1)}%`}
-								higherIsBetter={true}
-							/>
-						</div>
+				<div className="shrink-0 mx-[22px] mb-[10px] rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-[14px] py-[11px]">
+					<p className="text-[9px] font-semibold text-slate-400/70 uppercase tracking-wider mb-[10px]">
+						By the Numbers
+						{peerData && peerData.peerCount > 0 && (
+							<span className="ml-[6px] normal-case font-normal text-slate-500/60">
+								vs. {peerData.peerCount} peers
+							</span>
+						)}
+					</p>
+					<div className="grid grid-cols-3 gap-x-[12px] gap-y-[10px]">
+						<PeerStat
+							label="P/E"
+							stockVal={brand.financials.peRatio.value}
+							peerVal={peerData?.pe ?? null}
+							format={(v) => `${v.toFixed(1)}x`}
+							higherIsBetter={false}
+						/>
+						<PeerStat
+							label="Rev Growth"
+							stockVal={brand.financials.revenueGrowth.value}
+							peerVal={peerData?.revenueGrowth ?? null}
+							format={(v) => `${v.toFixed(1)}%`}
+							higherIsBetter={true}
+						/>
+						<PeerStat
+							label="Net Margin"
+							stockVal={brand.financials.profitMargin.value}
+							peerVal={peerData?.profitMargin ?? null}
+							format={(v) => `${v.toFixed(1)}%`}
+							higherIsBetter={true}
+						/>
 					</div>
-				)}
+				</div>
 
-				{/* Scrollable rows */}
+				{/* Scrollable 5 sections */}
 				<div
 					className="flex-1 overflow-y-auto px-[22px] min-h-0 [&::-webkit-scrollbar]:hidden"
 					style={{ scrollbarWidth: "none" }}
 				>
-					<div className="space-y-[8px]">
-						{brand.culturalContext.sections.map((section, i) => (
-							<InfoRow key={i} heading={section.heading} content={section.content} />
-						))}
-					</div>
-
-					<div className="flex items-center justify-between mt-[13px] pb-1 text-[10px] text-slate-400/80">
-						<p>Source: STAK Editorial</p>
-						<p>As of {today}</p>
+					<div className="space-y-[8px] pb-[8px]">
+						<InfoRow
+							heading="What the company does"
+							content={whatContent}
+							icon={<Coffee size={21} />}
+							color="green"
+						/>
+						<InfoRow
+							heading="Why it moved"
+							content={whyContent}
+							loading={whyLoading}
+							icon={<TrendingUp size={23} />}
+							color={priceUp ? "green" : "amber"}
+						/>
+						<InfoRow
+							heading="Key risks"
+							content={riskContent}
+							icon={<AlertTriangle size={22} />}
+							color="amber"
+						/>
+						<InfoRow
+							heading="Recent earnings"
+							content={earningsContent}
+							loading={earningsLoading}
+							icon={<BarChart3 size={22} />}
+							color={earningsBeat ? "green" : "purple"}
+						/>
+						<InfoRow
+							heading="Price target"
+							content={priceTargetContent}
+							loading={!analystData && !stockData}
+							icon={<Target size={22} />}
+							color="blue"
+							right={priceTargetRight}
+						/>
 					</div>
 				</div>
 
-				{/* Add to Stak CTA — only shown when onAddToStak is provided */}
+				{/* Add to Stak CTA */}
 				{onAddToStak && (
 					<div className="shrink-0 px-[18px] py-[14px] border-t border-white/[0.06]">
 						<button
