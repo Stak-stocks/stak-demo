@@ -44,6 +44,11 @@ export interface DailySwipeState {
 	count: number;
 }
 
+export interface StakSaveEntry {
+	savedAt: number;
+	priceAtSave: number | null;
+}
+
 export interface UserDoc {
 	uid?: string;
 	email?: string;
@@ -52,6 +57,7 @@ export interface UserDoc {
 	preferences?: { interests?: string[]; familiarity?: string; onboardingSwipes?: string[] };
 	onboardingCompleted?: boolean;
 	stakBrandIds: string[];
+	stakSavedAt?: Record<string, StakSaveEntry>;
 	passedBrands: PassedEntry[];
 	intelCardState?: IntelCardState;
 	dailySwipeState?: DailySwipeState;
@@ -73,6 +79,7 @@ interface AccountContextType {
 	account: UserDoc | null;
 	accountLoading: boolean;
 	updateStak: (brandIds: string[]) => Promise<void>;
+	saveToStak: (brandId: string, priceAtSave?: number | null) => Promise<void>;
 	updatePassedBrands: (entries: PassedEntry[]) => Promise<void>;
 	incrementSwipeCount: () => Promise<void>;
 	updateDeckOrder: (order: string[]) => Promise<void>;
@@ -145,6 +152,21 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			await updateDoc(doc(db, "users", user.uid), { stakBrandIds: brandIds });
 		},
 		[user],
+	);
+
+	const saveToStak = useCallback(
+		async (brandId: string, priceAtSave?: number | null) => {
+			if (!user) return;
+			const existing = account?.stakBrandIds ?? [];
+			if (existing.includes(brandId)) return;
+			const entry: StakSaveEntry = { savedAt: Date.now(), priceAtSave: priceAtSave ?? null };
+			const savedAtMap = { ...(account?.stakSavedAt ?? {}), [brandId]: entry };
+			await updateDoc(doc(db, "users", user.uid), {
+				stakBrandIds: [...existing, brandId],
+				stakSavedAt: savedAtMap,
+			});
+		},
+		[user, account],
 	);
 
 	const updatePassedBrands = useCallback(
@@ -248,6 +270,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				account,
 				accountLoading,
 				updateStak,
+				saveToStak,
 				updatePassedBrands,
 				incrementSwipeCount,
 				updateDeckOrder,

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
@@ -689,4 +689,103 @@ stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 
 	await cacheSet(cacheKey, payload, 24 * 60 * 60 * 1000); // 24 h
 	res.json(payload);
+});
+
+// ── Daily move explanation ───────────────────────────────────────────────────
+// GET /api/stock/:symbol/daily-move
+// Asks Gemini to explain why a stock is moving today, using live quote + recent headlines.
+// Cached 30 minutes.
+
+const DAILY_MOVE_TTL_MS = 30 * 60 * 1000;
+
+stockRouter.get("/:symbol/daily-move", async (req, res) => {
+	const raw = (req.params["symbol"] as string).toUpperCase();
+	const symbol = resolveSymbol(raw);
+
+	// Frontend passes the live changePercent it already has so we never rely on
+	// a potentially stale Finnhub quote fetch here. Direction is included in the
+	// cache key so a direction change (flat→down) automatically busts the cache.
+	const pctParam = parseFloat(req.query.pct as string);
+	const changePercent = isFinite(pctParam) ? pctParam : 0;
+	const direction: "up" | "down" | "flat" =
+		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
+
+	const cacheKey = `daily-move:v2:${symbol}:${direction}`;
+	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
+	if (cached !== null) { res.json(cached); return; }
+
+	// Only fetch news — quote comes from the frontend now
+	const today = new Date();
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+	const fromDate = fmt(new Date(today.getTime() - 2 * 86400000));
+	const toDate = fmt(today);
+
+	const newsResult = await Promise.allSettled([
+		finnhubGet(`/company-news?symbol=${symbol}&from=${fromDate}&to=${toDate}`),
+	]);
+
+	type NewsItem = { headline: string; datetime: number };
+	const newsRaw = newsResult[0];
+	const allNews = newsRaw.status === "fulfilled" && Array.isArray(newsRaw.value)
+		? (newsRaw.value as NewsItem[]).sort((a, b) => b.datetime - a.datetime).slice(0, 5)
+		: [];
+	const headlinesText = allNews.length > 0
+		? allNews.map((n) => `- ${n.headline}`).join("\n")
+		: "No recent news available.";
+
+	const sign = changePercent >= 0 ? "+" : "";
+	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) {
+		const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
+		res.json(fallback);
+		return;
+	}
+
+	const prompt = `${symbol} stock is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today. Here are the latest news headlines:
+
+${headlinesText}
+
+In 1-2 sentences, explain to a young investor why ${symbol} is moving like this today. Reference the most relevant news by describing what happened (not by number or position) — for example say "after reports of..." or "following news that...". If no headline explains the move, mention general market sentiment.
+
+Return ONLY plain text — no bullet points, no markdown, no JSON.`;
+
+	for (const key of keys) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 12000);
+		try {
+			const gemRes = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { temperature: 0.3, maxOutputTokens: 120 },
+					}),
+					signal: controller.signal,
+				},
+			);
+			if (gemRes.status === 429) continue;
+			if (!gemRes.ok) break;
+			const data = await gemRes.json();
+			const explanation = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
+			if (explanation) {
+				const result = { explanation, direction };
+				await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+				res.json(result);
+				return;
+			}
+		} catch {
+			// timeout or network error — try next key
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	// All keys exhausted or errored — return simple fallback
+	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
+	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
+	res.json(fallback);
 });

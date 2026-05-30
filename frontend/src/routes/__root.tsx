@@ -29,7 +29,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 
 function Root() {
 	const { user, loading } = useAuth();
-	const { account, accountLoading, updateStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
+	const { account, accountLoading, saveToStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
 	const { resolvedTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -79,11 +79,14 @@ function Root() {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
-		updateStak([...stakIds, brand.id]).catch(() => {});
+		const cachedStock = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])
+			?? queryClient.getQueryData<{ quote: { price: number } | null }>(["stock-price", brand.ticker]);
+		const priceAtSave = cachedStock?.quote?.price ?? null;
+		saveToStak(brand.id, priceAtSave).catch(() => {});
 		incrementSwipeCount().catch(() => {});
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
 		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
-	}, [account, updateStak, incrementSwipeCount]);
+	}, [account, saveToStak, incrementSwipeCount, queryClient]);
 
 	useEffect(() => {
 		if (!loading && !accountLoading && !user && !isAuthPage) {

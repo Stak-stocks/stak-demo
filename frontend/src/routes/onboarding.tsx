@@ -685,7 +685,7 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
-	const { updatePreferences, updateDeckOrder } = useAccount();
+	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { refreshClaims } = useAuth();
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
@@ -725,6 +725,9 @@ function BuildingStep({
 		// Clear any stale deckOrder from previous sessions so index.tsx always
 		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
+
+		// Suppress daily brief on the day of onboarding — they just saw the app for the first time.
+		updateLastBriefDate(new Date().toISOString().split("T")[0]).catch(() => {});
 
 		// Sync via REST — backend sets onboardingCompleted in Firestore AND
 		// writes a JWT custom claim so future loads skip this page instantly.

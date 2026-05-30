@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
 	ChevronRight, TrendingUp, Cloud, Zap, Sun, Minus,
-	UserRound, MessageSquare, User, ShieldCheck, BookOpen,
+	UserRound, MessageSquare, ShieldCheck, BookOpen,
 	TrendingDown, Play,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -206,9 +206,6 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						<p className="mt-[23px] text-[13px] text-slate-400">{getGreeting()}, {firstName} 👋</p>
 						<h2 className="mt-[3px] text-[31px] font-bold leading-none tracking-[-0.04em] text-white">{sessionLabel}</h2>
 						<p className="mt-[10px] text-[11px] text-slate-400">Your daily market snapshot. Personalized for you.</p>
-					</div>
-					<div className="mt-[17px] grid h-[31px] w-[31px] shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 shadow-[0_0_22px_rgba(255,255,255,.08)]">
-						<User size={17} fill="white" className="text-white/90" />
 					</div>
 				</header>
 

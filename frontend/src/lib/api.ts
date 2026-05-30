@@ -305,6 +305,16 @@ export function getEarningsQuick(symbol: string) {
 	return apiRequest<EarningsQuick | null>(`/api/stock/${encodeURIComponent(symbol)}/earnings-quick`);
 }
 
+export interface DailyMoveData {
+	explanation: string;
+	direction: "up" | "down" | "flat";
+}
+
+export function getDailyMove(symbol: string, changePercent?: number) {
+	const pctQs = changePercent !== undefined ? `?pct=${changePercent.toFixed(4)}` : "";
+	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${pctQs}`);
+}
+
 export interface DailyBriefDeck {
 	id: string;
 	title: string;

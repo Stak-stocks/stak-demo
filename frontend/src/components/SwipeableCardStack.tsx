@@ -159,11 +159,32 @@ export function SwipeableCardStack({
 	const cardShownAt = useRef(Date.now());
 	const lastSwipeVelocity = useRef<number | undefined>(undefined);
 
-	const topBrand = deck[currentIndex];
+	const topBrand  = deck[currentIndex];
+	const nextBrand1 = deck[currentIndex + 1];
+	const nextBrand2 = deck[currentIndex + 2];
+
 	const { data: stockData } = useQuery({
 		queryKey: ["stock-price", topBrand?.ticker],
 		queryFn: () => getStockData(topBrand!.ticker),
 		enabled: !!topBrand,
+		staleTime: 2 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: stockData1 } = useQuery({
+		queryKey: ["stock-price", nextBrand1?.ticker],
+		queryFn: () => getStockData(nextBrand1!.ticker),
+		enabled: !!nextBrand1,
+		staleTime: 2 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: stockData2 } = useQuery({
+		queryKey: ["stock-price", nextBrand2?.ticker],
+		queryFn: () => getStockData(nextBrand2!.ticker),
+		enabled: !!nextBrand2,
 		staleTime: 2 * 60 * 1000,
 		gcTime: 5 * 60 * 1000,
 		retry: 0,
@@ -499,7 +520,7 @@ export function SwipeableCardStack({
 								: 'none',
 						}}
 					>
-						<StockCard brand={deck[currentIndex + 2]} isTopCard={false} scale={scale} />
+						<StockCard brand={deck[currentIndex + 2]} quote={stockData2?.quote} isTopCard={false} scale={scale} />
 					</div>
 				)}
 
@@ -520,7 +541,7 @@ export function SwipeableCardStack({
 								: 'none',
 						}}
 					>
-						<StockCard brand={deck[currentIndex + 1]} isTopCard={false} scale={scale} />
+						<StockCard brand={deck[currentIndex + 1]} quote={stockData1?.quote} isTopCard={false} scale={scale} />
 					</div>
 				)}
 

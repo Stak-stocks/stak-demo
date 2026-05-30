@@ -11,7 +11,8 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const SWIPE_EDGE_PX = 24;
 import { toast } from "sonner";
-import { getStockData, getCompanyNews, getAnalystData, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent } from "@/lib/api";
+import { getStockData, getCompanyNews, getAnalystData, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
 import { useAccount } from "@/context/AccountContext";
@@ -360,6 +361,16 @@ const ANALYST_TONE: Record<string, string> = {
 	red:    "bg-rose-500/20 text-rose-400",
 };
 
+function formatSavedAgo(ms: number): string {
+	const days = Math.floor((Date.now() - ms) / (1000 * 60 * 60 * 24));
+	if (days === 0) return "today";
+	if (days === 1) return "yesterday";
+	if (days < 7) return `${days} days ago`;
+	if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? "" : "s"} ago`;
+	if (days < 365) return `${Math.floor(days / 30)} month${Math.floor(days / 30) === 1 ? "" : "s"} ago`;
+	return `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? "" : "s"} ago`;
+}
+
 function formatTimeAgo(unixSec: number): string {
 	const mins = Math.floor((Date.now() / 1000 - unixSec) / 60);
 	if (mins < 1) return "just now";
@@ -403,12 +414,49 @@ function DetailMetricCard({ icon, color, title, value, desc }: {
 	);
 }
 
-function getPeerMetricValue(peer: BrandProfile | null, key: "marketCap" | "peRatio" | "revenueGrowth" | "profitMargin"): string {
-	if (!peer) return "—";
-	const raw = peer.financials[key]?.value;
-	if (!raw) return "—";
-	if (key === "peRatio") return `${raw}x`;
-	return raw;
+type MetricKey = "peRatio" | "revenueGrowth" | "profitMargin" | "marketCap";
+
+function parseFinancialRaw(raw: string | undefined): number | null {
+	if (!raw) return null;
+	const s = raw.trim();
+	if (s === "N/A" || s === "—" || s === "") return null;
+	const cleaned = s.replace(/[$%x,]/g, "");
+	if (cleaned.endsWith("T")) return parseFloat(cleaned) * 1e12;
+	if (cleaned.endsWith("B")) return parseFloat(cleaned) * 1e9;
+	if (cleaned.endsWith("M")) return parseFloat(cleaned) * 1e6;
+	const n = parseFloat(cleaned);
+	return isNaN(n) ? null : n;
+}
+
+function medianOf(nums: number[]): number | null {
+	if (nums.length === 0) return null;
+	const s = [...nums].sort((a, b) => a - b);
+	const m = Math.floor(s.length / 2);
+	return s.length % 2 === 0 ? (s[m - 1]! + s[m]!) / 2 : s[m]!;
+}
+
+function fmtMetric(key: MetricKey, val: number): string {
+	if (key === "peRatio") return `${val.toFixed(1)}x`;
+	if (key === "revenueGrowth" || key === "profitMargin") return `${val.toFixed(1)}%`;
+	if (val >= 1e12) return `$${(val / 1e12).toFixed(1)}T`;
+	if (val >= 1e9) return `$${(val / 1e9).toFixed(0)}B`;
+	return `$${(val / 1e6).toFixed(0)}M`;
+}
+
+function computeMedianMetric(peers: BrandProfile[], key: MetricKey): string {
+	const nums = peers
+		.map((b) => parseFinancialRaw(b.financials[key]?.value))
+		.filter((v): v is number => v !== null);
+	const med = medianOf(nums);
+	return med !== null ? fmtMetric(key, med) : "—";
+}
+
+function fmtPeerMetric(key: MetricKey, peerData: PeerMetrics | undefined): string {
+	if (!peerData) return "—";
+	if (key === "peRatio") return peerData.pe != null ? `${peerData.pe.toFixed(1)}x` : "—";
+	if (key === "revenueGrowth") return peerData.revenueGrowth != null ? `${peerData.revenueGrowth.toFixed(1)}%` : "—";
+	if (key === "profitMargin") return peerData.profitMargin != null ? `${peerData.profitMargin.toFixed(1)}%` : "—";
+	return "—";
 }
 
 function MyStakPage() {
@@ -463,7 +511,22 @@ function MyStakPage() {
 		queryKey: ["company-news", selectedBrand?.ticker],
 		queryFn: () => getCompanyNews(selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
-		staleTime: 5 * 60 * 1000,
+		staleTime: 30 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
+		retry: 1,
+	});
+
+	const liveChangePct = stockData?.quote?.changePercent;
+	const liveMoveDirection = liveChangePct === undefined ? null
+		: liveChangePct > 0.15 ? "up" : liveChangePct < -0.15 ? "down" : "flat";
+
+	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
+		// Include direction in key so a direction change (flat→down) fetches fresh content
+		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection],
+		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct),
+		enabled: !!selectedBrand && liveChangePct !== undefined,
+		staleTime: 30 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
 		retry: 1,
 	});
 
@@ -582,7 +645,7 @@ function MyStakPage() {
 
 	const handleRemovePeer = (slot: 0 | 1) => {
 		setComparePeers((prev) => {
-			if (slot === 0) return [prev[1], null]; // shift slot2 → slot1
+			if (slot === 0) return [prev[1], null];
 			return [prev[0], null];
 		});
 	};
@@ -598,17 +661,74 @@ function MyStakPage() {
 		});
 	};
 
+	const { data: peerMetricsData } = useQuery({
+		queryKey: ["peer-metrics", selectedBrand?.ticker],
+		queryFn: () => getPeerMetrics(selectedBrand!.ticker),
+		enabled: !!selectedBrand,
+		staleTime: 24 * 60 * 60 * 1000,
+		retry: 0,
+	});
+
+	const sectorAvg = useMemo(() => {
+		if (!selectedBrand) return { peRatio: "—", revenueGrowth: "—", profitMargin: "—", marketCap: "—" } as Record<MetricKey, string>;
+		const category = selectedBrand.interestCategories?.[0];
+		const peers = brands.filter((b) => b.id !== selectedBrand.id && b.interestCategories?.[0] === category);
+		return {
+			peRatio: computeMedianMetric(peers, "peRatio"),
+			revenueGrowth: computeMedianMetric(peers, "revenueGrowth"),
+			profitMargin: computeMedianMetric(peers, "profitMargin"),
+			marketCap: computeMedianMetric(peers, "marketCap"),
+		} as Record<MetricKey, string>;
+	}, [selectedBrand?.id]);
+
 	// Brand Detail Overlay – full-screen Phase 6 design
 	const liveMetrics = stockData?.metrics as Record<string, string> | undefined;
-	const peer1Label = comparePeers[0]?.ticker ?? "Peer 1";
-	const peer2Label = comparePeers[1]?.ticker ?? "Peer 2";
-	const DETAIL_METRICS: Array<{ key: "marketCap" | "peRatio" | "revenueGrowth" | "profitMargin"; icon: React.ReactNode; color: DetailColor; sector: string; peer: string }> = [
-		{ key: "peRatio",       icon: <span className="text-[13px] font-bold">P/E</span>, color: "purple", sector: getPeerMetricValue(comparePeers[0], "peRatio"),       peer: getPeerMetricValue(comparePeers[1], "peRatio")       },
-		{ key: "revenueGrowth", icon: <TrendingUp size={20} />,  color: "green",  sector: getPeerMetricValue(comparePeers[0], "revenueGrowth"), peer: getPeerMetricValue(comparePeers[1], "revenueGrowth") },
-		{ key: "profitMargin",  icon: <DollarSign size={20} />,  color: "pink",   sector: getPeerMetricValue(comparePeers[0], "profitMargin"),  peer: getPeerMetricValue(comparePeers[1], "profitMargin")  },
-		{ key: "marketCap",     icon: <Building2 size={19} />,   color: "blue",   sector: getPeerMetricValue(comparePeers[0], "marketCap"),     peer: getPeerMetricValue(comparePeers[1], "marketCap")     },
+	const DETAIL_METRICS: Array<{ key: MetricKey; icon: React.ReactNode; color: DetailColor; sector: string; peer: string }> = [
+		{ key: "peRatio",       icon: <span className="text-[13px] font-bold">P/E</span>, color: "purple", sector: sectorAvg.peRatio,       peer: fmtPeerMetric("peRatio",       peerMetricsData) },
+		{ key: "revenueGrowth", icon: <TrendingUp size={20} />,  color: "green",  sector: sectorAvg.revenueGrowth, peer: fmtPeerMetric("revenueGrowth", peerMetricsData) },
+		{ key: "profitMargin",  icon: <DollarSign size={20} />,  color: "pink",   sector: sectorAvg.profitMargin,  peer: fmtPeerMetric("profitMargin",  peerMetricsData) },
+		{ key: "marketCap",     icon: <Building2 size={19} />,   color: "blue",   sector: sectorAvg.marketCap,     peer: "—" },
 	];
 		const priceUp = (stockData?.quote?.changePercent ?? 0) >= 0;
+
+	// Since You Saved
+	const saveEntry = selectedBrand ? (account?.stakSavedAt?.[selectedBrand.id] ?? null) : null;
+	const currentQuotePrice = stockData?.quote?.price ?? null;
+	const sinceSavedPct = saveEntry?.priceAtSave && currentQuotePrice
+		? ((currentQuotePrice - saveEntry.priceAtSave) / saveEntry.priceAtSave) * 100
+		: null;
+	const sinceSavedUp = sinceSavedPct !== null ? sinceSavedPct >= 0 : null;
+	const sinceSavedContent = (() => {
+		if (!saveEntry) return null;
+		const ageMs = Date.now() - saveEntry.savedAt;
+		const savedToday = ageMs < 24 * 60 * 60 * 1000;
+		const ago = formatSavedAgo(saveEntry.savedAt);
+
+		// Just saved — too early to show performance
+		if (savedToday) {
+			return `Just added to your Stak. Check back tomorrow to see how it's performing.`;
+		}
+
+		// News context only if sentiment strictly matches direction of the move
+		const matchingSentiment = sinceSavedUp === true ? "bullish" : sinceSavedUp === false ? "bearish" : null;
+		const relevantArticle = matchingSentiment
+			? newsData?.articles?.find(a => a.sentiment === matchingSentiment && a.whyItMatters && a.type === "company")
+			: null;
+		const newsContext = relevantArticle?.whyItMatters ?? null;
+
+		if (sinceSavedPct !== null && Math.abs(sinceSavedPct) >= 0.5) {
+			const dir = sinceSavedUp ? "up" : "down";
+			const pctStr = `${Math.abs(sinceSavedPct).toFixed(1)}%`;
+			const base = `Since saving ${ago}, ${selectedBrand?.name} is ${dir} ${pctStr}.`;
+			return newsContext ? `${base} ${newsContext}` : base;
+		}
+
+		if (sinceSavedPct !== null) {
+			return `${selectedBrand?.name} has barely moved since you saved this ${ago}.`;
+		}
+
+		return `You added this ${ago}.`;
+	})();
 
 	const brandDetailOverlay = selectedBrand && createPortal(
 		<div
@@ -656,6 +776,26 @@ function MyStakPage() {
 					</div>
 				</header>
 
+				{/* Since You Saved */}
+				{sinceSavedContent && (
+					<div className="mx-[16px] mb-[-4px] flex gap-[14px] rounded-[14px] border border-white/[0.07] bg-[#0b1726]/80 px-[14px] py-[13px]">
+						<div className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[11px] ${sinceSavedUp === true ? "bg-emerald-500/15 text-emerald-400" : sinceSavedUp === false ? "bg-rose-500/15 text-rose-400" : "bg-blue-500/15 text-blue-400"}`}>
+							<Bookmark size={20} />
+						</div>
+						<div className="min-w-0">
+							<p className="text-[13px] font-bold text-white/95 leading-none">
+								Since You Saved
+								{sinceSavedPct !== null && Math.abs(sinceSavedPct) >= 0.5 && (
+									<span className={`ml-[8px] font-bold ${sinceSavedUp ? "text-emerald-400" : "text-rose-400"}`}>
+										{sinceSavedUp ? "+" : ""}{sinceSavedPct.toFixed(1)}%
+									</span>
+								)}
+							</p>
+							<p className="mt-[5px] text-[11px] leading-[16px] text-slate-400/85">{sinceSavedContent}</p>
+						</div>
+					</div>
+				)}
+
 				{/* Content sections */}
 				<div className="px-[16px] space-y-[12px] pb-[36px]">
 
@@ -683,8 +823,8 @@ function MyStakPage() {
 										value={val}
 										sector={sector}
 										peer={peer}
-										sectorLabel={peer1Label}
-										peerLabel={peer2Label}
+										sectorLabel="Sector Avg"
+										peerLabel="Peer Avg"
 										badge={badge.label}
 										badgeColor={badge.color}
 										desc={m?.explanation ?? ""}
@@ -772,6 +912,39 @@ function MyStakPage() {
 							<DetailIconBox color="blue" small><Sparkles size={19} /></DetailIconBox>
 							<h2 className="text-[16px] font-bold">News Signal</h2>
 						</div>
+
+						{/* Why it's moving today */}
+						{(() => {
+							const pct = stockData?.quote?.changePercent;
+							// Always derive visual state from the live quote — never from the cached direction
+							const isUp = pct !== undefined ? pct >= 0 : null;
+							const isFlat = pct !== undefined ? Math.abs(pct) < 0.15 : false;
+							const colorClass = isFlat || pct === undefined
+								? "border-white/10 bg-white/[0.03]"
+								: isUp === true
+								? "border-emerald-500/20 bg-emerald-500/[0.07]"
+								: "border-rose-500/20 bg-rose-500/[0.07]";
+							if (!dailyMoveLoading && !dailyMoveData && pct === undefined) return null;
+							return (
+								<div className={`mb-[12px] rounded-[11px] border px-[13px] py-[11px] ${colorClass}`}>
+									<div className="flex items-center gap-[6px] mb-[5px]">
+										{pct !== undefined ? (
+											<span className={`text-[12px] font-bold ${isFlat ? "text-slate-400" : isUp ? "text-emerald-400" : "text-rose-400"}`}>
+												{isFlat ? "—" : isUp ? "▲" : "▼"} {isUp && !isFlat ? "+" : ""}{pct.toFixed(2)}% today
+											</span>
+										) : (
+											<span className="text-[12px] font-semibold text-slate-400">Today's driver</span>
+										)}
+									</div>
+									{dailyMoveLoading ? (
+										<div className="h-[13px] w-3/4 rounded bg-slate-700/40 animate-pulse" />
+									) : dailyMoveData?.explanation ? (
+										<p className="text-[12px] leading-[17px] text-slate-300">{dailyMoveData.explanation}</p>
+									) : null}
+								</div>
+							);
+						})()}
+
 						<div className="flex gap-[10px] overflow-x-auto pb-[2px]" style={{ scrollbarWidth: "none" }}>
 							{newsLoading ? (
 								[...Array(3)].map((_, i) => (
@@ -854,7 +1027,6 @@ function MyStakPage() {
 												<p className="text-[11px] text-slate-500">Add</p>
 											</button>
 										)}
-										{/* Remove — only if the other slot is also filled so min-1 is preserved */}
 										{comparePeers[slot] && (slot === 1 || comparePeers[1] !== null) && (
 											<button
 												type="button"

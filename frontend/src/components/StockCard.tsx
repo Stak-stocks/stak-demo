@@ -138,8 +138,15 @@ function TagPill({ tag, s }: { tag: TagDef; s: number }) {
 	);
 }
 
+const UP_PATH   = "M0 35 L8 36 L15 24 L25 29 L36 17 L47 23 L60 12 L70 20 L81 16 L91 22 L101 11 L110 4";
+const DOWN_PATH = "M0 5 L8 8 L15 14 L25 10 L36 19 L47 16 L60 25 L70 21 L81 29 L91 26 L101 36 L110 40";
+
 function MiniChart({ positive = true, id, s }: { positive?: boolean; id: string; s: number }) {
 	const color = positive ? "#32e38a" : "#ef4444";
+	const linePath = positive ? UP_PATH : DOWN_PATH;
+	const fillPath = positive
+		? `${UP_PATH} L110 45 L0 45Z`
+		: `${DOWN_PATH} L110 45 L0 45Z`;
 	const gradId = `mc-${id}`;
 	return (
 		<svg
@@ -148,11 +155,11 @@ function MiniChart({ positive = true, id, s }: { positive?: boolean; id: string;
 			fill="none"
 		>
 			<path
-				d="M0 35 L8 36 L15 24 L25 29 L36 17 L47 23 L60 12 L70 20 L81 16 L91 22 L101 11 L110 4"
+				d={linePath}
 				stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
 			/>
 			<path
-				d="M0 35 L8 36 L15 24 L25 29 L36 17 L47 23 L60 12 L70 20 L81 16 L91 22 L101 11 L110 4 L110 45 L0 45Z"
+				d={fillPath}
 				fill={`url(#${gradId})`} opacity="0.34"
 			/>
 			<defs>

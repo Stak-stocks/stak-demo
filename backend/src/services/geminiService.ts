@@ -32,7 +32,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function getGeminiKeys(): string[] {
+export function getGeminiKeys(): string[] {
 	return [
 		process.env.GEMINI_API_KEY,
 		process.env.GEMINI_API_KEY_2,

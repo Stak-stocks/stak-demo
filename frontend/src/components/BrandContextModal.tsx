@@ -122,6 +122,7 @@ function fmtEps(v: number | null): string {
 export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandContextModalProps) {
 	const { account } = useAccount();
 	const inStak = brand ? (account?.stakBrandIds?.includes(brand.id) ?? false) : false;
+	const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 	const [dragY, setDragY] = useState(0);
 	const dragging = useRef(false);
 	const startY = useRef(0);
@@ -212,21 +213,65 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	// 1. What the company does — first culturalContext section
 	const whatContent = brand.culturalContext.sections[0]?.content ?? brand.bio;
 
-	// 2. Why it moved — most recent company news whyItMatters, fallback to price %
-	const topArticle = newsData?.articles?.find(a => a.type === "company" && a.whyItMatters);
+	// 2. Why it moved — best available signal: company news whyItMatters → headline → price change
+	const companyArticle = newsData?.articles?.find(a => a.type === "company" && a.whyItMatters);
+	const anyArticle = newsData?.articles?.[0];
 	const pct = stockData?.quote?.changePercent;
 	const whyLoading = !stockData && !newsData;
-	const whyContent = topArticle?.whyItMatters
-		?? (pct !== undefined
-			? `Shares ${pct >= 0 ? "rose" : "fell"} ${Math.abs(pct).toFixed(1)}% in the latest trading session.`
-			: null);
 	const priceUp = pct !== undefined ? pct >= 0 : true;
+	const whyContent = (() => {
+		if (companyArticle?.whyItMatters) return companyArticle.whyItMatters;
+		if (anyArticle?.whyItMatters) return anyArticle.whyItMatters;
+		if (anyArticle?.headline) {
+			const priceCtx = pct !== undefined
+				? ` Shares are ${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(1)}% today.`
+				: "";
+			return anyArticle.headline + priceCtx;
+		}
+		if (pct !== undefined) {
+			const mag = Math.abs(pct) >= 3 ? " — a notable move." : ".";
+			return `Shares are ${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(1)}% in the latest session${mag}`;
+		}
+		return null;
+	})();
 
-	// 3. Key risks — find section with risk keyword, else last section
-	const riskSection =
-		brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
-		?? brand.culturalContext.sections[brand.culturalContext.sections.length - 1];
-	const riskContent = riskSection?.content ?? null;
+	// 3. Key risks — real signals first, fallback to static culturalContext
+	const riskSignals: string[] = [];
+	// Earnings miss
+	if (earningsData && earningsData.beat === false) {
+		const missStr = earningsData.surprisePercent !== null
+			? ` by ${Math.abs(earningsData.surprisePercent).toFixed(1)}%`
+			: "";
+		riskSignals.push(`Missed ${quarterLabel(earningsData.quarter, earningsData.year)} earnings${missStr} (EPS ${fmtEps(earningsData.epsActual)} vs est. ${fmtEps(earningsData.epsEstimate)})`);
+	}
+	// Analyst sell pressure
+	if (analystData?.recommendation) {
+		const { strongBuy, buy, hold, sell, strongSell } = analystData.recommendation;
+		const total = strongBuy + buy + hold + sell + strongSell;
+		const bearish = sell + strongSell;
+		if (total >= 5 && bearish / total >= 0.25) {
+			riskSignals.push(`${Math.round((bearish / total) * 100)}% of analysts rate this a Sell or Strong Sell`);
+		}
+	}
+	// Price above analyst target
+	const targetAvgRisk = analystData?.priceTarget?.avg ?? null;
+	const currentPriceRisk = stockData?.quote?.price ?? null;
+	if (targetAvgRisk !== null && currentPriceRisk !== null && currentPriceRisk > 0) {
+		const upside = ((targetAvgRisk - currentPriceRisk) / currentPriceRisk) * 100;
+		if (upside < -10) {
+			riskSignals.push(`Trading ${Math.abs(upside).toFixed(0)}% above average analyst target of $${targetAvgRisk.toFixed(0)}`);
+		}
+	}
+	// Bearish news as a risk signal when no structural signals found
+	if (riskSignals.length === 0 && newsData) {
+		const bearishArticle = newsData.articles.find(a => a.sentiment === "bearish" && a.whyItMatters);
+		if (bearishArticle?.whyItMatters) riskSignals.push(bearishArticle.whyItMatters);
+	}
+	const riskLoading = earningsLoading && !analystData && !stockData;
+	const riskContent = riskSignals.length > 0
+		? riskSignals.join(". ") + "."
+		: (brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
+			?? brand.culturalContext.sections[brand.culturalContext.sections.length - 1])?.content ?? null;
 
 	// 4. Recent earnings — EPS actual vs estimate
 	const earningsContent = (() => {
@@ -356,6 +401,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 						<InfoRow
 							heading="Key risks"
 							content={riskContent}
+							loading={riskLoading}
 							icon={<AlertTriangle size={22} />}
 							color="amber"
 						/>
@@ -374,6 +420,11 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 							color="blue"
 							right={priceTargetRight}
 						/>
+					</div>
+
+					<div className="flex items-center justify-between mt-[13px] pb-1 text-[10px] text-slate-400/80">
+						<p>Source: STAK Research</p>
+						<p>As of {today}</p>
 					</div>
 				</div>
 
