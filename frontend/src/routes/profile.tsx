@@ -142,7 +142,9 @@ function ProfilePage() {
 
 	// Streak — from backend's authoritative tracker
 	const todayKey = new Date().toISOString().split("T")[0];
-	const streak = account?.lastStreakDate === todayKey ? (account?.streakCount ?? 0) : 0;
+	const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+	const streak = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
+		? (account?.streakCount ?? 0) : 0;
 	const totalSwipeCount = account?.totalSwipeCount ?? 0;
 	const totalIntelViews = account?.totalIntelViews ?? 0;
 	const earnedBackendBadges = new Set(account?.badges ?? []);

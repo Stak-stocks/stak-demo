@@ -582,8 +582,10 @@ function App() {
 	}, [account?.bonusSwipes]);
 
 	const todayKey = new Date().toISOString().split("T")[0];
-	// streakCount comes from the backend's authoritative tracker (lastStreakDate + streakCount)
-	const streakCount = account?.lastStreakDate === todayKey ? (account?.streakCount ?? 0) : 0;
+	const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+	// Show streak if active today OR yesterday (still within grace window — swipe today to extend)
+	const streakCount = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
+		? (account?.streakCount ?? 0) : 0;
 
 	return (
 		<div className="bg-background text-zinc-900 dark:text-white">
