@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyBrief, type DailyBriefDeck } from "@/lib/api";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const SWIPE_EDGE_PX = 24;
@@ -197,7 +197,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 							</button>
 						) : (
 							<div className="flex items-center gap-[7px]">
-								<StakLogoIcon className="w-[22px] h-[22px] text-foreground" />
+								<StakLogo size={22} />
 								<h1 className="text-[25px] font-semibold tracking-[0.12em] leading-none text-foreground">STAK</h1>
 							</div>
 						)}

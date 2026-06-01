@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { auth } from "../lib/firebase";
 import { applyActionCode, checkActionCode } from "firebase/auth";
 import { toast } from "sonner";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/verify-email")({
 	component: VerifyEmailPage,
@@ -205,7 +205,7 @@ function VerifyEmailPage() {
 			return (
 				<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 					<div className="absolute top-5 left-6 flex items-center gap-2">
-						<StakLogoIcon width={28} height={28} className="text-foreground" />
+						<StakLogo size={28} />
 						<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 					</div>
 					<div className="w-full max-w-sm text-center space-y-6">
@@ -252,7 +252,7 @@ function VerifyEmailPage() {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 				<div className="absolute top-5 left-6 flex items-center gap-2">
-					<StakLogoIcon width={28} height={28} className="text-foreground" />
+					<StakLogo size={28} />
 					<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 				</div>
 
@@ -300,7 +300,7 @@ function VerifyEmailPage() {
 		<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 			{/* Logo */}
 			<div className="absolute top-5 left-6 flex items-center gap-2">
-				<StakLogoIcon width={28} height={28} className="text-foreground" />
+				<StakLogo size={28} />
 				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</div>
 

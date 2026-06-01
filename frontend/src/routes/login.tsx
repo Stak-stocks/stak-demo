@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 
 import { getProfile } from "@/lib/api";
 
@@ -111,7 +111,7 @@ function LoginPage() {
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			{/* Logo — top left */}
 			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
-				<StakLogoIcon width={28} height={28} className="text-foreground" />
+				<StakLogo size={28} />
 				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</Link>
 

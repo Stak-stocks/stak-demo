@@ -10,6 +10,7 @@ import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import React from "react";
 import { AlertTriangle, Search, Brain, Flame, BarChart3, Coffee, Zap, Shield, MessageCircle, Gamepad2, ShoppingBag, Music } from "lucide-react";
 import stakLogo from "@/assets/stak-logo-icon.svg";
+import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
 import { getIntelCards, recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
@@ -600,7 +601,8 @@ function App() {
 			<div className="relative flex items-center justify-center px-[18px] pt-5 pb-2">
 				{/* Centered logo + name */}
 				<div className="flex items-center gap-[8px]">
-					<img src={stakLogo} alt="STAK" className="h-[28px] w-[28px] dark:brightness-100 brightness-0" />
+					<img src={stakLogo} alt="STAK" className="h-[28px] w-[28px] hidden dark:block" />
+					<img src={stakLogoColor} alt="STAK" className="h-[28px] w-[28px] block dark:hidden" />
 					<h1 className="text-[22px] font-semibold tracking-[0.13em] text-foreground">STAK</h1>
 				</div>
 				{/* Right side actions */}
