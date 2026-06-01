@@ -18,9 +18,9 @@ export function ThemeToggle() {
 				<Button
 					variant="ghost"
 					size="icon"
-					className="bg-transparent hover:bg-zinc-100 dark:hover:bg-surface-2 border border-zinc-200 dark:border-slate-700/50 rounded-lg"
+					className="bg-transparent hover:bg-zinc-100 dark:hover:bg-surface-2 border border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 rounded-lg"
 				>
-					<Tv className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+					<Tv className="w-5 h-5 text-zinc-500 dark:dark:text-zinc-400 text-zinc-600" />
 					<span className="sr-only">Toggle theme</span>
 				</Button>
 			</DropdownMenuTrigger>

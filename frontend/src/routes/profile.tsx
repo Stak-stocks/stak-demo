@@ -276,7 +276,7 @@ function ProfilePage() {
 						<span className="text-sm">{starsDisplay}</span> {level.label} Investor
 					</span>
 
-					<span style={{ pointerEvents: "none" }} className="text-xs text-zinc-400 select-none">{email}</span>
+					<span style={{ pointerEvents: "none" }} className="text-xs dark:text-zinc-400 text-zinc-600 select-none">{email}</span>
 				</div>
 
 				{/* ════════ DASHBOARD GRID ════════ */}
@@ -310,7 +310,7 @@ function ProfilePage() {
 												style={{ width: `${pct}%` }}
 											/>
 										</div>
-										<span className="text-[10px] text-zinc-400 w-7 text-right shrink-0 tabular-nums">{pct}%</span>
+										<span className="text-[10px] dark:text-zinc-400 text-zinc-600 w-7 text-right shrink-0 tabular-nums">{pct}%</span>
 									</div>
 								);
 							})}
@@ -335,7 +335,7 @@ function ProfilePage() {
 						{/* badges row */}
 						<div className="flex items-center gap-2 flex-wrap">
 							{earnedBadges.length === 0 && inProgressBadges.length === 0 ? (
-								<p className="text-[10px] text-zinc-400">No badges yet — keep swiping!</p>
+								<p className="text-[10px] dark:text-zinc-400 text-zinc-600">No badges yet — keep swiping!</p>
 							) : (
 								<>
 									{earnedBadges.map((b) => (
@@ -348,7 +348,7 @@ function ProfilePage() {
 											<div className="w-8 h-8 rounded-full border bg-orange-500/10 border-orange-400/30 flex items-center justify-center text-base">
 												{b.emoji}
 											</div>
-											<span className="text-[8px] text-zinc-400 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+											<span className="text-[8px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
 										</button>
 									))}
 									{inProgressBadges.map((b) => (
@@ -384,7 +384,7 @@ function ProfilePage() {
 							<p className="text-[11px] font-bold">Intel Library</p>
 						</div>
 						{readCards.length === 0 ? (
-							<p className="text-[10px] text-zinc-400 leading-tight">Swipe 5× to unlock your first insight</p>
+							<p className="text-[10px] dark:text-zinc-400 text-zinc-600 leading-tight">Swipe 5× to unlock your first insight</p>
 						) : (
 							<div>
 								<p className="text-2xl font-extrabold text-cyan-500 dark:text-cyan-400 leading-none">{readCards.length}</p>
@@ -414,7 +414,7 @@ function ProfilePage() {
 								<item.icon className={`w-4 h-4 ${item.iconColor}`} />
 							</div>
 							<span className="flex-1 text-left text-sm font-medium">{item.label}</span>
-							<ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+							<ChevronRight className="w-4 h-4 dark:text-zinc-300 text-zinc-700 dark:text-zinc-600" />
 						</button>
 					))}
 
@@ -462,7 +462,7 @@ function ProfilePage() {
 							<HelpCircle className="w-4 h-4 text-amber-400" />
 						</div>
 						<span className="flex-1 text-left text-sm font-medium">Help & Support</span>
-						<ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+						<ChevronRight className="w-4 h-4 dark:text-zinc-300 text-zinc-700 dark:text-zinc-600" />
 					</button>
 				</div>
 
@@ -497,9 +497,9 @@ function ProfilePage() {
 							<div className="flex items-center justify-between">
 								<div>
 									<h3 className="text-base font-bold">Intel Library</h3>
-									<p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
+									<p className="text-[11px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
 								</div>
-								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors">
+								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors">
 									<X className="w-4 h-4" />
 								</button>
 							</div>
@@ -508,8 +508,8 @@ function ProfilePage() {
 							{readCards.length === 0 ? (
 								<div className="py-12 text-center">
 									<p className="text-3xl mb-3">📚</p>
-									<p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No cards read yet</p>
-									<p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">Swipe 5 times on Discover to get your first Intel Card</p>
+									<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 font-medium">No cards read yet</p>
+									<p className="text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-600 mt-1">Swipe 5 times on Discover to get your first Intel Card</p>
 								</div>
 							) : (
 								readCards.map((card) => (
@@ -522,9 +522,9 @@ function ProfilePage() {
 										<span className="text-2xl shrink-0">{card.emoji}</span>
 										<div className="flex-1 min-w-0">
 											<p className="text-sm font-semibold truncate">{card.title}</p>
-											<p className="text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-1 mt-0.5">{card.takeaway}</p>
+											<p className="text-[11px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 line-clamp-1 mt-0.5">{card.takeaway}</p>
 										</div>
-										<ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
+										<ChevronRight className="w-4 h-4 dark:text-zinc-300 text-zinc-700 dark:text-zinc-600 shrink-0" />
 									</button>
 								))
 							)}
@@ -544,7 +544,7 @@ function ProfilePage() {
 				<div className="relative z-[1] bg-white dark:bg-surface-1 rounded-2xl border border-zinc-200 dark:border-orange-400/20 shadow-2xl p-5 mx-4 max-w-xs w-full text-center">
 					<div className={`text-4xl mb-2 ${activeBadge.progress < 1 ? "grayscale opacity-50" : ""}`}>{activeBadge.emoji}</div>
 					<p className="text-base font-bold mb-1">{activeBadge.label}</p>
-					<p className="text-sm text-zinc-500 dark:text-zinc-400">{activeBadge.desc}</p>
+					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">{activeBadge.desc}</p>
 					{activeBadge.progress < 1 && (
 						<div className="mt-3">
 							<div className="flex justify-between text-[10px] text-zinc-500 mb-1">

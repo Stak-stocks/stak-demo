@@ -112,7 +112,7 @@ function getTagClass(key: string): string {
 	if (["high_risk", "moderate_risk", "low_risk"].includes(key))
 		return "border-amber-400/80 bg-amber-500/10 text-amber-300";
 	if (["high_growth", "steady_growth", "mature", "gaming", "streaming", "music", "energy"].includes(key))
-		return "border-purple-400/80 bg-purple-500/15 text-purple-200";
+		return "border-purple-400/80 bg-purple-500/15 dark:text-purple-200 text-purple-700";
 	return "border-blue-400/80 bg-blue-500/10 text-blue-200";
 }
 
@@ -226,8 +226,8 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 						filter: "brightness(0.62) blur(0.3px)",
 					}}
 				/>
-				<div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-[#0b1018]" />
-				<div className="absolute inset-x-0 bottom-0 h-[65%] bg-gradient-to-b from-transparent via-[#0b1018]/85 to-[#0b1018]" />
+				<div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black" />
+				<div className="absolute inset-x-0 bottom-0 h-[65%] bg-gradient-to-b from-transparent via-black/85 to-black" />
 			</div>
 
 			{/* Top-left brand logo box */}
@@ -276,10 +276,10 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 							) : quote === undefined ? (
 								<>
 									<div className="flex items-center gap-3">
-										<div className="h-6 w-20 bg-slate-700/50 rounded animate-pulse" />
-										<div className="h-4 w-12 bg-slate-700/50 rounded animate-pulse" />
+										<div className="h-6 w-20 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse" />
+										<div className="h-4 w-12 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse" />
 									</div>
-									<div className="h-3 w-14 bg-slate-700/50 rounded animate-pulse mt-2" />
+									<div className="h-3 w-14 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse mt-2" />
 								</>
 							) : null}
 						</div>
@@ -309,7 +309,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 				<div className="mt-auto" style={{ paddingTop: sp(14) }}>
 					{isPopular ? (
 						<div
-							className="flex items-center justify-between rounded-[10px] border border-white/8 bg-black/10 backdrop-blur-sm"
+							className="flex items-center justify-between rounded-[10px] border border-foreground/[0.08] bg-black/10 backdrop-blur-sm"
 							style={{ height: sp(38), paddingLeft: sp(13), paddingRight: sp(4) }}
 						>
 							<div className="flex items-center dark:text-slate-400 text-slate-500" style={{ gap: sp(8), fontSize: sp(12) }}>

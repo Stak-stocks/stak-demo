@@ -104,7 +104,7 @@ function ResetPasswordPage() {
 				{/* Logo */}
 				<div className="flex items-center justify-center gap-2 mb-2">
 					<StakLogoIcon width={32} height={32} />
-					<span className="text-white text-2xl font-bold tracking-wider">STAK</span>
+					<span className="text-foreground text-2xl font-bold tracking-wider">STAK</span>
 				</div>
 
 				{invalidCode ? (
@@ -139,7 +139,7 @@ function ResetPasswordPage() {
 										placeholder="At least 6 characters"
 										value={password}
 										onChange={(e) => setPassword(e.target.value)}
-										className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-slate-700 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+										className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 										autoFocus
 									/>
 									<button
@@ -169,7 +169,7 @@ function ResetPasswordPage() {
 									placeholder="Confirm new password"
 									value={confirmPassword}
 									onChange={(e) => setConfirmPassword(e.target.value)}
-									className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-slate-700 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+									className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 								/>
 							</div>
 

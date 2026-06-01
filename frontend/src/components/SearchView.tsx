@@ -122,7 +122,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 					{/* Search Input */}
 					<div className="relative overflow-hidden rounded-xl">
-						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 dark:text-zinc-500 z-10" />
+						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 z-10" />
 						<input
 							ref={inputRef}
 							type="search"
@@ -133,7 +133,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							autoComplete="off"
 							autoCorrect="off"
 							spellCheck={false}
-							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-surface-1 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 						/>
 					</div>
 				</div>
@@ -146,7 +146,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 					{query.trim() ? (
 						results.length > 0 ? (
 							<div className="space-y-6">
-								<p className="text-sm text-zinc-500 dark:text-zinc-400">
+								<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
 									Search results — tap to explore the vibe.
 								</p>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -163,10 +163,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							</div>
 						) : (
 							<div className="text-center py-12">
-								<p className="text-zinc-500 dark:text-zinc-400">
+								<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
 									No results found for "{query}"
 								</p>
-								<p className="text-sm text-zinc-400 dark:text-zinc-500 mt-2">
+								<p className="text-sm dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-2">
 									Try searching for a different ticker or company name
 								</p>
 							</div>
@@ -176,13 +176,13 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							{recentSearches.length > 0 ? (
 								<div>
 									<div className="flex items-center justify-between mb-4">
-										<h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+										<h3 className="text-sm font-semibold text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 uppercase tracking-wider">
 											Recent Searches
 										</h3>
 										<button
 											type="button"
 											onClick={handleClearRecent}
-											className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+											className="flex items-center gap-1 text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
 										>
 											<Trash2 className="w-3.5 h-3.5" />
 											Clear
@@ -199,15 +199,15 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 													onClick={() => handleRecentClick(search)}
 													className="flex items-center gap-3 flex-1 min-w-0 text-left"
 												>
-													<Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-													<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-foreground transition-colors">
+													<Clock className="w-4 h-4 dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 shrink-0" />
+													<span className="text-zinc-700 dark:dark:text-zinc-300 text-zinc-700 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-foreground transition-colors">
 														{search}
 													</span>
 												</button>
 												<button
 													type="button"
 													onClick={() => handleRemoveRecent(search)}
-													className="p-1.5 rounded-full text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:bg-slate-700/50 transition-colors shrink-0"
+													className="p-1.5 rounded-full dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:dark:bg-slate-700/50 bg-slate-200/70 transition-colors shrink-0"
 													aria-label={`Remove ${search}`}
 												>
 													<X className="w-4 h-4" />
@@ -218,11 +218,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 								</div>
 							) : (
 								<div className="text-center py-12">
-									<Search className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-									<p className="text-zinc-500 dark:text-zinc-400">
+									<Search className="w-16 h-16 dark:text-zinc-300 text-zinc-700 dark:text-zinc-700 mx-auto mb-4" />
+									<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
 										Start typing to search stocks
 									</p>
-									<p className="text-sm text-zinc-400 dark:text-zinc-500 mt-2">
+									<p className="text-sm dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-2">
 										Search by ticker (e.g., AAPL) or company name
 									</p>
 								</div>

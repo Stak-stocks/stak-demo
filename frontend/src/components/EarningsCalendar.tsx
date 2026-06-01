@@ -48,7 +48,7 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 		<div className="flex items-center gap-3 py-2.5 border-b border-slate-700/30 last:border-0">
 			<div className="flex-1 min-w-0">
 				<span className="font-bold text-foreground text-sm">{entry.brand.ticker}</span>
-				<span className="text-[10px] text-zinc-400 ml-2">{entry.brand.name}</span>
+				<span className="text-[10px] dark:text-zinc-400 text-zinc-600 ml-2">{entry.brand.name}</span>
 			</div>
 			<span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls}`}>
 				{cfg.icon} {cfg.label}
@@ -135,7 +135,7 @@ export function EarningsCalendarButton({ onOpen }: { onOpen?: () => void } = {})
 		<>
 			<button
 				onClick={() => { setOpen(true); onOpen?.(); }}
-				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-foreground transition-all"
+				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-surface-2 hover:bg-surface-3/70 border border-slate-600/50 hover:border-cyan-500/40 dark:text-zinc-300 text-zinc-700 hover:text-foreground transition-all"
 			title="Earnings Calendar"
 			>
 				<CalendarDays className="w-5 h-5 text-cyan-400" />
@@ -186,7 +186,7 @@ function TickerLogo({ symbol }: { symbol: string }) {
 	const [err, setErr] = useState(false);
 	if (brand && !err) {
 		return (
-			<div className="w-9 h-9 rounded-full bg-white/5 border border-slate-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+			<div className="w-9 h-9 rounded-full bg-white/5 border dark:border-slate-700/50 border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
 				<img
 					src={getBrandLogoUrl(brand)}
 					alt={symbol}
@@ -198,7 +198,7 @@ function TickerLogo({ symbol }: { symbol: string }) {
 	}
 	return (
 		<div className={`w-9 h-9 rounded-full ${tickerColor(symbol)} flex items-center justify-center flex-shrink-0`}>
-			<span className="text-white text-[11px] font-bold">{symbol.slice(0, 2)}</span>
+			<span className="text-foreground text-[11px] font-bold">{symbol.slice(0, 2)}</span>
 		</div>
 	);
 }
@@ -223,7 +223,7 @@ function CircularProgress({ pct }: { pct: number }) {
 					{pct}%
 				</text>
 			</svg>
-			<p className="text-[10px] text-zinc-400">Positive</p>
+			<p className="text-[10px] dark:text-zinc-400 text-zinc-600">Positive</p>
 		</div>
 	);
 }
@@ -285,7 +285,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 					</>
 				) : (
 					<>
-						<p className={`text-sm font-bold tabular-nums ${beat ? "text-green-400" : miss ? "text-red-400" : "text-zinc-200"}`}>
+						<p className={`text-sm font-bold tabular-nums ${beat ? "text-green-400" : miss ? "text-red-400" : "dark:text-zinc-200 text-zinc-700"}`}>
 							{formatEps(entry.epsActual)}
 						</p>
 						<p className="text-[10px] text-zinc-500 tabular-nums">vs {formatEps(entry.epsEstimate)}</p>
@@ -356,7 +356,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 		return (
 			<button
 				onClick={() => setExpanded(true)}
-				className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-background/80 border border-slate-700/50 rounded-xl text-sm font-medium text-zinc-400 hover:text-foreground hover:border-cyan-500/30 transition-all"
+				className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-background/80 border dark:border-slate-700/50 border-slate-200 rounded-xl text-sm font-medium dark:text-zinc-400 text-zinc-600 hover:text-foreground hover:border-cyan-500/30 transition-all"
 			>
 				<span className="flex items-center gap-2">
 					<CalendarDays className="w-4 h-4 text-cyan-400" />
@@ -369,7 +369,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	}
 
 	return (
-		<div className="mb-6 bg-background border border-slate-700/50 rounded-2xl overflow-hidden">
+		<div className="mb-6 bg-background border dark:border-slate-700/50 border-slate-200 rounded-2xl overflow-hidden">
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 pt-4 pb-3">
 				<h2 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -394,7 +394,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 						className={`flex-1 py-1.5 rounded-[10px] text-[11px] font-semibold transition-all ${
 							tab === t
 								? "bg-background text-foreground shadow"
-								: "text-zinc-500 hover:text-zinc-300"
+								: "text-zinc-500 hover:dark:text-zinc-300 text-zinc-700"
 						}`}
 					>
 						{t === "today" ? "Today" : t === "tomorrow" ? "Tomorrow" : "This Week"}

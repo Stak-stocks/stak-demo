@@ -24,7 +24,7 @@ function PerformancePage() {
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
-					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-foreground transition-colors mb-8"
+					className="inline-flex items-center gap-2 text-gray-400 dark:dark:text-zinc-400 text-zinc-600 hover:text-gray-900 dark:hover:text-foreground transition-colors mb-8"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span>Back to League</span>
@@ -34,13 +34,13 @@ function PerformancePage() {
 					<h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">
 						This Week's Performance
 					</h1>
-					<p className="text-gray-500 dark:text-zinc-400">
+					<p className="text-gray-500 dark:dark:text-zinc-400 text-zinc-600">
 						Track how your picks are doing vs the market
 					</p>
 				</header>
 
 				<div className="space-y-6">
-					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
+					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 						<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Your Lineup</h2>
 
 						{starters.length === 0 ? (
@@ -99,7 +99,7 @@ function PerformancePage() {
 						)}
 					</div>
 
-					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6">
+					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 						<p className="text-center text-gray-400 dark:text-zinc-500 text-sm italic">
 							Results finalize on Friday. Keep checking back!
 						</p>

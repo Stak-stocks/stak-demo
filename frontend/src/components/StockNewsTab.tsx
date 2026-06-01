@@ -40,7 +40,7 @@ function SentimentBadge({ sentiment }: Readonly<{ sentiment: NewsArticle["sentim
 		);
 	}
 	return (
-		<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/20 text-zinc-400">
+		<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/20 dark:text-zinc-400 text-zinc-600">
 			<Minus className="w-3 h-3" />
 			Neutral
 		</span>
@@ -85,7 +85,7 @@ function ArticleCard({ article, index }: Readonly<{ article: NewsArticle; index:
 					<SentimentBadge sentiment={article.sentiment} />
 				</div>
 			</div>
-			<p ref={textRef} className={`text-xs text-zinc-400 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
+			<p ref={textRef} className={`text-xs dark:text-zinc-400 text-zinc-600 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
 				{article.explanation}
 			</p>
 			{(isClamped || expanded) && (
@@ -136,7 +136,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 		return (
 			<div className="space-y-3">
 				{Array.from({ length: NEWS_PAGE_SIZE }).map((_, i) => (
-					<div key={i} className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-4 animate-pulse">
+					<div key={i} className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-4 animate-pulse">
 						<div className="h-4 w-3/4 bg-zinc-700/50 rounded mb-3" />
 						<div className="h-3 w-full bg-zinc-700/50 rounded mb-2" />
 						<div className="h-3 w-1/2 bg-zinc-700/50 rounded" />
@@ -148,16 +148,16 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 
 	if (isError) {
 		return (
-			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6 text-center">
-				<p className="text-zinc-400 text-sm">Couldn't load news for {ticker}.</p>
+			<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6 text-center">
+				<p className="dark:text-zinc-400 text-zinc-600 text-sm">Couldn't load news for {ticker}.</p>
 			</div>
 		);
 	}
 
 	if (allArticles.length === 0) {
 		return (
-			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6 text-center">
-				<p className="text-zinc-400 text-sm">No recent news for {name}.</p>
+			<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6 text-center">
+				<p className="dark:text-zinc-400 text-zinc-600 text-sm">No recent news for {name}.</p>
 			</div>
 		);
 	}

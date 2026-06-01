@@ -53,7 +53,7 @@ const ACTION_COLORS = {
 	red:   "border-2 border-red-500 text-red-400 bg-surface-1 shadow-[0_0_22px_rgba(239,68,68,.22)]",
 	cyan:  "border-2 border-green-500 text-green-400 bg-green-500/10 shadow-[0_0_22px_rgba(34,197,94,.2)]",
 	dark:  "border-2 border-blue-500/60 text-blue-400 bg-surface-1",
-	gray:  "border-2 border-zinc-600 text-zinc-400 bg-surface-1",
+	gray:  "border-2 border-zinc-600 dark:text-zinc-400 text-zinc-600 bg-surface-1",
 };
 
 const GLOW_COLOR = {
@@ -382,7 +382,7 @@ export function SwipeableCardStack({
 					{[0, 1].map((i) => (
 						<div
 							key={i}
-							className="absolute inset-0 rounded-2xl overflow-hidden border border-slate-700/50 bg-surface-1"
+							className="absolute inset-0 rounded-2xl overflow-hidden border dark:border-slate-700/50 border-slate-200 bg-surface-1"
 							style={{
 								transform: `scale(${1 - i * 0.04}) translateY(${i * 12}px)`,
 								zIndex: 2 - i,

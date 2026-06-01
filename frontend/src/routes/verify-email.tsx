@@ -269,7 +269,7 @@ function VerifyEmailPage() {
 						<h1 className="text-2xl font-bold text-foreground">Almost there!</h1>
 						<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 							Tap the button below to confirm your email address
-							{user && <>{" "}<span className="text-white font-medium">{user.email}</span></>}
+							{user && <>{" "}<span className="text-foreground font-medium">{user.email}</span></>}
 							{" "}and get started.
 						</p>
 					</div>
@@ -318,7 +318,7 @@ function VerifyEmailPage() {
 					<h1 className="text-2xl font-bold text-foreground">Check your inbox</h1>
 					<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 						We sent a verification link to{" "}
-						<span className="text-white font-medium">{user.email}</span>.
+						<span className="text-foreground font-medium">{user.email}</span>.
 						Click it to activate your account.
 					</p>
 				</div>
@@ -345,7 +345,7 @@ function VerifyEmailPage() {
 					type="button"
 					onClick={handleResend}
 					disabled={cooldown > 0}
-					className="w-full py-3 rounded-xl font-medium dark:text-slate-300 text-slate-600 border border-slate-700 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+					className="w-full py-3 rounded-xl font-medium dark:text-slate-300 text-slate-600 border dark:border-slate-700 border-slate-200 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 				>
 					{cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
 				</button>

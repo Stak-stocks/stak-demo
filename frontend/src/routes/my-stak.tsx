@@ -65,7 +65,7 @@ function WatchRow({ brand, onRemove, onClick }: {
 							{up ? "+" : ""}{quote.changePercent.toFixed(2)}%
 						</p>
 					) : (
-						<div className="mr-[25px] h-[13px] w-[40px] rounded bg-slate-700/50 animate-pulse" />
+						<div className="mr-[25px] h-[13px] w-[40px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 					)}
 				</div>
 				<div className="mt-[6px] flex items-center gap-[9px] text-[10px] leading-none text-slate-500">
@@ -769,7 +769,7 @@ function MyStakPage() {
 									</span>
 								</p>
 							) : (
-								<div className="mt-[6px] h-[12px] w-[80px] rounded bg-slate-700/50 animate-pulse" />
+								<div className="mt-[6px] h-[12px] w-[80px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 							)}
 						</div>
 					</div>
@@ -850,14 +850,14 @@ function MyStakPage() {
 									<div className="grid grid-cols-3 border-b border-foreground/10">
 										{[0, 1, 2].map((i) => (
 											<div key={i} className={`px-[10px] py-[8px] ${i < 2 ? "border-r border-foreground/10" : ""} ${i === 1 ? "text-center" : i === 2 ? "text-right" : ""}`}>
-												<div className="h-[11px] w-[56px] rounded bg-slate-700/50 animate-pulse" />
+												<div className="h-[11px] w-[56px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 												<div className="mt-[5px] h-[16px] w-[44px] rounded bg-slate-700/40 animate-pulse" />
 											</div>
 										))}
 									</div>
 									{[0, 1, 2].map((i) => (
 										<div key={i} className="grid grid-cols-3 border-b border-foreground/10 last:border-b-0">
-											<div className="border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[13px] w-[60px] rounded bg-slate-700/50 animate-pulse" /></div>
+											<div className="border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[13px] w-[60px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" /></div>
 											<div className="flex items-center justify-center border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[22px] w-[56px] rounded bg-slate-700/40 animate-pulse" /></div>
 											<div className="px-[10px] py-[7px] flex justify-end"><div className="h-[13px] w-[36px] rounded bg-slate-700/40 animate-pulse" /></div>
 										</div>
@@ -949,7 +949,7 @@ function MyStakPage() {
 								[...Array(3)].map((_, i) => (
 									<div key={i} className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-foreground/10 bg-surface-1/80 p-[12px]">
 										<div className="flex items-center justify-between gap-[6px]">
-											<div className="h-[11px] w-[60px] rounded bg-slate-700/50 animate-pulse" />
+											<div className="h-[11px] w-[60px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 											<div className="h-[18px] w-[46px] rounded bg-slate-700/40 animate-pulse" />
 										</div>
 										<div className="space-y-[5px]">
@@ -1228,9 +1228,9 @@ function MyStakPage() {
 				<div className="px-[18px] pt-[18px] pb-6 space-y-[8px]">
 					{[...Array(4)].map((_, i) => (
 						<div key={i} className="flex items-center gap-[12px] rounded-[9px] px-[5px] py-[8px]">
-							<div className="h-[38px] w-[38px] shrink-0 rounded-full bg-slate-700/50 animate-pulse" />
+							<div className="h-[38px] w-[38px] shrink-0 rounded-full dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 							<div className="flex-1 space-y-[8px]">
-								<div className="h-[13px] w-[120px] rounded bg-slate-700/50 animate-pulse" />
+								<div className="h-[13px] w-[120px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
 								<div className="h-[10px] w-[70px] rounded bg-slate-700/40 animate-pulse" />
 							</div>
 							<div className="h-[13px] w-[45px] rounded bg-slate-700/40 animate-pulse" />

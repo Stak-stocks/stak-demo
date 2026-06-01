@@ -340,7 +340,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 						<BrandLogo brand={brand} className="w-[20px] h-[20px] rounded-[3px]" />
 					</div>
 					<h1 className="text-[16px] font-medium tracking-[-0.01em] text-foreground/95">
-						About {brand.name} <span className="text-white/50">({brand.ticker})</span>
+						About {brand.name} <span className="text-foreground/50">({brand.ticker})</span>
 					</h1>
 				</div>
 

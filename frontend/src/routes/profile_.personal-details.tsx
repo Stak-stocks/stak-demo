@@ -100,7 +100,7 @@ function PersonalDetailsPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
+					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -158,12 +158,12 @@ function PersonalDetailsPage() {
 								<button type="button" onClick={saveName} disabled={savingName} className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-colors">
 									<Check className="w-3.5 h-3.5" />
 								</button>
-								<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(false); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors">
+								<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
 									<X className="w-3.5 h-3.5" />
 								</button>
 							</div>
 						) : (
-							<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(true); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors shrink-0">
+							<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
 								<Pencil className="w-3 h-3" />
 							</button>
 						)}
@@ -210,12 +210,12 @@ function PersonalDetailsPage() {
 								<button type="button" onClick={savePhone} disabled={savingPhone} className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-colors">
 									<Check className="w-3.5 h-3.5" />
 								</button>
-								<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(false); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors">
+								<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
 									<X className="w-3.5 h-3.5" />
 								</button>
 							</div>
 						) : (
-							<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(true); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors shrink-0">
+							<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
 								<Pencil className="w-3 h-3" />
 							</button>
 						)}

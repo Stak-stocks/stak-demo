@@ -246,7 +246,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 						strokeLinejoin="round"
 					/>
 				</svg>
-				<span className="text-white text-4xl font-bold tracking-wider">STAK</span>
+				<span className="text-foreground text-4xl font-bold tracking-wider">STAK</span>
 			</div>
 
 			<div>
@@ -293,7 +293,7 @@ function InterestsStep({
 						onClick={() => onToggle(interest.id)}
 						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${selected.includes(interest.id)
 							? "bg-orange-500/20 border-orange-500 text-foreground"
-							: "bg-surface-2 border-slate-700 dark:text-slate-300 text-slate-600 hover:border-slate-500"
+							: "bg-surface-2 dark:border-slate-700 border-slate-200 dark:text-slate-300 text-slate-600 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-2xl">{interest.emoji}</span>
@@ -606,7 +606,7 @@ function MotivationStep({
 						onClick={() => onToggle(option.id)}
 						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${selected.includes(option.id)
 							? `${option.color} text-foreground border border-transparent`
-							: "bg-surface-2 text-foreground border border-slate-700 hover:border-slate-500"
+							: "bg-surface-2 text-foreground border dark:border-slate-700 border-slate-200 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-lg">{option.icon}</span>
@@ -652,7 +652,7 @@ function FamiliarityStep({
 						onClick={() => onSelect(option.id)}
 						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${selected === option.id
 							? "bg-orange-500/20 border-orange-500 text-foreground"
-							: "bg-surface-2 border-slate-700 dark:text-slate-300 text-slate-600 hover:border-slate-500"
+							: "bg-surface-2 dark:border-slate-700 border-slate-200 dark:text-slate-300 text-slate-600 hover:border-slate-500"
 							}`}
 					>
 						<p className="font-semibold">{option.label}</p>
@@ -820,7 +820,7 @@ function BuildingStep({
 								className="w-16 h-16 object-contain rounded-2xl"
 								onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
 							/>
-							<span className="text-white text-[11px] font-bold">{brand.name}</span>
+							<span className="text-foreground text-[11px] font-bold">{brand.name}</span>
 						</div>
 					);
 				})}

@@ -66,7 +66,7 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 								className={`flex flex-col items-center gap-1 py-2 px-2 sm:px-4 transition-colors ${
 									active
 										? item.activeColor
-										: "text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
+										: "dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 hover:text-zinc-600 dark:hover:dark:text-zinc-300 text-zinc-700"
 								}`}
 							>
 								<div

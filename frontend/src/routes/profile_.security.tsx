@@ -99,7 +99,7 @@ function SecurityPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
+					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -143,8 +143,8 @@ function SecurityPage() {
 
 						{/* Current Password */}
 						<div className="flex items-center gap-3 px-4 py-3.5">
-							<div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center shrink-0">
-								<Lock className="w-4 h-4 text-zinc-400" />
+							<div className="w-8 h-8 rounded-lg dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center shrink-0">
+								<Lock className="w-4 h-4 dark:text-zinc-400 text-zinc-600" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Current Password</p>
@@ -156,7 +156,7 @@ function SecurityPage() {
 									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none placeholder:text-zinc-600"
 								/>
 							</div>
-							<button type="button" onClick={() => setShowCurrent((v) => !v)} className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">
+							<button type="button" onClick={() => setShowCurrent((v) => !v)} className="text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors shrink-0">
 								{showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 							</button>
 						</div>
@@ -176,7 +176,7 @@ function SecurityPage() {
 									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none placeholder:text-zinc-600"
 								/>
 							</div>
-							<button type="button" onClick={() => setShowNew((v) => !v)} className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">
+							<button type="button" onClick={() => setShowNew((v) => !v)} className="text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors shrink-0">
 								{showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 							</button>
 						</div>
@@ -218,7 +218,7 @@ function SecurityPage() {
 					<button
 						type="button"
 						onClick={handleSendReset}
-						className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-2"
+						className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors py-2"
 					>
 						<Mail className="w-3.5 h-3.5" />
 						Forgot password? Send reset email to {user.email}

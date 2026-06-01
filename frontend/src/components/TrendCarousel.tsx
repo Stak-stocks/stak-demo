@@ -123,7 +123,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 						</h3>
 					)}
 
-					<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
+					<p className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 						{card.why}
 					</p>
 				</div>
@@ -156,7 +156,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					</h3>
 				)}
 
-				<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
+				<p className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 					{card.explanation}
 				</p>
 			</div>
@@ -188,14 +188,14 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 				<div className="overflow-y-auto no-scrollbar">
 					<Badge type="stak" label={card.label} />
 
-					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
+					<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
 						{card.synthesis}
 					</p>
 				</div>
 
 				{card.takeaway && (
 					<div className="mt-auto pt-3 shrink-0">
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+						<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 							<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
@@ -222,7 +222,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 
 					<div className="flex flex-col gap-3 mt-1">
 						{cleanIntro && (
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 								{cleanIntro}
 							</p>
 						)}
@@ -232,14 +232,14 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 								{cleanForces.map((force, i) => (
 									<li key={i} className="flex items-start gap-2">
 										<span className="text-amber-400 font-bold mt-0.5 shrink-0">•</span>
-										<span className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">{force}</span>
+										<span className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">{force}</span>
 									</li>
 								))}
 							</ul>
 						)}
 
 						{card.stockReflects && (
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 								{card.stockReflects}
 							</p>
 						)}
@@ -251,7 +251,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 						className="mt-auto pt-3 shrink-0"
 						style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
 					>
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
+						<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed italic">
 							<span className="not-italic font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
@@ -268,14 +268,14 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<div className="overflow-y-auto no-scrollbar">
 				<Badge type="stak" label={card.label} />
 
-				<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-1">
+				<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[15px] leading-relaxed mt-1">
 					{highlightTrendRefs(card.explanation ?? "")}
 				</p>
 			</div>
 
 			{card.takeaway && (
 				<div className="mt-auto pt-3 shrink-0">
-					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
+					<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[15px] leading-relaxed">
 						<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 						{card.takeaway}
 					</p>
@@ -372,15 +372,15 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 
 	if (!trends || trends.length === 0) {
 		return (
-			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+			<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 				<div className="flex flex-col items-center justify-center py-12 text-center gap-3">
 					{isLoading ? (
 						<>
 							<div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-							<p className="text-zinc-400 text-sm">Generating trends…</p>
+							<p className="dark:text-zinc-400 text-zinc-600 text-sm">Generating trends…</p>
 						</>
 					) : (
-						<p className="text-zinc-400 text-sm">No trend data available yet.</p>
+						<p className="dark:text-zinc-400 text-zinc-600 text-sm">No trend data available yet.</p>
 					)}
 				</div>
 			</div>

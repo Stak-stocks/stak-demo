@@ -46,7 +46,7 @@ function LeaguePage() {
 					</span>
 				</h1>
 
-				<p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-8">
+				<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 text-sm leading-relaxed mb-8">
 					Compete with other investors, climb the leaderboard, and prove your Stak is the best in the game.
 				</p>
 
@@ -61,7 +61,7 @@ function LeaguePage() {
 							<span className="text-xl shrink-0">{f.icon}</span>
 							<div>
 								<p className="text-sm font-semibold">{f.label}</p>
-								<p className="text-[11px] text-zinc-500 dark:text-zinc-400">{f.desc}</p>
+								<p className="text-[11px] text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">{f.desc}</p>
 							</div>
 						</div>
 					))}

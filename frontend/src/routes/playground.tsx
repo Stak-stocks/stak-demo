@@ -27,7 +27,7 @@ function PlaygroundPage() {
 				{/* Header */}
 				<div>
 					<h1 className="text-3xl font-extrabold text-foreground mb-1">Playground</h1>
-					<p className="text-zinc-400 text-sm">Learn investing and stay on top of your activity.</p>
+					<p className="dark:text-zinc-400 text-zinc-600 text-sm">Learn investing and stay on top of your activity.</p>
 				</div>
 
 				{/* Learn section */}
@@ -41,11 +41,11 @@ function PlaygroundPage() {
 							<button
 								key={item.title}
 								type="button"
-								className="w-full flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border border-slate-700/50 hover:border-pink-500/40 transition-all text-left"
+								className="w-full flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border dark:border-slate-700/50 border-slate-200 hover:border-pink-500/40 transition-all text-left"
 							>
 								<div>
 									<p className="font-semibold text-foreground text-sm">{item.title}</p>
-									<p className="text-zinc-400 text-xs mt-0.5">{item.subtitle}</p>
+									<p className="dark:text-zinc-400 text-zinc-600 text-xs mt-0.5">{item.subtitle}</p>
 								</div>
 								<div className="flex items-center gap-2 shrink-0 ml-4">
 									<span className="text-xs text-pink-400 font-medium">{item.time}</span>
@@ -66,9 +66,9 @@ function PlaygroundPage() {
 						{ACTIVITY_ITEMS.map((item) => (
 							<div
 								key={item.label}
-								className="flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border border-slate-700/50"
+								className="flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border dark:border-slate-700/50 border-slate-200"
 							>
-								<p className="text-sm text-zinc-200">{item.label}</p>
+								<p className="text-sm dark:text-zinc-200 text-zinc-700">{item.label}</p>
 								<span className="text-xs text-zinc-500 shrink-0 ml-4">{item.time}</span>
 							</div>
 						))}

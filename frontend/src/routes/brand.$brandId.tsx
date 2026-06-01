@@ -54,7 +54,7 @@ function BrandDetailPage() {
 		return (
 			<div className="min-h-screen bg-background text-foreground flex items-center justify-center">
 				<div className="text-center">
-					<h2 className="text-2xl font-bold text-zinc-300 mb-2">
+					<h2 className="text-2xl font-bold dark:text-zinc-300 text-zinc-700 mb-2">
 						Brand not found
 					</h2>
 					<Link
@@ -92,7 +92,7 @@ function BrandDetailPage() {
 					<div className="relative flex items-center justify-center mb-6">
 						<Link
 							to="/my-stak"
-							className="absolute left-0 text-zinc-400 hover:text-foreground transition-colors"
+							className="absolute left-0 dark:text-zinc-400 text-zinc-600 hover:text-foreground transition-colors"
 						>
 							<ChevronLeft className="w-6 h-6" />
 						</Link>
@@ -130,7 +130,7 @@ function BrandDetailPage() {
 					</TabsList>
 
 					<TabsContent value="vibe" className="mt-6 space-y-6">
-						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 							<h2 className="text-xl font-bold text-cyan-400 mb-4">
 								{brand.culturalContext.title}
 							</h2>
@@ -140,7 +140,7 @@ function BrandDetailPage() {
 										<h3 className="font-semibold text-lg text-pink-400 mb-2">
 											{section.heading}
 										</h3>
-										<p className="text-zinc-300 leading-relaxed">
+										<p className="dark:text-zinc-300 text-zinc-700 leading-relaxed">
 											{section.content}
 										</p>
 									</div>
@@ -148,7 +148,7 @@ function BrandDetailPage() {
 							</div>
 						</div>
 
-						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 							<h3 className="font-semibold text-lg text-foreground mb-4">Vibe Metrics</h3>
 							<VibeSliders vibes={brand.vibes.map((v) => {
 								if (v.name === "Internet Hype" && vibesData?.internetHype != null) return { ...v, value: vibesData.internetHype };
@@ -160,10 +160,10 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="numbers" className="mt-6">
-						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 							<div className="mb-5">
 								<h2 className="text-2xl font-bold text-pink-400 mb-1">The Numbers</h2>
-								<p className="text-zinc-400 text-sm">Financial metrics explained in plain language</p>
+								<p className="dark:text-zinc-400 text-zinc-600 text-sm">Financial metrics explained in plain language</p>
 							</div>
 
 							{/* Live price hero */}
@@ -217,7 +217,7 @@ function BrandDetailPage() {
 												<h3 className="font-semibold text-foreground">{metric.label}</h3>
 												<span className="text-2xl font-bold text-pink-400">{displayValue}</span>
 											</div>
-											<p className="text-sm text-zinc-400 mb-2">{metric.explanation}</p>
+											<p className="text-sm dark:text-zinc-400 text-zinc-600 mb-2">{metric.explanation}</p>
 											<p className="text-sm text-cyan-400 italic">"{metric.culturalTranslation}"</p>
 										</div>
 									);
@@ -241,12 +241,12 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="news" className="mt-6">
-						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 							<div className="mb-5">
 								<h2 className="text-2xl font-bold text-orange-400 mb-1">
 									Recent News
 								</h2>
-								<p className="text-zinc-400 text-sm">
+								<p className="dark:text-zinc-400 text-zinc-600 text-sm">
 									Latest articles about {brand.name}
 								</p>
 							</div>
@@ -255,7 +255,7 @@ function BrandDetailPage() {
 					</TabsContent>
 				</Tabs>
 
-					<div className="mt-8 p-4 bg-surface-1/50 border border-slate-700/50 rounded-lg">
+					<div className="mt-8 p-4 bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-lg">
 						<p className="text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.

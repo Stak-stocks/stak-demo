@@ -608,7 +608,7 @@ function App() {
 					{/* Streak */}
 					<div className="flex h-[25px] items-center gap-1 rounded-full bg-white/[0.055] px-2 text-[11px] ring-1 ring-white/10">
 						<Flame className="w-[13px] h-[13px] text-orange-400" />
-						<span className="text-white font-medium">{streakCount > 0 ? streakCount : "—"}</span>
+						<span className="text-foreground font-medium">{streakCount > 0 ? streakCount : "—"}</span>
 					</div>
 					{/* Avatar */}
 					<button
@@ -665,7 +665,7 @@ function App() {
 
 			{/* Swap Picker Sheet - shown when Stak is full */}
 			<Sheet open={swapPickerOpen} onOpenChange={handleSheetOpenChange}>
-				<SheetContent side="bottom" className="bg-surface-1 border-slate-700/50 h-[70vh]">
+				<SheetContent side="bottom" className="bg-surface-1 dark:border-slate-700/50 border-slate-200 h-[70vh]">
 					<SheetHeader className="mb-4">
 						<SheetTitle className="text-foreground text-xl flex items-center gap-2">
 							<AlertTriangle className="w-5 h-5 text-orange-500" />
@@ -681,7 +681,7 @@ function App() {
 						</div>
 					)}
 
-					<p className="text-zinc-400 text-sm mb-4">
+					<p className="dark:text-zinc-400 text-zinc-600 text-sm mb-4">
 						Tap a stock below to remove it and add {pendingBrand?.name}:
 					</p>
 
@@ -691,7 +691,7 @@ function App() {
 								type="button"
 								key={brand.id}
 								onClick={() => handleSwapStock(brand)}
-								className="w-full text-left p-4 rounded-xl border-2 border-slate-700/50 bg-surface-2/50 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+								className="w-full text-left p-4 rounded-xl border-2 dark:border-slate-700/50 border-slate-200 bg-surface-2/50 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
 							>
 								<div className="flex items-center gap-4">
 									<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-xl font-bold shrink-0">
