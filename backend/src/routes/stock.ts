@@ -709,7 +709,7 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v4:${symbol}:${direction}`;
+	const cacheKey = `daily-move:v5:${symbol}:${direction}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
@@ -746,7 +746,7 @@ Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 200 },
 					}),
 					signal: controller.signal,
 				},

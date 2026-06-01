@@ -108,7 +108,7 @@ Return ONLY a JSON array of exactly 30 objects:
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 					}),
 				},
 			);

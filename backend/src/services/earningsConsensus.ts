@@ -132,7 +132,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 					}),
 				},
 			);

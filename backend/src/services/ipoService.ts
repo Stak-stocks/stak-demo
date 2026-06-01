@@ -178,7 +178,7 @@ async function tryGeminiKey(
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: {
+					generationConfig: { thinkingConfig: { thinkingBudget: 0 },
 						temperature: 0.4,
 						responseMimeType: "application/json",
 					},

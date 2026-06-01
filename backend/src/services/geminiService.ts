@@ -54,7 +54,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
+					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, responseMimeType: "application/json" },
 				}),
 			},
 		);
@@ -211,7 +211,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 					}),
 				},
 			);
@@ -274,7 +274,7 @@ Return ONLY one of these exact strings: beat, miss, none`;
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0, maxOutputTokens: 10 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
 					}),
 				},
 			);
@@ -351,7 +351,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
-							generationConfig: { temperature: 0, responseMimeType: "application/json" },
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, responseMimeType: "application/json" },
 						}),
 						signal: controller.signal,
 					},

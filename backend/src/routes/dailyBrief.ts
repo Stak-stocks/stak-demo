@@ -143,7 +143,7 @@ No financial advice. No disclaimers. Just describe what is happening.`;
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 					}),
 					signal: AbortSignal.timeout(12000),
 				},
@@ -270,7 +270,7 @@ Rules: friendly and direct tone, no jargon, no disclaimers, no fluff. Max 190 ch
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0.6, maxOutputTokens: 130 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.6, maxOutputTokens: 130 },
 					}),
 					signal: AbortSignal.timeout(12000),
 				},
