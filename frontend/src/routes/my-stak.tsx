@@ -841,113 +841,157 @@ function MyStakPage() {
 						</div>
 					</section>
 
-					{/* Analyst View */}
-					<section className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-[12px]">
-								<div className="grid h-[36px] w-[36px] place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
-									<Target size={22} />
-								</div>
-								<h2 className="text-[16px] font-bold">Analyst View</h2>
-							</div>
-						</div>
+	{/* Analyst View */}
+	<section className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] shadow-[0_20px_60px_rgba(0,0,0,.3)]">
+	<div className="flex items-center gap-[10px] mb-[20px]">
+	<div className="grid h-[34px] w-[34px] place-items-center rounded-[8px] bg-blue-500/15 text-blue-400">
+		<Target size={18} />
+	</div>
+	<h2 className="text-[16px] font-bold">Analyst View</h2>
+	</div>
 
-						<div className="mt-[14px] overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
-							{analystLoading ? (
-								<>
-									<div className="grid grid-cols-3 border-b border-foreground/10">
-										{[0, 1, 2].map((i) => (
-											<div key={i} className={`px-[10px] py-[8px] ${i < 2 ? "border-r border-foreground/10" : ""} ${i === 1 ? "text-center" : i === 2 ? "text-right" : ""}`}>
-												<div className="h-[11px] w-[56px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
-												<div className="mt-[5px] h-[16px] w-[44px] rounded bg-slate-700/40 animate-pulse" />
-											</div>
-										))}
-									</div>
-									{[0, 1, 2].map((i) => (
-										<div key={i} className="grid grid-cols-3 border-b border-foreground/10 last:border-b-0">
-											<div className="border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[13px] w-[60px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" /></div>
-											<div className="flex items-center justify-center border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[22px] w-[56px] rounded bg-slate-700/40 animate-pulse" /></div>
-											<div className="px-[10px] py-[7px] flex justify-end"><div className="h-[13px] w-[36px] rounded bg-slate-700/40 animate-pulse" /></div>
-										</div>
-									))}
-								</>
-							) : analystData ? (
-								<>
-									{/* Price target header */}
-									<div className="grid grid-cols-3 border-b border-foreground/10">
-										<div className="border-r border-foreground/10 px-[10px] py-[8px]">
-											<p className="text-[11px] dark:text-slate-400 text-slate-500">Low Target</p>
-											<p className="mt-[3px] text-[16px] font-bold text-foreground">
-												{analystData.priceTarget?.low != null ? `$${analystData.priceTarget.low.toFixed(0)}` : "—"}
-											</p>
-										</div>
-										<div className="border-r border-foreground/10 px-[10px] py-[8px] text-center">
-											<p className="text-[11px] text-blue-400">Average Target</p>
-											<p className="mt-[3px] text-[16px] font-bold text-blue-400">
-												{analystData.priceTarget?.avg != null ? `$${analystData.priceTarget.avg.toFixed(0)}` : "—"}
-											</p>
-										</div>
-										<div className="px-[10px] py-[8px] text-right">
-											<p className="text-[11px] dark:text-slate-400 text-slate-500">High Target</p>
-											<p className="mt-[3px] text-[16px] font-bold text-foreground">
-												{analystData.priceTarget?.high != null ? `$${analystData.priceTarget.high.toFixed(0)}` : "—"}
-											</p>
-										</div>
-									</div>
-									{/* Recommendation breakdown */}
-									{analystData.recommendation && (() => {
-										const r = analystData.recommendation!;
-										const avgTarget = analystData.priceTarget?.avg != null ? `$${analystData.priceTarget.avg.toFixed(0)}` : "—";
-										return (
-											<>
-												<AnalystRow name="Buy" badge={`${r.strongBuy + r.buy} analysts`} price={avgTarget} tone="green" />
-												<AnalystRow name="Hold" badge={`${r.hold} analysts`} price="—" tone="gray" />
-												<AnalystRow name="Sell" badge={`${r.sell + r.strongSell} analysts`} price="—" tone="red" />
-											</>
-										);
-									})()}
-								</>
-							) : (
-								<p className="px-[12px] py-[14px] text-[13px] text-slate-500">No analyst data available.</p>
-							)}
-						</div>
+	{analystLoading ? (
+	<div className="space-y-[20px]">
+		<div>
+		<div className="h-[9px] w-[100px] rounded bg-foreground/10 animate-pulse mb-[14px]" />
+		<div className="h-[5px] rounded-full bg-foreground/10 animate-pulse mb-[18px]" />
+		<div className="flex justify-between gap-[8px]">
+		{[0,1,2].map(i => <div key={i} className="h-[30px] flex-1 rounded bg-foreground/10 animate-pulse" />)}
+		</div>
+		</div>
+		<div>
+		<div className="h-[9px] w-[150px] rounded bg-foreground/10 animate-pulse mb-[10px]" />
+		<div className="h-[8px] rounded-full bg-foreground/10 animate-pulse mb-[10px]" />
+		<div className="flex justify-between gap-[8px]">
+		{[0,1,2].map(i => <div key={i} className="h-[11px] flex-1 rounded bg-foreground/10 animate-pulse" />)}
+		</div>
+		</div>
+	</div>
+	) : analystData ? (
+	<div className="space-y-[24px]">
 
-						{/* Recent Analyst Actions */}
-						{(actionsLoading || (analystActions && analystActions.length > 0)) && (
-							<div className="mt-[12px]">
-								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[8px] px-[1px]">Recent Analyst Actions</p>
-								<div className="overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
-									{actionsLoading ? (
-										[0,1,2].map((i) => (
-											<div key={i} className="flex items-center justify-between px-[12px] py-[10px] border-b border-foreground/10 last:border-b-0">
-												<div className="h-[13px] w-[100px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
-												<div className="flex items-center gap-[8px]">
-													<div className="h-[20px] w-[64px] rounded-full dark:bg-slate-700/40 bg-slate-200/60 animate-pulse" />
-													<div className="h-[13px] w-[36px] rounded dark:bg-slate-700/30 bg-slate-200/50 animate-pulse" />
-												</div>
-											</div>
-										))
-									) : (
-										analystActions!.map((action, i) => {
-											const bull = ["Strong Buy","Buy","Outperform","Overweight"].includes(action.action);
-											const bear = ["Strong Sell","Sell","Underperform","Underweight"].includes(action.action);
-											const tone = bull ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : bear ? "text-rose-400 bg-rose-500/10 border-rose-500/20" : "dark:text-slate-400 text-slate-500 dark:bg-slate-700/20 bg-slate-100 border-foreground/10";
-											return (
-												<div key={i} className="flex items-center justify-between px-[12px] py-[10px] border-b border-foreground/10 last:border-b-0">
-													<p className="text-[13px] font-semibold dark:text-slate-300 text-slate-700 truncate max-w-[140px]">{action.firm}</p>
-													<div className="flex items-center gap-[8px] shrink-0">
-														<span className={`text-[11px] font-semibold px-[8px] py-[3px] rounded-full border ${tone}`}>{action.action}</span>
-														<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 w-[36px] text-right">{action.priceTarget != null ? `$${action.priceTarget}` : "—"}</span>
-													</div>
-												</div>
-											);
-										})
-									)}
-								</div>
-							</div>
-						)}
-					</section>
+		{/* Price Target Range */}
+		{analystData.priceTarget?.avg != null && (() => {
+		const { low, avg, high } = analystData.priceTarget!;
+		const currentPrice = stockData?.quote?.price ?? null;
+		const upside = avg != null && currentPrice ? ((avg - currentPrice) / currentPrice) * 100 : null;
+		const pct = (v: number) => low != null && high != null && high > low ? Math.max(2, Math.min(98, ((v - low) / (high - low)) * 100)) : 50;
+		return (
+		<div>
+		<p className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-[14px]">Price Target Range</p>
+		<div className="relative mx-[8px] mb-[20px]">
+			<div className="h-[5px] rounded-full bg-gradient-to-r from-foreground/10 via-blue-400/40 to-foreground/10" />
+			{currentPrice != null && low != null && high != null && currentPrice >= low && currentPrice <= high && (
+			<div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[11px] h-[11px] rounded-full bg-foreground border-[2px] border-background shadow-sm" style={{left:`${pct(currentPrice)}%`}} />
+			)}
+			{avg != null && low != null && high != null && (
+			<div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[15px] h-[15px] rounded-full bg-blue-400 border-[2.5px] border-background shadow-[0_0_10px_rgba(96,165,250,.5)]" style={{left:`${pct(avg)}%`}} />
+			)}
+		</div>
+		<div className="flex items-end justify-between">
+			<div>
+			<p className="text-[10px] dark:text-slate-500 text-slate-400">Low</p>
+			<p className="text-[14px] font-bold text-foreground">{low != null ? `$${low.toFixed(0)}` : "—"}</p>
+			</div>
+			<div className="text-center">
+			<p className="text-[10px] text-blue-400 font-medium">Avg Target</p>
+			<p className="text-[24px] font-bold text-blue-400 leading-tight">{avg != null ? `$${avg.toFixed(0)}` : "—"}</p>
+			{upside != null && (
+			<p className={`text-[11px] font-semibold ${upside >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+			{upside >= 0 ? "↑" : "↓"} {Math.abs(upside).toFixed(1)}% {upside >= 0 ? "upside" : "downside"}
+			</p>
+			)}
+			</div>
+			<div className="text-right">
+			<p className="text-[10px] dark:text-slate-500 text-slate-400">High</p>
+			<p className="text-[14px] font-bold text-foreground">{high != null ? `$${high.toFixed(0)}` : "—"}</p>
+			</div>
+		</div>
+		</div>
+		);
+		})()}
 
+		{/* Consensus Bar */}
+		{analystData.recommendation && (() => {
+		const r = analystData.recommendation!;
+		const buyCount = r.strongBuy + r.buy;
+		const holdCount = r.hold;
+		const sellCount = r.sell + r.strongSell;
+		const total = buyCount + holdCount + sellCount;
+		if (total === 0) return null;
+		const buyW = Math.round((buyCount / total) * 100);
+		const holdW = Math.round((holdCount / total) * 100);
+		const sellW = 100 - buyW - holdW;
+		return (
+		<div>
+		<p className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-[10px]">Wall St. Consensus · {total} analysts</p>
+		<div className="flex h-[8px] w-full rounded-full overflow-hidden gap-[2px] mb-[10px]">
+			{buyW > 0 && <div className="bg-emerald-500 rounded-l-full" style={{width:`${buyW}%`}} />}
+			{holdW > 0 && <div className={`bg-slate-400/50 ${buyW === 0 ? "rounded-l-full" : ""} ${sellW === 0 ? "rounded-r-full" : ""}`} style={{width:`${holdW}%`}} />}
+			{sellW > 0 && <div className="bg-rose-500 rounded-r-full" style={{width:`${sellW}%`}} />}
+		</div>
+		<div className="flex justify-between text-[11px] font-semibold">
+			<div className="flex items-center gap-[5px]">
+			<div className="w-[7px] h-[7px] rounded-full bg-emerald-500" />
+			<span className="text-emerald-500">Buy {buyCount}</span>
+			</div>
+			<div className="flex items-center gap-[5px]">
+			<div className="w-[7px] h-[7px] rounded-full bg-slate-400/50" />
+			<span className="dark:text-slate-400 text-slate-500">Hold {holdCount}</span>
+			</div>
+			<div className="flex items-center gap-[5px]">
+			<div className="w-[7px] h-[7px] rounded-full bg-rose-500" />
+			<span className="text-rose-500">Sell {sellCount}</span>
+			</div>
+		</div>
+		</div>
+		);
+		})()}
+
+		{/* Recent Analyst Actions */}
+		{(actionsLoading || (analystActions && analystActions.length > 0)) && (
+		<div>
+		<p className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-[10px]">Recent Actions</p>
+		<div className="space-y-[6px]">
+		{actionsLoading ? (
+			[0,1,2].map((i) => (
+			<div key={i} className="flex items-center justify-between px-[12px] py-[10px] rounded-[9px] bg-foreground/[0.03] border border-foreground/[0.06]">
+			<div className="h-[13px] w-[110px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+			<div className="flex items-center gap-[8px]">
+			<div className="h-[11px] w-[60px] rounded dark:bg-slate-700/40 bg-slate-200/60 animate-pulse" />
+			<div className="h-[13px] w-[36px] rounded dark:bg-slate-700/30 bg-slate-200/50 animate-pulse" />
+			</div>
+			</div>
+			))
+		) : analystActions!.map((action, i) => {
+			const bull = ["Strong Buy","Buy","Outperform","Overweight"].includes(action.action);
+			const bear = ["Strong Sell","Sell","Underperform","Underweight"].includes(action.action);
+			const dot = bull ? "bg-emerald-400" : bear ? "bg-rose-400" : "dark:bg-slate-400 bg-slate-400";
+			const actionColor = bull ? "text-emerald-400" : bear ? "text-rose-400" : "dark:text-slate-400 text-slate-500";
+			return (
+			<div key={i} className="flex items-center justify-between px-[12px] py-[10px] rounded-[9px] bg-foreground/[0.03] border border-foreground/[0.06]">
+			<p className="text-[13px] font-semibold dark:text-slate-300 text-slate-700 truncate max-w-[150px]">{action.firm}</p>
+			<div className="flex items-center gap-[10px] shrink-0">
+			<div className="flex items-center gap-[5px]">
+				<div className={`w-[6px] h-[6px] rounded-full shrink-0 ${dot}`} />
+				<span className={`text-[12px] font-semibold ${actionColor}`}>{action.action}</span>
+			</div>
+			<span className="text-[13px] font-bold dark:text-slate-300 text-slate-700 min-w-[32px] text-right">
+				{action.priceTarget != null ? `$${action.priceTarget}` : "—"}
+			</span>
+			</div>
+			</div>
+			);
+		})}
+		</div>
+		</div>
+		)}
+
+	</div>
+	) : (
+	<p className="text-[13px] dark:text-slate-500 text-slate-400 text-center py-[20px]">No analyst data available.</p>
+	)}
+	</section>
 					{/* News Signal */}
 					<GlassCard>
 						<div className="flex items-center gap-[10px] mb-[12px]">
