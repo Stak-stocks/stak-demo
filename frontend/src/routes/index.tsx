@@ -5,17 +5,15 @@ import { brands, type BrandProfile } from "@/data/brands";
 import { STAK_WEIGHTED_STOCK_TAGS } from "@/data/stockTags";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
-import { IntelCardModal } from "@/components/IntelCardModal";
-import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import React from "react";
 import { AlertTriangle, Search, Brain, Flame, BarChart3, Coffee, Zap, Shield, MessageCircle, Gamepad2, ShoppingBag, Music } from "lucide-react";
 import stakLogo from "@/assets/stak-logo-icon.svg";
 import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
-import { getIntelCards, recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
+import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
-import { STAK_CAPACITY, INTEL_CARD_INTERVAL } from "@/lib/constants";
+import { STAK_CAPACITY } from "@/lib/constants";
 import type { StreakUpdate } from "@/components/SwipeableCardStack";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
@@ -139,26 +137,13 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState } = useAccount();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder } = useAccount();
 	const uid = user?.uid ?? "guest";
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
 	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe } = useSwipeLimit(uid, !!user);
-
-	// Fetch AI-generated intel cards (falls back to hardcoded set)
-	const { data: intelCardsData } = useQuery({
-		queryKey: ["intel-cards"],
-		queryFn: getIntelCards,
-		staleTime: 7 * 24 * 60 * 60 * 1000,
-		gcTime: 7 * 24 * 60 * 60 * 1000,
-		retry: 1,
-	});
-	const allIntelCards: IntelCard[] = useMemo(
-		() => intelCardsData?.cards ?? INTEL_CARDS,
-		[intelCardsData],
-	);
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({
@@ -209,31 +194,6 @@ function App() {
 		() => new Set<string>((freshnessData?.analystUpdatesLast7d ?? []).map((t) => t.toUpperCase())),
 		[freshnessData],
 	);
-
-	// Intel card state — persisted in Firestore via AccountContext
-	const intelQueue = useRef<string[]>([]);
-	const intelReadIds = useRef<string[]>([]);
-	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
-	const swipesSinceIntel = useRef(Number(sessionStorage.getItem("swipesSinceIntel") ?? 0) || 0);
-	const lastIntelDateRef = useRef<string | null>(null);
-
-	// Initialise intel queue from account (Firestore) — only on allIntelCards change
-	// account is guaranteed loaded here (accountLoading gated in __root.tsx)
-	useEffect(() => {
-		if (allIntelCards.length === 0) return;
-
-		const intelState = account?.intelCardState;
-		if (intelState?.queue?.length) {
-			intelQueue.current = intelState.queue;
-		} else {
-			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
-		}
-		intelReadIds.current = intelState?.readIds ?? [];
-
-		lastIntelDateRef.current = intelState?.lastDate ?? null;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [allIntelCards]);
-
 
 	// ── Stak — initialised from Firestore account ──────────────────────────────
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
@@ -425,37 +385,8 @@ function App() {
 	}, [account?.tagScores, todayThemes]);
 
 	const handleSwipe = useCallback(() => {
-		// Trigger intel card after every Nth swipe, at most once per day
-		swipesSinceIntel.current += 1;
-		sessionStorage.setItem("swipesSinceIntel", String(swipesSinceIntel.current));
-		if (swipesSinceIntel.current < INTEL_CARD_INTERVAL) return;
-		swipesSinceIntel.current = 0;
-		sessionStorage.setItem("swipesSinceIntel", "0");
-
-		const today = new Date().toISOString().split("T")[0];
-		if (lastIntelDateRef.current === today) return;
-
-		if (intelQueue.current.length === 0) {
-			intelQueue.current = allIntelCards.map((c) => c.id).sort(() => Math.random() - 0.5);
-		}
-
-		const nextId = intelQueue.current.shift()!;
-		if (!intelReadIds.current.includes(nextId)) {
-			intelReadIds.current = [...intelReadIds.current, nextId];
-		}
-
-		lastIntelDateRef.current = today;
-		updateIntelState({
-			lastDate: today,
-			queue: intelQueue.current,
-			readIds: intelReadIds.current,
-		}).catch((e) => console.error("Failed to save intel state:", e));
-
-		const card = allIntelCards.find((c) => c.id === nextId) ?? allIntelCards[0];
-		setActiveIntelCard(card);
-		logEvent("intel_card_view", { card_id: nextId });
-		trackEvent("intel_card_view", { card_id: nextId }).catch(() => {});
-	}, [allIntelCards, updateIntelState]);
+		// no-op — intel card interruptions removed
+	}, []);
 
 	const handleLearnMore = (brand: BrandProfile) => {
 		setSelectedBrand(brand);
@@ -649,13 +580,6 @@ function App() {
 				open={modalOpen}
 				onClose={handleCloseModal}
 			/>
-
-			{activeIntelCard && (
-				<IntelCardModal
-					card={activeIntelCard}
-					onDismiss={() => setActiveIntelCard(null)}
-				/>
-			)}
 
 			{/* Swap Picker Sheet - shown when Stak is full */}
 			<Sheet open={swapPickerOpen} onOpenChange={handleSheetOpenChange}>
