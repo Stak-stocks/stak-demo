@@ -520,11 +520,11 @@ function MyStakPage() {
 	const liveMoveDirection = liveChangePct === undefined ? null
 		: liveChangePct > 0.15 ? "up" : liveChangePct < -0.15 ? "down" : "flat";
 
-	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
+	const { data: dailyMoveData, isLoading: dailyMoveLoading, isError: dailyMoveError } = useQuery({
 		// Include direction in key so a direction change (flat→down) fetches fresh content
 		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection],
 		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name),
-		enabled: !!selectedBrand && liveChangePct !== undefined,
+		enabled: !!selectedBrand,
 		staleTime: 30 * 60 * 1000,
 		refetchInterval: 30 * 60 * 1000,
 		retry: 1,
@@ -915,7 +915,6 @@ function MyStakPage() {
 						{/* Why it's moving today */}
 						{(() => {
 							const pct = stockData?.quote?.changePercent;
-							// Always derive visual state from the live quote — never from the cached direction
 							const isUp = pct !== undefined ? pct >= 0 : null;
 							const isFlat = pct !== undefined ? Math.abs(pct) < 0.15 : false;
 							const colorClass = isFlat || pct === undefined
@@ -923,7 +922,6 @@ function MyStakPage() {
 								: isUp === true
 								? "border-emerald-500/20 bg-emerald-500/[0.07]"
 								: "border-rose-500/20 bg-rose-500/[0.07]";
-							if (!dailyMoveLoading && !dailyMoveData && pct === undefined) return null;
 							return (
 								<div className={`mb-[12px] rounded-[11px] border px-[13px] py-[11px] ${colorClass}`}>
 									<div className="flex items-center gap-[6px] mb-[5px]">
@@ -936,10 +934,14 @@ function MyStakPage() {
 										)}
 									</div>
 									{dailyMoveLoading ? (
-										<div className="h-[13px] w-3/4 rounded bg-slate-700/40 animate-pulse" />
+										<div className="h-[13px] w-3/4 rounded bg-foreground/10 animate-pulse" />
 									) : dailyMoveData?.explanation ? (
 										<p className="text-[12px] leading-[17px] dark:text-slate-300 text-slate-600">{dailyMoveData.explanation}</p>
-									) : null}
+									) : dailyMoveError ? (
+										<p className="text-[12px] dark:text-slate-500 text-slate-400">Analysis unavailable right now.</p>
+									) : (
+										<div className="h-[13px] w-3/4 rounded bg-foreground/10 animate-pulse" />
+									)}
 								</div>
 							);
 						})()}
