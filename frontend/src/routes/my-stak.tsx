@@ -11,7 +11,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const SWIPE_EDGE_PX = 24;
 import { toast } from "sonner";
-import { getStockData, getCompanyNews, getAnalystData, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
@@ -538,6 +538,14 @@ function MyStakPage() {
 		retry: 1,
 	});
 
+	const { data: analystActions, isLoading: actionsLoading } = useQuery({
+		queryKey: ["analyst-actions", selectedBrand?.ticker],
+		queryFn: () => getAnalystActions(selectedBrand!.ticker, selectedBrand!.name),
+		enabled: !!selectedBrand,
+		staleTime: 12 * 60 * 60 * 1000,
+		retry: 1,
+	});
+
 	const stakTickers = useMemo(() => swipedBrands.map((b) => b.ticker).filter(Boolean), [swipedBrands]);
 
 	const { data: earningsData } = useQuery({
@@ -903,6 +911,41 @@ function MyStakPage() {
 								<p className="px-[12px] py-[14px] text-[13px] text-slate-500">No analyst data available.</p>
 							)}
 						</div>
+
+						{/* Recent Analyst Actions */}
+						{(actionsLoading || (analystActions && analystActions.length > 0)) && (
+							<div className="mt-[12px]">
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[8px] px-[1px]">Recent Analyst Actions</p>
+								<div className="overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
+									{actionsLoading ? (
+										[0,1,2].map((i) => (
+											<div key={i} className="flex items-center justify-between px-[12px] py-[10px] border-b border-foreground/10 last:border-b-0">
+												<div className="h-[13px] w-[100px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+												<div className="flex items-center gap-[8px]">
+													<div className="h-[20px] w-[64px] rounded-full dark:bg-slate-700/40 bg-slate-200/60 animate-pulse" />
+													<div className="h-[13px] w-[36px] rounded dark:bg-slate-700/30 bg-slate-200/50 animate-pulse" />
+												</div>
+											</div>
+										))
+									) : (
+										analystActions!.map((action, i) => {
+											const bull = ["Strong Buy","Buy","Outperform","Overweight"].includes(action.action);
+											const bear = ["Strong Sell","Sell","Underperform","Underweight"].includes(action.action);
+											const tone = bull ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : bear ? "text-rose-400 bg-rose-500/10 border-rose-500/20" : "dark:text-slate-400 text-slate-500 dark:bg-slate-700/20 bg-slate-100 border-foreground/10";
+											return (
+												<div key={i} className="flex items-center justify-between px-[12px] py-[10px] border-b border-foreground/10 last:border-b-0">
+													<p className="text-[13px] font-semibold dark:text-slate-300 text-slate-700 truncate max-w-[140px]">{action.firm}</p>
+													<div className="flex items-center gap-[8px] shrink-0">
+														<span className={`text-[11px] font-semibold px-[8px] py-[3px] rounded-full border ${tone}`}>{action.action}</span>
+														<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 w-[36px] text-right">{action.priceTarget != null ? `$${action.priceTarget}` : "—"}</span>
+													</div>
+												</div>
+											);
+										})
+									)}
+								</div>
+							</div>
+						)}
 					</section>
 
 					{/* News Signal */}

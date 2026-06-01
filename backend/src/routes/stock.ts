@@ -623,6 +623,98 @@ stockRouter.get("/:symbol/analyst", async (req, res) => {
 	res.json(result);
 });
 
+// ── Individual analyst firm actions ─────────────────────────────────────────
+// GET /api/stock/:symbol/analyst-actions
+// Uses Gemini + Google Search to find the 5 most recent firm-level analyst ratings.
+// Cached 12h — ratings don't change hourly.
+
+export interface AnalystAction {
+	firm: string;
+	action: string;
+	priceTarget: number | null;
+}
+
+stockRouter.get("/:symbol/analyst-actions", async (req, res) => {
+	const raw = (req.params["symbol"] as string).toUpperCase();
+	const symbol = resolveSymbol(raw);
+	const companyName = (req.query.name as string | undefined)?.trim() || symbol;
+	const cacheKey = `analyst-actions:v1:${symbol}`;
+
+	const cached = await cacheGet<AnalystAction[]>(cacheKey);
+	if (cached !== null) { res.json(cached); return; }
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) { res.json([]); return; }
+
+	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
+	const prompt = `Search for the most recent analyst price target ratings for ${subject} stock.
+
+Find ratings from major investment banks and research firms published in the last 3 months. Return the 5 most recent.
+
+Return a JSON array ONLY with exactly this format:
+[
+  { "firm": "Morgan Stanley", "action": "Overweight", "priceTarget": 125 },
+  { "firm": "Barclays", "action": "Equal Weight", "priceTarget": 105 }
+]
+
+Rules:
+- "action" must be one of: "Strong Buy", "Buy", "Outperform", "Overweight", "Neutral", "Equal Weight", "Hold", "Underperform", "Underweight", "Sell", "Strong Sell"
+- "priceTarget" is a number (no $ sign) or null if not given
+- Return ONLY valid JSON array, no markdown, no extra text
+- If fewer than 5 found, return what exists. If none found, return []`;
+
+	for (const key of keys) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 20000);
+		try {
+			const gemRes = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 500 },
+					}),
+					signal: controller.signal,
+				},
+			);
+			if (gemRes.status === 429) continue;
+			if (!gemRes.ok) break;
+			const data = await gemRes.json();
+			const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
+				.map((p: { text?: string }) => p.text ?? "").join("").trim();
+			try {
+				// Strip markdown fences if present (```json ... ```)
+				const jsonStr = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+				const parsed = JSON.parse(jsonStr);
+				if (Array.isArray(parsed)) {
+					const actions: AnalystAction[] = parsed
+						.filter((a) => typeof a.firm === "string" && typeof a.action === "string")
+						.slice(0, 5)
+						.map((a) => ({
+							firm: a.firm,
+							action: a.action,
+							priceTarget: typeof a.priceTarget === "number" ? a.priceTarget : null,
+						}));
+					await cacheSet(cacheKey, actions, 12 * 60 * 60 * 1000);
+					res.json(actions);
+					return;
+				}
+			} catch {
+				// JSON parse failed — try next key
+			}
+		} catch {
+			// timeout or error — try next key
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	res.json([]);
+});
+
 // ── Peer metrics ────────────────────────────────────────────────────────────
 // Returns median P/E, revenue growth, profit margin, and beta for a stock's
 // peer group. Cached 24 h — these numbers don't need to be real-time.

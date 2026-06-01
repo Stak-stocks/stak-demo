@@ -268,6 +268,17 @@ export function getAnalystData(symbol: string) {
 	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst`);
 }
 
+export interface AnalystAction {
+	firm: string;
+	action: string;
+	priceTarget: number | null;
+}
+
+export function getAnalystActions(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystAction[]>(`/api/stock/${encodeURIComponent(symbol)}/analyst-actions${qs}`);
+}
+
 export interface PeerMetrics {
 	ticker: string;
 	peerTickers: string[];
