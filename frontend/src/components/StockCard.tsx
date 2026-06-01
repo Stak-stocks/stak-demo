@@ -215,7 +215,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 		: [fallbackCategoryTag, ...derived];
 
 	return (
-		<div className="relative w-full h-full rounded-[22px] overflow-hidden border border-white/25 bg-[#0d121a] shadow-[0_30px_80px_rgba(0,0,0,.75)] select-none">
+		<div className="relative w-full h-full rounded-[22px] overflow-hidden border border-white/25 bg-surface-1 shadow-[0_30px_80px_rgba(0,0,0,.75)] select-none">
 
 			{/* Full-bleed hero background */}
 			<div className="absolute inset-0">
@@ -237,8 +237,8 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 
 			{/* Top-right analyst rating pill — only shown when data is available */}
 			{analystRating != null && (
-				<div className="absolute right-[16px] top-[18px] z-20 flex items-center gap-[5px] rounded-full bg-black/45 px-[11px] py-[7px] text-[13px] backdrop-blur-md border border-white/20">
-					<Star size={12} fill="white" className="text-white/80" />
+				<div className="absolute right-[16px] top-[18px] z-20 flex items-center gap-[5px] rounded-full bg-black/45 px-[11px] py-[7px] text-[13px] backdrop-blur-md border border-foreground/20">
+					<Star size={12} fill="white" className="text-foreground/80" />
 					<span className="font-semibold">{analystRating.toFixed(1)}</span>
 				</div>
 			)}
@@ -249,11 +249,11 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 				style={{ top: "38%", paddingBottom: sp(10) }}
 			>
 				<h1
-					className="font-bold leading-none tracking-[-0.03em] text-white"
+					className="font-bold leading-none tracking-[-0.03em] text-foreground"
 					style={{ fontSize: sp(26) }}
 				>{brand.name}</h1>
 				<p
-					className="text-slate-300/85 tracking-wide"
+					className="dark:text-slate-300 text-slate-600/85 tracking-wide"
 					style={{ marginTop: sp(7), fontSize: sp(13) }}
 				>{brand.ticker} · {getExchange(brand.ticker)}</p>
 
@@ -271,7 +271,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 											{priceUp ? "+" : ""}{quote.changePercent.toFixed(1)}%
 										</p>
 									</div>
-									<p className="text-slate-300/85" style={{ marginTop: sp(7), fontSize: sp(13) }}>Past 1 Year</p>
+									<p className="dark:text-slate-300 text-slate-600/85" style={{ marginTop: sp(7), fontSize: sp(13) }}>Past 1 Year</p>
 								</>
 							) : quote === undefined ? (
 								<>
@@ -301,7 +301,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 
 				{/* Bio */}
 				<p
-					className="text-slate-300/72 line-clamp-2"
+					className="dark:text-slate-300 text-slate-600/72 line-clamp-2"
 					style={{ marginTop: sp(10), fontSize: sp(13), lineHeight: `${sp(19)}px` }}
 				>{brand.bio}</p>
 
@@ -312,7 +312,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 							className="flex items-center justify-between rounded-[10px] border border-white/8 bg-black/10 backdrop-blur-sm"
 							style={{ height: sp(38), paddingLeft: sp(13), paddingRight: sp(4) }}
 						>
-							<div className="flex items-center text-slate-400" style={{ gap: sp(8), fontSize: sp(12) }}>
+							<div className="flex items-center dark:text-slate-400 text-slate-500" style={{ gap: sp(8), fontSize: sp(12) }}>
 								<Users size={sp(14)} />
 								<span>Popular among investors</span>
 							</div>

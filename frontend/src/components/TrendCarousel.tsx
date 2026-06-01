@@ -118,7 +118,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					<Badge type={card.type} label={card.label} />
 
 					{card.topic && (
-						<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-3 sm:mb-5">
+						<h3 className="text-sm sm:text-lg font-extrabold text-foreground leading-tight mb-3 sm:mb-5">
 							{card.topic}
 						</h3>
 					)}
@@ -151,7 +151,7 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 				<Badge type={card.type} label={card.label} />
 
 				{card.headline && (
-					<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-2 sm:mb-4">
+					<h3 className="text-sm sm:text-lg font-extrabold text-foreground leading-tight mb-2 sm:mb-4">
 						{card.headline}
 					</h3>
 				)}
@@ -196,7 +196,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 				{card.takeaway && (
 					<div className="mt-auto pt-3 shrink-0">
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+							<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
 					</div>
@@ -252,7 +252,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 						style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
 					>
 						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
-							<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+							<span className="not-italic font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
 					</div>
@@ -276,7 +276,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			{card.takeaway && (
 				<div className="mt-auto pt-3 shrink-0">
 					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
-						<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+						<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 						{card.takeaway}
 					</p>
 				</div>
@@ -372,7 +372,7 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 
 	if (!trends || trends.length === 0) {
 		return (
-			<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
 				<div className="flex flex-col items-center justify-center py-12 text-center gap-3">
 					{isLoading ? (
 						<>
@@ -478,7 +478,7 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 				<button
 					type="button"
 					onClick={goPrev}
-					className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-foreground backdrop-blur-sm transition-colors"
 					aria-label="Previous trend"
 				>
 					<ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -486,7 +486,7 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 				<button
 					type="button"
 					onClick={goNext}
-					className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-foreground backdrop-blur-sm transition-colors"
 					aria-label="Next trend"
 				>
 					<ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />

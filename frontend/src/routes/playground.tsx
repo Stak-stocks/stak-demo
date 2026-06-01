@@ -26,7 +26,7 @@ function PlaygroundPage() {
 
 				{/* Header */}
 				<div>
-					<h1 className="text-3xl font-extrabold text-white mb-1">Playground</h1>
+					<h1 className="text-3xl font-extrabold text-foreground mb-1">Playground</h1>
 					<p className="text-zinc-400 text-sm">Learn investing and stay on top of your activity.</p>
 				</div>
 
@@ -34,17 +34,17 @@ function PlaygroundPage() {
 				<section>
 					<div className="flex items-center gap-2 mb-4">
 						<BookOpen className="w-5 h-5 text-pink-400" />
-						<h2 className="text-lg font-bold text-white">Learn</h2>
+						<h2 className="text-lg font-bold text-foreground">Learn</h2>
 					</div>
 					<div className="space-y-3">
 						{LEARN_ITEMS.map((item) => (
 							<button
 								key={item.title}
 								type="button"
-								className="w-full flex items-center justify-between p-4 rounded-xl bg-[#0f1629]/80 border border-slate-700/50 hover:border-pink-500/40 transition-all text-left"
+								className="w-full flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border border-slate-700/50 hover:border-pink-500/40 transition-all text-left"
 							>
 								<div>
-									<p className="font-semibold text-white text-sm">{item.title}</p>
+									<p className="font-semibold text-foreground text-sm">{item.title}</p>
 									<p className="text-zinc-400 text-xs mt-0.5">{item.subtitle}</p>
 								</div>
 								<div className="flex items-center gap-2 shrink-0 ml-4">
@@ -60,13 +60,13 @@ function PlaygroundPage() {
 				<section>
 					<div className="flex items-center gap-2 mb-4">
 						<Bell className="w-5 h-5 text-violet-400" />
-						<h2 className="text-lg font-bold text-white">Activity</h2>
+						<h2 className="text-lg font-bold text-foreground">Activity</h2>
 					</div>
 					<div className="space-y-3">
 						{ACTIVITY_ITEMS.map((item) => (
 							<div
 								key={item.label}
-								className="flex items-center justify-between p-4 rounded-xl bg-[#0f1629]/80 border border-slate-700/50"
+								className="flex items-center justify-between p-4 rounded-xl bg-surface-1/80 border border-slate-700/50"
 							>
 								<p className="text-sm text-zinc-200">{item.label}</p>
 								<span className="text-xs text-zinc-500 shrink-0 ml-4">{item.time}</span>

@@ -78,7 +78,7 @@ function ArticleCard({ article, index }: Readonly<{ article: NewsArticle; index:
 			className="block border-l-4 border-slate-600/50 hover:border-orange-500/50 pl-4 py-3 transition-all group"
 		>
 			<div className="flex items-start justify-between gap-3 mb-1.5">
-				<h3 className="font-semibold text-white leading-tight text-sm group-hover:text-orange-400 transition-colors line-clamp-2">
+				<h3 className="font-semibold text-foreground leading-tight text-sm group-hover:text-orange-400 transition-colors line-clamp-2">
 					{article.headline}
 				</h3>
 				<div className="shrink-0 mt-0.5">
@@ -136,7 +136,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 		return (
 			<div className="space-y-3">
 				{Array.from({ length: NEWS_PAGE_SIZE }).map((_, i) => (
-					<div key={i} className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-4 animate-pulse">
+					<div key={i} className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-4 animate-pulse">
 						<div className="h-4 w-3/4 bg-zinc-700/50 rounded mb-3" />
 						<div className="h-3 w-full bg-zinc-700/50 rounded mb-2" />
 						<div className="h-3 w-1/2 bg-zinc-700/50 rounded" />
@@ -148,7 +148,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 
 	if (isError) {
 		return (
-			<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6 text-center">
+			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6 text-center">
 				<p className="text-zinc-400 text-sm">Couldn't load news for {ticker}.</p>
 			</div>
 		);
@@ -156,7 +156,7 @@ export function StockNewsTab({ ticker, name }: Readonly<{ ticker: string; name: 
 
 	if (allArticles.length === 0) {
 		return (
-			<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6 text-center">
+			<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6 text-center">
 				<p className="text-zinc-400 text-sm">No recent news for {name}.</p>
 			</div>
 		);

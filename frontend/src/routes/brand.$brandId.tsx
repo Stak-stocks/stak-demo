@@ -52,7 +52,7 @@ function BrandDetailPage() {
 
 	if (!brand) {
 		return (
-			<div className="min-h-screen bg-[#0b1121] text-white flex items-center justify-center">
+			<div className="min-h-screen bg-background text-foreground flex items-center justify-center">
 				<div className="text-center">
 					<h2 className="text-2xl font-bold text-zinc-300 mb-2">
 						Brand not found
@@ -72,13 +72,13 @@ function BrandDetailPage() {
 		<div
 			role="button"
 			tabIndex={0}
-			className="min-h-screen bg-black/80 sm:bg-[#0b1121] text-white flex flex-col justify-end sm:justify-start"
+			className="min-h-screen bg-black/80 sm:bg-background text-foreground flex flex-col justify-end sm:justify-start"
 			onClick={handleClose}
 			onKeyDown={(e) => { if (e.key === "Escape") handleClose(); }}
 		>
 			<div
 				role="presentation"
-				className="max-w-[390px] w-full mx-auto px-2 py-4 sm:py-12 bg-[#0b1121] rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
+				className="max-w-[390px] w-full mx-auto px-2 py-4 sm:py-12 bg-background rounded-t-2xl sm:rounded-none max-h-[75vh] sm:max-h-none overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 				onKeyDown={(e) => e.stopPropagation()}
 			>
@@ -92,11 +92,11 @@ function BrandDetailPage() {
 					<div className="relative flex items-center justify-center mb-6">
 						<Link
 							to="/my-stak"
-							className="absolute left-0 text-zinc-400 hover:text-white transition-colors"
+							className="absolute left-0 text-zinc-400 hover:text-foreground transition-colors"
 						>
 							<ChevronLeft className="w-6 h-6" />
 						</Link>
-						<h1 className="text-lg font-semibold text-white">
+						<h1 className="text-lg font-semibold text-foreground">
 							My Stak ({brand.ticker})
 						</h1>
 					</div>
@@ -130,7 +130,7 @@ function BrandDetailPage() {
 					</TabsList>
 
 					<TabsContent value="vibe" className="mt-6 space-y-6">
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
 							<h2 className="text-xl font-bold text-cyan-400 mb-4">
 								{brand.culturalContext.title}
 							</h2>
@@ -148,8 +148,8 @@ function BrandDetailPage() {
 							</div>
 						</div>
 
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
-							<h3 className="font-semibold text-lg text-white mb-4">Vibe Metrics</h3>
+						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
+							<h3 className="font-semibold text-lg text-foreground mb-4">Vibe Metrics</h3>
 							<VibeSliders vibes={brand.vibes.map((v) => {
 								if (v.name === "Internet Hype" && vibesData?.internetHype != null) return { ...v, value: vibesData.internetHype };
 								if (v.name === "Drama Level" && vibesData?.dramaLevel != null) return { ...v, value: vibesData.dramaLevel };
@@ -160,7 +160,7 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="numbers" className="mt-6">
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
 							<div className="mb-5">
 								<h2 className="text-2xl font-bold text-pink-400 mb-1">The Numbers</h2>
 								<p className="text-zinc-400 text-sm">Financial metrics explained in plain language</p>
@@ -168,14 +168,14 @@ function BrandDetailPage() {
 
 							{/* Live price hero */}
 							{stockLoading ? (
-								<div className="mb-6 p-4 bg-[#162036]/60 rounded-xl border border-pink-500/20 animate-pulse">
+								<div className="mb-6 p-4 bg-surface-2/60 rounded-xl border border-pink-500/20 animate-pulse">
 									<div className="h-8 w-32 bg-zinc-700/50 rounded mb-2" />
 									<div className="h-4 w-48 bg-zinc-700/50 rounded" />
 								</div>
 							) : stockData?.quote ? (
-								<div className="mb-6 p-4 bg-[#162036]/60 rounded-xl border border-pink-500/20">
+								<div className="mb-6 p-4 bg-surface-2/60 rounded-xl border border-pink-500/20">
 									<div className="flex items-baseline justify-between">
-										<span className="text-3xl font-bold text-white">
+										<span className="text-3xl font-bold text-foreground">
 											${stockData.quote.price.toFixed(2)}
 										</span>
 										<span className={`flex items-center gap-1 text-sm font-semibold ${stockData.quote.change >= 0 ? "text-green-400" : "text-red-400"}`}>
@@ -214,7 +214,7 @@ function BrandDetailPage() {
 									return (
 										<div key={key} className="border-l-4 border-pink-500/50 pl-4 py-2">
 											<div className="flex items-baseline justify-between mb-1">
-												<h3 className="font-semibold text-white">{metric.label}</h3>
+												<h3 className="font-semibold text-foreground">{metric.label}</h3>
 												<span className="text-2xl font-bold text-pink-400">{displayValue}</span>
 											</div>
 											<p className="text-sm text-zinc-400 mb-2">{metric.explanation}</p>
@@ -224,7 +224,7 @@ function BrandDetailPage() {
 								})}
 							</div>
 
-							<div className="mt-6 p-4 bg-[#162036]/50 rounded-lg border border-slate-600/50">
+							<div className="mt-6 p-4 bg-surface-2/50 rounded-lg border border-slate-600/50">
 								<p className="text-xs text-zinc-500 text-center italic">
 									These are real financial metrics, not investment advice. This is for learning, not trading decisions.
 								</p>
@@ -241,7 +241,7 @@ function BrandDetailPage() {
 					</TabsContent>
 
 					<TabsContent value="news" className="mt-6">
-						<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+						<div className="bg-surface-1/50 border border-slate-700/50 rounded-xl p-6">
 							<div className="mb-5">
 								<h2 className="text-2xl font-bold text-orange-400 mb-1">
 									Recent News
@@ -255,7 +255,7 @@ function BrandDetailPage() {
 					</TabsContent>
 				</Tabs>
 
-					<div className="mt-8 p-4 bg-[#0f1629]/50 border border-slate-700/50 rounded-lg">
+					<div className="mt-8 p-4 bg-surface-1/50 border border-slate-700/50 rounded-lg">
 						<p className="text-xs text-zinc-500 text-center">
 							This is cultural context, not financial advice. We're here to explain
 							why brands matter, not tell you what to invest in.

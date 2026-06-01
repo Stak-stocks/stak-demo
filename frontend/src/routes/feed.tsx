@@ -59,7 +59,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 			href={article.url}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="block bg-white dark:bg-[#0f1629]/50 border border-zinc-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm dark:shadow-none hover:border-orange-400/50 dark:hover:border-orange-500/40 transition-all group"
+			className="block bg-white dark:bg-surface-1/50 border border-zinc-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm dark:shadow-none hover:border-orange-400/50 dark:hover:border-orange-500/40 transition-all group"
 		>
 			{article.image && (
 				<div className="w-full h-40 rounded-xl overflow-hidden mb-4 bg-zinc-100 dark:bg-slate-800">
@@ -87,7 +87,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 				<SentimentBadge sentiment={article.sentiment} />
 			</div>
 
-			<h3 className="font-bold text-zinc-900 dark:text-white text-base leading-snug mb-3 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2">
+			<h3 className="font-bold text-zinc-900 dark:text-foreground text-base leading-snug mb-3 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2">
 				{article.headline}
 			</h3>
 
@@ -112,7 +112,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 
 function SkeletonCard() {
 	return (
-		<div className="bg-white dark:bg-[#0f1629]/50 border border-zinc-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm dark:shadow-none">
+		<div className="bg-white dark:bg-surface-1/50 border border-zinc-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm dark:shadow-none">
 			<div className="w-full h-40 rounded-xl bg-zinc-200 dark:bg-zinc-700/50 mb-4 animate-pulse" />
 			<div className="flex items-center justify-between mb-3">
 				<div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-700/50 rounded animate-pulse" />
@@ -205,7 +205,7 @@ function FeedPage() {
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}
 							placeholder="Search news — try 'Tesla', 'AI', 'interest rates'..."
-							className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 bg-white dark:bg-[#0f1629]/70 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
+							className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 bg-white dark:bg-surface-1/70 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
 						/>
 						<div className="absolute right-2 flex items-center gap-1">
 							{activeQuery && (
@@ -221,7 +221,7 @@ function FeedPage() {
 							<button
 								type="submit"
 								disabled={inputValue.trim().length < 2}
-								className="px-3 py-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+								className="px-3 py-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-foreground text-xs font-semibold transition-colors"
 							>
 								Search
 							</button>

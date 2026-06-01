@@ -57,7 +57,7 @@ function LeaguePage() {
 						{ icon: "📊", label: "Live Leaderboard",     desc: "See how your Stak ranks in real time" },
 						{ icon: "🥇", label: "Badges & Rewards",     desc: "Earn exclusive investor titles"   },
 					].map((f) => (
-						<div key={f.label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/60 dark:bg-[#0f1729]/60 backdrop-blur border border-zinc-200/60 dark:border-yellow-400/10">
+						<div key={f.label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/60 dark:bg-surface-1/60 backdrop-blur border border-zinc-200/60 dark:border-yellow-400/10">
 							<span className="text-xl shrink-0">{f.icon}</span>
 							<div>
 								<p className="text-sm font-semibold">{f.label}</p>

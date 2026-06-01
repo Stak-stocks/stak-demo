@@ -47,7 +47,7 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 	return (
 		<div className="flex items-center gap-3 py-2.5 border-b border-slate-700/30 last:border-0">
 			<div className="flex-1 min-w-0">
-				<span className="font-bold text-white text-sm">{entry.brand.ticker}</span>
+				<span className="font-bold text-foreground text-sm">{entry.brand.ticker}</span>
 				<span className="text-[10px] text-zinc-400 ml-2">{entry.brand.name}</span>
 			</div>
 			<span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls}`}>
@@ -135,13 +135,13 @@ export function EarningsCalendarButton({ onOpen }: { onOpen?: () => void } = {})
 		<>
 			<button
 				onClick={() => { setOpen(true); onOpen?.(); }}
-				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all"
+				className="relative w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600/50 hover:border-cyan-500/40 text-zinc-300 hover:text-foreground transition-all"
 			title="Earnings Calendar"
 			>
 				<CalendarDays className="w-5 h-5 text-cyan-400" />
 				
 				{todayEntries.length > 0 && (
-					<span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-cyan-500 text-white text-[9px] font-bold flex items-center justify-center">
+					<span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-cyan-500 text-foreground text-[9px] font-bold flex items-center justify-center">
 						{todayEntries.length > 9 ? "9+" : todayEntries.length}
 					</span>
 				)}
@@ -260,7 +260,7 @@ function MarketRow({ entry }: { entry: MarketEarningsEntry }) {
 			{/* Company */}
 			<div className="flex-1 min-w-0 overflow-hidden">
 				<div className="flex items-center gap-1.5">
-					<span className="font-bold text-white text-sm shrink-0">{entry.symbol}</span>
+					<span className="font-bold text-foreground text-sm shrink-0">{entry.symbol}</span>
 					{(beat || miss) && (
 						<span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${
 							beat ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -356,7 +356,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 		return (
 			<button
 				onClick={() => setExpanded(true)}
-				className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-[#0b1121]/80 border border-slate-700/50 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:border-cyan-500/30 transition-all"
+				className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-background/80 border border-slate-700/50 rounded-xl text-sm font-medium text-zinc-400 hover:text-foreground hover:border-cyan-500/30 transition-all"
 			>
 				<span className="flex items-center gap-2">
 					<CalendarDays className="w-4 h-4 text-cyan-400" />
@@ -369,17 +369,17 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	}
 
 	return (
-		<div className="mb-6 bg-[#0b1121] border border-slate-700/50 rounded-2xl overflow-hidden">
+		<div className="mb-6 bg-background border border-slate-700/50 rounded-2xl overflow-hidden">
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 pt-4 pb-3">
-				<h2 className="text-sm font-bold text-white flex items-center gap-2">
+				<h2 className="text-sm font-bold text-foreground flex items-center gap-2">
 					<CalendarDays className="w-4 h-4 text-cyan-400" />
 					Earnings Calendar
 					<span className="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">Your Stak</span>
 				</h2>
 				<button
 					onClick={() => onClose ? onClose() : setExpanded(false)}
-					className="p-1 rounded-full text-zinc-500 hover:text-white transition-colors"
+					className="p-1 rounded-full text-zinc-500 hover:text-foreground transition-colors"
 				>
 					<X className="w-3.5 h-3.5" />
 				</button>
@@ -393,7 +393,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 						onClick={() => { setTab(t); setShowAll(false); }}
 						className={`flex-1 py-1.5 rounded-[10px] text-[11px] font-semibold transition-all ${
 							tab === t
-								? "bg-[#0b1121] text-white shadow"
+								? "bg-background text-foreground shadow"
 								: "text-zinc-500 hover:text-zinc-300"
 						}`}
 					>

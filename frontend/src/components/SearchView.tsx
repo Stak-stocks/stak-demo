@@ -101,7 +101,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	return (
 		<>
-			<div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#0b1121] z-50 flex flex-col">
+			<div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-background z-50 flex flex-col">
 				{/* Sticky header + search — never scrolls */}
 				<div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
 					{/* Header */}
@@ -133,7 +133,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							autoComplete="off"
 							autoCorrect="off"
 							spellCheck={false}
-							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1629] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:border-slate-700/50 bg-white dark:bg-surface-1 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 						/>
 					</div>
 				</div>
@@ -192,7 +192,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 										{recentSearches.map((search) => (
 											<div
 												key={search}
-												className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-[#162036] transition-colors group"
+												className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-surface-2 transition-colors group"
 											>
 												<button
 													type="button"
@@ -200,7 +200,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 													className="flex items-center gap-3 flex-1 min-w-0 text-left"
 												>
 													<Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-													<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+													<span className="text-zinc-700 dark:text-zinc-300 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-foreground transition-colors">
 														{search}
 													</span>
 												</button>

@@ -66,11 +66,11 @@ function ResultsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
+		<div className="min-h-screen bg-gray-50 dark:bg-background text-gray-900 dark:text-white">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
-					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
+					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-foreground transition-colors mb-8"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span>Back to League</span>
@@ -93,7 +93,7 @@ function ResultsPage() {
 							<p className="text-2xl text-gray-600 dark:text-zinc-300">{message}</p>
 					</div>
 
-						<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-8 max-w-2xl mx-auto">
+						<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-8 max-w-2xl mx-auto">
 							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
 								Week {weekKey} Results
 							</h2>
@@ -133,7 +133,7 @@ function ResultsPage() {
 									{starters.map((brand) => (
 										<div
 											key={brand.id}
-											className="px-3 py-1 bg-gray-100 dark:bg-[#162036] rounded-full text-sm"
+											className="px-3 py-1 bg-gray-100 dark:bg-surface-2 rounded-full text-sm"
 									>
 										{brand.ticker}
 									</div>
@@ -167,7 +167,7 @@ function ResultsPage() {
 
 					<Button
 						onClick={() => navigate({ to: "/league" })}
-						className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white text-lg px-8 py-6 h-auto"
+						className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-foreground text-lg px-8 py-6 h-auto"
 					>
 						Back to League Home
 					</Button>

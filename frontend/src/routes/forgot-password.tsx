@@ -36,7 +36,7 @@ function ForgotPasswordPage() {
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
@@ -48,8 +48,8 @@ function ForgotPasswordPage() {
 
 				{/* Heading */}
 				<div>
-					<h1 className="text-3xl font-bold text-white">Reset Password</h1>
-					<p className="text-slate-400 mt-1">
+					<h1 className="text-3xl font-bold text-foreground">Reset Password</h1>
+					<p className="dark:text-slate-400 text-slate-500 mt-1">
 						{sent
 							? "Check your inbox for the reset link"
 							: "Enter your email to receive a reset link"}
@@ -66,7 +66,7 @@ function ForgotPasswordPage() {
 
 				<form onSubmit={handleSubmit} className="space-y-4 text-left">
 					<div>
-						<label htmlFor="reset-email" className="block text-sm text-slate-400 mb-1.5">
+						<label htmlFor="reset-email" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">
 							{sent ? "Wrong email? Enter the correct one" : "Email"}
 						</label>
 						<input
@@ -75,7 +75,7 @@ function ForgotPasswordPage() {
 							placeholder="Enter your email"
 							value={email}
 							onChange={(e) => { setEmail(e.target.value); setSent(false); }}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-slate-700 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 							autoFocus
 						/>
 					</div>
@@ -83,11 +83,11 @@ function ForgotPasswordPage() {
 					<button
 						type="submit"
 						disabled={sending || !email}
-						className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 					>
 						{sending ? (
 							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 								Sending...
 							</div>
 						) : sent ? (
@@ -98,7 +98,7 @@ function ForgotPasswordPage() {
 					</button>
 				</form>
 
-				<p className="text-slate-400 text-sm pt-2">
+				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
 					Remember your password?{" "}
 					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
 						Sign in

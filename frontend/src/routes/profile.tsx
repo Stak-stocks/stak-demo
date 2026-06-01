@@ -263,7 +263,7 @@ function ProfilePage() {
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-white">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}
@@ -283,7 +283,7 @@ function ProfilePage() {
 				<div className="grid grid-cols-2 gap-2.5 mb-5">
 
 					{/* Your STAK Taste (full width) */}
-				<div style={{ border: "1px solid rgba(99,102,241,0.35)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
+				<div style={{ border: "1px solid rgba(99,102,241,0.35)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
 					<div className="flex items-center justify-between mb-3">
 						<div className="flex items-center gap-1.5">
 							<TrendingUp className="w-3.5 h-3.5 text-violet-400" />
@@ -323,7 +323,7 @@ function ProfilePage() {
 				</div>
 
 					{/* Row 3 — STAK Streaks & Badges */}
-					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
+					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
 						{/* header + streak inline */}
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-1.5">
@@ -377,7 +377,7 @@ function ProfilePage() {
 						type="button"
 						onClick={() => setShowLibrary(true)}
 						style={{ border: "1px solid rgba(6,182,212,0.25)" }}
-						className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none text-left"
+						className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none text-left"
 					>
 						<div className="flex items-center gap-1.5">
 							<BookOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
@@ -399,7 +399,7 @@ function ProfilePage() {
 				</div>
 
 				{/* ════════ SETTINGS LIST ════════ */}
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5 shadow-sm dark:shadow-none">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5 shadow-sm dark:shadow-none">
 					{[
 						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400", to: "/profile/personal-details" as const },
 						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: "/profile/security" as const },
@@ -485,7 +485,7 @@ function ProfilePage() {
 						onClick={() => { setShowLibrary(false); setSheetTranslate(0); }}
 					/>
 					<div
-						className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-t-3xl max-h-[65vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20"
+						className="relative z-[1] bg-white dark:bg-surface-1 rounded-t-3xl max-h-[65vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20"
 						style={{ transform: `translateY(${sheetTranslate}px)`, transition: sheetTranslate === 0 ? "transform 0.3s ease" : "none" }}
 						onTouchStart={(e) => { sheetDragStartY.current = e.touches[0].clientY; }}
 						onTouchMove={(e) => { const dy = e.touches[0].clientY - sheetDragStartY.current; if (dy > 0) setSheetTranslate(dy); }}
@@ -499,7 +499,7 @@ function ProfilePage() {
 									<h3 className="text-base font-bold">Intel Library</h3>
 									<p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
 								</div>
-								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
+								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors">
 									<X className="w-4 h-4" />
 								</button>
 							</div>
@@ -517,7 +517,7 @@ function ProfilePage() {
 										key={card.id}
 										type="button"
 										onClick={() => { setReviewCard(card); setShowLibrary(false); setSheetTranslate(0); }}
-										className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-[#0f1729] border border-zinc-200 dark:border-slate-700/30 text-left hover:border-cyan-500/30 active:scale-[0.98] transition-all"
+										className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-surface-1 border border-zinc-200 dark:border-slate-700/30 text-left hover:border-cyan-500/30 active:scale-[0.98] transition-all"
 									>
 										<span className="text-2xl shrink-0">{card.emoji}</span>
 										<div className="flex-1 min-w-0">
@@ -541,7 +541,7 @@ function ProfilePage() {
 		{activeBadge && createPortal(
 			<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "6rem" }}>
 				<div aria-hidden="true" className="fixed inset-0" onClick={() => setActiveBadge(null)} />
-				<div className="relative z-[1] bg-white dark:bg-[#0d1525] rounded-2xl border border-zinc-200 dark:border-orange-400/20 shadow-2xl p-5 mx-4 max-w-xs w-full text-center">
+				<div className="relative z-[1] bg-white dark:bg-surface-1 rounded-2xl border border-zinc-200 dark:border-orange-400/20 shadow-2xl p-5 mx-4 max-w-xs w-full text-center">
 					<div className={`text-4xl mb-2 ${activeBadge.progress < 1 ? "grayscale opacity-50" : ""}`}>{activeBadge.emoji}</div>
 					<p className="text-base font-bold mb-1">{activeBadge.label}</p>
 					<p className="text-sm text-zinc-500 dark:text-zinc-400">{activeBadge.desc}</p>

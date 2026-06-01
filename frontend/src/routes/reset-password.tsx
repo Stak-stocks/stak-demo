@@ -90,14 +90,14 @@ function ResetPasswordPage() {
 
 	if (verifying) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
+			<div className="flex items-center justify-center min-h-screen bg-surface-1">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
@@ -109,13 +109,13 @@ function ResetPasswordPage() {
 
 				{invalidCode ? (
 					<div className="space-y-4">
-						<h1 className="text-3xl font-bold text-white">Invalid Link</h1>
-						<p className="text-slate-400">
+						<h1 className="text-3xl font-bold text-foreground">Invalid Link</h1>
+						<p className="dark:text-slate-400 text-slate-500">
 							This password reset link is invalid or has expired.
 						</p>
 						<Link
 							to="/forgot-password"
-							className="block w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+							className="block w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 						>
 							Request a new link
 						</Link>
@@ -123,15 +123,15 @@ function ResetPasswordPage() {
 				) : (
 					<>
 						<div>
-							<h1 className="text-3xl font-bold text-white">New Password</h1>
-							<p className="text-slate-400 mt-1">
-								Enter a new password for <strong className="text-slate-300">{email}</strong>
+							<h1 className="text-3xl font-bold text-foreground">New Password</h1>
+							<p className="dark:text-slate-400 text-slate-500 mt-1">
+								Enter a new password for <strong className="dark:text-slate-300 text-slate-600">{email}</strong>
 							</p>
 						</div>
 
 						<form onSubmit={handleSubmit} className="space-y-4 text-left">
 							<div>
-								<label htmlFor="new-password" className="block text-sm text-slate-400 mb-1.5">New Password</label>
+								<label htmlFor="new-password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">New Password</label>
 								<div className="relative">
 									<input
 										id="new-password"
@@ -139,13 +139,13 @@ function ResetPasswordPage() {
 										placeholder="At least 6 characters"
 										value={password}
 										onChange={(e) => setPassword(e.target.value)}
-										className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+										className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-slate-700 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 										autoFocus
 									/>
 									<button
 										type="button"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:dark:text-slate-300 text-slate-600"
 									>
 										{showPassword ? (
 											<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -162,25 +162,25 @@ function ResetPasswordPage() {
 							</div>
 
 							<div>
-								<label htmlFor="confirm-new-password" className="block text-sm text-slate-400 mb-1.5">Confirm Password</label>
+								<label htmlFor="confirm-new-password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Confirm Password</label>
 								<input
 									id="confirm-new-password"
 									type={showPassword ? "text" : "password"}
 									placeholder="Confirm new password"
 									value={confirmPassword}
 									onChange={(e) => setConfirmPassword(e.target.value)}
-									className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+									className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-slate-700 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 								/>
 							</div>
 
 							<button
 								type="submit"
 								disabled={resetting || !password || !confirmPassword}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 							>
 								{resetting ? (
 									<div className="flex items-center justify-center gap-2">
-										<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+										<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 										Resetting...
 									</div>
 								) : (
@@ -191,7 +191,7 @@ function ResetPasswordPage() {
 					</>
 				)}
 
-				<p className="text-slate-400 text-sm pt-2">
+				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
 					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
 						Back to Sign In
 					</Link>

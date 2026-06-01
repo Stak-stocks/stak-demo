@@ -92,7 +92,7 @@ function HelpSupportPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -118,7 +118,7 @@ function HelpSupportPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
 					Frequently Asked Questions
 				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6 shadow-sm dark:shadow-none">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6 shadow-sm dark:shadow-none">
 					{FAQS.map((item) => (
 						<FaqItem key={item.q} q={item.q} a={item.a} action={item.action} />
 					))}
@@ -128,7 +128,7 @@ function HelpSupportPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
 					Still need help?
 				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 shadow-sm dark:shadow-none">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 shadow-sm dark:shadow-none">
 					<div className="px-4 py-4">
 						<p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">
 							Hit a snag or found a bug? Drop us the details and our team will get back to you.
@@ -140,7 +140,7 @@ function HelpSupportPage() {
 							href="https://forms.gle/6v8mDfyN1DHFsK5M6"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all text-white font-semibold text-sm"
+							className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all text-foreground font-semibold text-sm"
 						>
 							<MessageSquare className="w-4 h-4" />
 							Contact Us

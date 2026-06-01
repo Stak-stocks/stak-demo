@@ -100,7 +100,7 @@ function PersonalDetailsPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -118,7 +118,7 @@ function PersonalDetailsPage() {
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-white">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}
@@ -130,7 +130,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Info */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Info</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Display Name */}
 					<div className="flex items-center gap-3 px-4 py-3.5">
@@ -224,7 +224,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Details */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Details</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Sign-in method */}
 					<div className="flex items-center gap-3 px-4 py-3.5">

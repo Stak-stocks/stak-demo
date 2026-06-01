@@ -619,7 +619,7 @@ function App() {
 							trackEvent("search_open").catch(() => {});
 						}}
 						aria-label="Search"
-						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-700/80 ring-1 ring-white/20 text-slate-300 hover:text-white transition-colors"
+						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-700/80 ring-1 ring-white/20 dark:text-slate-300 text-slate-600 hover:text-foreground transition-colors"
 					>
 						<Search className="w-[17px] h-[17px]" />
 					</button>
@@ -665,9 +665,9 @@ function App() {
 
 			{/* Swap Picker Sheet - shown when Stak is full */}
 			<Sheet open={swapPickerOpen} onOpenChange={handleSheetOpenChange}>
-				<SheetContent side="bottom" className="bg-[#0f1629] border-slate-700/50 h-[70vh]">
+				<SheetContent side="bottom" className="bg-surface-1 border-slate-700/50 h-[70vh]">
 					<SheetHeader className="mb-4">
-						<SheetTitle className="text-white text-xl flex items-center gap-2">
+						<SheetTitle className="text-foreground text-xl flex items-center gap-2">
 							<AlertTriangle className="w-5 h-5 text-orange-500" />
 							Stak Full - Pick One to Swap
 						</SheetTitle>
@@ -691,14 +691,14 @@ function App() {
 								type="button"
 								key={brand.id}
 								onClick={() => handleSwapStock(brand)}
-								className="w-full text-left p-4 rounded-xl border-2 border-slate-700/50 bg-[#162036]/50 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+								className="w-full text-left p-4 rounded-xl border-2 border-slate-700/50 bg-surface-2/50 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
 							>
 								<div className="flex items-center gap-4">
 									<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center text-xl font-bold shrink-0">
 										{brand.ticker.charAt(0)}
 									</div>
 									<div className="flex-1 min-w-0">
-										<h3 className="font-bold text-white">{brand.name}</h3>
+										<h3 className="font-bold text-foreground">{brand.name}</h3>
 										<span className="text-xs font-mono text-zinc-500 uppercase">
 											{brand.ticker}
 										</span>

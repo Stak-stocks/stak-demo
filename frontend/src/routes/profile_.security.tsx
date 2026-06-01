@@ -99,7 +99,7 @@ function SecurityPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -112,7 +112,7 @@ function SecurityPage() {
 
 				{/* Sign-in Method */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Sign-in Method</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6">
 					<div className="flex items-center gap-3 px-4 py-3.5">
 						<div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
 							<Shield className="w-4 h-4 text-amber-400" />
@@ -131,7 +131,7 @@ function SecurityPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Password</p>
 
 				{isGoogle ? (
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-4 text-center">
+					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-4 text-center">
 						<div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center mx-auto mb-3">
 							<KeyRound className="w-5 h-5 text-blue-400" />
 						</div>
@@ -139,7 +139,7 @@ function SecurityPage() {
 						<p className="text-xs text-zinc-500">Your sign-in is handled by Google. To change your password, visit your Google account settings.</p>
 					</div>
 				) : (
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30">
+					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30">
 
 						{/* Current Password */}
 						<div className="flex items-center gap-3 px-4 py-3.5">

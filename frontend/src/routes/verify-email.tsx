@@ -182,7 +182,7 @@ function VerifyEmailPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
+			<div className="flex items-center justify-center min-h-screen bg-surface-1">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -194,7 +194,7 @@ function VerifyEmailPage() {
 		// Still checking — show spinner
 		if (codeValid === null) {
 			return (
-				<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
+				<div className="flex items-center justify-center min-h-screen bg-surface-1">
 					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 				</div>
 			);
@@ -203,10 +203,10 @@ function VerifyEmailPage() {
 		// Expired or already used
 		if (codeValid === false) {
 			return (
-				<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
+				<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 					<div className="absolute top-5 left-6 flex items-center gap-2">
 						<StakLogoIcon width={28} height={28} />
-						<span className="text-white text-base font-bold tracking-wider">STAK</span>
+						<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 					</div>
 					<div className="w-full max-w-sm text-center space-y-6">
 						<div className="flex justify-center">
@@ -217,8 +217,8 @@ function VerifyEmailPage() {
 							</div>
 						</div>
 						<div>
-							<h1 className="text-2xl font-bold text-white">Link expired</h1>
-							<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+							<h1 className="text-2xl font-bold text-foreground">Link expired</h1>
+							<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 								This verification link has expired or has already been used.
 								Request a new one below.
 							</p>
@@ -230,7 +230,7 @@ function VerifyEmailPage() {
 									setPendingCode(null);
 									await handleResend();
 								}}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 							>
 								Send a new verification email
 							</button>
@@ -238,7 +238,7 @@ function VerifyEmailPage() {
 							<button
 								type="button"
 								onClick={() => navigate({ to: "/login" })}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 							>
 								Sign in to resend
 							</button>
@@ -250,10 +250,10 @@ function VerifyEmailPage() {
 
 		// Valid — show confirmation button
 		return (
-			<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
+			<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 				<div className="absolute top-5 left-6 flex items-center gap-2">
 					<StakLogoIcon width={28} height={28} />
-					<span className="text-white text-base font-bold tracking-wider">STAK</span>
+					<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 				</div>
 
 				<div className="w-full max-w-sm text-center space-y-6">
@@ -266,8 +266,8 @@ function VerifyEmailPage() {
 					</div>
 
 					<div>
-						<h1 className="text-2xl font-bold text-white">Almost there!</h1>
-						<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+						<h1 className="text-2xl font-bold text-foreground">Almost there!</h1>
+						<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 							Tap the button below to confirm your email address
 							{user && <>{" "}<span className="text-white font-medium">{user.email}</span></>}
 							{" "}and get started.
@@ -278,11 +278,11 @@ function VerifyEmailPage() {
 						type="button"
 						onClick={handleVerifyNow}
 						disabled={verifying}
-						className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-green-500/25"
+						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-green-500/25"
 					>
 						{verifying ? (
 							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 								Verifying...
 							</div>
 						) : (
@@ -297,11 +297,11 @@ function VerifyEmailPage() {
 	if (!user) return null;
 
 	return (
-		<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
+		<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
 			{/* Logo */}
 			<div className="absolute top-5 left-6 flex items-center gap-2">
 				<StakLogoIcon width={28} height={28} />
-				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</div>
 
 			<div className="w-full max-w-sm text-center space-y-6">
@@ -315,8 +315,8 @@ function VerifyEmailPage() {
 				</div>
 
 				<div>
-					<h1 className="text-2xl font-bold text-white">Check your inbox</h1>
-					<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+					<h1 className="text-2xl font-bold text-foreground">Check your inbox</h1>
+					<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 						We sent a verification link to{" "}
 						<span className="text-white font-medium">{user.email}</span>.
 						Click it to activate your account.
@@ -328,11 +328,11 @@ function VerifyEmailPage() {
 					type="button"
 					onClick={handleCheckNow}
 					disabled={checking}
-					className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-orange-500/25"
+					className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-orange-500/25"
 				>
 					{checking ? (
 						<div className="flex items-center justify-center gap-2">
-							<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+							<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 							Checking...
 						</div>
 					) : (
@@ -345,7 +345,7 @@ function VerifyEmailPage() {
 					type="button"
 					onClick={handleResend}
 					disabled={cooldown > 0}
-					className="w-full py-3 rounded-xl font-medium text-slate-300 border border-slate-700 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+					className="w-full py-3 rounded-xl font-medium dark:text-slate-300 text-slate-600 border border-slate-700 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 				>
 					{cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
 				</button>
@@ -354,7 +354,7 @@ function VerifyEmailPage() {
 				<button
 					type="button"
 					onClick={async () => { await logout(); navigate({ to: "/signup" }); }}
-					className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+					className="text-sm text-slate-500 hover:dark:text-slate-300 text-slate-600 transition-colors"
 				>
 					Wrong email? Sign out and try again
 				</button>

@@ -27,7 +27,7 @@ const COLOR_MAP: Record<IconColor, string> = {
 	purple: "border-violet-400/25 bg-violet-500/10 text-violet-400 shadow-[0_0_22px_rgba(139,92,246,.10)]",
 	blue:   "border-blue-400/25   bg-blue-500/10   text-blue-400   shadow-[0_0_22px_rgba(59,130,246,.10)]",
 	cyan:   "border-cyan-400/25   bg-cyan-500/10   text-cyan-400   shadow-[0_0_22px_rgba(34,211,238,.10)]",
-	slate:  "border-slate-400/20  bg-slate-500/10  text-slate-400  shadow-none",
+	slate:  "border-slate-400/20  bg-slate-500/10  dark:text-slate-400 text-slate-500  shadow-none",
 };
 
 interface InfoRowProps {
@@ -41,16 +41,16 @@ interface InfoRowProps {
 
 function InfoRow({ heading, content, icon, color, loading = false, right = null }: InfoRowProps) {
 	return (
-		<div className="flex min-h-[74px] items-center rounded-[14px] border border-white/[0.055] bg-[#0b1e32]/82 px-[12px] py-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-md">
+		<div className="flex min-h-[74px] items-center rounded-[14px] border border-white/[0.055] bg-surface-1/82 px-[12px] py-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-md">
 			<div className={`grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[12px] border ${COLOR_MAP[color]}`}>
 				{icon}
 			</div>
 			<div className="ml-[13px] min-w-0 flex-1">
-				<p className="text-[12px] font-semibold leading-[15px] text-white/95">{heading}</p>
+				<p className="text-[12px] font-semibold leading-[15px] text-foreground/95">{heading}</p>
 				{loading ? (
 					<div className="mt-[5px] h-[10px] w-2/3 rounded bg-slate-700/40 animate-pulse" />
 				) : (
-					<p className="mt-[3px] text-[10px] leading-[13px] text-slate-300/82">{content ?? "—"}</p>
+					<p className="mt-[3px] text-[10px] leading-[13px] dark:text-slate-300 text-slate-600/82">{content ?? "—"}</p>
 				)}
 			</div>
 			{right && <div className="ml-3 shrink-0 text-right">{right}</div>}
@@ -94,13 +94,13 @@ function PeerStat({ label, stockVal, peerVal, format, higherIsBetter = true }: P
 
 	return (
 		<div className="flex flex-col gap-[3px]">
-			<p className="text-[9px] text-slate-400/70 uppercase tracking-wider">{label}</p>
+			<p className="text-[9px] dark:text-slate-400 text-slate-500/70 uppercase tracking-wider">{label}</p>
 			<div className="flex items-center gap-[5px] flex-wrap">
-				<span className="text-[13px] font-semibold text-white">{stockVal}</span>
+				<span className="text-[13px] font-semibold text-foreground">{stockVal}</span>
 				{badge}
 			</div>
 			{peerVal !== null && (
-				<p className="text-[9px] text-slate-400/60">Peer avg: {fmt(peerVal)}</p>
+				<p className="text-[9px] dark:text-slate-400 text-slate-500/60">Peer avg: {fmt(peerVal)}</p>
 			)}
 		</div>
 	);
@@ -339,14 +339,14 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 					<div className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-[6px] bg-white">
 						<BrandLogo brand={brand} className="w-[20px] h-[20px] rounded-[3px]" />
 					</div>
-					<h1 className="text-[16px] font-medium tracking-[-0.01em] text-white/95">
+					<h1 className="text-[16px] font-medium tracking-[-0.01em] text-foreground/95">
 						About {brand.name} <span className="text-white/50">({brand.ticker})</span>
 					</h1>
 				</div>
 
 				{/* Peer comparison strip */}
-				<div className="shrink-0 mx-[22px] mb-[10px] rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-[14px] py-[11px]">
-					<p className="text-[9px] font-semibold text-slate-400/70 uppercase tracking-wider mb-[10px]">
+				<div className="shrink-0 mx-[22px] mb-[10px] rounded-[12px] border border-foreground/[0.07] bg-foreground/[0.03] px-[14px] py-[11px]">
+					<p className="text-[9px] font-semibold dark:text-slate-400 text-slate-500/70 uppercase tracking-wider mb-[10px]">
 						By the Numbers
 						{peerData && peerData.peerCount > 0 && (
 							<span className="ml-[6px] normal-case font-normal text-slate-500/60">
@@ -422,7 +422,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 						/>
 					</div>
 
-					<div className="flex items-center justify-between mt-[13px] pb-1 text-[10px] text-slate-400/80">
+					<div className="flex items-center justify-between mt-[13px] pb-1 text-[10px] dark:text-slate-400 text-slate-500/80">
 						<p>Source: STAK Research</p>
 						<p>As of {today}</p>
 					</div>
@@ -430,7 +430,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 
 				{/* Add to Stak CTA */}
 				{onAddToStak && (
-					<div className="shrink-0 px-[18px] py-[14px] border-t border-white/[0.06]">
+					<div className="shrink-0 px-[18px] py-[14px] border-t border-foreground/[0.06]">
 						<button
 							type="button"
 							disabled={inStak}

@@ -48,7 +48,7 @@ function WatchRow({ brand, onRemove, onClick }: {
 
 	return (
 		<div
-			className="flex min-h-[48px] items-center rounded-[9px] px-[5px] py-[4px] active:bg-white/[0.03] transition-colors cursor-pointer"
+			className="flex min-h-[48px] items-center rounded-[9px] px-[5px] py-[4px] active:bg-foreground/[0.03] transition-colors cursor-pointer"
 			onClick={onClick}
 		>
 			{/* Logo circle */}
@@ -59,7 +59,7 @@ function WatchRow({ brand, onRemove, onClick }: {
 			{/* Name + meta */}
 			<div className="ml-[11px] min-w-0 flex-1">
 				<div className="flex items-center justify-between">
-					<p className="text-[14px] font-semibold leading-none text-slate-300">{brand.name}</p>
+					<p className="text-[14px] font-semibold leading-none dark:text-slate-300 text-slate-600">{brand.name}</p>
 					{quote ? (
 						<p className={`mr-[25px] text-[13px] font-semibold ${up ? "text-emerald-400" : "text-rose-400"}`}>
 							{up ? "+" : ""}{quote.changePercent.toFixed(2)}%
@@ -88,7 +88,7 @@ function WatchRow({ brand, onRemove, onClick }: {
 				<X className="w-[12px] h-[12px]" />
 			</button>
 
-			<ChevronRight size={17} className="shrink-0 text-slate-400/90" strokeWidth={1.8} />
+			<ChevronRight size={17} className="shrink-0 dark:text-slate-400 text-slate-500/90" strokeWidth={1.8} />
 		</div>
 	);
 }
@@ -102,7 +102,7 @@ function StakWatchList({ brands, onRemove, onClick }: {
 	const visible = showAll ? brands : brands.slice(0, WATCH_LIST_LIMIT);
 
 	return (
-		<div className="relative overflow-hidden rounded-[12px] border border-blue-500/70 bg-[#07111e] shadow-[0_0_0_1px_rgba(168,85,247,.35),0_18px_55px_rgba(0,0,0,.55)]">
+		<div className="relative overflow-hidden rounded-[12px] border border-blue-500/70 bg-surface-1 shadow-[0_0_0_1px_rgba(168,85,247,.35),0_18px_55px_rgba(0,0,0,.55)]">
 			<div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 95% 0%, rgba(168,85,247,.16), transparent 34%), radial-gradient(circle at 0% 100%, rgba(59,130,246,.14), transparent 34%)" }} />
 			<div className="relative z-10 px-[13px] py-[11px] space-y-[4px]">
 				{visible.map((brand) => (
@@ -118,7 +118,7 @@ function StakWatchList({ brands, onRemove, onClick }: {
 				<button
 					type="button"
 					onClick={() => setShowAll((v) => !v)}
-					className="relative z-10 w-full border-t border-white/[0.06] py-[10px] text-[12px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
+					className="relative z-10 w-full border-t border-foreground/[0.06] py-[10px] text-[12px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
 				>
 					{showAll ? "Show less" : `See all ${brands.length} stocks`}
 				</button>
@@ -207,23 +207,23 @@ function StatCard({ icon, iconColor, number, title, subtitle }: {
 	subtitle?: string;
 }) {
 	return (
-		<div className="flex flex-col min-h-[100px] rounded-[20px] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(12,20,35,.92)_0%,rgba(8,14,24,.96)_100%)] px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-xl">
+		<div className="flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-xl">
 			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
 				{icon}
 			</div>
 			<div className="mt-auto pt-[10px]">
 				{number ? (
 					<div className="flex items-end gap-[6px]">
-						<p className="text-[26px] font-bold leading-none tracking-[-0.04em] text-white">{number}</p>
+						<p className="text-[26px] font-bold leading-none tracking-[-0.04em] text-foreground">{number}</p>
 						<div className="pb-[2px]">
-							<p className="text-[12px] leading-[14px] text-slate-100">{title}</p>
-							{subtitle && <p className="text-[11px] leading-[13px] text-slate-400">{subtitle}</p>}
+							<p className="text-[12px] leading-[14px] text-foreground/95">{title}</p>
+							{subtitle && <p className="text-[11px] leading-[13px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
 						</div>
 					</div>
 				) : (
 					<div>
-						<p className="text-[14px] font-semibold leading-[17px] text-slate-100">{title}</p>
-						{subtitle && <p className="mt-[1px] text-[12px] leading-[15px] text-slate-400">{subtitle}</p>}
+						<p className="text-[14px] font-semibold leading-[17px] text-foreground/95">{title}</p>
+						{subtitle && <p className="mt-[1px] text-[12px] leading-[15px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
 					</div>
 				)}
 			</div>
@@ -232,9 +232,9 @@ function StatCard({ icon, iconColor, number, title, subtitle }: {
 }
 
 function formatGrowth(val: string | number | undefined | null): { display: string; color: string } {
-	if (val == null) return { display: "—", color: "text-slate-400" };
+	if (val == null) return { display: "—", color: "dark:text-slate-400 text-slate-500" };
 	const num = parseFloat(String(val).replace(/[^0-9.-]/g, ""));
-	if (isNaN(num)) return { display: String(val), color: "text-slate-400" };
+	if (isNaN(num)) return { display: String(val), color: "dark:text-slate-400 text-slate-500" };
 	const positive = num >= 0;
 	const raw = String(val).replace(/^\+/, "");
 	return {
@@ -289,9 +289,9 @@ function NtmBadge({ children, color }: { children: React.ReactNode; color: NtmBa
 
 function NtmColumn({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="w-[52px] shrink-0 border-l border-white/10 pl-[10px]">
-			<p className="flex h-[14px] items-center whitespace-nowrap text-[10px] leading-none text-slate-400">{label}</p>
-			<p className="text-[13px] font-semibold leading-none text-slate-200">{value}</p>
+		<div className="w-[52px] shrink-0 border-l border-foreground/10 pl-[10px]">
+			<p className="flex h-[14px] items-center whitespace-nowrap text-[10px] leading-none dark:text-slate-400 text-slate-500">{label}</p>
+			<p className="text-[13px] font-semibold leading-none text-foreground/85">{value}</p>
 		</div>
 	);
 }
@@ -316,7 +316,7 @@ function NtmRow({ icon, color, title, value, sector, peer, sectorLabel = "Peer 1
 					{icon}
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="flex h-[14px] items-center overflow-hidden whitespace-nowrap text-[11px] leading-none text-slate-400">{title}</p>
+					<p className="flex h-[14px] items-center overflow-hidden whitespace-nowrap text-[11px] leading-none dark:text-slate-400 text-slate-500">{title}</p>
 					<p className="whitespace-nowrap text-[17px] font-bold leading-none">{value}</p>
 				</div>
 				<div className="flex shrink-0 items-center gap-[8px]">
@@ -325,7 +325,7 @@ function NtmRow({ icon, color, title, value, sector, peer, sectorLabel = "Peer 1
 					<NtmBadge color={badgeColor}>{badge}</NtmBadge>
 				</div>
 			</div>
-			<p className="ml-[44px] mt-[5px] text-[11px] leading-[16px] text-slate-400">{desc}</p>
+			<p className="ml-[44px] mt-[5px] text-[11px] leading-[16px] dark:text-slate-400 text-slate-500">{desc}</p>
 		</div>
 	);
 }
@@ -348,7 +348,7 @@ function DetailIconBox({ children, color, small = false }: { children: React.Rea
 
 function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
 	return (
-		<section className={`rounded-[13px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(14,27,43,.88)_0%,rgba(8,19,32,.92)_100%)] px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl ${className}`}>
+		<section className={`rounded-[13px] border border-foreground/[0.09] bg-surface-1 px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl ${className}`}>
 			{children}
 		</section>
 	);
@@ -356,7 +356,7 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
 
 const ANALYST_TONE: Record<string, string> = {
 	green:  "bg-emerald-500/20 text-emerald-400",
-	gray:   "bg-slate-500/20 text-slate-300",
+	gray:   "bg-slate-500/20 dark:text-slate-300 text-slate-600",
 	yellow: "bg-amber-500/20 text-amber-400",
 	red:    "bg-rose-500/20 text-rose-400",
 };
@@ -383,12 +383,12 @@ function formatTimeAgo(unixSec: number): string {
 
 function AnalystRow({ name, badge, price, tone }: { name: string; badge: string; price: string; tone: string }) {
 	return (
-		<div className="grid grid-cols-3 border-b border-white/10 text-[13px] last:border-b-0">
-			<div className="border-r border-white/10 px-[10px] py-[7px] font-semibold text-slate-200">{name}</div>
-			<div className="flex items-center justify-center border-r border-white/10 px-[10px] py-[7px]">
+		<div className="grid grid-cols-3 border-b border-foreground/10 text-[13px] last:border-b-0">
+			<div className="border-r border-foreground/10 px-[10px] py-[7px] font-semibold text-foreground/85">{name}</div>
+			<div className="flex items-center justify-center border-r border-foreground/10 px-[10px] py-[7px]">
 				<span className={`whitespace-nowrap rounded-[5px] px-[10px] py-[3px] font-semibold ${ANALYST_TONE[tone] ?? ANALYST_TONE.gray}`}>{badge}</span>
 			</div>
-			<div className="px-[10px] py-[7px] text-right font-semibold text-slate-200">{price}</div>
+			<div className="px-[10px] py-[7px] text-right font-semibold text-foreground/85">{price}</div>
 		</div>
 	);
 }
@@ -401,13 +401,13 @@ function DetailMetricCard({ icon, color, title, value, desc }: {
 	desc: string;
 }) {
 	return (
-		<div className="min-h-[82px] rounded-[10px] border border-white/[0.06] bg-[#0b1521]/74 px-[10px] py-[10px]">
+		<div className="min-h-[82px] rounded-[10px] border border-foreground/[0.06] bg-surface-1/74 px-[10px] py-[10px]">
 			<div className="flex gap-[9px]">
 				<DetailIconBox color={color}>{icon}</DetailIconBox>
 				<div className="min-w-0">
-					<p className="text-[11px] leading-[13px] text-slate-400">{title}</p>
-					<p className="mt-[3px] text-[15px] font-bold leading-[17px] text-white">{value}</p>
-					<p className="mt-[4px] text-[11px] leading-[14px] text-slate-400">{desc}</p>
+					<p className="text-[11px] leading-[13px] dark:text-slate-400 text-slate-500">{title}</p>
+					<p className="mt-[3px] text-[15px] font-bold leading-[17px] text-foreground">{value}</p>
+					<p className="mt-[4px] text-[11px] leading-[14px] dark:text-slate-400 text-slate-500">{desc}</p>
 				</div>
 			</div>
 		</div>
@@ -753,7 +753,7 @@ function MyStakPage() {
 						<button
 							type="button"
 							onClick={handleCloseDetail}
-							className="grid h-[36px] w-[36px] place-items-center rounded-full bg-white/[0.07] text-white/80 active:bg-white/[0.12] transition-colors"
+							className="grid h-[36px] w-[36px] place-items-center rounded-full bg-foreground/[0.07] text-foreground/80 active:bg-foreground/[0.12] transition-colors"
 						>
 							<ChevronLeft size={22} />
 						</button>
@@ -763,7 +763,7 @@ function MyStakPage() {
 						<div>
 							<h1 className="text-[21px] font-bold leading-none tracking-[-0.03em]">{selectedBrand.name}</h1>
 							{stockData?.quote ? (
-								<p className="mt-[6px] text-[12px] font-medium text-slate-400">
+								<p className="mt-[6px] text-[12px] font-medium dark:text-slate-400 text-slate-500">
 									Today:{" "}
 									<span className={priceUp ? "text-emerald-400" : "text-rose-400"}>
 										{priceUp ? "+" : ""}{stockData.quote.changePercent.toFixed(2)}%
@@ -778,12 +778,12 @@ function MyStakPage() {
 
 				{/* Since You Saved */}
 				{sinceSavedContent && (
-					<div className="mx-[16px] mb-[-4px] flex gap-[14px] rounded-[14px] border border-white/[0.07] bg-[#0b1726]/80 px-[14px] py-[13px]">
+					<div className="mx-[16px] mb-[-4px] flex gap-[14px] rounded-[14px] border border-foreground/[0.07] bg-surface-1/80 px-[14px] py-[13px]">
 						<div className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[11px] ${sinceSavedUp === true ? "bg-emerald-500/15 text-emerald-400" : sinceSavedUp === false ? "bg-rose-500/15 text-rose-400" : "bg-blue-500/15 text-blue-400"}`}>
 							<Bookmark size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-[13px] font-bold text-white/95 leading-none">
+							<p className="text-[13px] font-bold text-foreground/95 leading-none">
 								Since You Saved
 								{sinceSavedPct !== null && Math.abs(sinceSavedPct) >= 0.5 && (
 									<span className={`ml-[8px] font-bold ${sinceSavedUp ? "text-emerald-400" : "text-rose-400"}`}>
@@ -791,7 +791,7 @@ function MyStakPage() {
 									</span>
 								)}
 							</p>
-							<p className="mt-[5px] text-[11px] leading-[16px] text-slate-400/85">{sinceSavedContent}</p>
+							<p className="mt-[5px] text-[11px] leading-[16px] dark:text-slate-400 text-slate-500/85">{sinceSavedContent}</p>
 						</div>
 					</div>
 				)}
@@ -800,7 +800,7 @@ function MyStakPage() {
 				<div className="px-[16px] space-y-[12px] pb-[36px]">
 
 					{/* Numbers That Matter */}
-					<section className="rounded-[12px] border border-blue-400/35 bg-[#071322] p-[16px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
+					<section className="rounded-[12px] border border-blue-400/35 bg-surface-1 p-[16px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-[12px]">
 								<div className="grid h-[36px] w-[36px] place-items-center rounded-full bg-blue-500/15 text-blue-400">
@@ -835,7 +835,7 @@ function MyStakPage() {
 					</section>
 
 					{/* Analyst View */}
-					<section className="rounded-[12px] border border-white/10 bg-[#071322] p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
+					<section className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-[12px]">
 								<div className="grid h-[36px] w-[36px] place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
@@ -845,21 +845,21 @@ function MyStakPage() {
 							</div>
 						</div>
 
-						<div className="mt-[14px] overflow-hidden rounded-[9px] border border-white/10 bg-[#0b1726]/70">
+						<div className="mt-[14px] overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
 							{analystLoading ? (
 								<>
-									<div className="grid grid-cols-3 border-b border-white/10">
+									<div className="grid grid-cols-3 border-b border-foreground/10">
 										{[0, 1, 2].map((i) => (
-											<div key={i} className={`px-[10px] py-[8px] ${i < 2 ? "border-r border-white/10" : ""} ${i === 1 ? "text-center" : i === 2 ? "text-right" : ""}`}>
+											<div key={i} className={`px-[10px] py-[8px] ${i < 2 ? "border-r border-foreground/10" : ""} ${i === 1 ? "text-center" : i === 2 ? "text-right" : ""}`}>
 												<div className="h-[11px] w-[56px] rounded bg-slate-700/50 animate-pulse" />
 												<div className="mt-[5px] h-[16px] w-[44px] rounded bg-slate-700/40 animate-pulse" />
 											</div>
 										))}
 									</div>
 									{[0, 1, 2].map((i) => (
-										<div key={i} className="grid grid-cols-3 border-b border-white/10 last:border-b-0">
-											<div className="border-r border-white/10 px-[10px] py-[7px]"><div className="h-[13px] w-[60px] rounded bg-slate-700/50 animate-pulse" /></div>
-											<div className="flex items-center justify-center border-r border-white/10 px-[10px] py-[7px]"><div className="h-[22px] w-[56px] rounded bg-slate-700/40 animate-pulse" /></div>
+										<div key={i} className="grid grid-cols-3 border-b border-foreground/10 last:border-b-0">
+											<div className="border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[13px] w-[60px] rounded bg-slate-700/50 animate-pulse" /></div>
+											<div className="flex items-center justify-center border-r border-foreground/10 px-[10px] py-[7px]"><div className="h-[22px] w-[56px] rounded bg-slate-700/40 animate-pulse" /></div>
 											<div className="px-[10px] py-[7px] flex justify-end"><div className="h-[13px] w-[36px] rounded bg-slate-700/40 animate-pulse" /></div>
 										</div>
 									))}
@@ -867,22 +867,22 @@ function MyStakPage() {
 							) : analystData ? (
 								<>
 									{/* Price target header */}
-									<div className="grid grid-cols-3 border-b border-white/10">
-										<div className="border-r border-white/10 px-[10px] py-[8px]">
-											<p className="text-[11px] text-slate-400">Low Target</p>
-											<p className="mt-[3px] text-[16px] font-bold text-white">
+									<div className="grid grid-cols-3 border-b border-foreground/10">
+										<div className="border-r border-foreground/10 px-[10px] py-[8px]">
+											<p className="text-[11px] dark:text-slate-400 text-slate-500">Low Target</p>
+											<p className="mt-[3px] text-[16px] font-bold text-foreground">
 												{analystData.priceTarget?.low != null ? `$${analystData.priceTarget.low.toFixed(0)}` : "—"}
 											</p>
 										</div>
-										<div className="border-r border-white/10 px-[10px] py-[8px] text-center">
+										<div className="border-r border-foreground/10 px-[10px] py-[8px] text-center">
 											<p className="text-[11px] text-blue-400">Average Target</p>
 											<p className="mt-[3px] text-[16px] font-bold text-blue-400">
 												{analystData.priceTarget?.avg != null ? `$${analystData.priceTarget.avg.toFixed(0)}` : "—"}
 											</p>
 										</div>
 										<div className="px-[10px] py-[8px] text-right">
-											<p className="text-[11px] text-slate-400">High Target</p>
-											<p className="mt-[3px] text-[16px] font-bold text-white">
+											<p className="text-[11px] dark:text-slate-400 text-slate-500">High Target</p>
+											<p className="mt-[3px] text-[16px] font-bold text-foreground">
 												{analystData.priceTarget?.high != null ? `$${analystData.priceTarget.high.toFixed(0)}` : "—"}
 											</p>
 										</div>
@@ -920,7 +920,7 @@ function MyStakPage() {
 							const isUp = pct !== undefined ? pct >= 0 : null;
 							const isFlat = pct !== undefined ? Math.abs(pct) < 0.15 : false;
 							const colorClass = isFlat || pct === undefined
-								? "border-white/10 bg-white/[0.03]"
+								? "border-foreground/10 bg-foreground/[0.03]"
 								: isUp === true
 								? "border-emerald-500/20 bg-emerald-500/[0.07]"
 								: "border-rose-500/20 bg-rose-500/[0.07]";
@@ -929,17 +929,17 @@ function MyStakPage() {
 								<div className={`mb-[12px] rounded-[11px] border px-[13px] py-[11px] ${colorClass}`}>
 									<div className="flex items-center gap-[6px] mb-[5px]">
 										{pct !== undefined ? (
-											<span className={`text-[12px] font-bold ${isFlat ? "text-slate-400" : isUp ? "text-emerald-400" : "text-rose-400"}`}>
+											<span className={`text-[12px] font-bold ${isFlat ? "dark:text-slate-400 text-slate-500" : isUp ? "text-emerald-400" : "text-rose-400"}`}>
 												{isFlat ? "—" : isUp ? "▲" : "▼"} {isUp && !isFlat ? "+" : ""}{pct.toFixed(2)}% today
 											</span>
 										) : (
-											<span className="text-[12px] font-semibold text-slate-400">Today's driver</span>
+											<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">Today's driver</span>
 										)}
 									</div>
 									{dailyMoveLoading ? (
 										<div className="h-[13px] w-3/4 rounded bg-slate-700/40 animate-pulse" />
 									) : dailyMoveData?.explanation ? (
-										<p className="text-[12px] leading-[17px] text-slate-300">{dailyMoveData.explanation}</p>
+										<p className="text-[12px] leading-[17px] dark:text-slate-300 text-slate-600">{dailyMoveData.explanation}</p>
 									) : null}
 								</div>
 							);
@@ -948,7 +948,7 @@ function MyStakPage() {
 						<div className="flex gap-[10px] overflow-x-auto pb-[2px]" style={{ scrollbarWidth: "none" }}>
 							{newsLoading ? (
 								[...Array(3)].map((_, i) => (
-									<div key={i} className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-white/10 bg-[#0b1521]/80 p-[12px]">
+									<div key={i} className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-foreground/10 bg-surface-1/80 p-[12px]">
 										<div className="flex items-center justify-between gap-[6px]">
 											<div className="h-[11px] w-[60px] rounded bg-slate-700/50 animate-pulse" />
 											<div className="h-[18px] w-[46px] rounded bg-slate-700/40 animate-pulse" />
@@ -971,13 +971,13 @@ function MyStakPage() {
 											href={article.url}
 											target="_blank"
 											rel="noopener noreferrer"
-											className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-white/10 bg-[#0b1521]/80 p-[12px] active:bg-white/[0.04]"
+											className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-foreground/10 bg-surface-1/80 p-[12px] active:bg-foreground/[0.04]"
 										>
 											<div className="flex items-center justify-between gap-[6px]">
-												<span className="truncate text-[11px] font-semibold text-slate-400">{article.source}</span>
+												<span className="truncate text-[11px] font-semibold dark:text-slate-400 text-slate-500">{article.source}</span>
 												<span className={`shrink-0 rounded-[5px] px-[7px] py-[2px] text-[10px] font-semibold ${ANALYST_TONE[tone]}`}>{badge}</span>
 											</div>
-											<p className="line-clamp-3 text-[12px] leading-[17px] text-slate-200">{article.headline}</p>
+											<p className="line-clamp-3 text-[12px] leading-[17px] text-foreground/85">{article.headline}</p>
 											<p className="mt-auto text-[11px] text-slate-500">{formatTimeAgo(article.datetime)}</p>
 										</a>
 									);
@@ -989,7 +989,7 @@ function MyStakPage() {
 					</GlassCard>
 
 					{/* Compare & Learn */}
-					<section className="rounded-[14px] border border-blue-500/35 bg-[#071322] p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
+					<section className="rounded-[14px] border border-blue-500/35 bg-surface-1 p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
 						<div className="mb-[10px] flex items-center gap-[12px]">
 							<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
 								<GitCompare size={20} />
@@ -997,31 +997,31 @@ function MyStakPage() {
 							<h2 className="text-[16px] font-bold leading-none">Compare & Learn</h2>
 						</div>
 
-						<div className="overflow-hidden rounded-[9px] border border-white/10 bg-[#0b1726]/70">
+						<div className="overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
 							{/* Company header row */}
-							<div className="grid border-b border-white/10" style={{ gridTemplateColumns: "1.15fr 0.85fr 0.85fr 0.85fr" }}>
-								<div className="border-r border-white/10" />
+							<div className="grid border-b border-foreground/10" style={{ gridTemplateColumns: "1.15fr 0.85fr 0.85fr 0.85fr" }}>
+								<div className="border-r border-foreground/10" />
 								{/* Selected brand — locked */}
-								<div className="border-r border-white/10 py-[8px] text-center">
+								<div className="border-r border-foreground/10 py-[8px] text-center">
 									<div className="mx-auto mb-[4px] grid h-[31px] w-[31px] place-items-center overflow-hidden rounded-full bg-white">
 										<BrandLogo brand={selectedBrand} className="h-[26px] w-[26px]" />
 									</div>
-									<p className="text-[12px] text-slate-400">{selectedBrand.ticker}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500">{selectedBrand.ticker}</p>
 								</div>
 								{/* Peer slots — user-selectable */}
 								{([0, 1] as const).map((slot) => (
-									<div key={slot} className="relative border-r border-white/10 last:border-r-0">
+									<div key={slot} className="relative border-r border-foreground/10 last:border-r-0">
 										{comparePeers[slot] ? (
 											<button type="button" onClick={() => setPickingSlot(slot)} className="flex w-full flex-col items-center py-[8px]">
 												<div className="mb-[4px] grid h-[31px] w-[31px] place-items-center overflow-hidden rounded-full bg-white">
 													<BrandLogo brand={comparePeers[slot]!} className="h-[26px] w-[26px]" />
 												</div>
-												<p className="text-[12px] text-slate-400">{comparePeers[slot]!.ticker}</p>
+												<p className="text-[12px] dark:text-slate-400 text-slate-500">{comparePeers[slot]!.ticker}</p>
 												<ArrowLeftRight size={10} className="mt-[2px] text-blue-400/70" />
 											</button>
 										) : (
 											<button type="button" onClick={() => setPickingSlot(slot)} className="flex w-full flex-col items-center py-[10px]">
-												<div className="mb-[4px] grid h-[31px] w-[31px] place-items-center rounded-full border border-dashed border-white/20">
+												<div className="mb-[4px] grid h-[31px] w-[31px] place-items-center rounded-full border border-dashed border-foreground/20">
 													<Plus size={14} className="text-slate-500" />
 												</div>
 												<p className="text-[11px] text-slate-500">Add</p>
@@ -1031,7 +1031,7 @@ function MyStakPage() {
 											<button
 												type="button"
 												onClick={(e) => { e.stopPropagation(); handleRemovePeer(slot); }}
-												className="absolute right-[3px] top-[3px] grid h-[16px] w-[16px] place-items-center rounded-full bg-white/10 text-slate-400 active:bg-red-500/20 active:text-red-400"
+												className="absolute right-[3px] top-[3px] grid h-[16px] w-[16px] place-items-center rounded-full bg-foreground/10 dark:text-slate-400 text-slate-500 active:bg-red-500/20 active:text-red-400"
 											>
 												<X size={9} />
 											</button>
@@ -1043,20 +1043,20 @@ function MyStakPage() {
 							{(["peRatio", "revenueGrowth", "profitMargin", "marketCap"] as const).map((key, i, arr) => (
 								<div
 									key={key}
-									className={`grid text-[13px] ${i < arr.length - 1 ? "border-b border-white/10" : ""}`}
+									className={`grid text-[13px] ${i < arr.length - 1 ? "border-b border-foreground/10" : ""}`}
 									style={{ gridTemplateColumns: "1.15fr 0.85fr 0.85fr 0.85fr" }}
 								>
-									<div className="border-r border-white/10 px-[7px] py-[5px] font-semibold text-slate-300">
+									<div className="border-r border-foreground/10 px-[7px] py-[5px] font-semibold dark:text-slate-300 text-slate-600">
 										{selectedBrand.financials[key]?.label ?? key}
 									</div>
 									{([selectedBrand, comparePeers[0], comparePeers[1]] as Array<BrandProfile | null>).map((b, ci) => {
-										if (!b) return <div key={ci} className="border-r border-white/10 last:border-r-0" />;
+										if (!b) return <div key={ci} className="border-r border-foreground/10 last:border-r-0" />;
 										const raw = b.id === selectedBrand.id && liveMetrics?.[key] != null
 											? String(liveMetrics[key])
 											: (b.financials[key]?.value ?? "—");
 										const growth = key === "revenueGrowth" ? formatGrowth(raw) : null;
 										return (
-											<div key={b.id} className={`border-r border-white/10 px-[7px] py-[5px] text-center font-semibold last:border-r-0 ${growth ? growth.color : "text-slate-200"}`}>
+											<div key={b.id} className={`border-r border-foreground/10 px-[7px] py-[5px] text-center font-semibold last:border-r-0 ${growth ? growth.color : "text-foreground/85"}`}>
 												{growth ? growth.display : raw}
 											</div>
 										);
@@ -1075,11 +1075,11 @@ function MyStakPage() {
 			{/* Brand picker overlay */}
 			{pickingSlot !== null && (
 				<div className="absolute inset-0 z-10 flex flex-col" style={{ background: "linear-gradient(180deg,#07111e 0%,#06101c 48%,#050b15 100%)" }}>
-					<div className="flex items-center gap-[12px] border-b border-white/10 px-[16px] py-[14px]">
+					<div className="flex items-center gap-[12px] border-b border-foreground/10 px-[16px] py-[14px]">
 						<button
 							type="button"
 							onClick={() => setPickingSlot(null)}
-							className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-white/[0.07] text-white active:bg-white/[0.12]"
+							className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-foreground/[0.07] text-foreground active:bg-foreground/[0.12]"
 						>
 							<ChevronLeft size={20} />
 						</button>
@@ -1093,13 +1093,13 @@ function MyStakPage() {
 									key={b.id}
 									type="button"
 									onClick={() => handlePickPeer(b)}
-									className="flex w-full items-center gap-[12px] rounded-[10px] px-[4px] py-[10px] active:bg-white/[0.04]"
+									className="flex w-full items-center gap-[12px] rounded-[10px] px-[4px] py-[10px] active:bg-foreground/[0.04]"
 								>
 									<div className="grid h-[38px] w-[38px] shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm">
 										<BrandLogo brand={b} className="h-[28px] w-[28px]" />
 									</div>
 									<div className="min-w-0 text-left">
-										<p className="text-[14px] font-semibold text-slate-200">{b.name}</p>
+										<p className="text-[14px] font-semibold text-foreground/85">{b.name}</p>
 										<p className="text-[12px] text-slate-500">{b.ticker}</p>
 									</div>
 									{(comparePeers[0]?.id === b.id || comparePeers[1]?.id === b.id) && (
@@ -1119,7 +1119,7 @@ function MyStakPage() {
 
 
 	return (
-		<div className="min-h-full bg-background text-white">
+		<div className="min-h-full bg-background text-foreground">
 			{/* Dashboard header */}
 			<div className="relative overflow-hidden px-[22px] pt-[18px] pb-[22px]"
 				style={{ background: "linear-gradient(180deg,#060d17 0%,#050912 100%)" }}
@@ -1129,8 +1129,8 @@ function MyStakPage() {
 				<div className="relative z-10">
 					<div className="flex items-start justify-between">
 						<div>
-							<h1 className="text-[38px] font-bold tracking-[-0.05em] leading-none text-white">My STAK</h1>
-							<p className="mt-[8px] text-[14px] text-slate-400">Your living watchlist & learning hub.</p>
+							<h1 className="text-[38px] font-bold tracking-[-0.05em] leading-none text-foreground">My STAK</h1>
+							<p className="mt-[8px] text-[14px] dark:text-slate-400 text-slate-500">Your living watchlist & learning hub.</p>
 						</div>
 					</div>
 
@@ -1170,11 +1170,11 @@ function MyStakPage() {
 				onClick={() => window.dispatchEvent(new CustomEvent("open-brief", { detail: { source: "mystak" } }))}
 				className="w-full px-[18px] pt-[18px] pb-[4px] text-left"
 			>
-				<div className="rounded-[16px] border border-white/[0.08] bg-[#080d15] px-[16px] py-[16px] shadow-[0_18px_50px_rgba(0,0,0,.45)]">
+				<div className="rounded-[16px] border border-white/[0.08] bg-surface-1 px-[16px] py-[16px] shadow-[0_18px_50px_rgba(0,0,0,.45)]">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-[12px]">
 							<FileText size={21} className="text-blue-400" strokeWidth={2.1} />
-							<h2 className="text-[15px] font-medium text-slate-200">Daily Brief</h2>
+							<h2 className="text-[15px] font-medium text-foreground/85">Daily Brief</h2>
 						</div>
 						<p className="text-[11px] text-slate-500">
 							Updated {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
@@ -1193,7 +1193,7 @@ function MyStakPage() {
 										<TrendingUp size={21} strokeWidth={2.1} />
 									</div>
 									<div>
-										<p className="text-[15px] font-medium text-slate-100">
+										<p className="text-[15px] font-medium text-foreground/95">
 											{spyChange != null ? (
 												<>Markets are {spyUp ? "up" : "down"}{" "}<span className={`font-semibold ${spyUp ? "text-emerald-400" : "text-rose-400"}`}>{spyUp ? "+" : ""}{spyChange.toFixed(2)}%</span></>
 											) : (
@@ -1203,7 +1203,7 @@ function MyStakPage() {
 										<p className="mt-[4px] text-[11px] text-slate-500 line-clamp-1">{briefSubtitle}</p>
 									</div>
 								</div>
-								<div className="mx-[18px] h-[39px] w-px bg-white/[0.08]" />
+								<div className="mx-[18px] h-[39px] w-px bg-foreground/[0.08]" />
 								<div className="w-[150px] space-y-[8px] text-[11px]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-slate-500">Top Theme</span>
@@ -1246,14 +1246,14 @@ function MyStakPage() {
 					<div className="grid h-[60px] w-[60px] place-items-center rounded-full border border-violet-400/25 bg-violet-500/10 text-violet-300 mb-[16px] shadow-[0_0_28px_rgba(139,92,246,.15)]">
 						<Sparkles className="w-[26px] h-[26px]" />
 					</div>
-					<h2 className="text-[18px] font-bold text-white/90">Your STAK is empty</h2>
-					<p className="mt-[8px] text-[13px] text-slate-400 max-w-[240px] leading-[19px]">
+					<h2 className="text-[18px] font-bold text-foreground/90">Your STAK is empty</h2>
+					<p className="mt-[8px] text-[13px] dark:text-slate-400 text-slate-500 max-w-[240px] leading-[19px]">
 						Swipe through stocks and save the ones you vibe with — they'll live here.
 					</p>
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/" })}
-						className="mt-[22px] rounded-[12px] bg-gradient-to-r from-blue-500 to-violet-500 px-[28px] py-[12px] text-[14px] font-semibold text-white shadow-[0_0_24px_rgba(99,102,241,.3)] active:opacity-80 transition-opacity"
+						className="mt-[22px] rounded-[12px] bg-gradient-to-r from-blue-500 to-violet-500 px-[28px] py-[12px] text-[14px] font-semibold text-foreground shadow-[0_0_24px_rgba(99,102,241,.3)] active:opacity-80 transition-opacity"
 					>
 						Start Swiping
 					</button>

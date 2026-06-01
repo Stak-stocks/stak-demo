@@ -34,12 +34,12 @@ const FALLBACK_BRIEF = {
 };
 
 const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; cardBorder: string; cardBg: string }> = {
-	Bullish:  { icon: TrendingUp,   textColor: "text-emerald-400", cardBorder: "border-emerald-400/18", cardBg: "from-[rgba(10,72,40,.82)] to-[rgba(8,35,25,.92)]" },
-	Bearish:  { icon: TrendingDown, textColor: "text-rose-400",    cardBorder: "border-rose-400/18",    cardBg: "from-[rgba(72,10,20,.82)] to-[rgba(35,8,12,.92)]" },
-	Cautious: { icon: Cloud,        textColor: "text-[#56f4e7]",   cardBorder: "border-cyan-400/18",    cardBg: "from-[rgba(8,47,76,.82)] to-[rgba(8,31,55,.80)]"  },
-	Volatile: { icon: Zap,          textColor: "text-yellow-300",  cardBorder: "border-yellow-400/18",  cardBg: "from-[rgba(60,50,8,.82)] to-[rgba(35,28,8,.92)]"  },
-	Calm:     { icon: Sun,          textColor: "text-amber-300",   cardBorder: "border-amber-400/18",   cardBg: "from-[rgba(60,40,8,.82)] to-[rgba(35,22,8,.92)]"  },
-	Mixed:    { icon: Minus,        textColor: "text-slate-300",   cardBorder: "border-slate-400/18",   cardBg: "from-[rgba(20,25,40,.82)] to-[rgba(12,16,28,.92)]"},
+	Bullish:  { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]" },
+	Bearish:  { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]"    },
+	Cautious: { icon: Cloud,        textColor: "text-cyan-600 dark:text-cyan-400",        cardBorder: "border-cyan-500/20",    cardBg: "bg-cyan-500/[0.07]"    },
+	Volatile: { icon: Zap,          textColor: "text-yellow-600 dark:text-yellow-300",   cardBorder: "border-yellow-500/20",  cardBg: "bg-yellow-500/[0.07]"  },
+	Calm:     { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]"   },
+	Mixed:    { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]"   },
 };
 
 function getGreeting() {
@@ -76,22 +76,22 @@ function IconCircle({ color, icon, large }: { color: IconColor; icon: React.Reac
 function InfoCard({ icon, title, text, color }: { icon: React.ReactNode; title: string; text: string; color: "purple" | "cyan" }) {
 	const isPurple = color === "purple";
 	return (
-		<section className={`mt-[10px] rounded-[14px] border p-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,.04),0_10px_30px_rgba(0,0,0,.22)] ${isPurple ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(35,34,91,.72)_0%,rgba(20,28,67,.80)_100%)]" : "border-cyan-400/16 bg-[linear-gradient(180deg,rgba(8,50,75,.72)_0%,rgba(8,31,55,.78)_100%)]"}`}>
+		<section className={`mt-[10px] rounded-[14px] border p-[14px] shadow-[0_10px_30px_rgba(0,0,0,.12)] ${isPurple ? "border-violet-400/25 bg-violet-500/[0.07]" : "border-cyan-400/25 bg-cyan-500/[0.07]"}`}>
 			<div className="flex gap-[15px]">
 				<IconCircle color={isPurple ? "purple" : "cyan"} icon={icon} />
 				<div className="pt-[1px]">
 					<p className={`text-[13px] font-semibold ${isPurple ? "text-violet-300" : "text-cyan-300"}`}>{title}</p>
-					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-white/90">{text}</p>
+					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-foreground/90">{text}</p>
 				</div>
 			</div>
 		</section>
 	);
 }
 
-const DECK_COLOR_CONFIG: Record<string, { border: string; bg: string; bg2: string; iconColor: IconColor; textColor: string }> = {
-	green:  { border: "border-emerald-400/18", bg: "rgba(10,72,40,.82)",  bg2: "rgba(8,35,25,.92)",  iconColor: "green",  textColor: "text-emerald-300" },
-	purple: { border: "border-violet-400/18",  bg: "rgba(48,35,110,.82)", bg2: "rgba(16,27,64,.92)", iconColor: "purple", textColor: "text-violet-300"  },
-	blue:   { border: "border-blue-400/18",    bg: "rgba(24,64,121,.82)", bg2: "rgba(10,30,66,.92)", iconColor: "blue",   textColor: "text-blue-300"    },
+const DECK_COLOR_CONFIG: Record<string, { border: string; bgClass: string; iconColor: IconColor; textColor: string }> = {
+	green:  { border: "border-emerald-500/25", bgClass: "bg-emerald-500/[0.07]", iconColor: "green",  textColor: "text-emerald-500 dark:text-emerald-300" },
+	purple: { border: "border-violet-500/25",  bgClass: "bg-violet-500/[0.07]",  iconColor: "purple", textColor: "text-violet-600 dark:text-violet-300"   },
+	blue:   { border: "border-blue-500/25",    bgClass: "bg-blue-500/[0.07]",    iconColor: "blue",   textColor: "text-blue-600 dark:text-blue-300"       },
 };
 
 function ThemeCard({ deck }: { deck: DailyBriefDeck }) {
@@ -99,15 +99,14 @@ function ThemeCard({ deck }: { deck: DailyBriefDeck }) {
 	const c = DECK_COLOR_CONFIG[deck.color] ?? DECK_COLOR_CONFIG.blue;
 	return (
 		<section
-			className={`mt-[10px] rounded-[14px] border ${c.border} p-[15px] shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_10px_30px_rgba(0,0,0,.25)]`}
-			style={{ background: `linear-gradient(180deg,${c.bg} 0%,${c.bg2} 100%)` }}
+			className={`mt-[10px] rounded-[14px] border ${c.border} ${c.bgClass} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}
 		>
 			<div className="flex gap-[15px]">
 				<IconCircle color={c.iconColor} icon={<Icon size={28} strokeWidth={1.8} />} large />
 				<div className="min-w-0 flex-1 pt-[2px]">
-					<p className="text-[13px] text-slate-300">Today's Focus</p>
+					<p className="text-[13px] dark:text-slate-300 text-slate-600">Today's Focus</p>
 					<h3 className={`mt-[2px] text-[22px] font-bold leading-none tracking-[-0.03em] ${c.textColor}`}>{deck.title}</h3>
-					<p className="mt-[9px] text-[13px] leading-[18px] text-white/85">
+					<p className="mt-[9px] text-[13px] leading-[18px] text-foreground/85">
 						{deck.subtitle} — We're surfacing {deck.title} picks in your Discover feed today.
 					</p>
 				</div>
@@ -170,10 +169,9 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-[100] flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden touch-pan-y"
+			className="fixed inset-0 z-[100] flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden touch-pan-y bg-background"
 			style={{
 				scrollbarWidth: "none",
-				background: "radial-gradient(circle at 72% 3%, rgba(40,100,255,.20), transparent 32%), radial-gradient(circle at 20% 96%, rgba(0,126,255,.16), transparent 36%), linear-gradient(180deg,#040b1a 0%,#031025 46%,#030815 100%)",
 				transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined,
 				opacity: swipeX > 0 ? Math.max(0.5, 1 - swipeX / 300) : 1,
 				transition: swipeX === 0 ? "transform 0.25s ease, opacity 0.25s ease" : "none",
@@ -183,7 +181,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 			onPointerUp={handlePointerUp}
 			onPointerCancel={handlePointerUp}
 		>
-			<div className="flex-1 px-[15px] pt-[max(11px,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-lg mx-auto text-white">
+			<div className="flex-1 px-[15px] pt-[max(11px,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-lg mx-auto text-foreground">
 
 				{/* Header */}
 				<header className="flex items-start justify-between">
@@ -192,7 +190,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 							<button
 								type="button"
 								onClick={handleBackToStak}
-								className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors mb-[4px]"
+								className="flex items-center gap-1.5 dark:text-slate-300 text-slate-600 hover:text-foreground transition-colors mb-[4px]"
 							>
 								<ChevronRight className="w-4 h-4 rotate-180" strokeWidth={2} />
 								<span className="text-[13px] font-medium">My STAK</span>
@@ -200,30 +198,30 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						) : (
 							<div className="flex items-center gap-[7px]">
 								<StakLogoIcon className="w-[22px] h-[22px]" />
-								<h1 className="text-[25px] font-semibold tracking-[0.12em] leading-none text-white">STAK</h1>
+								<h1 className="text-[25px] font-semibold tracking-[0.12em] leading-none text-foreground">STAK</h1>
 							</div>
 						)}
-						<p className="mt-[23px] text-[13px] text-slate-400">{getGreeting()}, {firstName} 👋</p>
-						<h2 className="mt-[3px] text-[31px] font-bold leading-none tracking-[-0.04em] text-white">{sessionLabel}</h2>
-						<p className="mt-[10px] text-[11px] text-slate-400">Your daily market snapshot. Personalized for you.</p>
+						<p className="mt-[23px] text-[13px] dark:text-slate-400 text-slate-500">{getGreeting()}, {firstName} 👋</p>
+						<h2 className="mt-[3px] text-[31px] font-bold leading-none tracking-[-0.04em] text-foreground">{sessionLabel}</h2>
+						<p className="mt-[10px] text-[11px] dark:text-slate-400 text-slate-500">Your daily market snapshot. Personalized for you.</p>
 					</div>
 				</header>
 
 				{/* Market Mood */}
-				<section className={`mt-[18px] rounded-[14px] border ${mood.cardBorder} bg-[linear-gradient(180deg,${mood.cardBg})] p-[15px] shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_10px_30px_rgba(0,0,0,.25)]`}>
+				<section className={`mt-[18px] rounded-[14px] border ${mood.cardBorder} ${mood.cardBg} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}>
 					<div className="flex gap-[15px]">
 						<IconCircle color="cyan" icon={<MoodIcon size={31} strokeWidth={1.8} />} large />
 						<div className="min-w-0 flex-1 pt-[2px]">
 							<div className="flex items-start justify-between gap-2">
 								<div>
-									<p className="text-[13px] text-slate-300">Today's Market Mood</p>
+									<p className="text-[13px] dark:text-slate-300 text-slate-600">Today's Market Mood</p>
 									<h3 className={`mt-[2px] text-[31px] font-bold leading-none tracking-[-0.03em] ${mood.textColor}`}>{brief.mood}</h3>
 								</div>
 								<div className="mt-[8px] w-[90px] opacity-80">
 									<LineChartMini />
 								</div>
 							</div>
-							<p className="mt-[11px] text-[13px] leading-[18px] text-white/90">{brief.moodExplanation}</p>
+							<p className="mt-[11px] text-[13px] leading-[18px] text-foreground/90">{brief.moodExplanation}</p>
 						</div>
 					</div>
 				</section>

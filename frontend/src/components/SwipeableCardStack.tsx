@@ -50,10 +50,10 @@ interface SwipeableCardStackProps {
 
 
 const ACTION_COLORS = {
-	red:   "border-2 border-red-500 text-red-400 bg-[#0d1117] shadow-[0_0_22px_rgba(239,68,68,.22)]",
+	red:   "border-2 border-red-500 text-red-400 bg-surface-1 shadow-[0_0_22px_rgba(239,68,68,.22)]",
 	cyan:  "border-2 border-green-500 text-green-400 bg-green-500/10 shadow-[0_0_22px_rgba(34,197,94,.2)]",
-	dark:  "border-2 border-blue-500/60 text-blue-400 bg-[#0d1117]",
-	gray:  "border-2 border-zinc-600 text-zinc-400 bg-[#0d1117]",
+	dark:  "border-2 border-blue-500/60 text-blue-400 bg-surface-1",
+	gray:  "border-2 border-zinc-600 text-zinc-400 bg-surface-1",
 };
 
 const GLOW_COLOR = {
@@ -104,7 +104,7 @@ function ActionBtn({ icon, label, sub, color, onClick, highlight = 0, isDragging
 			>
 				{icon}
 			</button>
-			<p className="mt-[8px] text-[11px] font-semibold text-white">{label}</p>
+			<p className="mt-[8px] text-[11px] font-semibold text-foreground">{label}</p>
 			<p className="mt-[2px] text-[9px] leading-[11px] text-slate-500">{sub}</p>
 		</div>
 	);
@@ -382,7 +382,7 @@ export function SwipeableCardStack({
 					{[0, 1].map((i) => (
 						<div
 							key={i}
-							className="absolute inset-0 rounded-2xl overflow-hidden border border-slate-700/50 bg-[#0f1629]"
+							className="absolute inset-0 rounded-2xl overflow-hidden border border-slate-700/50 bg-surface-1"
 							style={{
 								transform: `scale(${1 - i * 0.04}) translateY(${i * 12}px)`,
 								zIndex: 2 - i,
@@ -426,10 +426,10 @@ export function SwipeableCardStack({
 					<Sparkles className="w-[30px] h-[30px]" />
 				</div>
 
-				<h2 className="text-[22px] font-bold text-white tracking-[-0.02em]">
+				<h2 className="text-[22px] font-bold text-foreground tracking-[-0.02em]">
 					{isLimit ? "Daily limit reached" : "Deck complete"}
 				</h2>
-				<p className="mt-[6px] text-[13px] text-slate-400 text-center max-w-[260px]">
+				<p className="mt-[6px] text-[13px] dark:text-slate-400 text-slate-500 text-center max-w-[260px]">
 					{isLimit
 						? `You've hit today's swipe limit. Fresh picks drop at ${PICKS_RESET_HOUR} AM.`
 						: "You've seen every card in today's deck."}
@@ -438,9 +438,9 @@ export function SwipeableCardStack({
 				{/* Stats row */}
 				{total > 0 && (
 					<div className="mt-[24px] flex gap-[10px] w-full max-w-[340px]">
-						<div className="flex-1 rounded-[14px] border border-white/[0.07] bg-[#0b1728]/80 py-[14px] flex flex-col items-center gap-[5px]">
-							<Eye className="w-[16px] h-[16px] text-slate-400" />
-							<p className="text-[22px] font-bold text-white leading-none">{total}</p>
+						<div className="flex-1 rounded-[14px] border border-foreground/[0.07] bg-surface-1/80 py-[14px] flex flex-col items-center gap-[5px]">
+							<Eye className="w-[16px] h-[16px] dark:text-slate-400 text-slate-500" />
+							<p className="text-[22px] font-bold text-foreground leading-none">{total}</p>
 							<p className="text-[10px] text-slate-500">Seen</p>
 						</div>
 						<div className="flex-1 rounded-[14px] border border-emerald-500/20 bg-emerald-500/[0.07] py-[14px] flex flex-col items-center gap-[5px]">
@@ -460,7 +460,7 @@ export function SwipeableCardStack({
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/my-stak" })}
-					className="mt-[20px] w-full max-w-[340px] py-[13px] rounded-xl bg-gradient-to-r from-cyan-400 to-purple-500 font-semibold text-white flex items-center justify-center gap-2 text-[14px] hover:opacity-90 active:scale-[0.98] transition-all"
+					className="mt-[20px] w-full max-w-[340px] py-[13px] rounded-xl bg-gradient-to-r from-cyan-400 to-purple-500 font-semibold text-foreground flex items-center justify-center gap-2 text-[14px] hover:opacity-90 active:scale-[0.98] transition-all"
 				>
 					<Layers className="w-[16px] h-[16px]" />
 					View My Stak
@@ -469,7 +469,7 @@ export function SwipeableCardStack({
 				{/* Reset timer */}
 				<div className="mt-[14px] flex items-center gap-[6px] text-[11px] text-slate-500">
 					<Clock className="w-[13px] h-[13px]" />
-					<span>New drop in <span className="font-semibold text-slate-300">{timeUntilReset.hours}h {timeUntilReset.minutes}m</span></span>
+					<span>New drop in <span className="font-semibold dark:text-slate-300 text-slate-600">{timeUntilReset.hours}h {timeUntilReset.minutes}m</span></span>
 				</div>
 			</div>
 		);
@@ -603,7 +603,7 @@ export function SwipeableCardStack({
 			</div>
 
 			{/* Every swipe insight row */}
-			<section className="flex items-center justify-center gap-4 text-center text-[13px] leading-[18px] text-slate-300 mt-3 px-4">
+			<section className="flex items-center justify-center gap-4 text-center text-[13px] leading-[18px] dark:text-slate-300 text-slate-600 mt-3 px-4">
 				<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full border border-blue-400/35 bg-blue-500/10 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,.18)]">
 					<Brain className="w-[26px] h-[26px]" />
 				</div>

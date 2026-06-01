@@ -180,7 +180,7 @@ export function MarketBar() {
 				<div className="px-6 pb-3 pt-1 grid grid-cols-3 gap-x-6 gap-y-1.5 text-xs border-t border-current/10">
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Price</p>
-						<p className="font-bold text-white">${quote.price.toFixed(2)}</p>
+						<p className="font-bold text-foreground">${quote.price.toFixed(2)}</p>
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Change</p>
