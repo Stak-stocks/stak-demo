@@ -710,7 +710,7 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v2:${symbol}:${direction}`;
+	const cacheKey = `daily-move:v3:${symbol}:${direction}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
@@ -743,17 +743,20 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 		return;
 	}
 
-	const prompt = `${symbol} stock is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today. Here are the latest news headlines:
+	// Build prompt — include Finnhub headlines if available, but Google Search grounding
+	// means Gemini can find the real reason even when Finnhub has no coverage.
+	const newsContext = allNews.length > 0
+		? `\n\nRecent headlines from news feeds:\n${headlinesText}`
+		: "";
+	const prompt = `${symbol} stock is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.${newsContext}
 
-${headlinesText}
-
-In 1-2 sentences, explain to a young investor why ${symbol} is moving like this today. Reference the most relevant news by describing what happened (not by number or position) — for example say "after reports of..." or "following news that...". If no headline explains the move, mention general market sentiment.
+Search for the latest news about ${symbol} stock today and explain in 1-2 sentences why it is moving like this. Be specific — reference the actual catalyst (earnings, announcement, partnership, analyst upgrade, sector news, etc.). Write for a young investor who wants to understand quickly.
 
 Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 
 	for (const key of keys) {
 		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 12000);
+		const timeout = setTimeout(() => controller.abort(), 15000);
 		try {
 			const gemRes = await fetch(
 				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
@@ -762,7 +765,8 @@ Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0.3, maxOutputTokens: 120 },
+						tools: [{ google_search: {} }],
+						generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
 					}),
 					signal: controller.signal,
 				},
@@ -770,7 +774,9 @@ Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 			if (gemRes.status === 429) continue;
 			if (!gemRes.ok) break;
 			const data = await gemRes.json();
-			const explanation = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
+			// With Google Search grounding, text may be in a different part index
+			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
+			const explanation = parts.map((p) => p.text ?? "").join("").trim();
 			if (explanation) {
 				const result = { explanation, direction };
 				await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
