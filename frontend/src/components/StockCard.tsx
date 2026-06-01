@@ -215,7 +215,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 		: [fallbackCategoryTag, ...derived];
 
 	return (
-		<div className="relative w-full h-full rounded-[22px] overflow-hidden border border-white/25 bg-surface-1 shadow-[0_30px_80px_rgba(0,0,0,.75)] select-none">
+		<div className="relative w-full h-full rounded-[22px] overflow-hidden border border-black/20 dark:border-white/25 bg-surface-1 shadow-[0_30px_80px_rgba(0,0,0,.75)] select-none">
 
 			{/* Full-bleed hero background */}
 			<div className="absolute inset-0">
@@ -237,23 +237,24 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 
 			{/* Top-right analyst rating pill — only shown when data is available */}
 			{analystRating != null && (
-				<div className="absolute right-[16px] top-[18px] z-20 flex items-center gap-[5px] rounded-full bg-black/45 px-[11px] py-[7px] text-[13px] backdrop-blur-md border border-foreground/20">
-					<Star size={12} fill="white" className="text-foreground/80" />
+				<div className="absolute right-[16px] top-[18px] z-20 flex items-center gap-[5px] rounded-full bg-black/45 px-[11px] py-[7px] text-[13px] text-white backdrop-blur-md border border-white/20">
+					<Star size={12} fill="white" className="text-white/80" />
 					<span className="font-semibold">{analystRating.toFixed(1)}</span>
 				</div>
 			)}
 
 			{/* Content — top% keeps proportional; all internal spacing scales with card size */}
+			{/* Text is always white — it sits on top of the dark gradient overlay regardless of mode */}
 			<div
 				className="absolute inset-x-0 bottom-0 z-20 flex flex-col px-[22px] overflow-hidden"
 				style={{ top: "38%", paddingBottom: sp(10) }}
 			>
 				<h1
-					className="font-bold leading-none tracking-[-0.03em] text-foreground"
+					className="font-bold leading-none tracking-[-0.03em] text-white"
 					style={{ fontSize: sp(26) }}
 				>{brand.name}</h1>
 				<p
-					className="dark:text-slate-300 text-slate-600/85 tracking-wide"
+					className="text-white/75 tracking-wide"
 					style={{ marginTop: sp(7), fontSize: sp(13) }}
 				>{brand.ticker} · {getExchange(brand.ticker)}</p>
 
@@ -264,22 +265,22 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 							{quote ? (
 								<>
 									<div className="flex items-center" style={{ gap: sp(11) }}>
-										<p className="font-bold leading-none tracking-[-0.03em]" style={{ fontSize: sp(24) }}>
+										<p className="font-bold leading-none tracking-[-0.03em] text-white" style={{ fontSize: sp(24) }}>
 											${quote.price.toFixed(2)}
 										</p>
 										<p className={`font-semibold ${priceUp ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: sp(15) }}>
 											{priceUp ? "+" : ""}{quote.changePercent.toFixed(1)}%
 										</p>
 									</div>
-									<p className="dark:text-slate-300 text-slate-600/85" style={{ marginTop: sp(7), fontSize: sp(13) }}>Past 1 Year</p>
+									<p className="text-white/70" style={{ marginTop: sp(7), fontSize: sp(13) }}>Past 1 Year</p>
 								</>
 							) : quote === undefined ? (
 								<>
 									<div className="flex items-center gap-3">
-										<div className="h-6 w-20 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse" />
-										<div className="h-4 w-12 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse" />
+										<div className="h-6 w-20 bg-white/20 rounded animate-pulse" />
+										<div className="h-4 w-12 bg-white/20 rounded animate-pulse" />
 									</div>
-									<div className="h-3 w-14 dark:bg-slate-700/50 bg-slate-200/70 rounded animate-pulse mt-2" />
+									<div className="h-3 w-14 bg-white/20 rounded animate-pulse mt-2" />
 								</>
 							) : null}
 						</div>
@@ -301,7 +302,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 
 				{/* Bio */}
 				<p
-					className="dark:text-slate-300 text-slate-600/72 line-clamp-2"
+					className="text-white/70 line-clamp-2"
 					style={{ marginTop: sp(10), fontSize: sp(13), lineHeight: `${sp(19)}px` }}
 				>{brand.bio}</p>
 
@@ -309,10 +310,10 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 				<div className="mt-auto" style={{ paddingTop: sp(14) }}>
 					{isPopular ? (
 						<div
-							className="flex items-center justify-between rounded-[10px] border border-foreground/[0.08] bg-black/10 backdrop-blur-sm"
+							className="flex items-center justify-between rounded-[10px] border border-white/10 bg-black/10 backdrop-blur-sm"
 							style={{ height: sp(38), paddingLeft: sp(13), paddingRight: sp(4) }}
 						>
-							<div className="flex items-center dark:text-slate-400 text-slate-500" style={{ gap: sp(8), fontSize: sp(12) }}>
+							<div className="flex items-center text-white/60" style={{ gap: sp(8), fontSize: sp(12) }}>
 								<Users size={sp(14)} />
 								<span>Popular among investors</span>
 							</div>
