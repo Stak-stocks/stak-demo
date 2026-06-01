@@ -600,13 +600,13 @@ function App() {
 			<div className="relative flex items-center justify-center px-[18px] pt-5 pb-2">
 				{/* Centered logo + name */}
 				<div className="flex items-center gap-[8px]">
-					<img src={stakLogo} alt="STAK" className="h-[28px] w-[28px]" />
-					<h1 className="text-[22px] font-semibold tracking-[0.13em] text-[#e8f0ff]">STAK</h1>
+					<img src={stakLogo} alt="STAK" className="h-[28px] w-[28px] dark:brightness-100 brightness-0" />
+					<h1 className="text-[22px] font-semibold tracking-[0.13em] text-foreground">STAK</h1>
 				</div>
 				{/* Right side actions */}
 				<div className="absolute right-[18px] flex items-center gap-2">
 					{/* Streak */}
-					<div className="flex h-[25px] items-center gap-1 rounded-full bg-white/[0.055] px-2 text-[11px] ring-1 ring-white/10">
+					<div className="flex h-[25px] items-center gap-1 rounded-full bg-foreground/[0.06] px-2 text-[11px] ring-1 ring-foreground/10">
 						<Flame className="w-[13px] h-[13px] text-orange-400" />
 						<span className="text-foreground font-medium">{streakCount > 0 ? streakCount : "—"}</span>
 					</div>

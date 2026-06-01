@@ -163,7 +163,7 @@ function LandingPage() {
 				<nav className={`w-full px-6 py-4 max-w-6xl mx-auto transition-colors ${menuOpen ? "bg-background" : ""}`}>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<StakLogoIcon width={28} height={28} />
+							<StakLogoIcon width={28} height={28} className="text-foreground" />
 							<span className="text-foreground text-xl font-bold tracking-wider">STAK</span>
 						</div>
 
@@ -376,7 +376,7 @@ function LandingPage() {
 				{/* ── Footer ── */}
 				<footer className="px-6 py-8 flex flex-col items-center gap-2 border-t border-slate-800/50">
 					<div className="flex items-center gap-2">
-						<StakLogoIcon width={24} height={24} />
+						<StakLogoIcon width={24} height={24} className="text-foreground" />
 						<span className="text-foreground text-lg font-bold tracking-wider">STAK</span>
 					</div>
 					<p className="text-slate-500 text-xs">&copy; 2026 STAK. All rights reserved.</p>

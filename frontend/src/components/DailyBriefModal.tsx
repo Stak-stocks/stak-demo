@@ -197,7 +197,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 							</button>
 						) : (
 							<div className="flex items-center gap-[7px]">
-								<StakLogoIcon className="w-[22px] h-[22px]" />
+								<StakLogoIcon className="w-[22px] h-[22px] text-foreground" />
 								<h1 className="text-[25px] font-semibold tracking-[0.12em] leading-none text-foreground">STAK</h1>
 							</div>
 						)}

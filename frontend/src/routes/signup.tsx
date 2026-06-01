@@ -114,7 +114,7 @@ function SignUpPage() {
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			{/* Logo — top left */}
 			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
-				<StakLogoIcon width={28} height={28} />
+				<StakLogoIcon width={28} height={28} className="text-foreground" />
 				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</Link>
 
