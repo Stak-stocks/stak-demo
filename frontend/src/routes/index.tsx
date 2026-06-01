@@ -600,9 +600,9 @@ function App() {
 				{/* Right side actions */}
 				<div className="absolute right-[18px] flex items-center gap-2">
 					{/* Streak */}
-					<div className="flex h-[25px] items-center gap-1 rounded-full bg-foreground/[0.06] px-2 text-[11px] ring-1 ring-foreground/10">
-						<Flame className="w-[13px] h-[13px] text-orange-400" />
-						<span className="text-foreground font-medium">{streakCount > 0 ? streakCount : "—"}</span>
+					<div className={`flex h-[28px] items-center gap-[5px] rounded-full px-[10px] text-[12px] font-bold ring-1 ${streakCount > 0 ? "bg-orange-500/10 ring-orange-400/30 text-orange-500 dark:text-orange-400" : "bg-foreground/[0.06] ring-foreground/10 text-foreground/50"}`}>
+						<Flame className={`w-[13px] h-[13px] ${streakCount > 0 ? "text-orange-400" : "text-foreground/30"}`} />
+						<span>{streakCount > 0 ? streakCount : "—"}</span>
 					</div>
 					{/* Avatar */}
 					<button
