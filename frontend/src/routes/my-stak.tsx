@@ -732,9 +732,8 @@ function MyStakPage() {
 
 	const brandDetailOverlay = selectedBrand && createPortal(
 		<div
-			className="fixed inset-0 z-[60] flex flex-col overflow-hidden"
+			className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-background"
 			style={{
-				background: "radial-gradient(circle at 75% 0%, rgba(35,75,160,.20), transparent 30%), linear-gradient(180deg,#07111e 0%,#06101c 48%,#050b15 100%)",
 				transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined,
 				transition: swipeX === 0 ? "transform 0.25s ease, opacity 0.25s ease" : "none",
 				opacity: swipeX > 0 ? Math.max(0.4, 1 - swipeX / 300) : 1,
@@ -1074,7 +1073,7 @@ function MyStakPage() {
 
 			{/* Brand picker overlay */}
 			{pickingSlot !== null && (
-				<div className="absolute inset-0 z-10 flex flex-col" style={{ background: "linear-gradient(180deg,#07111e 0%,#06101c 48%,#050b15 100%)" }}>
+				<div className="absolute inset-0 z-10 flex flex-col bg-background">
 					<div className="flex items-center gap-[12px] border-b border-foreground/10 px-[16px] py-[14px]">
 						<button
 							type="button"
@@ -1121,10 +1120,8 @@ function MyStakPage() {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			{/* Dashboard header */}
-			<div className="relative overflow-hidden px-[22px] pt-[18px] pb-[22px]"
-				style={{ background: "linear-gradient(180deg,#060d17 0%,#050912 100%)" }}
-			>
-				<div className="absolute inset-0" style={{ background: "radial-gradient(circle at 85% 12%, rgba(77,102,255,.18), transparent 28%)" }} />
+			<div className="relative overflow-hidden px-[22px] pt-[18px] pb-[22px] bg-background">
+
 
 				<div className="relative z-10">
 					<div className="flex items-start justify-between">
