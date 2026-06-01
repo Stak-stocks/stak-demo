@@ -157,7 +157,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	});
 
 	const { data: analystData } = useQuery({
-		queryKey: ["analyst", brand?.ticker],
+		queryKey: ["analyst", "v2", brand?.ticker],
 		queryFn: () => getAnalystData(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
 		staleTime: 3 * 24 * 60 * 60 * 1000,
