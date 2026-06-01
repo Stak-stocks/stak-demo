@@ -441,7 +441,12 @@ stockRouter.get("/:symbol", async (req, res) => {
 				peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,
 				marketCap: marketCapRaw != null ? formatMarketCap(marketCapRaw) : null,
 				revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
-				profitMargin: m.netProfitMarginTTM != null ? `${m.netProfitMarginTTM.toFixed(1)}%` : null,
+				// Cap extreme margins — pre-revenue companies can show -10000%+ which is meaningless
+				profitMargin: m.netProfitMarginTTM != null && Math.abs(m.netProfitMarginTTM) <= 500
+					? `${m.netProfitMarginTTM.toFixed(1)}%`
+					: m.netProfitMarginTTM != null
+					? null
+					: null,
 				beta: m.beta != null ? Number(m.beta.toFixed(2)) : null,
 				dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
 				week52High: m["52WeekHigh"] ?? null,
@@ -763,7 +768,7 @@ stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 		const m = r.value.metric;
 		if (m.peNormalizedAnnual != null && isFinite(m.peNormalizedAnnual) && m.peNormalizedAnnual > 0) pes.push(m.peNormalizedAnnual);
 		if (m.revenueGrowthTTMYoy != null && isFinite(m.revenueGrowthTTMYoy)) growths.push(m.revenueGrowthTTMYoy);
-		if (m.netProfitMarginTTM != null && isFinite(m.netProfitMarginTTM)) margins.push(m.netProfitMarginTTM);
+		if (m.netProfitMarginTTM != null && isFinite(m.netProfitMarginTTM) && Math.abs(m.netProfitMarginTTM) <= 500) margins.push(m.netProfitMarginTTM);
 		if (m.beta != null && isFinite(m.beta) && m.beta > 0) betas.push(m.beta);
 	}
 
