@@ -139,7 +139,7 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState, updateStreak } = useAccount();
+	const { account, updateStak, updatePassedBrands, updateDeckOrder, updateIntelState } = useAccount();
 	const uid = user?.uid ?? "guest";
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
@@ -216,7 +216,6 @@ function App() {
 	const [activeIntelCard, setActiveIntelCard] = useState<IntelCard | null>(null);
 	const swipesSinceIntel = useRef(Number(sessionStorage.getItem("swipesSinceIntel") ?? 0) || 0);
 	const lastIntelDateRef = useRef<string | null>(null);
-	const streakRef = useRef<{ date: string; count: number }>(account?.streak ?? { date: "", count: 0 });
 
 	// Initialise intel queue from account (Firestore) — only on allIntelCards change
 	// account is guaranteed loaded here (accountLoading gated in __root.tsx)
@@ -235,22 +234,6 @@ function App() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [allIntelCards]);
 
-	// Keep streakRef in sync with Firestore and update streak on login/app open
-	useEffect(() => {
-		if (!account) return;
-		if (account.streak) streakRef.current = account.streak;
-
-		const today = new Date().toISOString().split("T")[0];
-		const streakData = streakRef.current;
-		if (streakData.date !== today) {
-			const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-			const newCount = streakData.date === yesterday ? streakData.count + 1 : 1;
-			const newStreak = { date: today, count: newCount };
-			streakRef.current = newStreak;
-			updateStreak(newStreak).catch((e) => console.error("Failed to save streak:", e));
-		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [account?.streak]);
 
 	// ── Stak — initialised from Firestore account ──────────────────────────────
 	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
@@ -575,25 +558,32 @@ function App() {
 	};
 
 	const handleStreakUpdate = useCallback((result: StreakUpdate) => {
-		if (result.newBadges.length > 0) {
-			result.newBadges.forEach((badge) => {
-				toast.success(`Badge unlocked: ${badge.name}`, {
-					description: badge.description,
-					duration: 4000,
-				});
-			});
+		// Streak milestone toast (only on meaningful streaks, badge toast covers exact milestones)
+		if (result.streak >= 2 && result.newBadges.length === 0) {
+			toast.success(`🔥 ${result.streak}-day streak!`, { duration: 2500 });
 		}
+
+		// Badge toasts
+		result.newBadges.forEach((badge) => {
+			toast.success(`🏅 Badge unlocked: ${badge.name}`, {
+				description: badge.description,
+				duration: 4500,
+			});
+		});
+
+		// Bonus swipe toast — use result value so count is accurate
 		if (result.bonusSwipesAdded > 0) {
+			const newTotal = DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0) + result.bonusSwipesAdded;
 			toast.success(`+${result.bonusSwipesAdded} bonus swipes unlocked!`, {
-				description: `You now have ${DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0)} swipes per day.`,
-				duration: 4000,
+				description: `Your daily limit is now ${newTotal} swipes.`,
+				duration: 4500,
 			});
 		}
-		// Streak count is shown live in the top-bar flame counter — no toast needed
 	}, [account?.bonusSwipes]);
 
 	const todayKey = new Date().toISOString().split("T")[0];
-	const streakCount = account?.streak?.date === todayKey ? (account.streak.count ?? 0) : 0;
+	// streakCount comes from the backend's authoritative tracker (lastStreakDate + streakCount)
+	const streakCount = account?.lastStreakDate === todayKey ? (account?.streakCount ?? 0) : 0;
 
 	return (
 		<div className="bg-background text-zinc-900 dark:text-white">

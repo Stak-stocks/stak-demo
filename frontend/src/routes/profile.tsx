@@ -140,8 +140,12 @@ function ProfilePage() {
 	// Badge tooltip
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string; progress: number; progressLabel?: string } | null>(null);
 
-	// Streak — from Firestore account
-	const streak = account?.streak?.count ?? 0;
+	// Streak — from backend's authoritative tracker
+	const todayKey = new Date().toISOString().split("T")[0];
+	const streak = account?.lastStreakDate === todayKey ? (account?.streakCount ?? 0) : 0;
+	const totalSwipeCount = account?.totalSwipeCount ?? 0;
+	const totalIntelViews = account?.totalIntelViews ?? 0;
+	const earnedBackendBadges = new Set(account?.badges ?? []);
 
 	// Familiarity / investor level — from Firestore account
 	const familiarity = account?.preferences?.familiarity ?? "new";
@@ -166,41 +170,25 @@ function ProfilePage() {
 	const hasReadIntel = readCards.length >= 1;
 
 	const allBadges = [
-		{ id: "first-swipe",        label: "First Swipe",       emoji: "✅", desc: "Added your first brand to the Stak.",         earned: hasStaked,                      progress: Math.min(stakBrands.length, 1),          progressLabel: `${Math.min(stakBrands.length, 1)}/1 brand`      },
-		{ id: "stak-builder",       label: "Stak Builder",      emoji: "🏗️", desc: "Built a Stak of 5 or more brands.",           earned: stakBrands.length >= 5,         progress: Math.min(stakBrands.length / 5, 1),      progressLabel: `${stakBrands.length}/5 brands`                  },
-		{ id: "full-stak",          label: "Full Stak",         emoji: "💯", desc: "Maxed out your Stak with 15 brands.",         earned: stakBrands.length >= 15,        progress: Math.min(stakBrands.length / 15, 1),     progressLabel: `${stakBrands.length}/15 brands`                 },
-		{ id: "three-day-streak",   label: "3-Day Streak",      emoji: "🔥", desc: "Logged in 3 days in a row.",                  earned: streak >= 3,                    progress: Math.min(streak / 3, 1),                 progressLabel: `${streak}/3 days`                               },
-		{ id: "week-warrior",       label: "Week Warrior",      emoji: "⚡", desc: "Logged in 7 days in a row. Consistent!",      earned: streak >= 7,                    progress: Math.min(streak / 7, 1),                 progressLabel: `${streak}/7 days`                               },
-		{ id: "monthly-legend",     label: "Monthly Legend",    emoji: "💎", desc: "30-day streak. You're a STAK legend.",        earned: streak >= 30,                   progress: Math.min(streak / 30, 1),                progressLabel: `${streak}/30 days`                              },
-		{ id: "intel-junky",        label: "Insight Seeker",    emoji: "🧠", desc: "Read 5 Intel cards — you're learning fast.", earned: readCards.length >= 5,          progress: Math.min(readCards.length / 5, 1),       progressLabel: `${readCards.length}/5 cards`                    },
-		{ id: "knowledge-hoarder",  label: "All-Knowing",       emoji: "📚", desc: "Read every Intel card in the library.",       earned: readCards.length >= INTEL_CARDS.length, progress: readCards.length / Math.max(INTEL_CARDS.length, 1), progressLabel: `${readCards.length}/${INTEL_CARDS.length} cards` },
-		{ id: "explorer",           label: "Explorer",          emoji: "🌍", desc: "Engaged with 3+ different market sectors.",   earned: categoriesEngaged >= 3,         progress: Math.min(categoriesEngaged / 3, 1),      progressLabel: `${categoriesEngaged}/3 sectors`                 },
-		{ id: "conviction-builder", label: "Conviction Builder",emoji: "🎯", desc: "Deep focus on one sector — you know your edge.", earned: maxTagScore >= 20,      progress: Math.min(maxTagScore / 20, 1),      progressLabel: `${Math.round(maxTagScore)}/20 score`                   },
-		{ id: "signal-finder",      label: "Signal Finder",     emoji: "📡", desc: "Staked brands and read intel — the full loop.", earned: hasStaked && hasReadIntel,   progress: (hasStaked ? 0.5 : 0) + (hasReadIntel ? 0.5 : 0),  progressLabel: hasStaked && hasReadIntel ? "Complete" : !hasStaked ? "Stake a brand first" : "Read an Intel card" },
+		// Stak-building badges (derived from current stak size)
+		{ id: "first-swipe",          label: "First Move",          emoji: "✅", desc: "You've started — most people never do.",             earned: hasStaked,                                            progress: Math.min(stakBrands.length, 1),               progressLabel: `${Math.min(stakBrands.length, 1)}/1 brand`      },
+		{ id: "stak-builder",         label: "Stak Builder",        emoji: "🏗️", desc: "Built a Stak of 5 or more brands.",                  earned: stakBrands.length >= 5,                               progress: Math.min(stakBrands.length / 5, 1),           progressLabel: `${stakBrands.length}/5 brands`                  },
+		{ id: "full-stak",            label: "Full Stak",           emoji: "💯", desc: "Maxed out your Stak with 15 brands.",                 earned: stakBrands.length >= 15,                              progress: Math.min(stakBrands.length / 15, 1),          progressLabel: `${stakBrands.length}/15 brands`                 },
+		// Swipe badges (from backend totalSwipeCount)
+		{ id: "explorer",             label: "Explorer",            emoji: "🌍", desc: "Made your first swipe.",                              earned: earnedBackendBadges.has("explorer") || totalSwipeCount >= 1,  progress: Math.min(totalSwipeCount, 1),           progressLabel: `${Math.min(totalSwipeCount, 1)}/1 swipe`        },
+		{ id: "curious_mind",         label: "Curious Mind",        emoji: "🧠", desc: "10 swipes in — you're getting curious.",              earned: earnedBackendBadges.has("curious_mind") || totalSwipeCount >= 10, progress: Math.min(totalSwipeCount / 10, 1),   progressLabel: `${Math.min(totalSwipeCount, 10)}/10 swipes`     },
+		// Intel badge (from backend totalIntelViews)
+		{ id: "pattern_recognizer",   label: "Pattern Recognizer",  emoji: "📡", desc: "Viewed 15 intel cards — you're seeing the patterns.", earned: earnedBackendBadges.has("pattern_recognizer") || totalIntelViews >= 15, progress: Math.min(totalIntelViews / 15, 1), progressLabel: `${Math.min(totalIntelViews, 15)}/15 cards`   },
+		// Streak badges (from backend streakCount + earned badges array)
+		{ id: "consistent_learner",   label: "Consistent Learner",  emoji: "🔥", desc: "5-day streak — your investor mindset is forming.",    earned: earnedBackendBadges.has("consistent_learner") || streak >= 5,  progress: Math.min(streak / 5, 1),               progressLabel: `${Math.min(streak, 5)}/5 days`                  },
+		{ id: "market_explorer",      label: "Market Explorer",     emoji: "⚡", desc: "7-day streak — you're building real momentum.",       earned: earnedBackendBadges.has("market_explorer") || streak >= 7,    progress: Math.min(streak / 7, 1),               progressLabel: `${Math.min(streak, 7)}/7 days`                  },
+		{ id: "trend_reader",         label: "Trend Reader",        emoji: "📈", desc: "14-day streak — you now see insights before others.", earned: earnedBackendBadges.has("trend_reader") || streak >= 14,      progress: Math.min(streak / 14, 1),              progressLabel: `${Math.min(streak, 14)}/14 days`                },
+		{ id: "market_insider",       label: "STAK Insider",        emoji: "💎", desc: "30-day streak — you're in the top % of users.",      earned: earnedBackendBadges.has("market_insider") || streak >= 30,    progress: Math.min(streak / 30, 1),              progressLabel: `${Math.min(streak, 30)}/30 days`                },
+		// Engagement combo badge
+		{ id: "signal-finder",        label: "Signal Finder",       emoji: "🎯", desc: "Staked brands and read intel — the full loop.",       earned: hasStaked && hasReadIntel,                            progress: (hasStaked ? 0.5 : 0) + (hasReadIntel ? 0.5 : 0), progressLabel: hasStaked && hasReadIntel ? "Complete" : !hasStaked ? "Stake a brand first" : "Read an Intel card" },
 	];
 	const earnedBadges = allBadges.filter((b) => b.earned);
 	const inProgressBadges = allBadges.filter((b) => !b.earned && b.progress > 0);
-
-	// Toast when a new badge is unlocked
-	const prevEarnedRef = useRef<Set<string>>(new Set());
-	const badgeInitRef = useRef(false);
-	useEffect(() => {
-		if (!account) return;
-		const currentEarned = new Set(earnedBadges.map((b) => b.id));
-		if (!badgeInitRef.current) {
-			prevEarnedRef.current = currentEarned;
-			badgeInitRef.current = true;
-			return;
-		}
-		for (const id of currentEarned) {
-			if (!prevEarnedRef.current.has(id)) {
-				const badge = allBadges.find((b) => b.id === id);
-				if (badge) toast.success(`${badge.emoji} Badge unlocked: ${badge.label}!`);
-			}
-		}
-		prevEarnedRef.current = currentEarned;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [account]);
 
 	const displayName = user?.displayName || "STAK User";
 	const email = user?.email || "";
