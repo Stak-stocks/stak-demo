@@ -11212,6 +11212,36 @@ const rawBrands: BrandProfile[] = [
 		interestCategories: ["tech", "travel"],
 	},
 	{
+		id: "spce",
+		ticker: "SPCE",
+		name: "Virgin Galactic",
+		bio: "Richard Branson's space tourism company that already flew paying passengers to the edge of space — now rebuilding with next-gen Delta-class spaceships",
+		heroImage: "https://images.unsplash.com/photo-1516849841032-87cbac4d88f7?w=800&h=600&fit=crop",
+		personalityDescription: "The original space tourism company — glamorous, dramatic, and perpetually one launch away from changing everything",
+		vibes: [
+			{ name: "Clout", emoji: "🏰", value: 82, color: "#00d9ff" },
+			{ name: "Drama Level", emoji: "🎭", value: 92, color: "#ff006e" },
+			{ name: "Internet Hype", emoji: "🔥", value: 78, color: "#ff9500" },
+		],
+		culturalContext: {
+			title: "The OG Space Tourism Company",
+			sections: [
+				{ heading: "What They Do", content: "Virgin Galactic operates VSS Unity, a spaceplane that carries passengers to the edge of space (~85km) for a few minutes of weightlessness and a view of Earth's curvature. Tickets have sold for $450,000 each. They've already flown hundreds of paying customers and are now developing their next-generation Delta-class vehicle designed for much higher flight frequency." },
+				{ heading: "Why Gen Z Cares", content: "Before SpaceX made space cool again, Virgin Galactic was THE space tourism story. Richard Branson personally flew on the first passenger flight. The Delta-class spaceplane promises to cut costs dramatically and fly weekly — turning space tourism from a billionaire flex into something approaching a premium travel experience." },
+				{ heading: "The Risk Picture", content: "Virgin Galactic has been burning cash for decades and suspended commercial flights in 2023 to focus on the Delta build. The stock has been hammered. This is a pure bet that they successfully develop and operate Delta, achieve high flight rates, and that demand for $250K+ space experiences is deep enough to sustain a business." },
+			],
+		},
+		financials: {
+			peRatio: { label: "P/E Ratio", value: "N/A", explanation: "Price-to-Earnings ratio shows how much investors pay for each dollar of profit", culturalTranslation: "no earnings — spending on the Delta-class development" },
+			marketCap: { label: "Market Cap", value: "$622M", explanation: "The total value of all the company's shares combined", culturalTranslation: "small-cap space tourism bet — priced for survival not success" },
+			revenueGrowth: { label: "Revenue Growth", value: "-76%", explanation: "How much more money the company is making compared to last year", culturalTranslation: "revenue collapsed when flights were paused for Delta development" },
+			profitMargin: { label: "Profit Margin", value: "N/A", explanation: "What percentage of each sale becomes actual profit", culturalTranslation: "deeply unprofitable — every dollar goes to building the next spaceship" },
+			beta: { label: "Beta", value: "2.71", explanation: "How much the stock price swings compared to the overall market", culturalTranslation: "extremely volatile — moves 20-50% on any news about Delta progress" },
+			dividendYield: { label: "Dividend Yield", value: "0%", explanation: "The percentage of the stock price paid out as dividends each year", culturalTranslation: "no dividend — survival mode until Delta flies" },
+		},
+		interestCategories: ["tech", "travel"],
+	},
+	{
 		id: "gsat",
 		ticker: "GSAT",
 		name: "Globalstar",

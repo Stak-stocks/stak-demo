@@ -45,7 +45,7 @@ const NYSE_TICKERS = new Set([
 	// Consumer tech ADRs
 	"TSM","NVO","TM","SONY","BABA","SE","NU",
 	// EV / Space
-	"JOBY","ACHR",
+	"JOBY","ACHR","SPCE",
 	// Other
 	"WEX","SAM","SOUN",
 ]);
