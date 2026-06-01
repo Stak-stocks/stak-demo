@@ -310,9 +310,12 @@ export interface DailyMoveData {
 	direction: "up" | "down" | "flat";
 }
 
-export function getDailyMove(symbol: string, changePercent?: number) {
-	const pctQs = changePercent !== undefined ? `?pct=${changePercent.toFixed(4)}` : "";
-	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${pctQs}`);
+export function getDailyMove(symbol: string, changePercent?: number, name?: string) {
+	const params = new URLSearchParams();
+	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
+	if (name) params.set("name", name);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }
 
 export interface DailyBriefDeck {

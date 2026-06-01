@@ -523,7 +523,7 @@ function MyStakPage() {
 	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
 		// Include direction in key so a direction change (flat→down) fetches fresh content
 		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection],
-		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct),
+		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name),
 		enabled: !!selectedBrand && liveChangePct !== undefined,
 		staleTime: 30 * 60 * 1000,
 		refetchInterval: 30 * 60 * 1000,

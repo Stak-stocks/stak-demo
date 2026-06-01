@@ -702,55 +702,35 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const raw = (req.params["symbol"] as string).toUpperCase();
 	const symbol = resolveSymbol(raw);
 
-	// Frontend passes the live changePercent it already has so we never rely on
-	// a potentially stale Finnhub quote fetch here. Direction is included in the
-	// cache key so a direction change (flat→down) automatically busts the cache.
+	// Frontend passes the live changePercent and optional company name
 	const pctParam = parseFloat(req.query.pct as string);
 	const changePercent = isFinite(pctParam) ? pctParam : 0;
+	const companyName = (req.query.name as string | undefined)?.trim() || symbol;
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v3:${symbol}:${direction}`;
+	const cacheKey = `daily-move:v4:${symbol}:${direction}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
-	// Only fetch news — quote comes from the frontend now
-	const today = new Date();
-	const fmt = (d: Date) => d.toISOString().split("T")[0];
-	const fromDate = fmt(new Date(today.getTime() - 2 * 86400000));
-	const toDate = fmt(today);
-
-	const newsResult = await Promise.allSettled([
-		finnhubGet(`/company-news?symbol=${symbol}&from=${fromDate}&to=${toDate}`),
-	]);
-
-	type NewsItem = { headline: string; datetime: number };
-	const newsRaw = newsResult[0];
-	const allNews = newsRaw.status === "fulfilled" && Array.isArray(newsRaw.value)
-		? (newsRaw.value as NewsItem[]).sort((a, b) => b.datetime - a.datetime).slice(0, 5)
-		: [];
-	const headlinesText = allNews.length > 0
-		? allNews.map((n) => `- ${n.headline}`).join("\n")
-		: "No recent news available.";
-
 	const sign = changePercent >= 0 ? "+" : "";
 	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
+	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) {
-		const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
+		const fallback = { explanation: `${subject} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 		res.json(fallback);
 		return;
 	}
 
-	// Build prompt — include Finnhub headlines if available, but Google Search grounding
-	// means Gemini can find the real reason even when Finnhub has no coverage.
-	const newsContext = allNews.length > 0
-		? `\n\nRecent headlines from news feeds:\n${headlinesText}`
-		: "";
-	const prompt = `${symbol} stock is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.${newsContext}
+	// Pure Gemini + Google Search — no Finnhub dependency.
+	// Gemini searches the live web for today's specific catalyst.
+	const prompt = `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
 
-Search for the latest news about ${symbol} stock today and explain in 1-2 sentences why it is moving like this. Be specific — reference the actual catalyst (earnings, announcement, partnership, analyst upgrade, sector news, etc.). Write for a young investor who wants to understand quickly.
+Search the web right now for the specific reason why ${symbol} stock is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+
+Write 1-2 plain English sentences explaining the main catalyst to a young investor. Be specific — name the actual event or news item. Do not say "various factors" or be vague.
 
 Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 
