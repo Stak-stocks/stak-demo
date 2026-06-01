@@ -158,7 +158,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 
 	const { data: analystData } = useQuery({
 		queryKey: ["analyst", brand?.ticker],
-		queryFn: () => getAnalystData(brand!.ticker),
+		queryFn: () => getAnalystData(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
 		staleTime: 3 * 24 * 60 * 60 * 1000,
 		gcTime:    4 * 24 * 60 * 60 * 1000,
@@ -285,20 +285,27 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	})();
 	const earningsBeat = earningsData?.beat === true;
 
-	// 5. Price target — analyst avg target + % upside from current price
+	// 5. Price target — analyst low/avg/high + % upside from current price
+	const targetLow = analystData?.priceTarget?.low ?? null;
 	const targetAvg = analystData?.priceTarget?.avg ?? null;
+	const targetHigh = analystData?.priceTarget?.high ?? null;
 	const currentPrice = stockData?.quote?.price ?? null;
 	const upsidePct = targetAvg !== null && currentPrice !== null && currentPrice > 0
 		? ((targetAvg - currentPrice) / currentPrice) * 100
 		: null;
 	const priceTargetContent = targetAvg !== null
-		? `Average analyst target is $${targetAvg.toFixed(2)}${upsidePct !== null ? ` (${upsidePct > 0 ? "+" : ""}${upsidePct.toFixed(1)}% potential upside)` : ""}.`
+		? `Wall St. average target is $${targetAvg.toFixed(0)}${upsidePct !== null ? ` — ${upsidePct > 0 ? "+" : ""}${upsidePct.toFixed(1)}% from current price` : ""}${targetLow !== null && targetHigh !== null ? `. Range: $${targetLow.toFixed(0)} low to $${targetHigh.toFixed(0)} high.` : "."}`
 		: null;
 	const priceTargetRight = targetAvg !== null ? (
-		<div>
-			<p className="text-[14px] font-bold text-emerald-400">${targetAvg.toFixed(0)}</p>
+		<div className="text-right">
+			<p className="text-[15px] font-bold text-blue-400">${targetAvg.toFixed(0)}</p>
 			{upsidePct !== null && (
-				<p className="text-[10px] text-emerald-400/80">{upsidePct > 0 ? "+" : ""}{upsidePct.toFixed(1)}% upside</p>
+				<p className={`text-[10px] font-semibold ${upsidePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+					{upsidePct >= 0 ? "↑" : "↓"} {Math.abs(upsidePct).toFixed(1)}%
+				</p>
+			)}
+			{targetLow !== null && targetHigh !== null && (
+				<p className="text-[9px] text-slate-500 mt-[1px]">${targetLow.toFixed(0)}–${targetHigh.toFixed(0)}</p>
 			)}
 		</div>
 	) : null;
