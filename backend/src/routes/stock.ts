@@ -593,7 +593,8 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 stockRouter.get("/:symbol/analyst", async (req, res) => {
 	const raw = req.params.symbol.toUpperCase();
 	const symbol = resolveSymbol(raw);
-	const cacheKey = `analyst:${symbol}`;
+	const companyName = (req.query.name as string | undefined)?.trim();
+	const cacheKey = `analyst:v2:${symbol}`;
 
 	const cached = await cacheGet(cacheKey);
 	if (cached) { res.json(cached); return; }
@@ -608,12 +609,63 @@ stockRouter.get("/:symbol/analyst", async (req, res) => {
 
 	const latest = Array.isArray(recRaw) && recRaw.length > 0 ? recRaw[0] : null;
 
+	// Finnhub price target is behind a paywall — fall back to Gemini + Google Search
+	let priceTarget: { low: number | null; avg: number | null; high: number | null } | null =
+		targetRaw?.targetMean != null
+			? { low: targetRaw.targetLow ?? null, avg: targetRaw.targetMean, high: targetRaw.targetHigh ?? null }
+			: null;
+
+	if (priceTarget === null) {
+		const keys = getGeminiKeys();
+		const subject = companyName ? `${companyName} (${symbol})` : symbol;
+		const prompt = `Search for the current Wall Street analyst consensus price target for ${subject} stock.
+
+Find the official analyst price target consensus from financial sites like MarketBeat, TipRanks, Yahoo Finance, Barclays, or Bloomberg.
+
+Return ONLY a JSON object with exactly these fields:
+{ "low": 85, "avg": 107, "high": 130 }
+
+Where low/avg/high are numbers (no $ sign). If any value is not found, use null. Return null for all if no consensus data exists.`;
+
+		for (const key of keys) {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 15000);
+			try {
+				const gemRes = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							contents: [{ parts: [{ text: prompt }] }],
+							tools: [{ google_search: {} }],
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 100 },
+						}),
+						signal: controller.signal,
+					},
+				);
+				if (gemRes.status === 429) continue;
+				if (!gemRes.ok) break;
+				const data = await gemRes.json();
+				const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
+					.map((p: { text?: string }) => p.text ?? "").join("").trim()
+					.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+				try {
+					const parsed = JSON.parse(rawText);
+					if (parsed && typeof parsed === "object") {
+						const low  = typeof parsed.low  === "number" ? parsed.low  : null;
+						const avg  = typeof parsed.avg  === "number" ? parsed.avg  : null;
+						const high = typeof parsed.high === "number" ? parsed.high : null;
+						if (avg !== null) { priceTarget = { low, avg, high }; }
+					}
+				} catch { /* parse failed — try next key */ }
+				break;
+			} catch { /* timeout or error */ } finally { clearTimeout(timeout); }
+		}
+	}
+
 	const result = {
-		priceTarget: targetRaw?.targetMean != null ? {
-			low:  targetRaw.targetLow  ?? null,
-			avg:  targetRaw.targetMean ?? null,
-			high: targetRaw.targetHigh ?? null,
-		} : null,
+		priceTarget,
 		recommendation: latest ? {
 			strongBuy:  latest.strongBuy  ?? 0,
 			buy:        latest.buy        ?? 0,

@@ -264,8 +264,9 @@ export interface AnalystData {
 	} | null;
 }
 
-export function getAnalystData(symbol: string) {
-	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst`);
+export function getAnalystData(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst${qs}`);
 }
 
 export interface AnalystAction {

@@ -532,7 +532,7 @@ function MyStakPage() {
 
 	const { data: analystData, isLoading: analystLoading } = useQuery({
 		queryKey: ["analyst", selectedBrand?.ticker],
-		queryFn: () => getAnalystData(selectedBrand!.ticker),
+		queryFn: () => getAnalystData(selectedBrand!.ticker, selectedBrand!.name),
 		enabled: !!selectedBrand,
 		staleTime: 60 * 60 * 1000,
 		retry: 1,
