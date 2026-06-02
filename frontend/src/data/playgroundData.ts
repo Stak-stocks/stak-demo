@@ -1290,6 +1290,180 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 	},
 ];
 
+// ── What Would You Do? Scenarios ────────────────────────────────────────────
+
+export interface WWYDScenario {
+	id: string;
+	scenario: string;
+	options: QuizOption[];
+	bestId: string;
+	explanation: string;
+	xp: number;
+}
+
+export const WWYD_SCENARIOS: WWYDScenario[] = [
+	{
+		id: "wwyd-down-after-earnings",
+		scenario: "A stock in your watchlist drops 12% after earnings. Revenue beat but guidance was cut. What do you do first?",
+		options: [
+			{ id: "a", text: "Panic and remove it immediately" },
+			{ id: "b", text: "Read why guidance was cut before deciding" },
+			{ id: "c", text: "Buy more — it's cheaper now" },
+			{ id: "d", text: "Ignore it entirely" },
+		],
+		bestId: "b",
+		explanation: "The right first move is to understand why guidance was cut. Was it a one-time issue, macro headwinds, or a structural problem? Context determines whether you should hold, sell, or buy more. Panicking or ignoring it are both poor first steps.",
+		xp: 25,
+	},
+	{
+		id: "wwyd-up-30",
+		scenario: "A stock you saved is up 30% in 3 weeks after a product announcement. What do you do?",
+		options: [
+			{ id: "a", text: "Sell everything — lock in the gain" },
+			{ id: "b", text: "Buy more — momentum is strong" },
+			{ id: "c", text: "Re-evaluate: has the thesis changed or is it just hype?" },
+			{ id: "d", text: "Nothing — just watch it go higher" },
+		],
+		bestId: "c",
+		explanation: "A sharp 30% move warrants re-evaluation. Is the product announcement fundamentally worth 30% more company value? Or is this speculative hype? If the thesis is intact and valuation still makes sense, hold or add. If it looks stretched, trimming is rational.",
+		xp: 25,
+	},
+	{
+		id: "wwyd-beat-fell",
+		scenario: "A company beats both EPS and revenue by 10%+ but the stock falls 8% after-hours. What's your reaction?",
+		options: [
+			{ id: "a", text: "The market is wrong — buy the dip immediately" },
+			{ id: "b", text: "Something is wrong — dig into the earnings call for clues" },
+			{ id: "c", text: "Sell — if a beat causes a drop, the stock is broken" },
+			{ id: "d", text: "Wait until tomorrow and see what happens" },
+		],
+		bestId: "b",
+		explanation: "A drop despite a beat usually signals something in the report spooked investors — most often weak guidance, margin compression, or a worrying metric. Read the earnings call transcript before making any move. The market usually finds the hidden problem faster than headlines do.",
+		xp: 25,
+	},
+	{
+		id: "wwyd-high-growth-no-profit",
+		scenario: "You're considering adding a stock growing revenue at 60% YoY but losing money. What matters most?",
+		options: [
+			{ id: "a", text: "Revenue growth alone — losses don't matter for growth stocks" },
+			{ id: "b", text: "The path to profitability — are losses shrinking as revenue grows?" },
+			{ id: "c", text: "The current stock price — if it's cheap, buy it" },
+			{ id: "d", text: "Avoid all unprofitable companies" },
+		],
+		bestId: "b",
+		explanation: "Revenue growth is great, but the path to profitability matters enormously. Look for improving gross margins and operating leverage — signs that scale will eventually produce profits. Companies like Uber burned cash for years but had clear unit economics improving. Others burn cash indefinitely without a clear path.",
+		xp: 25,
+	},
+	{
+		id: "wwyd-analyst-upgrade",
+		scenario: "An analyst from Goldman Sachs upgrades a stock you own with a $50 higher price target. What do you do?",
+		options: [
+			{ id: "a", text: "Buy more immediately — Goldman is never wrong" },
+			{ id: "b", text: "Understand why they upgraded before acting" },
+			{ id: "c", text: "Sell — the upgrade is already priced in" },
+			{ id: "d", text: "Ignore analyst opinions entirely" },
+		],
+		bestId: "b",
+		explanation: "Analyst upgrades can be meaningful signal but the key question is why. What changed in their thesis — new product, better margins, industry tailwind? If the reason aligns with your own thesis, it's reinforcing. If it's vague or a valuation call on a recent dip, be more sceptical.",
+		xp: 20,
+	},
+	{
+		id: "wwyd-dividend-cut",
+		scenario: "A dividend stock you follow cuts its dividend by 40%. The stock is down 15% today. What's your first move?",
+		options: [
+			{ id: "a", text: "Buy immediately — 15% discount is a gift" },
+			{ id: "b", text: "Investigate why the dividend was cut before deciding" },
+			{ id: "c", text: "Sell — dividend cuts always mean the company is doomed" },
+			{ id: "d", text: "Hold without doing anything" },
+		],
+		bestId: "b",
+		explanation: "A dividend cut is a serious signal, but context is everything. Was it cut to fund an acquisition or pivotal investment? Or because cash flow collapsed? JNJ cut its consumer spinoff dividend temporarily — that's very different from a bank cutting due to loan losses. Understand the reason first.",
+		xp: 20,
+	},
+	{
+		id: "wwyd-entire-sector-selling",
+		scenario: "The entire tech sector is down 15% this week due to a Fed rate hike. A stock you've been watching is now at a 52-week low. What do you do?",
+		options: [
+			{ id: "a", text: "Buy it — sector dips are always opportunities" },
+			{ id: "b", text: "Check if the business fundamentals changed or if it's just rate fear" },
+			{ id: "c", text: "Avoid tech entirely until rates stabilise" },
+			{ id: "d", text: "Wait for the bottom before buying" },
+		],
+		bestId: "b",
+		explanation: "Sector-wide selloffs create opportunities — but only if the underlying business is still healthy. Check: is the company still growing? Are margins intact? Did anything change in the business or just the macro environment? Rate-driven dips in solid growth companies have historically been good entry points.",
+		xp: 25,
+	},
+];
+
+// ── Practice Mode tickers ─────────────────────────────────────────────────────
+// A curated selection of well-known brands for practice scenarios
+
+export const PRACTICE_TICKERS = [
+	{ ticker: "AAPL", name: "Apple", prompt: "High-margin hardware and software company with massive buybacks. Premium brand with strong loyalty." },
+	{ ticker: "TSLA", name: "Tesla", prompt: "EV pioneer with high growth, high valuation, and volatile earnings. Elon Musk drives both the brand and the swings." },
+	{ ticker: "NVDA", name: "NVIDIA", prompt: "AI chip leader seeing unprecedented demand. Revenue and margins have exploded. Valuation is stretched by historical standards." },
+	{ ticker: "META", name: "Meta", prompt: "Ad-revenue giant with strong AI infrastructure. Trades at a reasonable multiple for its growth rate." },
+	{ ticker: "NFLX", name: "Netflix", prompt: "Streaming leader with improving margins from ad-tier and password sharing crackdown. Subscriber growth stabilising." },
+	{ ticker: "COIN", name: "Coinbase", prompt: "Crypto exchange with revenue highly tied to market cycle. Volatile but the largest regulated US crypto platform." },
+	{ ticker: "PLTR", name: "Palantir", prompt: "AI data platform for government and enterprise. Revenue growing but expensive — P/E is very high." },
+	{ ticker: "SHOP", name: "Shopify", prompt: "E-commerce infrastructure for SMBs. Strong revenue growth but profitability has been inconsistent." },
+	{ ticker: "SBUX", name: "Starbucks", prompt: "Global coffee brand facing operational challenges. High dividend yield but growth has slowed." },
+	{ ticker: "RBLX", name: "Roblox", prompt: "Gaming platform for young users. Revenue growing, but profitability distant and competition intense." },
+];
+
+// ── Build Your First Watchlist game ──────────────────────────────────────────
+
+export type WatchlistSlotType = "familiar" | "growth" | "defensive" | "dividend" | "speculative";
+
+export interface WatchlistSlot {
+	type: WatchlistSlotType;
+	label: string;
+	description: string;
+	emoji: string;
+	examples: string[];
+}
+
+export const WATCHLIST_SLOTS: WatchlistSlot[] = [
+	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "A company you use or know well in real life.", examples: ["Apple","Nike","Starbucks","Netflix","Disney"] },
+	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "Another brand you know and trust.", examples: ["Amazon","Spotify","Roblox","McDonald's","Tesla"] },
+	{ type: "growth",     label: "Growth Stock",      emoji: "🚀", description: "A company growing revenue fast — high risk, high potential.", examples: ["NVIDIA","Palantir","Shopify","Datadog","Duolingo"] },
+	{ type: "growth",     label: "Growth Stock",      emoji: "🚀", description: "Another high-growth opportunity.", examples: ["CrowdStrike","Cloudflare","Coinbase","SoundHound","Roblox"] },
+	{ type: "defensive",  label: "Defensive Stock",   emoji: "🛡️", description: "Stable company that holds up in downturns.", examples: ["Procter & Gamble","Johnson & Johnson","Walmart","Costco","Coca-Cola"] },
+	{ type: "dividend",   label: "Dividend Stock",    emoji: "💵", description: "Pays regular cash to shareholders.", examples:["Coca-Cola","JPMorgan","Microsoft","Apple","Verizon"] },
+	{ type: "speculative",label: "Speculative Play",  emoji: "🎲", description: "High risk, high potential — moon or bust.", examples: ["Virgin Galactic","AST SpaceMobile","Rivian","Joby Aviation","SoundHound"] },
+];
+
+export interface WatchlistBrand {
+	id: string;
+	ticker: string;
+	name: string;
+	types: WatchlistSlotType[];
+	description: string;
+}
+
+export const WATCHLIST_BRANDS: WatchlistBrand[] = [
+	{ id: "aapl",  ticker: "AAPL",  name: "Apple",         types: ["familiar","dividend"],    description: "Consumer tech giant with high margins, loyal users, and a growing services business." },
+	{ id: "tsla",  ticker: "TSLA",  name: "Tesla",         types: ["familiar","growth","speculative"], description: "EV and energy leader. High growth, high valuation, volatile." },
+	{ id: "nvda",  ticker: "NVDA",  name: "NVIDIA",        types: ["growth"],                 description: "AI chip leader with explosive revenue growth driven by data center demand." },
+	{ id: "sbux",  ticker: "SBUX",  name: "Starbucks",     types: ["familiar","dividend"],    description: "Global coffee chain. Steady dividend but facing growth challenges." },
+	{ id: "nflx",  ticker: "NFLX",  name: "Netflix",       types: ["familiar","growth"],      description: "Streaming leader improving margins with ads and password sharing crackdown." },
+	{ id: "ko",    ticker: "KO",    name: "Coca-Cola",     types: ["defensive","dividend"],   description: "130-year-old beverages giant. Stable earnings, growing dividend, recession-resistant." },
+	{ id: "wmt",   ticker: "WMT",   name: "Walmart",       types: ["defensive","dividend"],   description: "Retail giant with stable revenue, growing e-commerce, and reliable dividend." },
+	{ id: "jnj",   ticker: "JNJ",   name: "Johnson & Johnson", types: ["defensive","dividend"], description: "Healthcare conglomerate. Decades of dividend growth. Defensive holding." },
+	{ id: "meta",  ticker: "META",  name: "Meta",          types: ["growth","familiar"],      description: "Social media and AI infrastructure. Strong profit margins and growing revenue." },
+	{ id: "coin",  ticker: "COIN",  name: "Coinbase",      types: ["speculative","growth"],   description: "Crypto exchange with revenue tied directly to crypto market cycles." },
+	{ id: "pltr",  ticker: "PLTR",  name: "Palantir",      types: ["speculative","growth"],   description: "AI data platform for government and enterprise. Growing fast, expensive valuation." },
+	{ id: "msft",  ticker: "MSFT",  name: "Microsoft",     types: ["growth","dividend","defensive"], description: "Cloud, AI, Office, and Xbox. Diversified tech giant with growing dividend." },
+	{ id: "amzn",  ticker: "AMZN",  name: "Amazon",        types: ["familiar","growth"],      description: "E-commerce and AWS cloud. Two dominant businesses under one roof." },
+	{ id: "rblx",  ticker: "RBLX",  name: "Roblox",        types: ["familiar","speculative"], description: "Gaming platform for Gen Z. High growth but profitability is distant." },
+	{ id: "asts",  ticker: "ASTS",  name: "AST SpaceMobile", types: ["speculative"],          description: "Satellite broadband startup. Pre-revenue, high risk, massive potential." },
+	{ id: "spce",  ticker: "SPCE",  name: "Virgin Galactic",  types: ["speculative"],         description: "Space tourism company rebuilding with Delta-class ships. Volatile and risky." },
+	{ id: "rivn",  ticker: "RIVN",  name: "Rivian",        types: ["speculative","growth"],   description: "EV truck startup. Growing production, still losing money, high risk." },
+	{ id: "cost",  ticker: "COST",  name: "Costco",        types: ["defensive","dividend"],   description: "Membership warehouse retailer. Loyal customer base, strong margins, reliable." },
+	{ id: "shop",  ticker: "SHOP",  name: "Shopify",       types: ["growth"],                 description: "E-commerce infrastructure for SMBs. Strong revenue growth, inconsistent profits." },
+	{ id: "nke",   ticker: "NKE",   name: "Nike",          types: ["familiar","dividend"],    description: "Global sportswear leader. Dividend payer with brand power but recent challenges." },
+];
+
 // ── Lesson category config ────────────────────────────────────────────────────
 
 export const LESSON_CATEGORIES: { id: LessonCategory; emoji: string; color: string }[] = [
