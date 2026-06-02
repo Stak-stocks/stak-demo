@@ -104,8 +104,13 @@ function Root() {
 		if (!user || !account?.onboardingCompleted || isAuthPage) return;
 		const today = new Date().toISOString().split("T")[0];
 		if (account.lastBriefDate === today) return;
-		updateLastBriefDate(today).catch(() => {});
-		const t = setTimeout(() => setBriefOpen(true), 400);
+		// Show first, then write — this way the date is only marked "seen" once the modal
+		// actually opens. Writing before the open was causing the timeout to be cancelled
+		// (by navigation or re-renders) while the date was already saved, silently skipping the brief.
+		const t = setTimeout(() => {
+			setBriefOpen(true);
+			updateLastBriefDate(today).catch(() => {});
+		}, 400);
 		return () => clearTimeout(t);
 	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
