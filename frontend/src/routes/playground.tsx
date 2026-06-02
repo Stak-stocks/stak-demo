@@ -941,25 +941,43 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [phase, setPhase] = useState<"question" | "outcome">("question");
+	const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
 	const xpAwarded = useRef(false);
 
 	const scenario = EARNINGS_SCENARIOS.find(s => s.id === activeId);
+	const currentIdx = EARNINGS_SCENARIOS.findIndex(s => s.id === activeId);
+	const nextScenario = EARNINGS_SCENARIOS[currentIdx + 1];
+
+	const openScenario = (id: string) => {
+		setActiveId(id);
+		setSelected(null);
+		setPhase("question");
+		xpAwarded.current = false;
+	};
+
+	const backToList = () => {
+		setActiveId(null);
+		setSelected(null);
+		setPhase("question");
+	};
 
 	if (scenario) {
+		const alreadyDone = completedIds.has(scenario.id);
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<button type="button" onClick={() => { setActiveId(null); setSelected(null); setPhase("question"); }} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
+					<button type="button" onClick={backToList} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
 						<ChevronRight size={14} className="rotate-180" /> All Scenarios
 					</button>
 					<div className="flex items-center gap-[10px] mb-[16px]">
 						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
 							<FlaskConical size={18} />
 						</div>
-						<div>
+						<div className="flex-1 min-w-0">
 							<p className="text-[12px] dark:text-slate-400 text-slate-500">Earnings Lab</p>
 							<h2 className="text-[18px] font-extrabold">{scenario.company} ({scenario.ticker})</h2>
 						</div>
+						{alreadyDone && <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>}
 					</div>
 
 					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px] space-y-[8px]">
@@ -990,7 +1008,14 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 										letter={LETTERS[i] ?? String(i + 1)}
 										text={opt.text}
 										state={selected === opt.id ? "selected" : "idle"}
-										onClick={() => { if (!selected) { setSelected(opt.id); setPhase("outcome"); if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); } } }}
+										onClick={() => {
+											if (!selected) {
+												setSelected(opt.id);
+												setPhase("outcome");
+												setCompletedIds(prev => new Set([...prev, scenario.id]));
+												if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); }
+											}
+										}}
 									/>
 								))}
 							</div>
@@ -1001,10 +1026,24 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[4px]">What Actually Happened</p>
 								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
 							</div>
-							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[14px]">
+							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">
 								<p className="text-[12px] dark:text-slate-400 text-slate-500 font-semibold uppercase tracking-wide mb-[4px]">The Lesson</p>
 								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-								<p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>
+								{!alreadyDone && <p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>}
+							</div>
+							{/* Navigation buttons */}
+							<div className="space-y-[8px]">
+								{nextScenario && (
+									<button type="button" onClick={() => openScenario(nextScenario.id)}
+										className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+										style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}>
+										Next: {nextScenario.company} →
+									</button>
+								)}
+								<button type="button" onClick={backToList}
+									className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+									All Scenarios
+								</button>
 							</div>
 						</>
 					)}
@@ -1013,28 +1052,49 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 		);
 	}
 
+	const doneCount = completedIds.size;
+
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
 					<ChevronRight size={14} className="rotate-180" /> Back
 				</button>
-				<h2 className="text-[22px] font-extrabold mb-[4px]">Earnings Lab</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Learn why stocks react the way they do after earnings.</p>
-				<div className="space-y-[10px]">
-					{EARNINGS_SCENARIOS.map(s => (
-						<button key={s.id} type="button" onClick={() => { setActiveId(s.id); xpAwarded.current = false; }}
-							className="w-full flex items-center gap-[14px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80">
-							<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
-								<FlaskConical size={18} />
+				<h2 className="text-[22px] font-extrabold mb-[2px]">Earnings Lab</h2>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Learn why stocks react the way they do after earnings.</p>
+
+				{/* Progress indicator */}
+				{doneCount > 0 && (
+					<div className="flex items-center gap-[10px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[10px] mb-[16px]">
+						<div className="flex-1">
+							<div className="flex items-center justify-between mb-[4px]">
+								<p className="text-[12px] font-semibold">{doneCount}/{EARNINGS_SCENARIOS.length} completed</p>
+								{doneCount === EARNINGS_SCENARIOS.length && <span className="text-[11px] text-emerald-400 font-bold">All done! 🎉</span>}
 							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-[14px] font-bold">{s.company} Earnings</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 line-clamp-1">{s.context.slice(0, 60)}…</p>
+							<div className="h-[4px] rounded-full bg-foreground/10">
+								<div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${(doneCount / EARNINGS_SCENARIOS.length) * 100}%` }} />
 							</div>
-							<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
-						</button>
-					))}
+						</div>
+					</div>
+				)}
+
+				<div className="space-y-[8px]">
+					{EARNINGS_SCENARIOS.map(s => {
+						const done = completedIds.has(s.id);
+						return (
+							<button key={s.id} type="button" onClick={() => openScenario(s.id)}
+								className={`w-full flex items-center gap-[14px] rounded-[13px] border px-[14px] py-[12px] text-left active:opacity-80 ${done ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-foreground/10 bg-surface-1"}`}>
+								<div className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] ${done ? "bg-emerald-500/15 text-emerald-400" : "bg-purple-500/10 text-purple-400"}`}>
+									{done ? <span className="text-[18px] font-bold">✓</span> : <FlaskConical size={18} />}
+								</div>
+								<div className="flex-1 min-w-0">
+									<p className="text-[14px] font-bold">{s.company} Earnings</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 line-clamp-1">{s.context.slice(0, 60)}…</p>
+								</div>
+								<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
+							</button>
+						);
+					})}
 				</div>
 			</div>
 		</div>
