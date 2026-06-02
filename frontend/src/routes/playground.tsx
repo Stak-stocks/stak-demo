@@ -187,6 +187,8 @@ export function PlaygroundPage() {
 			<LessonPlayer
 				lessonId={activeLessonId}
 				account={account}
+				completedLessons={completedLessons}
+				totalLessons={totalLessons}
 				onBack={() => setActiveView("lessons")}
 				onComplete={() => setActiveView("lessons")}
 			/>
@@ -477,11 +479,15 @@ function LessonLibrary({
 function LessonPlayer({
 	lessonId,
 	account,
+	completedLessons,
+	totalLessons,
 	onBack,
 	onComplete,
 }: {
 	lessonId: string;
 	account: ReturnType<typeof useAccount>["account"];
+	completedLessons: number;
+	totalLessons: number;
 	onBack: () => void;
 	onComplete: () => void;
 }) {
@@ -521,6 +527,15 @@ function LessonPlayer({
 		setShowResult(true);
 		if (!alreadyCompleted) {
 			await completeLesson(lesson.id, lesson.xp);
+			// Level-up check — show toast if XP crosses a level boundary
+			const prevXp = account?.totalXp ?? 0;
+			const newXp = prevXp + lesson.xp;
+			const LEVEL_THRESHOLDS = [100, 300, 600, 1000];
+			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
+			if (crossed) {
+				const levelNames: Record<number, string> = { 100: "Learner 📚", 300: "Investor 📈", 600: "Analyst 🔬", 1000: "Expert 🏆" };
+				import("sonner").then(({ toast }) => toast.success(`Level up! You're now a ${levelNames[crossed]}`, { duration: 4000 }));
+			}
 		}
 	};
 
@@ -550,10 +565,17 @@ function LessonPlayer({
 				</div>
 
 				{phase === "done" ? (
-					<div className="flex-1 flex flex-col items-center justify-center text-center gap-[12px]">
-						<span className="text-[64px]">🎉</span>
-						<h2 className="text-[22px] font-extrabold">Lesson Complete!</h2>
-						<p className="dark:text-slate-400 text-slate-500 text-[14px]">You earned <span className="text-amber-400 font-bold">+{lesson.xp} XP</span></p>
+					<div className="flex-1 flex flex-col items-center justify-center text-center gap-[10px]">
+						<span className="text-[72px] answer-pop" style={{display:"block"}}>🎉</span>
+						<h2 className="text-[24px] font-extrabold mt-[4px]">Lesson Complete!</h2>
+						<div className="flex items-center gap-[8px] rounded-full bg-amber-500/15 border border-amber-500/25 px-[16px] py-[8px]">
+							<Star size={16} className="text-amber-400" />
+							<span className="text-[14px] font-bold text-amber-400">+{lesson.xp} XP earned</span>
+						</div>
+						{alreadyCompleted && <p className="text-[12px] dark:text-slate-400 text-slate-500">(You already had this one — no double XP)</p>}
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 mt-[4px]">
+							{completedLessons + (alreadyCompleted ? 0 : 1)}/{totalLessons} lessons done
+						</p>
 					</div>
 				) : phase === "cards" ? (
 					<div className="flex-1 flex flex-col"
@@ -603,20 +625,31 @@ function LessonPlayer({
 							</div>
 							{showResult && (
 								<div className={`mt-[16px] rounded-[12px] p-[14px] ${isCorrect ? "bg-emerald-500/10 border border-emerald-500/25" : "bg-rose-500/10 border border-rose-500/25"}`}>
-									<p className="text-[13px] font-bold mb-[4px] ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">{isCorrect ? "Correct! 🎉" : "Not quite."}</p>
+									<p className={`text-[13px] font-bold mb-[4px] ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>{isCorrect ? "Correct! 🎉" : "Not quite — but now you know."}</p>
 									<p className="text-[12px] dark:text-slate-300 text-slate-600">{lesson.quiz.explanation}</p>
 								</div>
 							)}
 						</div>
 						{showResult && (
-							<button
-								type="button"
-								onClick={handleFinish}
-								className="mt-[16px] w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white shadow-lg active:opacity-80"
-								style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}
-							>
-								Finish · +{lesson.xp} XP
-							</button>
+							<div className="mt-[16px] space-y-[8px]">
+								<button
+									type="button"
+									onClick={handleFinish}
+									className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white shadow-lg active:opacity-80"
+									style={{ background: isCorrect ? "linear-gradient(90deg,#10b981,#3b82f6)" : "linear-gradient(90deg,#3b82f6,#6366f1)" }}
+								>
+									{isCorrect ? `Finish · +${lesson.xp} XP 🎉` : "Got it — finish lesson"}
+								</button>
+								{!isCorrect && (
+									<button
+										type="button"
+										onClick={() => { setSelectedOption(null); setShowResult(false); }}
+										className="w-full h-[40px] rounded-[12px] font-medium text-[13px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80"
+									>
+										Try again
+									</button>
+								)}
+							</div>
 						)}
 					</div>
 				)}
@@ -702,7 +735,7 @@ function DailyChallengeView({
 
 // ── Stock Battles ─────────────────────────────────────────────────────────
 
-function BattleDetail({ battleId, onBack }: { battleId: string; onBack: () => void }) {
+function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack: () => void; onResult?: (won: boolean) => void }) {
 	const battle = STOCK_BATTLES.find(b => b.id === battleId)!;
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const { addXp } = useAccount();
@@ -711,6 +744,10 @@ function BattleDetail({ battleId, onBack }: { battleId: string; onBack: () => vo
 		if (selected) return;
 		setSelected(side);
 		if (!xpAwarded.current) { xpAwarded.current = true; addXp(battle.xp).catch(() => {}); }
+		// Report win/loss once live data is available; if not available, skip
+		setTimeout(() => {
+			if (liveWinner) onResult?.(side === liveWinner);
+		}, 50);
 	};
 
 	const { data: dataA } = useQuery({
@@ -828,9 +865,23 @@ function BattleDetail({ battleId, onBack }: { battleId: string; onBack: () => vo
 
 function BattlesView({ onBack }: { onBack: () => void }) {
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
+	const [results, setResults] = useState<Record<string, "win" | "loss">>({});
+
+	const wins = Object.values(results).filter(r => r === "win").length;
+	const total = Object.keys(results).length;
+
+	const handleBattleResult = (battleId: string, won: boolean) => {
+		setResults(r => ({ ...r, [battleId]: won ? "win" : "loss" }));
+	};
 
 	if (activeBattleId) {
-		return <BattleDetail battleId={activeBattleId} onBack={() => setActiveBattleId(null)} />;
+		return (
+			<BattleDetail
+				battleId={activeBattleId}
+				onBack={() => setActiveBattleId(null)}
+				onResult={(won) => handleBattleResult(activeBattleId, won)}
+			/>
+		);
 	}
 
 	return (
@@ -839,22 +890,44 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
 					<ChevronRight size={14} className="rotate-180" /> Back
 				</button>
-				<h2 className="text-[22px] font-extrabold mb-[4px]">Stock Battles</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Pick the winner. See the real numbers. {STOCK_BATTLES.length} matchups.</p>
-				<div className="space-y-[10px]">
-					{STOCK_BATTLES.map(b => (
-						<button key={b.id} type="button" onClick={() => setActiveBattleId(b.id)}
-							className="w-full flex items-center gap-[14px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80">
-							<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] bg-rose-500/10 text-rose-400">
-								<Swords size={18} />
+				<h2 className="text-[22px] font-extrabold mb-[2px]">Stock Battles</h2>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Pick the winner. See the real numbers.</p>
+
+				{/* Win rate banner */}
+				{total > 0 && (
+					<div className="flex items-center gap-[10px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[10px] mb-[16px]">
+						<div className="grid h-[36px] w-[36px] place-items-center rounded-[9px] bg-rose-500/10 text-rose-400">
+							<Swords size={18} />
+						</div>
+						<div className="flex-1">
+							<p className="text-[12px] font-bold">Your Record: {wins}W – {total - wins}L</p>
+							<div className="h-[4px] rounded-full bg-foreground/10 mt-[4px]">
+								<div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(wins / total) * 100}%` }} />
 							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-[14px] font-bold">{b.nameA} vs {b.nameB}</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.category} · {b.metricLabel}</p>
-							</div>
-							<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
-						</button>
-					))}
+						</div>
+						<p className={`text-[14px] font-extrabold ${wins / total >= 0.5 ? "text-emerald-400" : "text-rose-400"}`}>
+							{Math.round((wins / total) * 100)}%
+						</p>
+					</div>
+				)}
+
+				<div className="space-y-[8px]">
+					{STOCK_BATTLES.map(b => {
+						const result = results[b.id];
+						return (
+							<button key={b.id} type="button" onClick={() => setActiveBattleId(b.id)}
+								className={`w-full flex items-center gap-[14px] rounded-[13px] border px-[14px] py-[12px] text-left active:opacity-80 ${result ? (result === "win" ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-rose-500/25 bg-rose-500/[0.04]") : "border-foreground/10 bg-surface-1"}`}>
+								<div className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[10px] ${result ? (result === "win" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400") : "bg-rose-500/10 text-rose-400"}`}>
+									{result ? (result === "win" ? "✓" : "✗") : <Swords size={17} />}
+								</div>
+								<div className="flex-1 min-w-0">
+									<p className="text-[14px] font-bold">{b.nameA} vs {b.nameB}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.category} · {b.metricLabel}</p>
+								</div>
+								<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
+							</button>
+						);
+					})}
 				</div>
 			</div>
 		</div>
@@ -1447,19 +1520,48 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				{tickers.length > 0 && (
 					<div className="mb-[16px]">
 						<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Holdings · ${allocation.toFixed(0)} per position</p>
+
+						{/* P&L bar chart */}
+						{holdings.some(h => h.pricePct !== null) && (
+							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px] mb-[8px]">
+								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[8px] uppercase tracking-wide">P&L Since Added</p>
+								<div className="space-y-[6px]">
+									{holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0)).map(h => {
+										const pct = h.pricePct ?? 0;
+										const maxAbs = Math.max(...holdings.filter(x => x.pricePct !== null).map(x => Math.abs(x.pricePct ?? 0)), 1);
+										const barWidth = Math.min(100, (Math.abs(pct) / maxAbs) * 100);
+										return (
+											<div key={h.ticker} className="flex items-center gap-[8px]">
+												<p className="text-[11px] font-bold w-[36px] shrink-0">{h.ticker}</p>
+												<div className="flex-1 h-[6px] rounded-full bg-foreground/10 overflow-hidden">
+													<div
+														className={`h-full rounded-full ${pct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
+														style={{ width: `${barWidth}%` }}
+													/>
+												</div>
+												<p className={`text-[11px] font-bold w-[44px] text-right shrink-0 ${pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+													{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+												</p>
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						)}
+
 						<div className="space-y-[6px]">
 							{holdings.map(h => (
 								<div key={h.ticker} className="flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px]">
 									<div className="flex-1 min-w-0">
 										<p className="text-[14px] font-bold">{h.ticker}</p>
-										{h.currentPrice && <p className="text-[12px] dark:text-slate-400 text-slate-500">${h.currentPrice.toFixed(2)}</p>}
+										{h.currentPrice && <p className="text-[12px] dark:text-slate-400 text-slate-500">${h.currentPrice.toFixed(2)}{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}</p>}
 									</div>
-									{h.pricePct !== null && (
+									{h.pricePct !== null ? (
 										<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
 											{h.pricePct >= 0 ? '+' : ''}{h.pricePct.toFixed(1)}%
 										</p>
-									)}
-									<button type="button" onClick={() => removeFromSandbox(h.ticker)} className="text-[11px] text-rose-400 hover:text-rose-300 px-[6px]">✕</button>
+									) : <p className="text-[11px] dark:text-slate-500 text-slate-400">Loading…</p>}
+									<button type="button" onClick={() => removeFromSandbox(h.ticker)} className="text-[11px] text-rose-400 px-[6px]">✕</button>
 								</div>
 							))}
 						</div>
