@@ -1866,13 +1866,16 @@ const SANDBOX_CAT_CONFIG: Record<string, { label: string; color: string; bar: st
 };
 
 function SandboxView({ onBack }: { onBack: () => void }) {
-	const { account, addToSandbox, sellFromSandbox, initSandboxCash } = useAccount();
+	const { account, addToSandbox, sellFromSandbox, initSandboxCash, resetSandbox, markSandboxMilestone } = useAccount();
 	const queryClient = useQueryClient();
 	const sandbox = account?.sandboxPortfolio ?? {};
 	const tickers = Object.keys(sandbox);
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"pnl" | "today" | "recent">("recent");
 	const [confirmSell, setConfirmSell] = useState<string | null>(null);
+	const [thesis, setThesis] = useState("");
+	const [showHistory, setShowHistory] = useState(false);
+	const [confirmReset, setConfirmReset] = useState(false);
 
 	// Initialise cash on first open (handles existing users with positions but no cash field)
 	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
@@ -1880,6 +1883,12 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// Cash available — default to 10000 if not yet initialised
 	const sandboxCash = account?.sandboxCash ?? (account?.sandboxPortfolio !== undefined ? 0 : SANDBOX_BUDGET);
 	const canAddMore = sandboxCash >= SANDBOX_PER_POSITION && tickers.length < SANDBOX_MAX_POSITIONS;
+
+	// Trade history & win rate
+	const tradeHistory = account?.sandboxTradeHistory ?? [];
+	const sells = tradeHistory.filter(t => t.action === "sell");
+	const wins = sells.filter(t => (t.pnl ?? 0) > 0).length;
+	const winRate = sells.length > 0 ? Math.round((wins / sells.length) * 100) : null;
 	const [showHowItWorks, setShowHowItWorks] = useState(() =>
 		typeof window !== "undefined" && !localStorage.getItem("sandbox-how-it-works-seen")
 	);
@@ -1965,6 +1974,27 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const topWinner = holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0))[0];
 	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
 
+	// Milestone detection — celebrate when total portfolio value crosses round numbers
+	const totalPortfolioValue = totalValue + sandboxCash;
+	useEffect(() => {
+		if (tickers.length === 0) return;
+		const MILESTONES = [10500, 11000, 12000, 15000, 20000];
+		const celebrated = account?.sandboxMilestones ?? [];
+		const crossed = MILESTONES.find(m => totalPortfolioValue >= m && !celebrated.includes(m));
+		if (!crossed) return;
+		markSandboxMilestone(crossed).catch(() => {});
+		import("sonner").then(({ toast }) => toast.custom(() => (
+			<div className="flex items-center gap-[12px] rounded-[14px] border border-emerald-500/30 bg-emerald-500/[0.1] px-[14px] py-[12px] shadow-lg">
+				<span className="text-[28px] shrink-0">🚀</span>
+				<div>
+					<p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-[1px]">Portfolio Milestone</p>
+					<p className="text-[14px] font-extrabold text-foreground">Portfolio crossed ${crossed.toLocaleString()}!</p>
+					<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Your picks are paying off 📈</p>
+				</div>
+			</div>
+		), { duration: 5000 }));
+	}, [totalPortfolioValue, account?.sandboxMilestones]);
+
 	// Stocks in My STAK not yet in sandbox
 	const stakNotInSandbox = useMemo(() => {
 		const stakIds = new Set(account?.stakBrandIds ?? []);
@@ -1979,8 +2009,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		if (!price) {
 			try { price = (await getStockData(ticker.toUpperCase()))?.quote?.price ?? null; } catch { /* ignore */ }
 		}
-		await addToSandbox(ticker.toUpperCase(), price);
+		await addToSandbox(ticker.toUpperCase(), price, thesis.trim() || undefined);
 		setAdding(false);
+		setThesis("");
 	};
 
 	return (
@@ -2073,6 +2104,11 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							)}
 							<div className="flex items-center justify-between text-[12px]">
 								<span className="dark:text-slate-400 text-slate-500">{tickers.length} positions · ${investedTotal.toLocaleString()} invested</span>
+								{winRate !== null && (
+									<span className={`font-semibold ${winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
+										{wins}W/{sells.length - wins}L · {winRate}% wins
+									</span>
+								)}
 								<div className="flex items-center gap-[10px]">
 									{topWinner && <span className="text-emerald-400 font-semibold">{topWinner.ticker} +{topWinner.pricePct?.toFixed(1)}%</span>}
 									{topLoser && topLoser.ticker !== topWinner?.ticker && <span className="text-rose-400 font-semibold">{topLoser.ticker} {topLoser.pricePct?.toFixed(1)}%</span>}
@@ -2169,10 +2205,23 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 											{/* Name + price */}
 											<div className="flex-1 min-w-0">
 												<p className="text-[13px] font-bold leading-none">{h.brand?.name ?? h.ticker}</p>
-												<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">
+												<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
 													{h.currentPrice ? `$${h.currentPrice.toFixed(2)}` : h.ticker}
 													{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}
 												</p>
+												{/* Days held + thesis */}
+												<div className="flex items-center gap-[6px] mt-[3px] flex-wrap">
+													{(() => {
+														const days = Math.floor((Date.now() - h.entry.addedAt) / 86400000);
+														return <span className="text-[10px] dark:text-slate-500 text-slate-400">{days === 0 ? "Today" : days === 1 ? "1 day" : `${days} days`}</span>;
+													})()}
+													{h.changePercent !== null && spyChangeToday !== null && (
+														<span className={`text-[10px] ${h.changePercent > spyChangeToday ? "text-emerald-400/70" : "text-rose-400/70"}`}>
+															vs S&P {h.changePercent > spyChangeToday ? "▲" : "▼"}
+														</span>
+													)}
+												</div>
+												{h.entry.thesis && <p className="text-[10px] dark:text-slate-500 text-slate-400 italic mt-[2px] truncate">"{h.entry.thesis}"</p>}
 											</div>
 											{/* P&L + dollar + today */}
 											<div className="text-right shrink-0">
@@ -2222,7 +2271,21 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 															className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">
 															Keep holding
 														</button>
-														<button type="button" onClick={() => { sellFromSandbox(h.ticker, sellValue); setConfirmSell(null); }}
+														<button type="button" onClick={() => {
+																	sellFromSandbox(h.ticker, sellValue, h.currentPrice);
+																	setConfirmSell(null);
+																	const won = sellPnl >= 0;
+																	import("sonner").then(({ toast }) => toast.custom(() => (
+																		<div className={`flex items-center gap-[12px] rounded-[14px] border px-[14px] py-[12px] shadow-lg ${won ? "border-emerald-500/30 bg-emerald-500/[0.1]" : "border-rose-500/30 bg-rose-500/[0.1]"}`}>
+																			<span className="text-[28px] shrink-0">{won ? "💰" : "📉"}</span>
+																			<div>
+																				<p className={`text-[11px] font-bold uppercase tracking-wide mb-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "Profitable Trade" : "Loss Taken"}</p>
+																				<p className="text-[14px] font-extrabold text-foreground">Sold {h.brand?.name ?? h.ticker}</p>
+																				<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(0)} · {won ? "+" : ""}{((sellPnl / SANDBOX_PER_POSITION) * 100).toFixed(1)}%</p>
+																			</div>
+																		</div>
+																	), { duration: 4000 }));
+																}}
 															className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">
 															Confirm sell
 														</button>
@@ -2261,7 +2324,18 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								autoFocus
 								className="flex-1 bg-transparent text-[14px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
 							/>
-							<button type="button" onClick={() => { setAdding(false); setSearch(""); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
+							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
+						</div>
+						{/* Thesis input */}
+						<div className="px-[14px] py-[10px] border-b border-foreground/[0.06]">
+							<input
+								type="text"
+								value={thesis}
+								onChange={e => setThesis(e.target.value)}
+								placeholder="Why are you buying this? (optional)"
+								maxLength={80}
+								className="w-full bg-transparent text-[12px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none italic"
+							/>
 						</div>
 						{/* Brand list */}
 						<div className="max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
@@ -2326,6 +2400,53 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					</div>
 				)}
 			</div>
+
+				{/* Trade History */}
+				{tradeHistory.length > 0 && (
+					<div className="mt-[16px]">
+						<button type="button" onClick={() => setShowHistory(h => !h)}
+							className="w-full flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">
+							<span>Trade History · {tradeHistory.length} trades</span>
+							<ChevronRight size={14} className={`transition-transform ${showHistory ? "rotate-90" : ""}`} />
+						</button>
+						{showHistory && (
+							<div className="space-y-[4px]">
+								{[...tradeHistory].reverse().map((t, i) => (
+									<div key={i} className={`flex items-center gap-[10px] rounded-[10px] border px-[12px] py-[9px] ${t.action === "sell" ? (t.pnl != null && t.pnl >= 0 ? "border-emerald-500/15 bg-emerald-500/[0.04]" : "border-rose-500/15 bg-rose-500/[0.04]") : "border-foreground/[0.06] bg-surface-1"}`}>
+										<span className={`text-[10px] font-bold uppercase px-[6px] py-[2px] rounded-full shrink-0 ${t.action === "buy" ? "bg-blue-500/15 text-blue-400" : t.pnl != null && t.pnl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>{t.action}</span>
+										<div className="flex-1 min-w-0">
+											<p className="text-[12px] font-bold">{t.ticker}</p>
+											{t.thesis && <p className="text-[10px] dark:text-slate-500 text-slate-400 italic truncate">"{t.thesis}"</p>}
+										</div>
+										<div className="text-right shrink-0">
+											{t.action === "sell" && t.pnl !== null ? (<p className={`text-[12px] font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(0)}{t.pnlPct != null ? ` (${t.pnlPct >= 0 ? "+" : ""}${t.pnlPct.toFixed(1)}%)` : ""}</p>) : <p className="text-[12px] dark:text-slate-400 text-slate-500">-$1,000</p>}
+											<p className="text-[10px] dark:text-slate-500 text-slate-400">{new Date(t.timestamp).toLocaleDateString()}</p>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+				)}
+
+				{/* Reset */}
+				{(tickers.length > 0 || sandboxCash !== SANDBOX_BUDGET) && (
+					<div className="mt-[20px] pt-[16px] border-t border-foreground/[0.06]">
+						{!confirmReset ? (
+							<button type="button" onClick={() => setConfirmReset(true)} className="w-full text-[12px] dark:text-slate-500 text-slate-400 text-center active:opacity-70">Reset portfolio to $10,000</button>
+						) : (
+							<div className="rounded-[12px] border border-rose-500/20 bg-rose-500/[0.06] px-[14px] py-[12px]">
+								<p className="text-[12px] font-bold mb-[4px]">Reset to $10,000?</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[10px]">All positions and trade history will be cleared. Cannot be undone.</p>
+								<div className="flex gap-[8px]">
+									<button type="button" onClick={() => setConfirmReset(false)} className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">Cancel</button>
+									<button type="button" onClick={() => { resetSandbox(); setConfirmReset(false); }} className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">Reset</button>
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+
 		</div>
 	);
 }

@@ -63,6 +63,18 @@ export interface DailyChallengeState {
 export interface SandboxEntry {
 	addedAt: number;
 	priceAtAdd: number | null;
+	thesis?: string; // optional reason for buying
+}
+
+export interface SandboxTrade {
+	ticker: string;
+	action: "buy" | "sell";
+	priceAtAction: number | null;
+	value: number;          // 1000 for buy, currentValue for sell
+	pnl: number | null;     // null for buy, dollar gain/loss for sell
+	pnlPct: number | null;
+	timestamp: number;
+	thesis?: string;
 }
 
 export interface UserDoc {
@@ -94,7 +106,9 @@ export interface UserDoc {
 	lessonProgress?: Record<string, LessonProgress>;
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
-	sandboxCash?: number; // unallocated cash — starts at $10,000, decreases on buy, increases on sell
+	sandboxCash?: number;
+	sandboxTradeHistory?: SandboxTrade[];  // last 30 trades
+	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 }
 
 interface AccountContextType {
@@ -115,10 +129,12 @@ interface AccountContextType {
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
-	addToSandbox: (ticker: string, priceAtAdd: number | null) => Promise<void>;
-	sellFromSandbox: (ticker: string, currentValue: number) => Promise<void>;
+	addToSandbox: (ticker: string, priceAtAdd: number | null, thesis?: string) => Promise<void>;
+	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null) => Promise<void>;
 	removeFromSandbox: (ticker: string) => Promise<void>;
 	initSandboxCash: () => Promise<void>;
+	resetSandbox: () => Promise<void>;
+	markSandboxMilestone: (value: number) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -345,28 +361,39 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, [user, account]);
 
 	const addToSandbox = useCallback(
-		async (ticker: string, priceAtAdd: number | null) => {
+		async (ticker: string, priceAtAdd: number | null, thesis?: string) => {
 			if (!user) return;
 			const currentCash = account?.sandboxCash ?? SANDBOX_STARTING_CASH;
-			if (currentCash < SANDBOX_POSITION_COST) return; // not enough cash
-			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd };
+			if (currentCash < SANDBOX_POSITION_COST) return;
+			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, ...(thesis ? { thesis } : {}) };
+			const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: SANDBOX_POSITION_COST, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
+			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
 			await updateDoc(doc(db, "users", user.uid), {
 				[`sandboxPortfolio.${ticker}`]: entry,
 				sandboxCash: currentCash - SANDBOX_POSITION_COST,
+				sandboxTradeHistory: history,
 			});
 		},
 		[user, account],
 	);
 
 	const sellFromSandbox = useCallback(
-		async (ticker: string, currentValue: number) => {
+		async (ticker: string, currentValue: number, currentPrice: number | null) => {
 			if (!user) return;
+			const entry = account?.sandboxPortfolio?.[ticker];
+			const pnl = Math.round((currentValue - SANDBOX_POSITION_COST) * 100) / 100;
+			const pnlPct = entry?.priceAtAdd && currentPrice
+				? Math.round(((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 1000) / 10
+				: null;
+			const trade: SandboxTrade = { ticker, action: "sell", priceAtAction: currentPrice, value: Math.round(currentValue * 100) / 100, pnl, pnlPct, timestamp: Date.now(), ...(entry?.thesis ? { thesis: entry.thesis } : {}) };
+			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
 			const updated = { ...(account?.sandboxPortfolio ?? {}) };
 			delete updated[ticker];
 			const currentCash = account?.sandboxCash ?? 0;
 			await updateDoc(doc(db, "users", user.uid), {
 				sandboxPortfolio: updated,
 				sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
+				sandboxTradeHistory: history,
 			});
 		},
 		[user, account],
@@ -381,6 +408,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		},
 		[user, account],
 	);
+
+	const resetSandbox = useCallback(async () => {
+		if (!user) return;
+		await updateDoc(doc(db, "users", user.uid), {
+			sandboxPortfolio: {},
+			sandboxCash: SANDBOX_STARTING_CASH,
+			sandboxTradeHistory: [],
+			sandboxMilestones: [],
+		});
+	}, [user]);
+
+	const markSandboxMilestone = useCallback(async (value: number) => {
+		if (!user) return;
+		const existing = account?.sandboxMilestones ?? [];
+		if (existing.includes(value)) return;
+		await updateDoc(doc(db, "users", user.uid), { sandboxMilestones: [...existing, value] });
+	}, [user, account]);
 
 	return (
 		<AccountContext.Provider
@@ -402,6 +446,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				sellFromSandbox,
 				removeFromSandbox,
 				initSandboxCash,
+				resetSandbox,
+				markSandboxMilestone,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
