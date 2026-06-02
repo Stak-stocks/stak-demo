@@ -293,7 +293,7 @@ function InterestsStep({
 						onClick={() => onToggle(interest.id)}
 						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${selected.includes(interest.id)
 							? "bg-orange-500/20 border-orange-500 text-foreground"
-							: "bg-surface-2 dark:border-slate-700 border-slate-200 dark:text-slate-300 text-slate-600 hover:border-slate-500"
+							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-2xl">{interest.emoji}</span>
@@ -606,7 +606,7 @@ function MotivationStep({
 						onClick={() => onToggle(option.id)}
 						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${selected.includes(option.id)
 							? `${option.color} text-foreground border border-transparent`
-							: "bg-surface-2 text-foreground border dark:border-slate-700 border-slate-200 hover:border-slate-500"
+							: "bg-[#1a2332] text-foreground border border-slate-700 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-lg">{option.icon}</span>
@@ -652,7 +652,7 @@ function FamiliarityStep({
 						onClick={() => onSelect(option.id)}
 						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${selected === option.id
 							? "bg-orange-500/20 border-orange-500 text-foreground"
-							: "bg-surface-2 dark:border-slate-700 border-slate-200 dark:text-slate-300 text-slate-600 hover:border-slate-500"
+							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
 						<p className="font-semibold">{option.label}</p>
