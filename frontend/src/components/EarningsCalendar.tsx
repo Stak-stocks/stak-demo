@@ -60,8 +60,13 @@ function EarningsRow({ entry }: { entry: StakEarningsEntry }) {
 	);
 }
 
-export function EarningsCalendarButton({ onOpen }: { onOpen?: () => void } = {}) {
+export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }: { onOpen?: () => void; externalOpen?: boolean; onExternalClose?: () => void } = {}) {
 	const [open, setOpen] = useState(false);
+
+	// Allow parent to open the calendar programmatically
+	useEffect(() => {
+		if (externalOpen) setOpen(true);
+	}, [externalOpen]);
 	const { account } = useAccount();
 
 	// Lock body scroll while the calendar portal is open, and always release on unmount
@@ -151,14 +156,14 @@ export function EarningsCalendarButton({ onOpen }: { onOpen?: () => void } = {})
 				createPortal(
 					<div
 					className="fixed inset-0 z-[70] flex items-center justify-center px-4"
-					onClick={() => setOpen(false)}
+					onClick={() => { setOpen(false); onExternalClose?.(); }}
 				>
 					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 					<div
 						className="relative w-full max-w-md"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<MarketEarningsWidget onClose={() => setOpen(false)} />
+						<MarketEarningsWidget onClose={() => { setOpen(false); onExternalClose?.(); }} />
 					</div>
 				</div>,
 			document.body,

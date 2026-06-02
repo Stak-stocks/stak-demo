@@ -16,6 +16,7 @@ import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
 import { useAccount } from "@/context/AccountContext";
+import { EarningsCalendarButton } from "@/components/EarningsCalendar";
 
 export const Route = createFileRoute("/my-stak")({
 	component: MyStakPage,
@@ -199,15 +200,18 @@ const STAT_COLORS: Record<StatColor, string> = {
 	green:  "text-emerald-400 border-emerald-400/10 bg-emerald-500/[0.08] shadow-[0_0_22px_rgba(16,185,129,.08)]",
 };
 
-function StatCard({ icon, iconColor, number, title, subtitle }: {
+function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 	icon: React.ReactNode;
 	iconColor: StatColor;
 	number?: string;
 	title: string;
 	subtitle?: string;
+	onClick?: () => void;
 }) {
+	const Wrapper = onClick ? "button" : "div";
 	return (
-		<div className="flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl">
+		<Wrapper type={onClick ? "button" : undefined} onClick={onClick}
+			className={`flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl w-full text-left ${onClick ? "active:opacity-75 transition-opacity" : ""}`}>
 			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
 				{icon}
 			</div>
@@ -227,7 +231,8 @@ function StatCard({ icon, iconColor, number, title, subtitle }: {
 					</div>
 				)}
 			</div>
-		</div>
+			{onClick && <p className="text-[10px] text-blue-400/70 mt-[4px] self-end">Tap to view →</p>}
+		</Wrapper>
 	);
 }
 
@@ -462,6 +467,7 @@ function fmtPeerMetric(key: MetricKey, peerData: PeerMetrics | undefined): strin
 function MyStakPage() {
 	const { account, accountLoading, updateStak } = useAccount();
 	const navigate = useNavigate();
+	const [earningsCalendarOpen, setEarningsCalendarOpen] = useState(false);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [comparePeers, setComparePeers] = useState<[BrandProfile | null, BrandProfile | null]>([null, null]);
 	const [pickingSlot, setPickingSlot] = useState<0 | 1 | null>(null);
@@ -1248,6 +1254,7 @@ function MyStakPage() {
 							number={upcomingEarningsCount != null ? String(upcomingEarningsCount) : undefined}
 							title="earnings"
 							subtitle="this week"
+							onClick={() => setEarningsCalendarOpen(true)}
 						/>
 					</div>
 				</div>
@@ -1359,6 +1366,14 @@ function MyStakPage() {
 			)}
 
 			{brandDetailOverlay}
+
+			{/* Hidden earnings calendar — opened by the earnings stat card */}
+			<div className="hidden">
+				<EarningsCalendarButton
+					externalOpen={earningsCalendarOpen}
+					onExternalClose={() => setEarningsCalendarOpen(false)}
+				/>
+			</div>
 		</div>
 	);
 }
