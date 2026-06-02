@@ -362,6 +362,33 @@ function ProfilePage() {
 						</div>
 					</div>
 
+					{/* Playground XP & Level */}
+					{(() => {
+						const totalXp = account?.totalXp ?? 0;
+						const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
+						const LEVELS = [
+							{ min: 0,   name: "Beginner",  emoji: "🌱", color: "text-slate-500 dark:text-slate-400" },
+							{ min: 100, name: "Learner",   emoji: "📚", color: "text-blue-500 dark:text-blue-400"   },
+							{ min: 300, name: "Investor",  emoji: "📈", color: "text-cyan-600 dark:text-cyan-400"   },
+							{ min: 600, name: "Analyst",   emoji: "🔬", color: "text-violet-600 dark:text-violet-400"},
+							{ min: 1000,name: "Expert",    emoji: "🏆", color: "text-amber-600 dark:text-amber-400"  },
+						];
+						const currentLevel = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
+						if (totalXp === 0 && completedLessons === 0) return null;
+						return (
+							<div style={{ border: "1px solid rgba(139,92,246,0.3)" }} className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex items-center gap-3 shadow-sm dark:shadow-none">
+								<span className="text-[28px]">{currentLevel.emoji}</span>
+								<div className="flex-1 min-w-0">
+									<div className="flex items-center justify-between mb-[3px]">
+										<p className={`text-[13px] font-extrabold ${currentLevel.color}`}>{currentLevel.name}</p>
+										<p className="text-[12px] font-bold text-foreground">{totalXp} XP</p>
+									</div>
+									<p className="text-[10px] dark:text-zinc-400 text-zinc-600">{completedLessons} lessons completed in Playground</p>
+								</div>
+							</div>
+						);
+					})()}
+
 					{/* Row 2 — Intel Library */}
 					<button
 						type="button"

@@ -150,6 +150,9 @@ export function PlaygroundPage() {
 	const [activeView, setActiveView] = useState<ActiveView>(null);
 	const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 	const [activeCategory, setActiveCategory] = useState<LessonCategory | null>(null);
+	const [showOnboarding, setShowOnboarding] = useState(() =>
+		typeof window !== "undefined" && !localStorage.getItem("playground-onboarded")
+	);
 
 	const todayKey = new Date().toISOString().split("T")[0];
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
@@ -203,6 +206,19 @@ export function PlaygroundPage() {
 		);
 		return LESSONS.find(l => !completed.has(l.id));
 	}, [account?.lessonProgress]);
+
+	// Onboarding gate
+	if (showOnboarding) {
+		return (
+			<PlaygroundOnboarding
+				onDone={(startView) => {
+					localStorage.setItem("playground-onboarded", "1");
+					setShowOnboarding(false);
+					if (startView) setActiveView(startView);
+				}}
+			/>
+		);
+	}
 
 	// Sub-view routing
 	if (activeView === "lessons") {
@@ -1422,7 +1438,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
-				<h2 className="text-[22px] font-extrabold mb-[2px]">Practice Mode</h2>
+				<div className="flex items-center justify-between mb-[2px]">
+					<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
+					<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">{(idx % shuffled.length) + 1} / {shuffled.length}</span>
+				</div>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Real stock. Fake stakes. What would you do?</p>
 				<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[18px] mb-[20px]">
 					<div className="flex items-center justify-between mb-[14px]">
@@ -1487,10 +1506,29 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 					))}
 				</div>
 				{selected && (<>
-					<div className={`rounded-[12px] p-[14px] mb-[14px] ${isBest?'bg-emerald-500/10 border border-emerald-500/25':'bg-amber-500/10 border border-amber-500/25'}`}>
-						<p className="text-[13px] font-bold mb-[4px]">{isBest?'Great thinking!':'Better approach:'}</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-						<p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>
+					{/* Why each option was right or wrong */}
+					<div className="space-y-[6px] mb-[12px]">
+						{scenario.options.map(opt => {
+							const isBestOpt = opt.id === scenario.bestId;
+							const isUserPick = opt.id === selected;
+							const wrongNote = scenario.wrongNotes?.[opt.id];
+							if (isBestOpt) return (
+								<div key={opt.id} className="rounded-[10px] border border-emerald-500/30 bg-emerald-500/[0.07] px-[12px] py-[10px]">
+									<p className="text-[12px] font-bold text-emerald-400 mb-[2px]">✓ Best move{isUserPick ? " — your pick" : ""}</p>
+									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
+								</div>
+							);
+							if (wrongNote) return (
+								<div key={opt.id} className={`rounded-[10px] border px-[12px] py-[10px] ${isUserPick ? "border-rose-500/30 bg-rose-500/[0.07]" : "border-foreground/[0.06] bg-foreground/[0.02]"}`}>
+									<p className={`text-[12px] font-bold mb-[2px] ${isUserPick ? "text-rose-400" : "dark:text-slate-400 text-slate-500"}`}>{isUserPick ? "✗ Your pick" : `Option ${opt.id.toUpperCase()}`}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed">{wrongNote}</p>
+								</div>
+							);
+							return null;
+						})}
+					</div>
+					<div className="flex items-center justify-between mb-[12px]">
+						<p className="text-[12px] text-amber-400 font-semibold">+{scenario.xp} XP</p>
 					</div>
 					<button type="button" onClick={next} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:'linear-gradient(90deg,#8b5cf6,#6366f1)'}}>{idx<WWYD_SCENARIOS.length-1?'Next Scenario':'Done'}</button>
 				</>)}
@@ -1812,6 +1850,116 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					<button type="button" onClick={() => setAdding(true)}
 						className="w-full h-[44px] rounded-[12px] border border-violet-500/30 bg-violet-500/[0.07] text-violet-400 font-semibold text-[14px] active:opacity-80">
 						+ Add Stock
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+// ── Playground Onboarding ─────────────────────────────────────────────────────
+
+const ONBOARDING_SLIDES = [
+	{
+		emoji: "🧠",
+		title: "Welcome to Playground",
+		body: "This is your practice space. No real money, no pressure — just a better way to understand stocks before you invest.",
+		accent: "from-violet-500/20 to-blue-500/20",
+		border: "border-violet-500/30",
+	},
+	{
+		emoji: "📚",
+		title: "Learn & Practice",
+		body: "Work through bite-sized lessons, daily challenges, and real-world scenarios. Each section is designed to build a different skill — from reading earnings to spotting risk.",
+		accent: "from-blue-500/20 to-cyan-500/20",
+		border: "border-blue-500/30",
+	},
+	{
+		emoji: "⚡",
+		title: "Earn XP & Level Up",
+		body: "Every lesson, challenge, battle, and lab earns you XP. Progress from Beginner → Learner → Investor → Analyst → Expert. Your level shows on your profile.",
+		accent: "from-amber-500/20 to-orange-500/20",
+		border: "border-amber-500/30",
+	},
+	{
+		emoji: "🚀",
+		title: "Where do you want to start?",
+		body: "Pick what sounds most interesting. You can explore everything — this just gets you started.",
+		accent: "from-emerald-500/20 to-teal-500/20",
+		border: "border-emerald-500/30",
+		isPicker: true,
+	},
+];
+
+const START_OPTIONS: { label: string; emoji: string; view: ActiveView; desc: string }[] = [
+	{ label: "Lessons",         emoji: "📖", view: "lessons",         desc: "Start with the basics" },
+	{ label: "Daily Challenge", emoji: "⚡", view: "daily-challenge", desc: "Quick 1-question warm-up" },
+	{ label: "Stock Battles",   emoji: "⚔️", view: "battles",         desc: "Pick the winning stock" },
+	{ label: "Just browse",     emoji: "🗺️", view: null,              desc: "See everything first" },
+];
+
+function PlaygroundOnboarding({ onDone }: { onDone: (startView: ActiveView | null) => void }) {
+	const [slide, setSlide] = useState(0);
+	const isLast = slide === ONBOARDING_SLIDES.length - 1;
+	const current = ONBOARDING_SLIDES[slide]!;
+
+	return (
+		<div className="min-h-full bg-background text-foreground flex flex-col">
+			<div className="max-w-lg mx-auto w-full px-[18px] pt-[20px] pb-[32px] flex flex-col flex-1">
+
+				{/* Progress dots */}
+				<div className="flex items-center justify-center gap-[8px] mb-[32px] mt-[8px]">
+					{ONBOARDING_SLIDES.map((_, i) => (
+						<div key={i} className={`rounded-full transition-all duration-200 ${i === slide ? "w-[24px] h-[6px] bg-foreground" : i < slide ? "w-[6px] h-[6px] bg-foreground/40" : "w-[6px] h-[6px] bg-foreground/15"}`} />
+					))}
+				</div>
+
+				{/* Slide card */}
+				<div className={`flex-1 rounded-[20px] border ${current.border} bg-gradient-to-br ${current.accent} p-[28px] flex flex-col`}>
+					<div className="flex-1 flex flex-col items-center justify-center text-center">
+						<span className="text-[72px] mb-[20px] block">{current.emoji}</span>
+						<h2 className="text-[24px] font-extrabold mb-[12px] leading-tight">{current.title}</h2>
+						<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[320px]">{current.body}</p>
+					</div>
+
+					{/* Picker on last slide */}
+					{current.isPicker && (
+						<div className="grid grid-cols-2 gap-[10px] mt-[24px]">
+							{START_OPTIONS.map(opt => (
+								<button
+									key={opt.label}
+									type="button"
+									onClick={() => onDone(opt.view)}
+									className="rounded-[14px] border border-foreground/10 bg-background/60 px-[14px] py-[14px] text-left active:opacity-80 transition-opacity"
+								>
+									<span className="text-[24px] block mb-[6px]">{opt.emoji}</span>
+									<p className="text-[13px] font-bold text-foreground">{opt.label}</p>
+									<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{opt.desc}</p>
+								</button>
+							))}
+						</div>
+					)}
+				</div>
+
+				{/* Navigation */}
+				{!isLast && (
+					<div className="flex items-center justify-between mt-[20px]">
+						<button type="button" onClick={() => onDone(null)} className="text-[13px] dark:text-slate-400 text-slate-500">
+							Skip
+						</button>
+						<button
+							type="button"
+							onClick={() => setSlide(s => s + 1)}
+							className="h-[48px] px-[28px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+							style={{ background: "linear-gradient(90deg,#6366f1,#8b5cf6)" }}
+						>
+							Next →
+						</button>
+					</div>
+				)}
+
+				{isLast && (
+					<button type="button" onClick={() => onDone(null)} className="mt-[16px] text-center text-[13px] dark:text-slate-400 text-slate-500 w-full">
+						Skip — I'll pick later
 					</button>
 				)}
 			</div>

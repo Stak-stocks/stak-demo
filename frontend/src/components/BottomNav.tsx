@@ -1,5 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
+import { useAccount } from "@/context/AccountContext";
+import { getDailyChallenge } from "@/data/playgroundData";
 
 const NAV_ITEMS = [
 	{
@@ -42,6 +44,13 @@ const NAV_ITEMS = [
 export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
+	const { account } = useAccount();
+
+	// Show dot on Playground tab if daily challenge hasn't been completed today
+	const todayKey = new Date().toISOString().split("T")[0];
+	const todayChallenge = getDailyChallenge(todayKey);
+	const challengeDone = account?.dailyChallengeState?.date === todayKey &&
+		(account.dailyChallengeState.completedIds ?? []).includes(todayChallenge.id);
 
 	const isActive = (path: string) => {
 		if (path === "/") {
@@ -70,11 +79,14 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 								}`}
 							>
 								<div
-									className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+									className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all ${
 										active ? item.glow : "bg-transparent"
 									}`}
 								>
 									<Icon className="w-5 h-5" />
+									{item.to === "/playground" && !challengeDone && !active && (
+										<span className="absolute top-0 right-0 w-[8px] h-[8px] rounded-full bg-amber-400 border-[1.5px] border-background" />
+									)}
 								</div>
 								<span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{item.label}</span>
 							</Link>

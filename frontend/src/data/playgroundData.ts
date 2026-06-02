@@ -1415,6 +1415,7 @@ export interface WWYDScenario {
 	options: QuizOption[];
 	bestId: string;
 	explanation: string;
+	wrongNotes?: Record<string, string>; // optionId → brief dismissal of why it's not ideal
 	xp: number;
 }
 
@@ -1429,7 +1430,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Ignore it entirely" },
 		],
 		bestId: "b",
-		explanation: "The right first move is to understand why guidance was cut. Was it a one-time issue, macro headwinds, or a structural problem? Context determines whether you should hold, sell, or buy more. Panicking or ignoring it are both poor first steps.",
+		wrongNotes: {
+			a: "Panic-selling locks in a loss before you understand if the thesis is broken. Many great investors add on weakness — but only after reading the situation.",
+			c: "Buying more without understanding the guidance cut is risky. A 12% drop on cut guidance can become 30% if the problems are structural.",
+			d: "Ignoring a -12% move with cut guidance means you're flying blind. You don't need to act, but you should understand what happened.",
+		},
+		explanation: "The right first move is to understand why guidance was cut. Was it a one-time issue, macro headwinds, or a structural problem? Context determines whether you should hold, sell, or buy more.",
 		xp: 25,
 	},
 	{
@@ -1442,7 +1448,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Nothing — just watch it go higher" },
 		],
 		bestId: "c",
-		explanation: "A sharp 30% move warrants re-evaluation. Is the product announcement fundamentally worth 30% more company value? Or is this speculative hype? If the thesis is intact and valuation still makes sense, hold or add. If it looks stretched, trimming is rational.",
+		wrongNotes: {
+			a: "Selling immediately after a 30% run ignores whether the move is justified. If the thesis is intact, you may be selling a winner too early.",
+			b: "Adding more purely on momentum without checking valuation is speculation, not investing. What if the product announcement was already priced in?",
+			d: "Doing nothing at all means not engaging with the question of whether the new price still makes sense. Watching without thinking is passive risk.",
+		},
+		explanation: "A sharp 30% move warrants re-evaluation. Is the product announcement fundamentally worth 30% more? If the thesis is intact, hold or add. If it looks stretched on hype, trimming is rational.",
 		xp: 25,
 	},
 	{
@@ -1455,7 +1466,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Wait until tomorrow and see what happens" },
 		],
 		bestId: "b",
-		explanation: "A drop despite a beat usually signals something in the report spooked investors — most often weak guidance, margin compression, or a worrying metric. Read the earnings call transcript before making any move. The market usually finds the hidden problem faster than headlines do.",
+		wrongNotes: {
+			a: "The market isn't often wrong collectively — a 8% drop on a beat usually means there's bad news buried in the report. Don't assume, investigate.",
+			c: "A stock falling on a beat doesn't mean it's broken — it often means guidance was soft or investors expected even more. Selling without context is reactive.",
+			d: "Waiting blindly without reading the report means you'll wake up without context. The earnings call transcript is usually available within hours.",
+		},
+		explanation: "A drop despite a beat usually signals weak guidance, margin compression, or a worrying metric. Read the earnings call transcript before making any move.",
 		xp: 25,
 	},
 	{
@@ -1468,7 +1484,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Avoid all unprofitable companies" },
 		],
 		bestId: "b",
-		explanation: "Revenue growth is great, but the path to profitability matters enormously. Look for improving gross margins and operating leverage — signs that scale will eventually produce profits. Companies like Uber burned cash for years but had clear unit economics improving. Others burn cash indefinitely without a clear path.",
+		wrongNotes: {
+			a: "Revenue growth matters enormously, but losses do matter. Companies that grow revenue without improving margins eventually run out of cash or dilute shareholders.",
+			c: "A 'cheap' share price tells you nothing. $2 can be very expensive if the company is burning cash with no path to profit.",
+			d: "Many of the best investments — Amazon, Uber, Spotify — were unprofitable for years. The question isn't profitability now, it's whether the path is clear.",
+		},
+		explanation: "Revenue growth is great, but look for improving gross margins and operating leverage — signs that scale will eventually produce profits.",
 		xp: 25,
 	},
 	{
@@ -1481,7 +1502,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Ignore analyst opinions entirely" },
 		],
 		bestId: "b",
-		explanation: "Analyst upgrades can be meaningful signal but the key question is why. What changed in their thesis — new product, better margins, industry tailwind? If the reason aligns with your own thesis, it's reinforcing. If it's vague or a valuation call on a recent dip, be more sceptical.",
+		wrongNotes: {
+			a: "Goldman is not infallible — analysts have been spectacularly wrong. More importantly, the upgrade may already be priced in by the time you act.",
+			c: "Sometimes upgrades are already priced in, sometimes not. You can't know without understanding what changed in the thesis.",
+			d: "Analyst research can be valuable signal, especially when a high-conviction firm changes direction. Ignoring it entirely means missing useful data.",
+		},
+		explanation: "The key question is why they upgraded. If the reason aligns with your own thesis, it's reinforcing. If it's vague, be more sceptical.",
 		xp: 20,
 	},
 	{
@@ -1494,7 +1520,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Hold without doing anything" },
 		],
 		bestId: "b",
-		explanation: "A dividend cut is a serious signal, but context is everything. Was it cut to fund an acquisition or pivotal investment? Or because cash flow collapsed? JNJ cut its consumer spinoff dividend temporarily — that's very different from a bank cutting due to loan losses. Understand the reason first.",
+		wrongNotes: {
+			a: "A 15% drop on a dividend cut can become 40% if the cut signals deeper financial trouble. Discounts only matter if the underlying business is sound.",
+			c: "Not always. Some cuts are strategic — a company might cut dividends to fund an acquisition or invest in growth. Context is everything.",
+			d: "Holding without understanding is passive risk. You don't need to sell, but you should know why the cut happened before deciding to stay.",
+		},
+		explanation: "A dividend cut is a serious signal, but context is everything. Understand whether it signals financial stress or a strategic pivot before deciding.",
 		xp: 20,
 	},
 	{
@@ -1507,7 +1538,12 @@ export const WWYD_SCENARIOS: WWYDScenario[] = [
 			{ id: "d", text: "Wait for the bottom before buying" },
 		],
 		bestId: "b",
-		explanation: "Sector-wide selloffs create opportunities — but only if the underlying business is still healthy. Check: is the company still growing? Are margins intact? Did anything change in the business or just the macro environment? Rate-driven dips in solid growth companies have historically been good entry points.",
+		wrongNotes: {
+			a: "Sector dips are not always opportunities — some stocks fall because the business is deteriorating, not just because of macro. Check fundamentals first.",
+			c: "Avoiding an entire sector based on macro timing is hard to get right. Quality tech companies often recover faster than you expect when rates stabilise.",
+			d: "Waiting for 'the bottom' is nearly impossible to time. By the time the bottom is confirmed, the easy gains have usually already happened.",
+		},
+		explanation: "Sector-wide selloffs create opportunities — but only if the business is still healthy. Check: is the company still growing? Rate-driven dips in solid companies have historically been good entry points.",
 		xp: 25,
 	},
 ];
