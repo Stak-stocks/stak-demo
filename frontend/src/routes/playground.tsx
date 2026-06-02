@@ -505,30 +505,6 @@ export function PlaygroundPage() {
 					</div>
 				)}
 
-				{/* Continue Learning */}
-				{nextLesson && (
-					<div className="mb-[20px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Continue Learning</p>
-						<button
-							type="button"
-							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(nextLesson.id); setActiveView("lesson-player"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
-							className="w-full rounded-[14px] border border-blue-500/30 bg-blue-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
-						>
-							<div className="flex items-center gap-[12px]">
-								<span className="text-[30px]">{nextLesson.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<p className="text-[14px] font-bold text-foreground">{nextLesson.title}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{nextLesson.subtitle}</p>
-									<p className="text-[11px] text-blue-400 mt-[3px]">{nextLesson.durationMin} min · +{nextLesson.xp} XP</p>
-								</div>
-								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-blue-500/15 text-blue-400">
-									<ChevronRight size={16} />
-								</div>
-							</div>
-						</button>
-					</div>
-				)}
-
 				{/* Daily Challenge — hero card */}
 				<div className="mb-[20px]">
 					<button
