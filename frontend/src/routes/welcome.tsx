@@ -146,14 +146,14 @@ function LandingPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-background">
+			<div className="dark flex items-center justify-center min-h-screen bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative min-h-screen bg-background text-foreground flex flex-col overflow-x-hidden">
+		<div className="dark relative min-h-screen bg-background text-foreground flex flex-col overflow-x-hidden">
 			<ParticleBackground />
 
 			{/* All content sits above the canvas */}

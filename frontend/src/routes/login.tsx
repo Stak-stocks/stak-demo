@@ -101,14 +101,14 @@ function LoginPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-surface-1">
+			<div className="dark flex items-center justify-center min-h-screen bg-surface-1">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
+		<div className="dark relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			{/* Logo — top left */}
 			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
 				<StakLogo size={28} />

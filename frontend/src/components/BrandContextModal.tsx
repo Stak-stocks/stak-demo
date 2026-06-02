@@ -318,10 +318,9 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 			<div className="absolute inset-0 bg-black/50" />
 
 			<div
-				className="relative w-full max-w-lg mx-auto rounded-t-[24px] flex flex-col overflow-hidden"
+				className="relative w-full max-w-lg mx-auto rounded-t-[24px] flex flex-col overflow-hidden bg-surface-2"
 				style={{
 					maxHeight: "80dvh",
-					background: "linear-gradient(180deg,#0b1b2f 0%,#071526 55%,#051120 100%)",
 					transform: `translateY(${dragY}px)`,
 					transition: dragging.current ? "none" : "transform 0.35s cubic-bezier(0.22,1,0.36,1)",
 					opacity: dragY > 0 ? Math.max(0.4, 1 - dragY / 300) : 1,
