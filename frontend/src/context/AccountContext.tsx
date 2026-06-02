@@ -63,7 +63,8 @@ export interface DailyChallengeState {
 export interface SandboxEntry {
 	addedAt: number;
 	priceAtAdd: number | null;
-	thesis?: string; // optional reason for buying
+	shares?: number;           // number of shares purchased (new model); absent = legacy $1k model
+	thesis?: string;
 }
 
 export interface SandboxTrade {
@@ -130,7 +131,7 @@ interface AccountContextType {
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
-	addToSandbox: (ticker: string, priceAtAdd: number | null, thesis?: string) => Promise<void>;
+	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null) => Promise<void>;
 	removeFromSandbox: (ticker: string) => Promise<void>;
 	initSandboxCash: () => Promise<void>;
@@ -356,23 +357,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const initSandboxCash = useCallback(async () => {
 		if (!user) return;
 		if (account?.sandboxCash !== undefined) return; // already initialised
-		// For users with existing positions, give them cash = 10000 - (positions × 1000)
-		const existingPositions = Object.keys(account?.sandboxPortfolio ?? {}).length;
-		const initialCash = Math.max(0, SANDBOX_STARTING_CASH - existingPositions * SANDBOX_POSITION_COST);
-		await updateDoc(doc(db, "users", user.uid), { sandboxCash: initialCash });
+		// Legacy users: estimate spent cash from old $1k-per-position model
+		const existingPositions = Object.values(account?.sandboxPortfolio ?? {});
+		const legacyCost = existingPositions.filter(e => !e.shares).length * SANDBOX_POSITION_COST;
+		const newModelCost = existingPositions
+			.filter(e => e.shares && e.priceAtAdd)
+			.reduce((sum, e) => sum + (e.priceAtAdd! * e.shares!), 0);
+		const initialCash = Math.max(0, SANDBOX_STARTING_CASH - legacyCost - newModelCost);
+		await updateDoc(doc(db, "users", user.uid), { sandboxCash: Math.round(initialCash * 100) / 100 });
 	}, [user, account]);
 
 	const addToSandbox = useCallback(
-		async (ticker: string, priceAtAdd: number | null, thesis?: string) => {
+		async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
 			if (!user) return;
 			const currentCash = account?.sandboxCash ?? SANDBOX_STARTING_CASH;
-			if (currentCash < SANDBOX_POSITION_COST) return;
-			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, ...(thesis ? { thesis } : {}) };
-			const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: SANDBOX_POSITION_COST, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
+			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : SANDBOX_POSITION_COST;
+			if (currentCash < cost) return;
+			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
+			const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: cost, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
 			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
 			await updateDoc(doc(db, "users", user.uid), {
 				[`sandboxPortfolio.${ticker}`]: entry,
-				sandboxCash: currentCash - SANDBOX_POSITION_COST,
+				sandboxCash: Math.round((currentCash - cost) * 100) / 100,
 				sandboxTradeHistory: history,
 			});
 		},
@@ -383,7 +389,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		async (ticker: string, currentValue: number, currentPrice: number | null) => {
 			if (!user) return;
 			const entry = account?.sandboxPortfolio?.[ticker];
-			const pnl = Math.round((currentValue - SANDBOX_POSITION_COST) * 100) / 100;
+			const shares = entry?.shares ?? 1;
+			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * shares : SANDBOX_POSITION_COST;
+			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
 			const pnlPct = entry?.priceAtAdd && currentPrice
 				? Math.round(((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 1000) / 10
 				: null;

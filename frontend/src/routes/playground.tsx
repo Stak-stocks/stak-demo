@@ -2615,9 +2615,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 }
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
-// Each position gets a fixed $1,000 allocation (up to 10 positions = $10K)
 const SANDBOX_BUDGET = 10000;
-const SANDBOX_PER_POSITION = 1000;
 const SANDBOX_MAX_POSITIONS = 10;
 
 // Category display config for portfolio themes
@@ -2649,9 +2647,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// Initialise cash on first open (handles existing users with positions but no cash field)
 	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
 
-	// Cash available — default to 10000 if not yet initialised
 	const sandboxCash = account?.sandboxCash ?? (account?.sandboxPortfolio !== undefined ? 0 : SANDBOX_BUDGET);
-	const canAddMore = sandboxCash >= SANDBOX_PER_POSITION && tickers.length < SANDBOX_MAX_POSITIONS;
+	const canAddMore = sandboxCash > 0 && tickers.length < SANDBOX_MAX_POSITIONS;
+	// How many shares to buy — local state for the buy flow
+	const [shareQty, setShareQty] = useState(1);
 
 	// Trade history & win rate
 	const tradeHistory = account?.sandboxTradeHistory ?? [];
@@ -2688,11 +2687,21 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const entry = sandbox[ticker]!;
 		const quote = (results[i] as { data?: { quote?: { price?: number; changePercent?: number } } })?.data?.quote;
 		const currentPrice = quote?.price ?? null;
+		// Support both new (shares × price) and legacy ($1k fixed) model
+		const shares = entry.shares ?? null;
+		const costBasis = entry.priceAtAdd != null && shares != null
+			? entry.priceAtAdd * shares
+			: 1000; // legacy fallback
+		const currentValue = currentPrice != null && shares != null
+			? currentPrice * shares
+			: (currentPrice != null && entry.priceAtAdd != null)
+				? 1000 * (currentPrice / entry.priceAtAdd)
+				: costBasis;
 		const pricePct = entry.priceAtAdd && currentPrice
 			? ((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 100 : null;
-		const priceDollar = pricePct !== null ? (SANDBOX_PER_POSITION * pricePct) / 100 : null;
+		const priceDollar = pricePct !== null ? costBasis * (pricePct / 100) : null;
 		const brand = brandMap.get(ticker.toUpperCase());
-		return { ticker, entry, currentPrice, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
+		return { ticker, entry, currentPrice, currentValue, costBasis, shares, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
 	});
 
 	const sortedHoldings = [...holdings].sort((a, b) => {
@@ -2701,12 +2710,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		return b.entry.addedAt - a.entry.addedAt;
 	});
 
-	// Total value
-	const investedTotal = tickers.length * SANDBOX_PER_POSITION;
-	const totalValue = holdings.reduce((sum, h) => {
-		if (!h.currentPrice || !h.entry.priceAtAdd) return sum + SANDBOX_PER_POSITION;
-		return sum + SANDBOX_PER_POSITION * (h.currentPrice / h.entry.priceAtAdd);
-	}, 0);
+	// Invested value = sum of cost bases; portfolio value = sum of current values
+	const investedTotal = holdings.reduce((sum, h) => sum + h.costBasis, 0);
+	const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
 	const totalDollarPnl = totalValue - investedTotal;
 	const totalPct = investedTotal > 0 ? (totalDollarPnl / investedTotal) * 100 : 0;
 
@@ -2744,7 +2750,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
 
 	// Milestone detection — celebrate when total portfolio value crosses round numbers
-	const totalPortfolioValue = totalValue + sandboxCash;
+	const totalPortfolioValue = totalValue + sandboxCash; // full account value including cash
 	useEffect(() => {
 		if (tickers.length === 0) return;
 		const MILESTONES = [10500, 11000, 12000, 15000, 20000];
@@ -2778,9 +2784,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		if (!price) {
 			try { price = (await getStockData(ticker.toUpperCase()))?.quote?.price ?? null; } catch { /* ignore */ }
 		}
-		await addToSandbox(ticker.toUpperCase(), price, thesis.trim() || undefined);
+		await addToSandbox(ticker.toUpperCase(), price, shareQty, thesis.trim() || undefined);
 		setAdding(false);
 		setThesis("");
+		setShareQty(1);
 	};
 
 	return (
@@ -2802,10 +2809,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							<div>
 								<p className="text-[13px] font-bold mb-[6px]">How Sandbox works</p>
 								<div className="space-y-[5px] text-[12px] dark:text-slate-300 text-slate-600">
-									<p>💰 <strong>You start with $10,000 in practice cash</strong> — buying a stock costs $1,000 from your balance</p>
-									<p>📈 <strong>Sell to get your money back</strong> — if the stock went up, you get more than $1,000 back. If it fell, less</p>
-									<p>🔄 <strong>Prices update live</strong> — P&L tracks from when you bought, so you see real performance</p>
-									<p>✅ <strong>No real money</strong> — this is all practice. Sell and reinvest freely</p>
+									<p>💰 <strong>Start with $10,000</strong> — buy real shares at live prices, just like a real brokerage</p>
+									<p>📈 <strong>Sell to realise your gain or loss</strong> — proceeds go straight back to buying power</p>
+									<p>🔄 <strong>Prices update live</strong> — P&L tracks from when you bought</p>
+									<p>✅ <strong>No real money</strong> — practice freely with no risk</p>
 								</div>
 							</div>
 							<button type="button" onClick={() => { setShowHowItWorks(false); localStorage.setItem("sandbox-how-it-works-seen", "1"); }}
@@ -2817,39 +2824,36 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				{/* Portfolio overview */}
 				<div className="rounded-[18px] border border-violet-500/25 overflow-hidden mb-[20px]">
 					<div className="bg-violet-500/[0.08] px-[18px] pt-[16px] pb-[14px]">
-						{/* Total value + P&L */}
-						<div className="flex items-end justify-between mb-[12px]">
+						{/* Invested value (Robinhood-style: shows only what's in the market) */}
+						<div className="flex items-end justify-between mb-[14px]">
 							<div>
-								<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[3px]">Total Value</p>
+								<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[3px]">Invested Value</p>
 								<p className="text-[32px] font-extrabold leading-none">
-									${(totalValue + sandboxCash).toFixed(0)}
+									${tickers.length > 0 ? totalValue.toFixed(2) : "0.00"}
 								</p>
 							</div>
 							{investedTotal > 0 && (
 								<div className="text-right">
-									<p className={`text-[16px] font-extrabold ${totalPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-										{totalPct >= 0 ? '+' : ''}{totalPct.toFixed(1)}%
+									<p className={`text-[16px] font-extrabold ${totalPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+										{totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
 									</p>
-									<p className={`text-[12px] font-semibold ${totalDollarPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-										{totalDollarPnl >= 0 ? '+' : ''}${totalDollarPnl.toFixed(0)} unrealised
+									<p className={`text-[12px] font-semibold ${totalDollarPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+										{totalDollarPnl >= 0 ? "+" : ""}${totalDollarPnl.toFixed(2)} total return
 									</p>
 								</div>
 							)}
 						</div>
-						{/* Cash bar */}
-						<div className="space-y-[4px]">
-							<div className="flex justify-between text-[11px]">
-								<span className="dark:text-slate-400 text-slate-500">Available cash</span>
-								<span className={`font-bold ${sandboxCash < SANDBOX_PER_POSITION ? "text-rose-400" : "text-emerald-400"}`}>
-									${sandboxCash.toFixed(0)}
-								</span>
+						{/* Cash + invested breakdown — like Robinhood's "Buying Power" row */}
+						<div className="grid grid-cols-2 gap-[8px]">
+							<div className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[8px]">
+								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">Buying Power</p>
+								<p className={`text-[16px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
+									${sandboxCash.toFixed(2)}
+								</p>
 							</div>
-							<div className="h-[5px] rounded-full bg-foreground/10 overflow-hidden">
-								<div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (sandboxCash / SANDBOX_BUDGET) * 100)}%` }} />
-							</div>
-							<div className="flex justify-between text-[10px] dark:text-slate-500 text-slate-400">
-								<span>${investedTotal.toLocaleString()} invested · ${(totalValue + sandboxCash).toFixed(0)} total</span>
-								<span>{sandboxCash < SANDBOX_PER_POSITION ? "Need $1K to buy" : `Can buy ${Math.min(SANDBOX_MAX_POSITIONS - tickers.length, Math.floor(sandboxCash / SANDBOX_PER_POSITION))} more`}</span>
+							<div className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[8px]">
+								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">Cost Basis</p>
+								<p className="text-[16px] font-extrabold">${investedTotal.toFixed(2)}</p>
 							</div>
 						</div>
 					</div>
@@ -2872,7 +2876,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								</div>
 							)}
 							<div className="flex items-center justify-between text-[12px]">
-								<span className="dark:text-slate-400 text-slate-500">{tickers.length} positions · ${investedTotal.toLocaleString()} invested</span>
+								<span className="dark:text-slate-400 text-slate-500">{tickers.length} position{tickers.length !== 1 ? "s" : ""}</span>
 								{winRate !== null && (
 									<span className={`font-semibold ${winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
 										{wins}W/{sells.length - wins}L · {winRate}% wins
@@ -2975,8 +2979,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 											<div className="flex-1 min-w-0">
 												<p className="text-[13px] font-bold leading-none">{h.brand?.name ?? h.ticker}</p>
 												<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
+													{h.shares != null ? `${h.shares} sh · ` : ""}
 													{h.currentPrice ? `$${h.currentPrice.toFixed(2)}` : h.ticker}
-													{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}
+													{h.entry.priceAtAdd ? ` · avg $${h.entry.priceAtAdd.toFixed(2)}` : ""}
 												</p>
 												{/* Days held + thesis */}
 												<div className="flex items-center gap-[6px] mt-[3px] flex-wrap">
@@ -3020,18 +3025,16 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 										</div>
 										{/* Confirm sell inline */}
 										{confirmSell === h.ticker && (() => {
-											const sellValue = h.pricePct !== null && h.entry.priceAtAdd
-												? SANDBOX_PER_POSITION * (h.currentPrice! / h.entry.priceAtAdd)
-												: SANDBOX_PER_POSITION;
-											const sellPnl = sellValue - SANDBOX_PER_POSITION;
+											const sellValue = h.currentValue;
+											const sellPnl = sellValue - h.costBasis;
 											return (
 												<div className="rounded-[10px] border border-rose-500/20 bg-rose-500/[0.06] px-[12px] py-[10px] mt-[4px]">
 													<div className="flex items-start justify-between gap-[8px] mb-[8px]">
 														<div>
 															<p className="text-[12px] font-bold">Sell {h.brand?.name ?? h.ticker}?</p>
 															<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
-																You'll receive <span className={`font-bold ${sellValue >= SANDBOX_PER_POSITION ? "text-emerald-400" : "text-rose-400"}`}>${sellValue.toFixed(0)}</span>
-																{' '}(<span className={sellPnl >= 0 ? "text-emerald-400" : "text-rose-400"}>{sellPnl >= 0 ? "+" : ""}${sellPnl.toFixed(0)}</span>) back to cash
+																You'll receive <span className={`font-bold ${sellPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>${sellValue.toFixed(2)}</span>
+																{' '}(<span className={sellPnl >= 0 ? "text-emerald-400" : "text-rose-400"}>{sellPnl >= 0 ? "+" : ""}${sellPnl.toFixed(2)}</span>) back to buying power
 															</p>
 														</div>
 													</div>
@@ -3050,7 +3053,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 																			<div>
 																				<p className={`text-[11px] font-bold uppercase tracking-wide mb-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "Profitable Trade" : "Loss Taken"}</p>
 																				<p className="text-[14px] font-extrabold text-foreground">Sold {h.brand?.name ?? h.ticker}</p>
-																				<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(0)} · {won ? "+" : ""}{((sellPnl / SANDBOX_PER_POSITION) * 100).toFixed(1)}%</p>
+																				<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(2)} · {won ? "+" : ""}{h.costBasis > 0 ? ((sellPnl / h.costBasis) * 100).toFixed(1) : "0.0"}%</p>
 																			</div>
 																		</div>
 																	), { duration: 4000 }));
@@ -3093,10 +3096,20 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								autoFocus
 								className="flex-1 bg-transparent text-[14px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
 							/>
-							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
+							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); setShareQty(1); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
 						</div>
-						{/* Thesis input */}
-						<div className="px-[14px] py-[10px] border-b border-foreground/[0.06]">
+						{/* Share quantity + thesis */}
+						<div className="px-[14px] py-[10px] border-b border-foreground/[0.06] space-y-[8px]">
+							<div className="flex items-center justify-between">
+								<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares to buy</p>
+								<div className="flex items-center gap-[10px]">
+									<button type="button" onClick={() => setShareQty(q => Math.max(1, q - 1))}
+										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">−</button>
+									<span className="text-[16px] font-extrabold w-[24px] text-center">{shareQty}</span>
+									<button type="button" onClick={() => setShareQty(q => q + 1)}
+										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">+</button>
+								</div>
+							</div>
 							<input
 								type="text"
 								value={thesis}
@@ -3117,31 +3130,42 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								if (available.length === 0) return (
 									<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center py-[20px]">No matches found</p>
 								);
-								return available.map(b => (
-									<button
-										key={b.id}
-										type="button"
-										onClick={() => { handleAdd(b.ticker); setSearch(""); }}
-										className="w-full flex items-center gap-[12px] px-[14px] py-[11px] border-b border-foreground/[0.04] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
-									>
-										<div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-											{b.logo || b.domain ? (
-												<img
-													src={b.logo ?? `https://logo.clearbit.com/${b.domain}`}
-													alt={b.name}
-													className="w-[24px] h-[24px] object-contain"
-													onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-												/>
-											) : (
-												<span className="text-[11px] font-bold dark:text-slate-600 text-slate-500">{b.ticker.slice(0, 2)}</span>
+								return available.map(b => {
+									const livePrice = queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null;
+									const cost = livePrice != null ? livePrice * shareQty : null;
+									const canAfford = cost == null || cost <= sandboxCash;
+									return (
+										<button
+											key={b.id}
+											type="button"
+											onClick={() => { if (canAfford) { handleAdd(b.ticker); setSearch(""); } }}
+											disabled={!canAfford}
+											className={`w-full flex items-center gap-[12px] px-[14px] py-[11px] border-b border-foreground/[0.04] last:border-b-0 text-left transition-colors ${canAfford ? "active:bg-foreground/[0.04]" : "opacity-40 cursor-not-allowed"}`}
+										>
+											<div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+												{b.logo || b.domain ? (
+													<img
+														src={b.logo ?? `https://logo.clearbit.com/${b.domain}`}
+														alt={b.name}
+														className="w-[24px] h-[24px] object-contain"
+														onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+													/>
+												) : (
+													<span className="text-[11px] font-bold dark:text-slate-600 text-slate-500">{b.ticker.slice(0, 2)}</span>
+												)}
+											</div>
+											<div className="flex-1 min-w-0">
+												<p className="text-[13px] font-semibold text-foreground">{b.name}</p>
+												<p className="text-[11px] dark:text-slate-400 text-slate-500">{b.ticker}{livePrice ? ` · $${livePrice.toFixed(2)}` : ""}</p>
+											</div>
+											{cost != null && (
+												<p className={`text-[12px] font-bold shrink-0 ${canAfford ? "text-violet-400" : "text-rose-400"}`}>
+													${cost.toFixed(2)}
+												</p>
 											)}
-										</div>
-										<div className="flex-1 min-w-0">
-											<p className="text-[13px] font-semibold text-foreground">{b.name}</p>
-											<p className="text-[11px] dark:text-slate-400 text-slate-500">{b.ticker}</p>
-										</div>
-									</button>
-								));
+										</button>
+									);
+								});
 							})()}
 						</div>
 					</div>
@@ -3164,7 +3188,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						)}
 						<button type="button" onClick={() => setAdding(true)} disabled={!canAddMore}
 							className={`w-full h-[44px] rounded-[12px] border font-semibold text-[14px] active:opacity-80 transition-opacity ${!canAddMore ? "border-foreground/10 dark:text-slate-500 text-slate-400 cursor-not-allowed" : "border-violet-500/30 bg-violet-500/[0.07] text-violet-400"}`}>
-							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Portfolio full (10/10)" : sandboxCash < SANDBOX_PER_POSITION ? `Not enough cash — $${sandboxCash.toFixed(0)} available` : `+ Buy Stock · costs $1,000`}
+							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Portfolio full (10/10)" : sandboxCash < 1 ? "No buying power" : `+ Buy Stock`}
 						</button>
 					</div>
 				)}
