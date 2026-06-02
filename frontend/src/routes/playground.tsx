@@ -43,6 +43,16 @@ const CATEGORY_COLORS: Record<LessonCategory, string> = {
 	"Sectors":       "text-pink-400 bg-pink-500/10 border-pink-500/20",
 };
 
+const CATEGORY_BAR: Record<LessonCategory, string> = {
+	"Stock Basics":  "from-blue-500 to-blue-400",
+	"Market Basics": "from-purple-500 to-violet-400",
+	"Valuation":     "from-cyan-500 to-teal-400",
+	"Earnings":      "from-amber-500 to-yellow-400",
+	"Risk":          "from-rose-500 to-red-400",
+	"Dividends":     "from-emerald-500 to-green-400",
+	"Sectors":       "from-pink-500 to-fuchsia-400",
+};
+
 // ── Section Card component ────────────────────────────────────────────────────
 
 function SectionCard({
@@ -127,6 +137,21 @@ function optionState(
 	if (optId === correctId) return selected === optId ? "correct" : "correct-other";
 	if (optId === selected) return "wrong";
 	return "idle";
+}
+
+// ── Shared back button ───────────────────────────────────────────────────────
+
+function BackBtn({ onClick, label = "Back" }: { onClick: () => void; label?: string }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="flex items-center gap-[6px] text-[13px] font-medium dark:text-slate-400 text-slate-500 mb-[16px] active:opacity-70"
+		>
+			<ChevronRight size={15} className="rotate-180" strokeWidth={2.5} />
+			{label}
+		</button>
+	);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -321,40 +346,44 @@ export function PlaygroundPage() {
 				</p>
 
 				{/* Level + XP card */}
-				<div className={`rounded-[16px] border border-foreground/10 bg-surface-1 px-[16px] py-[14px] mb-[20px]`}>
-					<div className="flex items-center gap-[12px] mb-[12px]">
-						<div className={`grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] ${currentLevel.bg} ${currentLevel.color} text-[20px] font-extrabold`}>
-							{currentLevel.name === "Beginner" ? "🌱" : currentLevel.name === "Learner" ? "📚" : currentLevel.name === "Investor" ? "📈" : currentLevel.name === "Analyst" ? "🔬" : "🏆"}
-						</div>
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center justify-between mb-[1px]">
-								<p className={`text-[15px] font-extrabold ${currentLevel.color}`}>{currentLevel.name}</p>
-								<p className="text-[12px] font-bold text-foreground">{totalXp} XP</p>
+				<div className={`rounded-[18px] border border-foreground/10 bg-surface-1 overflow-hidden mb-[20px]`}>
+					{/* Top accent bar */}
+					<div className={`h-[4px] bg-gradient-to-r ${currentLevel.bar}`} />
+					<div className="px-[16px] pt-[14px] pb-[16px]">
+						<div className="flex items-center gap-[14px] mb-[14px]">
+							<div className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[13px] ${currentLevel.bg} text-[28px]`}>
+								{currentLevel.name === "Beginner" ? "🌱" : currentLevel.name === "Learner" ? "📚" : currentLevel.name === "Investor" ? "📈" : currentLevel.name === "Analyst" ? "🔬" : "🏆"}
 							</div>
-							<p className="text-[11px] dark:text-slate-400 text-slate-500">
-								{nextLevel ? `${nextLevel.min - totalXp} XP to ${nextLevel.name}` : "Max level reached 🏆"}
-							</p>
-						</div>
-					</div>
-					{/* XP progress bar */}
-					<div className="h-[6px] rounded-full bg-foreground/10">
-						<div
-							className={`h-full rounded-full bg-gradient-to-r ${currentLevel.bar} transition-all duration-500`}
-							style={{ width: `${levelPct}%` }}
-						/>
-					</div>
-					{/* Stats row */}
-					<div className="grid grid-cols-3 gap-[8px] mt-[12px]">
-						{[
-							{ label: "Lessons", value: `${completedLessons}/${totalLessons}` },
-							{ label: "Streak", value: streakCount > 0 ? `${streakCount}d 🔥` : "—" },
-							{ label: "Badges", value: `${(account?.badges ?? []).length}` },
-						].map(s => (
-							<div key={s.label} className="rounded-[8px] bg-foreground/[0.04] px-[8px] py-[7px] text-center">
-								<p className="text-[11px] dark:text-slate-500 text-slate-400">{s.label}</p>
-								<p className="text-[13px] font-bold">{s.value}</p>
+							<div className="flex-1 min-w-0">
+								<div className="flex items-center justify-between">
+									<p className={`text-[18px] font-extrabold tracking-tight ${currentLevel.color}`}>{currentLevel.name}</p>
+									<p className="text-[14px] font-extrabold text-foreground">{totalXp} <span className="text-[11px] font-semibold dark:text-slate-400 text-slate-500">XP</span></p>
+								</div>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
+									{nextLevel ? `${nextLevel.min - totalXp} XP to unlock ${nextLevel.name}` : "Max level reached 🏆"}
+								</p>
+								{/* XP progress bar inline */}
+								<div className="h-[5px] rounded-full bg-foreground/10 mt-[7px]">
+									<div className={`h-full rounded-full bg-gradient-to-r ${currentLevel.bar} transition-all duration-500`} style={{ width: `${levelPct}%` }} />
+								</div>
 							</div>
-						))}
+						</div>
+						{/* Stats row */}
+						<div className="grid grid-cols-3 gap-[8px]">
+							{[
+								{ label: "Lessons", value: `${completedLessons}/${totalLessons}`, pct: completedLessons / totalLessons, color: "bg-blue-400" },
+								{ label: "Streak", value: streakCount > 0 ? `${streakCount}d 🔥` : "—", pct: Math.min(1, streakCount / 30), color: "bg-orange-400" },
+								{ label: "Badges", value: `${(account?.badges ?? []).length}`, pct: Math.min(1, (account?.badges ?? []).length / 10), color: "bg-violet-400" },
+							].map(s => (
+								<div key={s.label} className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[9px]">
+									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">{s.label}</p>
+									<p className="text-[15px] font-extrabold leading-none">{s.value}</p>
+									<div className="h-[3px] rounded-full bg-foreground/10 mt-[6px]">
+										<div className={`h-full rounded-full ${s.color} transition-all`} style={{ width: `${s.pct * 100}%` }} />
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				</div>
 
@@ -408,55 +437,101 @@ export function PlaygroundPage() {
 					</div>
 				)}
 
-				{/* Daily Challenge */}
+				{/* Daily Challenge — hero card */}
 				<div className="mb-[20px]">
-					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Today's Challenge</p>
 					<button
 						type="button"
 						onClick={() => setActiveView("daily-challenge")}
-						className={`w-full rounded-[14px] border px-[16px] py-[15px] text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.08]"}`}
+						className={`w-full rounded-[18px] border overflow-hidden text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30" : "border-amber-500/30"}`}
 					>
-						<div className="flex items-center gap-[12px]">
-							<div className={`grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] text-[22px] ${challengeCompleted ? "bg-emerald-500/15" : "bg-amber-500/15"}`}>
-								{challengeCompleted ? "✅" : "⚡"}
-							</div>
-							<div className="flex-1 min-w-0">
-								<div className="flex items-center gap-[6px] mb-[2px]">
-									<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500">Daily Challenge</p>
-									{challengeCompleted && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-[6px] py-[1px] rounded-full">Done ✓</span>}
+						{/* Gradient header strip */}
+						<div className={`px-[18px] py-[14px] ${challengeCompleted ? "bg-gradient-to-br from-emerald-500/15 to-teal-500/10" : "bg-gradient-to-br from-amber-500/15 to-orange-500/10"}`}>
+							<div className="flex items-center justify-between mb-[8px]">
+								<div className="flex items-center gap-[6px]">
+									<span className="text-[18px]">{challengeCompleted ? "✅" : "⚡"}</span>
+									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-300 text-slate-600">Daily Challenge</p>
 								</div>
-								<p className="text-[13px] font-bold text-foreground line-clamp-2 leading-snug">{dailyChallenge.prompt}</p>
-								<p className="text-[11px] text-amber-400 font-semibold mt-[3px]">+{dailyChallenge.xp} XP</p>
+								{challengeCompleted
+									? <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/20 px-[8px] py-[2px] rounded-full border border-emerald-500/25">Done ✓</span>
+									: <span className="text-[11px] font-bold text-amber-400 bg-amber-500/15 px-[8px] py-[2px] rounded-full border border-amber-500/25">+{dailyChallenge.xp} XP</span>
+								}
 							</div>
-							{!challengeCompleted && <ChevronRight size={16} className="shrink-0 text-amber-400" />}
+							<p className="text-[15px] font-bold text-foreground leading-snug">{dailyChallenge.prompt}</p>
 						</div>
+						{/* Footer strip */}
+						{!challengeCompleted && (
+							<div className={`flex items-center justify-between px-[18px] py-[10px] bg-surface-1`}>
+								<p className="text-[12px] dark:text-slate-400 text-slate-500">Answer to earn {dailyChallenge.xp} XP</p>
+								<div className="flex items-center gap-[4px] text-amber-400">
+									<p className="text-[12px] font-semibold">Start</p>
+									<ChevronRight size={14} />
+								</div>
+							</div>
+						)}
 					</button>
 				</div>
 
-				{/* All Sections — 2-column grid for compact feel */}
+				{/* All Sections — 2-column grid */}
 				<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Explore</p>
 				<div className="grid grid-cols-2 gap-[10px] mb-[10px]">
 					{[
-						{ colorKey: "lessons",  icon: <BookOpen size={20} />,    title: "Lessons",       subtitle: `${completedLessons}/${totalLessons} done`,                  view: "lessons" as const },
-						{ colorKey: "battles",  icon: <Swords size={20} />,      title: "Stock Battles", subtitle: `${STOCK_BATTLES.length} matchups`,                          view: "battles" as const },
-						{ colorKey: "earnings", icon: <FlaskConical size={20} />,title: "Earnings Lab",  subtitle: `${EARNINGS_SCENARIOS.length} scenarios`,                    view: "earnings-lab" as const },
-						{ colorKey: "risk",     icon: <ShieldAlert size={20} />, title: "Risk Lab",      subtitle: `${RISK_SCENARIOS.length} comparisons`,                      view: "risk-lab" as const },
-						{ colorKey: "mood",     icon: <Brain size={20} />,       title: "Market Mood",   subtitle: `${MOOD_SCENARIOS.length} simulations`,                      view: "mood-simulator" as const },
-						{ colorKey: "practice", icon: <TrendingUp size={20} />,  title: "Practice",      subtitle: `${PRACTICE_TICKERS.length} stocks`,                         view: "practice" as const },
+						{
+							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
+							subtitle: `${totalLessons} lessons`, view: "lessons" as const,
+							done: completedLessons, total: totalLessons,
+						},
+						{
+							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
+							subtitle: `${STOCK_BATTLES.length} matchups`, view: "battles" as const,
+							done: null, total: null,
+						},
+						{
+							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
+							subtitle: `${EARNINGS_SCENARIOS.length} scenarios`, view: "earnings-lab" as const,
+							done: null, total: EARNINGS_SCENARIOS.length,
+						},
+						{
+							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
+							subtitle: `${RISK_SCENARIOS.length} comparisons`, view: "risk-lab" as const,
+							done: null, total: null,
+						},
+						{
+							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
+							subtitle: `${MOOD_SCENARIOS.length} simulations`, view: "mood-simulator" as const,
+							done: null, total: null,
+						},
+						{
+							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Practice",
+							subtitle: `${PRACTICE_TICKERS.length} stocks`, view: "practice" as const,
+							done: null, total: null,
+						},
 					].map(s => {
 						const c = SECTION_COLORS[s.colorKey] ?? SECTION_COLORS.lessons;
+						const pct = s.done != null && s.total ? (s.done / s.total) * 100 : null;
+						const allDone = pct === 100;
 						return (
 							<button
 								key={s.title}
 								type="button"
 								onClick={() => setActiveView(s.view)}
-								className={`rounded-[14px] border ${c.border} ${c.bg} px-[14px] py-[14px] text-left active:opacity-80 transition-opacity`}
+								className={`rounded-[14px] border ${c.border} ${c.bg} px-[14px] py-[14px] text-left active:opacity-80 transition-opacity relative overflow-hidden`}
 							>
-								<div className={`grid h-[38px] w-[38px] place-items-center rounded-[9px] bg-background/50 mb-[10px] ${c.icon}`}>
-									{s.icon}
+								{/* Completion shimmer overlay */}
+								{allDone && <div className="absolute inset-0 bg-emerald-500/[0.06] pointer-events-none" />}
+								<div className="flex items-start justify-between mb-[10px]">
+									<div className={`grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-background/60 ${c.icon}`}>
+										{s.icon}
+									</div>
+									{allDone && <span className="text-[10px] font-bold text-emerald-400">✓</span>}
 								</div>
 								<p className="text-[13px] font-bold text-foreground leading-none mb-[4px]">{s.title}</p>
-								<p className="text-[11px] dark:text-slate-400 text-slate-500">{s.subtitle}</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[8px]">{s.subtitle}</p>
+								{/* Progress bar */}
+								{pct !== null && (
+									<div className="h-[3px] rounded-full bg-foreground/10">
+										<div className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-400" : c.icon.replace("text-", "bg-").split(" ")[0]}`} style={{ width: `${pct}%` }} />
+									</div>
+								)}
 							</button>
 						);
 					})}
@@ -501,9 +576,7 @@ function LessonLibrary({
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Lesson Library</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{totalCompleted}/{LESSONS.length} completed</p>
 
@@ -646,9 +719,7 @@ function LessonPlayer({
 			<div className="max-w-lg mx-auto w-full px-[18px] pt-[20px] pb-[32px] flex flex-col flex-1">
 				{/* Nav */}
 				<div className="flex items-center justify-between mb-[16px]">
-					<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500">
-						<ChevronRight size={14} className="rotate-180" /> Back
-					</button>
+					<BackBtn onClick={onBack} />
 					<span className="text-[12px] dark:text-slate-400 text-slate-500">{lesson.emoji} {lesson.category}</span>
 				</div>
 
@@ -676,19 +747,22 @@ function LessonPlayer({
 						onPointerUp={e => handleSwipeEnd(e.clientX)}
 					>
 						<div
-							className={`flex-1 rounded-[18px] border border-foreground/10 bg-surface-1 p-[24px] flex flex-col overflow-hidden transition-all duration-180 ${slideDir === "left" ? "opacity-0 -translate-x-4" : "opacity-100 translate-x-0"}`}
+							className={`flex-1 rounded-[18px] border border-foreground/10 bg-surface-1 flex flex-col overflow-hidden transition-all duration-180 ${slideDir === "left" ? "opacity-0 -translate-x-4" : "opacity-100 translate-x-0"}`}
 							style={{ transform: slideDir === "left" ? "translateX(-16px)" : "translateX(0)", opacity: slideDir === "left" ? 0 : 1, transition: "transform 0.18s ease, opacity 0.18s ease" }}
 						>
-							{/* Dot indicators */}
-							<div className="flex items-center gap-[6px] mb-[16px]">
-								{lesson.cards.map((_, i) => (
-									<div key={i} className={`h-[5px] rounded-full transition-all duration-200 ${i === cardIndex ? "bg-blue-400 w-[20px]" : i < cardIndex ? "bg-blue-400/40 w-[5px]" : "bg-foreground/15 w-[5px]"}`} />
-								))}
-								<div className="ml-auto text-[11px] dark:text-slate-400 text-slate-500">{cardIndex + 1}/{lesson.cards.length}</div>
+							{/* Category accent bar */}
+							<div className={`h-[5px] bg-gradient-to-r ${CATEGORY_BAR[lesson.category]} shrink-0`} />
+							<div className="p-[24px] flex flex-col flex-1">
+								{/* Dot indicators + counter */}
+								<div className="flex items-center gap-[6px] mb-[18px]">
+									{lesson.cards.map((_, i) => (
+										<div key={i} className={`h-[4px] rounded-full transition-all duration-200 ${i === cardIndex ? "w-[18px]" : "w-[4px]"} ${i === cardIndex ? "bg-blue-400" : i < cardIndex ? "bg-blue-400/40" : "bg-foreground/15"}`} />
+									))}
+									<div className="ml-auto text-[11px] dark:text-slate-400 text-slate-500 font-medium">{cardIndex + 1} / {lesson.cards.length}</div>
+								</div>
+								<h2 className="text-[21px] font-extrabold mb-[14px] leading-snug tracking-tight">{lesson.cards[cardIndex]!.heading}</h2>
+								<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed flex-1">{lesson.cards[cardIndex]!.body}</p>
 							</div>
-							<h2 className="text-[20px] font-extrabold mb-[14px] leading-snug">{lesson.cards[cardIndex]!.heading}</h2>
-							<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed flex-1">{lesson.cards[cardIndex]!.body}</p>
-							<p className="text-[11px] dark:text-slate-500 text-slate-400 mt-[16px] text-center">Swipe left or tap Next →</p>
 						</div>
 						<button
 							type="button"
@@ -783,9 +857,7 @@ function DailyChallengeView({
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<div className="flex items-center gap-[10px] mb-[20px]">
 					<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-amber-500/15 text-amber-400">
 						<Zap size={20} />
@@ -885,9 +957,7 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> All Battles
-				</button>
+				<BackBtn onClick={onBack} label="All Battles" />
 				<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">{battle.category}</p>
 				<h2 className="text-[20px] font-extrabold mb-[2px]">{battle.nameA} vs {battle.nameB}</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">
@@ -988,9 +1058,7 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Stock Battles</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Pick the winner. See the real numbers.</p>
 
@@ -1067,9 +1135,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<button type="button" onClick={backToList} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-						<ChevronRight size={14} className="rotate-180" /> All Scenarios
-					</button>
+					<BackBtn onClick={backToList} label="All Scenarios" />
 					<div className="flex items-center gap-[10px] mb-[16px]">
 						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
 							<FlaskConical size={18} />
@@ -1172,9 +1238,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Earnings Lab</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Learn why stocks react the way they do after earnings.</p>
 
@@ -1232,24 +1296,24 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 	if (done) {
 		const total = RISK_SCENARIOS.length;
 		const pct = Math.round((correct / total) * 100);
+		const tier = pct >= 80 ? { emoji: "🛡️", label: "Risk Expert", msg: "You spotted every trap. You understand what separates safe stocks from dangerous ones.", color: "text-orange-400", border: "border-orange-500/25", bg: "bg-orange-500/[0.07]" }
+			: pct >= 50 ? { emoji: "⚠️", label: "Risk Aware", msg: "You caught most of them. The trickier cases are where real losses happen — review the ones you missed.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
+			: { emoji: "📚", label: "Keep Learning", msg: "Risk is one of the hardest concepts in investing. The more scenarios you see, the sharper your instincts get.", color: "text-rose-400", border: "border-rose-500/25", bg: "bg-rose-500/[0.07]" };
 		return (
-			<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-[18px]">
-				<div className="max-w-lg w-full text-center space-y-[16px]">
-					<span className="text-[64px]">{pct >= 80 ? "🏆" : pct >= 50 ? "👍" : "📚"}</span>
-					<h2 className="text-[24px] font-extrabold">Risk Lab Complete!</h2>
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[20px]">
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Your Score</p>
-						<p className="text-[42px] font-extrabold text-foreground">{correct}<span className="text-[24px] dark:text-slate-400 text-slate-500">/{total}</span></p>
-						<p className={`text-[14px] font-semibold mt-[4px] ${pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-							{pct >= 80 ? "Excellent risk awareness!" : pct >= 50 ? "Good start — keep practising" : "Keep learning — risk is tricky"}
-						</p>
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
+						<span className="text-[56px] block mb-[10px]">{tier.emoji}</span>
+						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Risk Lab</p>
+						<h2 className="text-[26px] font-extrabold mb-[4px]">{tier.label}</h2>
+						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[12px]`}>{correct}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{total}</span></p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[280px] mx-auto">{tier.msg}</p>
 					</div>
-					<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>
-						Back to Playground
-					</button>
-					<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedRisk.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
-						Try Again
-					</button>
+					<div className="space-y-[8px]">
+						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>Back to Playground</button>
+						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedRisk.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
+					</div>
 				</div>
 			</div>
 		);
@@ -1264,9 +1328,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div>
 						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Risk Lab</p>
@@ -1335,24 +1397,24 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 	if (done) {
 		const total = MOOD_SCENARIOS.length;
 		const pct = Math.round((correct / total) * 100);
+		const tier = pct >= 80 ? { emoji: "🧠", label: "Macro Mind", msg: "You understand how global events ripple through markets. That's a rare edge most investors never develop.", color: "text-cyan-400", border: "border-cyan-500/25", bg: "bg-cyan-500/[0.07]" }
+			: pct >= 50 ? { emoji: "📊", label: "Getting There", msg: "Solid macro awareness. The tricky ones usually involve second-order effects — practice makes these intuitive.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
+			: { emoji: "🌍", label: "Macro is Hard", msg: "Macro is genuinely complex — professional investors get it wrong constantly. Keep going through the scenarios.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
 		return (
-			<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-[18px]">
-				<div className="max-w-lg w-full text-center space-y-[16px]">
-					<span className="text-[64px]">{pct >= 80 ? "🧠" : pct >= 50 ? "📈" : "📚"}</span>
-					<h2 className="text-[24px] font-extrabold">Market Mood Complete!</h2>
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[20px]">
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Your Score</p>
-						<p className="text-[42px] font-extrabold text-foreground">{correct}<span className="text-[24px] dark:text-slate-400 text-slate-500">/{total}</span></p>
-						<p className={`text-[14px] font-semibold mt-[4px] ${pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-							{pct >= 80 ? "You read the market well!" : pct >= 50 ? "Solid macro awareness" : "Macro is complex — keep going"}
-						</p>
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
+						<span className="text-[56px] block mb-[10px]">{tier.emoji}</span>
+						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Market Mood</p>
+						<h2 className="text-[26px] font-extrabold mb-[4px]">{tier.label}</h2>
+						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[12px]`}>{correct}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{total}</span></p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[280px] mx-auto">{tier.msg}</p>
 					</div>
-					<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>
-						Back to Playground
-					</button>
-					<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedMood.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
-						Try Again
-					</button>
+					<div className="space-y-[8px]">
+						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>Back to Playground</button>
+						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedMood.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
+					</div>
 				</div>
 			</div>
 		);
@@ -1368,9 +1430,7 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
-					<ChevronRight size={14} className="rotate-180" /> Back
-				</button>
+				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div>
 						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Market Mood</p>
@@ -1437,7 +1497,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
+				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[2px]">
 					<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
 					<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">{(idx % shuffled.length) + 1} / {shuffled.length}</span>
@@ -1486,7 +1546,7 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
+				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div><p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Decision Training</p><h2 className="text-[18px] font-extrabold">What Would You Do?</h2></div>
 					<p className="text-[12px] dark:text-slate-400 text-slate-500">{idx + 1}/{WWYD_SCENARIOS.length}</p>
@@ -1625,7 +1685,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<button type="button" onClick={() => setActiveSlot(null)} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
+					<BackBtn onClick={() => setActiveSlot(null)} />
 					<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Pick a {slot.label}</p>
 					<h2 className="text-[20px] font-extrabold mb-[2px]">{slot.emoji} {slot.label}</h2>
 					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">{slot.description}</p>
@@ -1650,7 +1710,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
+				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Build Your Watchlist</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Fill all 7 slots to build a balanced beginner portfolio.</p>
 				<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[20px]">{filled}/{totalSlots} slots filled</p>
@@ -1746,7 +1806,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Back</button>
+				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Sandbox Portfolio</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Practice money only. No real trades.</p>
 
