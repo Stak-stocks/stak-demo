@@ -145,15 +145,20 @@ function optionState(
 function useXpFloat() {
 	const [xpFloat, setXpFloat] = useState<{ id: number; amount: number } | null>(null);
 	const idRef = useRef(0);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Clean up pending timer on unmount
+	useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
 	const showXp = (amount: number) => {
+		if (timerRef.current) clearTimeout(timerRef.current);
 		idRef.current += 1;
 		setXpFloat({ id: idRef.current, amount });
-		setTimeout(() => setXpFloat(null), 1700);
+		timerRef.current = setTimeout(() => setXpFloat(null), 1700);
 	};
 
 	const XPFloat = xpFloat ? (
-		<div key={xpFloat.id} className="fixed bottom-[100px] left-1/2 -translate-x-1/2 z-[999] xp-float flex items-center gap-[5px] rounded-full bg-amber-500/20 border border-amber-400/40 px-[12px] py-[6px] shadow-lg shadow-amber-500/20">
+		<div key={xpFloat.id} className="fixed left-1/2 -translate-x-1/2 z-[999] xp-float flex items-center gap-[5px] rounded-full bg-amber-500/20 border border-amber-400/40 px-[12px] py-[6px] shadow-lg shadow-amber-500/20" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 16px)" }}>
 			<Star size={13} className="text-amber-400" fill="currentColor" />
 			<span className="text-[13px] font-extrabold text-amber-400">+{xpFloat.amount} XP</span>
 		</div>
@@ -768,13 +773,16 @@ function LessonPlayer({
 		if (showResult) return;
 		setSelectedOption(optionId);
 		setShowResult(true);
-		// Only show XP float on correct answer
-		if (optionId === lesson.quiz.correctId) showXp(lesson.xp);
+		const correct = optionId === lesson.quiz.correctId;
+		if (correct) showXp(lesson.xp);
 		if (!alreadyCompleted) {
-			await completeLesson(lesson.id, lesson.xp);
-			// Level-up check — show toast if XP crosses a level boundary
+			// Mark lesson done regardless (user engaged with all cards + explanation)
+			// but only award XP for correct answer
+			await completeLesson(lesson.id, correct ? lesson.xp : 0);
+			// Level-up check — only relevant if XP was actually awarded
 			const prevXp = account?.totalXp ?? 0;
-			const newXp = prevXp + lesson.xp;
+			const newXp = prevXp + (correct ? lesson.xp : 0);
+			if (!correct) return; // no further XP work needed
 			const LEVEL_THRESHOLDS = [100, 300, 600, 1000];
 			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
 			if (crossed) {
@@ -1472,7 +1480,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 	}
 
 	const next = () => {
-		const isCorrect = selected !== scenario.riskierOption;
+		const isCorrect = selected === scenario.riskierOption;
 		if (index < RISK_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c); }
 		else { setCorrect(c => isCorrect ? c + 1 : c); setDone(true); }
 	};
