@@ -14,7 +14,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
+import { doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile } from "../lib/api";
 import { useAuth } from "./AuthContext";
@@ -323,10 +323,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const addXp = useCallback(
 		async (xp: number) => {
 			if (!user) return;
-			const current = account?.totalXp ?? 0;
-			await updateDoc(doc(db, "users", user.uid), { totalXp: current + xp });
+			// Use Firestore atomic increment — safe against concurrent XP awards
+			await updateDoc(doc(db, "users", user.uid), { totalXp: increment(xp) });
 		},
-		[user, account],
+		[user],
 	);
 
 	const addToSandbox = useCallback(

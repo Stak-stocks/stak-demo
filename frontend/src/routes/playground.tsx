@@ -798,9 +798,11 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
 function EarningsLabView({ onBack }: { onBack: () => void }) {
+	const { addXp } = useAccount();
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [phase, setPhase] = useState<"question" | "outcome">("question");
+	const xpAwarded = useRef(false);
 
 	const scenario = EARNINGS_SCENARIOS.find(s => s.id === activeId);
 
@@ -847,7 +849,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 									<button
 										key={opt.id}
 										type="button"
-										onClick={() => { setSelected(opt.id); setPhase("outcome"); }}
+										onClick={() => { setSelected(opt.id); setPhase("outcome"); if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); } }}
 										className="w-full text-left px-[16px] py-[14px] rounded-[12px] border border-foreground/10 bg-surface-1 text-[14px] font-medium active:opacity-80"
 									>
 										{opt.text}
@@ -883,7 +885,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Learn why stocks react the way they do after earnings.</p>
 				<div className="space-y-[10px]">
 					{EARNINGS_SCENARIOS.map(s => (
-						<button key={s.id} type="button" onClick={() => setActiveId(s.id)}
+						<button key={s.id} type="button" onClick={() => { setActiveId(s.id); xpAwarded.current = false; }}
 							className="w-full flex items-center gap-[14px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80">
 							<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
 								<FlaskConical size={18} />
