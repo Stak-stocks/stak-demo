@@ -132,7 +132,7 @@ interface AccountContextType {
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
-	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null) => Promise<void>;
+	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => Promise<void>;
 	removeFromSandbox: (ticker: string) => Promise<void>;
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
@@ -379,19 +379,25 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	);
 
 	const sellFromSandbox = useCallback(
-		async (ticker: string, currentValue: number, currentPrice: number | null) => {
+		async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
 			if (!user) return;
 			const entry = account?.sandboxPortfolio?.[ticker];
-			const shares = entry?.shares ?? 1;
-			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * shares : 0;
+			const totalShares = entry?.shares ?? 1;
+			const qty = sharesToSell ?? totalShares; // default: sell everything
+			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * qty : 0;
 			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
 			const pnlPct = entry?.priceAtAdd && currentPrice
 				? Math.round(((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 1000) / 10
 				: null;
 			const trade: SandboxTrade = { ticker, action: "sell", priceAtAction: currentPrice, value: Math.round(currentValue * 100) / 100, pnl, pnlPct, timestamp: Date.now(), ...(entry?.thesis ? { thesis: entry.thesis } : {}) };
 			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
+			const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
 			const updated = { ...(account?.sandboxPortfolio ?? {}) };
-			delete updated[ticker];
+			if (remainingShares <= 0) {
+				delete updated[ticker]; // fully sold
+			} else {
+				updated[ticker] = { ...entry!, shares: remainingShares };
+			}
 			const currentCash = account?.sandboxCash ?? 0;
 			await updateDoc(doc(db, "users", user.uid), {
 				sandboxPortfolio: updated,

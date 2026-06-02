@@ -2644,7 +2644,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [showSearch, setShowSearch] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	// Order quantity
-	const [orderQty, setOrderQty] = useState(1);
+	const [orderQty, setOrderQty] = useState<number>(1);
 	// Reset confirm
 	const [confirmReset, setConfirmReset] = useState(false);
 
@@ -2750,7 +2750,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const sellShares = orderQty;
 		const totalShares = holding.shares;
 		const sellValue = pricePerShare * sellShares;
-		await sellFromSandbox(activeStock, sellValue, pricePerShare);
+		await sellFromSandbox(activeStock, sellValue, pricePerShare, sellShares);
 		closeOrder();
 		const remainingShares = totalShares - sellShares;
 		if (remainingShares <= 0) {
@@ -2785,6 +2785,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			? `Not enough buying power ($${(cost - sandboxCash).toFixed(2)} short)`
 			: null;
 
+		// Fractional sell allowed — can sell up to full position
 		const canSell = orderAction === "sell" && orderQty > 0 && orderQty <= sharesOwned;
 		const sellProceeds = price != null ? price * orderQty : null;
 
@@ -2792,7 +2793,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			? (cost != null && canAffordBuy && orderQty > 0)
 			: canSell;
 
-		const maxBuyQty = price != null && price > 0 ? Math.floor(sandboxCash / price) : 0;
+		// Max buy = buying power ÷ price (supports fractions)
+		const maxBuyQty = price != null && price > 0 ? Math.floor((sandboxCash / price) * 1000) / 1000 : 0;
+		const step = orderQty < 1 ? 0.01 : 1; // finer steps for fractional
 
 		return (
 			<>
@@ -2808,36 +2811,41 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							✕
 						</button>
 					</div>
-					<div className="flex items-center justify-center gap-[20px] mb-[20px]">
+					<div className="flex items-center justify-center gap-[16px] mb-[8px]">
 						<button type="button"
-							onClick={() => setOrderQty(q => Math.max(1, q - 1))}
+							onClick={() => setOrderQty(q => Math.max(0.01, Math.round((q - step) * 1000) / 1000))}
 							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
 							−
 						</button>
 						<input
 							type="number"
-							inputMode="numeric"
-							min={1}
+							inputMode="decimal"
+							min={0.01}
+							step={0.01}
 							value={orderQty}
 							onChange={e => {
-								const v = parseInt(e.target.value, 10);
-								if (!isNaN(v) && v >= 1) setOrderQty(v);
+								const v = parseFloat(e.target.value);
+								if (!isNaN(v) && v > 0) setOrderQty(Math.round(v * 1000) / 1000);
 							}}
-							className="w-[100px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+							className="w-[120px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
 						/>
 						<button type="button"
 							onClick={() => {
-								if (orderAction === "buy") {
-									setOrderQty(q => Math.min(q + 1, Math.max(1, maxBuyQty)));
-								} else {
-									setOrderQty(q => Math.min(q + 1, sharesOwned));
-								}
+								const max = orderAction === "buy" ? maxBuyQty : sharesOwned;
+								setOrderQty(q => Math.min(Math.round((q + step) * 1000) / 1000, max));
 							}}
 							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
 							+
 						</button>
 					</div>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[4px]">shares</p>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[16px]">shares</p>
+					{/* Sell All shortcut */}
+					{orderAction === "sell" && sharesOwned > 0 && (
+						<button type="button" onClick={() => setOrderQty(sharesOwned)}
+							className={`mx-auto block text-[12px] font-bold px-[14px] py-[6px] rounded-full border mb-[8px] active:opacity-70 transition-all ${orderQty === sharesOwned ? "border-rose-500/40 bg-rose-500/15 text-rose-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
+							Sell All ({sharesOwned} shares)
+						</button>
+					)}
 					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[16px] py-[14px] mb-[16px] text-center">
 						{price != null ? (
 							<>
@@ -2865,7 +2873,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					{orderAction === "sell" && (
 						<div className="flex items-center justify-between mb-[6px]">
 							<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares you own</p>
-							<p className="text-[13px] font-semibold">{sharesOwned}</p>
+							<p className="text-[13px] font-semibold">{sharesOwned} shares</p>
 						</div>
 					)}
 					{buyError && (
@@ -2873,7 +2881,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					)}
 					{orderAction === "sell" && orderQty > sharesOwned && (
 						<p className="text-[12px] text-rose-400 text-center mb-[10px]">
-							You only own {sharesOwned} share{sharesOwned !== 1 ? "s" : ""}
+							You only own {sharesOwned} shares
 						</p>
 					)}
 					<button
@@ -2890,8 +2898,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						style={isValid && orderAction === "buy" ? { background: "linear-gradient(90deg,#7c3aed,#6366f1)" } : undefined}
 					>
 						{orderAction === "buy"
-							? `Buy ${orderQty} share${orderQty !== 1 ? "s" : ""} of ${name}`
-							: `Sell ${orderQty} share${orderQty !== 1 ? "s" : ""} of ${name}`}
+							? `Buy ${orderQty} share${orderQty !== 1 ? "s" : ""} · $${cost?.toFixed(2) ?? "—"}`
+							: `Sell ${orderQty} share${orderQty !== 1 ? "s" : ""} · $${sellProceeds?.toFixed(2) ?? "—"}`}
 					</button>
 				</div>
 			</>
