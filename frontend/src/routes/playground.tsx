@@ -2013,9 +2013,60 @@ function buildQuestion(
 }
 
 function PracticeModeView({ onBack }: { onBack: () => void }) {
-	const { account } = useAccount();
+	const { account, addPracticeSkillXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 
-	// Build stock pool: user's Stak first, then fallback to PRACTICE_TICKERS
+	// ── Types ────────────────────────────────────────────────────────────────────
+	type RoundType = "move" | "redflag" | "sentiment" | "nextstep" | "portfoliofit";
+	type MovePhase = "decision" | "reason" | "feedback";
+	type OtherPhase = "question" | "feedback";
+
+	// ── Static scenario data ─────────────────────────────────────────────────────
+	const RED_FLAG_SCENARIOS = [
+		{ scenario: "A stock is up 45% this month but revenue growth just turned negative.", question: "What's the biggest risk right now?", options: ["Valuation risk", "Strong momentum", "Low dividend yield", "High employee count"], correctIdx: 0, skill: "valuation", explanation: "When a stock rallies sharply but fundamentals weaken, valuation becomes the biggest concern. The price has run ahead of the business." },
+		{ scenario: "A company has a P/E of 120x but just beat earnings estimates by 40%.", question: "What matters most for investors evaluating this?", options: ["Whether growth justifies the valuation", "The company's office location", "Yesterday's trading volume", "The CEO's social media followers"], correctIdx: 0, skill: "valuation", explanation: "A very high P/E only makes sense if growth is truly exceptional. The key question is whether future growth can justify paying such a premium." },
+		{ scenario: "A tech startup has 80% YoY revenue growth but its profit margin is -45%.", question: "What should you investigate first?", options: ["Cash runway and burn rate", "Stock ticker length", "Logo design", "Number of employees"], correctIdx: 0, skill: "profitability", explanation: "Rapid revenue growth with deep losses means the company is burning cash fast. The key question is: how long can they sustain this before needing to raise capital?" },
+		{ scenario: "A retailer's same-store sales fell 3% but online sales grew 25%.", question: "How would you describe this trend?", options: ["Mixed — offline shrinking, online growing", "Purely bearish", "Purely bullish", "Not meaningful"], correctIdx: 0, skill: "growth", explanation: "This is a classic retail transition story. Declining store traffic offset by digital growth — the question is whether online can grow fast enough to compensate." },
+		{ scenario: "A biotech company announces it failed a Phase 3 drug trial.", question: "What typically happens to the stock?", options: ["Sharp sell-off — the drug was priced in", "Rally — failed trials attract buyers", "No reaction — trials don't matter", "Mild decline — investors expected it"], correctIdx: 0, skill: "risk", explanation: "Biotech stocks are often priced assuming the drug succeeds. A failed trial destroys that thesis immediately, causing a sharp sell-off." },
+	];
+
+	const SENTIMENT_SCENARIOS = [
+		{ scenario: "A company beats revenue estimates by 8% but lowers full-year guidance by 5%.", correct: "Mixed" as const, explanation: "Mixed to bearish. Investors often care more about forward guidance than past results. A guidance cut signals the company expects slower growth ahead." },
+		{ scenario: "A central bank cuts interest rates by 0.5% unexpectedly.", correct: "Bullish" as const, explanation: "Bullish overall. Lower rates reduce borrowing costs, boost company valuations, and make stocks more attractive than bonds." },
+		{ scenario: "A major retailer reports strong holiday sales but announces 2,000 layoffs.", correct: "Mixed" as const, explanation: "Mixed. Strong sales are positive, but layoffs signal the company is cutting costs — either to improve margins or because management expects slower growth." },
+		{ scenario: "A chipmaker misses earnings by 2% but raises guidance for next quarter.", correct: "Bullish" as const, explanation: "Bullish. Forward guidance matters more than backward-looking results. A guidance raise signals management's confidence in the business trajectory." },
+		{ scenario: "An airline reports record profits but fuel costs are rising 30% next year.", correct: "Mixed" as const, explanation: "Mixed to bearish. Record profits are great, but rising fuel costs (a major expense) will pressure future margins significantly." },
+	];
+
+	const NEXT_STEP_SCENARIOS = [
+		{ scenario: "A company has 80% revenue growth but -40% profit margin.", question: "What should you investigate first?", options: ["Cash burn rate and runway", "Number of LinkedIn followers", "Whether they have a mascot", "Share count history from 1990"], correctIdx: 0, skill: "profitability", explanation: "Fast-growing companies often lose money while scaling. Understanding how much cash they burn and how long they can operate without raising more capital is critical." },
+		{ scenario: "You notice a stock with a P/E of 8x while the sector average is 25x.", question: "What should you look into first?", options: ["Why the valuation is so much lower", "The company's office design", "Their marketing budget", "Whether they sponsor sports teams"], correctIdx: 0, skill: "valuation", explanation: "A very low P/E vs peers is worth investigating — it could mean a genuine value opportunity, or it could signal business problems that the market has already priced in." },
+		{ scenario: "A stock you're watching just dropped 15% after reporting earnings.", question: "What's the first thing to check?", options: ["Whether guidance was cut", "The CEO's age", "Their office location", "Headcount changes from 5 years ago"], correctIdx: 0, skill: "earnings", explanation: "A big drop after earnings usually means something disappointed investors beyond just the headline number. Guidance cuts are the most common culprit — they signal the company expects things to get worse." },
+		{ scenario: "A company with 30% market share just lost a major customer worth 20% of revenue.", question: "What's most important to assess?", options: ["Concentration risk and remaining client diversity", "Whether they have a famous CEO", "Their office perks", "Stock split history"], correctIdx: 0, skill: "risk", explanation: "Losing a customer worth 20% of revenue is a major concentration risk event. The first question is: how diversified is the rest of the client base, and can they replace that revenue?" },
+	];
+
+	const PORTFOLIO_FIT_SCENARIOS = [
+		{ condition: "tech-heavy", scenario: "Your watchlist is 70% tech stocks already.", question: "Which addition would best balance your portfolio?", options: ["A consumer staples dividend stock", "Another semiconductor company", "A second cloud software name", "A startup in the same sector"], correctIdx: 0, skill: "portfolio", explanation: "When heavily concentrated in one sector, adding a company from a different sector (especially defensive/dividend) reduces correlation risk and smooths volatility." },
+		{ condition: "no-defensive", scenario: "Your watchlist has no defensive or dividend stocks.", question: "What type of stock would reduce your portfolio's downside risk?", options: ["A dividend-paying consumer staples company", "Another high-growth tech name", "A speculative biotech play", "A meme stock"], correctIdx: 0, skill: "portfolio", explanation: "Defensive and dividend stocks tend to hold their value better in market downturns. Adding one creates a buffer when your growth names pull back sharply." },
+	];
+
+	// ── Scoring for Round Type A ─────────────────────────────────────────────────
+	function scoreRound(decision: string, reason: string): { xp: number; skill: string; feedback: string } {
+		if (decision === "Avoid For Now" && reason === "Revenue decline") return { xp: 100, skill: "growth", feedback: "Smart move. Declining revenue is a major red flag — you spotted it early." };
+		if (decision === "Avoid For Now" && reason === "High valuation") return { xp: 100, skill: "valuation", feedback: "Good call. A stretched valuation with no margin for error is risky. Smart to stay cautious." };
+		if (decision === "Study More" && reason === "High valuation") return { xp: 100, skill: "valuation", feedback: "Smart move. High-multiple stocks deserve more scrutiny before committing." };
+		if (decision === "Study More" && reason === "Revenue decline") return { xp: 90, skill: "growth", feedback: "Good call. Wanting more context on a revenue decline before deciding is the right instinct." };
+		if (decision === "Track It" && reason === "Strong revenue") return { xp: 90, skill: "growth", feedback: "Smart move. Strong revenue growth is one of the best leading indicators of a healthy business." };
+		if (decision === "Track It" && reason === "Strong margins") return { xp: 90, skill: "profitability", feedback: "Good catch. High margins signal real pricing power — one of the best signs of business quality." };
+		if (decision === "Compare First" && reason === "High valuation") return { xp: 90, skill: "valuation", feedback: "Smart move. Comparing against peers before paying a premium is exactly the right framework." };
+		if (decision === "Compare First") return { xp: 70, skill: "peers", feedback: "Good instinct. Peer comparison is always worth doing before forming a strong view." };
+		if (decision === "Track It" && reason === "High valuation") return { xp: 40, skill: "valuation", feedback: "Not bad — here's what you might be missing: tracking a high-valuation stock is fine, but be careful not to overpay. The market has already priced in a lot of optimism." };
+		if (decision === "Track It" && reason === "Revenue decline") return { xp: 30, skill: "growth", feedback: "Not bad — here's what you might be missing: declining revenue is a serious warning sign. Most strong investments have growing top lines." };
+		if (reason === "Not sure") return { xp: 20, skill: "awareness", feedback: "That's honest — and awareness is the first step. Keep building your instincts with each round." };
+		return { xp: 60, skill: "awareness", feedback: "Good effort. Keep building pattern recognition with each round." };
+	}
+
+	// ── Stock pool ───────────────────────────────────────────────────────────────
 	const pool = useMemo(() => {
 		const stakIds = new Set(account?.stakBrandIds ?? []);
 		const stakStocks = stakIds.size > 0
@@ -2023,202 +2074,828 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				.filter(b => stakIds.has(b.id))
 				.map(b => ({ ticker: b.ticker, name: b.name, prompt: b.bio ?? `${b.name} is a publicly traded company.` }))
 			: [];
-		// Merge: user's stocks first, then fill with PRACTICE_TICKERS not already in stak
 		const stakTickers = new Set(stakStocks.map(s => s.ticker));
 		const fallback = PRACTICE_TICKERS.filter(p => !stakTickers.has(p.ticker));
 		return [...stakStocks, ...fallback];
 	}, [account?.stakBrandIds]);
 
-	const [shuffled] = useState<typeof pool>(() => [...pool].sort(() => Math.random() - 0.5));
-	// Use the original pool if shuffled is empty (component created before pool resolved)
-	const stocks = shuffled.length > 0 ? shuffled : pool;
+	const [stocks] = useState(() => [...pool].sort(() => Math.random() - 0.5));
+	const stockList = stocks.length > 0 ? stocks : pool;
 
-	const [idx, setIdx] = useState(0);
-	const [answered, setAnswered] = useState<string | null>(null);	// selected option id
-	const [questionSlot, setQuestionSlot] = useState(0);
-	const [score, setScore] = useState({ correct: 0, total: 0 });
+	// ── Round sequence ───────────────────────────────────────────────────────────
+	const ROUND_SEQUENCE: RoundType[] = ["move", "redflag", "sentiment", "move", "nextstep", "move", "portfoliofit", "move", "sentiment", "redflag"];
+	const hasEnoughForPortfolioFit = (account?.stakBrandIds?.length ?? 0) >= 3;
+
+	function getRoundType(sessionIdx: number): RoundType {
+		const t = ROUND_SEQUENCE[sessionIdx % ROUND_SEQUENCE.length] ?? "move";
+		if (t === "portfoliofit" && !hasEnoughForPortfolioFit) return "move";
+		return t;
+	}
+
+	// ── Home vs. in-session ──────────────────────────────────────────────────────
+	const [sessionStarted, setSessionStarted] = useState(false);
+
+	// ── Session state ────────────────────────────────────────────────────────────
+	const [sessionIdx, setSessionIdx] = useState(0);
+	const [stockIdx, setStockIdx] = useState(0);
 	const [showSummary, setShowSummary] = useState(false);
 
-	const stock = stocks[idx % stocks.length]!;
+	// Session XP tracking
+	const [sessionXp, setSessionXp] = useState(0);
+	const [sessionSkillXp, setSessionSkillXp] = useState<Record<string, number>>({});
+	const [correctCount, setCorrectCount] = useState(0);
+
+	// Round Type A state
+	const [movePhase, setMovePhase] = useState<MovePhase>("decision");
+	const [moveDecision, setMoveDecision] = useState<string | null>(null);
+	const [moveReason, setMoveReason] = useState<string | null>(null);
+	const [moveFeedback, setMoveFeedback] = useState<{ xp: number; skill: string; feedback: string } | null>(null);
+
+	// Round Types B/C/D/E state
+	const [otherPhase, setOtherPhase] = useState<OtherPhase>("question");
+	const [otherSelected, setOtherSelected] = useState<string | null>(null);
+	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
+
+	// Scenario indices (cycle through each set)
+	const [redFlagIdx, setRedFlagIdx] = useState(0);
+	const [sentimentIdx, setSentimentIdx] = useState(0);
+	const [nextStepIdx, setNextStepIdx] = useState(0);
+	const [portfolioFitIdx, setPortfolioFitIdx] = useState(0);
+
+	const currentRoundType = getRoundType(sessionIdx);
+	const stock = stockList[stockIdx % stockList.length]!;
+
 	const { data: stockData, isLoading } = useQuery({
 		queryKey: ["stock", stock.ticker],
 		queryFn: () => getStockData(stock.ticker),
 		staleTime: 5 * 60 * 1000,
 		retry: 1,
 	});
+
 	const quote = stockData?.quote;
 	const metrics = stockData?.metrics;
-	const isUp = (quote?.changePercent ?? 0) >= 0;
 
-	const question = useMemo(
-		() => buildQuestion(stock, quote, metrics, questionSlot),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[stock.ticker, quote?.price, metrics?.peRatio, questionSlot],
-	);
+	// ── Chip generation for Round A reason step ──────────────────────────────────
+	const reasonChips = useMemo(() => {
+		const chips: string[] = [];
+		const pe = metrics?.peRatio != null ? Number(metrics.peRatio) : null;
+		const growth = metrics?.revenueGrowth != null ? String(metrics.revenueGrowth) : null;
+		const margin = metrics?.profitMargin != null ? String(metrics.profitMargin) : null;
+		const change = quote?.changePercent ?? 0;
 
-	const isCorrect = answered === question.correctId;
+		if (pe != null && pe > 35) chips.push("High valuation");
+		if (pe != null && pe < 12) chips.push("Low P/E");
+		if (growth != null && (growth.includes("-") || parseFloat(growth) < 0)) chips.push("Revenue decline");
+		if (growth != null && !growth.includes("-") && parseFloat(growth) > 20) chips.push("Strong revenue");
+		if (margin != null && (margin.includes("-") || parseFloat(margin) < 10)) chips.push("Thin margins");
+		if (margin != null && !margin.includes("-") && parseFloat(margin) > 25) chips.push("Strong margins");
+		if (change < -3) chips.push("Price drop today");
+		if (change > 3) chips.push("Price surge today");
+		chips.push("Volatility risk");
+		chips.push("Not sure");
 
-	const handleAnswer = (id: string) => {
-		if (answered) return;
-		setAnswered(id);
-		setScore(s => ({ correct: s.correct + (id === question.correctId ? 1 : 0), total: s.total + 1 }));
+		// Deduplicate and limit to 6
+		return Array.from(new Set(chips)).slice(0, 6);
+	}, [metrics?.peRatio, metrics?.revenueGrowth, metrics?.profitMargin, quote?.changePercent]);
+
+	// ── Award XP helper ──────────────────────────────────────────────────────────
+	const awardXp = (xp: number, skill: string, isCorrectRound: boolean) => {
+		showXp(xp);
+		setSessionXp(prev => prev + xp);
+		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + xp }));
+		if (isCorrectRound) setCorrectCount(c => c + 1);
+		addPracticeSkillXp(skill, xp).catch(() => {});
 	};
 
-	const next = () => {
-		const nextIdx = (idx + 1) % stocks.length;
-		// Show summary after cycling through all stocks
-		if (nextIdx === 0 && score.total >= stocks.length) {
+	// ── Advance to next round ────────────────────────────────────────────────────
+	const advanceRound = () => {
+		const nextSession = sessionIdx + 1;
+		const nextStockIdx = stockIdx + 1;
+
+		// Show summary after going through all stocks
+		if (nextStockIdx >= stockList.length) {
 			setShowSummary(true);
 			return;
 		}
-		setIdx(nextIdx);
-		setAnswered(null);
-		setQuestionSlot(s => s + 1);
+
+		setSessionIdx(nextSession);
+		setStockIdx(nextStockIdx);
+
+		// Reset round state
+		setMovePhase("decision");
+		setMoveDecision(null);
+		setMoveReason(null);
+		setMoveFeedback(null);
+		setOtherPhase("question");
+		setOtherSelected(null);
+		setOtherCorrect(false);
 	};
 
-	// ── Summary screen ───────────────────────────────────────────
+	// ── Summary screen ────────────────────────────────────────────────────────────
 	if (showSummary) {
-		const pct = Math.round((score.correct / score.total) * 100);
+		const total = stockList.length;
+		const pct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 		const tier = pct >= 80
 			? { emoji: "🏆", label: "Sharp Analyst", msg: "You read market signals well. Your instincts are grounded in the data.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
 			: pct >= 50
 			? { emoji: "📈", label: "Getting There", msg: "Solid fundamentals awareness. Keep practicing — pattern recognition compounds over time.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
 			: { emoji: "📚", label: "Keep Practicing", msg: "Stock analysis takes time to click. Every round builds new intuition.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
+
+		// Top 2 skills by XP earned this session
+		const topSkills = Object.entries(sessionSkillXp)
+			.sort(([, a], [, b]) => b - a)
+			.slice(0, 2);
+
+		const SKILL_LABELS: Record<string, string> = {
+			valuation: "Valuation", growth: "Growth", profitability: "Profitability",
+			risk: "Risk Spotting", news: "News Reading", peers: "Peer Comparison",
+			earnings: "Earnings", portfolio: "Portfolio Fit", awareness: "Market Awareness",
+		};
+
 		return (
 			<div className="min-h-full bg-background text-foreground">
+				{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
 						<span className="text-[56px] block mb-[10px]">{tier.emoji}</span>
-						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Practice Session</p>
+						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Practice Session Complete</p>
 						<h2 className="text-[24px] font-extrabold mb-[4px]">{tier.label}</h2>
-						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[12px]`}>
-							{score.correct}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{score.total}</span>
+						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[10px]`}>
+							{correctCount}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{total}</span>
 						</p>
+						<div className="flex items-center justify-center gap-[6px] mb-[8px]">
+							<Star size={14} className="text-amber-400" fill="currentColor" />
+							<span className="text-[15px] font-extrabold text-amber-400">+{sessionXp} XP this session</span>
+						</div>
 						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[280px] mx-auto">{tier.msg}</p>
 					</div>
+
+					{topSkills.length > 0 && (
+						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px] mb-[16px]">
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Skills Improved</p>
+							<div className="space-y-[8px]">
+								{topSkills.map(([skill, xp]) => (
+									<div key={skill} className="flex items-center justify-between">
+										<p className="text-[13px] font-semibold">{SKILL_LABELS[skill] ?? skill}</p>
+										<span className="text-[12px] font-bold text-emerald-400">+{xp} XP</span>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
 					<div className="space-y-[8px]">
-						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>Back to Playground</button>
-						<button type="button" onClick={() => { setIdx(0); setAnswered(null); setQuestionSlot(0); setScore({ correct: 0, total: 0 }); setShowSummary(false); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Practice Again</button>
+						<button type="button" onClick={onBack}
+							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
+							Back to Playground
+						</button>
+						<button type="button" onClick={() => {
+							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
+							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
+							setMovePhase("decision"); setMoveDecision(null); setMoveReason(null); setMoveFeedback(null);
+							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
+							setRedFlagIdx(0); setSentimentIdx(0); setNextStepIdx(0); setPortfolioFitIdx(0);
+							setSessionStarted(false);
+						}}
+							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+							Practice Again
+						</button>
 					</div>
 				</div>
 			</div>
 		);
 	}
 
-	return (
-		<div className="min-h-full bg-background text-foreground">
-			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={onBack} />
-				<div className="flex items-center justify-between mb-[2px]">
-					<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
-					<div className="flex items-center gap-[8px]">
-						{score.total > 0 && (
-							<span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-[8px] py-[3px] rounded-full">
-								{score.correct}/{score.total} correct
-							</span>
-						)}
+	// ── Skill progression panel data ────────────────────────────────────────────
+	const SKILLS_META = [
+		{ key: "valuation",    label: "Valuation",       color: "bg-cyan-500",    text: "text-cyan-400"    },
+		{ key: "growth",       label: "Growth",           color: "bg-blue-500",    text: "text-blue-400"    },
+		{ key: "profitability",label: "Profitability",    color: "bg-emerald-500", text: "text-emerald-400" },
+		{ key: "risk",         label: "Risk Spotting",    color: "bg-rose-500",    text: "text-rose-400"    },
+		{ key: "news",         label: "News Reading",     color: "bg-amber-500",   text: "text-amber-400"   },
+		{ key: "peers",        label: "Peer Comparison",  color: "bg-violet-500",  text: "text-violet-400"  },
+		{ key: "earnings",     label: "Earnings",         color: "bg-purple-500",  text: "text-purple-400"  },
+		{ key: "portfolio",    label: "Portfolio Fit",    color: "bg-teal-500",    text: "text-teal-400"    },
+	];
+	const XP_PER_LEVEL = 100;
+	const MAX_LEVEL = 5;
+
+	// ── Home screen (shown before session starts) ────────────────────────────────
+	if (!sessionStarted) {
+		const practiceSkills = account?.practiceSkills ?? {};
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className="flex items-center justify-between mb-[2px]">
+						<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
 						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-							{(idx % stocks.length) + 1} / {stocks.length}
+							{stockList.length} stocks
 						</span>
 					</div>
-				</div>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Real data. Read the signal. Build your instincts.</p>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Real data. 5 round types. Build your investor instincts.</p>
 
-				{/* Progress bar */}
-				<div className="h-[3px] rounded-full bg-foreground/10 mb-[20px]">
-					<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
-						style={{ width: `${((idx % stocks.length) / stocks.length) * 100}%` }} />
-				</div>
-
-				{/* Stock card */}
-				<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]">
-					<div className="flex items-center justify-between mb-[12px]">
-						<div>
-							<p className="text-[20px] font-extrabold">{stock.name}</p>
-							<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
-						</div>
-						{quote ? (
-							<div className="text-right">
-								<p className="text-[18px] font-extrabold">${quote.price.toFixed(2)}</p>
-								<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
-									{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
-								</p>
-							</div>
-						) : isLoading ? (
-							<div className="space-y-[4px]">
-								<div className="h-[18px] w-[70px] rounded bg-foreground/10 animate-pulse" />
-								<div className="h-[12px] w-[50px] rounded bg-foreground/10 animate-pulse" />
-							</div>
-						) : null}
-					</div>
-					{metrics && (
-						<div className="grid grid-cols-3 gap-[6px]">
+					{/* Round types preview */}
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px] mb-[20px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">What you'll practice</p>
+						<div className="space-y-[8px]">
 							{[
-								{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
-								{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
-								{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
-							].map(m => (
-								<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-									<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
-									<p className="text-[13px] font-bold">{m.value}</p>
+								{ label: "What's Your Move?", desc: "Evaluate a real stock and make your call", color: "text-emerald-400" },
+								{ label: "Spot the Red Flag", desc: "Identify the biggest risk in a scenario", color: "text-rose-400" },
+								{ label: "Bullish, Bearish, or Mixed?", desc: "Read earnings and news like an analyst", color: "text-blue-400" },
+								{ label: "What Should You Check Next?", desc: "Pick the most useful next research step", color: "text-violet-400" },
+								{ label: "Portfolio Fit", desc: "Balance and diversify your watchlist", color: "text-teal-400" },
+							].map(r => (
+								<div key={r.label} className="flex items-start gap-[10px]">
+									<div className={`w-[6px] h-[6px] rounded-full mt-[6px] shrink-0 ${r.color.replace("text-", "bg-")}`} />
+									<div>
+										<p className="text-[13px] font-semibold">{r.label}</p>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500">{r.desc}</p>
+									</div>
 								</div>
 							))}
 						</div>
-					)}
-				</div>
-
-				{/* Question */}
-				<div className="rounded-[14px] border border-foreground/[0.08] bg-foreground/[0.02] px-[14px] py-[12px] mb-[14px]">
-					<p className="text-[11px] font-bold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[6px]">Question</p>
-					<p className="text-[14px] font-semibold leading-snug text-foreground">{question.prompt}</p>
-				</div>
-
-				{/* Options */}
-				<div className="space-y-[8px] mb-[14px]">
-					{question.options.map((opt, i) => {
-						const isSelected = answered === opt.id;
-						const isRight = opt.id === question.correctId;
-						let cls = "border-foreground/10 bg-surface-1 text-foreground";
-						if (answered) {
-							if (isRight) cls = "border-emerald-500/40 bg-emerald-500/[0.08]";
-							else if (isSelected) cls = "border-rose-500/40 bg-rose-500/[0.08]";
-							else cls = "border-foreground/[0.06] bg-foreground/[0.02] opacity-50";
-						}
-						return (
-							<button key={opt.id} type="button" onClick={() => handleAnswer(opt.id)} disabled={!!answered}
-								className={`w-full flex items-center gap-[12px] rounded-[12px] border px-[14px] py-[12px] text-left transition-all active:opacity-80 ${cls}`}>
-								<span className={`flex-shrink-0 w-[24px] h-[24px] rounded-full border text-[11px] font-bold flex items-center justify-center transition-colors ${
-									answered
-										? isRight ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
-										: isSelected ? "border-rose-500/60 bg-rose-500/20 text-rose-400"
-										: "border-foreground/10 dark:text-slate-500 text-slate-400"
-									: "border-foreground/20 dark:text-slate-400 text-slate-500"
-								}`}>{LETTERS[i]}</span>
-								<p className="text-[13px] font-medium flex-1">{opt.text}</p>
-								{answered && isRight && <span className="shrink-0 text-[16px]">✓</span>}
-								{answered && isSelected && !isRight && <span className="shrink-0 text-[16px]">✗</span>}
-							</button>
-						);
-					})}
-				</div>
-
-				{/* Answer reveal */}
-				{answered && (
-					<div className={`rounded-[13px] border p-[14px] mb-[14px] answer-pop ${isCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
-						<p className="text-[13px] font-bold mb-[4px]">{isCorrect ? "Correct ✓" : "Not quite —"}</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{question.explanation}</p>
 					</div>
-				)}
 
-				{answered && (
-					<button type="button" onClick={next} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
-						{idx + 1 >= stocks.length ? "See Results" : "Next Stock →"}
+					{/* Start button */}
+					<button
+						type="button"
+						onClick={() => setSessionStarted(true)}
+						className="w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80 mb-[28px]"
+						style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}
+					>
+						Start Session · {stockList.length} rounds
 					</button>
-				)}
+
+					{/* Skill progression panel */}
+					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Your Investor Skills</p>
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px]">
+						<div className="space-y-[12px]">
+							{SKILLS_META.map(s => {
+								const totalXp = practiceSkills[s.key] ?? 0;
+								const level = Math.min(MAX_LEVEL, Math.floor(totalXp / XP_PER_LEVEL));
+								const xpInLevel = totalXp % XP_PER_LEVEL;
+								const pct = level >= MAX_LEVEL ? 100 : xpInLevel;
+								return (
+									<div key={s.key}>
+										<div className="flex items-center justify-between mb-[4px]">
+											<p className="text-[13px] font-semibold">{s.label}</p>
+											<span className={`text-[11px] font-bold ${s.text}`}>
+												{level >= MAX_LEVEL ? "MAX" : `Lv ${level}`}
+											</span>
+										</div>
+										<div className="h-[5px] rounded-full bg-foreground/10">
+											<div
+												className={`h-full rounded-full ${s.color} transition-all duration-500`}
+												style={{ width: `${pct}%` }}
+											/>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</div>
+				</div>
 			</div>
-		</div>
-	);
+		);
+	}
+
+	// ── Header shared across all round types ─────────────────────────────────────
+	const ROUND_LABELS: Record<RoundType, string> = {
+		move: "What's Your Move?",
+		redflag: "Spot the Red Flag",
+		sentiment: "Bullish, Bearish, or Mixed?",
+		nextstep: "What Should You Check Next?",
+		portfoliofit: "Portfolio Fit",
+	};
+
+	const isUp = (quote?.changePercent ?? 0) >= 0;
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE A: "What's Your Move?" — 3-step flow
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "move") {
+		const DECISIONS = [
+			"Track It",
+			"Study More",
+			"Compare First",
+			"Avoid For Now",
+		];
+
+		// Step 1: Decision
+		if (movePhase === "decision") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} />
+						<div className="flex items-center justify-between mb-[2px]">
+							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.move}</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">Review the stock, then make your call.</p>
+
+						<div className="h-[3px] rounded-full bg-foreground/10 mb-[18px]">
+							<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
+								style={{ width: `${(stockIdx / stockList.length) * 100}%` }} />
+						</div>
+
+						{/* Stock card */}
+						<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[14px]">
+							<div className="flex items-center justify-between mb-[10px]">
+								<div>
+									<p className="text-[18px] font-extrabold">{stock.name}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
+								</div>
+								{quote ? (
+									<div className="text-right">
+										<p className="text-[17px] font-extrabold">${quote.price.toFixed(2)}</p>
+										<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
+											{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
+										</p>
+									</div>
+								) : isLoading ? (
+									<div className="space-y-[4px]">
+										<div className="h-[16px] w-[64px] rounded bg-foreground/10 animate-pulse" />
+										<div className="h-[12px] w-[44px] rounded bg-foreground/10 animate-pulse" />
+									</div>
+								) : null}
+							</div>
+							{metrics && (
+								<div className="grid grid-cols-3 gap-[6px] mb-[10px]">
+									{[
+										{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
+										{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
+										{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
+									].map(m => (
+										<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
+											<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
+											<p className="text-[13px] font-bold">{String(m.value)}</p>
+										</div>
+									))}
+								</div>
+							)}
+							<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed">{stock.prompt}</p>
+						</div>
+
+						<p className="text-[14px] font-bold mb-[10px]">What's your move?</p>
+						<div className="space-y-[8px]">
+							{DECISIONS.map((d) => (
+								<button
+									key={d}
+									type="button"
+									onClick={() => { setMoveDecision(d); setMovePhase("reason"); }}
+									className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[13px] text-left active:opacity-80 transition-colors"
+								>
+									<p className="text-[14px] font-medium flex-1">{d}</p>
+									<ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />
+								</button>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		// Step 2: Reason
+		if (movePhase === "reason") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={() => setMovePhase("decision")} label="Back" />
+						<div className="flex items-center justify-between mb-[2px]">
+							<h2 className="text-[20px] font-extrabold">What caught your eye?</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">You picked: <span className="font-semibold text-foreground">{moveDecision}</span></p>
+
+						<div className="flex flex-wrap gap-[8px]">
+							{reasonChips.map(chip => (
+								<button
+									key={chip}
+									type="button"
+									onClick={() => {
+										setMoveReason(chip);
+										const result = scoreRound(moveDecision!, chip);
+										setMoveFeedback(result);
+										awardXp(result.xp, result.skill, result.xp >= 80);
+										setMovePhase("feedback");
+									}}
+									className="text-[13px] font-semibold px-[14px] py-[9px] rounded-full border border-foreground/15 bg-surface-1 dark:text-slate-300 text-slate-600 active:opacity-70 transition-opacity"
+								>
+									{chip}
+								</button>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		// Step 3: Feedback
+		if (movePhase === "feedback" && moveFeedback) {
+			const isGoodScore = moveFeedback.xp >= 80;
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} label="Playground" />
+						<div className="flex items-center justify-between mb-[14px]">
+							<h2 className="text-[20px] font-extrabold">Round Feedback</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+
+						<div className={`rounded-[16px] border p-[20px] mb-[14px] ${isGoodScore ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
+							<div className="flex items-center gap-[10px] mb-[10px]">
+								<div className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full ${isGoodScore ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
+									<Star size={18} fill="currentColor" />
+								</div>
+								<div>
+									<p className={`text-[22px] font-extrabold ${isGoodScore ? "text-emerald-400" : "text-amber-400"}`}>+{moveFeedback.xp} XP</p>
+									<p className="text-[11px] capitalize dark:text-slate-400 text-slate-500">{moveFeedback.skill} skill</p>
+								</div>
+							</div>
+							<p className="text-[14px] font-semibold leading-relaxed text-foreground">{moveFeedback.feedback}</p>
+						</div>
+
+						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] mb-[16px]">
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Your call</p>
+							<p className="text-[13px] font-bold">{moveDecision} · <span className="text-emerald-400">{moveReason}</span></p>
+						</div>
+
+						<button type="button" onClick={advanceRound}
+							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
+							{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+						</button>
+					</div>
+				</div>
+			);
+		}
+	}
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE B: "Spot the Red Flag" — static MC
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "redflag") {
+		const sc = RED_FLAG_SCENARIOS[redFlagIdx % RED_FLAG_SCENARIOS.length]!;
+		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
+		const correctId = String(sc.correctIdx);
+
+		if (otherPhase === "question") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} />
+						<div className="flex items-center justify-between mb-[14px]">
+							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.redflag}</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<div className="rounded-[14px] border border-rose-500/25 bg-rose-500/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-rose-400 mb-[4px]">Scenario</p>
+							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
+						</div>
+						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
+						<div className="space-y-[8px]">
+							{opts.map((opt, i) => (
+								<OptionBtn
+									key={opt.id}
+									letter={LETTERS[i] ?? String(i + 1)}
+									text={opt.text}
+									state="idle"
+									onClick={() => {
+										const correct = opt.id === correctId;
+										setOtherSelected(opt.id);
+										setOtherCorrect(correct);
+										setOtherPhase("feedback");
+										const xp = correct ? 80 : 20;
+										awardXp(xp, sc.skill, correct);
+									}}
+								/>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				{XPFloat}
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} label="Playground" />
+					<div className="flex items-center justify-between mb-[14px]">
+						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.redflag}</h2>
+						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+							{stockIdx + 1} / {stockList.length}
+						</span>
+					</div>
+					<div className="space-y-[8px] mb-[14px]">
+						{opts.map((opt, i) => (
+							<OptionBtn
+								key={opt.id}
+								letter={LETTERS[i] ?? String(i + 1)}
+								text={opt.text}
+								state={optionState(opt.id, correctId, otherSelected, true)}
+								disabled
+							/>
+						))}
+					</div>
+					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
+						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+							{otherCorrect ? "Good catch! ✓" : "Not bad — here's what you missed."}
+						</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
+					</div>
+					<button type="button"
+						onClick={() => { setRedFlagIdx(i => i + 1); advanceRound(); }}
+						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+						style={{ background: "linear-gradient(90deg,#f43f5e,#3b82f6)" }}>
+						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE C: "Bullish, Bearish, or Mixed?"
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "sentiment") {
+		const sc = SENTIMENT_SCENARIOS[sentimentIdx % SENTIMENT_SCENARIOS.length]!;
+		const sentimentOpts = [
+			{ id: "Bullish", text: "Bullish" },
+			{ id: "Bearish", text: "Bearish" },
+			{ id: "Mixed", text: "Mixed" },
+		];
+
+		if (otherPhase === "question") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} />
+						<div className="flex items-center justify-between mb-[14px]">
+							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.sentiment}</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<div className="rounded-[14px] border border-blue-500/25 bg-blue-500/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-blue-400 mb-[4px]">News / Earnings</p>
+							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
+						</div>
+						<p className="text-[14px] font-bold mb-[10px]">How would you read this?</p>
+						<div className="space-y-[8px]">
+							{sentimentOpts.map((opt, i) => (
+								<OptionBtn
+									key={opt.id}
+									letter={LETTERS[i] ?? String(i + 1)}
+									text={opt.text}
+									state="idle"
+									onClick={() => {
+										const correct = opt.id === sc.correct;
+										setOtherSelected(opt.id);
+										setOtherCorrect(correct);
+										setOtherPhase("feedback");
+										const xp = correct ? 80 : 20;
+										awardXp(xp, "news", correct);
+									}}
+								/>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				{XPFloat}
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} label="Playground" />
+					<div className="flex items-center justify-between mb-[14px]">
+						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.sentiment}</h2>
+						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+							{stockIdx + 1} / {stockList.length}
+						</span>
+					</div>
+					<div className="space-y-[8px] mb-[14px]">
+						{sentimentOpts.map((opt, i) => (
+							<OptionBtn
+								key={opt.id}
+								letter={LETTERS[i] ?? String(i + 1)}
+								text={opt.text}
+								state={optionState(opt.id, sc.correct, otherSelected, true)}
+								disabled
+							/>
+						))}
+					</div>
+					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
+						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-amber-400"}`}>
+							{otherCorrect ? "Good read! ✓" : "Not bad — here's what you missed."}
+						</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
+					</div>
+					<button type="button"
+						onClick={() => { setSentimentIdx(i => i + 1); advanceRound(); }}
+						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+						style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}>
+						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE D: "What Should You Check Next?"
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "nextstep") {
+		const sc = NEXT_STEP_SCENARIOS[nextStepIdx % NEXT_STEP_SCENARIOS.length]!;
+		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
+		const correctId = String(sc.correctIdx);
+
+		if (otherPhase === "question") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} />
+						<div className="flex items-center justify-between mb-[14px]">
+							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.nextstep}</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<div className="rounded-[14px] border border-violet-500/25 bg-violet-500/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-violet-400 mb-[4px]">Situation</p>
+							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
+						</div>
+						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
+						<div className="space-y-[8px]">
+							{opts.map((opt, i) => (
+								<OptionBtn
+									key={opt.id}
+									letter={LETTERS[i] ?? String(i + 1)}
+									text={opt.text}
+									state="idle"
+									onClick={() => {
+										const correct = opt.id === correctId;
+										setOtherSelected(opt.id);
+										setOtherCorrect(correct);
+										setOtherPhase("feedback");
+										const xp = correct ? 80 : 20;
+										awardXp(xp, sc.skill, correct);
+									}}
+								/>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				{XPFloat}
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} label="Playground" />
+					<div className="flex items-center justify-between mb-[14px]">
+						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.nextstep}</h2>
+						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+							{stockIdx + 1} / {stockList.length}
+						</span>
+					</div>
+					<div className="space-y-[8px] mb-[14px]">
+						{opts.map((opt, i) => (
+							<OptionBtn
+								key={opt.id}
+								letter={LETTERS[i] ?? String(i + 1)}
+								text={opt.text}
+								state={optionState(opt.id, correctId, otherSelected, true)}
+								disabled
+							/>
+						))}
+					</div>
+					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
+						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+							{otherCorrect ? "Smart move! ✓" : "Not bad — here's what you missed."}
+						</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
+					</div>
+					<button type="button"
+						onClick={() => { setNextStepIdx(i => i + 1); advanceRound(); }}
+						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
+						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE E: "Portfolio Fit"
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "portfoliofit") {
+		const sc = PORTFOLIO_FIT_SCENARIOS[portfolioFitIdx % PORTFOLIO_FIT_SCENARIOS.length]!;
+		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
+		const correctId = String(sc.correctIdx);
+
+		if (otherPhase === "question") {
+			return (
+				<div className="min-h-full bg-background text-foreground">
+					{XPFloat}
+					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+						<BackBtn onClick={onBack} />
+						<div className="flex items-center justify-between mb-[14px]">
+							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.portfoliofit}</h2>
+							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+								{stockIdx + 1} / {stockList.length}
+							</span>
+						</div>
+						<div className="rounded-[14px] border border-emerald-500/25 bg-emerald-500/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-[4px]">Your Portfolio</p>
+							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
+						</div>
+						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
+						<div className="space-y-[8px]">
+							{opts.map((opt, i) => (
+								<OptionBtn
+									key={opt.id}
+									letter={LETTERS[i] ?? String(i + 1)}
+									text={opt.text}
+									state="idle"
+									onClick={() => {
+										const correct = opt.id === correctId;
+										setOtherSelected(opt.id);
+										setOtherCorrect(correct);
+										setOtherPhase("feedback");
+										const xp = correct ? 80 : 20;
+										awardXp(xp, sc.skill, correct);
+									}}
+								/>
+							))}
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				{XPFloat}
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} label="Playground" />
+					<div className="flex items-center justify-between mb-[14px]">
+						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.portfoliofit}</h2>
+						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+							{stockIdx + 1} / {stockList.length}
+						</span>
+					</div>
+					<div className="space-y-[8px] mb-[14px]">
+						{opts.map((opt, i) => (
+							<OptionBtn
+								key={opt.id}
+								letter={LETTERS[i] ?? String(i + 1)}
+								text={opt.text}
+								state={optionState(opt.id, correctId, otherSelected, true)}
+								disabled
+							/>
+						))}
+					</div>
+					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
+						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-amber-400"}`}>
+							{otherCorrect ? "Good call! ✓" : "Not bad — here's what you missed."}
+						</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
+					</div>
+					<button type="button"
+						onClick={() => { setPortfolioFitIdx(i => i + 1); advanceRound(); }}
+						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+						style={{ background: "linear-gradient(90deg,#10b981,#6366f1)" }}>
+						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// Fallback (should never render)
+	return null;
 }
 
 // ── What Would You Do? ────────────────────────────────────────

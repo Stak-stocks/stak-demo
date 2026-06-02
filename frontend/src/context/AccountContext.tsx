@@ -111,6 +111,7 @@ export interface UserDoc {
 	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
 	sandboxTradeHistory?: SandboxTrade[];  // last 30 trades
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
+	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 }
 
 interface AccountContextType {
@@ -138,6 +139,7 @@ interface AccountContextType {
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
 	completeWeeklyActivity: (weekKey: string, activityId: string, xp: number) => Promise<void>;
+	addPracticeSkillXp: (skill: string, xp: number) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -442,6 +444,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		});
 	}, [user, account]);
 
+	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
+		if (!user || xp <= 0) return;
+		await updateDoc(doc(db, "users", user.uid), {
+			[`practiceSkills.${skill}`]: increment(xp),
+			totalXp: increment(xp),
+		});
+	}, [user]);
+
 	const markSandboxMilestone = useCallback(async (value: number) => {
 		if (!user) return;
 		const existing = account?.sandboxMilestones ?? [];
@@ -472,6 +482,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				resetSandbox,
 				markSandboxMilestone,
 				completeWeeklyActivity,
+				addPracticeSkillXp,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
