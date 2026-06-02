@@ -4,7 +4,6 @@ import {
 	Brain, TrendingUp, Wallet, ChevronRight, Star, Lock,
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
-import { useAuth } from "@/context/AuthContext";
 import {
 	LESSONS, LESSON_CATEGORIES, getDailyChallenge, getWeeklyPack, getCurrentWeekKey,
 	STOCK_BATTLES, EARNINGS_SCENARIOS, RISK_SCENARIOS, MOOD_SCENARIOS,
@@ -202,25 +201,19 @@ type ActiveView =
 
 const PLAYGROUND_SS_KEY = "playground-state";
 
-function savePlaygroundState(view: ActiveView, lessonId: string | null, uid?: string) {
+function savePlaygroundState(view: ActiveView, lessonId: string | null) {
 	if (view) {
-		sessionStorage.setItem(PLAYGROUND_SS_KEY, JSON.stringify({ view, lessonId, uid: uid ?? null }));
+		sessionStorage.setItem(PLAYGROUND_SS_KEY, JSON.stringify({ view, lessonId }));
 	} else {
 		sessionStorage.removeItem(PLAYGROUND_SS_KEY);
 	}
 }
 
-function restorePlaygroundState(uid?: string): { view: ActiveView; lessonId: string | null } {
+function restorePlaygroundState(): { view: ActiveView; lessonId: string | null } {
 	try {
 		const raw = sessionStorage.getItem(PLAYGROUND_SS_KEY);
 		if (!raw) return { view: null, lessonId: null };
-		const { view, lessonId, uid: savedUid } = JSON.parse(raw);
-		// Discard state if it belongs to a different user (sign out → sign in)
-		if (uid && savedUid && uid !== savedUid) {
-			sessionStorage.removeItem(PLAYGROUND_SS_KEY);
-			return { view: null, lessonId: null };
-		}
-		// Don't restore lesson-player on reload (no lesson selected)
+		const { view, lessonId } = JSON.parse(raw);
 		if (view === "lesson-player" && !lessonId) return { view: "lessons", lessonId: null };
 		return { view: view ?? null, lessonId: lessonId ?? null };
 	} catch {
@@ -230,10 +223,14 @@ function restorePlaygroundState(uid?: string): { view: ActiveView; lessonId: str
 
 export function PlaygroundPage() {
 	const { account, completeWeeklyActivity } = useAccount();
-	const { user } = useAuth();
-	const uid = user?.uid;
-	const restored = useMemo(() => restorePlaygroundState(uid), [uid]);
+	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
+
+	// Clear sub-view state on unmount so returning to Playground (tab switch / sign-out)
+	// always lands on the home page, not mid-session inside a sub-view
+	useEffect(() => {
+		return () => sessionStorage.removeItem(PLAYGROUND_SS_KEY);
+	}, []);
 	const [activeLessonId, setActiveLessonId] = useState<string | null>(restored.lessonId);
 	const [activeCategory, setActiveCategory] = useState<LessonCategory | null>(null);
 	const [showOnboarding, setShowOnboarding] = useState(() =>
@@ -247,13 +244,13 @@ export function PlaygroundPage() {
 	const goToView = (view: ActiveView) => {
 		homeScrollY.current = scrollEl()?.scrollTop ?? 0;
 		setActiveView(view);
-		savePlaygroundState(view, activeLessonId, uid);
+		savePlaygroundState(view, activeLessonId);
 		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	};
 
 	const goHome = () => {
 		setActiveView(null);
-		savePlaygroundState(null, null, uid);
+		savePlaygroundState(null, null);
 		requestAnimationFrame(() => {
 			scrollEl()?.scrollTo({ top: homeScrollY.current, behavior: "instant" });
 		});
@@ -349,7 +346,7 @@ export function PlaygroundPage() {
 				account={account}
 				selectedCategory={activeCategory}
 				onSelectCategory={setActiveCategory}
-				onSelectLesson={(id) => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id, uid); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+				onSelectLesson={(id) => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onBack={() => { goHome(); setActiveCategory(null); }}
 				weeklyLessonIds={weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id)}
 				weekLabel={weeklyPack.label}
@@ -366,8 +363,8 @@ export function PlaygroundPage() {
 				weekKey={weekKey}
 				weeklyCompleted={weeklyCompleted}
 				onWeeklyComplete={completeWeeklyActivity}
-				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null, uid); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
-				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null, uid); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 			/>
 		);
 	}
