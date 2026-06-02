@@ -409,10 +409,7 @@ function App() {
 				duration: 2000,
 			});
 		} else {
-			toast.success("Added to your Stak", {
-				description: brand.name,
-				duration: 2000,
-			});
+			
 			const updated = [...swipedBrands, brand];
 			setSwipedBrands(updated);
 			updateStak(updated.map((b) => b.id)).catch((e) => {
@@ -489,26 +486,47 @@ function App() {
 	};
 
 	const handleStreakUpdate = useCallback((result: StreakUpdate) => {
-		// Streak milestone toast (only on meaningful streaks, badge toast covers exact milestones)
+		// Streak milestone — rich visual toast
 		if (result.streak >= 2 && result.newBadges.length === 0) {
-			toast.success(`🔥 ${result.streak}-day streak!`, { duration: 2500 });
+			const milestoneMsg = result.streak === 7 ? "One week! 🎉" : result.streak === 14 ? "Two weeks! 💪" : result.streak === 30 ? "One month! 🏆" : null;
+			toast.custom(() => (
+				<div className="flex items-center gap-[12px] rounded-[14px] border border-orange-500/30 bg-orange-500/[0.1] px-[14px] py-[12px] shadow-lg">
+					<span className="text-[28px] shrink-0">🔥</span>
+					<div className="min-w-0">
+						<p className="text-[14px] font-extrabold text-orange-400">{result.streak}-Day Streak{milestoneMsg ? ` · ${milestoneMsg}` : "!"}</p>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[1px]">Keep it going — come back tomorrow</p>
+					</div>
+				</div>
+			), { duration: 3000 });
 		}
 
-		// Badge toasts
+		// Badge toasts — show the badge emoji prominently
 		result.newBadges.forEach((badge) => {
-			toast.success(`🏅 Badge unlocked: ${badge.name}`, {
-				description: badge.description,
-				duration: 4500,
-			});
+			toast.custom(() => (
+				<div className="flex items-center gap-[12px] rounded-[14px] border border-amber-500/30 bg-amber-500/[0.1] px-[14px] py-[12px] shadow-lg">
+					<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] bg-amber-500/20 text-[22px]">🏅</div>
+					<div className="min-w-0">
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-amber-400 mb-[1px]">Badge Unlocked</p>
+						<p className="text-[14px] font-extrabold text-foreground">{badge.name}</p>
+						<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px] leading-snug">{badge.description}</p>
+					</div>
+				</div>
+			), { duration: 5000 });
 		});
 
-		// Bonus swipe toast — use result value so count is accurate
+		// Bonus swipe toast
 		if (result.bonusSwipesAdded > 0) {
 			const newTotal = DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0) + result.bonusSwipesAdded;
-			toast.success(`+${result.bonusSwipesAdded} bonus swipes unlocked!`, {
-				description: `Your daily limit is now ${newTotal} swipes.`,
-				duration: 4500,
-			});
+			toast.custom(() => (
+				<div className="flex items-center gap-[12px] rounded-[14px] border border-cyan-500/30 bg-cyan-500/[0.1] px-[14px] py-[12px] shadow-lg">
+					<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] bg-cyan-500/20 text-[22px]">⚡</div>
+					<div className="min-w-0">
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-400 mb-[1px]">Bonus Swipes</p>
+						<p className="text-[14px] font-extrabold text-foreground">+{result.bonusSwipesAdded} extra swipes unlocked!</p>
+						<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Daily limit is now {newTotal} swipes</p>
+					</div>
+				</div>
+			), { duration: 5000 });
 		}
 	}, [account?.bonusSwipes]);
 

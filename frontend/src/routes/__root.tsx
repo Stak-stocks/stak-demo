@@ -65,7 +65,7 @@ function Root() {
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
 		if (stakIds.includes(brand.id)) {
-			toast.info("Already in your Stak", { description: brand.name, duration: 2000 });
+			
 			return;
 		}
 		if (stakIds.length >= STAK_CAPACITY) {
@@ -85,7 +85,7 @@ function Root() {
 		saveToStak(brand.id, priceAtSave).catch(() => {});
 		incrementSwipeCount().catch(() => {});
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
-		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
+		
 	}, [account, saveToStak, incrementSwipeCount, queryClient]);
 
 	useEffect(() => {

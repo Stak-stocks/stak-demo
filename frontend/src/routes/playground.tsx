@@ -704,8 +704,24 @@ function LessonPlayer({
 			const LEVEL_THRESHOLDS = [100, 300, 600, 1000];
 			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
 			if (crossed) {
-				const levelNames: Record<number, string> = { 100: "Learner 📚", 300: "Investor 📈", 600: "Analyst 🔬", 1000: "Expert 🏆" };
-				import("sonner").then(({ toast }) => toast.success(`Level up! You're now a ${levelNames[crossed]}`, { duration: 4000 }));
+				const levelDefs: Record<number, { name: string; emoji: string; bar: string }> = {
+					100:  { name: "Learner",  emoji: "📚", bar: "from-blue-400 to-blue-500"     },
+					300:  { name: "Investor", emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
+					600:  { name: "Analyst",  emoji: "🔬", bar: "from-violet-400 to-purple-500" },
+					1000: { name: "Expert",   emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
+				};
+				const lv = levelDefs[crossed]!;
+				import("sonner").then(({ toast }) => toast.custom(() => (
+					<div className="flex items-center gap-[12px] rounded-[14px] border border-violet-500/30 bg-violet-500/[0.1] px-[14px] py-[12px] shadow-lg overflow-hidden relative">
+						<div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${lv.bar}`} />
+						<span className="text-[28px] shrink-0">{lv.emoji}</span>
+						<div>
+							<p className="text-[11px] font-semibold uppercase tracking-wide text-violet-400 mb-[1px]">Level Up!</p>
+							<p className="text-[14px] font-extrabold text-foreground">You're now a {lv.name}</p>
+							<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">New challenges unlocked in Playground</p>
+						</div>
+					</div>
+				), { duration: 5000 }));
 			}
 		}
 	};
