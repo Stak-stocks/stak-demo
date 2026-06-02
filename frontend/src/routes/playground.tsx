@@ -14,6 +14,7 @@ import {
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
+import { brands as allBrands } from "@/data/brands";
 import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
@@ -1846,13 +1847,12 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
 const SANDBOX_BUDGET = 10000;
-const SANDBOX_TICKERS = ["AAPL","TSLA","NVDA","META","NFLX","MSFT","AMZN","GOOGL","SBUX","COIN","PLTR","SHOP","RBLX","NKE","KO","WMT","JNJ","AMD","DDOG","PANW"];
-
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, removeFromSandbox } = useAccount();
 	const queryClient = useQueryClient();
 	const sandbox = account?.sandboxPortfolio ?? {};
 	const tickers = Object.keys(sandbox);
+	const [search, setSearch] = useState("");
 
 	const stockQueries = tickers.map(ticker => ({
 		queryKey: ['stock', ticker],
@@ -1863,7 +1863,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const results = useQueries({ queries: stockQueries });
 
 	const [adding, setAdding] = useState(false);
-	const [searchTicker, setSearchTicker] = useState('');
 
 	const holdings = tickers.map((ticker, i) => {
 		const entry = sandbox[ticker]!;
@@ -1894,7 +1893,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		}
 		await addToSandbox(ticker.toUpperCase(), price);
 		setAdding(false);
-		setSearchTicker('');
 	};
 
 	return (
@@ -1988,17 +1986,57 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 
 				{/* Add stock */}
 				{adding ? (
-					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[14px]">
-						<p className="text-[13px] font-bold mb-[10px]">Pick a stock to add</p>
-						<div className="grid grid-cols-4 gap-[6px] mb-[10px]">
-							{SANDBOX_TICKERS.filter(t => !tickers.includes(t)).slice(0, 12).map(t => (
-								<button key={t} type="button" onClick={() => handleAdd(t)}
-									className="rounded-[8px] border border-foreground/10 bg-foreground/[0.04] py-[8px] text-[12px] font-bold active:opacity-70">
-									{t}
-								</button>
-							))}
+					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 overflow-hidden">
+						{/* Search header */}
+						<div className="flex items-center gap-[10px] px-[14px] py-[12px] border-b border-foreground/[0.06]">
+							<input
+								type="text"
+								value={search}
+								onChange={e => setSearch(e.target.value)}
+								placeholder="Search stocks…"
+								autoFocus
+								className="flex-1 bg-transparent text-[14px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
+							/>
+							<button type="button" onClick={() => { setAdding(false); setSearch(""); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
 						</div>
-						<button type="button" onClick={() => setAdding(false)} className="text-[12px] dark:text-slate-400 text-slate-500 w-full text-center">Cancel</button>
+						{/* Brand list */}
+						<div className="max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+							{(() => {
+								const q = search.toLowerCase().trim();
+								const available = allBrands
+									.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
+									.filter(b => !q || b.name.toLowerCase().includes(q) || b.ticker.toLowerCase().includes(q))
+									.slice(0, 40);
+								if (available.length === 0) return (
+									<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center py-[20px]">No matches found</p>
+								);
+								return available.map(b => (
+									<button
+										key={b.id}
+										type="button"
+										onClick={() => { handleAdd(b.ticker); setSearch(""); }}
+										className="w-full flex items-center gap-[12px] px-[14px] py-[11px] border-b border-foreground/[0.04] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
+									>
+										<div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+											{b.logo || b.domain ? (
+												<img
+													src={b.logo ?? `https://logo.clearbit.com/${b.domain}`}
+													alt={b.name}
+													className="w-[24px] h-[24px] object-contain"
+													onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+												/>
+											) : (
+												<span className="text-[11px] font-bold dark:text-slate-600 text-slate-500">{b.ticker.slice(0, 2)}</span>
+											)}
+										</div>
+										<div className="flex-1 min-w-0">
+											<p className="text-[13px] font-semibold text-foreground">{b.name}</p>
+											<p className="text-[11px] dark:text-slate-400 text-slate-500">{b.ticker}</p>
+										</div>
+									</button>
+								));
+							})()}
+						</div>
 					</div>
 				) : (
 					<button type="button" onClick={() => setAdding(true)}
