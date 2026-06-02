@@ -100,13 +100,14 @@ function OptionBtn({
 	};
 	const c = cfg[state];
 	const icon = state === "correct" ? "✓" : state === "wrong" ? "✗" : state === "correct-other" ? "✓" : letter;
+	const popped = state === "correct" || state === "wrong";
 	return (
 		<button
 			type="button"
 			onClick={disabled ? undefined : onClick}
 			className={`w-full flex items-center gap-[13px] rounded-[13px] border px-[14px] py-[13px] text-left transition-colors ${c.card} ${disabled ? "" : "active:opacity-80"}`}
 		>
-			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] text-[13px] font-extrabold transition-colors ${c.badge}`}>
+			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] text-[13px] font-extrabold transition-colors ${c.badge} ${popped ? "answer-pop" : ""}`}>
 				{icon}
 			</div>
 			<p className="text-[14px] font-medium text-foreground leading-snug">{text}</p>
@@ -226,42 +227,88 @@ export function PlaygroundPage() {
 		return <SandboxView onBack={() => setActiveView(null)} />;
 	}
 
+	// ── Level system ─────────────────────────────────────────────────────────
+	const LEVELS = [
+		{ min: 0,    max: 99,   name: "Beginner",  color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"      },
+		{ min: 100,  max: 299,  name: "Learner",   color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"        },
+		{ min: 300,  max: 599,  name: "Investor",  color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"        },
+		{ min: 600,  max: 999,  name: "Analyst",   color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500"    },
+		{ min: 1000, max: 9999, name: "Expert",    color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"     },
+	];
+	const currentLevel = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
+	const nextLevel = LEVELS.find(l => l.min > totalXp);
+	const levelPct = nextLevel
+		? Math.round(((totalXp - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
+		: 100;
+
+	const todayKey2 = new Date().toISOString().split("T")[0];
+	const yesterdayKey2 = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+	const streakCount = (account?.lastStreakDate === todayKey2 || account?.lastStreakDate === yesterdayKey2)
+		? (account?.streakCount ?? 0) : 0;
+
 	// ── Home screen ───────────────────────────────────────────────────────────
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 
 				{/* Header */}
-				<div className="flex items-center gap-[10px] mb-[6px]">
-					<StakLogo size={28} />
-					<h1 className="text-[26px] font-extrabold tracking-[-0.03em]">Playground</h1>
+				<div className="flex items-center justify-between mb-[4px]">
+					<div className="flex items-center gap-[10px]">
+						<StakLogo size={26} />
+						<h1 className="text-[24px] font-extrabold tracking-[-0.03em]">Playground</h1>
+					</div>
+					{streakCount > 0 && (
+						<div className="flex items-center gap-[5px] rounded-full bg-orange-500/10 border border-orange-500/25 px-[10px] py-[5px]">
+							<span className="text-[14px]">🔥</span>
+							<span className="text-[12px] font-bold text-orange-400">{streakCount} day streak</span>
+						</div>
+					)}
 				</div>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">
-					Build your investing brain one card at a time. No real money. No pressure.
+					No real money. No pressure. Just practice.
 				</p>
 
-				{/* XP bar */}
-				<div className="flex items-center gap-[12px] mb-[24px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px]">
-					<div className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[9px] bg-amber-500/15 text-amber-400">
-						<Star size={20} />
+				{/* Level + XP card */}
+				<div className={`rounded-[16px] border border-foreground/10 bg-surface-1 px-[16px] py-[14px] mb-[20px]`}>
+					<div className="flex items-center gap-[12px] mb-[12px]">
+						<div className={`grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] ${currentLevel.bg} ${currentLevel.color} text-[20px] font-extrabold`}>
+							{currentLevel.name === "Beginner" ? "🌱" : currentLevel.name === "Learner" ? "📚" : currentLevel.name === "Investor" ? "📈" : currentLevel.name === "Analyst" ? "🔬" : "🏆"}
+						</div>
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center justify-between mb-[1px]">
+								<p className={`text-[15px] font-extrabold ${currentLevel.color}`}>{currentLevel.name}</p>
+								<p className="text-[12px] font-bold text-foreground">{totalXp} XP</p>
+							</div>
+							<p className="text-[11px] dark:text-slate-400 text-slate-500">
+								{nextLevel ? `${nextLevel.min - totalXp} XP to ${nextLevel.name}` : "Max level reached 🏆"}
+							</p>
+						</div>
 					</div>
-					<div className="flex-1 min-w-0">
-						<div className="flex items-center justify-between mb-[5px]">
-							<p className="text-[12px] font-semibold text-foreground">{totalXp} XP earned</p>
-							<p className="text-[11px] dark:text-slate-400 text-slate-500">{completedLessons}/{totalLessons} lessons</p>
-						</div>
-						<div className="h-[5px] rounded-full bg-foreground/10">
-							<div
-								className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all"
-								style={{ width: `${Math.min(100, (completedLessons / totalLessons) * 100)}%` }}
-							/>
-						</div>
+					{/* XP progress bar */}
+					<div className="h-[6px] rounded-full bg-foreground/10">
+						<div
+							className={`h-full rounded-full bg-gradient-to-r ${currentLevel.bar} transition-all duration-500`}
+							style={{ width: `${levelPct}%` }}
+						/>
+					</div>
+					{/* Stats row */}
+					<div className="grid grid-cols-3 gap-[8px] mt-[12px]">
+						{[
+							{ label: "Lessons", value: `${completedLessons}/${totalLessons}` },
+							{ label: "Streak", value: streakCount > 0 ? `${streakCount}d 🔥` : "—" },
+							{ label: "Badges", value: `${(account?.badges ?? []).length}` },
+						].map(s => (
+							<div key={s.label} className="rounded-[8px] bg-foreground/[0.04] px-[8px] py-[7px] text-center">
+								<p className="text-[11px] dark:text-slate-500 text-slate-400">{s.label}</p>
+								<p className="text-[13px] font-bold">{s.value}</p>
+							</div>
+						))}
 					</div>
 				</div>
 
 				{/* Continue Learning */}
 				{nextLesson && (
-					<div className="mb-[24px]">
+					<div className="mb-[20px]">
 						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Continue Learning</p>
 						<button
 							type="button"
@@ -269,108 +316,76 @@ export function PlaygroundPage() {
 							className="w-full rounded-[14px] border border-blue-500/30 bg-blue-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
 						>
 							<div className="flex items-center gap-[12px]">
-								<span className="text-[28px]">{nextLesson.emoji}</span>
+								<span className="text-[30px]">{nextLesson.emoji}</span>
 								<div className="flex-1 min-w-0">
 									<p className="text-[14px] font-bold text-foreground">{nextLesson.title}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{nextLesson.durationMin} min · {nextLesson.xp} XP</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{nextLesson.subtitle}</p>
+									<p className="text-[11px] text-blue-400 mt-[3px]">{nextLesson.durationMin} min · +{nextLesson.xp} XP</p>
 								</div>
-								<span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-blue-500/15 text-blue-400">Continue</span>
+								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-blue-500/15 text-blue-400">
+									<ChevronRight size={16} />
+								</div>
 							</div>
 						</button>
 					</div>
 				)}
 
 				{/* Daily Challenge */}
-				<div className="mb-[24px]">
+				<div className="mb-[20px]">
 					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Today's Challenge</p>
 					<button
 						type="button"
 						onClick={() => setActiveView("daily-challenge")}
-						className={`w-full rounded-[14px] border px-[16px] py-[14px] text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}
+						className={`w-full rounded-[14px] border px-[16px] py-[15px] text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.08]"}`}
 					>
 						<div className="flex items-center gap-[12px]">
-							<div className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[10px] ${challengeCompleted ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
-								<Zap size={20} />
+							<div className={`grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] text-[22px] ${challengeCompleted ? "bg-emerald-500/15" : "bg-amber-500/15"}`}>
+								{challengeCompleted ? "✅" : "⚡"}
 							</div>
 							<div className="flex-1 min-w-0">
-								<p className="text-[13px] font-bold text-foreground line-clamp-1">{dailyChallenge.prompt}</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">+{dailyChallenge.xp} XP</p>
+								<div className="flex items-center gap-[6px] mb-[2px]">
+									<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500">Daily Challenge</p>
+									{challengeCompleted && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-[6px] py-[1px] rounded-full">Done ✓</span>}
+								</div>
+								<p className="text-[13px] font-bold text-foreground line-clamp-2 leading-snug">{dailyChallenge.prompt}</p>
+								<p className="text-[11px] text-amber-400 font-semibold mt-[3px]">+{dailyChallenge.xp} XP</p>
 							</div>
-							{challengeCompleted
-								? <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>
-								: <ChevronRight size={16} className="shrink-0 text-amber-400" />
-							}
+							{!challengeCompleted && <ChevronRight size={16} className="shrink-0 text-amber-400" />}
 						</div>
 					</button>
 				</div>
 
-				{/* All Sections */}
+				{/* All Sections — 2-column grid for compact feel */}
 				<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Explore</p>
+				<div className="grid grid-cols-2 gap-[10px] mb-[10px]">
+					{[
+						{ colorKey: "lessons",  icon: <BookOpen size={20} />,    title: "Lessons",       subtitle: `${completedLessons}/${totalLessons} done`,                  view: "lessons" as const },
+						{ colorKey: "battles",  icon: <Swords size={20} />,      title: "Stock Battles", subtitle: `${STOCK_BATTLES.length} matchups`,                          view: "battles" as const },
+						{ colorKey: "earnings", icon: <FlaskConical size={20} />,title: "Earnings Lab",  subtitle: `${EARNINGS_SCENARIOS.length} scenarios`,                    view: "earnings-lab" as const },
+						{ colorKey: "risk",     icon: <ShieldAlert size={20} />, title: "Risk Lab",      subtitle: `${RISK_SCENARIOS.length} comparisons`,                      view: "risk-lab" as const },
+						{ colorKey: "mood",     icon: <Brain size={20} />,       title: "Market Mood",   subtitle: `${MOOD_SCENARIOS.length} simulations`,                      view: "mood-simulator" as const },
+						{ colorKey: "practice", icon: <TrendingUp size={20} />,  title: "Practice",      subtitle: `${PRACTICE_TICKERS.length} stocks`,                         view: "practice" as const },
+					].map(s => {
+						const c = SECTION_COLORS[s.colorKey] ?? SECTION_COLORS.lessons;
+						return (
+							<button
+								key={s.title}
+								type="button"
+								onClick={() => setActiveView(s.view)}
+								className={`rounded-[14px] border ${c.border} ${c.bg} px-[14px] py-[14px] text-left active:opacity-80 transition-opacity`}
+							>
+								<div className={`grid h-[38px] w-[38px] place-items-center rounded-[9px] bg-background/50 mb-[10px] ${c.icon}`}>
+									{s.icon}
+								</div>
+								<p className="text-[13px] font-bold text-foreground leading-none mb-[4px]">{s.title}</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500">{s.subtitle}</p>
+							</button>
+						);
+					})}
+				</div>
 				<div className="space-y-[10px]">
-					<SectionCard
-						colorKey="lessons"
-						icon={<BookOpen size={22} />}
-						title="Lesson Library"
-						subtitle={`${totalLessons} lessons across 7 categories`}
-						badge={`${completedLessons} done`}
-						onClick={() => setActiveView("lessons")}
-					/>
-					<SectionCard
-						colorKey="battles"
-						icon={<Swords size={22} />}
-						title="Stock Battles"
-						subtitle={`${STOCK_BATTLES.length} head-to-head matchups with live data`}
-						onClick={() => setActiveView("battles")}
-					/>
-					<SectionCard
-						colorKey="earnings"
-						icon={<FlaskConical size={22} />}
-						title="Earnings Lab"
-						subtitle={`${EARNINGS_SCENARIOS.length} earnings scenarios — learn why stocks react`}
-						onClick={() => setActiveView("earnings-lab")}
-					/>
-					<SectionCard
-						colorKey="risk"
-						icon={<ShieldAlert size={22} />}
-						title="Risk Lab"
-						subtitle="Which stock is riskier? Learn to spot risk"
-						onClick={() => setActiveView("risk-lab")}
-					/>
-					<SectionCard
-						colorKey="mood"
-						icon={<Brain size={22} />}
-						title="Market Mood Simulator"
-						subtitle={`${MOOD_SCENARIOS.length} macro scenarios — rates, inflation, AI & more`}
-						onClick={() => setActiveView("mood-simulator")}
-					/>
-					<SectionCard
-						colorKey="practice"
-						icon={<TrendingUp size={22} />}
-						title="Practice Mode"
-						subtitle="Real stocks. Fake stakes. Train your instincts."
-						onClick={() => setActiveView("practice")}
-					/>
-					<SectionCard
-						colorKey="mood"
-						icon={<Brain size={22} />}
-						title="What Would You Do?"
-						subtitle={`${WWYD_SCENARIOS.length} real-world investor decisions`}
-						onClick={() => setActiveView("wwyd")}
-					/>
-					<SectionCard
-						colorKey="lessons"
-						icon={<Star size={22} />}
-						title="Build Your Watchlist"
-						subtitle="Guided game — pick 7 stocks to build a balanced starter portfolio"
-						onClick={() => setActiveView("watchlist")}
-					/>
-					<SectionCard
-						colorKey="sandbox"
-						icon={<Wallet size={22} />}
-						title="Sandbox Portfolio"
-						subtitle="$10,000 in practice money. Build and track a fake portfolio."
-						onClick={() => setActiveView("sandbox")}
-					/>
+					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => setActiveView("watchlist")} />
+					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 practice portfolio" onClick={() => setActiveView("sandbox")} />
 				</div>
 
 			</div>
@@ -476,6 +491,8 @@ function LessonPlayer({
 	const [phase, setPhase] = useState<"cards" | "quiz" | "done">("cards");
 	const [selectedOption, setSelectedOption] = useState<string | null>(null);
 	const [showResult, setShowResult] = useState(false);
+	const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
+	const swipeStartX = useRef<number | null>(null);
 	const alreadyCompleted = !!(account?.lessonProgress?.[lessonId]?.completed);
 
 	if (!lesson) return null;
@@ -483,9 +500,19 @@ function LessonPlayer({
 	const isLastCard = cardIndex === lesson.cards.length - 1;
 	const isCorrect = selectedOption === lesson.quiz.correctId;
 
-	const handleNext = () => {
-		if (isLastCard) { setPhase("quiz"); return; }
-		setCardIndex(i => i + 1);
+	const goNext = () => {
+		setSlideDir("left");
+		setTimeout(() => { setSlideDir(null); if (isLastCard) { setPhase("quiz"); } else { setCardIndex(i => i + 1); } }, 180);
+	};
+
+	const handleNext = goNext;
+
+	const handleSwipeStart = (clientX: number) => { swipeStartX.current = clientX; };
+	const handleSwipeEnd = (clientX: number) => {
+		if (swipeStartX.current === null || phase !== "cards") return;
+		const delta = swipeStartX.current - clientX;
+		swipeStartX.current = null;
+		if (delta > 50) goNext();
 	};
 
 	const handleAnswer = async (optionId: string) => {
@@ -529,13 +556,24 @@ function LessonPlayer({
 						<p className="dark:text-slate-400 text-slate-500 text-[14px]">You earned <span className="text-amber-400 font-bold">+{lesson.xp} XP</span></p>
 					</div>
 				) : phase === "cards" ? (
-					<div className="flex-1 flex flex-col">
-						<div className="flex-1 rounded-[18px] border border-foreground/10 bg-surface-1 p-[24px] flex flex-col">
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[12px]">
-								Card {cardIndex + 1} of {lesson.cards.length}
-							</p>
-							<h2 className="text-[20px] font-extrabold mb-[16px] leading-snug">{lesson.cards[cardIndex]!.heading}</h2>
+					<div className="flex-1 flex flex-col"
+						onPointerDown={e => handleSwipeStart(e.clientX)}
+						onPointerUp={e => handleSwipeEnd(e.clientX)}
+					>
+						<div
+							className={`flex-1 rounded-[18px] border border-foreground/10 bg-surface-1 p-[24px] flex flex-col overflow-hidden transition-all duration-180 ${slideDir === "left" ? "opacity-0 -translate-x-4" : "opacity-100 translate-x-0"}`}
+							style={{ transform: slideDir === "left" ? "translateX(-16px)" : "translateX(0)", opacity: slideDir === "left" ? 0 : 1, transition: "transform 0.18s ease, opacity 0.18s ease" }}
+						>
+							{/* Dot indicators */}
+							<div className="flex items-center gap-[6px] mb-[16px]">
+								{lesson.cards.map((_, i) => (
+									<div key={i} className={`h-[5px] rounded-full transition-all duration-200 ${i === cardIndex ? "bg-blue-400 w-[20px]" : i < cardIndex ? "bg-blue-400/40 w-[5px]" : "bg-foreground/15 w-[5px]"}`} />
+								))}
+								<div className="ml-auto text-[11px] dark:text-slate-400 text-slate-500">{cardIndex + 1}/{lesson.cards.length}</div>
+							</div>
+							<h2 className="text-[20px] font-extrabold mb-[14px] leading-snug">{lesson.cards[cardIndex]!.heading}</h2>
 							<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed flex-1">{lesson.cards[cardIndex]!.body}</p>
+							<p className="text-[11px] dark:text-slate-500 text-slate-400 mt-[16px] text-center">Swipe left or tap Next →</p>
 						</div>
 						<button
 							type="button"
