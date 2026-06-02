@@ -43,7 +43,7 @@ function Root() {
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
-		scrollRef.current?.scrollTo({ top: 0 });
+		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
 		if (!briefOpen) document.body.style.overflow = "";
 		logEvent("page_view", { page_path: location.pathname });
 	}, [location.pathname, briefOpen]);

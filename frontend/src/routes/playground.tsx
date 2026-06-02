@@ -171,10 +171,34 @@ type ActiveView =
 	| "watchlist"
 	| "sandbox";
 
+const PLAYGROUND_SS_KEY = "playground-state";
+
+function savePlaygroundState(view: ActiveView, lessonId: string | null) {
+	if (view) {
+		sessionStorage.setItem(PLAYGROUND_SS_KEY, JSON.stringify({ view, lessonId }));
+	} else {
+		sessionStorage.removeItem(PLAYGROUND_SS_KEY);
+	}
+}
+
+function restorePlaygroundState(): { view: ActiveView; lessonId: string | null } {
+	try {
+		const raw = sessionStorage.getItem(PLAYGROUND_SS_KEY);
+		if (!raw) return { view: null, lessonId: null };
+		const { view, lessonId } = JSON.parse(raw);
+		// Don't restore lesson-player on reload (no lesson selected)
+		if (view === "lesson-player" && !lessonId) return { view: "lessons", lessonId: null };
+		return { view: view ?? null, lessonId: lessonId ?? null };
+	} catch {
+		return { view: null, lessonId: null };
+	}
+}
+
 export function PlaygroundPage() {
 	const { account } = useAccount();
-	const [activeView, setActiveView] = useState<ActiveView>(null);
-	const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+	const restored = useMemo(restorePlaygroundState, []);
+	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
+	const [activeLessonId, setActiveLessonId] = useState<string | null>(restored.lessonId);
 	const [activeCategory, setActiveCategory] = useState<LessonCategory | null>(null);
 	const [showOnboarding, setShowOnboarding] = useState(() =>
 		typeof window !== "undefined" && !localStorage.getItem("playground-onboarded")
@@ -187,11 +211,13 @@ export function PlaygroundPage() {
 	const goToView = (view: ActiveView) => {
 		homeScrollY.current = scrollEl()?.scrollTop ?? 0;
 		setActiveView(view);
+		savePlaygroundState(view, activeLessonId);
 		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	};
 
 	const goHome = () => {
 		setActiveView(null);
+		savePlaygroundState(null, null);
 		requestAnimationFrame(() => {
 			scrollEl()?.scrollTo({ top: homeScrollY.current, behavior: "instant" });
 		});
@@ -275,7 +301,7 @@ export function PlaygroundPage() {
 				account={account}
 				selectedCategory={activeCategory}
 				onSelectCategory={setActiveCategory}
-				onSelectLesson={(id) => { setActiveLessonId(id); setActiveView("lesson-player"); }}
+				onSelectLesson={(id) => { setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onBack={() => { goHome(); setActiveCategory(null); }}
 			/>
 		);
