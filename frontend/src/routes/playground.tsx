@@ -2797,7 +2797,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		return (
 			<>
 				<div className="fixed inset-0 z-40 bg-[#0d0d0d]/70" onClick={closeOrder} />
-				<div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[24px] bg-background border border-foreground/10 px-[20px] pt-[20px] pb-[32px] max-w-lg mx-auto shadow-2xl">
+				<div className="fixed left-0 right-0 z-50 rounded-t-[24px] bg-background border border-foreground/10 px-[20px] pt-[20px] max-w-lg mx-auto shadow-2xl" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}>
 					<div className="w-[40px] h-[4px] rounded-full bg-foreground/15 mx-auto mb-[18px]" />
 					<div className="flex items-center justify-between mb-[24px]">
 						<h3 className="text-[18px] font-extrabold">
@@ -2977,7 +2977,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						</div>
 					)}
 				</div>
-				<div className="fixed bottom-0 left-0 right-0 z-30 max-w-lg mx-auto px-[18px] pb-[20px] pt-[12px] bg-background/95 backdrop-blur-sm border-t border-foreground/[0.06]">
+				<div className="fixed left-0 right-0 z-30 max-w-lg mx-auto px-[18px] pt-[12px] bg-background/95 backdrop-blur-sm border-t border-foreground/[0.06]" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "12px" }}>
 					<div className={`grid gap-[10px] ${inPortfolio ? "grid-cols-2" : "grid-cols-1"}`}>
 						<button
 							type="button"
@@ -3141,8 +3141,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			<button
 				type="button"
 				onClick={() => { setSearchQuery(""); setShowSearch(true); }}
-				className="fixed bottom-[calc(20px+env(safe-area-inset-bottom))] right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
-				style={{ background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
+				className="fixed right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
+				style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 16px)", background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
 			>
 				+
 			</button>
