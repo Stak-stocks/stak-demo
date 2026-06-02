@@ -90,14 +90,14 @@ function ResetPasswordPage() {
 
 	if (verifying) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-surface-1">
+			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0b0f1a] px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">

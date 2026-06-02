@@ -146,21 +146,21 @@ function LandingPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-background">
+			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative min-h-screen bg-background text-foreground flex flex-col overflow-x-hidden">
+		<div className="relative min-h-screen bg-[#0b0f1a] text-foreground flex flex-col overflow-x-hidden">
 			<ParticleBackground />
 
 			{/* All content sits above the canvas */}
 			<div className="relative z-10 flex flex-col min-h-screen">
 
 				{/* ── Navbar ── */}
-				<nav className={`w-full px-6 py-4 max-w-6xl mx-auto transition-colors ${menuOpen ? "bg-background" : ""}`}>
+				<nav className={`w-full px-6 py-4 max-w-6xl mx-auto transition-colors ${menuOpen ? "bg-[#0b0f1a]" : ""}`}>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<StakLogo size={28} />

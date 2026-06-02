@@ -30,7 +30,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 function Root() {
 	const { user, loading } = useAuth();
 	const { account, accountLoading, saveToStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
-	const { resolvedTheme } = useTheme();
+	const { resolvedTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
@@ -42,20 +42,14 @@ function Root() {
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	// Auth/landing pages are always dark regardless of user theme preference
-	// Force dark class on html element while on these pages so CSS vars apply correctly
 	useEffect(() => {
-		const html = document.documentElement;
 		if (isAuthPage) {
-			html.classList.add("dark");
+			document.documentElement.classList.add("dark");
 		} else {
-			// Restore actual theme — ThemeProvider will re-apply it on next render cycle
-			// but we remove the forced dark immediately so app pages see the correct theme
-			const stored = localStorage.getItem("stak-theme");
-			const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-			const shouldBeDark = stored === "dark" || (stored !== "light" && prefersDark);
-			if (shouldBeDark) { html.classList.add("dark"); } else { html.classList.remove("dark"); }
+			// Restore user's actual theme by triggering ThemeProvider re-apply
+			reapplyTheme();
 		}
-	}, [isAuthPage]);
+	}, [isAuthPage, reapplyTheme]);
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
