@@ -13,7 +13,7 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, trackEvent } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
 import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
@@ -153,6 +153,40 @@ export function PlaygroundPage() {
 
 	const todayKey = new Date().toISOString().split("T")[0];
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
+
+	// Daily Brief → Featured Lesson mapping
+	const { data: briefData } = useQuery({
+		queryKey: ["daily-brief"],
+		queryFn: getDailyBrief,
+		staleTime: 30 * 60 * 1000,
+		gcTime: 60 * 60 * 1000,
+		retry: 0,
+	});
+	const featuredLesson = useMemo(() => {
+		if (!briefData) return null;
+		const mood = briefData.mood;
+		const deckId = briefData.decks?.[0]?.id ?? "";
+		// Map mood/deck to a relevant lesson
+		const MOOD_LESSON_MAP: Record<string, string> = {
+			Bearish:  "what-is-a-bull-bear-market",
+			Volatile: "what-is-beta",
+			Bullish:  "what-is-revenue-growth",
+			Cautious: "why-rates-matter",
+			Calm:     "what-is-a-dividend",
+			Mixed:    "what-is-a-sector",
+		};
+		const DECK_LESSON_MAP: Record<string, string> = {
+			defensive: "what-is-risk",
+			"high-growth": "what-is-revenue-growth",
+			earnings: "what-are-earnings",
+			rates: "why-rates-matter",
+			dividends: "what-is-a-dividend",
+			tech: "tech-sector-deep-dive",
+		};
+		const lessonId = DECK_LESSON_MAP[deckId] ?? MOOD_LESSON_MAP[mood] ?? null;
+		if (!lessonId) return null;
+		return LESSONS.find(l => l.id === lessonId) ?? null;
+	}, [briefData]);
 	const challengeCompleted = account?.dailyChallengeState?.date === todayKey &&
 		(account.dailyChallengeState.completedIds ?? []).includes(dailyChallenge.id);
 
@@ -308,6 +342,32 @@ export function PlaygroundPage() {
 					</div>
 				</div>
 
+				{/* Featured Lesson from Daily Brief */}
+				{featuredLesson && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (
+					<div className="mb-[20px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">
+							Featured Today · {briefData?.mood} Market
+						</p>
+						<button
+							type="button"
+							onClick={() => { setActiveLessonId(featuredLesson.id); setActiveView("lesson-player"); }}
+							className="w-full rounded-[14px] border border-amber-500/30 bg-amber-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
+						>
+							<div className="flex items-center gap-[12px]">
+								<span className="text-[30px]">{featuredLesson.emoji}</span>
+								<div className="flex-1 min-w-0">
+									<p className="text-[14px] font-bold text-foreground">{featuredLesson.title}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{featuredLesson.subtitle}</p>
+									<p className="text-[11px] text-amber-400 mt-[3px]">{featuredLesson.durationMin} min · +{featuredLesson.xp} XP · Relevant to today's market</p>
+								</div>
+								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-amber-500/15 text-amber-400">
+									<ChevronRight size={16} />
+								</div>
+							</div>
+						</button>
+					</div>
+				)}
+
 				{/* Continue Learning */}
 				{nextLesson && (
 					<div className="mb-[20px]">
@@ -415,30 +475,47 @@ function LessonLibrary({
 	);
 	const visibleLessons = selectedCategory ? LESSONS.filter(l => l.category === selectedCategory) : LESSONS;
 
+	// Category completion: all lessons in a category done
+	const categoryComplete = (cat: LessonCategory) => {
+		const inCat = LESSONS.filter(l => l.category === cat);
+		return inCat.length > 0 && inCat.every(l => completedIds.has(l.id));
+	};
+	const totalCompleted = completedIds.size;
+
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<button type="button" onClick={onBack} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
 					<ChevronRight size={14} className="rotate-180" /> Back
 				</button>
-				<h2 className="text-[22px] font-extrabold mb-[4px]">Lesson Library</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">{LESSONS.length} lessons across 7 categories</p>
+				<h2 className="text-[22px] font-extrabold mb-[2px]">Lesson Library</h2>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{totalCompleted}/{LESSONS.length} completed</p>
 
-				{/* Category filter pills */}
+				{/* Overall progress bar */}
+				<div className="h-[4px] rounded-full bg-foreground/10 mb-[16px]">
+					<div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-violet-400 transition-all" style={{ width: `${(totalCompleted / LESSONS.length) * 100}%` }} />
+				</div>
+
+				{/* Category filter pills with completion badges */}
 				<div className="flex gap-[8px] overflow-x-auto pb-[8px] mb-[20px] [&::-webkit-scrollbar]:hidden">
 					<button
 						type="button"
 						onClick={() => onSelectCategory(null)}
 						className={`shrink-0 text-[12px] font-semibold px-[12px] py-[5px] rounded-full border transition-colors ${!selectedCategory ? "bg-foreground text-background border-foreground" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}
 					>All</button>
-					{LESSON_CATEGORIES.map(cat => (
-						<button
-							key={cat.id}
-							type="button"
-							onClick={() => onSelectCategory(cat.id)}
-							className={`shrink-0 text-[12px] font-semibold px-[12px] py-[5px] rounded-full border transition-colors ${selectedCategory === cat.id ? "bg-foreground text-background border-foreground" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}
-						>{cat.emoji} {cat.id}</button>
-					))}
+					{LESSON_CATEGORIES.map(cat => {
+						const done = categoryComplete(cat.id);
+						return (
+							<button
+								key={cat.id}
+								type="button"
+								onClick={() => onSelectCategory(cat.id)}
+								className={`shrink-0 text-[12px] font-semibold px-[12px] py-[5px] rounded-full border transition-colors flex items-center gap-[4px] ${selectedCategory === cat.id ? "bg-foreground text-background border-foreground" : done ? "border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-500 dark:text-emerald-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}
+							>
+								{cat.emoji} {cat.id} {done && <span className="text-[10px]">✓</span>}
+							</button>
+						);
+					})}
 				</div>
 
 				{/* Lessons */}
@@ -849,10 +926,18 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 								</div>
 							</div>
 						)}
-						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px]">
+						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[12px]">
 							<p className="text-[13px] font-bold mb-[6px]">Here's the story 📊</p>
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{battle.explanation}</p>
 							<p className="text-[12px] text-amber-400 font-semibold mt-[10px]">+{battle.xp} XP</p>
+						</div>
+						<div className="space-y-[8px]">
+							<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f43f5e,#e11d48)" }}>
+								All Battles
+							</button>
+							<button type="button" onClick={() => { setSelected(null); xpAwarded.current = false; }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+								Rematch ↺
+							</button>
 						</div>
 					</div>
 				) : (
@@ -1121,14 +1206,43 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
+	const [done, setDone] = useState(false);
+	const [correct, setCorrect] = useState(0);
 	const awardedRisk = useRef(new Set<number>());
 	const scenario = RISK_SCENARIOS[index];
 
 	if (!scenario) return null;
 
+	if (done) {
+		const total = RISK_SCENARIOS.length;
+		const pct = Math.round((correct / total) * 100);
+		return (
+			<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-[18px]">
+				<div className="max-w-lg w-full text-center space-y-[16px]">
+					<span className="text-[64px]">{pct >= 80 ? "🏆" : pct >= 50 ? "👍" : "📚"}</span>
+					<h2 className="text-[24px] font-extrabold">Risk Lab Complete!</h2>
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[20px]">
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Your Score</p>
+						<p className="text-[42px] font-extrabold text-foreground">{correct}<span className="text-[24px] dark:text-slate-400 text-slate-500">/{total}</span></p>
+						<p className={`text-[14px] font-semibold mt-[4px] ${pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-rose-400"}`}>
+							{pct >= 80 ? "Excellent risk awareness!" : pct >= 50 ? "Good start — keep practising" : "Keep learning — risk is tricky"}
+						</p>
+					</div>
+					<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>
+						Back to Playground
+					</button>
+					<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedRisk.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+						Try Again
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	const next = () => {
-		if (index < RISK_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); }
-		else onBack();
+		const isCorrect = selected !== scenario.riskierOption;
+		if (index < RISK_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c); }
+		else { setCorrect(c => isCorrect ? c + 1 : c); setDone(true); }
 	};
 
 	return (
@@ -1195,14 +1309,43 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [done, setDone] = useState(false);
+	const [correct, setCorrect] = useState(0);
 	const awardedMood = useRef(new Set<number>());
 	const scenario = MOOD_SCENARIOS[index];
 
 	if (!scenario) return null;
 
+	if (done) {
+		const total = MOOD_SCENARIOS.length;
+		const pct = Math.round((correct / total) * 100);
+		return (
+			<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-[18px]">
+				<div className="max-w-lg w-full text-center space-y-[16px]">
+					<span className="text-[64px]">{pct >= 80 ? "🧠" : pct >= 50 ? "📈" : "📚"}</span>
+					<h2 className="text-[24px] font-extrabold">Market Mood Complete!</h2>
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[20px]">
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Your Score</p>
+						<p className="text-[42px] font-extrabold text-foreground">{correct}<span className="text-[24px] dark:text-slate-400 text-slate-500">/{total}</span></p>
+						<p className={`text-[14px] font-semibold mt-[4px] ${pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-rose-400"}`}>
+							{pct >= 80 ? "You read the market well!" : pct >= 50 ? "Solid macro awareness" : "Macro is complex — keep going"}
+						</p>
+					</div>
+					<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>
+						Back to Playground
+					</button>
+					<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedMood.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+						Try Again
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	const next = () => {
-		if (index < MOOD_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); }
-		else onBack();
+		const isRight = selected === scenario.correctId;
+		if (index < MOOD_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
+		else { setCorrect(c => isRight ? c + 1 : c); setDone(true); }
 	};
 	const isCorrect = selected === scenario.correctId;
 
@@ -1265,11 +1408,12 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 // ── Practice Mode ─────────────────────────────────────────────
 
 function PracticeModeView({ onBack }: { onBack: () => void }) {
-	const [idx, setIdx] = useState(() => Math.floor(Math.random() * PRACTICE_TICKERS.length));
+	const [shuffled] = useState(() => [...PRACTICE_TICKERS].sort(() => Math.random() - 0.5));
+	const [idx, setIdx] = useState(0);
 	const [decision, setDecision] = useState<'save' | 'pass' | 'learn' | null>(null);
-	const stock = PRACTICE_TICKERS[idx % PRACTICE_TICKERS.length]!;
+	const stock = shuffled[idx % shuffled.length]!;
 	const { data: stockData, isLoading } = useQuery({ queryKey: ['stock', stock.ticker], queryFn: () => getStockData(stock.ticker), staleTime: 2 * 60 * 1000, retry: 1 });
-	const next = () => { setIdx(i => (i + 1) % PRACTICE_TICKERS.length); setDecision(null); };
+	const next = () => { setIdx(i => (i + 1) % shuffled.length); setDecision(null); };
 	const quote = stockData?.quote;
 	const metrics = stockData?.metrics;
 	const isUp = (quote?.changePercent ?? 0) >= 0;
