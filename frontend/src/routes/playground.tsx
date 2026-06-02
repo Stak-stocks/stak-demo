@@ -11,9 +11,9 @@ import {
 	type WatchlistSlotType,
 	type Lesson, type LessonCategory,
 } from "@/data/playgroundData";
-import { useState, useMemo } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
-import { getStockData } from "@/lib/api";
+import { useState, useMemo, useRef } from "react";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { getStockData, trackEvent } from "@/lib/api";
 import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
@@ -570,7 +570,11 @@ function DailyChallengeView({
 		if (showResult) return;
 		setSelected(id);
 		setShowResult(true);
-		if (!alreadyCompleted) await completeChallenge(challenge.id, challenge.xp);
+		if (!alreadyCompleted) {
+			await completeChallenge(challenge.id, challenge.xp);
+			// Counts as qualifying activity for streak (same as brand_tap)
+			trackEvent("brand_tap").catch(() => {});
+		}
 	};
 
 	return (
@@ -635,6 +639,13 @@ function DailyChallengeView({
 function BattleDetail({ battleId, onBack }: { battleId: string; onBack: () => void }) {
 	const battle = STOCK_BATTLES.find(b => b.id === battleId)!;
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
+	const { addXp } = useAccount();
+	const xpAwarded = useRef(false);
+	const handlePick = (side: "A" | "B") => {
+		if (selected) return;
+		setSelected(side);
+		if (!xpAwarded.current) { xpAwarded.current = true; addXp(battle.xp).catch(() => {}); }
+	};
 
 	const { data: dataA } = useQuery({
 		queryKey: ["stock", battle.tickerA],
@@ -700,7 +711,7 @@ function BattleDetail({ battleId, onBack }: { battleId: string; onBack: () => vo
 							else cls = "border-foreground/10 bg-surface-1 opacity-60";
 						} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
 						return (
-							<button key={side} type="button" onClick={() => !selected && setSelected(side)}
+							<button key={side} type="button" onClick={() => handlePick(side)}
 								className={`rounded-[14px] border px-[16px] py-[18px] text-center transition-all ${cls}`}>
 								<p className="text-[15px] font-extrabold text-foreground">{ticker}</p>
 								<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{name}</p>
@@ -893,8 +904,10 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
 function RiskLabView({ onBack }: { onBack: () => void }) {
+	const { addXp } = useAccount();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
+	const awardedRisk = useRef(new Set<number>());
 	const scenario = RISK_SCENARIOS[index];
 
 	if (!scenario) return null;
@@ -938,7 +951,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 							<button
 								key={side}
 								type="button"
-								onClick={() => !selected && setSelected(side)}
+								onClick={() => { if (!selected) { setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); addXp(scenario!.xp).catch(() => {}); } } }}
 								className={`rounded-[14px] border px-[14px] py-[16px] text-left transition-colors ${cls}`}
 							>
 								<p className="text-[13px] font-bold">{text}</p>
@@ -970,8 +983,10 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
 function MoodSimulatorView({ onBack }: { onBack: () => void }) {
+	const { addXp } = useAccount();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
+	const awardedMood = useRef(new Set<number>());
 	const scenario = MOOD_SCENARIOS[index];
 
 	if (!scenario) return null;
@@ -1094,12 +1109,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 // ── What Would You Do? ────────────────────────────────────────
 
 function WWYDView({ onBack }: { onBack: () => void }) {
+	const { addXp } = useAccount();
 	const [idx, setIdx] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
+	const awardedWwyd = useRef(new Set<number>());
 	const scenario = WWYD_SCENARIOS[idx];
 	if (!scenario) return null;
 	const isBest = selected === scenario.bestId;
 	const next = () => { if (idx < WWYD_SCENARIOS.length - 1) { setIdx(i => i + 1); setSelected(null); } else onBack(); };
+	const handleSelect = (id: string) => { if (selected) return; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); addXp(scenario.xp).catch(() => {}); } };
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
@@ -1116,7 +1134,7 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 						const isBestOpt = opt.id === scenario.bestId;
 						let cls = 'border-foreground/10 bg-surface-1';
 						if (selected) { if (isBestOpt) cls='border-emerald-500/50 bg-emerald-500/[0.08]'; else if (isSelected) cls='border-rose-500/50 bg-rose-500/[0.08]'; }
-						return (<button key={opt.id} type="button" onClick={()=>!selected&&setSelected(opt.id)} className={`w-full text-left px-[14px] py-[12px] rounded-[12px] border text-[13px] font-medium transition-colors ${cls}`}>{opt.text}{selected&&isBestOpt&&<span className="ml-2 text-emerald-400 text-[11px]">Best move</span>}{selected&&isSelected&&!isBestOpt&&<span className="ml-2 text-rose-400 text-[11px]">Not quite</span>}</button>);
+						return (<button key={opt.id} type="button" onClick={()=>handleSelect(opt.id)} className={`w-full text-left px-[14px] py-[12px] rounded-[12px] border text-[13px] font-medium transition-colors ${cls}`}>{opt.text}{selected&&isBestOpt&&<span className="ml-2 text-emerald-400 text-[11px]">Best move</span>}{selected&&isSelected&&!isBestOpt&&<span className="ml-2 text-rose-400 text-[11px]">Not quite</span>}</button>);
 					})}
 				</div>
 				{selected && (<>
@@ -1158,16 +1176,21 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	// Grade the watchlist
 	const gradeWatchlist = () => {
 		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)!).filter(Boolean);
-		const typeCounts: Record<WatchlistSlotType, number> = { familiar: 0, growth: 0, defensive: 0, dividend: 0, speculative: 0 };
-		pickedBrands.forEach(b => b.types.forEach(t => typeCounts[t]++));
-		const specPct = Math.round((typeCounts.speculative / totalSlots) * 100);
-		const growthPct = Math.round((typeCounts.growth / totalSlots) * 100);
-		const defensivePct = Math.round((typeCounts.defensive / totalSlots) * 100);
+		// Count unique brands per primary type (first type = primary) to avoid double-counting multi-typed brands
+		const primaryTypes = pickedBrands.map(b => b.types[0]!);
+		const specCount = primaryTypes.filter(t => t === "speculative").length;
+		const growthCount = primaryTypes.filter(t => t === "growth").length;
+		const defCount = primaryTypes.filter(t => t === "defensive" || t === "dividend").length;
+		const hasDefensive = pickedBrands.some(b => b.types.includes("defensive"));
+		const hasDividend = pickedBrands.some(b => b.types.includes("dividend"));
+		const specPct = Math.round((specCount / totalSlots) * 100);
+		const growthPct = Math.round((growthCount / totalSlots) * 100);
+		const defensivePct = Math.round((defCount / totalSlots) * 100);
 		let grade = "B";
 		let feedback = "";
-		if (typeCounts.defensive >= 1 && typeCounts.dividend >= 1 && specPct <= 30) { grade = "A"; feedback = "Solid balance. You have defensive anchors, dividend income, and controlled speculative exposure."; }
-		else if (specPct >= 60) { grade = "C"; feedback = "Very speculative. You are heavy on high-risk names. Consider adding a defensive or dividend stock for balance."; }
-		else if (typeCounts.defensive === 0) { grade = "B-"; feedback = "Good start but no defensive anchor. Adding a stable stock like Costco or J&J would reduce your downside risk."; }
+		if (hasDefensive && hasDividend && specPct <= 29) { grade = "A"; feedback = "Solid balance. You have defensive anchors, dividend income, and controlled speculative exposure."; }
+		else if (specPct >= 57) { grade = "C"; feedback = "Very speculative. You are heavy on high-risk names. Consider adding a defensive or dividend stock for balance."; }
+		else if (!hasDefensive) { grade = "B-"; feedback = "Good start but no defensive anchor. Adding a stable stock like Costco or J&J would reduce your downside risk."; }
 		else { grade = "B"; feedback = "Decent portfolio. A mix of growth and stability. You could tighten the risk profile with more dividend exposure."; }
 		return { grade, feedback, specPct, growthPct, defensivePct };
 	};
@@ -1286,6 +1309,7 @@ const SANDBOX_TICKERS = ["AAPL","TSLA","NVDA","META","NFLX","MSFT","AMZN","GOOGL
 
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, removeFromSandbox } = useAccount();
+	const queryClient = useQueryClient();
 	const sandbox = account?.sandboxPortfolio ?? {};
 	const tickers = Object.keys(sandbox);
 
@@ -1321,7 +1345,12 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
 
 	const handleAdd = async (ticker: string) => {
-		const price = null;
+		// Try cache first, then live fetch — price must be captured at add time for P&L
+		const cached = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", ticker.toUpperCase()]);
+		let price: number | null = cached?.quote?.price ?? null;
+		if (!price) {
+			try { price = (await getStockData(ticker.toUpperCase()))?.quote?.price ?? null; } catch { /* ignore */ }
+		}
 		await addToSandbox(ticker.toUpperCase(), price);
 		setAdding(false);
 		setSearchTicker('');

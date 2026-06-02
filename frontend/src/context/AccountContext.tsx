@@ -113,6 +113,7 @@ interface AccountContextType {
 	updateLastBriefDate: (date: string) => Promise<void>;
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
+	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null) => Promise<void>;
 	removeFromSandbox: (ticker: string) => Promise<void>;
 }
@@ -319,6 +320,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user, account],
 	);
 
+	const addXp = useCallback(
+		async (xp: number) => {
+			if (!user) return;
+			const current = account?.totalXp ?? 0;
+			await updateDoc(doc(db, "users", user.uid), { totalXp: current + xp });
+		},
+		[user, account],
+	);
+
 	const addToSandbox = useCallback(
 		async (ticker: string, priceAtAdd: number | null) => {
 			if (!user) return;
@@ -355,6 +365,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updatePreferences,
 				completeLesson,
 				completeChallenge,
+				addXp,
 				addToSandbox,
 				removeFromSandbox,
 				addSearchHistory,
