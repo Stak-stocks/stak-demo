@@ -2635,44 +2635,31 @@ const SANDBOX_CAT_CONFIG: Record<string, { label: string; color: string; bar: st
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, sellFromSandbox, initSandboxCash, resetSandbox, markSandboxMilestone } = useAccount();
 	const queryClient = useQueryClient();
-	const sandbox = account?.sandboxPortfolio ?? {};
-	const tickers = Object.keys(sandbox);
-	const [search, setSearch] = useState("");
-	const [sortBy, setSortBy] = useState<"pnl" | "today" | "recent">("recent");
-	const [confirmSell, setConfirmSell] = useState<string | null>(null);
-	const [thesis, setThesis] = useState("");
 
+	// Screen state: null = portfolio list, string = stock detail ticker
+	const [activeStock, setActiveStock] = useState<string | null>(null);
+	// Order sheet: "buy" | "sell" | null
+	const [orderAction, setOrderAction] = useState<"buy" | "sell" | null>(null);
+	// Search overlay
+	const [showSearch, setShowSearch] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	// Order quantity
+	const [orderQty, setOrderQty] = useState(1);
+	// Reset confirm
 	const [confirmReset, setConfirmReset] = useState(false);
 
-	// Initialise cash on first open (handles existing users with positions but no cash field)
-	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
-
-	const sandboxCash = account?.sandboxCash ?? (account?.sandboxPortfolio !== undefined ? 0 : SANDBOX_BUDGET);
-	const canAddMore = sandboxCash > 0 && tickers.length < SANDBOX_MAX_POSITIONS;
-	// How many shares to buy — local state for the buy flow
-	const [shareQty, setShareQty] = useState(1);
-
-	// Trade history & win rate
-	const tradeHistory = account?.sandboxTradeHistory ?? [];
-	const sells = tradeHistory.filter(t => t.action === "sell");
-	const wins = sells.filter(t => (t.pnl ?? 0) > 0).length;
-	const winRate = sells.length > 0 ? Math.round((wins / sells.length) * 100) : null;
-	const [showHowItWorks, setShowHowItWorks] = useState(() =>
-		typeof window !== "undefined" && !localStorage.getItem("sandbox-how-it-works-seen")
-	);
+	const sandbox = account?.sandboxPortfolio ?? {};
+	const tickers = Object.keys(sandbox);
 
 	// Brand lookup map
 	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), []);
 
-	// SPY benchmark for today's comparison
-	const { data: spyData } = useQuery({
-		queryKey: ["stock", "SPY"],
-		queryFn: () => getStockData("SPY"),
-		staleTime: 60 * 1000,
-		retry: 1,
-	});
-	const spyChangeToday = spyData?.quote?.changePercent ?? null;
+	// Initialise cash on first open
+	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
 
+	const sandboxCash = account?.sandboxCash ?? (account?.sandboxPortfolio !== undefined ? 0 : SANDBOX_BUDGET);
+
+	// Queries for all held tickers
 	const stockQueries = tickers.map(ticker => ({
 		queryKey: ["stock", ticker],
 		queryFn: () => getStockData(ticker),
@@ -2680,8 +2667,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		retry: 1,
 	}));
 	const results = useQueries({ queries: stockQueries });
-
-	const [adding, setAdding] = useState(false);
 
 	const holdings = tickers.map((ticker, i) => {
 		const entry = sandbox[ticker]!;
@@ -2697,53 +2682,14 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		return { ticker, entry, currentPrice, currentValue, costBasis, shares, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
 	});
 
-	const sortedHoldings = [...holdings].sort((a, b) => {
-		if (sortBy === "pnl") return (b.pricePct ?? -999) - (a.pricePct ?? -999);
-		if (sortBy === "today") return (b.changePercent ?? -999) - (a.changePercent ?? -999);
-		return b.entry.addedAt - a.entry.addedAt;
-	});
-
-	// Invested value = sum of cost bases; portfolio value = sum of current values
+	// Portfolio totals
 	const investedTotal = holdings.reduce((sum, h) => sum + h.costBasis, 0);
 	const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
 	const totalDollarPnl = totalValue - investedTotal;
 	const totalPct = investedTotal > 0 ? (totalDollarPnl / investedTotal) * 100 : 0;
 
-	// Today's portfolio change (weighted average)
-	const todayChanges = holdings.filter(h => h.changePercent !== null);
-	const portfolioTodayPct = todayChanges.length > 0
-		? todayChanges.reduce((sum, h) => sum + (h.changePercent ?? 0), 0) / todayChanges.length
-		: null;
-
-	// Portfolio themes — count category appearances
-	const themeCounts: Record<string, number> = {};
-	holdings.forEach(h => {
-		const cats = h.brand?.interestCategories ?? [];
-		const primary = cats[0];
-		if (primary) themeCounts[primary] = (themeCounts[primary] ?? 0) + 1;
-	});
-	const topThemes = Object.entries(themeCounts)
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 4)
-		.map(([cat, count]) => ({ cat, count, pct: Math.round((count / tickers.length) * 100) }));
-
-	// Portfolio health nudge
-	const healthNudge = useMemo(() => {
-		if (tickers.length < 3) return null;
-		const specCount = holdings.filter(h => (h.brand?.interestCategories ?? []).some(c => ["gaming", "energy"].includes(c))).length;
-		const techCount = holdings.filter(h => (h.brand?.interestCategories?.[0] ?? "") === "tech").length;
-		const finCount = holdings.filter(h => (h.brand?.interestCategories ?? []).some(c => ["finance"].includes(c))).length;
-		if (techCount >= tickers.length * 0.7) return "Your portfolio is heavily tech-focused. Consider adding a consumer brand or dividend stock for balance.";
-		if (specCount >= tickers.length * 0.6) return "High speculative exposure. Adding a stable blue-chip stock would reduce your overall risk.";
-		if (finCount === 0 && tickers.length >= 5) return "No financial stocks in your portfolio. Adding a bank or fintech could improve diversification.";
-		return null;
-	}, [holdings, tickers.length]);
-
-	const topWinner = holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0))[0];
-	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
-
-	// Milestone detection — celebrate when total portfolio value crosses round numbers
-	const totalPortfolioValue = totalValue + sandboxCash; // full account value including cash
+	// Total portfolio value for milestone detection
+	const totalPortfolioValue = totalValue + sandboxCash;
 	useEffect(() => {
 		if (tickers.length === 0) return;
 		const MILESTONES = [10500, 11000, 12000, 15000, 20000];
@@ -2761,497 +2707,525 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				</div>
 			</div>
 		), { duration: 5000 }));
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [totalPortfolioValue, account?.sandboxMilestones]);
 
-	// Stocks in My STAK not yet in sandbox
-	const stakNotInSandbox = useMemo(() => {
-		const stakIds = new Set(account?.stakBrandIds ?? []);
-		return allBrands.filter(b =>
-			b.ticker && stakIds.has(b.id) && !tickers.includes(b.ticker.toUpperCase())
-		).slice(0, 5);
-	}, [account?.stakBrandIds, tickers]);
+	// Live price query for the active stock detail screen
+	const { data: activeStockData } = useQuery({
+		queryKey: ["stock", activeStock ?? ""],
+		queryFn: () => getStockData(activeStock!),
+		staleTime: 60 * 1000,
+		retry: 1,
+		enabled: activeStock !== null,
+	});
+	const activePrice = activeStockData?.quote?.price ?? null;
+	const activeTodayPct = activeStockData?.quote?.changePercent ?? null;
 
-	const handleAdd = async (ticker: string) => {
-		const cached = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", ticker.toUpperCase()]);
-		let price: number | null = cached?.quote?.price ?? null;
-		if (!price) {
-			try { price = (await getStockData(ticker.toUpperCase()))?.quote?.price ?? null; } catch { /* ignore */ }
-		}
-		await addToSandbox(ticker.toUpperCase(), price, shareQty, thesis.trim() || undefined);
-		setAdding(false);
-		setThesis("");
-		setShareQty(1);
+	// Handle add (buy) — accepts ticker, shares, price directly
+	const handleAdd = async (ticker: string, shares: number, price: number | null) => {
+		await addToSandbox(ticker.toUpperCase(), price, shares, undefined);
 	};
 
-	return (
-		<div className="min-h-full bg-background text-foreground">
-			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={onBack} />
-				<div className="flex items-center justify-between mb-[2px]">
-					<h2 className="text-[22px] font-extrabold">Sandbox Portfolio</h2>
-					<span className={`text-[11px] font-semibold px-[8px] py-[3px] rounded-full border ${tickers.length >= SANDBOX_MAX_POSITIONS ? "border-rose-500/30 bg-rose-500/10 text-rose-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
-						{tickers.length} stock{tickers.length !== 1 ? "s" : ""}
-					</span>
+	// Close order sheet helper
+	const closeOrder = () => {
+		setOrderAction(null);
+		setOrderQty(1);
+	};
+
+	// Confirm buy
+	const confirmBuy = async () => {
+		if (!activeStock || !activePrice) return;
+		const cost = activePrice * orderQty;
+		if (cost > sandboxCash) return;
+		await handleAdd(activeStock, orderQty, activePrice);
+		closeOrder();
+	};
+
+	// Confirm sell
+	const confirmSellOrder = async () => {
+		if (!activeStock) return;
+		const holding = holdings.find(h => h.ticker === activeStock);
+		if (!holding) return;
+		const pricePerShare = holding.currentPrice ?? (holding.costBasis > 0 ? holding.costBasis / holding.shares : 0);
+		const sellShares = orderQty;
+		const totalShares = holding.shares;
+		const sellValue = pricePerShare * sellShares;
+		await sellFromSandbox(activeStock, sellValue, pricePerShare);
+		closeOrder();
+		const remainingShares = totalShares - sellShares;
+		if (remainingShares <= 0) {
+			setActiveStock(null);
+		}
+		const sellPnl = sellValue - (holding.entry.priceAtAdd ?? 0) * sellShares;
+		const won = sellPnl >= 0;
+		import("sonner").then(({ toast }) => toast.custom(() => (
+			<div className={`flex items-center gap-[12px] rounded-[14px] border px-[14px] py-[12px] shadow-lg ${won ? "border-emerald-500/30 bg-emerald-500/[0.1]" : "border-rose-500/30 bg-rose-500/[0.1]"}`}>
+				<span className="text-[28px] shrink-0">{won ? "💰" : "📉"}</span>
+				<div>
+					<p className={`text-[11px] font-bold uppercase tracking-wide mb-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "Profitable Trade" : "Loss Taken"}</p>
+					<p className="text-[14px] font-extrabold text-foreground">Sold {holding.brand?.name ?? activeStock}</p>
+					<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(2)}</p>
 				</div>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Practice money only. No real trades.</p>
+			</div>
+		), { duration: 4000 }));
+	};
 
-				{/* How it works — dismissible */}
-				{showHowItWorks && (
-					<div className="rounded-[14px] border border-blue-500/20 bg-blue-500/[0.07] p-[14px] mb-[16px]">
-						<div className="flex items-start justify-between gap-[10px]">
-							<div>
-								<p className="text-[13px] font-bold mb-[6px]">How Sandbox works</p>
-								<div className="space-y-[5px] text-[12px] dark:text-slate-300 text-slate-600">
-									<p>💰 <strong>Start with $10,000</strong> — buy real shares at live prices, just like a real brokerage</p>
-									<p>📈 <strong>Sell to realise your gain or loss</strong> — proceeds go straight back to buying power</p>
-									<p>🔄 <strong>Prices update live</strong> — P&L tracks from when you bought</p>
-									<p>✅ <strong>No real money</strong> — practice freely with no risk</p>
-								</div>
-							</div>
-							<button type="button" onClick={() => { setShowHowItWorks(false); localStorage.setItem("sandbox-how-it-works-seen", "1"); }}
-								className="shrink-0 text-[18px] dark:text-slate-500 text-slate-400 mt-[-2px]">✕</button>
-						</div>
+	// ── Render: Order Sheet ──────────────────────────────────────────────────────
+	const renderOrderSheet = () => {
+		if (!orderAction || !activeStock) return null;
+		const holding = holdings.find(h => h.ticker === activeStock);
+		const price = activePrice ?? holding?.currentPrice ?? null;
+		const sharesOwned = holding?.shares ?? 0;
+		const brand = brandMap.get(activeStock.toUpperCase());
+		const name = brand?.name ?? activeStock;
+
+		const cost = price != null ? price * orderQty : null;
+		const canAffordBuy = cost != null && cost <= sandboxCash;
+		const buyError = cost != null && cost > sandboxCash
+			? `Not enough buying power ($${(cost - sandboxCash).toFixed(2)} short)`
+			: null;
+
+		const canSell = orderAction === "sell" && orderQty > 0 && orderQty <= sharesOwned;
+		const sellProceeds = price != null ? price * orderQty : null;
+
+		const isValid = orderAction === "buy"
+			? (cost != null && canAffordBuy && orderQty > 0)
+			: canSell;
+
+		const maxBuyQty = price != null && price > 0 ? Math.floor(sandboxCash / price) : 0;
+
+		return (
+			<>
+				<div className="fixed inset-0 z-40 bg-[#0d0d0d]/70" onClick={closeOrder} />
+				<div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[24px] bg-background border border-foreground/10 px-[20px] pt-[20px] pb-[32px] max-w-lg mx-auto shadow-2xl">
+					<div className="w-[40px] h-[4px] rounded-full bg-foreground/15 mx-auto mb-[18px]" />
+					<div className="flex items-center justify-between mb-[24px]">
+						<h3 className="text-[18px] font-extrabold">
+							{orderAction === "buy" ? "Buy" : "Sell"} {activeStock}
+						</h3>
+						<button type="button" onClick={closeOrder}
+							className="w-[32px] h-[32px] rounded-full bg-foreground/[0.07] flex items-center justify-center text-[16px] dark:text-slate-400 text-slate-500 active:opacity-70">
+							✕
+						</button>
 					</div>
-				)}
-
-				{/* Portfolio overview */}
-				<div className="rounded-[18px] border border-violet-500/25 overflow-hidden mb-[20px]">
-					<div className="bg-violet-500/[0.08] px-[18px] pt-[16px] pb-[14px]">
-						{/* Invested value (Robinhood-style: shows only what's in the market) */}
-						<div className="flex items-end justify-between mb-[14px]">
-							<div>
-								<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[3px]">Invested Value</p>
-								<p className="text-[32px] font-extrabold leading-none">
-									${tickers.length > 0 ? totalValue.toFixed(2) : "0.00"}
+					<div className="flex items-center justify-center gap-[20px] mb-[20px]">
+						<button type="button"
+							onClick={() => setOrderQty(q => Math.max(1, q - 1))}
+							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
+							−
+						</button>
+						<input
+							type="number"
+							inputMode="numeric"
+							min={1}
+							value={orderQty}
+							onChange={e => {
+								const v = parseInt(e.target.value, 10);
+								if (!isNaN(v) && v >= 1) setOrderQty(v);
+							}}
+							className="w-[100px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+						/>
+						<button type="button"
+							onClick={() => {
+								if (orderAction === "buy") {
+									setOrderQty(q => Math.min(q + 1, Math.max(1, maxBuyQty)));
+								} else {
+									setOrderQty(q => Math.min(q + 1, sharesOwned));
+								}
+							}}
+							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
+							+
+						</button>
+					</div>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[4px]">shares</p>
+					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[16px] py-[14px] mb-[16px] text-center">
+						{price != null ? (
+							<>
+								<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[4px]">
+									{orderAction === "buy"
+										? `${orderQty} shares × $${price.toFixed(2)}`
+										: `${orderQty} shares → proceeds`}
 								</p>
-							</div>
-							{investedTotal > 0 && (
-								<div className="text-right">
-									<p className={`text-[16px] font-extrabold ${totalPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-										{totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
-									</p>
-									<p className={`text-[12px] font-semibold ${totalDollarPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-										{totalDollarPnl >= 0 ? "+" : ""}${totalDollarPnl.toFixed(2)} total return
-									</p>
-								</div>
+								<p className="text-[28px] font-extrabold">
+									${orderAction === "buy" ? cost!.toFixed(2) : sellProceeds!.toFixed(2)}
+								</p>
+							</>
+						) : (
+							<p className="text-[14px] dark:text-slate-400 text-slate-500">Loading price…</p>
+						)}
+					</div>
+					{orderAction === "buy" && (
+						<div className="flex items-center justify-between mb-[6px]">
+							<p className="text-[12px] dark:text-slate-400 text-slate-500">Buying power</p>
+							<p className={`text-[13px] font-semibold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
+								${sandboxCash.toFixed(2)}
+							</p>
+						</div>
+					)}
+					{orderAction === "sell" && (
+						<div className="flex items-center justify-between mb-[6px]">
+							<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares you own</p>
+							<p className="text-[13px] font-semibold">{sharesOwned}</p>
+						</div>
+					)}
+					{buyError && (
+						<p className="text-[12px] text-rose-400 text-center mb-[10px]">{buyError}</p>
+					)}
+					{orderAction === "sell" && orderQty > sharesOwned && (
+						<p className="text-[12px] text-rose-400 text-center mb-[10px]">
+							You only own {sharesOwned} share{sharesOwned !== 1 ? "s" : ""}
+						</p>
+					)}
+					<button
+						type="button"
+						disabled={!isValid}
+						onClick={orderAction === "buy" ? confirmBuy : confirmSellOrder}
+						className={`w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white transition-opacity active:opacity-80 mt-[8px] ${
+							!isValid
+								? "opacity-40 cursor-not-allowed bg-foreground/20"
+								: orderAction === "sell"
+									? "bg-rose-500/80 border border-rose-500/40"
+									: ""
+						}`}
+						style={isValid && orderAction === "buy" ? { background: "linear-gradient(90deg,#7c3aed,#6366f1)" } : undefined}
+					>
+						{orderAction === "buy"
+							? `Buy ${orderQty} share${orderQty !== 1 ? "s" : ""} of ${name}`
+							: `Sell ${orderQty} share${orderQty !== 1 ? "s" : ""} of ${name}`}
+					</button>
+				</div>
+			</>
+		);
+	};
+
+	// ── Render: Stock Detail ─────────────────────────────────────────────────────
+	if (activeStock !== null) {
+		const holding = holdings.find(h => h.ticker === activeStock);
+		const brand = brandMap.get(activeStock.toUpperCase());
+		const name = brand?.name ?? activeStock;
+		const logoUrl = brand?.domain ? `https://logo.clearbit.com/${brand.domain}` : null;
+		const inPortfolio = !!holding;
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[120px]">
+					<BackBtn onClick={() => { setActiveStock(null); setOrderAction(null); }} label="Portfolio" />
+					<div className="flex items-center gap-[14px] mb-[24px]">
+						<div className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full bg-white shadow-md overflow-hidden">
+							{logoUrl ? (
+								<img src={logoUrl} alt="" className="w-[38px] h-[38px] object-contain"
+									onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+							) : (
+								<span className="text-[14px] font-bold text-slate-600">{activeStock.slice(0, 2)}</span>
 							)}
 						</div>
-						{/* Cash + invested breakdown — like Robinhood's "Buying Power" row */}
-						<div className="grid grid-cols-2 gap-[8px]">
-							<div className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[8px]">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">Buying Power</p>
-								<p className={`text-[16px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
-									${sandboxCash.toFixed(2)}
-								</p>
-							</div>
-							<div className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[8px]">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">Cost Basis</p>
-								<p className="text-[16px] font-extrabold">${investedTotal.toFixed(2)}</p>
-							</div>
+						<div>
+							<p className="text-[20px] font-extrabold leading-tight">{name}</p>
+							<p className="text-[13px] dark:text-slate-400 text-slate-500">{activeStock}</p>
 						</div>
 					</div>
-					{tickers.length > 0 && (
-						<div className="bg-surface-1 px-[18px] py-[12px] space-y-[8px]">
-							{/* Today vs SPY */}
-							{portfolioTodayPct !== null && (
-								<div className="flex items-center justify-between text-[12px]">
-									<span className="dark:text-slate-400 text-slate-500">Today</span>
-									<div className="flex items-center gap-[12px]">
-										<span className={`font-semibold ${portfolioTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-											Your portfolio {portfolioTodayPct >= 0 ? "+" : ""}{portfolioTodayPct.toFixed(2)}%
-										</span>
-										{spyChangeToday !== null && (
-											<span className="dark:text-slate-400 text-slate-500">
-												S&P 500 {spyChangeToday >= 0 ? "+" : ""}{spyChangeToday.toFixed(2)}%
-											</span>
-										)}
-									</div>
-								</div>
-							)}
-							<div className="flex items-center justify-between text-[12px]">
-								<span className="dark:text-slate-400 text-slate-500">{tickers.length} position{tickers.length !== 1 ? "s" : ""}</span>
-								{winRate !== null && (
-									<span className={`font-semibold ${winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
-										{wins}W/{sells.length - wins}L · {winRate}% wins
-									</span>
+					<div className="mb-[24px]">
+						{activePrice != null ? (
+							<>
+								<p className="text-[44px] font-extrabold leading-none mb-[6px]">
+									${activePrice.toFixed(2)}
+								</p>
+								{activeTodayPct != null && (
+									<p className={`text-[16px] font-semibold ${activeTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+										{activeTodayPct >= 0 ? "+" : ""}{activeTodayPct.toFixed(2)}% today
+									</p>
 								)}
-								<div className="flex items-center gap-[10px]">
-									{topWinner && <span className="text-emerald-400 font-semibold">{topWinner.ticker} +{topWinner.pricePct?.toFixed(1)}%</span>}
-									{topLoser && topLoser.ticker !== topWinner?.ticker && <span className="text-rose-400 font-semibold">{topLoser.ticker} {topLoser.pricePct?.toFixed(1)}%</span>}
+							</>
+						) : (
+							<p className="text-[20px] font-bold dark:text-slate-400 text-slate-500">Loading…</p>
+						)}
+					</div>
+					{inPortfolio && holding ? (
+						<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[18px] py-[16px] mb-[20px]">
+							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[14px] font-semibold">Your Position</p>
+							<div className="grid grid-cols-2 gap-[14px]">
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Shares</p>
+									<p className="text-[18px] font-extrabold">{holding.shares}</p>
+								</div>
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Avg Price</p>
+									<p className="text-[18px] font-extrabold">
+										{holding.entry.priceAtAdd != null ? `$${holding.entry.priceAtAdd.toFixed(2)}` : "—"}
+									</p>
+								</div>
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Current Value</p>
+									<p className="text-[18px] font-extrabold">${holding.currentValue.toFixed(2)}</p>
+								</div>
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Total P&amp;L</p>
+									<p className={`text-[18px] font-extrabold ${(holding.priceDollar ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+										{(holding.priceDollar ?? 0) >= 0 ? "+" : ""}${(holding.priceDollar ?? 0).toFixed(2)}
+									</p>
+									{holding.pricePct != null && (
+										<p className={`text-[12px] font-semibold ${holding.pricePct >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
+											{holding.pricePct >= 0 ? "+" : ""}{holding.pricePct.toFixed(2)}%
+										</p>
+									)}
 								</div>
 							</div>
+						</div>
+					) : (
+						<div className="rounded-[16px] border border-dashed border-foreground/20 px-[18px] py-[14px] mb-[20px] text-center">
+							<p className="text-[13px] dark:text-slate-400 text-slate-500">Not in your portfolio</p>
 						</div>
 					)}
 				</div>
+				<div className="fixed bottom-0 left-0 right-0 z-30 max-w-lg mx-auto px-[18px] pb-[20px] pt-[12px] bg-background/95 backdrop-blur-sm border-t border-foreground/[0.06]">
+					<div className={`grid gap-[10px] ${inPortfolio ? "grid-cols-2" : "grid-cols-1"}`}>
+						<button
+							type="button"
+							disabled={tickers.length >= SANDBOX_MAX_POSITIONS && !inPortfolio}
+							onClick={() => { setOrderQty(1); setOrderAction("buy"); }}
+							className="h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+							style={{ background: "linear-gradient(90deg,#7c3aed,#6366f1)" }}
+						>
+							Buy
+						</button>
+						{inPortfolio && (
+							<button
+								type="button"
+								onClick={() => { setOrderQty(1); setOrderAction("sell"); }}
+								className="h-[52px] rounded-[14px] font-bold text-[16px] border border-rose-500/30 bg-rose-500/[0.07] text-rose-400 active:opacity-80 transition-opacity"
+							>
+								Sell
+							</button>
+						)}
+					</div>
+				</div>
+				{renderOrderSheet()}
+			</div>
+		);
+	}
 
-				{/* Portfolio themes */}
-				{tickers.length >= 2 && topThemes.length > 0 && (
-					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] mb-[16px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Themes</p>
-						<div className="space-y-[6px]">
-							{topThemes.map(({ cat, pct }) => {
-								const cfg = SANDBOX_CAT_CONFIG[cat] ?? { label: cat, color: "text-slate-400", bar: "bg-slate-500" };
-								return (
-									<div key={cat} className="flex items-center gap-[10px]">
-										<p className={`text-[11px] font-medium w-[70px] shrink-0 ${cfg.color}`}>{cfg.label}</p>
-										<div className="flex-1 h-[5px] rounded-full bg-foreground/10">
-											<div className={`h-full rounded-full ${cfg.bar} transition-all`} style={{ width: `${pct}%` }} />
-										</div>
-										<span className="text-[11px] dark:text-slate-500 text-slate-400 w-[32px] text-right">{pct}%</span>
-									</div>
-								);
-							})}
+	// ── Render: Portfolio List ───────────────────────────────────────────────────
+
+	// Search overlay brand results
+	const searchResults = searchQuery.trim()
+		? allBrands
+			.filter(b => b.ticker && (
+				b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				b.ticker.toLowerCase().includes(searchQuery.toLowerCase())
+			))
+			.slice(0, 40)
+		: allBrands.filter(b => !!b.ticker).slice(0, 40);
+
+	return (
+		<div className="min-h-full bg-background text-foreground">
+			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[120px]">
+				<BackBtn onClick={onBack} />
+				<div className="mb-[6px]">
+					<h2 className="text-[24px] font-extrabold">Sandbox</h2>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500">Practice mode</p>
+				</div>
+				{/* Overview card */}
+				<div className="rounded-[16px] border border-violet-500/25 bg-violet-500/[0.06] px-[18px] pt-[18px] pb-[16px] mb-[20px] mt-[16px]">
+					<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px] font-medium">Invested Value</p>
+					<p className="text-[38px] font-extrabold leading-none mb-[4px]">
+						${tickers.length > 0 ? totalValue.toFixed(2) : "0.00"}
+					</p>
+					{investedTotal > 0 && (
+						<div className="flex items-center gap-[10px] mb-[14px]">
+							<span className={`text-[16px] font-extrabold ${totalPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+								{totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
+							</span>
+							<span className={`text-[13px] font-semibold ${totalDollarPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+								({totalDollarPnl >= 0 ? "+" : ""}${totalDollarPnl.toFixed(2)})
+							</span>
 						</div>
-						{/* Health nudge */}
-						{healthNudge && (
-							<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[10px] pt-[10px] border-t border-foreground/[0.06] leading-relaxed">
-								💡 {healthNudge}
+					)}
+					{investedTotal === 0 && <div className="mb-[14px]" />}
+					<div className="grid grid-cols-2 gap-[10px]">
+						<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
+							<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Buying Power</p>
+							<p className={`text-[18px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
+								${sandboxCash.toFixed(2)}
 							</p>
-						)}
-					</div>
-				)}
-
-				{/* Holdings */}
-				{tickers.length > 0 && (
-					<div className="mb-[16px]">
-						{/* Sort controls */}
-						<div className="flex items-center justify-between mb-[10px]">
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500">Holdings</p>
-							<div className="flex gap-[6px]">
-								{(["recent","pnl","today"] as const).map(s => (
-									<button key={s} type="button" onClick={() => setSortBy(s)}
-										className={`text-[10px] font-semibold px-[8px] py-[3px] rounded-full border transition-colors ${sortBy === s ? "bg-foreground text-background border-foreground" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
-										{s === "recent" ? "Recent" : s === "pnl" ? "Best P&L" : "Today"}
-									</button>
-								))}
-							</div>
 						</div>
-
-						{/* P&L bar chart */}
-						{holdings.some(h => h.pricePct !== null) && (
-							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px] mb-[10px]">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[8px] uppercase tracking-wide font-semibold">P&L Since Added</p>
-								<div className="space-y-[6px]">
-									{[...holdings].filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0)).map(h => {
-										const pct = h.pricePct ?? 0;
-										const maxAbs = Math.max(...holdings.filter(x => x.pricePct !== null).map(x => Math.abs(x.pricePct ?? 0)), 1);
-										const barWidth = Math.min(100, (Math.abs(pct) / maxAbs) * 100);
-										return (
-											<div key={h.ticker} className="flex items-center gap-[8px]">
-												<p className="text-[11px] font-bold w-[40px] shrink-0">{h.ticker}</p>
-												<div className="flex-1 h-[5px] rounded-full bg-foreground/10 overflow-hidden">
-													<div className={`h-full rounded-full ${pct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${barWidth}%` }} />
-												</div>
-												<p className={`text-[11px] font-bold w-[48px] text-right shrink-0 ${pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-													{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
-												</p>
-											</div>
-										);
-									})}
-								</div>
-							</div>
-						)}
-
-						{/* Holdings list */}
-						<div className="space-y-[6px]">
-							{sortedHoldings.map(h => {
-								const logoUrl = h.brand?.domain ? `https://logo.clearbit.com/${h.brand.domain}` : null;
-								return (
-									<div key={h.ticker}>
-										<div className="flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px]">
-											{/* Logo */}
-											<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-												{logoUrl ? (
-													<img src={logoUrl} alt="" className="w-[26px] h-[26px] object-contain"
-														onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-												) : (
-													<span className="text-[10px] font-bold text-slate-600">{h.ticker.slice(0,2)}</span>
-												)}
-											</div>
-											{/* Name + price */}
-											<div className="flex-1 min-w-0">
-												<p className="text-[13px] font-bold leading-none">{h.brand?.name ?? h.ticker}</p>
-												<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
-													{h.shares != null ? `${h.shares} sh · ` : ""}
-													{h.currentPrice ? `$${h.currentPrice.toFixed(2)}` : h.ticker}
-													{h.entry.priceAtAdd ? ` · avg $${h.entry.priceAtAdd.toFixed(2)}` : ""}
-												</p>
-												{/* Days held + thesis */}
-												<div className="flex items-center gap-[6px] mt-[3px] flex-wrap">
-													{(() => {
-														const days = Math.floor((Date.now() - h.entry.addedAt) / 86400000);
-														return <span className="text-[10px] dark:text-slate-500 text-slate-400">{days === 0 ? "Today" : days === 1 ? "1 day" : `${days} days`}</span>;
-													})()}
-													{h.changePercent !== null && spyChangeToday !== null && (
-														<span className={`text-[10px] ${h.changePercent > spyChangeToday ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-															vs S&P {h.changePercent > spyChangeToday ? "▲" : "▼"}
-														</span>
-													)}
-												</div>
-												{h.entry.thesis && <p className="text-[10px] dark:text-slate-500 text-slate-400 italic mt-[2px] truncate">"{h.entry.thesis}"</p>}
-											</div>
-											{/* P&L + dollar + weight */}
-											<div className="text-right shrink-0">
-												{h.pricePct !== null ? (
-													<>
-														<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-															{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
-														</p>
-														{h.priceDollar !== null && (
-															<p className={`text-[11px] font-semibold ${h.priceDollar >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-																{h.priceDollar >= 0 ? "+" : ""}${h.priceDollar.toFixed(2)}
-															</p>
-														)}
-														{totalValue > 0 && (
-															<p className="text-[10px] dark:text-slate-500 text-slate-400">
-																{((h.currentValue / totalValue) * 100).toFixed(1)}% weight
-															</p>
-														)}
-													</>
-												) : <p className="text-[11px] dark:text-slate-500 text-slate-400">Loading…</p>}
-											</div>
-											{/* Sell button */}
-											<button type="button" onClick={() => setConfirmSell(h.ticker)}
-												className="shrink-0 text-[11px] font-semibold px-[10px] py-[4px] rounded-full border border-rose-500/30 bg-rose-500/[0.07] text-rose-400 active:opacity-70">
-												Sell
-											</button>
-										</div>
-										{/* Confirm sell inline */}
-										{confirmSell === h.ticker && (() => {
-											const sellValue = h.currentValue;
-											const sellPnl = sellValue - h.costBasis;
-											return (
-												<div className="rounded-[10px] border border-rose-500/20 bg-rose-500/[0.06] px-[12px] py-[10px] mt-[4px]">
-													<div className="flex items-start justify-between gap-[8px] mb-[8px]">
-														<div>
-															<p className="text-[12px] font-bold">Sell {h.brand?.name ?? h.ticker}?</p>
-															<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
-																You'll receive <span className={`font-bold ${sellPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>${sellValue.toFixed(2)}</span>
-																{' '}(<span className={sellPnl >= 0 ? "text-emerald-400" : "text-rose-400"}>{sellPnl >= 0 ? "+" : ""}${sellPnl.toFixed(2)}</span>) back to buying power
-															</p>
-														</div>
-													</div>
-													<div className="flex gap-[8px]">
-														<button type="button" onClick={() => setConfirmSell(null)}
-															className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">
-															Keep holding
-														</button>
-														<button type="button" onClick={() => {
-																	sellFromSandbox(h.ticker, sellValue, h.currentPrice);
-																	setConfirmSell(null);
-																	const won = sellPnl >= 0;
-																	import("sonner").then(({ toast }) => toast.custom(() => (
-																		<div className={`flex items-center gap-[12px] rounded-[14px] border px-[14px] py-[12px] shadow-lg ${won ? "border-emerald-500/30 bg-emerald-500/[0.1]" : "border-rose-500/30 bg-rose-500/[0.1]"}`}>
-																			<span className="text-[28px] shrink-0">{won ? "💰" : "📉"}</span>
-																			<div>
-																				<p className={`text-[11px] font-bold uppercase tracking-wide mb-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "Profitable Trade" : "Loss Taken"}</p>
-																				<p className="text-[14px] font-extrabold text-foreground">Sold {h.brand?.name ?? h.ticker}</p>
-																				<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(2)} · {won ? "+" : ""}{h.costBasis > 0 ? ((sellPnl / h.costBasis) * 100).toFixed(1) : "0.0"}%</p>
-																			</div>
-																		</div>
-																	), { duration: 4000 }));
-																}}
-															className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">
-															Confirm sell
-														</button>
-													</div>
-												</div>
-											);
-										})()}
+						<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
+							<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Cost Basis</p>
+							<p className="text-[18px] font-extrabold">${investedTotal.toFixed(2)}</p>
+						</div>
+					</div>
+				</div>
+				{/* Holdings list */}
+				{tickers.length > 0 ? (
+					<div className="space-y-[8px] mb-[24px]">
+						{holdings.map(h => {
+							const logoUrl = h.brand?.domain ? `https://logo.clearbit.com/${h.brand.domain}` : null;
+							return (
+								<button
+									key={h.ticker}
+									type="button"
+									onClick={() => setActiveStock(h.ticker)}
+									className="w-full flex items-center gap-[12px] rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[13px] text-left active:opacity-80 transition-opacity"
+								>
+									<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+										{logoUrl ? (
+											<img src={logoUrl} alt="" className="w-[28px] h-[28px] object-contain"
+												onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+										) : (
+											<span className="text-[11px] font-bold text-slate-600">{h.ticker.slice(0, 2)}</span>
+										)}
 									</div>
-								);
-							})}
-						</div>
-					</div>
-				)}
-
-				{tickers.length === 0 && (
-					<div className="rounded-[18px] border border-dashed border-foreground/20 p-[32px] text-center mb-[16px]">
-						<div className="text-[48px] mb-[12px]">📈</div>
-						<p className="text-[16px] font-extrabold mb-[6px]">Start trading</p>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-							Buy real shares at live prices with your $10,000 practice cash. No real money, real performance.
-						</p>
-						<p className="text-[12px] text-violet-400 font-semibold mt-[10px]">Real prices · real shares · no risk</p>
-					</div>
-				)}
-
-				{/* Add stock */}
-				{adding ? (
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 overflow-hidden">
-						{/* Header row */}
-						<div className="flex items-center gap-[10px] px-[14px] py-[13px] border-b border-foreground/[0.06]">
-							<input
-								type="text"
-								value={search}
-								onChange={e => setSearch(e.target.value)}
-								placeholder="Search by name or ticker…"
-								autoFocus
-								className="flex-1 bg-transparent text-[14px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
-							/>
-							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); setShareQty(1); }}
-								className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0 active:opacity-70">Cancel</button>
-						</div>
-
-						{/* Quantity row */}
-						<div className="px-[14px] py-[12px] border-b border-foreground/[0.06]">
-							<div className="flex items-center justify-between mb-[6px]">
-								<p className="text-[13px] font-semibold">Shares to buy</p>
-								<p className="text-[11px] dark:text-slate-400 text-slate-500">
-									Buying power: <span className="font-bold text-emerald-400">${sandboxCash.toFixed(2)}</span>
-								</p>
-							</div>
-							<div className="flex items-center gap-[10px]">
-								<button type="button" onClick={() => setShareQty(q => Math.max(1, q - 1))}
-									className="w-[36px] h-[36px] rounded-full border border-foreground/15 flex items-center justify-center text-[20px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">−</button>
-								<input
-									type="number"
-									inputMode="numeric"
-									min={1}
-									value={shareQty}
-									onChange={e => {
-										const v = parseInt(e.target.value, 10);
-										if (!isNaN(v) && v >= 1) setShareQty(v);
-									}}
-									className="flex-1 text-center text-[22px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px]"
-								/>
-								<button type="button" onClick={() => {
-										const prices = allBrands
-											.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
-											.map(b => queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null)
-											.filter((p): p is number => p != null && p > 0);
-										const minPrice = prices.length > 0 ? Math.min(...prices) : null;
-										const cap = minPrice != null && minPrice > 0 ? Math.floor(sandboxCash / minPrice) : 9999;
-										setShareQty(q => Math.min(q + 1, Math.max(1, cap)));
-									}}
-									className="w-[36px] h-[36px] rounded-full border border-foreground/15 flex items-center justify-center text-[20px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">+</button>
-							</div>
-							<input
-								type="text"
-								value={thesis}
-								onChange={e => setThesis(e.target.value)}
-								placeholder="Why are you buying this? (optional)"
-								maxLength={80}
-								className="w-full bg-transparent text-[12px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none italic mt-[10px]"
-							/>
-						</div>
-
-						{/* Stock list */}
-						<div className="max-h-[300px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
-							{(() => {
-								const q = search.toLowerCase().trim();
-								const available = allBrands
-									.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
-									.filter(b => !q || b.name.toLowerCase().includes(q) || b.ticker.toLowerCase().includes(q))
-									.slice(0, 40);
-								if (available.length === 0) return (
-									<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center py-[24px]">No matches found</p>
-								);
-								return available.map(b => {
-									const livePrice = queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null;
-									const cost = livePrice != null ? livePrice * shareQty : null;
-									const canAfford = cost == null || cost <= sandboxCash;
-									const maxAffordable = livePrice != null && livePrice > 0 ? Math.floor(sandboxCash / livePrice) : null;
-									return (
-										<button
-											key={b.id}
-											type="button"
-											onClick={() => {
-												if (!canAfford && maxAffordable != null && maxAffordable > 0) {
-													// Auto-adjust qty to max affordable instead of blocking
-													setShareQty(maxAffordable);
-												} else if (canAfford) {
-													handleAdd(b.ticker);
-													setSearch("");
-												}
-											}}
-											className="w-full flex items-center gap-[12px] px-[14px] py-[12px] border-b border-foreground/[0.04] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
-										>
-											<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-												{b.logo || b.domain ? (
-													<img
-														src={b.logo ?? `https://logo.clearbit.com/${b.domain}`}
-														alt={b.name}
-														className="w-[26px] h-[26px] object-contain"
-														onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-													/>
-												) : (
-													<span className="text-[11px] font-bold text-slate-600">{b.ticker.slice(0, 2)}</span>
-												)}
-											</div>
-											<div className="flex-1 min-w-0">
-												<p className="text-[13px] font-semibold">{b.name}</p>
-												<p className="text-[11px] dark:text-slate-400 text-slate-500">
-													{b.ticker}{livePrice ? ` · $${livePrice.toFixed(2)}/share` : ""}
+									<div className="flex-1 min-w-0">
+										<p className="text-[14px] font-bold leading-tight truncate">{h.brand?.name ?? h.ticker}</p>
+										<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">
+											{h.ticker} · {h.shares} sh
+										</p>
+									</div>
+									<div className="text-right shrink-0">
+										<p className="text-[14px] font-extrabold">${h.currentValue.toFixed(2)}</p>
+										<div className="flex flex-col items-end gap-[1px] mt-[2px]">
+											{h.pricePct != null && (
+												<p className={`text-[12px] font-semibold ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+													{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
 												</p>
-											</div>
-											<div className="text-right shrink-0">
-												{cost != null ? (
-													<>
-														<p className={`text-[13px] font-bold ${canAfford ? "text-violet-400" : "text-rose-400"}`}>
-															${cost.toFixed(2)}
-														</p>
-														{!canAfford && maxAffordable != null && maxAffordable > 0 && (
-															<p className="text-[10px] text-amber-400">max {maxAffordable} sh</p>
-														)}
-														{!canAfford && (maxAffordable == null || maxAffordable === 0) && (
-															<p className="text-[10px] text-rose-400">can't afford</p>
-														)}
-													</>
-												) : (
-													<p className="text-[11px] dark:text-slate-500 text-slate-400">Tap to buy</p>
-												)}
-											</div>
-										</button>
-									);
-								});
-							})()}
-						</div>
+											)}
+											{h.changePercent != null && (
+												<p className={`text-[11px] ${h.changePercent >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
+													{h.changePercent >= 0 ? "+" : ""}{h.changePercent.toFixed(2)}% today
+												</p>
+											)}
+										</div>
+									</div>
+									<ChevronRight size={16} className="shrink-0 dark:text-slate-600 text-slate-300" />
+								</button>
+							);
+						})}
 					</div>
 				) : (
-					<div className="space-y-[10px]">
-						{/* Import from My STAK */}
-						{stakNotInSandbox.length > 0 && tickers.length < SANDBOX_MAX_POSITIONS && (
-							<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[12px]">
-								<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">Quick Add from My STAK</p>
-								<div className="flex flex-wrap gap-[6px]">
-									{stakNotInSandbox.map(b => (
-										<button key={b.id} type="button" onClick={() => { setSearch(b.ticker!); setAdding(true); }}
-											className="flex items-center gap-[6px] rounded-full border border-violet-500/25 bg-violet-500/[0.07] px-[10px] py-[5px] text-[12px] font-semibold text-violet-400 active:opacity-70">
-											<span>{b.ticker}</span>
-											<span className="text-violet-400/60">+</span>
-										</button>
-									))}
-								</div>
-							</div>
-						)}
-						<button type="button" onClick={() => setAdding(true)} disabled={!canAddMore}
-							className={`w-full h-[44px] rounded-[12px] border font-semibold text-[14px] active:opacity-80 transition-opacity ${!canAddMore ? "border-foreground/10 dark:text-slate-500 text-slate-400 cursor-not-allowed" : "border-violet-500/30 bg-violet-500/[0.07] text-violet-400"}`}>
-							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Max 10 stocks — sell one to add more" : sandboxCash < 1 ? "No buying power" : `+ Buy Stock`}
-						</button>
+					<div className="rounded-[18px] border border-dashed border-foreground/20 p-[36px] text-center mb-[20px]">
+						<div className="text-[48px] mb-[14px]">📈</div>
+						<p className="text-[16px] font-extrabold mb-[6px]">Start trading</p>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto mb-[10px]">
+							Search for a stock to get started with your $10,000 practice cash.
+						</p>
+						<p className="text-[12px] text-violet-400 font-semibold">Real prices · real shares · no risk</p>
 					</div>
 				)}
-			</div>
-
-
 				{/* Reset */}
 				{(tickers.length > 0 || sandboxCash !== SANDBOX_BUDGET) && (
-					<div className="mt-[20px] pt-[16px] border-t border-foreground/[0.06]">
+					<div className="mt-[8px] pt-[16px] border-t border-foreground/[0.06]">
 						{!confirmReset ? (
-							<button type="button" onClick={() => setConfirmReset(true)} className="w-full text-[12px] dark:text-slate-500 text-slate-400 text-center active:opacity-70">Reset portfolio to $10,000</button>
+							<button type="button" onClick={() => setConfirmReset(true)}
+								className="w-full text-[12px] dark:text-slate-500 text-slate-400 text-center active:opacity-70 py-[4px]">
+								Reset portfolio to $10,000
+							</button>
 						) : (
 							<div className="rounded-[12px] border border-rose-500/20 bg-rose-500/[0.06] px-[14px] py-[12px]">
 								<p className="text-[12px] font-bold mb-[4px]">Reset to $10,000?</p>
-								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[10px]">All positions and trade history will be cleared. Cannot be undone.</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[10px]">All positions will be cleared. Cannot be undone.</p>
 								<div className="flex gap-[8px]">
-									<button type="button" onClick={() => setConfirmReset(false)} className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">Cancel</button>
-									<button type="button" onClick={() => { resetSandbox(); setConfirmReset(false); }} className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">Reset</button>
+									<button type="button" onClick={() => setConfirmReset(false)}
+										className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">
+										Cancel
+									</button>
+									<button type="button" onClick={() => { resetSandbox(); setConfirmReset(false); }}
+										className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">
+										Reset
+									</button>
 								</div>
 							</div>
 						)}
 					</div>
 				)}
-
+			</div>
+			{/* Floating "+" button */}
+			<button
+				type="button"
+				onClick={() => { setSearchQuery(""); setShowSearch(true); }}
+				className="fixed bottom-[calc(20px+env(safe-area-inset-bottom))] right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
+				style={{ background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
+			>
+				+
+			</button>
+			{/* Search overlay */}
+			{showSearch && (
+				<div className="fixed inset-0 z-50 bg-background flex flex-col">
+					<div className="px-[18px] pt-[56px] pb-[12px] border-b border-foreground/[0.06]">
+						<div className="flex items-center gap-[12px]">
+							<div className="flex-1 flex items-center gap-[10px] rounded-[12px] border border-foreground/15 bg-foreground/[0.04] px-[14px] py-[10px]">
+								<Star size={15} className="dark:text-slate-500 text-slate-400 shrink-0" />
+								<input
+									type="text"
+									value={searchQuery}
+									onChange={e => setSearchQuery(e.target.value)}
+									placeholder="Search stocks…"
+									autoFocus
+									className="flex-1 bg-transparent text-[15px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
+								/>
+								{searchQuery && (
+									<button type="button" onClick={() => setSearchQuery("")}
+										className="text-[14px] dark:text-slate-500 text-slate-400 shrink-0">✕</button>
+								)}
+							</div>
+							<button type="button" onClick={() => setShowSearch(false)}
+								className="text-[14px] font-semibold dark:text-slate-400 text-slate-500 shrink-0 active:opacity-70">
+								Cancel
+							</button>
+						</div>
+					</div>
+					<div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden px-[18px] py-[8px]">
+						{searchResults.length === 0 ? (
+							<p className="text-[14px] dark:text-slate-400 text-slate-500 text-center py-[40px]">No matches found</p>
+						) : (
+							searchResults.map(b => {
+								const liveQuote = queryClient.getQueryData<{ quote?: { price?: number; changePercent?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote;
+								const livePrice = liveQuote?.price ?? null;
+								const changePct = liveQuote?.changePercent ?? null;
+								const logoSrc = b.logo ?? (b.domain ? `https://logo.clearbit.com/${b.domain}` : null);
+								return (
+									<button
+										key={b.id}
+										type="button"
+										onClick={() => {
+											setShowSearch(false);
+											setSearchQuery("");
+											setActiveStock(b.ticker!.toUpperCase());
+										}}
+										className="w-full flex items-center gap-[13px] py-[13px] border-b border-foreground/[0.05] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
+									>
+										<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+											{logoSrc ? (
+												<img src={logoSrc} alt={b.name}
+													className="w-[28px] h-[28px] object-contain"
+													onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+											) : (
+												<span className="text-[11px] font-bold text-slate-600">{b.ticker?.slice(0, 2)}</span>
+											)}
+										</div>
+										<div className="flex-1 min-w-0">
+											<p className="text-[14px] font-semibold truncate">{b.name}</p>
+											<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.ticker}</p>
+										</div>
+										<div className="text-right shrink-0">
+											{livePrice != null ? (
+												<>
+													<p className="text-[14px] font-bold">${livePrice.toFixed(2)}</p>
+													{changePct != null && (
+														<p className={`text-[12px] font-semibold ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+															{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+														</p>
+													)}
+												</>
+											) : (
+												<p className="text-[12px] dark:text-slate-500 text-slate-400">View</p>
+											)}
+										</div>
+									</button>
+								);
+							})
+						)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
