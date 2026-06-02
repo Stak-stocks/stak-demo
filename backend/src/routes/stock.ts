@@ -858,7 +858,7 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v5:${symbol}:${direction}`;
+	const cacheKey = `daily-move:v6:${symbol}:${direction}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
@@ -877,11 +877,11 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	// Gemini searches the live web for today's specific catalyst.
 	const prompt = `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
 
-Search the web right now for the specific reason why ${symbol} stock is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web right now for the specific reason why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write 1-2 plain English sentences explaining the main catalyst to a young investor. Be specific — name the actual event or news item. Do not say "various factors" or be vague.
+Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.
 
-Return ONLY plain text — no bullet points, no markdown, no JSON.`;
+Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
 	for (const key of keys) {
 		const controller = new AbortController();
@@ -905,7 +905,10 @@ Return ONLY plain text — no bullet points, no markdown, no JSON.`;
 			const data = await gemRes.json();
 			// With Google Search grounding, text may be in a different part index
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
-			const explanation = parts.map((p) => p.text ?? "").join("").trim();
+			const raw = parts.map((p) => p.text ?? "").join("").trim();
+			// Enforce 1 sentence — take everything up to the first sentence-ending punctuation
+			const firstSentence = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
+			const explanation = firstSentence || raw;
 			if (explanation) {
 				const result = { explanation, direction };
 				await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);

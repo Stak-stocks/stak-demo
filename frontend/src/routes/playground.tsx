@@ -570,37 +570,37 @@ export function PlaygroundPage() {
 					{[
 						{
 							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "lesson").length} today · 20–60 XP`, view: "lessons" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "lesson").length} today`, view: "lessons" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "lesson" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "lesson").length,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "battle").length} today · 20–60 XP`, view: "battles" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "battle").length} today`, view: "battles" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "battle" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "battle").length,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "earnings").length} today · 25–70 XP`, view: "earnings-lab" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "earnings").length} today`, view: "earnings-lab" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "earnings" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "earnings").length,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "risk").length} today · 15 XP each`, view: "risk-lab" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "risk").length} today`, view: "risk-lab" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "risk" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "risk").length,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "mood").length} today · 20 XP each`, view: "mood-simulator" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "mood").length} today`, view: "mood-simulator" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "mood" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "mood").length,
 						},
 						{
 							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Practice",
-							subtitle: `${PRACTICE_TICKERS.length} stocks · no XP, just practice`, view: "practice" as const,
+							subtitle: `${PRACTICE_TICKERS.length} stocks`, view: "practice" as const,
 							done: null, total: null,
 						},
 					].map(s => {
