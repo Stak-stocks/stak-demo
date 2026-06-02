@@ -1165,22 +1165,32 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 	const [phase, setPhase] = useState<"question" | "outcome">("question");
 	const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
 	const xpAwarded = useRef(false);
+	const savedScrollY = useRef(0); // save list scroll position when entering a scenario
 
 	const scenario = EARNINGS_SCENARIOS.find(s => s.id === activeId);
 	const currentIdx = EARNINGS_SCENARIOS.findIndex(s => s.id === activeId);
 	const nextScenario = EARNINGS_SCENARIOS[currentIdx + 1];
 
+	const scrollEl = () => document.querySelector("[data-scroll-root]");
+
 	const openScenario = (id: string) => {
+		// Save current scroll position so we can restore it when going back
+		savedScrollY.current = scrollEl()?.scrollTop ?? 0;
 		setActiveId(id);
 		setSelected(null);
 		setPhase("question");
 		xpAwarded.current = false;
+		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	};
 
 	const backToList = () => {
 		setActiveId(null);
 		setSelected(null);
 		setPhase("question");
+		// Restore scroll position after React re-renders the list
+		requestAnimationFrame(() => {
+			scrollEl()?.scrollTo({ top: savedScrollY.current, behavior: "instant" });
+		});
 	};
 
 	if (scenario) {
