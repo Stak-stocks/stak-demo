@@ -3078,49 +3078,53 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 
 				{/* Add stock */}
 				{adding ? (
-					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 overflow-hidden">
-						{/* Search header */}
-						<div className="flex items-center gap-[10px] px-[14px] py-[12px] border-b border-foreground/[0.06]">
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 overflow-hidden">
+						{/* Header row */}
+						<div className="flex items-center gap-[10px] px-[14px] py-[13px] border-b border-foreground/[0.06]">
 							<input
 								type="text"
 								value={search}
 								onChange={e => setSearch(e.target.value)}
-								placeholder="Search stocks…"
+								placeholder="Search by name or ticker…"
 								autoFocus
 								className="flex-1 bg-transparent text-[14px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
 							/>
-							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); setShareQty(1); }} className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0">Cancel</button>
+							<button type="button" onClick={() => { setAdding(false); setSearch(""); setThesis(""); setShareQty(1); }}
+								className="text-[12px] dark:text-slate-400 text-slate-500 shrink-0 active:opacity-70">Cancel</button>
 						</div>
-						{/* Share quantity + thesis */}
-						<div className="px-[14px] py-[10px] border-b border-foreground/[0.06] space-y-[8px]">
-							<div className="flex items-center justify-between">
-								<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares to buy</p>
-								<div className="flex items-center gap-[8px]">
-									<button type="button" onClick={() => setShareQty(q => Math.max(1, q - 1))}
-										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">−</button>
-									<input
-										type="number"
-										inputMode="numeric"
-										min={1}
-										value={shareQty}
-										onChange={e => {
-											const v = parseInt(e.target.value, 10);
-											if (!isNaN(v) && v >= 1) setShareQty(v);
-										}}
-										className="w-[44px] text-center text-[16px] font-extrabold bg-transparent text-foreground outline-none border-b border-foreground/20 pb-[1px]"
-									/>
-									<button type="button" onClick={() => {
-											// Cap at what buying power allows for the cheapest visible stock
-											const prices = allBrands
-												.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
-												.map(b => queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null)
-												.filter((p): p is number => p != null && p > 0);
-											const minPrice = prices.length > 0 ? Math.min(...prices) : null;
-											const cap = minPrice != null ? Math.floor(sandboxCash / minPrice) : 9999;
-											setShareQty(q => Math.min(q + 1, Math.max(1, cap)));
-										}}
-										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">+</button>
-								</div>
+
+						{/* Quantity row */}
+						<div className="px-[14px] py-[12px] border-b border-foreground/[0.06]">
+							<div className="flex items-center justify-between mb-[6px]">
+								<p className="text-[13px] font-semibold">Shares to buy</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500">
+									Buying power: <span className="font-bold text-emerald-400">${sandboxCash.toFixed(2)}</span>
+								</p>
+							</div>
+							<div className="flex items-center gap-[10px]">
+								<button type="button" onClick={() => setShareQty(q => Math.max(1, q - 1))}
+									className="w-[36px] h-[36px] rounded-full border border-foreground/15 flex items-center justify-center text-[20px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">−</button>
+								<input
+									type="number"
+									inputMode="numeric"
+									min={1}
+									value={shareQty}
+									onChange={e => {
+										const v = parseInt(e.target.value, 10);
+										if (!isNaN(v) && v >= 1) setShareQty(v);
+									}}
+									className="flex-1 text-center text-[22px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px]"
+								/>
+								<button type="button" onClick={() => {
+										const prices = allBrands
+											.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
+											.map(b => queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null)
+											.filter((p): p is number => p != null && p > 0);
+										const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+										const cap = minPrice != null && minPrice > 0 ? Math.floor(sandboxCash / minPrice) : 9999;
+										setShareQty(q => Math.min(q + 1, Math.max(1, cap)));
+									}}
+									className="w-[36px] h-[36px] rounded-full border border-foreground/15 flex items-center justify-center text-[20px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">+</button>
 							</div>
 							<input
 								type="text"
@@ -3128,11 +3132,12 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								onChange={e => setThesis(e.target.value)}
 								placeholder="Why are you buying this? (optional)"
 								maxLength={80}
-								className="w-full bg-transparent text-[12px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none italic"
+								className="w-full bg-transparent text-[12px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none italic mt-[10px]"
 							/>
 						</div>
-						{/* Brand list */}
-						<div className="max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+
+						{/* Stock list */}
+						<div className="max-h-[300px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
 							{(() => {
 								const q = search.toLowerCase().trim();
 								const available = allBrands
@@ -3140,43 +3145,63 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 									.filter(b => !q || b.name.toLowerCase().includes(q) || b.ticker.toLowerCase().includes(q))
 									.slice(0, 40);
 								if (available.length === 0) return (
-									<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center py-[20px]">No matches found</p>
+									<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center py-[24px]">No matches found</p>
 								);
 								return available.map(b => {
 									const livePrice = queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null;
 									const cost = livePrice != null ? livePrice * shareQty : null;
 									const canAfford = cost == null || cost <= sandboxCash;
-									// Max shares user can afford for this stock
-									const maxShares = livePrice != null && livePrice > 0 ? Math.floor(sandboxCash / livePrice) : null;
+									const maxAffordable = livePrice != null && livePrice > 0 ? Math.floor(sandboxCash / livePrice) : null;
 									return (
 										<button
 											key={b.id}
 											type="button"
-											onClick={() => { if (canAfford) { handleAdd(b.ticker); setSearch(""); } }}
-											disabled={!canAfford}
-											className={`w-full flex items-center gap-[12px] px-[14px] py-[11px] border-b border-foreground/[0.04] last:border-b-0 text-left transition-colors ${canAfford ? "active:bg-foreground/[0.04]" : "opacity-40 cursor-not-allowed"}`}
+											onClick={() => {
+												if (!canAfford && maxAffordable != null && maxAffordable > 0) {
+													// Auto-adjust qty to max affordable instead of blocking
+													setShareQty(maxAffordable);
+												} else if (canAfford) {
+													handleAdd(b.ticker);
+													setSearch("");
+												}
+											}}
+											className="w-full flex items-center gap-[12px] px-[14px] py-[12px] border-b border-foreground/[0.04] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
 										>
-											<div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+											<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
 												{b.logo || b.domain ? (
 													<img
 														src={b.logo ?? `https://logo.clearbit.com/${b.domain}`}
 														alt={b.name}
-														className="w-[24px] h-[24px] object-contain"
+														className="w-[26px] h-[26px] object-contain"
 														onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
 													/>
 												) : (
-													<span className="text-[11px] font-bold dark:text-slate-600 text-slate-500">{b.ticker.slice(0, 2)}</span>
+													<span className="text-[11px] font-bold text-slate-600">{b.ticker.slice(0, 2)}</span>
 												)}
 											</div>
 											<div className="flex-1 min-w-0">
-												<p className="text-[13px] font-semibold text-foreground">{b.name}</p>
-												<p className="text-[11px] dark:text-slate-400 text-slate-500">{b.ticker}{livePrice ? ` · $${livePrice.toFixed(2)}` : ""}</p>
-											</div>
-											{cost != null && (
-												<p className={`text-[12px] font-bold shrink-0 ${canAfford ? "text-violet-400" : "text-rose-400"}`}>
-													${cost.toFixed(2)}
+												<p className="text-[13px] font-semibold">{b.name}</p>
+												<p className="text-[11px] dark:text-slate-400 text-slate-500">
+													{b.ticker}{livePrice ? ` · $${livePrice.toFixed(2)}/share` : ""}
 												</p>
-											)}
+											</div>
+											<div className="text-right shrink-0">
+												{cost != null ? (
+													<>
+														<p className={`text-[13px] font-bold ${canAfford ? "text-violet-400" : "text-rose-400"}`}>
+															${cost.toFixed(2)}
+														</p>
+														{!canAfford && maxAffordable != null && maxAffordable > 0 && (
+															<p className="text-[10px] text-amber-400">max {maxAffordable} sh</p>
+														)}
+														{!canAfford && (maxAffordable == null || maxAffordable === 0) && (
+															<p className="text-[10px] text-rose-400">can't afford</p>
+														)}
+													</>
+												) : (
+													<p className="text-[11px] dark:text-slate-500 text-slate-400">Tap to buy</p>
+												)}
+											</div>
 										</button>
 									);
 								});
