@@ -78,6 +78,56 @@ function SectionCard({
 	);
 }
 
+// ── Shared option button ─────────────────────────────────────────────────────
+
+type OptionState = "idle" | "selected" | "correct" | "wrong" | "correct-other";
+
+function OptionBtn({
+	letter, text, state = "idle", onClick, disabled = false,
+}: {
+	letter: string;
+	text: string;
+	state?: OptionState;
+	onClick?: () => void;
+	disabled?: boolean;
+}) {
+	const cfg: Record<OptionState, { card: string; badge: string }> = {
+		idle:          { card: "border-foreground/10 bg-surface-1",             badge: "bg-foreground/[0.08] text-foreground/60" },
+		selected:      { card: "border-blue-500/50 bg-blue-500/[0.07]",         badge: "bg-blue-500 text-white" },
+		correct:       { card: "border-emerald-500/50 bg-emerald-500/[0.08]",   badge: "bg-emerald-500 text-white" },
+		wrong:         { card: "border-rose-500/50 bg-rose-500/[0.08]",         badge: "bg-rose-500 text-white" },
+		"correct-other": { card: "border-emerald-500/25 bg-emerald-500/[0.04]", badge: "bg-emerald-500/20 text-emerald-400" },
+	};
+	const c = cfg[state];
+	const icon = state === "correct" ? "✓" : state === "wrong" ? "✗" : state === "correct-other" ? "✓" : letter;
+	return (
+		<button
+			type="button"
+			onClick={disabled ? undefined : onClick}
+			className={`w-full flex items-center gap-[13px] rounded-[13px] border px-[14px] py-[13px] text-left transition-colors ${c.card} ${disabled ? "" : "active:opacity-80"}`}
+		>
+			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] text-[13px] font-extrabold transition-colors ${c.badge}`}>
+				{icon}
+			</div>
+			<p className="text-[14px] font-medium text-foreground leading-snug">{text}</p>
+		</button>
+	);
+}
+
+const LETTERS = ["A", "B", "C", "D", "E"];
+
+function optionState(
+	optId: string,
+	correctId: string,
+	selected: string | null,
+	revealed: boolean,
+): OptionState {
+	if (!revealed) return selected === optId ? "selected" : "idle";
+	if (optId === correctId) return selected === optId ? "correct" : "correct-other";
+	if (optId === selected) return "wrong";
+	return "idle";
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 type ActiveView =
@@ -501,28 +551,17 @@ function LessonPlayer({
 						<div className="flex-1 flex flex-col">
 							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[12px]">Quick Quiz</p>
 							<h2 className="text-[18px] font-extrabold mb-[20px] leading-snug">{lesson.quiz.question}</h2>
-							<div className="space-y-[10px] flex-1">
-								{lesson.quiz.options.map(opt => {
-									const isSelected = selectedOption === opt.id;
-									const isRight = opt.id === lesson.quiz.correctId;
-									let cls = "border-foreground/10 bg-surface-1";
-									if (showResult) {
-										if (isRight) cls = "border-emerald-500/60 bg-emerald-500/10";
-										else if (isSelected) cls = "border-rose-500/60 bg-rose-500/10";
-									} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
-									return (
-										<button
-											key={opt.id}
-											type="button"
-											onClick={() => handleAnswer(opt.id)}
-											className={`w-full text-left px-[16px] py-[14px] rounded-[12px] border text-[14px] font-medium transition-colors ${cls}`}
-										>
-											{opt.text}
-											{showResult && isRight && <span className="ml-2 text-emerald-400">✓</span>}
-											{showResult && isSelected && !isRight && <span className="ml-2 text-rose-400">✗</span>}
-										</button>
-									);
-								})}
+							<div className="space-y-[8px] flex-1">
+								{lesson.quiz.options.map((opt, i) => (
+									<OptionBtn
+										key={opt.id}
+										letter={LETTERS[i] ?? String(i + 1)}
+										text={opt.text}
+										state={optionState(opt.id, lesson.quiz.correctId, selectedOption, showResult)}
+										onClick={() => handleAnswer(opt.id)}
+										disabled={showResult}
+									/>
+								))}
 							</div>
 							{showResult && (
 								<div className={`mt-[16px] rounded-[12px] p-[14px] ${isCorrect ? "bg-emerald-500/10 border border-emerald-500/25" : "bg-rose-500/10 border border-rose-500/25"}`}>
@@ -598,28 +637,17 @@ function DailyChallengeView({
 					<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[6px]">+{challenge.xp} XP on completion</p>
 				</div>
 
-				<div className="space-y-[10px] mb-[16px]">
-					{challenge.options.map(opt => {
-						const isSelected = selected === opt.id || (alreadyCompleted && opt.id === challenge.correctId);
-						const isRight = opt.id === challenge.correctId;
-						let cls = "border-foreground/10 bg-surface-1";
-						if (showResult) {
-							if (isRight) cls = "border-emerald-500/60 bg-emerald-500/10";
-							else if (isSelected && !isRight) cls = "border-rose-500/60 bg-rose-500/10";
-						}
-						return (
-							<button
-								key={opt.id}
-								type="button"
-								onClick={() => handleAnswer(opt.id)}
-								className={`w-full text-left px-[16px] py-[14px] rounded-[12px] border text-[14px] font-medium transition-colors ${cls}`}
-							>
-								{opt.text}
-								{showResult && isRight && <span className="ml-2 text-emerald-400">✓</span>}
-								{showResult && isSelected && !isRight && <span className="ml-2 text-rose-400">✗</span>}
-							</button>
-						);
-					})}
+				<div className="space-y-[8px] mb-[16px]">
+					{challenge.options.map((opt, i) => (
+						<OptionBtn
+							key={opt.id}
+							letter={LETTERS[i] ?? String(i + 1)}
+							text={opt.text}
+							state={optionState(opt.id, challenge.correctId, selected, showResult)}
+							onClick={() => handleAnswer(opt.id)}
+							disabled={showResult}
+						/>
+					))}
 				</div>
 
 				{showResult && (
@@ -844,16 +872,15 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 					{phase === "question" ? (
 						<>
 							<p className="text-[15px] font-bold mb-[12px]">{scenario.question}</p>
-							<div className="space-y-[10px]">
-								{scenario.options.map(opt => (
-									<button
+							<div className="space-y-[8px]">
+								{scenario.options.map((opt, i) => (
+									<OptionBtn
 										key={opt.id}
-										type="button"
-										onClick={() => { setSelected(opt.id); setPhase("outcome"); if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); } }}
-										className="w-full text-left px-[16px] py-[14px] rounded-[12px] border border-foreground/10 bg-surface-1 text-[14px] font-medium active:opacity-80"
-									>
-										{opt.text}
-									</button>
+										letter={LETTERS[i] ?? String(i + 1)}
+										text={opt.text}
+										state={selected === opt.id ? "selected" : "idle"}
+										onClick={() => { if (!selected) { setSelected(opt.id); setPhase("outcome"); if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); } } }}
+									/>
 								))}
 							</div>
 						</>
@@ -939,27 +966,22 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 				<p className="text-[16px] font-bold mb-[16px]">{scenario.prompt}</p>
 
-				<div className="grid grid-cols-2 gap-[12px] mb-[16px]">
+				<div className="space-y-[8px] mb-[16px]">
 					{(["A", "B"] as const).map(side => {
 						const text = side === "A" ? scenario.optionA : scenario.optionB;
 						const isRiskier = side === scenario.riskierOption;
-						const isSelected = selected === side;
-						let cls = "border-foreground/10 bg-surface-1";
-						if (selected) {
-							if (isRiskier) cls = "border-rose-500/60 bg-rose-500/10";
-							else cls = "border-emerald-500/60 bg-emerald-500/10";
-						} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
+						let state: OptionState = "idle";
+						if (selected) state = isRiskier ? "wrong" : "correct";
+						else if (selected === side) state = "selected";
 						return (
-							<button
+							<OptionBtn
 								key={side}
-								type="button"
+								letter={side}
+								text={text + (selected ? (isRiskier ? " — Higher Risk ⚠️" : " — More Stable ✓") : "")}
+								state={state}
 								onClick={() => { if (!selected) { setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); addXp(scenario!.xp).catch(() => {}); } } }}
-								className={`rounded-[14px] border px-[14px] py-[16px] text-left transition-colors ${cls}`}
-							>
-								<p className="text-[13px] font-bold">{text}</p>
-								{selected && isRiskier && <p className="text-[11px] text-rose-400 mt-[4px]">Higher Risk ⚠️</p>}
-								{selected && !isRiskier && <p className="text-[11px] text-emerald-400 mt-[4px]">More Stable ✓</p>}
-							</button>
+								disabled={!!selected}
+							/>
 						);
 					})}
 				</div>
@@ -1023,24 +1045,17 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 
 				<p className="text-[15px] font-bold mb-[12px]">{scenario.question}</p>
 
-				<div className="space-y-[10px] mb-[16px]">
-					{scenario.options.map(opt => {
-						const isSelected = selected === opt.id;
-						const isRight = opt.id === scenario.correctId;
-						let cls = "border-foreground/10 bg-surface-1";
-						if (selected) {
-							if (isRight) cls = "border-emerald-500/60 bg-emerald-500/10";
-							else if (isSelected) cls = "border-rose-500/60 bg-rose-500/10";
-						}
-						return (
-							<button key={opt.id} type="button" onClick={() => !selected && setSelected(opt.id)}
-								className={`w-full text-left px-[16px] py-[14px] rounded-[12px] border text-[14px] font-medium transition-colors ${cls}`}>
-								{opt.text}
-								{selected && isRight && <span className="ml-2 text-emerald-400">✓</span>}
-								{selected && isSelected && !isRight && <span className="ml-2 text-rose-400">✗</span>}
-							</button>
-						);
-					})}
+				<div className="space-y-[8px] mb-[16px]">
+					{scenario.options.map((opt, i) => (
+						<OptionBtn
+							key={opt.id}
+							letter={LETTERS[i] ?? String(i + 1)}
+							text={opt.text}
+							state={optionState(opt.id, scenario.correctId, selected, !!selected)}
+							onClick={() => { if (!selected) { setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); addXp(scenario!.xp).catch(() => {}); } } }}
+							disabled={!!selected}
+						/>
+					))}
 				</div>
 
 				{selected && (
@@ -1131,13 +1146,16 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]"><div className="h-full rounded-full bg-purple-400 transition-all" style={{width:`${((idx+1)/WWYD_SCENARIOS.length)*100}%`}} /></div>
 				<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]"><p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px] font-medium">Scenario</p><p className="text-[15px] font-bold leading-snug">{scenario.scenario}</p></div>
 				<div className="space-y-[8px] mb-[16px]">
-					{scenario.options.map(opt => {
-						const isSelected = selected === opt.id;
-						const isBestOpt = opt.id === scenario.bestId;
-						let cls = 'border-foreground/10 bg-surface-1';
-						if (selected) { if (isBestOpt) cls='border-emerald-500/50 bg-emerald-500/[0.08]'; else if (isSelected) cls='border-rose-500/50 bg-rose-500/[0.08]'; }
-						return (<button key={opt.id} type="button" onClick={()=>handleSelect(opt.id)} className={`w-full text-left px-[14px] py-[12px] rounded-[12px] border text-[13px] font-medium transition-colors ${cls}`}>{opt.text}{selected&&isBestOpt&&<span className="ml-2 text-emerald-400 text-[11px]">Best move</span>}{selected&&isSelected&&!isBestOpt&&<span className="ml-2 text-rose-400 text-[11px]">Not quite</span>}</button>);
-					})}
+					{scenario.options.map((opt, i) => (
+						<OptionBtn
+							key={opt.id}
+							letter={LETTERS[i] ?? String(i + 1)}
+							text={opt.text}
+							state={optionState(opt.id, scenario.bestId, selected, !!selected)}
+							onClick={() => handleSelect(opt.id)}
+							disabled={!!selected}
+						/>
+					))}
 				</div>
 				{selected && (<>
 					<div className={`rounded-[12px] p-[14px] mb-[14px] ${isBest?'bg-emerald-500/10 border border-emerald-500/25':'bg-amber-500/10 border border-amber-500/25'}`}>
