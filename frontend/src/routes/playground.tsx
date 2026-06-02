@@ -964,8 +964,10 @@ function DailyChallengeView({
 		if (showResult) return;
 		setSelected(id);
 		setShowResult(true);
-		if (id === challenge.correctId) showXp(challenge.xp);
-		if (!alreadyCompleted) {
+		const correct = id === challenge.correctId;
+		if (correct) showXp(challenge.xp);
+		// Only award XP and count toward streak for correct answers
+		if (!alreadyCompleted && correct) {
 			await completeChallenge(challenge.id, challenge.xp);
 			trackEvent("brand_tap").catch(() => {});
 		}
@@ -1506,7 +1508,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 								letter={side}
 								text={text + (selected ? (isRiskier ? " — Higher Risk ⚠️" : " — More Stable ✓") : "")}
 								state={state}
-								onClick={() => { if (!selected) { const isCorrect = side !== scenario!.riskierOption; setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); addXp(scenario!.xp).catch(() => {}); if (isCorrect) showXp(scenario!.xp); } } }}
+								onClick={() => { if (!selected) { const isCorrect = side === scenario!.riskierOption; setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); } } } }}
 								disabled={!!selected}
 							/>
 						);
@@ -1608,7 +1610,7 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 							letter={LETTERS[i] ?? String(i + 1)}
 							text={opt.text}
 							state={optionState(opt.id, scenario.correctId, selected, !!selected)}
-							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); addXp(scenario!.xp).catch(() => {}); if (isCorrect) showXp(scenario!.xp); } } }}
+							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); } } } }}
 							disabled={!!selected}
 						/>
 					))}
@@ -1705,7 +1707,7 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 	if (!scenario) return null;
 	const isBest = selected === scenario.bestId;
 	const next = () => { if (idx < WWYD_SCENARIOS.length - 1) { setIdx(i => i + 1); setSelected(null); } else onBack(); };
-	const handleSelect = (id: string) => { if (selected) return; const isBestPick = id === scenario.bestId; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); addXp(scenario.xp).catch(() => {}); if (isBestPick) showXp(scenario.xp); } };
+	const handleSelect = (id: string) => { if (selected) return; const isBestPick = id === scenario.bestId; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); if (isBestPick) { addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); } } };
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			{XPFloat}
