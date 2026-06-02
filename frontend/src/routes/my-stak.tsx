@@ -310,22 +310,22 @@ function NtmRow({ icon, color, title, value, sector, peer, sectorLabel = "Peer 1
 	desc: string;
 }) {
 	return (
-		<div className="py-[12px]">
-			<div className="flex items-center gap-[8px]">
-				<div className={`grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full ${DETAIL_ICON_COLORS[color]}`}>
+		<div className="rounded-[10px] px-[10px] py-[10px] hover:bg-foreground/[0.03] transition-colors">
+			<div className="flex items-center gap-[10px]">
+				<div className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[9px] ${DETAIL_ICON_COLORS[color]}`}>
 					{icon}
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="flex h-[14px] items-center overflow-hidden whitespace-nowrap text-[11px] leading-none dark:text-slate-400 text-slate-500">{title}</p>
-					<p className="whitespace-nowrap text-[17px] font-bold leading-none">{value}</p>
+					<p className="text-[11px] dark:text-slate-400 text-slate-500 leading-none mb-[3px]">{title}</p>
+					<p className="text-[18px] font-bold leading-none tracking-[-0.02em]">{value}</p>
 				</div>
-				<div className="flex shrink-0 items-center gap-[8px]">
+				<div className="flex shrink-0 items-center gap-[6px]">
 					<NtmColumn label={sectorLabel} value={sector} />
 					<NtmColumn label={peerLabel} value={peer} />
 					<NtmBadge color={badgeColor}>{badge}</NtmBadge>
 				</div>
 			</div>
-			<p className="ml-[44px] mt-[5px] text-[11px] leading-[16px] dark:text-slate-400 text-slate-500">{desc}</p>
+			<p className="ml-[48px] mt-[5px] text-[11px] leading-[15px] dark:text-slate-400 text-slate-500">{desc}</p>
 		</div>
 	);
 }
@@ -1071,7 +1071,10 @@ function MyStakPage() {
 									);
 								})
 							) : (
-								<p className="text-[13px] text-slate-500 py-[4px]">No recent news available.</p>
+								<div className="flex flex-col items-center py-[16px] text-center">
+										<span className="text-[28px] mb-[6px]">📰</span>
+										<p className="text-[13px] dark:text-slate-400 text-slate-500">No recent news for this stock.</p>
+									</div>
 							)}
 						</div>
 					</GlassCard>

@@ -217,7 +217,7 @@ function VerifyEmailPage() {
 							</div>
 						</div>
 						<div>
-							<h1 className="text-2xl font-bold text-foreground">Link expired</h1>
+							<h1 className="text-[22px] font-extrabold text-foreground">Link expired</h1>
 							<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 								This verification link has expired or has already been used.
 								Request a new one below.
@@ -266,7 +266,7 @@ function VerifyEmailPage() {
 					</div>
 
 					<div>
-						<h1 className="text-2xl font-bold text-foreground">Almost there!</h1>
+						<h1 className="text-[22px] font-extrabold text-foreground">Almost there!</h1>
 						<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 							Tap the button below to confirm your email address
 							{user && <>{" "}<span className="text-foreground font-medium">{user.email}</span></>}
@@ -315,7 +315,7 @@ function VerifyEmailPage() {
 				</div>
 
 				<div>
-					<h1 className="text-2xl font-bold text-foreground">Check your inbox</h1>
+					<h1 className="text-[22px] font-extrabold text-foreground">Check your inbox</h1>
 					<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 						We sent a verification link to{" "}
 						<span className="text-foreground font-medium">{user.email}</span>.

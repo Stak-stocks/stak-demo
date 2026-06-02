@@ -66,7 +66,7 @@ function ResultsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-background text-gray-900 dark:text-white">
+		<div className="min-h-screen bg-background text-foreground">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -94,7 +94,7 @@ function ResultsPage() {
 					</div>
 
 						<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-8 max-w-2xl mx-auto">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+							<h2 className="text-xl font-bold text-foreground mb-6">
 								Week {weekKey} Results
 							</h2>
 
@@ -145,7 +145,7 @@ function ResultsPage() {
 					<div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-6 max-w-2xl mx-auto">
 						<div className="flex items-center justify-center gap-4 mb-4">
 							<Zap className="w-6 h-6 text-yellow-500" />
-							<h3 className="text-xl font-bold text-gray-900 dark:text-white">Rewards Earned</h3>
+							<h3 className="text-xl font-bold text-foreground">Rewards Earned</h3>
 							</div>
 							<div className="flex items-center justify-center gap-8">
 								<div>

@@ -45,7 +45,7 @@ function FaqItem({ q, a, action }: Readonly<{ q: string; a: string; action?: "se
 				onClick={() => setOpen((v) => !v)}
 				className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
 			>
-				<span className="text-sm font-medium text-zinc-900 dark:text-white">{q}</span>
+				<span className="text-sm font-medium text-foreground">{q}</span>
 				<ChevronDown
 					className={`w-4 h-4 dark:text-zinc-400 text-zinc-600 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
 				/>
@@ -76,7 +76,7 @@ function HelpSupportPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
+			className="min-h-screen bg-background text-foreground pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;

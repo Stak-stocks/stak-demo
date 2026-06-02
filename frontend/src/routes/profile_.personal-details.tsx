@@ -84,7 +84,7 @@ function PersonalDetailsPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
+			className="min-h-screen bg-background text-foreground pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;
@@ -118,7 +118,7 @@ function PersonalDetailsPage() {
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-foreground">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}
@@ -145,12 +145,12 @@ function PersonalDetailsPage() {
 									value={nameValue}
 									onChange={(e) => setNameValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") { saveName(); } else if (e.key === "Escape") { setNameValue(user.displayName ?? ""); setEditingName(false); } }}
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
+									className="w-full bg-transparent text-sm text-foreground outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
 									autoFocus
 									maxLength={50}
 								/>
 							) : (
-								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.displayName || "Not set"}</p>
+								<p className="text-sm font-medium text-foreground truncate">{user.displayName || "Not set"}</p>
 							)}
 						</div>
 						{editingName ? (
@@ -176,7 +176,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Email</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.email}</p>
+							<p className="text-sm font-medium text-foreground truncate">{user.email}</p>
 						</div>
 						{user.emailVerified && (
 							<span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">Verified</span>
@@ -197,12 +197,12 @@ function PersonalDetailsPage() {
 									onChange={(e) => setPhoneValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") savePhone(); if (e.key === "Escape") { setPhoneValue(phone); setEditingPhone(false); } }}
 									placeholder="+1 (555) 000-0000"
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-foreground outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
 									autoFocus
 									maxLength={20}
 								/>
 							) : (
-								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{phone || "Not set"}</p>
+								<p className="text-sm font-medium text-foreground truncate">{phone || "Not set"}</p>
 							)}
 						</div>
 						{editingPhone ? (
@@ -233,7 +233,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Sign-in Method</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white">
+							<p className="text-sm font-medium text-foreground">
 								{isGoogle ? "Google" : "Email & Password"}
 							</p>
 						</div>
@@ -249,7 +249,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Member Since</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white">{memberSince}</p>
+							<p className="text-sm font-medium text-foreground">{memberSince}</p>
 						</div>
 					</div>
 				</div>

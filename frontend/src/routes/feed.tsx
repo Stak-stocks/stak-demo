@@ -192,7 +192,7 @@ function FeedPage() {
 			<div className="max-w-2xl mx-auto px-4 pt-2 pb-24">
 				{/* Header */}
 				<div className="mb-4">
-					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Market News</h1>
+					<h1 className="text-[22px] font-extrabold text-foreground">Market News</h1>
 					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mt-0.5">Simplified for you · last 7 days</p>
 				</div>
 
@@ -205,7 +205,7 @@ function FeedPage() {
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}
 							placeholder="Search news — try 'Tesla', 'AI', 'interest rates'..."
-							className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 bg-white dark:bg-surface-1/70 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
+							className="w-full pl-4 pr-20 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 bg-white dark:bg-surface-1/70 text-foreground placeholder-zinc-400 dark:placeholder-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
 						/>
 						<div className="absolute right-2 flex items-center gap-1">
 							{activeQuery && (
@@ -294,7 +294,7 @@ function FeedPage() {
 						{isError && !isLoading && (
 							<div className="flex flex-col items-center justify-center py-20 text-center">
 								<div className="text-5xl mb-4">📰</div>
-								<h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+								<h3 className="text-lg font-semibold text-foreground mb-2">
 									Couldn't load news
 								</h3>
 								<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mb-6 max-w-xs">

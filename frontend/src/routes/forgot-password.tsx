@@ -48,7 +48,7 @@ function ForgotPasswordPage() {
 
 				{/* Heading */}
 				<div>
-					<h1 className="text-3xl font-bold text-foreground">Reset Password</h1>
+					<h1 className="text-[26px] font-extrabold text-foreground">Reset Password</h1>
 					<p className="dark:text-slate-400 text-slate-500 mt-1">
 						{sent
 							? "Check your inbox for the reset link"

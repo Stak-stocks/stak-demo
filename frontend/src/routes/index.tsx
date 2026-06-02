@@ -519,7 +519,7 @@ function App() {
 		? (account?.streakCount ?? 0) : 0;
 
 	return (
-		<div className="bg-background text-zinc-900 dark:text-white">
+		<div className="bg-background text-foreground">
 			{/* Top bar */}
 			<div className="relative flex items-center justify-center px-[18px] pt-5 pb-2">
 				{/* Centered logo + name */}

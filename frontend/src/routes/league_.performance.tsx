@@ -20,7 +20,7 @@ function PerformancePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-background text-gray-900 dark:text-white">
+		<div className="min-h-screen bg-background text-foreground">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -41,7 +41,7 @@ function PerformancePage() {
 
 				<div className="space-y-6">
 					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
-						<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Your Lineup</h2>
+						<h2 className="text-xl font-bold text-foreground mb-6">Your Lineup</h2>
 
 						{starters.length === 0 ? (
 							<div className="text-center py-12 text-gray-400 dark:text-zinc-500">
@@ -68,7 +68,7 @@ function PerformancePage() {
 														{brand.ticker.charAt(0)}
 													</div>
 													<div>
-													<h3 className="font-bold text-gray-900 dark:text-white">
+													<h3 className="font-bold text-foreground">
 														{brand.name}
 													</h3>
 													<span className="text-xs font-mono text-gray-400 dark:text-zinc-500 uppercase">

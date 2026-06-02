@@ -175,7 +175,7 @@ function BrandDetailPage() {
 							) : stockData?.quote ? (
 								<div className="mb-6 p-4 bg-surface-2/60 rounded-xl border border-pink-500/20">
 									<div className="flex items-baseline justify-between">
-										<span className="text-3xl font-bold text-foreground">
+										<span className="text-[26px] font-extrabold text-foreground">
 											${stockData.quote.price.toFixed(2)}
 										</span>
 										<span className={`flex items-center gap-1 text-sm font-semibold ${stockData.quote.change >= 0 ? "text-green-400" : "text-red-400"}`}>

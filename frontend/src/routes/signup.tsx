@@ -121,7 +121,7 @@ function SignUpPage() {
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Heading */}
 				<div>
-					<h1 className="text-3xl font-bold text-foreground">Create Account</h1>
+					<h1 className="text-[26px] font-extrabold text-foreground">Create Account</h1>
 					<p className="dark:text-slate-400 text-slate-500 mt-1">Start building your stak</p>
 				</div>
 

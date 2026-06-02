@@ -109,7 +109,7 @@ function ResetPasswordPage() {
 
 				{invalidCode ? (
 					<div className="space-y-4">
-						<h1 className="text-3xl font-bold text-foreground">Invalid Link</h1>
+						<h1 className="text-[26px] font-extrabold text-foreground">Invalid Link</h1>
 						<p className="dark:text-slate-400 text-slate-500">
 							This password reset link is invalid or has expired.
 						</p>
@@ -123,7 +123,7 @@ function ResetPasswordPage() {
 				) : (
 					<>
 						<div>
-							<h1 className="text-3xl font-bold text-foreground">New Password</h1>
+							<h1 className="text-[26px] font-extrabold text-foreground">New Password</h1>
 							<p className="dark:text-slate-400 text-slate-500 mt-1">
 								Enter a new password for <strong className="dark:text-slate-300 text-slate-600">{email}</strong>
 							</p>

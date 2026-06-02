@@ -115,7 +115,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 						>
 							<X className="w-5 h-5" />
 						</button>
-						<h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
+						<h2 className="text-[22px] font-extrabold text-foreground">
 							Search Stocks
 						</h2>
 					</div>
@@ -133,7 +133,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							autoComplete="off"
 							autoCorrect="off"
 							spellCheck={false}
-							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1 text-foreground placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
 						/>
 					</div>
 				</div>

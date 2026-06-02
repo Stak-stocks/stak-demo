@@ -250,7 +250,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 			</div>
 
 			<div>
-				<h1 className="text-3xl font-bold text-foreground">Welcome to STAK</h1>
+				<h1 className="text-[26px] font-extrabold text-foreground">Welcome to STAK</h1>
 				<p className="dark:text-slate-400 text-slate-500 mt-3 text-lg">
 					Discover stocks through brands you already know
 				</p>
@@ -281,7 +281,7 @@ function InterestsStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-foreground">What are you into?</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">What are you into?</h1>
 				<p className="dark:text-slate-400 text-slate-500 mt-1">Pick the topics that interest you</p>
 			</div>
 
@@ -454,7 +454,7 @@ function SwipeStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-foreground">Swipe to discover</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">Swipe to discover</h1>
 				{!done && (
 					<p className="dark:text-slate-400 text-slate-500 text-sm mt-1">Swipe right on brands you like, left to skip</p>
 				)}
@@ -595,7 +595,7 @@ function MotivationStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-foreground">What brings you to STAK?</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">What brings you to STAK?</h1>
 			</div>
 
 			<div className="space-y-3">
@@ -641,7 +641,7 @@ function FamiliarityStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-foreground">How familiar are you with stocks?</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">How familiar are you with stocks?</h1>
 			</div>
 
 			<div className="space-y-3">
@@ -770,7 +770,7 @@ function BuildingStep({
 	return (
 		<div className="text-center space-y-8 animate-in fade-in duration-500">
 			<div>
-				<h1 className="text-2xl font-bold text-foreground">Building your STAK...</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">Building your STAK...</h1>
 				<p className="dark:text-slate-400 text-slate-500 mt-2">
 					Finding the best stocks for you
 				</p>

@@ -64,7 +64,7 @@ function LineupBuilderPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-background text-gray-900 dark:text-white">
+		<div className="min-h-screen bg-background text-foreground">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
@@ -93,7 +93,7 @@ function LineupBuilderPage() {
 					{/* Lineup Slots */}
 					<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white">
+							<h2 className="text-xl font-bold text-foreground">
 								Starters ({selectedStarters.length}/5)
 							</h2>
 							{selectedStarters.length === 5 && (
@@ -146,7 +146,7 @@ function LineupBuilderPage() {
 					{/* Choose from Your Stak */}
 					<div>
 						<div className="mb-4">
-							<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+							<h2 className="text-[22px] font-extrabold text-foreground mb-2">
 								Choose from Your Stak
 							</h2>
 							<p className="text-sm text-gray-400 dark:text-zinc-500">

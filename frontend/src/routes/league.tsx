@@ -7,7 +7,7 @@ export const Route = createFileRoute("/league")({
 
 function LeaguePage() {
 	return (
-		<div className="min-h-full bg-background text-zinc-900 dark:text-white flex flex-col items-center justify-center px-6 pb-24 relative overflow-hidden">
+		<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-6 pb-24 relative overflow-hidden">
 
 			{/* Background glow */}
 			<div className="absolute inset-0 pointer-events-none">

@@ -220,7 +220,7 @@ function ProfilePage() {
 	}
 
 	return (
-		<div className="min-h-full bg-background text-zinc-900 dark:text-white pb-24 relative">
+		<div className="min-h-full bg-background text-foreground pb-24 relative">
 
 			{/* ── Scattered floating brand icons (top area) ── */}
 			<div className="absolute inset-x-0 top-0 h-[220px] pointer-events-none select-none" aria-hidden>
@@ -253,7 +253,7 @@ function ProfilePage() {
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-foreground">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}

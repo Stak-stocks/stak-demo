@@ -292,7 +292,7 @@ function LandingPage() {
 								<path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
 							</svg>
 						</div>
-						<h2 className="text-2xl font-bold text-foreground">Share Your Experience</h2>
+						<h2 className="text-[22px] font-extrabold text-foreground">Share Your Experience</h2>
 						<p className="dark:text-slate-400 text-slate-500 text-sm leading-relaxed max-w-md">
 							As an early user, your feedback helps shape STAK. Tell us what's working, what's helped you, and how we can improve. Takes 5–10 minutes.
 						</p>
@@ -312,7 +312,7 @@ function LandingPage() {
 
 				{/* ── Contact ── */}
 				<section id="contact" className="px-6 py-16 max-w-2xl mx-auto w-full text-center">
-					<h2 className="text-2xl font-bold text-foreground mb-3">Get in Touch</h2>
+					<h2 className="text-[22px] font-extrabold text-foreground mb-3">Get in Touch</h2>
 					<p className="dark:text-slate-400 text-slate-500 text-sm leading-relaxed mb-8">
 						Have a question, feedback, or found a bug? We'd love to hear from you. We typically reply within 24–48 hours.
 					</p>
