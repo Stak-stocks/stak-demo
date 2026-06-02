@@ -636,7 +636,7 @@ export function PlaygroundPage() {
 				</div>
 				<div className="space-y-[10px]">
 					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => goToView("watchlist")} />
-					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 practice portfolio" onClick={() => goToView("sandbox")} />
+					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 · real prices, real shares" onClick={() => goToView("sandbox")} />
 				</div>
 
 			</div>
@@ -2790,7 +2790,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				<div className="flex items-center justify-between mb-[2px]">
 					<h2 className="text-[22px] font-extrabold">Sandbox Portfolio</h2>
 					<span className={`text-[11px] font-semibold px-[8px] py-[3px] rounded-full border ${tickers.length >= SANDBOX_MAX_POSITIONS ? "border-rose-500/30 bg-rose-500/10 text-rose-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
-						{tickers.length}/{SANDBOX_MAX_POSITIONS} positions
+						{tickers.length} stock{tickers.length !== 1 ? "s" : ""}
 					</span>
 				</div>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Practice money only. No real trades.</p>
@@ -3068,11 +3068,11 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				{tickers.length === 0 && (
 					<div className="rounded-[18px] border border-dashed border-foreground/20 p-[32px] text-center mb-[16px]">
 						<div className="text-[48px] mb-[12px]">📈</div>
-						<p className="text-[16px] font-extrabold mb-[6px]">Build your practice portfolio</p>
+						<p className="text-[16px] font-extrabold mb-[6px]">Start trading</p>
 						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-							Add any stock from the app and track how your picks would have performed — no real money needed.
+							Buy real shares at live prices with your $10,000 practice cash. No real money, real performance.
 						</p>
-						<p className="text-[12px] text-violet-400 font-semibold mt-[10px]">$1,000 per position · up to 10 positions</p>
+						<p className="text-[12px] text-violet-400 font-semibold mt-[10px]">Real prices · real shares · no risk</p>
 					</div>
 				)}
 
@@ -3202,7 +3202,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						)}
 						<button type="button" onClick={() => setAdding(true)} disabled={!canAddMore}
 							className={`w-full h-[44px] rounded-[12px] border font-semibold text-[14px] active:opacity-80 transition-opacity ${!canAddMore ? "border-foreground/10 dark:text-slate-500 text-slate-400 cursor-not-allowed" : "border-violet-500/30 bg-violet-500/[0.07] text-violet-400"}`}>
-							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Portfolio full (10/10)" : sandboxCash < 1 ? "No buying power" : `+ Buy Stock`}
+							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Max 10 stocks — sell one to add more" : sandboxCash < 1 ? "No buying power" : `+ Buy Stock`}
 						</button>
 					</div>
 				)}
