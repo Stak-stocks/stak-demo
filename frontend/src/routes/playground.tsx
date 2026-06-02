@@ -1846,13 +1846,21 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 }
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
+// Each position gets a fixed $1,000 allocation (up to 10 positions = $10K)
 const SANDBOX_BUDGET = 10000;
+const SANDBOX_PER_POSITION = 1000;
+
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, removeFromSandbox } = useAccount();
 	const queryClient = useQueryClient();
 	const sandbox = account?.sandboxPortfolio ?? {};
 	const tickers = Object.keys(sandbox);
 	const [search, setSearch] = useState("");
+	const [sortBy, setSortBy] = useState<"pnl" | "today" | "recent">("recent");
+	const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
+	// Brand lookup map
+	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), []);
 
 	const stockQueries = tickers.map(ticker => ({
 		queryKey: ['stock', ticker],
@@ -1870,22 +1878,30 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const currentPrice = quote?.price ?? null;
 		const pricePct = entry.priceAtAdd && currentPrice
 			? ((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 100 : null;
-		return { ticker, entry, currentPrice, pricePct, changePercent: quote?.changePercent ?? null };
+		const priceDollar = pricePct !== null ? (SANDBOX_PER_POSITION * pricePct) / 100 : null;
+		const brand = brandMap.get(ticker.toUpperCase());
+		return { ticker, entry, currentPrice, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
 	});
 
-	const allocation = SANDBOX_BUDGET / Math.max(tickers.length, 1);
+	const sortedHoldings = [...holdings].sort((a, b) => {
+		if (sortBy === "pnl") return (b.pricePct ?? -999) - (a.pricePct ?? -999);
+		if (sortBy === "today") return (b.changePercent ?? -999) - (a.changePercent ?? -999);
+		return b.entry.addedAt - a.entry.addedAt; // recent first
+	});
+
+	// Total value: each position is worth SANDBOX_PER_POSITION adjusted by P&L
+	const investedTotal = tickers.length * SANDBOX_PER_POSITION;
 	const totalValue = holdings.reduce((sum, h) => {
-		if (!h.currentPrice || !h.entry.priceAtAdd) return sum + allocation;
-		return sum + allocation * (h.currentPrice / h.entry.priceAtAdd);
+		if (!h.currentPrice || !h.entry.priceAtAdd) return sum + SANDBOX_PER_POSITION;
+		return sum + SANDBOX_PER_POSITION * (h.currentPrice / h.entry.priceAtAdd);
 	}, 0);
-	const totalPnl = totalValue - Math.min(tickers.length, 1) * SANDBOX_BUDGET / Math.max(tickers.length, 1) * tickers.length;
-	const totalPct = tickers.length > 0 ? ((totalValue - SANDBOX_BUDGET) / SANDBOX_BUDGET) * 100 : 0;
+	const totalDollarPnl = totalValue - investedTotal;
+	const totalPct = investedTotal > 0 ? (totalDollarPnl / investedTotal) * 100 : 0;
 
 	const topWinner = holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0))[0];
 	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
 
 	const handleAdd = async (ticker: string) => {
-		// Try cache first, then live fetch — price must be captured at add time for P&L
 		const cached = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", ticker.toUpperCase()]);
 		let price: number | null = cached?.quote?.price ?? null;
 		if (!price) {
@@ -1900,26 +1916,37 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Sandbox Portfolio</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Practice money only. No real trades.</p>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Practice money only. No real trades. $1,000 per position.</p>
 
 				{/* Portfolio overview */}
-				<div className="rounded-[16px] border border-violet-500/25 bg-violet-500/[0.07] p-[18px] mb-[20px]">
-					<div className="flex items-end justify-between mb-[12px]">
-						<div>
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500">Portfolio Value</p>
-							<p className="text-[28px] font-extrabold">${tickers.length > 0 ? totalValue.toFixed(0) : SANDBOX_BUDGET.toLocaleString()}</p>
-						</div>
-						{tickers.length > 0 && (
-							<p className={`text-[15px] font-bold ${totalPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-								{totalPct >= 0 ? '+' : ''}{totalPct.toFixed(1)}%
+				<div className="rounded-[18px] border border-violet-500/25 overflow-hidden mb-[20px]">
+					<div className="bg-violet-500/[0.08] px-[18px] pt-[16px] pb-[14px]">
+						<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Portfolio Value</p>
+						<div className="flex items-end justify-between">
+							<p className="text-[32px] font-extrabold leading-none">
+								${tickers.length > 0 ? totalValue.toFixed(0) : "—"}
 							</p>
-						)}
+							{tickers.length > 0 && (
+								<div className="text-right">
+									<p className={`text-[16px] font-extrabold ${totalPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+										{totalPct >= 0 ? '+' : ''}{totalPct.toFixed(1)}%
+									</p>
+									<p className={`text-[12px] font-semibold ${totalDollarPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+										{totalDollarPnl >= 0 ? '+' : ''}${totalDollarPnl.toFixed(0)}
+									</p>
+								</div>
+							)}
+						</div>
 					</div>
-					<p className="text-[12px] dark:text-slate-400 text-slate-500">Started with $10,000 · {tickers.length} positions</p>
 					{tickers.length > 0 && (
-						<div className="grid grid-cols-2 gap-[8px] mt-[12px]">
-							{topWinner && (<div className="rounded-[8px] bg-foreground/[0.04] p-[8px]"><p className="text-[10px] text-emerald-400 font-semibold">Top Winner</p><p className="text-[13px] font-bold">{topWinner.ticker} {topWinner.pricePct != null ? `+${topWinner.pricePct.toFixed(1)}%` : ''}</p></div>)}
-							{topLoser && topLoser.ticker !== topWinner?.ticker && (<div className="rounded-[8px] bg-foreground/[0.04] p-[8px]"><p className="text-[10px] text-rose-400 font-semibold">Top Loser</p><p className="text-[13px] font-bold">{topLoser.ticker} {topLoser.pricePct != null ? `${topLoser.pricePct.toFixed(1)}%` : ''}</p></div>)}
+						<div className="bg-surface-1 px-[18px] py-[12px]">
+							<div className="flex items-center justify-between text-[12px]">
+								<span className="dark:text-slate-400 text-slate-500">{tickers.length} positions · ${investedTotal.toLocaleString()} invested</span>
+								<div className="flex items-center gap-[10px]">
+									{topWinner && <span className="text-emerald-400 font-semibold">{topWinner.ticker} +{topWinner.pricePct?.toFixed(1)}%</span>}
+									{topLoser && topLoser.ticker !== topWinner?.ticker && <span className="text-rose-400 font-semibold">{topLoser.ticker} {topLoser.pricePct?.toFixed(1)}%</span>}
+								</div>
+							</div>
 						</div>
 					)}
 				</div>
@@ -1927,27 +1954,35 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				{/* Holdings */}
 				{tickers.length > 0 && (
 					<div className="mb-[16px]">
-						<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Holdings · ${allocation.toFixed(0)} per position</p>
+						{/* Sort controls */}
+						<div className="flex items-center justify-between mb-[10px]">
+							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500">Holdings</p>
+							<div className="flex gap-[6px]">
+								{(["recent","pnl","today"] as const).map(s => (
+									<button key={s} type="button" onClick={() => setSortBy(s)}
+										className={`text-[10px] font-semibold px-[8px] py-[3px] rounded-full border transition-colors ${sortBy === s ? "bg-foreground text-background border-foreground" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
+										{s === "recent" ? "Recent" : s === "pnl" ? "Best P&L" : "Today"}
+									</button>
+								))}
+							</div>
+						</div>
 
 						{/* P&L bar chart */}
 						{holdings.some(h => h.pricePct !== null) && (
-							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px] mb-[8px]">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[8px] uppercase tracking-wide">P&L Since Added</p>
+							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px] mb-[10px]">
+								<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[8px] uppercase tracking-wide font-semibold">P&L Since Added</p>
 								<div className="space-y-[6px]">
-									{holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0)).map(h => {
+									{[...holdings].filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0)).map(h => {
 										const pct = h.pricePct ?? 0;
 										const maxAbs = Math.max(...holdings.filter(x => x.pricePct !== null).map(x => Math.abs(x.pricePct ?? 0)), 1);
 										const barWidth = Math.min(100, (Math.abs(pct) / maxAbs) * 100);
 										return (
 											<div key={h.ticker} className="flex items-center gap-[8px]">
-												<p className="text-[11px] font-bold w-[36px] shrink-0">{h.ticker}</p>
-												<div className="flex-1 h-[6px] rounded-full bg-foreground/10 overflow-hidden">
-													<div
-														className={`h-full rounded-full ${pct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
-														style={{ width: `${barWidth}%` }}
-													/>
+												<p className="text-[11px] font-bold w-[40px] shrink-0">{h.ticker}</p>
+												<div className="flex-1 h-[5px] rounded-full bg-foreground/10 overflow-hidden">
+													<div className={`h-full rounded-full ${pct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${barWidth}%` }} />
 												</div>
-												<p className={`text-[11px] font-bold w-[44px] text-right shrink-0 ${pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+												<p className={`text-[11px] font-bold w-[48px] text-right shrink-0 ${pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
 													{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
 												</p>
 											</div>
@@ -1957,30 +1992,77 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							</div>
 						)}
 
+						{/* Holdings list */}
 						<div className="space-y-[6px]">
-							{holdings.map(h => (
-								<div key={h.ticker} className="flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px]">
-									<div className="flex-1 min-w-0">
-										<p className="text-[14px] font-bold">{h.ticker}</p>
-										{h.currentPrice && <p className="text-[12px] dark:text-slate-400 text-slate-500">${h.currentPrice.toFixed(2)}{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}</p>}
+							{sortedHoldings.map(h => {
+								const logoUrl = h.brand?.domain ? `https://logo.clearbit.com/${h.brand.domain}` : null;
+								return (
+									<div key={h.ticker}>
+										<div className="flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px]">
+											{/* Logo */}
+											<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+												{logoUrl ? (
+													<img src={logoUrl} alt="" className="w-[26px] h-[26px] object-contain"
+														onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+												) : (
+													<span className="text-[10px] font-bold text-slate-600">{h.ticker.slice(0,2)}</span>
+												)}
+											</div>
+											{/* Name + price */}
+											<div className="flex-1 min-w-0">
+												<p className="text-[13px] font-bold leading-none">{h.brand?.name ?? h.ticker}</p>
+												<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">
+													{h.currentPrice ? `$${h.currentPrice.toFixed(2)}` : h.ticker}
+													{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}
+												</p>
+											</div>
+											{/* P&L + today */}
+											<div className="text-right shrink-0">
+												{h.pricePct !== null ? (
+													<>
+														<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+															{h.pricePct >= 0 ? '+' : ''}{h.pricePct.toFixed(1)}%
+														</p>
+														{h.changePercent !== null && (
+															<p className={`text-[10px] ${h.changePercent >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
+																{h.changePercent >= 0 ? '▲' : '▼'} {Math.abs(h.changePercent).toFixed(2)}% today
+															</p>
+														)}
+													</>
+												) : <p className="text-[11px] dark:text-slate-500 text-slate-400">Loading…</p>}
+											</div>
+											{/* Remove */}
+											<button type="button" onClick={() => setConfirmRemove(h.ticker)}
+												className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full bg-foreground/[0.06] dark:text-slate-400 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400 transition-colors text-[12px]">
+												✕
+											</button>
+										</div>
+										{/* Confirm remove inline */}
+										{confirmRemove === h.ticker && (
+											<div className="flex items-center justify-between bg-rose-500/[0.08] border border-rose-500/20 rounded-[10px] px-[12px] py-[9px] mt-[4px]">
+												<p className="text-[12px] font-medium dark:text-slate-300 text-slate-600">Remove {h.brand?.name ?? h.ticker}?</p>
+												<div className="flex gap-[8px]">
+													<button type="button" onClick={() => setConfirmRemove(null)} className="text-[11px] dark:text-slate-400 text-slate-500 px-[8px] py-[3px]">Keep</button>
+													<button type="button" onClick={() => { removeFromSandbox(h.ticker); setConfirmRemove(null); }}
+														className="text-[11px] font-semibold text-rose-400 bg-rose-500/15 px-[10px] py-[3px] rounded-full">Remove</button>
+												</div>
+											</div>
+										)}
 									</div>
-									{h.pricePct !== null ? (
-										<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-											{h.pricePct >= 0 ? '+' : ''}{h.pricePct.toFixed(1)}%
-										</p>
-									) : <p className="text-[11px] dark:text-slate-500 text-slate-400">Loading…</p>}
-									<button type="button" onClick={() => removeFromSandbox(h.ticker)} className="text-[11px] text-rose-400 px-[6px]">✕</button>
-								</div>
-							))}
+								);
+							})}
 						</div>
 					</div>
 				)}
 
 				{tickers.length === 0 && (
-					<div className="rounded-[14px] border border-dashed border-foreground/20 p-[24px] text-center mb-[16px]">
-						<p className="text-[28px] mb-[8px]">💼</p>
-						<p className="text-[14px] font-bold mb-[4px]">Your sandbox is empty</p>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500">Add stocks below to start your practice portfolio.</p>
+					<div className="rounded-[18px] border border-dashed border-foreground/20 p-[32px] text-center mb-[16px]">
+						<div className="text-[48px] mb-[12px]">📈</div>
+						<p className="text-[16px] font-extrabold mb-[6px]">Build your practice portfolio</p>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto">
+							Add any stock from the app and track how your picks would have performed — no real money needed.
+						</p>
+						<p className="text-[12px] text-violet-400 font-semibold mt-[10px]">$1,000 per position · up to 10 positions</p>
 					</div>
 				)}
 
