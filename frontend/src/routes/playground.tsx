@@ -11,7 +11,7 @@ import {
 	type WatchlistSlotType,
 	type Lesson, type LessonCategory,
 } from "@/data/playgroundData";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
 import { StakLogo } from "@/components/StakLogo";
@@ -178,6 +178,11 @@ export function PlaygroundPage() {
 	const [showOnboarding, setShowOnboarding] = useState(() =>
 		typeof window !== "undefined" && !localStorage.getItem("playground-onboarded")
 	);
+
+	// Reset scroll to top whenever the active view changes
+	useEffect(() => {
+		document.querySelector("[data-scroll-root]")?.scrollTo({ top: 0, behavior: "instant" });
+	}, [activeView, showOnboarding]);
 
 	const todayKey = new Date().toISOString().split("T")[0];
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
