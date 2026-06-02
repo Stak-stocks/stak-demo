@@ -2034,7 +2034,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		{ scenario: "A pharma company wins FDA approval for a major new drug.", correct: "Bullish" as const, explanation: "Bullish. FDA approval opens the path to revenue generation for the drug. Biotech and pharma stocks often surge significantly on successful approvals." },
 		{ scenario: "A social media company reports record daily users but average revenue per user declines 15%.", correct: "Mixed" as const, explanation: "Mixed. User growth is positive for long-term potential, but declining monetization means the current business isn't converting users to revenue as effectively." },
 		{ scenario: "A company announces it's acquiring a competitor for a 40% premium.", correct: "Mixed" as const, explanation: "Mixed — typically bullish for the target (being bought at a premium) and uncertain for the acquirer. Markets often question whether the acquirer overpaid or can execute the integration." },
-		{ scenario: "Oil prices drop 20% over two weeks due to oversupply.", correct: "Bearish" as const, explanation: "Bearish for oil producers, but bullish for airlines, trucking, and consumer spending (lower fuel costs). Sector matters enormously with commodity moves." },
+		{ scenario: "Oil prices drop 20% over two weeks due to oversupply.", correct: "Mixed" as const, explanation: "Mixed — bearish for oil producers and energy stocks, but bullish for airlines, trucking, and consumer spending. The impact depends heavily on which sector you're looking at." },
 		{ scenario: "A company with $2B in annual revenue announces it will be profitable for the first time.", correct: "Bullish" as const, explanation: "Bullish. Reaching profitability is a major milestone — it proves the business model works at scale and reduces reliance on external capital." },
 		{ scenario: "A streaming service loses 2 million subscribers but raises prices by 20%.", correct: "Mixed" as const, explanation: "Mixed. Losing subscribers is negative for long-term growth, but a 20% price increase on remaining subscribers could actually grow revenue. It's a bet on pricing power over volume." },
 		{ scenario: "A company beats EPS by 15% but revenue only matched estimates.", correct: "Mixed" as const, explanation: "Mixed. Strong EPS beats are positive, but if they came purely from cost cuts rather than revenue growth, sustainability is questionable. Top-line growth quality matters." },
@@ -2167,8 +2167,11 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		return Array.from(new Set(chips)).slice(0, 6);
 	}, [metrics?.peRatio, metrics?.revenueGrowth, metrics?.profitMargin, quote?.changePercent]);
 
-	// ── Award XP helper ──────────────────────────────────────────────────────────
+	// ── Award XP helper — ref guard prevents double-fire on rapid taps ───────────
+	const xpAwardedThisRound = useRef(false);
 	const awardXp = (xp: number, skill: string, isCorrectRound: boolean) => {
+		if (xpAwardedThisRound.current) return; // block double-tap
+		xpAwardedThisRound.current = true;
 		showXp(xp);
 		setSessionXp(prev => prev + xp);
 		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + xp }));
@@ -2191,6 +2194,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		setStockIdx(nextStockIdx);
 
 		// Reset round state
+		xpAwardedThisRound.current = false; // allow XP for next round
 		setMovePhase("decision");
 		setMoveDecision(null);
 		setMoveReason(null);
@@ -2265,7 +2269,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setMovePhase("decision"); setMoveDecision(null); setMoveReason(null); setMoveFeedback(null);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setRedFlagIdx(0); setSentimentIdx(0); setNextStepIdx(0); setPortfolioFitIdx(0);
+							// Restore date-seeded starting indices so replay continues from today's daily offset
+						setRedFlagIdx(_todayOffset % 15); setSentimentIdx((_todayOffset + 5) % 15); setNextStepIdx((_todayOffset + 3) % 11); setPortfolioFitIdx(0);
 							setSessionStarted(false);
 						}}
 							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
@@ -2287,6 +2292,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		{ key: "peers",        label: "Peer Comparison",  color: "bg-violet-500",  text: "text-violet-400"  },
 		{ key: "earnings",     label: "Earnings",         color: "bg-purple-500",  text: "text-purple-400"  },
 		{ key: "portfolio",    label: "Portfolio Fit",    color: "bg-teal-500",    text: "text-teal-400"    },
+		{ key: "awareness",    label: "Market Awareness", color: "bg-slate-500",   text: "text-slate-400"   },
 	];
 	const XP_PER_LEVEL = 100;
 	const MAX_LEVEL = 5;
@@ -2554,11 +2560,19 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// ────────────────────────────────────────────────────────────────────────────
 	// ROUND TYPE B: "Spot the Red Flag" — static MC
+	// Rotate options so the correct answer isn't always position 0 — uses scenario index as seed
+	function rotateOptions(options: string[], correctIdx: number, seed: number) {
+		const n = options.length;
+		const offset = seed % n;
+		const rotated = [...options.slice(offset), ...options.slice(0, offset)];
+		const newCorrectIdx = (correctIdx - offset + n) % n;
+		return { opts: rotated.map((text, i) => ({ id: String(i), text })), correctId: String(newCorrectIdx) };
+	}
+
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "redflag") {
 		const sc = RED_FLAG_SCENARIOS[redFlagIdx % RED_FLAG_SCENARIOS.length]!;
-		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
-		const correctId = String(sc.correctIdx);
+		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, redFlagIdx + _todayOffset);
 
 		if (otherPhase === "question") {
 			return (
@@ -2734,8 +2748,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "nextstep") {
 		const sc = NEXT_STEP_SCENARIOS[nextStepIdx % NEXT_STEP_SCENARIOS.length]!;
-		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
-		const correctId = String(sc.correctIdx);
+		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, nextStepIdx + _todayOffset);
 
 		if (otherPhase === "question") {
 			return (
@@ -2821,8 +2834,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "portfoliofit") {
 		const sc = PORTFOLIO_FIT_SCENARIOS[portfolioFitIdx % PORTFOLIO_FIT_SCENARIOS.length]!;
-		const opts = sc.options.map((text, i) => ({ id: String(i), text }));
-		const correctId = String(sc.correctIdx);
+		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, portfolioFitIdx + _todayOffset);
 
 		if (otherPhase === "question") {
 			return (
