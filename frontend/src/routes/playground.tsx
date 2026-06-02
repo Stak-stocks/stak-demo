@@ -2645,6 +2645,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [searchQuery, setSearchQuery] = useState("");
 	// Order quantity
 	const [orderQty, setOrderQty] = useState<number>(1);
+	const [orderMode, setOrderMode] = useState<"shares" | "amount">("shares");
+	const [orderAmount, setOrderAmount] = useState<number>(100); // dollar amount mode
 	// Reset confirm
 	const [confirmReset, setConfirmReset] = useState(false);
 
@@ -2730,14 +2732,19 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const closeOrder = () => {
 		setOrderAction(null);
 		setOrderQty(1);
+		setOrderAmount(100);
+		setOrderMode("shares");
 	};
 
-	// Confirm buy
+	// Confirm buy — uses effectiveShares which accounts for amount mode
 	const confirmBuy = async () => {
 		if (!activeStock || !activePrice) return;
-		const cost = activePrice * orderQty;
-		if (cost > sandboxCash) return;
-		await handleAdd(activeStock, orderQty, activePrice);
+		const qty = orderMode === "amount"
+			? Math.round((orderAmount / activePrice) * 1000) / 1000
+			: orderQty;
+		const cost = activePrice * qty;
+		if (cost > sandboxCash || qty <= 0) return;
+		await handleAdd(activeStock, qty, activePrice);
 		closeOrder();
 	};
 
@@ -2779,30 +2786,36 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const brand = brandMap.get(activeStock.toUpperCase());
 		const name = brand?.name ?? activeStock;
 
-		const cost = price != null ? price * orderQty : null;
+		// In amount mode, derive shares from dollar amount
+		const sharesFromAmount = (orderMode === "amount" && price != null && price > 0)
+			? Math.round((orderAmount / price) * 1000) / 1000
+			: null;
+		const effectiveShares = orderMode === "amount" ? (sharesFromAmount ?? 0) : orderQty;
+		const cost = price != null ? price * effectiveShares : null;
+
 		const canAffordBuy = cost != null && cost <= sandboxCash;
 		const buyError = cost != null && cost > sandboxCash
 			? `Not enough buying power ($${(cost - sandboxCash).toFixed(2)} short)`
 			: null;
 
 		// Fractional sell allowed — can sell up to full position
-		const canSell = orderAction === "sell" && orderQty > 0 && orderQty <= sharesOwned;
-		const sellProceeds = price != null ? price * orderQty : null;
+		const canSell = orderAction === "sell" && effectiveShares > 0 && effectiveShares <= sharesOwned;
+		const sellProceeds = price != null ? price * effectiveShares : null;
 
 		const isValid = orderAction === "buy"
-			? (cost != null && canAffordBuy && orderQty > 0)
+			? (cost != null && canAffordBuy && effectiveShares > 0)
 			: canSell;
 
 		// Max buy = buying power ÷ price (supports fractions)
 		const maxBuyQty = price != null && price > 0 ? Math.floor((sandboxCash / price) * 1000) / 1000 : 0;
-		const step = orderQty < 1 ? 0.01 : 1; // finer steps for fractional
+		const step = orderQty < 1 ? 0.01 : 1;
 
 		return (
 			<>
 				<div className="fixed inset-0 z-40 bg-[#0d0d0d]/70" onClick={closeOrder} />
 				<div className="fixed left-0 right-0 z-50 rounded-t-[24px] bg-background border border-foreground/10 px-[20px] pt-[20px] max-w-lg mx-auto shadow-2xl" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}>
 					<div className="w-[40px] h-[4px] rounded-full bg-foreground/15 mx-auto mb-[18px]" />
-					<div className="flex items-center justify-between mb-[24px]">
+					<div className="flex items-center justify-between mb-[18px]">
 						<h3 className="text-[18px] font-extrabold">
 							{orderAction === "buy" ? "Buy" : "Sell"} {activeStock}
 						</h3>
@@ -2811,34 +2824,84 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							✕
 						</button>
 					</div>
-					<div className="flex items-center justify-center gap-[16px] mb-[8px]">
-						<button type="button"
-							onClick={() => setOrderQty(q => Math.max(0.01, Math.round((q - step) * 1000) / 1000))}
-							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
-							−
-						</button>
-						<input
-							type="number"
-							inputMode="decimal"
-							min={0.01}
-							step={0.01}
-							value={orderQty}
-							onChange={e => {
-								const v = parseFloat(e.target.value);
-								if (!isNaN(v) && v > 0) setOrderQty(Math.round(v * 1000) / 1000);
-							}}
-							className="w-[120px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
-						/>
-						<button type="button"
-							onClick={() => {
-								const max = orderAction === "buy" ? maxBuyQty : sharesOwned;
-								setOrderQty(q => Math.min(Math.round((q + step) * 1000) / 1000, max));
-							}}
-							className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
-							+
-						</button>
-					</div>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[16px]">shares</p>
+
+					{/* Shares / Amount toggle (buy only) */}
+					{orderAction === "buy" && (
+						<div className="flex rounded-[10px] border border-foreground/10 p-[3px] mb-[20px]">
+							{(["shares", "amount"] as const).map(m => (
+								<button key={m} type="button" onClick={() => setOrderMode(m)}
+									className={`flex-1 text-[13px] font-semibold py-[7px] rounded-[8px] transition-colors ${orderMode === m ? "bg-foreground text-background" : "dark:text-slate-400 text-slate-500"}`}>
+									{m === "shares" ? "Shares" : "$ Amount"}
+								</button>
+							))}
+						</div>
+					)}
+
+					{orderMode === "shares" || orderAction === "sell" ? (
+						<>
+							<div className="flex items-center justify-center gap-[16px] mb-[8px]">
+								<button type="button"
+									onClick={() => setOrderQty(q => Math.max(0.01, Math.round((q - step) * 1000) / 1000))}
+									className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
+									−
+								</button>
+								<input
+									type="number"
+									inputMode="decimal"
+									min={0.01}
+									step={0.01}
+									value={orderQty}
+									onChange={e => {
+										const v = parseFloat(e.target.value);
+										if (!isNaN(v) && v > 0) setOrderQty(Math.round(v * 1000) / 1000);
+									}}
+									className="w-[120px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+								/>
+								<button type="button"
+									onClick={() => {
+										const max = orderAction === "buy" ? maxBuyQty : sharesOwned;
+										setOrderQty(q => Math.min(Math.round((q + step) * 1000) / 1000, max));
+									}}
+									className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
+									+
+								</button>
+							</div>
+							<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[16px]">shares</p>
+						</>
+					) : (
+						<>
+							<div className="flex items-center justify-center gap-[10px] mb-[8px]">
+								<span className="text-[36px] font-extrabold dark:text-slate-400 text-slate-500">$</span>
+								<input
+									type="number"
+									inputMode="decimal"
+									min={0.01}
+									step={1}
+									value={orderAmount}
+									onChange={e => {
+										const v = parseFloat(e.target.value);
+										if (!isNaN(v) && v > 0) setOrderAmount(Math.round(v * 100) / 100);
+									}}
+									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+								/>
+							</div>
+							{/* Quick amount buttons */}
+							<div className="flex justify-center gap-[8px] mb-[16px]">
+								{[25, 50, 100, 500].map(amt => (
+									<button key={amt} type="button" onClick={() => setOrderAmount(Math.min(amt, sandboxCash))}
+										className={`text-[12px] font-bold px-[10px] py-[5px] rounded-full border transition-colors active:opacity-70 ${orderAmount === amt ? "bg-violet-500/15 border-violet-500/40 text-violet-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
+										${amt}
+									</button>
+								))}
+							</div>
+							{price != null && sharesFromAmount != null && (
+								<p className="text-[12px] dark:text-slate-400 text-slate-500 text-center mb-[4px]">
+									≈ {sharesFromAmount} shares at ${price.toFixed(2)}
+								</p>
+							)}
+						</>
+					)}
+
 					{/* Sell All shortcut */}
 					{orderAction === "sell" && sharesOwned > 0 && (
 						<button type="button" onClick={() => setOrderQty(sharesOwned)}
@@ -2851,11 +2914,13 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							<>
 								<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[4px]">
 									{orderAction === "buy"
-										? `${orderQty} shares × $${price.toFixed(2)}`
-										: `${orderQty} shares → proceeds`}
+										? orderMode === "amount"
+											? `$${orderAmount.toFixed(2)} ÷ $${price.toFixed(2)}/share`
+											: `${effectiveShares} shares × $${price.toFixed(2)}`
+										: `${effectiveShares} shares → proceeds`}
 								</p>
 								<p className="text-[28px] font-extrabold">
-									${orderAction === "buy" ? cost!.toFixed(2) : sellProceeds!.toFixed(2)}
+									${orderAction === "buy" ? (cost ?? 0).toFixed(2) : (sellProceeds ?? 0).toFixed(2)}
 								</p>
 							</>
 						) : (
@@ -2898,8 +2963,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						style={isValid && orderAction === "buy" ? { background: "linear-gradient(90deg,#7c3aed,#6366f1)" } : undefined}
 					>
 						{orderAction === "buy"
-							? `Buy ${orderQty} share${orderQty !== 1 ? "s" : ""} · $${cost?.toFixed(2) ?? "—"}`
-							: `Sell ${orderQty} share${orderQty !== 1 ? "s" : ""} · $${sellProceeds?.toFixed(2) ?? "—"}`}
+							? orderMode === "amount"
+								? `Invest $${orderAmount.toFixed(2)} in ${name}`
+								: `Buy ${effectiveShares} share${effectiveShares !== 1 ? "s" : ""} · $${cost?.toFixed(2) ?? "—"}`
+							: `Sell ${effectiveShares} share${effectiveShares !== 1 ? "s" : ""} · $${sellProceeds?.toFixed(2) ?? "—"}`}
 					</button>
 				</div>
 			</>
