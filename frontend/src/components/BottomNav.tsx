@@ -84,7 +84,7 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 									}`}
 								>
 									<Icon className="w-5 h-5" />
-									{item.to === "/playground" && !challengeDone && !active && (
+									{item.to === "/playground" && !challengeDone && (
 										<span className="absolute top-0 right-0 w-[8px] h-[8px] rounded-full bg-amber-400 border-[1.5px] border-background" />
 									)}
 								</div>
