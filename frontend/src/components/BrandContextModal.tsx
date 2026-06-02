@@ -6,7 +6,7 @@ import { useAccount } from "@/context/AccountContext";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
-	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick,
+	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove,
 } from "@/lib/api";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
@@ -174,6 +174,16 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
+	const pctForMove = stockData?.quote?.changePercent;
+	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
+		queryKey: ["daily-move", brand?.ticker, pctForMove?.toFixed(2)],
+		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name),
+		enabled: !!brand && open && pctForMove !== undefined,
+		staleTime: 30 * 60 * 1000,
+		gcTime:    60 * 60 * 1000,
+		retry: 0,
+	});
+
 	useEffect(() => {
 		if (brand && open) {
 			document.body.style.overflow = "hidden";
@@ -213,27 +223,11 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	// 1. What the company does — first culturalContext section
 	const whatContent = brand.culturalContext.sections[0]?.content ?? brand.bio;
 
-	// 2. Why it moved — best available signal: company news whyItMatters → headline → price change
-	const companyArticle = newsData?.articles?.find(a => a.type === "company" && a.whyItMatters);
-	const anyArticle = newsData?.articles?.[0];
+	// 2. Why it moved — Gemini 1-sentence explanation (same source as news signal)
 	const pct = stockData?.quote?.changePercent;
-	const whyLoading = !stockData && !newsData;
+	const whyLoading = dailyMoveLoading || (!stockData && !dailyMoveData);
 	const priceUp = pct !== undefined ? pct >= 0 : true;
-	const whyContent = (() => {
-		if (companyArticle?.whyItMatters) return companyArticle.whyItMatters;
-		if (anyArticle?.whyItMatters) return anyArticle.whyItMatters;
-		if (anyArticle?.headline) {
-			const priceCtx = pct !== undefined
-				? ` Shares are ${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(1)}% today.`
-				: "";
-			return anyArticle.headline + priceCtx;
-		}
-		if (pct !== undefined) {
-			const mag = Math.abs(pct) >= 3 ? " — a notable move." : ".";
-			return `Shares are ${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(1)}% in the latest session${mag}`;
-		}
-		return null;
-	})();
+	const whyContent = dailyMoveData?.explanation ?? null;
 
 	// 3. Key risks — real signals first, fallback to static culturalContext
 	const riskSignals: string[] = [];
