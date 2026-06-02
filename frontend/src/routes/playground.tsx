@@ -328,7 +328,7 @@ export function PlaygroundPage() {
 				account={account}
 				selectedCategory={activeCategory}
 				onSelectCategory={setActiveCategory}
-				onSelectLesson={(id) => { setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+				onSelectLesson={(id) => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onBack={() => { goHome(); setActiveCategory(null); }}
 			/>
 		);
@@ -340,8 +340,8 @@ export function PlaygroundPage() {
 				account={account}
 				completedLessons={completedLessons}
 				totalLessons={totalLessons}
-				onBack={() => setActiveView("lessons")}
-				onComplete={() => setActiveView("lessons")}
+				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 			/>
 		);
 	}
@@ -1037,11 +1037,18 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 	const handlePick = (side: "A" | "B") => {
 		if (selected) return;
 		setSelected(side);
-		if (!xpAwarded.current) { xpAwarded.current = true; addXp(battle.xp).catch(() => {}); showXp(battle.xp); }
-		// Report win/loss once live data is available; if not available, skip
+		// Defer XP + result until live data resolves — award only if correct pick
 		setTimeout(() => {
-			if (liveWinner) onResult?.(side === liveWinner);
-		}, 50);
+			if (liveWinner) {
+				const won = side === liveWinner;
+				onResult?.(won);
+				if (won && !xpAwarded.current) {
+					xpAwarded.current = true;
+					addXp(battle.xp).catch(() => {});
+					showXp(battle.xp);
+				}
+			}
+		}, 200);
 	};
 
 	const { data: dataA } = useQuery({
@@ -1335,10 +1342,11 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 										state={selected === opt.id ? "selected" : "idle"}
 										onClick={() => {
 											if (!selected) {
+												const correct = opt.id === scenario.correctId;
 												setSelected(opt.id);
 												setPhase("outcome");
 												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); }
+												if (correct && !xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); }
 											}
 										}}
 									/>
@@ -1805,7 +1813,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 
 	// Grade the watchlist
 	const gradeWatchlist = () => {
-		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)!).filter(Boolean);
+		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== undefined);
 		// Count unique brands per primary type (first type = primary) to avoid double-counting multi-typed brands
 		const primaryTypes = pickedBrands.map(b => b.types[0]!);
 		const specCount = primaryTypes.filter(t => t === "speculative").length;
@@ -1827,7 +1835,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 
 	if (showResult) {
 		const { grade, feedback, specPct, growthPct, defensivePct } = gradeWatchlist();
-		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)!).filter(Boolean);
+		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== undefined);
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
