@@ -107,6 +107,7 @@ export interface UserDoc {
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
+	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
 	sandboxTradeHistory?: SandboxTrade[];  // last 30 trades
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 }
@@ -135,6 +136,7 @@ interface AccountContextType {
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
+	completeWeeklyActivity: (weekKey: string, activityId: string, xp: number) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -419,6 +421,20 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		});
 	}, [user]);
 
+	const completeWeeklyActivity = useCallback(async (weekKey: string, activityId: string, xp: number) => {
+		if (!user) return;
+		const current = account?.weeklyProgress;
+		const isSameWeek = current?.weekKey === weekKey;
+		const alreadyDone = isSameWeek && (current?.completedIds ?? []).includes(activityId);
+		if (alreadyDone) return;
+		const completedIds = isSameWeek ? [...(current!.completedIds), activityId] : [activityId];
+		const xpEarned = (isSameWeek ? (current!.xpEarned ?? 0) : 0) + xp;
+		await updateDoc(doc(db, "users", user.uid), {
+			weeklyProgress: { weekKey, completedIds, xpEarned },
+			totalXp: increment(xp),
+		});
+	}, [user, account]);
+
 	const markSandboxMilestone = useCallback(async (value: number) => {
 		if (!user) return;
 		const existing = account?.sandboxMilestones ?? [];
@@ -448,6 +464,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				initSandboxCash,
 				resetSandbox,
 				markSandboxMilestone,
+				completeWeeklyActivity,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

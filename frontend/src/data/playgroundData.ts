@@ -1659,3 +1659,133 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 	const idx = Math.abs(hash) % DAILY_CHALLENGES.length;
 	return DAILY_CHALLENGES[idx]!;
 }
+
+// ── Weekly Pack system ────────────────────────────────────────────────────────
+
+export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood" | "wwyd";
+
+export interface WeeklyActivity {
+	id: string;
+	type: ActivityType;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	xp: number;
+}
+
+export interface WeeklyPack {
+	weekKey: string;    // "2026-W22"
+	tier: number;       // 1–5
+	activities: WeeklyActivity[];
+	totalXp: number;
+	label: string;      // e.g. "Beginner Pack"
+	color: string;
+}
+
+// Assign each lesson a tier based on its category
+const LESSON_TIERS: Record<string, number> = {
+	"what-is-a-stock": 1, "what-is-market-cap": 1, "what-is-a-ticker": 1,
+	"why-rates-matter": 2, "what-is-a-bull-bear-market": 2, "how-market-hours-work": 1,
+	"what-is-pe-ratio": 2, "what-is-revenue-growth": 2, "what-makes-stock-expensive": 3,
+	"what-are-earnings": 2, "why-stocks-fall-after-good-earnings": 3, "how-to-read-earnings": 3,
+	"what-is-risk": 2, "what-is-beta": 3,
+	"what-is-a-dividend": 2, "why-dividend-stocks-drop-rates-rise": 3,
+	"what-is-a-sector": 2, "tech-sector-deep-dive": 3,
+};
+
+// Assign each battle a tier
+const BATTLE_TIERS: Record<string, number> = {
+	"nvda-vs-amd": 3, "sbux-vs-cmg": 2, "coin-vs-hood": 3,
+	"msft-vs-googl": 3, "tsla-vs-rivn": 2, "cost-vs-wmt": 2,
+	"crm-vs-now": 4, "meta-vs-snap": 3,
+};
+
+// Tier XP multipliers
+const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
+	1: { lesson: 20, battle: 20, lab: 25, label: "Beginner Pack",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { lesson: 28, battle: 28, lab: 32, label: "Learner Pack",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { lesson: 35, battle: 35, lab: 40, label: "Investor Pack",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { lesson: 45, battle: 45, lab: 52, label: "Analyst Pack",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { lesson: 60, battle: 60, lab: 70, label: "Expert Pack",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+};
+
+function xpTier(totalXp: number): number {
+	if (totalXp >= 1000) return 5;
+	if (totalXp >= 600) return 4;
+	if (totalXp >= 300) return 3;
+	if (totalXp >= 100) return 2;
+	return 1;
+}
+
+function seededPick<T>(arr: T[], seed: number, count: number): T[] {
+	const result: T[] = [];
+	const copy = [...arr];
+	let s = seed;
+	while (result.length < count && copy.length > 0) {
+		s = (s * 1664525 + 1013904223) & 0xffffffff;
+		const idx = Math.abs(s) % copy.length;
+		result.push(copy.splice(idx, 1)[0]!);
+	}
+	return result;
+}
+
+/** Returns a deterministic weekly pack based on user's XP level and the current week */
+export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
+	// Seed from week key
+	let seed = 0;
+	for (let i = 0; i < weekKey.length; i++) {
+		seed = ((seed << 5) - seed) + weekKey.charCodeAt(i);
+		seed |= 0;
+	}
+
+	const tier = xpTier(totalXp);
+	const xpRates = TIER_XP[tier]!;
+
+	// Pick 2 lessons at or below tier
+	const eligibleLessons = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
+	const pickedLessons = seededPick(eligibleLessons, seed, 2).map(l => ({
+		id: l.id, type: "lesson" as ActivityType,
+		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
+	}));
+
+	// Pick 1 battle at or below tier
+	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
+	const pickedBattles = seededPick(eligibleBattles, seed + 1, 1).map(b => ({
+		id: b.id, type: "battle" as ActivityType,
+		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
+	}));
+
+	// Pick 1 earnings scenario
+	const pickedEarnings = seededPick(EARNINGS_SCENARIOS, seed + 2, 1).map(s => ({
+		id: s.id, type: "earnings" as ActivityType,
+		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
+	}));
+
+	// Pick 1 mood scenario
+	const pickedMood = seededPick(MOOD_SCENARIOS, seed + 3, 1).map(s => ({
+		id: s.id, type: "mood" as ActivityType,
+		title: s.event.replace(/^[^\s]+ /, ""), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
+	}));
+
+	const activities = [...pickedLessons, ...pickedBattles, ...pickedEarnings, ...pickedMood];
+	const totalXpForPack = activities.reduce((sum, a) => sum + a.xp, 0);
+
+	return {
+		weekKey,
+		tier,
+		activities,
+		totalXp: totalXpForPack,
+		label: xpRates.label,
+		color: xpRates.color,
+	};
+}
+
+/** Get the current ISO week key, e.g. "2026-W22" */
+export function getCurrentWeekKey(): string {
+	const d = new Date();
+	const dayNum = d.getUTCDay() || 7;
+	d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+	const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+	const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+	return `${d.getUTCFullYear()}-W${week}`;
+}

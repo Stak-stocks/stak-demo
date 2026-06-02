@@ -5,10 +5,10 @@ import {
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
-	LESSONS, LESSON_CATEGORIES, getDailyChallenge,
+	LESSONS, LESSON_CATEGORIES, getDailyChallenge, getWeeklyPack, getCurrentWeekKey,
 	STOCK_BATTLES, EARNINGS_SCENARIOS, RISK_SCENARIOS, MOOD_SCENARIOS,
 	WWYD_SCENARIOS, PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
-	type WatchlistSlotType,
+	type WatchlistSlotType, type WeeklyActivity,
 	type Lesson, type LessonCategory,
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -222,7 +222,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 }
 
 export function PlaygroundPage() {
-	const { account } = useAccount();
+	const { account, completeWeeklyActivity } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
 	const [activeLessonId, setActiveLessonId] = useState<string | null>(restored.lessonId);
@@ -257,6 +257,9 @@ export function PlaygroundPage() {
 
 	const todayKey = new Date().toISOString().split("T")[0];
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
+
+	// Weekly Pack — computed after totalXp is available (see line ~310)
+	const weekKey = useMemo(() => getCurrentWeekKey(), []);
 
 	// Daily Brief → Featured Lesson mapping
 	const { data: briefData } = useQuery({
@@ -297,6 +300,18 @@ export function PlaygroundPage() {
 	const totalXp = account?.totalXp ?? 0;
 	const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
 	const totalLessons = LESSONS.length;
+
+	// Weekly Pack (declared here so totalXp is available)
+	const weeklyPack = useMemo(() => getWeeklyPack(totalXp, weekKey), [totalXp, weekKey]);
+	const weeklyCompleted = useMemo(() => {
+		const wp = account?.weeklyProgress;
+		if (wp?.weekKey !== weekKey) return new Set<string>();
+		return new Set(wp.completedIds ?? []);
+	}, [account?.weeklyProgress, weekKey]);
+	const weeklyDone = weeklyCompleted.size;
+	const weeklyTotal = weeklyPack.activities.length;
+	const weeklyXpEarned = account?.weeklyProgress?.weekKey === weekKey
+		? (account.weeklyProgress.xpEarned ?? 0) : 0;
 
 	// Find next incomplete lesson for "Continue Learning"
 	const nextLesson = useMemo(() => {
@@ -340,6 +355,9 @@ export function PlaygroundPage() {
 				account={account}
 				completedLessons={completedLessons}
 				totalLessons={totalLessons}
+				weekKey={weekKey}
+				weeklyCompleted={weeklyCompleted}
+				onWeeklyComplete={completeWeeklyActivity}
 				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 			/>
@@ -356,16 +374,16 @@ export function PlaygroundPage() {
 		);
 	}
 	if (activeView === "battles") {
-		return <BattlesView onBack={goHome} />;
+		return <BattlesView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
 	}
 	if (activeView === "earnings-lab") {
-		return <EarningsLabView onBack={goHome} />;
+		return <EarningsLabView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
 	}
 	if (activeView === "risk-lab") {
 		return <RiskLabView onBack={goHome} />;
 	}
 	if (activeView === "mood-simulator") {
-		return <MoodSimulatorView onBack={goHome} />;
+		return <MoodSimulatorView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
 	}
 	if (activeView === "practice") {
 		return <PracticeModeView onBack={goHome} />;
@@ -547,38 +565,111 @@ export function PlaygroundPage() {
 					</button>
 				</div>
 
+				{/* Weekly Pack */}
+				<div className="mb-[20px]">
+					<div className="flex items-center justify-between mb-[10px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500">This Week's Pack</p>
+						<span className={`text-[10px] font-bold px-[8px] py-[3px] rounded-full ${weeklyPack.color}`}>{weeklyPack.label}</span>
+					</div>
+					<div className={`rounded-[16px] border overflow-hidden ${weeklyPack.color}`}>
+						{/* Pack header */}
+						<div className="px-[16px] pt-[14px] pb-[12px]">
+							<div className="flex items-center justify-between mb-[10px]">
+								<div>
+									<p className="text-[15px] font-extrabold text-foreground">
+										{weeklyDone}/{weeklyTotal} complete
+									</p>
+									<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
+										{weeklyXpEarned} / {weeklyPack.totalXp} XP earned this week
+									</p>
+								</div>
+								{weeklyDone === weeklyTotal && (
+									<span className="text-[13px] font-bold text-emerald-400 bg-emerald-500/15 px-[10px] py-[4px] rounded-full border border-emerald-500/25">
+										Week Complete! 🎉
+									</span>
+								)}
+							</div>
+							{/* Progress bar */}
+							<div className="h-[5px] rounded-full bg-foreground/10">
+								<div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-blue-400 transition-all duration-500"
+									style={{ width: `${weeklyTotal > 0 ? (weeklyDone / weeklyTotal) * 100 : 0}%` }} />
+							</div>
+						</div>
+						{/* Activity list */}
+						<div className="divide-y divide-foreground/[0.06] bg-surface-1">
+							{weeklyPack.activities.map(activity => {
+								const done = weeklyCompleted.has(activity.id);
+								return (
+									<button key={activity.id} type="button"
+										onClick={() => {
+											// Navigate to the right view for this activity
+											if (activity.type === "lesson") {
+												goToView("lessons");
+												// Pre-select the lesson
+												setTimeout(() => {
+													setActiveLessonId(activity.id);
+													setActiveView("lesson-player");
+													savePlaygroundState("lesson-player", activity.id);
+													scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
+												}, 50);
+											} else if (activity.type === "battle") goToView("battles");
+											else if (activity.type === "earnings") goToView("earnings-lab");
+											else if (activity.type === "mood") goToView("mood-simulator");
+										}}
+										className="w-full flex items-center gap-[12px] px-[16px] py-[12px] text-left active:bg-foreground/[0.03] transition-colors">
+										<span className="text-[20px] shrink-0">{done ? "✅" : activity.emoji}</span>
+										<div className="flex-1 min-w-0">
+											<p className={`text-[13px] font-semibold ${done ? "line-through dark:text-slate-500 text-slate-400" : "text-foreground"}`}>
+												{activity.title}
+											</p>
+											<p className="text-[11px] dark:text-slate-400 text-slate-500">{activity.subtitle}</p>
+										</div>
+										<div className="flex items-center gap-[4px] shrink-0">
+											<Star size={11} className="text-amber-400" fill="currentColor" />
+											<span className={`text-[12px] font-bold ${done ? "dark:text-slate-500 text-slate-400 line-through" : "text-amber-400"}`}>
+												+{activity.xp}
+											</span>
+										</div>
+										{!done && <ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />}
+									</button>
+								);
+							})}
+						</div>
+					</div>
+				</div>
+
 				{/* All Sections — 2-column grid */}
 				<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Explore</p>
 				<div className="grid grid-cols-2 gap-[10px] mb-[10px]">
 					{[
 						{
 							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
-							subtitle: `${totalLessons} lessons`, view: "lessons" as const,
+							subtitle: `${totalLessons} lessons · 20–60 XP each`, view: "lessons" as const,
 							done: completedLessons, total: totalLessons,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
-							subtitle: `${STOCK_BATTLES.length} matchups`, view: "battles" as const,
+							subtitle: `${STOCK_BATTLES.length} matchups · 20–60 XP`, view: "battles" as const,
 							done: null, total: null,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
-							subtitle: `${EARNINGS_SCENARIOS.length} scenarios`, view: "earnings-lab" as const,
+							subtitle: `${EARNINGS_SCENARIOS.length} scenarios · 25–70 XP`, view: "earnings-lab" as const,
 							done: null, total: EARNINGS_SCENARIOS.length,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
-							subtitle: `${RISK_SCENARIOS.length} comparisons`, view: "risk-lab" as const,
+							subtitle: `${RISK_SCENARIOS.length} comparisons · 15 XP each`, view: "risk-lab" as const,
 							done: null, total: null,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
-							subtitle: `${MOOD_SCENARIOS.length} simulations`, view: "mood-simulator" as const,
+							subtitle: `${MOOD_SCENARIOS.length} simulations · 20 XP each`, view: "mood-simulator" as const,
 							done: null, total: null,
 						},
 						{
 							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Practice",
-							subtitle: `${PRACTICE_TICKERS.length} stocks`, view: "practice" as const,
+							subtitle: `${PRACTICE_TICKERS.length} stocks · no XP, just practice`, view: "practice" as const,
 							done: null, total: null,
 						},
 					].map(s => {
@@ -728,6 +819,9 @@ function LessonPlayer({
 	account,
 	completedLessons,
 	totalLessons,
+	weekKey,
+	weeklyCompleted,
+	onWeeklyComplete,
 	onBack,
 	onComplete,
 }: {
@@ -735,6 +829,9 @@ function LessonPlayer({
 	account: ReturnType<typeof useAccount>["account"];
 	completedLessons: number;
 	totalLessons: number;
+	weekKey?: string;
+	weeklyCompleted?: Set<string>;
+	onWeeklyComplete?: (wk: string, id: string, xp: number) => void;
 	onBack: () => void;
 	onComplete: () => void;
 }) {
@@ -776,13 +873,12 @@ function LessonPlayer({
 		const correct = optionId === lesson.quiz.correctId;
 		if (correct) showXp(lesson.xp);
 		if (!alreadyCompleted) {
-			// Mark lesson done regardless (user engaged with all cards + explanation)
-			// but only award XP for correct answer
 			await completeLesson(lesson.id, correct ? lesson.xp : 0);
-			// Level-up check — only relevant if XP was actually awarded
+			if (correct && weekKey && weeklyCompleted && !weeklyCompleted.has(lesson.id) && onWeeklyComplete)
+				onWeeklyComplete(weekKey, lesson.id, lesson.xp);
 			const prevXp = account?.totalXp ?? 0;
 			const newXp = prevXp + (correct ? lesson.xp : 0);
-			if (!correct) return; // no further XP work needed
+			if (!correct) return;
 			const LEVEL_THRESHOLDS = [100, 300, 600, 1000];
 			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
 			if (crossed) {
@@ -1177,7 +1273,7 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 	);
 }
 
-function BattlesView({ onBack }: { onBack: () => void }) {
+function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 	const [results, setResults] = useState<Record<string, "win" | "loss">>({});
 
@@ -1186,6 +1282,11 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 
 	const handleBattleResult = (battleId: string, won: boolean) => {
 		setResults(r => ({ ...r, [battleId]: won ? "win" : "loss" }));
+		// Mark weekly activity complete if this battle is in the weekly pack
+		if (won && weekKey && weeklyCompleted && !weeklyCompleted.has(battleId) && onWeeklyComplete) {
+			const battle = STOCK_BATTLES.find(b => b.id === battleId);
+			if (battle) onWeeklyComplete(weekKey, battleId, battle.xp);
+		}
 	};
 
 	if (activeBattleId) {
@@ -1236,6 +1337,10 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 									<p className="text-[14px] font-bold">{b.nameA} vs {b.nameB}</p>
 									<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.category} · {b.metricLabel}</p>
 								</div>
+								<div className="flex items-center gap-[4px] shrink-0">
+									<Star size={10} className="text-amber-400" fill="currentColor" />
+									<span className="text-[11px] font-bold text-amber-400">{b.xp}</span>
+								</div>
 								<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
 							</button>
 						);
@@ -1248,7 +1353,7 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack }: { onBack: () => void }) {
+function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
 	const { addXp } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -1346,7 +1451,13 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 												setSelected(opt.id);
 												setPhase("outcome");
 												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (correct && !xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); }
+												if (correct && !xpAwarded.current) {
+													xpAwarded.current = true;
+													addXp(scenario.xp).catch(() => {});
+													showXp(scenario.xp);
+													if (weekKey && weeklyCompleted && !weeklyCompleted.has(scenario.id) && onWeeklyComplete)
+														onWeeklyComplete(weekKey, scenario.id, scenario.xp);
+												}
 											}
 										}}
 									/>
@@ -1435,6 +1546,10 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 								<div className="flex-1 min-w-0">
 									<p className="text-[14px] font-bold">{s.company} Earnings</p>
 									<p className="text-[12px] dark:text-slate-400 text-slate-500 line-clamp-1">{s.context.slice(0, 60)}…</p>
+								</div>
+								<div className="flex items-center gap-[4px] shrink-0">
+									<Star size={10} className="text-amber-400" fill="currentColor" />
+									<span className="text-[11px] font-bold text-amber-400">{s.xp}</span>
 								</div>
 								<ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
 							</button>
@@ -1551,7 +1666,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack }: { onBack: () => void }) {
+function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
 	const { addXp } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1626,7 +1741,7 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 							letter={LETTERS[i] ?? String(i + 1)}
 							text={opt.text}
 							state={optionState(opt.id, scenario.correctId, selected, !!selected)}
-							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); } } } }}
+							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); if (weekKey && weeklyCompleted && !weeklyCompleted.has(scenario!.id) && onWeeklyComplete) onWeeklyComplete(weekKey, scenario!.id, scenario!.xp); } } } }}
 							disabled={!!selected}
 						/>
 					))}
