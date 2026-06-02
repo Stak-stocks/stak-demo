@@ -1849,6 +1849,21 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 // Each position gets a fixed $1,000 allocation (up to 10 positions = $10K)
 const SANDBOX_BUDGET = 10000;
 const SANDBOX_PER_POSITION = 1000;
+const SANDBOX_MAX_POSITIONS = 10;
+
+// Category display config for portfolio themes
+const SANDBOX_CAT_CONFIG: Record<string, { label: string; color: string; bar: string }> = {
+	tech:        { label: "Tech",       color: "text-blue-400",    bar: "bg-blue-500"    },
+	gaming:      { label: "Gaming",     color: "text-violet-400",  bar: "bg-violet-500"  },
+	streaming:   { label: "Streaming",  color: "text-pink-400",    bar: "bg-pink-500"    },
+	finance:     { label: "Finance",    color: "text-emerald-400", bar: "bg-emerald-500" },
+	food_drink:  { label: "Consumer",   color: "text-amber-400",   bar: "bg-amber-500"   },
+	energy:      { label: "Energy",     color: "text-orange-400",  bar: "bg-orange-500"  },
+	travel:      { label: "Travel",     color: "text-cyan-400",    bar: "bg-cyan-500"    },
+	fitness:     { label: "Health",     color: "text-teal-400",    bar: "bg-teal-500"    },
+	fashion:     { label: "Fashion",    color: "text-rose-400",    bar: "bg-rose-500"    },
+	shopping:    { label: "Retail",     color: "text-indigo-400",  bar: "bg-indigo-500"  },
+};
 
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, removeFromSandbox } = useAccount();
@@ -1858,12 +1873,24 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"pnl" | "today" | "recent">("recent");
 	const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+	const [showHowItWorks, setShowHowItWorks] = useState(() =>
+		typeof window !== "undefined" && !localStorage.getItem("sandbox-how-it-works-seen")
+	);
 
 	// Brand lookup map
 	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), []);
 
+	// SPY benchmark for today's comparison
+	const { data: spyData } = useQuery({
+		queryKey: ["stock", "SPY"],
+		queryFn: () => getStockData("SPY"),
+		staleTime: 60 * 1000,
+		retry: 1,
+	});
+	const spyChangeToday = spyData?.quote?.changePercent ?? null;
+
 	const stockQueries = tickers.map(ticker => ({
-		queryKey: ['stock', ticker],
+		queryKey: ["stock", ticker],
 		queryFn: () => getStockData(ticker),
 		staleTime: 60 * 1000,
 		retry: 1,
@@ -1886,10 +1913,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const sortedHoldings = [...holdings].sort((a, b) => {
 		if (sortBy === "pnl") return (b.pricePct ?? -999) - (a.pricePct ?? -999);
 		if (sortBy === "today") return (b.changePercent ?? -999) - (a.changePercent ?? -999);
-		return b.entry.addedAt - a.entry.addedAt; // recent first
+		return b.entry.addedAt - a.entry.addedAt;
 	});
 
-	// Total value: each position is worth SANDBOX_PER_POSITION adjusted by P&L
+	// Total value
 	const investedTotal = tickers.length * SANDBOX_PER_POSITION;
 	const totalValue = holdings.reduce((sum, h) => {
 		if (!h.currentPrice || !h.entry.priceAtAdd) return sum + SANDBOX_PER_POSITION;
@@ -1898,8 +1925,46 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const totalDollarPnl = totalValue - investedTotal;
 	const totalPct = investedTotal > 0 ? (totalDollarPnl / investedTotal) * 100 : 0;
 
+	// Today's portfolio change (weighted average)
+	const todayChanges = holdings.filter(h => h.changePercent !== null);
+	const portfolioTodayPct = todayChanges.length > 0
+		? todayChanges.reduce((sum, h) => sum + (h.changePercent ?? 0), 0) / todayChanges.length
+		: null;
+
+	// Portfolio themes — count category appearances
+	const themeCounts: Record<string, number> = {};
+	holdings.forEach(h => {
+		const cats = h.brand?.interestCategories ?? [];
+		const primary = cats[0];
+		if (primary) themeCounts[primary] = (themeCounts[primary] ?? 0) + 1;
+	});
+	const topThemes = Object.entries(themeCounts)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 4)
+		.map(([cat, count]) => ({ cat, count, pct: Math.round((count / tickers.length) * 100) }));
+
+	// Portfolio health nudge
+	const healthNudge = useMemo(() => {
+		if (tickers.length < 3) return null;
+		const specCount = holdings.filter(h => (h.brand?.interestCategories ?? []).some(c => ["gaming", "energy"].includes(c))).length;
+		const techCount = holdings.filter(h => (h.brand?.interestCategories?.[0] ?? "") === "tech").length;
+		const finCount = holdings.filter(h => (h.brand?.interestCategories ?? []).some(c => ["finance"].includes(c))).length;
+		if (techCount >= tickers.length * 0.7) return "Your portfolio is heavily tech-focused. Consider adding a consumer brand or dividend stock for balance.";
+		if (specCount >= tickers.length * 0.6) return "High speculative exposure. Adding a stable blue-chip stock would reduce your overall risk.";
+		if (finCount === 0 && tickers.length >= 5) return "No financial stocks in your portfolio. Adding a bank or fintech could improve diversification.";
+		return null;
+	}, [holdings, tickers.length]);
+
 	const topWinner = holdings.filter(h => h.pricePct !== null).sort((a, b) => (b.pricePct ?? 0) - (a.pricePct ?? 0))[0];
 	const topLoser = holdings.filter(h => h.pricePct !== null).sort((a, b) => (a.pricePct ?? 0) - (b.pricePct ?? 0))[0];
+
+	// Stocks in My STAK not yet in sandbox
+	const stakNotInSandbox = useMemo(() => {
+		const stakIds = new Set(account?.stakBrandIds ?? []);
+		return allBrands.filter(b =>
+			b.ticker && stakIds.has(b.id) && !tickers.includes(b.ticker.toUpperCase())
+		).slice(0, 5);
+	}, [account?.stakBrandIds, tickers]);
 
 	const handleAdd = async (ticker: string) => {
 		const cached = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", ticker.toUpperCase()]);
@@ -1915,8 +1980,32 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
-				<h2 className="text-[22px] font-extrabold mb-[2px]">Sandbox Portfolio</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Practice money only. No real trades. $1,000 per position.</p>
+				<div className="flex items-center justify-between mb-[2px]">
+					<h2 className="text-[22px] font-extrabold">Sandbox Portfolio</h2>
+					<span className={`text-[11px] font-semibold px-[8px] py-[3px] rounded-full border ${tickers.length >= SANDBOX_MAX_POSITIONS ? "border-rose-500/30 bg-rose-500/10 text-rose-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
+						{tickers.length}/{SANDBOX_MAX_POSITIONS} positions
+					</span>
+				</div>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Practice money only. No real trades.</p>
+
+				{/* How it works — dismissible */}
+				{showHowItWorks && (
+					<div className="rounded-[14px] border border-blue-500/20 bg-blue-500/[0.07] p-[14px] mb-[16px]">
+						<div className="flex items-start justify-between gap-[10px]">
+							<div>
+								<p className="text-[13px] font-bold mb-[6px]">How Sandbox works</p>
+								<div className="space-y-[5px] text-[12px] dark:text-slate-300 text-slate-600">
+									<p>💰 <strong>Each position is worth $1,000</strong> — add up to 10 stocks to invest your $10,000 practice budget</p>
+									<p>📈 <strong>P&L tracks from the price when you added it</strong> — so "since added" shows your real performance if you had invested</p>
+									<p>🔄 <strong>Prices update live</strong> — come back any time to see how your picks are doing</p>
+									<p>✅ <strong>No real money</strong> — nothing here is a real trade. Remove stocks any time</p>
+								</div>
+							</div>
+							<button type="button" onClick={() => { setShowHowItWorks(false); localStorage.setItem("sandbox-how-it-works-seen", "1"); }}
+								className="shrink-0 text-[18px] dark:text-slate-500 text-slate-400 mt-[-2px]">✕</button>
+						</div>
+					</div>
+				)}
 
 				{/* Portfolio overview */}
 				<div className="rounded-[18px] border border-violet-500/25 overflow-hidden mb-[20px]">
@@ -1939,7 +2028,23 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						</div>
 					</div>
 					{tickers.length > 0 && (
-						<div className="bg-surface-1 px-[18px] py-[12px]">
+						<div className="bg-surface-1 px-[18px] py-[12px] space-y-[8px]">
+							{/* Today vs SPY */}
+							{portfolioTodayPct !== null && (
+								<div className="flex items-center justify-between text-[12px]">
+									<span className="dark:text-slate-400 text-slate-500">Today</span>
+									<div className="flex items-center gap-[12px]">
+										<span className={`font-semibold ${portfolioTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+											Your portfolio {portfolioTodayPct >= 0 ? "+" : ""}{portfolioTodayPct.toFixed(2)}%
+										</span>
+										{spyChangeToday !== null && (
+											<span className="dark:text-slate-400 text-slate-500">
+												S&P 500 {spyChangeToday >= 0 ? "+" : ""}{spyChangeToday.toFixed(2)}%
+											</span>
+										)}
+									</div>
+								</div>
+							)}
 							<div className="flex items-center justify-between text-[12px]">
 								<span className="dark:text-slate-400 text-slate-500">{tickers.length} positions · ${investedTotal.toLocaleString()} invested</span>
 								<div className="flex items-center gap-[10px]">
@@ -1950,6 +2055,33 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						</div>
 					)}
 				</div>
+
+				{/* Portfolio themes */}
+				{tickers.length >= 2 && topThemes.length > 0 && (
+					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] mb-[16px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Themes</p>
+						<div className="space-y-[6px]">
+							{topThemes.map(({ cat, pct }) => {
+								const cfg = SANDBOX_CAT_CONFIG[cat] ?? { label: cat, color: "text-slate-400", bar: "bg-slate-500" };
+								return (
+									<div key={cat} className="flex items-center gap-[10px]">
+										<p className={`text-[11px] font-medium w-[70px] shrink-0 ${cfg.color}`}>{cfg.label}</p>
+										<div className="flex-1 h-[5px] rounded-full bg-foreground/10">
+											<div className={`h-full rounded-full ${cfg.bar} transition-all`} style={{ width: `${pct}%` }} />
+										</div>
+										<span className="text-[11px] dark:text-slate-500 text-slate-400 w-[32px] text-right">{pct}%</span>
+									</div>
+								);
+							})}
+						</div>
+						{/* Health nudge */}
+						{healthNudge && (
+							<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[10px] pt-[10px] border-t border-foreground/[0.06] leading-relaxed">
+								💡 {healthNudge}
+							</p>
+						)}
+					</div>
+				)}
 
 				{/* Holdings */}
 				{tickers.length > 0 && (
@@ -2016,15 +2148,20 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 													{h.entry.priceAtAdd ? ` · cost $${h.entry.priceAtAdd.toFixed(2)}` : ""}
 												</p>
 											</div>
-											{/* P&L + today */}
+											{/* P&L + dollar + today */}
 											<div className="text-right shrink-0">
 												{h.pricePct !== null ? (
 													<>
 														<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
 															{h.pricePct >= 0 ? '+' : ''}{h.pricePct.toFixed(1)}%
 														</p>
+														{h.priceDollar !== null && (
+															<p className={`text-[11px] font-semibold ${h.priceDollar >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
+																{h.priceDollar >= 0 ? '+' : ''}${h.priceDollar.toFixed(0)}
+															</p>
+														)}
 														{h.changePercent !== null && (
-															<p className={`text-[10px] ${h.changePercent >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
+															<p className={`text-[10px] dark:text-slate-500 text-slate-400`}>
 																{h.changePercent >= 0 ? '▲' : '▼'} {Math.abs(h.changePercent).toFixed(2)}% today
 															</p>
 														)}
@@ -2121,10 +2258,27 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						</div>
 					</div>
 				) : (
-					<button type="button" onClick={() => setAdding(true)}
-						className="w-full h-[44px] rounded-[12px] border border-violet-500/30 bg-violet-500/[0.07] text-violet-400 font-semibold text-[14px] active:opacity-80">
-						+ Add Stock
-					</button>
+					<div className="space-y-[10px]">
+						{/* Import from My STAK */}
+						{stakNotInSandbox.length > 0 && tickers.length < SANDBOX_MAX_POSITIONS && (
+							<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[12px]">
+								<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">Quick Add from My STAK</p>
+								<div className="flex flex-wrap gap-[6px]">
+									{stakNotInSandbox.map(b => (
+										<button key={b.id} type="button" onClick={() => handleAdd(b.ticker!)}
+											className="flex items-center gap-[6px] rounded-full border border-violet-500/25 bg-violet-500/[0.07] px-[10px] py-[5px] text-[12px] font-semibold text-violet-400 active:opacity-70">
+											<span>{b.ticker}</span>
+											<span className="text-violet-400/60">+</span>
+										</button>
+									))}
+								</div>
+							</div>
+						)}
+						<button type="button" onClick={() => setAdding(true)} disabled={tickers.length >= SANDBOX_MAX_POSITIONS}
+							className={`w-full h-[44px] rounded-[12px] border font-semibold text-[14px] active:opacity-80 transition-opacity ${tickers.length >= SANDBOX_MAX_POSITIONS ? "border-foreground/10 dark:text-slate-500 text-slate-400 cursor-not-allowed" : "border-violet-500/30 bg-violet-500/[0.07] text-violet-400"}`}>
+							{tickers.length >= SANDBOX_MAX_POSITIONS ? "Portfolio full (10/10)" : "+ Add Stock"}
+						</button>
+					</div>
 				)}
 			</div>
 		</div>
