@@ -2370,9 +2370,9 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 		const pickedBrands = Object.values(newPicks)
 			.filter(Boolean)
 			.map(id => WATCHLIST_BRANDS.find(b => b.id === id))
-			.filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
-		const growthCount = pickedBrands.filter(b => b.types[0] === "growth").length;
-		const specCount = pickedBrands.filter(b => b.types[0] === "speculative").length;
+			.filter((b): b is typeof WATCHLIST_BRANDS[number] => !!b);
+		const growthCount = pickedBrands.filter(b => (b.types[0] ?? null) === "growth").length;
+		const specCount = pickedBrands.filter(b => (b.types[0] ?? null) === "speculative").length;
 		let fb: string | null = null;
 		if (growthCount >= 3) fb = "You're getting tech-heavy — consider adding a stable name.";
 		else if (specCount >= 2) fb = "Careful: multiple speculative picks increase volatility.";
@@ -2430,14 +2430,15 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 		if (phase !== "diagnosis") return null;
 		const pickedBrands = Array.from({ length: TOTAL_SLOTS }, (_, i) => slotPicks[i])
 			.map(id => WATCHLIST_BRANDS.find(b => b.id === id))
-			.filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
+			.filter((b): b is typeof WATCHLIST_BRANDS[number] => !!b);
 
 		const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
 		// Use first type of each brand to avoid double counting
 		let growthScore = 0, stabilityScore = 0, familiarityScore = 0, speculativeRisk = 0, incomeScore = 0;
 		for (const b of pickedBrands) {
-			const t = b.types[0]!;
+			const t = b.types[0] ?? null;
+			if (!t) return;
 			growthScore     += t === "growth" ? 16 : t === "speculative" ? 8 : t === "familiar" ? 4 : 0;
 			stabilityScore  += t === "defensive" ? 18 : t === "dividend" ? 14 : t === "familiar" ? 7 : t === "growth" ? 2 : t === "speculative" ? -8 : 0;
 			familiarityScore += t === "familiar" ? 17 : t === "defensive" ? 7 : t === "dividend" ? 5 : t === "growth" ? 4 : 0;
@@ -2498,14 +2499,23 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 			entertainment:"Entertainment", music:"Music", education:"Education",
 			automotive:"Automotive", sustainability:"Sustainability",
 		};
+		// Fallback type labels for brands not in allBrands (KO, WMT, JNJ, COST, PLTR, etc.)
+		const TYPE_EXPOSURE: Record<string, string> = {
+			growth: "High-Growth Stocks", defensive: "Defensive Stocks",
+			dividend: "Dividend Income", speculative: "Speculative Plays", familiar: "Familiar Brands",
+		};
 		const cats = new Set<string>();
 		for (const b of pickedBrands) {
 			const ab = allBrands.find(a => a.ticker?.toLowerCase() === b.id || a.id === b.id);
-			if (ab?.interestCategories) {
+			if (ab?.interestCategories?.length) {
 				ab.interestCategories.forEach(c => {
 					const label = CAT_LABEL[c];
 					if (label) cats.add(label);
 				});
+			} else {
+				// Brand not in allBrands — derive from its primary type
+				const typeLabel = TYPE_EXPOSURE[b.types[0] ?? ""] ?? null;
+				if (typeLabel) cats.add(typeLabel);
 			}
 		}
 
@@ -2796,6 +2806,9 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 							setSlotPicks({});
 							setLastFeedback(null);
 							setSaved(false);
+							setSaving(false);
+							setSearchSlot(null);
+							setSearchQuery("");
 						}}
 						className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80"
 					>
@@ -2953,7 +2966,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const sellValue = pricePerShare * sellShares;
 		await sellFromSandbox(activeStock, sellValue, pricePerShare, sellShares);
 		closeOrder();
-		const remainingShares = totalShares - sellShares;
+		const remainingShares = Math.round((totalShares - sellShares) * 1000) / 1000;
 		if (remainingShares <= 0) {
 			setActiveStock(null);
 		}

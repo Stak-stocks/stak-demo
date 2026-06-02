@@ -468,6 +468,8 @@ function MyStakPage() {
 	const { account, accountLoading, updateStak } = useAccount();
 	const navigate = useNavigate();
 	const [earningsCalendarOpen, setEarningsCalendarOpen] = useState(false);
+	// Reset on unmount so navigating away and back doesn't re-open the calendar
+	useEffect(() => () => setEarningsCalendarOpen(false), []);
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [comparePeers, setComparePeers] = useState<[BrandProfile | null, BrandProfile | null]>([null, null]);
 	const [pickingSlot, setPickingSlot] = useState<0 | 1 | null>(null);

@@ -1589,11 +1589,19 @@ export interface WatchlistSlot {
 export const WATCHLIST_SLOTS: WatchlistSlot[] = [
 	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "A company you use or know well in real life.", examples: ["Apple","Nike","Starbucks","Netflix","Disney"] },
 	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "Another brand you know and trust.", examples: ["Amazon","Spotify","Roblox","McDonald's","Tesla"] },
+	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "A third recognizable brand from daily life.", examples: ["Microsoft","Google","Meta","Netflix","Nike"] },
+	{ type: "familiar",   label: "Familiar Brand",    emoji: "🏠", description: "Round out with another brand you follow.", examples: ["Airbnb","Uber","Snapchat","Pinterest","Coinbase"] },
 	{ type: "growth",     label: "Growth Stock",      emoji: "🚀", description: "A company growing revenue fast — high risk, high potential.", examples: ["NVIDIA","Palantir","Shopify","Datadog","Duolingo"] },
 	{ type: "growth",     label: "Growth Stock",      emoji: "🚀", description: "Another high-growth opportunity.", examples: ["CrowdStrike","Cloudflare","Coinbase","SoundHound","Roblox"] },
+	{ type: "growth",     label: "Growth Stock",      emoji: "🚀", description: "A third growth play — diversify across sectors.", examples: ["Shopify","Toast","Monday.com","Confluent","Asana"] },
 	{ type: "defensive",  label: "Defensive Stock",   emoji: "🛡️", description: "Stable company that holds up in downturns.", examples: ["Procter & Gamble","Johnson & Johnson","Walmart","Costco","Coca-Cola"] },
+	{ type: "defensive",  label: "Defensive Stock",   emoji: "🛡️", description: "Another defensive anchor for your portfolio.", examples: ["Berkshire Hathaway","McDonald's","Waste Management","Realty Income","AT&T"] },
 	{ type: "dividend",   label: "Dividend Stock",    emoji: "💵", description: "Pays regular cash to shareholders.", examples:["Coca-Cola","JPMorgan","Microsoft","Apple","Verizon"] },
+	{ type: "dividend",   label: "Dividend Stock",    emoji: "💵", description: "Another reliable dividend payer.", examples: ["Johnson & Johnson","Procter & Gamble","Realty Income","3M","PepsiCo"] },
+	{ type: "dividend",   label: "Dividend Stock",    emoji: "💵", description: "A third income source to compound returns.", examples: ["AbbVie","Pfizer","Chevron","IBM","Altria"] },
 	{ type: "speculative",label: "Speculative Play",  emoji: "🎲", description: "High risk, high potential — moon or bust.", examples: ["Virgin Galactic","AST SpaceMobile","Rivian","Joby Aviation","SoundHound"] },
+	{ type: "speculative",label: "Speculative Play",  emoji: "🎲", description: "Another high-upside bet — expect volatility.", examples: ["Plug Power","Lucid Motors","IonQ","Archer Aviation","Carvana"] },
+	{ type: "speculative",label: "Speculative Play",  emoji: "🎲", description: "A third speculative position — size carefully.", examples: ["Coinbase","Palantir","Robinhood","DraftKings","SoFi"] },
 ];
 
 export interface WatchlistBrand {
@@ -1806,7 +1814,11 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 	};
 }
 
-/** Get the current day key, e.g. "2026-06-02" */
+/** Get the current day key in local time, e.g. "2026-06-02" */
 export function getCurrentWeekKey(): string {
-	return new Date().toISOString().split("T")[0]!;
+	const d = new Date();
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
 }
