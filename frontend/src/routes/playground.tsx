@@ -1022,6 +1022,20 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 						</>
 					) : (
 						<>
+							{/* Show options with correct/wrong revealed */}
+							<p className="text-[15px] font-bold mb-[10px]">{scenario.question}</p>
+							<div className="space-y-[8px] mb-[14px]">
+								{scenario.options.map((opt, i) => (
+									<OptionBtn
+										key={opt.id}
+										letter={LETTERS[i] ?? String(i + 1)}
+										text={opt.text}
+										state={optionState(opt.id, scenario.correctId, selected, true)}
+										disabled
+									/>
+								))}
+							</div>
+
 							<div className="rounded-[12px] border border-purple-500/30 bg-purple-500/[0.07] p-[14px] mb-[12px]">
 								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[4px]">What Actually Happened</p>
 								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
