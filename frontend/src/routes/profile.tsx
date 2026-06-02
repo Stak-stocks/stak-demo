@@ -269,92 +269,65 @@ function ProfilePage() {
 					<span style={{ pointerEvents: "none" }} className="text-xs dark:text-zinc-400 text-zinc-600 select-none">{email}</span>
 				</div>
 
-				{/* ════════ DASHBOARD GRID ════════ */}
-				<div className="grid grid-cols-2 gap-2.5 mb-5">
+				{/* ════════ STATS CARDS ════════ */}
+				<div className="space-y-[10px] mb-[18px]">
 
-					{/* Your STAK Taste (full width) */}
-				<div style={{ border: "1px solid rgba(99,102,241,0.35)" }} className="col-span-2 rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 shadow-sm dark:shadow-none">
-					<div className="flex items-center justify-between mb-3">
-						<div className="flex items-center gap-1.5">
-							<TrendingUp className="w-3.5 h-3.5 text-violet-400" />
-							<p className="text-[11px] font-bold">Your STAK Taste</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/my-stak" })}
-							className="text-[10px] text-violet-400 font-medium"
-						>
-							{stakBrands.length} stocks &rarr;
-						</button>
-					</div>
-					{hasTagScores ? (
-						<div className="space-y-[9px]">
-							{DISPLAY_CATEGORIES.map(({ key, label, color, text }) => {
-								const pct = displayCategories[key] ?? 0;
-								return (
-									<div key={key} className="flex items-center gap-2">
-										<span className={`text-[10px] font-medium w-[110px] shrink-0 ${text}`}>{label}</span>
-										<div className="flex-1 h-[5px] rounded-full bg-zinc-200 dark:bg-slate-700/60 overflow-hidden">
-											<div
-												className={`h-full rounded-full bg-gradient-to-r ${color} transition-all duration-700`}
-												style={{ width: `${pct}%` }}
-											/>
-										</div>
-										<span className="text-[10px] dark:text-zinc-400 text-zinc-600 w-7 text-right shrink-0 tabular-nums">{pct}%</span>
-									</div>
-								);
-							})}
-						</div>
-					) : (
-						<p className="text-[10px] text-zinc-500 leading-relaxed">
-							Start swiping to build your taste profile — the more you swipe, the more accurate this gets.
-						</p>
-					)}
-				</div>
-
-					{/* Row 3 — STAK Streaks & Badges */}
-					<div style={{ border: "1px solid rgba(251,146,60,0.4)" }} className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex flex-col gap-2 min-h-[110px] shadow-sm dark:shadow-none">
-						{/* header + streak inline */}
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-1.5">
-								<Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
-								<p className="text-[11px] font-bold">Streaks &amp; Badges</p>
+					{/* STAK Taste */}
+					<div className="rounded-[14px] border border-violet-500/20 bg-surface-1 p-[14px]">
+						<div className="flex items-center justify-between mb-[12px]">
+							<div className="flex items-center gap-[8px]">
+								<div className="grid h-[28px] w-[28px] place-items-center rounded-[7px] bg-violet-500/10 text-violet-400"><TrendingUp className="w-[14px] h-[14px]" /></div>
+								<p className="text-[13px] font-bold">STAK Taste</p>
 							</div>
-							<span className="text-sm font-extrabold text-orange-500 dark:text-orange-400">🔥 {streak}d</span>
+							<button type="button" onClick={() => navigate({ to: "/my-stak" })} className="text-[11px] text-violet-400 font-medium">{stakBrands.length} stocks →</button>
 						</div>
-						{/* badges row */}
-						<div className="flex items-center gap-2 flex-wrap">
+						{hasTagScores ? (
+							<div className="space-y-[8px]">
+								{DISPLAY_CATEGORIES.map(({ key, label, color, text }) => {
+									const pct = displayCategories[key] ?? 0;
+									return (
+										<div key={key} className="flex items-center gap-[10px]">
+											<span className={`text-[11px] font-medium w-[100px] shrink-0 ${text}`}>{label}</span>
+											<div className="flex-1 h-[5px] rounded-full bg-foreground/10 overflow-hidden">
+												<div className={`h-full rounded-full bg-gradient-to-r ${color} transition-all duration-700`} style={{ width: `${pct}%` }} />
+											</div>
+											<span className="text-[11px] dark:text-slate-400 text-slate-500 w-7 text-right shrink-0 tabular-nums">{pct}%</span>
+										</div>
+									);
+								})}
+							</div>
+						) : (
+							<p className="text-[12px] dark:text-slate-400 text-slate-500">Start swiping to build your taste profile.</p>
+						)}
+					</div>
+
+					{/* Streak & Badges */}
+					<div className="rounded-[14px] border border-orange-500/20 bg-surface-1 p-[14px]">
+						<div className="flex items-center justify-between mb-[12px]">
+							<div className="flex items-center gap-[8px]">
+								<div className="grid h-[28px] w-[28px] place-items-center rounded-[7px] bg-orange-500/10 text-orange-400"><Flame className="w-[14px] h-[14px]" /></div>
+								<p className="text-[13px] font-bold">Streak &amp; Badges</p>
+							</div>
+							<span className="text-[14px] font-extrabold text-orange-500 dark:text-orange-400">🔥 {streak}d</span>
+						</div>
+						<div className="flex items-center gap-[10px] flex-wrap">
 							{earnedBadges.length === 0 && inProgressBadges.length === 0 ? (
-								<p className="text-[10px] dark:text-zinc-400 text-zinc-600">No badges yet — keep swiping!</p>
+								<p className="text-[12px] dark:text-slate-400 text-slate-500">No badges yet — keep swiping!</p>
 							) : (
 								<>
 									{earnedBadges.map((b) => (
-										<button
-											key={b.id}
-											type="button"
-											onClick={() => setActiveBadge(b)}
-											className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform"
-										>
-											<div className="w-8 h-8 rounded-full border bg-orange-500/10 border-orange-400/30 flex items-center justify-center text-base">
-												{b.emoji}
-											</div>
-											<span className="text-[8px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+										<button key={b.id} type="button" onClick={() => setActiveBadge(b)} className="flex flex-col items-center gap-[4px] active:scale-90 transition-transform">
+											<div className="w-[38px] h-[38px] rounded-[10px] border border-orange-400/30 bg-orange-500/10 flex items-center justify-center text-[18px]">{b.emoji}</div>
+											<span className="text-[9px] dark:text-slate-400 text-slate-500 leading-tight text-center w-[42px] truncate">{b.label}</span>
 										</button>
 									))}
 									{inProgressBadges.map((b) => (
-										<button
-											key={b.id}
-											type="button"
-											onClick={() => setActiveBadge(b)}
-											className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform opacity-40"
-										>
-											<div className="relative w-8 h-8 rounded-full border border-zinc-600/40 bg-zinc-800/40 flex items-center justify-center text-base grayscale">
+										<button key={b.id} type="button" onClick={() => setActiveBadge(b)} className="flex flex-col items-center gap-[4px] active:scale-90 transition-transform opacity-35">
+											<div className="relative w-[38px] h-[38px] rounded-[10px] border border-foreground/10 bg-foreground/[0.04] flex items-center justify-center text-[18px] grayscale">
 												{b.emoji}
-												<div className="absolute inset-0 rounded-full overflow-hidden">
-													<div className="absolute bottom-0 left-0 right-0 bg-orange-500/20 transition-all" style={{ height: `${b.progress * 100}%` }} />
-												</div>
+												<div className="absolute inset-0 rounded-[10px] overflow-hidden"><div className="absolute bottom-0 left-0 right-0 bg-orange-500/20 transition-all" style={{ height: `${b.progress * 100}%` }} /></div>
 											</div>
-											<span className="text-[8px] text-zinc-500 leading-tight text-center w-9 truncate">{b.label}</span>
+											<span className="text-[9px] dark:text-slate-500 text-slate-400 leading-tight text-center w-[42px] truncate">{b.label}</span>
 										</button>
 									))}
 								</>
@@ -362,61 +335,60 @@ function ProfilePage() {
 						</div>
 					</div>
 
-					{/* Playground XP & Level */}
+					{/* Playground Level */}
 					{(() => {
 						const totalXp = account?.totalXp ?? 0;
 						const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
 						const LEVELS = [
-							{ min: 0,   name: "Beginner",  emoji: "🌱", color: "text-slate-500 dark:text-slate-400" },
-							{ min: 100, name: "Learner",   emoji: "📚", color: "text-blue-500 dark:text-blue-400"   },
-							{ min: 300, name: "Investor",  emoji: "📈", color: "text-cyan-600 dark:text-cyan-400"   },
-							{ min: 600, name: "Analyst",   emoji: "🔬", color: "text-violet-600 dark:text-violet-400"},
-							{ min: 1000,name: "Expert",    emoji: "🏆", color: "text-amber-600 dark:text-amber-400"  },
+							{ min: 0,    name: "Beginner", emoji: "🌱", color: "text-slate-500 dark:text-slate-400", bar: "bg-slate-400" },
+							{ min: 100,  name: "Learner",  emoji: "📚", color: "text-blue-500 dark:text-blue-400",   bar: "bg-blue-400"  },
+							{ min: 300,  name: "Investor", emoji: "📈", color: "text-cyan-600 dark:text-cyan-400",   bar: "bg-cyan-400"  },
+							{ min: 600,  name: "Analyst",  emoji: "🔬", color: "text-violet-600 dark:text-violet-400", bar: "bg-violet-400"},
+							{ min: 1000, name: "Expert",   emoji: "🏆", color: "text-amber-600 dark:text-amber-400",  bar: "bg-amber-400" },
 						];
-						const currentLevel = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
+						const nextLevel = LEVELS.find(l => l.min > totalXp);
+						const current = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
+						const levelPct = nextLevel ? Math.round(((totalXp - current.min) / (nextLevel.min - current.min)) * 100) : 100;
 						if (totalXp === 0 && completedLessons === 0) return null;
 						return (
-							<div style={{ border: "1px solid rgba(139,92,246,0.3)" }} className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex items-center gap-3 shadow-sm dark:shadow-none">
-								<span className="text-[28px]">{currentLevel.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<div className="flex items-center justify-between mb-[3px]">
-										<p className={`text-[13px] font-extrabold ${currentLevel.color}`}>{currentLevel.name}</p>
-										<p className="text-[12px] font-bold text-foreground">{totalXp} XP</p>
+							<div className="rounded-[14px] border border-violet-500/15 bg-surface-1 p-[14px]">
+								<div className="flex items-center gap-[12px] mb-[10px]">
+									<span className="text-[28px]">{current.emoji}</span>
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center justify-between">
+											<p className={`text-[14px] font-extrabold ${current.color}`}>{current.name}</p>
+											<p className="text-[13px] font-bold text-foreground">{totalXp} XP</p>
+										</div>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Playground · {completedLessons} lessons done</p>
 									</div>
-									<p className="text-[10px] dark:text-zinc-400 text-zinc-600">{completedLessons} lessons completed in Playground</p>
 								</div>
+								<div className="h-[5px] rounded-full bg-foreground/10">
+									<div className={`h-full rounded-full ${current.bar} transition-all`} style={{ width: `${levelPct}%` }} />
+								</div>
+								{nextLevel && <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-[5px]">{nextLevel.min - totalXp} XP to {nextLevel.name}</p>}
 							</div>
 						);
 					})()}
 
-					{/* Row 2 — Intel Library */}
-					<button
-						type="button"
-						onClick={() => setShowLibrary(true)}
-						style={{ border: "1px solid rgba(6,182,212,0.25)" }}
-						className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur p-3 flex flex-col justify-between min-h-[110px] active:scale-[0.99] transition-all hover:brightness-105 shadow-sm dark:shadow-none text-left"
-					>
-						<div className="flex items-center gap-1.5">
-							<BookOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-							<p className="text-[11px] font-bold">Intel Library</p>
-						</div>
-						{readCards.length === 0 ? (
-							<p className="text-[10px] dark:text-zinc-400 text-zinc-600 leading-tight">Swipe 5× to unlock your first insight</p>
-						) : (
-							<div>
-								<p className="text-2xl font-extrabold text-cyan-500 dark:text-cyan-400 leading-none">{readCards.length}</p>
-								<p className="text-[10px] text-zinc-500 mt-0.5">{readCards.length === 1 ? "insight" : "insights"} unlocked</p>
+					{/* Intel Library */}
+					<button type="button" onClick={() => setShowLibrary(true)} className="w-full rounded-[14px] border border-cyan-500/20 bg-surface-1 p-[14px] text-left active:opacity-80 transition-opacity">
+						<div className="flex items-center justify-between mb-[10px]">
+							<div className="flex items-center gap-[8px]">
+								<div className="grid h-[28px] w-[28px] place-items-center rounded-[7px] bg-cyan-500/10 text-cyan-500 dark:text-cyan-400"><BookOpen className="w-[14px] h-[14px]" /></div>
+								<p className="text-[13px] font-bold">Intel Library</p>
 							</div>
-						)}
-						<div className="w-full h-1 rounded-full bg-zinc-200 dark:bg-slate-700 overflow-hidden">
+							<p className="text-[14px] font-extrabold text-cyan-500 dark:text-cyan-400">{readCards.length}<span className="text-[11px] dark:text-slate-400 text-slate-500 font-normal ml-[3px]">/ {INTEL_CARDS.length}</span></p>
+						</div>
+						<div className="h-[5px] rounded-full bg-foreground/10 overflow-hidden">
 							<div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${(readCards.length / INTEL_CARDS.length) * 100}%` }} />
 						</div>
+						{readCards.length === 0 && <p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[6px]">Swipe 5× to unlock your first insight</p>}
 					</button>
 
 				</div>
 
 				{/* ════════ SETTINGS LIST ════════ */}
-				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5 shadow-sm dark:shadow-none">
+				<div className="rounded-[14px] bg-surface-1 border border-foreground/10 divide-y divide-foreground/[0.06] mb-[18px]">
 					{[
 						{ icon: User, label: "Personal Details", iconBg: "bg-blue-500/15", iconColor: "text-blue-400", to: "/profile/personal-details" as const },
 						{ icon: Shield, label: "Security & Password", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", to: "/profile/security" as const },
@@ -425,7 +397,7 @@ function ProfilePage() {
 							key={item.label}
 							type="button"
 							onClick={() => item.to && navigate({ to: item.to })}
-							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-50 dark:hover:bg-slate-800/30 transition-colors first:rounded-t-xl"
+							className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-foreground/[0.03] transition-colors first:rounded-t-xl"
 						>
 							<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.iconBg}`}>
 								<item.icon className={`w-4 h-4 ${item.iconColor}`} />
@@ -473,7 +445,7 @@ function ProfilePage() {
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/profile/help-support" })}
-						className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-50 dark:hover:bg-slate-800/30 transition-colors last:rounded-b-xl"
+						className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-foreground/[0.03] transition-colors last:rounded-b-xl"
 					>
 						<div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15">
 							<HelpCircle className="w-4 h-4 text-amber-400" />
@@ -534,7 +506,7 @@ function ProfilePage() {
 										key={card.id}
 										type="button"
 										onClick={() => { setReviewCard(card); setShowLibrary(false); setSheetTranslate(0); }}
-										className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-surface-1 border border-zinc-200 dark:border-slate-700/30 text-left hover:border-cyan-500/30 active:scale-[0.98] transition-all"
+										className="w-full flex items-center gap-3 p-3 rounded-[12px] bg-surface-1 border border-foreground/10 text-left hover:border-cyan-500/30 active:opacity-80 transition-colors"
 									>
 										<span className="text-2xl shrink-0">{card.emoji}</span>
 										<div className="flex-1 min-w-0">

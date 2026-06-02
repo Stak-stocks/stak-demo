@@ -41,7 +41,7 @@ interface InfoRowProps {
 
 function InfoRow({ heading, content, icon, color, loading = false, right = null }: InfoRowProps) {
 	return (
-		<div className="flex min-h-[74px] items-center rounded-[14px] border border-white/[0.055] bg-surface-1/82 px-[12px] py-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-md">
+		<div className="flex min-h-[74px] items-center rounded-[14px] border border-white/[0.055] bg-surface-1/82 px-[12px] py-[10px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-md">
 			<div className={`grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[12px] border ${COLOR_MAP[color]}`}>
 				{icon}
 			</div>

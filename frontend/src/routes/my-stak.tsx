@@ -207,7 +207,7 @@ function StatCard({ icon, iconColor, number, title, subtitle }: {
 	subtitle?: string;
 }) {
 	return (
-		<div className="flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.03)] backdrop-blur-xl">
+		<div className="flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl">
 			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
 				{icon}
 			</div>
@@ -348,7 +348,7 @@ function DetailIconBox({ children, color, small = false }: { children: React.Rea
 
 function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
 	return (
-		<section className={`rounded-[13px] border border-foreground/[0.09] bg-surface-1 px-[12px] py-[12px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl ${className}`}>
+		<section className={`rounded-[13px] border border-foreground/[0.09] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-xl ${className}`}>
 			{children}
 		</section>
 	);
