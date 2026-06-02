@@ -506,7 +506,7 @@ export function SwipeableCardStack({
 				{/* Card 3 -- furthest back */}
 				{deck[currentIndex + 2] && (
 					<div
-						className="absolute overflow-hidden rounded-[24px] border border-zinc-700/40 shadow-xl pointer-events-none"
+						className="absolute overflow-hidden rounded-[24px] border border-foreground/15 shadow-xl pointer-events-none"
 						style={{
 							left:      isExiting ? c2Left : c3Left,
 							top:       isExiting ? c2Top  : c3Top,
@@ -527,7 +527,7 @@ export function SwipeableCardStack({
 				{/* Card 2 -- middle */}
 				{deck[currentIndex + 1] && (
 					<div
-						className="absolute overflow-hidden rounded-[24px] border border-zinc-700/50 shadow-xl pointer-events-none"
+						className="absolute overflow-hidden rounded-[24px] border border-foreground/20 shadow-xl pointer-events-none"
 						style={{
 							left:      isExiting ? 0      : c2Left,
 							top:       isExiting ? 0      : c2Top,
