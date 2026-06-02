@@ -1005,7 +1005,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "revenueGrowth",
 		metricLabel: "Revenue Growth",
 		higherWins: true,
-		explanation: "NVIDIA has dominated AI chip demand with its H100/H200 GPUs, posting explosive revenue growth. AMD is gaining ground with MI300X but remains well behind in the AI race for now.",
+		explanation: "NVIDIA's H100 and H200 GPUs became the must-have hardware for training AI models — every major cloud provider (AWS, Azure, Google) scrambled to buy them. That scarcity created explosive revenue growth. AMD makes competitive AI chips (MI300X) and is gaining share, but NVIDIA's CUDA software ecosystem creates a switching cost: most AI developers have built workflows on CUDA for over a decade and don't want to relearn. That lock-in gives NVIDIA pricing power AMD can't easily match.",
 		xp: 20,
 	},
 	{
@@ -1018,7 +1018,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "profitMargin",
 		metricLabel: "Profit Margin",
 		higherWins: true,
-		explanation: "Chipotle has consistently delivered stronger profit margins than Starbucks through operational efficiency and menu simplicity. Starbucks faces higher complexity and recent operational challenges.",
+		explanation: "Chipotle's menu has just 5 proteins and 7 toppings — every store runs the same simple assembly line, so training is fast and waste is low. Starbucks has thousands of drink combinations, expensive espresso machines, barista training, and a mobile ordering system that creates backlogs during peak hours. Those backlogs slow service, frustrate customers, and raise labour costs. Starbucks also operated too many low-profit locations and relied on price increases to mask slowing foot traffic — a strategy that has limits.",
 		xp: 20,
 	},
 	{
@@ -1031,7 +1031,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "revenueGrowth",
 		metricLabel: "Revenue Growth",
 		higherWins: true,
-		explanation: "Coinbase is more exposed to crypto market cycles, which can drive massive revenue swings. Robinhood is diversifying into crypto, options, and retirement products to reduce volatility.",
+		explanation: "Coinbase earns transaction fees every time someone buys or sells crypto. When Bitcoin rallies and retail traders flood in, Coinbase's revenue explodes. But in a crypto winter (like 2022), trading volumes collapse and so does revenue. Robinhood earns money through payment for order flow (PFOF) on stock trades and is actively diversifying into crypto, retirement accounts, and credit cards. That diversification makes Robinhood's revenue more stable but means it grows slower than Coinbase does in a crypto bull market.",
 		xp: 20,
 	},
 	{
@@ -1044,7 +1044,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "profitMargin",
 		metricLabel: "Profit Margin",
 		higherWins: true,
-		explanation: "Both are highly profitable, but Microsoft's Azure cloud and Office 365 subscription model drives exceptional margins. Alphabet's ad revenue is highly profitable but carries more cyclical risk.",
+		explanation: "Microsoft sells Office 365 and Azure cloud services on recurring subscriptions — once a company is on Microsoft's tools, switching is painful, so customers stay for years and margins stay high. Alphabet earns ~80% of revenue from advertising, which is highly profitable but more vulnerable to economic slowdowns (advertisers cut budgets in recessions) and to competition from TikTok and Amazon eating into ad share. Microsoft's subscription model is simply more predictable and defensible.",
 		xp: 20,
 	},
 	{
@@ -1057,7 +1057,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "profitMargin",
 		metricLabel: "Profit Margin",
 		higherWins: true,
-		explanation: "Tesla achieved automotive profitability years ahead of most EV startups. Rivian is still in early production ramp-up, spending heavily with negative margins — though improving.",
+		explanation: "Tesla built its own factories, battery technology, and software — after years of losses, it figured out how to manufacture EVs profitably. Rivian is earlier on that same journey: it sells R1T trucks and R1S SUVs plus Amazon delivery vans, but each vehicle still costs more to build than it sells for. The challenge is that scaling a car factory is brutally expensive — tooling, supply chains, and quality control all take years to optimise. Rivian is improving but hasn't cracked the unit economics yet.",
 		xp: 20,
 	},
 	{
@@ -1070,7 +1070,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "peRatio",
 		metricLabel: "P/E Ratio",
 		higherWins: false,
-		explanation: "Costco trades at a significant premium to Walmart because investors love its membership model, loyal customer base, and consistent execution. Walmart is cheaper but growing more slowly.",
+		explanation: "Costco's P/E is much higher than Walmart's because of its membership model — customers pay $65/year just to shop there, which gives Costco guaranteed, predictable revenue before selling a single product. That loyalty also means Costco can sell goods at razor-thin margins (sometimes at cost) and still profit from the membership fees. Walmart competes on low prices without that guaranteed income, making it more vulnerable to Amazon. Investors pay a premium for Costco's predictability and its almost cult-like customer loyalty.",
 		xp: 20,
 	},
 	{
@@ -1083,7 +1083,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "revenueGrowth",
 		metricLabel: "Revenue Growth",
 		higherWins: true,
-		explanation: "Both are enterprise SaaS leaders, but ServiceNow has been growing faster with its AI-powered platform. Salesforce is larger but growing more slowly as it faces market saturation in CRM.",
+		explanation: "ServiceNow sells software that automates IT workflows inside large companies — think 'help desk tickets, software deployments, and IT approvals, but automated.' That market is still massively underpenetrated and ServiceNow has been adding AI features that drive expansions within existing customers. Salesforce invented the CRM (customer relationship management) category but that market is now mature and crowded — Microsoft, HubSpot, and others compete hard. Salesforce has to spend heavily on sales and acquisition to keep growing.",
 		xp: 20,
 	},
 	{
@@ -1096,7 +1096,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metric: "profitMargin",
 		metricLabel: "Profit Margin",
 		higherWins: true,
-		explanation: "Meta has transformed into one of the most profitable ad platforms on earth. Snap struggles to monetise its younger user base and remains barely profitable despite years of effort.",
+		explanation: "Meta owns Facebook, Instagram, and WhatsApp — 3 billion daily users across platforms that advertisers pay premium rates to reach. Meta has also invested heavily in AI-powered ad targeting that delivers measurable results for businesses. Snap's problem is its audience: mostly younger users who advertisers pay less to reach, on a platform where brand advertising is harder to measure. Snap has tried augmented reality features and a paid subscription but can't escape the fundamental mismatch between its user base and what advertisers want to buy.",
 		xp: 20,
 	},
 ];
