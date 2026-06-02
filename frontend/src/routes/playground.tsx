@@ -2300,319 +2300,513 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 // ── Build Your First Watchlist ────────────────────────────────
 
 function WatchlistGameView({ onBack }: { onBack: () => void }) {
-	const [picks, setPicks] = useState<Record<number, string | null>>(() => Object.fromEntries(WATCHLIST_SLOTS.map((_, i) => [i, null])));
-	const [activeSlot, setActiveSlot] = useState<number | null>(null);
-	const [showResult, setShowResult] = useState(false);
+	// ── Phase state ──────────────────────────────────────────────────────────────
+	const [phase, setPhase] = useState<"goal" | "building" | "diagnosis">("goal");
+	const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+	// slotPicks: index → brand id
+	const [slotPicks, setSlotPicks] = useState<Record<number, string | null>>({});
+	// search overlay
+	const [searchSlot, setSearchSlot] = useState<number | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	// feedback from last pick
+	const [lastFeedback, setLastFeedback] = useState<string | null>(null);
+	// save-to-stak state
+	const [saving, setSaving] = useState(false);
+	const [saved, setSaved] = useState(false);
 
-	const totalSlots = WATCHLIST_SLOTS.length;
-	const filled = Object.values(picks).filter(Boolean).length;
-	const allFilled = filled === totalSlots;
+	const { account, saveToStak } = useAccount();
 
-	const getPicksForSlot = (slotIdx: number) => {
-		const slot = WATCHLIST_SLOTS[slotIdx]!;
-		const alreadyPicked = new Set(Object.values(picks).filter(Boolean) as string[]);
-		return WATCHLIST_BRANDS.filter(b => b.types.some(t => slot.type === t) && !alreadyPicked.has(b.id));
+	// ── Goals ────────────────────────────────────────────────────────────────────
+	const GOALS = [
+		{ id: "balanced",    label: "Beginner Balanced",  emoji: "⚖️",  desc: "A mix of all types for a solid start" },
+		{ id: "growth",      label: "High Growth",         emoji: "🚀",  desc: "Focus on fast-growing companies" },
+		{ id: "stable",      label: "Safer & Stable",      emoji: "🛡️",  desc: "Defensive names that hold up in downturns" },
+		{ id: "familiar",    label: "Brands I Know",        emoji: "🏠",  desc: "Companies you use and recognize" },
+		{ id: "dividend",    label: "Dividend / Income",   emoji: "💵",  desc: "Stocks that pay regular cash" },
+		{ id: "speculative", label: "Speculative Upside",  emoji: "🎲",  desc: "High risk, high reward plays" },
+	] as const;
+
+	// ── Goal → slot type sequence ─────────────────────────────────────────────
+	type GoalSlotConfig = Record<string, WatchlistSlotType[]>;
+	const GOAL_SLOTS: GoalSlotConfig = {
+		balanced:    ["familiar","familiar","growth","growth","defensive","dividend","speculative"],
+		growth:      ["growth","growth","growth","familiar","familiar","speculative","defensive"],
+		stable:      ["defensive","defensive","dividend","dividend","familiar","familiar","growth"],
+		familiar:    ["familiar","familiar","familiar","familiar","growth","defensive","dividend"],
+		dividend:    ["dividend","dividend","dividend","defensive","defensive","familiar","growth"],
+		speculative: ["speculative","speculative","speculative","growth","growth","familiar","defensive"],
 	};
 
-	const pick = (slotIdx: number, brandId: string) => {
-		setPicks(p => ({ ...p, [slotIdx]: brandId }));
-		setActiveSlot(null);
+	// Build the 7 slots for the current goal, assigning label/emoji/description from WATCHLIST_SLOTS
+	const goalSlotDefs = useMemo(() => {
+		if (!selectedGoal) return [];
+		const types = GOAL_SLOTS[selectedGoal] ?? [];
+		// track usage count per type to pick alternate description for duplicates
+		const usageCount: Record<string, number> = {};
+		return types.map((t) => {
+			const count = usageCount[t] ?? 0;
+			usageCount[t] = count + 1;
+			// find all WATCHLIST_SLOTS matching this type
+			const matching = WATCHLIST_SLOTS.filter(s => s.type === t);
+			// use second slot's description for duplicate (index count)
+			const src = matching[Math.min(count, matching.length - 1)] ?? matching[0]!;
+			return { type: t, label: src.label, emoji: src.emoji, description: src.description };
+		});
+	}, [selectedGoal]);
+
+	const TOTAL_SLOTS = 7;
+	const filledCount = Object.values(slotPicks).filter(Boolean).length;
+	const allFilled = filledCount === TOTAL_SLOTS;
+
+	// ── Pick helpers ─────────────────────────────────────────────────────────────
+	const pickBrand = (slotIdx: number, brandId: string) => {
+		setSlotPicks(p => ({ ...p, [slotIdx]: brandId }));
+		setSearchSlot(null);
+		setSearchQuery("");
+		// compute feedback
+		const brand = WATCHLIST_BRANDS.find(b => b.id === brandId);
+		if (!brand) { setLastFeedback(null); return; }
+		const newPicks = { ...slotPicks, [slotIdx]: brandId };
+		const pickedBrands = Object.values(newPicks)
+			.filter(Boolean)
+			.map(id => WATCHLIST_BRANDS.find(b => b.id === id))
+			.filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
+		const growthCount = pickedBrands.filter(b => b.types[0] === "growth").length;
+		const specCount = pickedBrands.filter(b => b.types[0] === "speculative").length;
+		let fb: string | null = null;
+		if (growthCount >= 3) fb = "You're getting tech-heavy — consider adding a stable name.";
+		else if (specCount >= 2) fb = "Careful: multiple speculative picks increase volatility.";
+		else if (brand.types.includes("defensive")) fb = `Nice — ${brand.ticker} adds stability to your watchlist.`;
+		else if (brand.types.includes("dividend")) fb = `${brand.ticker} pays dividends — good for income exposure.`;
+		else if (brand.types.includes("speculative")) fb = `${brand.ticker} is speculative — high risk, high reward.`;
+		else if (brand.types.includes("familiar")) fb = `${brand.ticker} is a familiar brand — good foundation.`;
+		setLastFeedback(fb);
 	};
 
-	const clear = (slotIdx: number) => setPicks(p => ({ ...p, [slotIdx]: null }));
-
-	// ── Watchlist grading engine ────────────────────────────────────────────────
-
-	// Sector groupings for diversification scoring
-	const SECTOR_GROUP: Record<string, string> = {
-		aapl:"tech", msft:"tech", nvda:"tech", meta:"tech", amzn:"tech",
-		nflx:"streaming", rblx:"gaming",
-		tsla:"ev", rivn:"ev",
-		ko:"consumer", sbux:"consumer", wmt:"consumer", cost:"consumer", nke:"consumer",
-		jnj:"healthcare",
-		coin:"crypto", pltr:"ai_data",
-		asts:"space", spce:"space",
-		shop:"ecommerce",
+	const clearPick = (slotIdx: number) => {
+		setSlotPicks(p => ({ ...p, [slotIdx]: null }));
+		setLastFeedback(null);
 	};
 
-	// Per-brand quality note per slot type it fits — shown in result screen
-	const SLOT_NOTE: Record<string, Partial<Record<string, string>>> = {
-		aapl:  { familiar:"Premium brand with high margins and loyal users — a strong familiar pick.", dividend:"Growing dividend but yield is low (~0.5%). Better for growth than income.", defensive:"Resilient in downturns but premium valuation adds risk." },
-		tsla:  { familiar:"Widely recognised but highly volatile — bumpier ride than a typical familiar pick.", growth:"High growth potential, but swings wildly. Conviction required.", speculative:"Lots of upside, but high valuation makes it risky even as a spec play." },
-		nvda:  { growth:"Best-in-class AI chip exposure. Premium valuation is the main risk.", speculative:"Dominant position but the valuation means any slowdown hurts fast." },
-		sbux:  { familiar:"Well-known but facing real operational headwinds — watch the turnaround story.", dividend:"Steady payer but growth is stalling, which limits future dividend growth." },
-		nflx:  { familiar:"Streaming leader with improving margins. Solid pick for a familiar slot.", growth:"Ad tier and subscriber growth give this real upside potential." },
-		ko:    { defensive:"Textbook defensive — 60+ years of dividend growth, recession-proof demand.", dividend:"One of the most reliable dividend payers on the market. Classic income stock." },
-		wmt:   { defensive:"Essential retail giant. Holds up well in recessions and is expanding e-commerce.", dividend:"Steady dividend with slow but consistent growth." },
-		jnj:   { defensive:"Healthcare giant with a 60+ year dividend streak. One of the best defensive holds.", dividend:"Dividend Aristocrat — over 60 straight years of increases. Elite income stock." },
-		meta:  { growth:"Ad revenue machine with strong AI infrastructure investment. Good growth pick.", familiar:"Billions of users across FB/IG/WhatsApp — extremely recognisable brand." },
-		coin:  { speculative:"Pure-play crypto exposure — revenue moves with the market cycle. High risk, high reward.", growth:"If crypto adoption continues, this is a direct beneficiary. Volatile though." },
-		pltr:  { speculative:"Government and enterprise AI data contracts growing fast, but expensive valuation.", growth:"Strong revenue growth but the P/E is extreme — priced for perfection." },
-		msft:  { growth:"Cloud (Azure) + AI + Office + Xbox — diversified quality growth.", dividend:"Growing dividend backed by massive cash flow. Reliable long-term payer.", defensive:"One of the most resilient mega-caps. Holds up well through cycles." },
-		amzn:  { familiar:"AWS powers the internet; shopping is a daily habit for millions.", growth:"AWS + advertising are fast-growing profit engines — strong growth pick." },
-		rblx:  { familiar:"Gen Z's playground — highly recognisable to younger users.", speculative:"Pre-profitable with big user base. Monetisation is the key risk." },
-		asts:  { speculative:"Pre-revenue satellite broadband. Massive potential, massive execution risk." },
-		spce:  { speculative:"Space tourism pioneer — high concept, high risk. Rebuilding with Delta-class ships." },
-		rivn:  { speculative:"EV truck startup with Amazon as a customer. Still burning cash to scale.", growth:"Production growing but profitability is years away." },
-		cost:  { defensive:"Membership model and loyal customers make Costco one of the most stable retailers.", dividend:"Consistent dividend plus special dividends. Reliable income." },
-		shop:  { growth:"E-commerce infrastructure play — strong revenue growth, improving profitability." },
-		nke:   { familiar:"Global sportswear brand with decades of marketing dominance.", dividend:"Consistent payer currently restructuring — upside once the turnaround clicks." },
-	};
-
-	const getSlotNote = (brandId: string, slotType: string): string => {
-		return SLOT_NOTE[brandId]?.[slotType] ?? `Good fit for the ${slotType} slot.`;
-	};
-
-	// Quality rating per brand within its slot type
-	const SLOT_QUALITY: Record<string, Partial<Record<string, "best" | "good" | "ok">>> = {
-		aapl: { familiar:"best", dividend:"good", defensive:"ok" },
-		tsla: { familiar:"ok", growth:"good", speculative:"ok" },
-		nvda: { growth:"best", speculative:"ok" },
-		sbux: { familiar:"good", dividend:"ok" },
-		nflx: { familiar:"good", growth:"good" },
-		ko:   { defensive:"best", dividend:"best" },
-		wmt:  { defensive:"best", dividend:"good" },
-		jnj:  { defensive:"best", dividend:"best" },
-		meta: { growth:"best", familiar:"good" },
-		coin: { speculative:"good", growth:"ok" },
-		pltr: { speculative:"good", growth:"ok" },
-		msft: { growth:"best", dividend:"best", defensive:"best" },
-		amzn: { familiar:"best", growth:"best" },
-		rblx: { familiar:"good", speculative:"ok" },
-		asts: { speculative:"best" },
-		spce: { speculative:"best" },
-		rivn: { speculative:"good", growth:"ok" },
-		cost: { defensive:"best", dividend:"good" },
-		shop: { growth:"best" },
-		nke:  { familiar:"best", dividend:"good" },
-	};
-
-	const gradeWatchlist = () => {
-		const slotEntries = WATCHLIST_SLOTS.map((slot, i) => ({
-			slot,
-			brand: picks[i] ? WATCHLIST_BRANDS.find(b => b.id === picks[i]) ?? null : null,
-		}));
-		const pickedBrands = slotEntries.map(e => e.brand).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
-
-		// ── 1. Risk balance (0–35): penalise over-concentration in speculative/growth
-		const specCount = slotEntries.filter(e => e.slot.type === "speculative").length;
-		const specPct = Math.round((specCount / totalSlots) * 100);
-		const riskScore = specCount === 0 ? 35 : specCount === 1 ? 32 : specCount === 2 ? 22 : specCount === 3 ? 12 : 0;
-
-		// ── 2. Diversification (0–35): unique sector groups
-		const sectors = new Set(pickedBrands.map(b => SECTOR_GROUP[b.id] ?? b.id));
-		const sectorScore = Math.min(35, Math.round((sectors.size / totalSlots) * 35));
-
-		// ── 3. Income & stability (0–30): has defensive anchor + dividend payer?
-		const hasDefensive = pickedBrands.some(b => b.types.includes("defensive"));
-		const hasDividend = pickedBrands.some(b => b.types.includes("dividend"));
-		const incomeScore = (hasDefensive ? 15 : 0) + (hasDividend ? 15 : 0);
-
-		const total = riskScore + sectorScore + incomeScore;
-
-		// ── Slot quality ratings
-		const slotRatings = slotEntries.map(e => ({
-			slot: e.slot,
-			brand: e.brand,
-			quality: e.brand ? (SLOT_QUALITY[e.brand.id]?.[e.slot.type] ?? "ok") : null,
-			note: e.brand ? getSlotNote(e.brand.id, e.slot.type) : null,
-		}));
-
-		// ── Grade
-		const grade =
-			total >= 90 ? "A"  : total >= 82 ? "A-" :
-			total >= 74 ? "B+" : total >= 66 ? "B"  :
-			total >= 58 ? "B-" : total >= 48 ? "C+" :
-			total >= 38 ? "C"  : "D";
-
-		// ── Actionable tip based on biggest weakness
-		const tip =
-			!hasDefensive && !hasDividend ? "Add at least one defensive or dividend stock (KO, JNJ, WMT, COST, MSFT) to anchor your portfolio against downturns."
-			: !hasDefensive ? "Your portfolio has no defensive anchor. A stock like Coca-Cola, Johnson & Johnson, or Costco would add stability in rough markets."
-			: !hasDividend ? "Consider adding a dividend payer (MSFT, KO, JNJ, WMT) — income compounds over time and cushions drawdowns."
-			: specCount >= 3 ? "You have a lot of speculative exposure. Consider trimming one spec play and replacing it with a growth or defensive stock."
-			: sectors.size <= 3 ? "Your picks are concentrated in similar sectors. Try spreading across consumer, healthcare, or finance for better diversification."
-			: "Strong portfolio. Fine-tune by considering whether your growth picks have competitive moats.";
-
-		const growthCount = slotEntries.filter(e => e.slot.type === "growth").length;
-		const defCount = slotEntries.filter(e => e.slot.type === "defensive" || e.slot.type === "dividend").length;
-		const growthPct = Math.round((growthCount / totalSlots) * 100);
-		const defensivePct = Math.round((defCount / totalSlots) * 100);
-
-		return { grade, total, riskScore, sectorScore, incomeScore, tip, slotRatings, specPct, growthPct, defensivePct };
-	};
-
-	if (showResult) {
-		const { grade, total, riskScore, sectorScore, incomeScore, tip, slotRatings, specPct, growthPct, defensivePct } = gradeWatchlist();
-		const gradeColor = grade.startsWith("A") ? "text-emerald-400" : grade.startsWith("B") ? "text-blue-400" : grade.startsWith("C") ? "text-amber-400" : "text-rose-400";
-		const gradeBorder = grade.startsWith("A") ? "border-emerald-500/25" : grade.startsWith("B") ? "border-blue-500/20" : grade.startsWith("C") ? "border-amber-500/25" : "border-rose-500/25";
-		const gradeBg = grade.startsWith("A") ? "bg-emerald-500/[0.06]" : grade.startsWith("B") ? "bg-blue-500/[0.05]" : grade.startsWith("C") ? "bg-amber-500/[0.06]" : "bg-rose-500/[0.06]";
-		const qualityLabel: Record<string, string> = { best: "Best fit ✓", good: "Good fit ✓", ok: "Acceptable" };
-		const qualityColor: Record<string, string> = { best: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25", good: "text-blue-400 bg-blue-500/10 border-blue-500/25", ok: "dark:text-slate-400 text-slate-500 bg-foreground/[0.04] border-foreground/10" };
-		return (
-			<div className="min-h-full bg-background text-foreground">
-				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<button type="button" onClick={() => setShowResult(false)} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Edit Picks</button>
-					<h2 className="text-[22px] font-extrabold mb-[4px]">Watchlist Grade</h2>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">How well-balanced is your portfolio?</p>
-
-					{/* Grade card */}
-					<div className={`rounded-[18px] border ${gradeBorder} ${gradeBg} p-[20px] mb-[16px]`}>
-						<div className="flex items-center gap-[16px] mb-[16px]">
-							<p className={`text-[64px] font-extrabold leading-none ${gradeColor}`}>{grade}</p>
-							<div>
-								<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500">Portfolio Score</p>
-								<p className="text-[24px] font-extrabold">{total}<span className="text-[14px] dark:text-slate-400 text-slate-500 font-normal">/100</span></p>
-							</div>
-						</div>
-						{/* 3 dimension bars */}
-						<div className="space-y-[10px]">
-							{[
-								{ label: "Risk Balance", score: riskScore, max: 35, color: "bg-orange-400", tip: "Penalises heavy speculative exposure" },
-								{ label: "Diversification", score: sectorScore, max: 35, color: "bg-blue-400", tip: "Rewards spreading across sectors" },
-								{ label: "Income & Stability", score: incomeScore, max: 30, color: "bg-emerald-400", tip: "Rewards defensive + dividend picks" },
-							].map(d => (
-								<div key={d.label}>
-									<div className="flex items-center justify-between mb-[4px]">
-										<p className="text-[12px] font-semibold">{d.label}</p>
-										<p className="text-[11px] dark:text-slate-400 text-slate-500">{d.score}/{d.max}</p>
-									</div>
-									<div className="h-[6px] rounded-full bg-foreground/10">
-										<div className={`h-full rounded-full ${d.color} transition-all duration-500`} style={{ width: `${(d.score / d.max) * 100}%` }} />
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-
-					{/* Mix bar */}
-					<div className="rounded-[13px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Mix</p>
-						<div className="flex h-[8px] rounded-full overflow-hidden mb-[10px] gap-[2px]">
-							{growthPct > 0 && <div className="bg-blue-500 rounded-l-full" style={{width:`${growthPct}%`}} />}
-							{defensivePct > 0 && <div className={`bg-emerald-500 ${growthPct === 0 ? "rounded-l-full" : ""} ${specPct === 0 ? "rounded-r-full" : ""}`} style={{width:`${defensivePct}%`}} />}
-							{specPct > 0 && <div className="bg-rose-500 rounded-r-full" style={{width:`${specPct}%`}} />}
-							{(100 - growthPct - defensivePct - specPct) > 0 && <div className="bg-foreground/20 flex-1" />}
-						</div>
-						<div className="flex justify-between text-[11px]">
-							{[{label:"Growth",pct:growthPct,dot:"bg-blue-500"},{label:"Stable",pct:defensivePct,dot:"bg-emerald-500"},{label:"Spec",pct:specPct,dot:"bg-rose-500"}].map(s => (
-								<div key={s.label} className="flex items-center gap-[4px]">
-									<div className={`w-[6px] h-[6px] rounded-full ${s.dot}`} />
-									<span className="font-semibold dark:text-slate-300 text-slate-600">{s.label} {s.pct}%</span>
-								</div>
-							))}
-						</div>
-					</div>
-
-					{/* Actionable tip */}
-					<div className="rounded-[12px] border border-amber-500/25 bg-amber-500/[0.07] px-[14px] py-[12px] mb-[16px]">
-						<p className="text-[11px] font-bold uppercase tracking-wide text-amber-400 mb-[4px]">What to improve</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{tip}</p>
-					</div>
-
-					{/* Per-pick breakdown */}
-					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Pick by Pick</p>
-					<div className="space-y-[8px] mb-[20px]">
-						{slotRatings.map(({ slot, brand, quality, note }, i) => (
-							brand ? (
-								<div key={i} className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[12px]">
-									<div className="flex items-start justify-between gap-[8px] mb-[4px]">
-										<div className="flex items-center gap-[8px]">
-											<span className="text-[16px]">{slot.emoji}</span>
-											<div>
-												<p className="text-[12px] dark:text-slate-400 text-slate-500">{slot.label}</p>
-												<p className="text-[14px] font-bold">{brand.ticker} — {brand.name}</p>
-											</div>
-										</div>
-										<span className={`shrink-0 text-[10px] font-semibold px-[7px] py-[2px] rounded-full border ${qualityColor[quality ?? "ok"]}`}>
-											{qualityLabel[quality ?? "ok"]}
-										</span>
-									</div>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed mt-[4px] pl-[24px]">{note}</p>
-								</div>
-							) : null
-						))}
-					</div>
-
-					<div className="space-y-[8px]">
-						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:"linear-gradient(90deg,#3b82f6,#6366f1)"}}>Done</button>
-						<button type="button" onClick={() => setShowResult(false)} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Edit Picks</button>
-					</div>
-				</div>
-			</div>
+	// Brands available for a given slot (filtered by type, excluding already picked)
+	const brandsForSlot = (slotIdx: number, query: string): typeof WATCHLIST_BRANDS => {
+		const slotType = goalSlotDefs[slotIdx]?.type;
+		if (!slotType) return [];
+		const alreadyPicked = new Set(
+			Object.entries(slotPicks)
+				.filter(([k, v]) => v && Number(k) !== slotIdx)
+				.map(([, v]) => v as string)
 		);
-	}
+		return WATCHLIST_BRANDS.filter(b =>
+			b.types.includes(slotType) &&
+			!alreadyPicked.has(b.id) &&
+			(query.trim() === "" ||
+				b.ticker.toLowerCase().includes(query.toLowerCase()) ||
+				b.name.toLowerCase().includes(query.toLowerCase()))
+		);
+	};
 
-	if (activeSlot !== null) {
-		const slot = WATCHLIST_SLOTS[activeSlot]!;
-		const options = getPicksForSlot(activeSlot);
+	// Logo helper
+	const brandLogo = (brandId: string) => {
+		const b = allBrands.find(ab => ab.ticker?.toLowerCase() === brandId.toLowerCase() || ab.id === brandId);
+		if (b?.domain) return `https://logo.clearbit.com/${b.domain}`;
+		const domainMap: Record<string, string> = {
+			aapl:"apple.com", tsla:"tesla.com", nvda:"nvidia.com", sbux:"starbucks.com",
+			nflx:"netflix.com", ko:"coca-cola.com", wmt:"walmart.com", jnj:"jnj.com",
+			meta:"meta.com", coin:"coinbase.com", pltr:"palantir.com", msft:"microsoft.com",
+			amzn:"amazon.com", rblx:"roblox.com", asts:"ast-science.com", spce:"virgingalactic.com",
+			rivn:"rivian.com", cost:"costco.com", shop:"shopify.com", nke:"nike.com",
+		};
+		const d = domainMap[brandId];
+		if (d) return `https://logo.clearbit.com/${d}`;
+		return null;
+	};
+
+	// Initials fallback
+	const tickerInitials = (ticker: string) => ticker.slice(0, 2).toUpperCase();
+
+	// ── Diagnosis computation ─────────────────────────────────────────────────────
+	const diagnosisData = useMemo(() => {
+		if (phase !== "diagnosis") return null;
+		const pickedBrands = Array.from({ length: TOTAL_SLOTS }, (_, i) => slotPicks[i])
+			.map(id => WATCHLIST_BRANDS.find(b => b.id === id))
+			.filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
+
+		const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+		// Use first type of each brand to avoid double counting
+		let growthScore = 0, stabilityScore = 0, familiarityScore = 0, speculativeRisk = 0, incomeScore = 0;
+		for (const b of pickedBrands) {
+			const t = b.types[0]!;
+			growthScore     += t === "growth" ? 16 : t === "speculative" ? 8 : t === "familiar" ? 4 : 0;
+			stabilityScore  += t === "defensive" ? 18 : t === "dividend" ? 14 : t === "familiar" ? 7 : t === "growth" ? 2 : t === "speculative" ? -8 : 0;
+			familiarityScore += t === "familiar" ? 17 : t === "defensive" ? 7 : t === "dividend" ? 5 : t === "growth" ? 4 : 0;
+			speculativeRisk  += t === "speculative" ? 18 : t === "growth" ? 9 : t === "familiar" ? 3 : t === "dividend" ? 1 : 0;
+			incomeScore      += t === "dividend" ? 20 : t === "defensive" ? 8 : t === "familiar" ? 2 : 0;
+		}
+		growthScore      = clamp(growthScore);
+		stabilityScore   = clamp(stabilityScore);
+		familiarityScore = clamp(familiarityScore);
+		speculativeRisk  = clamp(speculativeRisk);
+		incomeScore      = clamp(incomeScore);
+
+		// Personality
+		const personality =
+			speculativeRisk >= 65 ? { type: "Speculative Hunter", emoji: "🎲", tagline: "Drawn to big-upside stories — your watchlist may swing sharply with market news." }
+			: growthScore >= 70 && stabilityScore < 50 ? { type: "Growth-Heavy Explorer", emoji: "🚀", tagline: "Strong upside exposure, but your watchlist may move sharply when markets get nervous." }
+			: stabilityScore >= 65 ? { type: "Steady Builder", emoji: "🛡️", tagline: "Prefer stability — your picks should hold up well during market volatility." }
+			: incomeScore >= 55 ? { type: "Income Investor", emoji: "💵", tagline: "Focused on dividend income — your portfolio generates regular cash." }
+			: familiarityScore >= 65 ? { type: "Brand Builder", emoji: "🏠", tagline: "Lean toward companies you recognize — great for building confidence as an investor." }
+			: { type: "Balanced Beginner", emoji: "⚖️", tagline: "Well-rounded starting watchlist with different types of exposure." };
+
+		// Strengths
+		const strengths: string[] = [];
+		if (growthScore >= 60) strengths.push("Strong exposure to companies with high growth potential");
+		if (stabilityScore >= 60) strengths.push("Good defensive anchors that reduce downside risk");
+		if (familiarityScore >= 60) strengths.push("Mix of brands you know and understand — builds investing confidence");
+		if (incomeScore >= 40) strengths.push("Dividend exposure provides regular income potential");
+		const typeSet = new Set(pickedBrands.flatMap(b => b.types));
+		strengths.push(`You picked ${pickedBrands.length} stocks across ${typeSet.size} different categories`);
+
+		// Watchouts
+		const watchouts: string[] = [];
+		const growthPicks = pickedBrands.filter(b => b.types[0] === "growth").length;
+		const specPicks   = pickedBrands.filter(b => b.types[0] === "speculative").length;
+		if (growthPicks >= 3) watchouts.push("Heavy concentration in high-growth tech — may swing more in volatile markets");
+		if (specPicks >= 2)   watchouts.push("Multiple speculative picks add significant volatility risk");
+		if (incomeScore < 25)     watchouts.push("Limited income/dividend exposure — consider one payer for balance");
+		if (stabilityScore < 35)  watchouts.push("Low stability — your watchlist may drop sharply in market downturns");
+		if (familiarityScore < 30) watchouts.push("Few familiar brands — consider adding companies you know well");
+
+		// Next best move (weakest dimension)
+		const dims = [
+			{ name: "growth", score: growthScore, advice: "Add a high-growth stock like NVDA or SHOP to boost upside potential." },
+			{ name: "stability", score: stabilityScore, advice: "Add a defensive stock like KO, JNJ, or WMT to anchor against downturns." },
+			{ name: "familiarity", score: familiarityScore, advice: "Pick a brand you use daily — like AAPL, AMZN, or NKE — to build confidence." },
+			{ name: "speculative", score: speculativeRisk, advice: "Consider trimming speculative exposure for a more stable foundation." },
+			{ name: "income", score: incomeScore, advice: "Add a dividend payer like KO, JNJ, or MSFT for regular income exposure." },
+		];
+		const weakest = dims.filter(d => d.name !== "speculative").sort((a, b) => a.score - b.score)[0];
+		const nextMove = weakest?.advice ?? "Fine-tune your watchlist by reviewing your highest-risk positions.";
+
+		// Exposure themes
+		const CAT_LABEL: Record<string, string> = {
+			tech:"AI & Tech", finance:"Finance", food_drink:"Consumer Brands", gaming:"Gaming",
+			streaming:"Streaming", energy:"Energy", travel:"Travel", fitness:"Health & Fitness",
+			fashion:"Fashion", shopping:"Retail", crypto:"Crypto",
+			food:"Consumer Brands", lifestyle:"Lifestyle", social:"Social", media:"Media",
+			entertainment:"Entertainment", music:"Music", education:"Education",
+			automotive:"Automotive", sustainability:"Sustainability",
+		};
+		const cats = new Set<string>();
+		for (const b of pickedBrands) {
+			const ab = allBrands.find(a => a.ticker?.toLowerCase() === b.id || a.id === b.id);
+			if (ab?.interestCategories) {
+				ab.interestCategories.forEach(c => {
+					const label = CAT_LABEL[c];
+					if (label) cats.add(label);
+				});
+			}
+		}
+
+		return {
+			growthScore, stabilityScore, familiarityScore, speculativeRisk, incomeScore,
+			personality, strengths: strengths.slice(0, 2), watchouts: watchouts.slice(0, 2),
+			nextMove, exposures: Array.from(cats), pickedBrands,
+		};
+	}, [phase, slotPicks]);
+
+	// ── Phase 1: Goal selection ───────────────────────────────────────────────────
+	if (phase === "goal") {
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={() => setActiveSlot(null)} />
-					<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Pick a {slot.label}</p>
-					<h2 className="text-[20px] font-extrabold mb-[2px]">{slot.emoji} {slot.label}</h2>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">{slot.description}</p>
-					<div className="space-y-[8px]">
-						{options.map(b => (
-							<button key={b.id} type="button" onClick={() => pick(activeSlot, b.id)}
-								className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80">
-								<div className="flex-1 min-w-0">
-									<p className="text-[14px] font-bold">{b.ticker} — {b.name}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{b.description}</p>
-								</div>
-								<ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />
+					<BackBtn onClick={onBack} />
+					<h2 className="text-[22px] font-extrabold mb-[4px]">Build Your Watchlist</h2>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[24px]">Choose a strategy to get started.</p>
+					<div className="grid grid-cols-2 gap-[10px]">
+						{GOALS.map(g => (
+							<button
+								key={g.id}
+								type="button"
+								onClick={() => {
+									setSelectedGoal(g.id);
+									setSlotPicks({});
+									setLastFeedback(null);
+									setSaved(false);
+									setPhase("building");
+								}}
+								className={`rounded-[14px] border px-[14px] py-[14px] text-left active:opacity-80 transition-colors ${selectedGoal === g.id ? "border-violet-500/40 bg-violet-500/[0.06]" : "border-foreground/10 bg-surface-1"}`}
+							>
+								<p className="text-[28px] mb-[6px]">{g.emoji}</p>
+								<p className="text-[13px] font-bold mb-[2px]">{g.label}</p>
+								<p className="text-[11px] dark:text-slate-400 text-slate-500 leading-relaxed">{g.desc}</p>
 							</button>
 						))}
-						{options.length === 0 && <p className="text-[13px] dark:text-slate-500 text-slate-400 text-center py-[20px]">All options already picked. Clear another slot first.</p>}
 					</div>
 				</div>
 			</div>
 		);
 	}
+
+	// ── Phase 2: Building ─────────────────────────────────────────────────────────
+	if (phase === "building") {
+		const goalLabel = GOALS.find(g => g.id === selectedGoal)?.label ?? "";
+
+		// Search overlay
+		if (searchSlot !== null) {
+			const slotDef = goalSlotDefs[searchSlot];
+			const options = brandsForSlot(searchSlot, searchQuery);
+			return (
+				<div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col">
+					<div className="flex items-center gap-[12px] px-[18px] pt-[20px] pb-[14px] border-b border-foreground/10">
+						<button type="button" onClick={() => { setSearchSlot(null); setSearchQuery(""); }} className="text-[13px] dark:text-slate-400 text-slate-500 flex items-center gap-[4px]">
+							<ChevronRight size={14} className="rotate-180" /> Back
+						</button>
+						<div className="flex-1">
+							<p className="text-[11px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">{slotDef?.emoji} {slotDef?.label}</p>
+						</div>
+					</div>
+					<div className="px-[18px] pt-[14px] pb-[10px]">
+						<input
+							type="text"
+							autoFocus
+							placeholder="Search by name or ticker..."
+							value={searchQuery}
+							onChange={e => setSearchQuery(e.target.value)}
+							className="w-full h-[42px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] text-[14px] outline-none placeholder:text-slate-500"
+						/>
+					</div>
+					<div className="flex-1 overflow-y-auto px-[18px] pb-[32px] space-y-[8px]">
+						{options.map(b => {
+							const logo = brandLogo(b.id);
+							return (
+								<button
+									key={b.id}
+									type="button"
+									onClick={() => pickBrand(searchSlot, b.id)}
+									className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80"
+								>
+									{logo ? (
+										<img src={logo} alt={b.ticker} className="w-[36px] h-[36px] rounded-[8px] object-contain shrink-0 bg-white" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+									) : (
+										<div className="w-[36px] h-[36px] rounded-[8px] bg-violet-500/20 flex items-center justify-center shrink-0">
+											<span className="text-[11px] font-bold text-violet-400">{tickerInitials(b.ticker)}</span>
+										</div>
+									)}
+									<div className="flex-1 min-w-0">
+										<p className="text-[14px] font-bold">{b.ticker} — {b.name}</p>
+										<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px] leading-relaxed">{b.description}</p>
+									</div>
+									<ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />
+								</button>
+							);
+						})}
+						{options.length === 0 && (
+							<p className="text-[13px] dark:text-slate-500 text-slate-400 text-center py-[24px]">No options match. Try clearing another slot first.</p>
+						)}
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<button type="button" onClick={() => setPhase("goal")} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
+						<ChevronRight size={14} className="rotate-180" /> Goals
+					</button>
+					<h2 className="text-[20px] font-extrabold mb-[2px]">Build Your Watchlist</h2>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[4px]">{goalLabel}</p>
+					<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[8px]">{filledCount}/7 slots filled</p>
+					<div className="h-[4px] rounded-full bg-foreground/10 mb-[12px]">
+						<div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${(filledCount / TOTAL_SLOTS) * 100}%` }} />
+					</div>
+
+					{/* Feedback bar */}
+					{lastFeedback && (
+						<div className="rounded-[10px] border border-amber-500/25 bg-amber-500/[0.07] px-[12px] py-[9px] mb-[14px]">
+							<p className="text-[12px] text-amber-400 leading-relaxed">{lastFeedback}</p>
+						</div>
+					)}
+
+					<div className="space-y-[8px] mb-[20px]">
+						{goalSlotDefs.map((slotDef, i) => {
+							const pickedId = slotPicks[i];
+							const brand = pickedId ? WATCHLIST_BRANDS.find(b => b.id === pickedId) : null;
+							return (
+								<div key={i} style={{ minHeight: 60 }} className="flex items-center gap-[12px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px]">
+									<span className="text-[20px] shrink-0">{slotDef.emoji}</span>
+									<div className="flex-1 min-w-0">
+										<p className="text-[10px] uppercase tracking-wide dark:text-slate-400 text-slate-500">{slotDef.label}</p>
+										{brand ? (
+											<p className="text-[14px] font-bold text-foreground">{brand.ticker} — {brand.name}</p>
+										) : (
+											<p className="text-[13px] dark:text-slate-500 text-slate-400">Not picked yet</p>
+										)}
+									</div>
+									{brand ? (
+										<div className="flex items-center gap-[6px]">
+											<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="text-[11px] text-violet-400 font-medium px-[8px] py-[4px] rounded-full border border-violet-500/30 bg-violet-500/[0.06]">Change</button>
+											<button type="button" onClick={() => clearPick(i)} className="text-[11px] text-rose-400 font-bold">✕</button>
+										</div>
+									) : (
+										<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="shrink-0 text-[12px] font-semibold px-[10px] py-[5px] rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-400">Pick</button>
+									)}
+								</div>
+							);
+						})}
+					</div>
+
+					{allFilled && (
+						<button
+							type="button"
+							onClick={() => setPhase("diagnosis")}
+							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+							style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}
+						>
+							See Diagnosis →
+						</button>
+					)}
+				</div>
+			</div>
+		);
+	}
+
+	// ── Phase 3: Diagnosis ────────────────────────────────────────────────────────
+	const d = diagnosisData;
+	if (!d) return null;
+
+	const dimBars = [
+		{ label: "Growth",          score: d.growthScore,      color: "bg-blue-500"    },
+		{ label: "Stability",       score: d.stabilityScore,   color: "bg-emerald-500" },
+		{ label: "Familiarity",     score: d.familiarityScore, color: "bg-violet-500"  },
+		{ label: "Speculative Risk",score: d.speculativeRisk,  color: "bg-rose-500"    },
+		{ label: "Income",          score: d.incomeScore,      color: "bg-amber-500"   },
+	];
+
+	const handleAddToStak = async () => {
+		if (saving || saved) return;
+		setSaving(true);
+		const existing = new Set(account?.stakBrandIds ?? []);
+		const toAdd = d.pickedBrands.filter(b => !existing.has(b.id));
+		for (const b of toAdd) {
+			await saveToStak(b.id, null);
+		}
+		setSaving(false);
+		setSaved(true);
+	};
 
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={onBack} />
-				<h2 className="text-[22px] font-extrabold mb-[2px]">Build Your Watchlist</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px]">Fill all 7 slots to build a balanced beginner portfolio.</p>
-				<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[20px]">{filled}/{totalSlots} slots filled</p>
-				<div className="h-[4px] rounded-full bg-foreground/10 mb-[20px]"><div className="h-full rounded-full bg-blue-400 transition-all" style={{width:`${(filled/totalSlots)*100}%`}} /></div>
-				<div className="space-y-[8px] mb-[20px]">
-					{WATCHLIST_SLOTS.map((slot, i) => {
-						const pickedId = picks[i];
-						const brand = pickedId ? WATCHLIST_BRANDS.find(b => b.id === pickedId) : null;
-						return (
-							<div key={i} className="flex items-center gap-[12px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px]">
-								<span className="text-[22px] shrink-0">{slot.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide text-[10px]">{slot.label}</p>
-									{brand ? (
-										<p className="text-[14px] font-bold text-foreground">{brand.ticker} — {brand.name}</p>
-									) : (
-										<p className="text-[13px] dark:text-slate-500 text-slate-400">Not picked yet</p>
-									)}
-								</div>
-								{brand ? (
-									<div className="flex items-center gap-[6px]">
-										<button type="button" onClick={() => setActiveSlot(i)} className="text-[11px] text-blue-400 font-medium px-[8px] py-[4px] rounded-full border border-blue-500/30 bg-blue-500/[0.06]">Change</button>
-										<button type="button" onClick={() => clear(i)} className="text-[11px] text-rose-400">✕</button>
-									</div>
-								) : (
-									<button type="button" onClick={() => setActiveSlot(i)} className="shrink-0 text-[12px] font-semibold px-[10px] py-[5px] rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400">Pick</button>
-								)}
-							</div>
-						);
-					})}
+				<button type="button" onClick={() => setPhase("building")} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">
+					<ChevronRight size={14} className="rotate-180" /> Edit Picks
+				</button>
+
+				{/* Personality */}
+				<div className="rounded-[16px] border border-violet-500/25 bg-violet-500/[0.06] px-[18px] py-[16px] mb-[14px]">
+					<p className="text-[32px] mb-[6px]">{d.personality.emoji}</p>
+					<p className="text-[18px] font-extrabold mb-[4px]">{d.personality.type}</p>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed">{d.personality.tagline}</p>
 				</div>
-				{allFilled && (
-					<button type="button" onClick={() => setShowResult(true)} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:'linear-gradient(90deg,#3b82f6,#6366f1)'}}>Grade My Watchlist →</button>
+
+				{/* Dimension scores */}
+				<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px] mb-[14px]">
+					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[12px]">Portfolio Dimensions</p>
+					<div className="space-y-[10px]">
+						{dimBars.map(dim => (
+							<div key={dim.label}>
+								<div className="flex items-center justify-between mb-[4px]">
+									<p className="text-[12px] font-semibold">{dim.label}</p>
+									<p className="text-[11px] dark:text-slate-400 text-slate-500">{dim.score}/100</p>
+								</div>
+								<div className="h-[6px] rounded-full bg-foreground/10">
+									<div className={`h-full rounded-full ${dim.color} transition-all duration-500`} style={{ width: `${dim.score}%` }} />
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Strengths */}
+				{d.strengths.length > 0 && (
+					<div className="rounded-[14px] border border-emerald-500/20 bg-emerald-500/[0.05] px-[14px] py-[12px] mb-[10px]">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-[8px]">Strengths</p>
+						<div className="space-y-[6px]">
+							{d.strengths.map((s, i) => (
+								<div key={i} className="flex items-start gap-[6px]">
+									<span className="text-emerald-400 text-[12px] mt-[1px] shrink-0">✓</span>
+									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-relaxed">{s}</p>
+								</div>
+							))}
+						</div>
+					</div>
 				)}
+
+				{/* Watchouts */}
+				{d.watchouts.length > 0 && (
+					<div className="rounded-[14px] border border-amber-500/20 bg-amber-500/[0.05] px-[14px] py-[12px] mb-[10px]">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-amber-400 mb-[8px]">Watch Out</p>
+						<div className="space-y-[6px]">
+							{d.watchouts.map((w, i) => (
+								<div key={i} className="flex items-start gap-[6px]">
+									<span className="text-amber-400 text-[12px] mt-[1px] shrink-0">⚠</span>
+									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-relaxed">{w}</p>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Next best move */}
+				<div className="rounded-[14px] border border-blue-500/20 bg-blue-500/[0.05] px-[14px] py-[12px] mb-[14px]">
+					<p className="text-[11px] font-bold uppercase tracking-wide text-blue-400 mb-[4px]">Next Best Move</p>
+					<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{d.nextMove}</p>
+				</div>
+
+				{/* Exposure themes */}
+				{d.exposures.length > 0 && (
+					<div className="mb-[14px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">You're exposed to</p>
+						<div className="flex flex-wrap gap-[6px]">
+							{d.exposures.map(cat => (
+								<span key={cat} className="text-[11px] font-medium px-[10px] py-[4px] rounded-full border border-foreground/10 bg-surface-1 dark:text-slate-300 text-slate-600">{cat}</span>
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Actions */}
+				<div className="space-y-[8px] mt-[20px]">
+					<button
+						type="button"
+						onClick={handleAddToStak}
+						disabled={saving || saved}
+						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80 disabled:opacity-60"
+						style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}
+					>
+						{saved ? "Added to STAK ✓" : saving ? "Saving…" : "Add These to My STAK"}
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							setPhase("goal");
+							setSelectedGoal(null);
+							setSlotPicks({});
+							setLastFeedback(null);
+							setSaved(false);
+						}}
+						className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80"
+					>
+						Try a Different Strategy
+					</button>
+				</div>
 			</div>
 		</div>
 	);
 }
+
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
 const SANDBOX_BUDGET = 10000;
