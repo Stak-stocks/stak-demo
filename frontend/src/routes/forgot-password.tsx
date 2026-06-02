@@ -36,7 +36,7 @@ function ForgotPasswordPage() {
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0b0f1a] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
@@ -75,7 +75,7 @@ function ForgotPasswordPage() {
 							placeholder="Enter your email"
 							value={email}
 							onChange={(e) => { setEmail(e.target.value); setSent(false); }}
-							className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 							autoFocus
 						/>
 					</div>

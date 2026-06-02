@@ -142,7 +142,7 @@ function OnboardingPage() {
 
 	if (loading || accountLoading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
+			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -200,7 +200,7 @@ function OnboardingPage() {
 	];
 
 	return (
-		<div className="relative flex flex-col items-center justify-start min-h-screen bg-surface-1 px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-start min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			{/* Progress dots */}
 			{step < 5 && (
 				<div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2">

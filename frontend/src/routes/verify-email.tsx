@@ -182,7 +182,7 @@ function VerifyEmailPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
+			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -194,7 +194,7 @@ function VerifyEmailPage() {
 		// Still checking — show spinner
 		if (codeValid === null) {
 			return (
-				<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
+				<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 				</div>
 			);
@@ -203,7 +203,7 @@ function VerifyEmailPage() {
 		// Expired or already used
 		if (codeValid === false) {
 			return (
-				<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
+				<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 					<div className="absolute top-5 left-6 flex items-center gap-2">
 						<StakLogo size={28} />
 						<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
@@ -250,7 +250,7 @@ function VerifyEmailPage() {
 
 		// Valid — show confirmation button
 		return (
-			<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
+			<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 				<div className="absolute top-5 left-6 flex items-center gap-2">
 					<StakLogo size={28} />
 					<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
@@ -297,7 +297,7 @@ function VerifyEmailPage() {
 	if (!user) return null;
 
 	return (
-		<div className="flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6">
+		<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 			{/* Logo */}
 			<div className="absolute top-5 left-6 flex items-center gap-2">
 				<StakLogo size={28} />

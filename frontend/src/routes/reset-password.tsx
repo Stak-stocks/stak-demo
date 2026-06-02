@@ -90,14 +90,14 @@ function ResetPasswordPage() {
 
 	if (verifying) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
+			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0b0f1a] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
@@ -139,7 +139,7 @@ function ResetPasswordPage() {
 										placeholder="At least 6 characters"
 										value={password}
 										onChange={(e) => setPassword(e.target.value)}
-										className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+										className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 										autoFocus
 									/>
 									<button
@@ -169,7 +169,7 @@ function ResetPasswordPage() {
 									placeholder="Confirm new password"
 									value={confirmPassword}
 									onChange={(e) => setConfirmPassword(e.target.value)}
-									className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+									className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 								/>
 							</div>
 

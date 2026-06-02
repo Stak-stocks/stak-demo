@@ -104,14 +104,14 @@ function SignUpPage() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0b0f1a]">
+			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0b0f1a] px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			{/* Logo — top left */}
 			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
 				<StakLogo size={28} />
@@ -135,7 +135,7 @@ function SignUpPage() {
 							placeholder="Email"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 						/>
 					</div>
 
@@ -148,7 +148,7 @@ function SignUpPage() {
 								placeholder="At least 6 characters"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 							/>
 							<button
 								type="button"
@@ -177,7 +177,7 @@ function SignUpPage() {
 							placeholder="Confirm password"
 							value={confirmPassword}
 							onChange={(e) => setConfirmPassword(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 						/>
 					</div>
 
@@ -211,7 +211,7 @@ function SignUpPage() {
 						type="button"
 						onClick={handleGoogleSignIn}
 						disabled={signingUp}
-						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-surface-2 border dark:border-slate-700 border-slate-200 text-foreground font-medium hover:bg-surface-3 transition-all active:scale-[0.98] disabled:opacity-50"
+						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
 					>
 						<svg className="w-5 h-5" viewBox="0 0 24 24">
 							<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
