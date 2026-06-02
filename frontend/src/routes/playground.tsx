@@ -14,6 +14,7 @@ import {
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
+import { useWeeklyContent } from "@/hooks/useWeeklyContent";
 import { brands as allBrands } from "@/data/brands";
 import { StakLogo } from "@/components/StakLogo";
 
@@ -302,7 +303,8 @@ export function PlaygroundPage() {
 	const totalLessons = LESSONS.length;
 
 	// Weekly Pack (declared here so totalXp is available)
-	const weeklyPack = useMemo(() => getWeeklyPack(totalXp, weekKey), [totalXp, weekKey]);
+	const staticWeeklyPack = useMemo(() => getWeeklyPack(totalXp, weekKey), [totalXp, weekKey]);
+	const { pack: weeklyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood } = useWeeklyContent(staticWeeklyPack);
 	const weeklyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;
 		if (wp?.weekKey !== weekKey) return new Set<string>();
@@ -313,15 +315,11 @@ export function PlaygroundPage() {
 	const weeklyXpEarned = account?.weeklyProgress?.weekKey === weekKey
 		? (account.weeklyProgress.xpEarned ?? 0) : 0;
 
-	// Find next incomplete lesson for "Continue Learning"
+	// Find next incomplete lesson from this week's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
-		const completed = new Set(
-			Object.entries(account?.lessonProgress ?? {})
-				.filter(([, v]) => v.completed)
-				.map(([k]) => k)
-		);
-		return LESSONS.find(l => !completed.has(l.id));
-	}, [account?.lessonProgress]);
+		const weeklyLessonIds = weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
+		return LESSONS.find(l => weeklyLessonIds.includes(l.id) && !weeklyCompleted.has(l.id));
+	}, [weeklyPack.activities, weeklyCompleted]);
 
 	// Onboarding gate
 	if (showOnboarding) {
@@ -345,6 +343,8 @@ export function PlaygroundPage() {
 				onSelectCategory={setActiveCategory}
 				onSelectLesson={(id) => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(id); setActiveView("lesson-player"); savePlaygroundState("lesson-player", id); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onBack={() => { goHome(); setActiveCategory(null); }}
+				weeklyLessonIds={weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id)}
+				weekLabel={weeklyPack.label}
 			/>
 		);
 	}
@@ -374,16 +374,25 @@ export function PlaygroundPage() {
 		);
 	}
 	if (activeView === "battles") {
-		return <BattlesView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
+		return <BattlesView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity}
+			weeklyBattleIds={weeklyPack.activities.filter(a => a.type === "battle").map(a => a.id)}
+			weekLabel={weeklyPack.label} battlesPool={mergedBattles} />;
 	}
 	if (activeView === "earnings-lab") {
-		return <EarningsLabView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
+		return <EarningsLabView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity}
+			weeklyEarningsIds={weeklyPack.activities.filter(a => a.type === "earnings").map(a => a.id)}
+			weekLabel={weeklyPack.label} earningsPool={mergedEarnings} />;
 	}
 	if (activeView === "risk-lab") {
-		return <RiskLabView onBack={goHome} />;
+		return <RiskLabView onBack={goHome}
+			weeklyRiskIds={weeklyPack.activities.filter(a => a.type === "risk").map(a => a.id)}
+			weekLabel={weeklyPack.label} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity}
+			riskPool={mergedRisk} />;
 	}
 	if (activeView === "mood-simulator") {
-		return <MoodSimulatorView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity} />;
+		return <MoodSimulatorView onBack={goHome} weekKey={weekKey} weeklyCompleted={weeklyCompleted} onWeeklyComplete={completeWeeklyActivity}
+			weeklyMoodIds={weeklyPack.activities.filter(a => a.type === "mood").map(a => a.id)}
+			weekLabel={weeklyPack.label} moodPool={mergedMood} />;
 	}
 	if (activeView === "practice") {
 		return <PracticeModeView onBack={goHome} />;
@@ -461,22 +470,6 @@ export function PlaygroundPage() {
 									<div className={`h-full rounded-full bg-gradient-to-r ${currentLevel.bar} transition-all duration-500`} style={{ width: `${levelPct}%` }} />
 								</div>
 							</div>
-						</div>
-						{/* Stats row */}
-						<div className="grid grid-cols-3 gap-[8px]">
-							{[
-								{ label: "Lessons", value: `${completedLessons}/${totalLessons}`, pct: completedLessons / totalLessons, color: "bg-blue-400" },
-								{ label: "Streak", value: streakCount > 0 ? `${streakCount}d 🔥` : "—", pct: Math.min(1, streakCount / 30), color: "bg-orange-400" },
-								{ label: "Badges", value: `${(account?.badges ?? []).length}`, pct: Math.min(1, (account?.badges ?? []).length / 10), color: "bg-violet-400" },
-							].map(s => (
-								<div key={s.label} className="rounded-[10px] bg-foreground/[0.04] px-[10px] py-[9px]">
-									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[2px]">{s.label}</p>
-									<p className="text-[15px] font-extrabold leading-none">{s.value}</p>
-									<div className="h-[3px] rounded-full bg-foreground/10 mt-[6px]">
-										<div className={`h-full rounded-full ${s.color} transition-all`} style={{ width: `${s.pct * 100}%` }} />
-									</div>
-								</div>
-							))}
 						</div>
 					</div>
 				</div>
@@ -566,106 +559,39 @@ export function PlaygroundPage() {
 				</div>
 
 				{/* Weekly Pack */}
-				<div className="mb-[20px]">
-					<div className="flex items-center justify-between mb-[10px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500">This Week's Pack</p>
-						<span className={`text-[10px] font-bold px-[8px] py-[3px] rounded-full ${weeklyPack.color}`}>{weeklyPack.label}</span>
-					</div>
-					<div className={`rounded-[16px] border overflow-hidden ${weeklyPack.color}`}>
-						{/* Pack header */}
-						<div className="px-[16px] pt-[14px] pb-[12px]">
-							<div className="flex items-center justify-between mb-[10px]">
-								<div>
-									<p className="text-[15px] font-extrabold text-foreground">
-										{weeklyDone}/{weeklyTotal} complete
-									</p>
-									<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">
-										{weeklyXpEarned} / {weeklyPack.totalXp} XP earned this week
-									</p>
-								</div>
-								{weeklyDone === weeklyTotal && (
-									<span className="text-[13px] font-bold text-emerald-400 bg-emerald-500/15 px-[10px] py-[4px] rounded-full border border-emerald-500/25">
-										Week Complete! 🎉
-									</span>
-								)}
-							</div>
-							{/* Progress bar */}
-							<div className="h-[5px] rounded-full bg-foreground/10">
-								<div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-blue-400 transition-all duration-500"
-									style={{ width: `${weeklyTotal > 0 ? (weeklyDone / weeklyTotal) * 100 : 0}%` }} />
-							</div>
-						</div>
-						{/* Activity list */}
-						<div className="divide-y divide-foreground/[0.06] bg-surface-1">
-							{weeklyPack.activities.map(activity => {
-								const done = weeklyCompleted.has(activity.id);
-								return (
-									<button key={activity.id} type="button"
-										onClick={() => {
-											// Navigate to the right view for this activity
-											if (activity.type === "lesson") {
-												goToView("lessons");
-												// Pre-select the lesson
-												setTimeout(() => {
-													setActiveLessonId(activity.id);
-													setActiveView("lesson-player");
-													savePlaygroundState("lesson-player", activity.id);
-													scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
-												}, 50);
-											} else if (activity.type === "battle") goToView("battles");
-											else if (activity.type === "earnings") goToView("earnings-lab");
-											else if (activity.type === "mood") goToView("mood-simulator");
-										}}
-										className="w-full flex items-center gap-[12px] px-[16px] py-[12px] text-left active:bg-foreground/[0.03] transition-colors">
-										<span className="text-[20px] shrink-0">{done ? "✅" : activity.emoji}</span>
-										<div className="flex-1 min-w-0">
-											<p className={`text-[13px] font-semibold ${done ? "line-through dark:text-slate-500 text-slate-400" : "text-foreground"}`}>
-												{activity.title}
-											</p>
-											<p className="text-[11px] dark:text-slate-400 text-slate-500">{activity.subtitle}</p>
-										</div>
-										<div className="flex items-center gap-[4px] shrink-0">
-											<Star size={11} className="text-amber-400" fill="currentColor" />
-											<span className={`text-[12px] font-bold ${done ? "dark:text-slate-500 text-slate-400 line-through" : "text-amber-400"}`}>
-												+{activity.xp}
-											</span>
-										</div>
-										{!done && <ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />}
-									</button>
-								);
-							})}
-						</div>
-					</div>
-				</div>
-
 				{/* All Sections — 2-column grid */}
 				<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Explore</p>
 				<div className="grid grid-cols-2 gap-[10px] mb-[10px]">
 					{[
 						{
 							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
-							subtitle: `${totalLessons} lessons · 20–60 XP each`, view: "lessons" as const,
-							done: completedLessons, total: totalLessons,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "lesson").length} this week · 20–60 XP`, view: "lessons" as const,
+							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "lesson" && weeklyCompleted.has(a.id)).length : 0,
+							total: weeklyPack.activities.filter(a => a.type === "lesson").length,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
-							subtitle: `${STOCK_BATTLES.length} matchups · 20–60 XP`, view: "battles" as const,
-							done: null, total: null,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "battle").length} this week · 20–60 XP`, view: "battles" as const,
+							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "battle" && weeklyCompleted.has(a.id)).length : 0,
+							total: weeklyPack.activities.filter(a => a.type === "battle").length,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
-							subtitle: `${EARNINGS_SCENARIOS.length} scenarios · 25–70 XP`, view: "earnings-lab" as const,
-							done: null, total: EARNINGS_SCENARIOS.length,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "earnings").length} this week · 25–70 XP`, view: "earnings-lab" as const,
+							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "earnings" && weeklyCompleted.has(a.id)).length : 0,
+							total: weeklyPack.activities.filter(a => a.type === "earnings").length,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
-							subtitle: `${RISK_SCENARIOS.length} comparisons · 15 XP each`, view: "risk-lab" as const,
-							done: null, total: null,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "risk").length} this week · 15 XP each`, view: "risk-lab" as const,
+							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "risk" && weeklyCompleted.has(a.id)).length : 0,
+							total: weeklyPack.activities.filter(a => a.type === "risk").length,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
-							subtitle: `${MOOD_SCENARIOS.length} simulations · 20 XP each`, view: "mood-simulator" as const,
-							done: null, total: null,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "mood").length} this week · 20 XP each`, view: "mood-simulator" as const,
+							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "mood" && weeklyCompleted.has(a.id)).length : 0,
+							total: weeklyPack.activities.filter(a => a.type === "mood").length,
 						},
 						{
 							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Practice",
@@ -721,17 +647,26 @@ function LessonLibrary({
 	onSelectCategory,
 	onSelectLesson,
 	onBack,
+	weeklyLessonIds,
+	weekLabel,
 }: {
 	account: ReturnType<typeof useAccount>["account"];
 	selectedCategory: LessonCategory | null;
 	onSelectCategory: (c: LessonCategory | null) => void;
 	onSelectLesson: (id: string) => void;
 	onBack: () => void;
+	weeklyLessonIds: string[];
+	weekLabel: string;
 }) {
 	const completedIds = new Set(
 		Object.entries(account?.lessonProgress ?? {}).filter(([, v]) => v.completed).map(([k]) => k)
 	);
-	const visibleLessons = selectedCategory ? LESSONS.filter(l => l.category === selectedCategory) : LESSONS;
+	// Only show this week's lessons
+	const thisWeekLessons = LESSONS.filter(l => weeklyLessonIds.includes(l.id));
+	const pastLessons = LESSONS.filter(l => !weeklyLessonIds.includes(l.id) && completedIds.has(l.id));
+	const visibleLessons = selectedCategory
+		? thisWeekLessons.filter(l => l.category === selectedCategory)
+		: thisWeekLessons;
 
 	// Category completion: all lessons in a category done
 	const categoryComplete = (cat: LessonCategory) => {
@@ -744,12 +679,15 @@ function LessonLibrary({
 		<div className="min-h-full bg-background text-foreground">
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
-				<h2 className="text-[22px] font-extrabold mb-[2px]">Lesson Library</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{totalCompleted}/{LESSONS.length} completed</p>
+				<div className="flex items-center justify-between mb-[2px]">
+					<h2 className="text-[22px] font-extrabold">This Week's Lessons</h2>
+					<span className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[8px] py-[3px] rounded-full">{weekLabel}</span>
+				</div>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{thisWeekLessons.filter(l => completedIds.has(l.id)).length}/{thisWeekLessons.length} done this week</p>
 
-				{/* Overall progress bar */}
+				{/* Week progress bar */}
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[16px]">
-					<div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-violet-400 transition-all" style={{ width: `${(totalCompleted / LESSONS.length) * 100}%` }} />
+					<div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-violet-400 transition-all" style={{ width: `${thisWeekLessons.length > 0 ? (thisWeekLessons.filter(l => completedIds.has(l.id)).length / thisWeekLessons.length) * 100 : 0}%` }} />
 				</div>
 
 				{/* Category filter pills with completion badges */}
@@ -776,6 +714,9 @@ function LessonLibrary({
 
 				{/* Lessons */}
 				<div className="space-y-[8px]">
+					{visibleLessons.length === 0 && (
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons this week.</p>
+					)}
 					{visibleLessons.map(lesson => {
 						const done = completedIds.has(lesson.id);
 						const barColor = CATEGORY_BAR[lesson.category];
@@ -807,6 +748,26 @@ function LessonLibrary({
 						);
 					})}
 				</div>
+
+				{/* Past lessons — completed in previous weeks */}
+				{pastLessons.length > 0 && !selectedCategory && (
+					<div className="mt-[24px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Previously Completed</p>
+						<div className="space-y-[6px]">
+							{pastLessons.map(lesson => (
+								<button key={lesson.id} type="button" onClick={() => onSelectLesson(lesson.id)}
+									className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/[0.06] bg-foreground/[0.02] px-[14px] py-[10px] text-left active:opacity-70 opacity-60">
+									<span className="text-[20px]">{lesson.emoji}</span>
+									<div className="flex-1 min-w-0">
+										<p className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">{lesson.title}</p>
+										<p className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.category}</p>
+									</div>
+									<div className="text-[11px] text-emerald-400/60 font-bold">✓</div>
+								</button>
+							))}
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -1124,27 +1085,32 @@ function DailyChallengeView({
 
 // ── Stock Battles ─────────────────────────────────────────────────────────
 
-function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack: () => void; onResult?: (won: boolean) => void }) {
-	const battle = STOCK_BATTLES.find(b => b.id === battleId)!;
+function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: { battleId: string; onBack: () => void; onResult?: (won: boolean) => void; battlesPool?: typeof STOCK_BATTLES; alreadyWon?: boolean }) {
+	const pool = battlesPool ?? STOCK_BATTLES;
+	const battle = pool.find(b => b.id === battleId)!;
+	// If already won, pre-select so the reveal is shown immediately (read-only, no XP)
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
-	const { addXp } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
 	const xpAwarded = useRef(false);
 	const handlePick = (side: "A" | "B") => {
-		if (selected) return;
+		if (selected || alreadyWon) return;
 		setSelected(side);
-		// Defer XP + result until live data resolves — award only if correct pick
-		setTimeout(() => {
-			if (liveWinner) {
-				const won = side === liveWinner;
+		// Resolve winner after a short delay; retry up to 3s if stock data hasn't loaded yet
+		const resolve = (attempt: number) => {
+			const winner = liveWinner;
+			if (winner) {
+				const won = side === winner;
 				onResult?.(won);
 				if (won && !xpAwarded.current) {
 					xpAwarded.current = true;
-					addXp(battle.xp).catch(() => {});
 					showXp(battle.xp);
 				}
+			} else if (attempt < 6) {
+				setTimeout(() => resolve(attempt + 1), 500);
 			}
-		}, 200);
+			// If data never loads after 3s, silently give up — user can retry
+		};
+		setTimeout(() => resolve(0), 200);
 	};
 
 	const { data: dataA } = useQuery({
@@ -1186,11 +1152,24 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 		? (battle.higherWins ? (numA >= numB ? "A" : "B") : (numA <= numB ? "A" : "B"))
 		: null;
 
+	// When already won: auto-reveal the answer once live data resolves
+	useEffect(() => {
+		if (alreadyWon && liveWinner && !selected) {
+			setSelected(liveWinner);
+		}
+	}, [alreadyWon, liveWinner, selected]);
+
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			{XPFloat}
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} label="All Battles" />
+				{alreadyWon && (
+					<div className="flex items-center gap-[8px] rounded-[10px] bg-emerald-500/10 border border-emerald-500/25 px-[12px] py-[8px] mb-[14px]">
+						<span className="text-[14px]">✅</span>
+						<p className="text-[12px] font-semibold text-emerald-400">Already completed — XP saved</p>
+					</div>
+				)}
 				<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">{battle.category}</p>
 				<h2 className="text-[20px] font-extrabold mb-[2px]">{battle.nameA} vs {battle.nameB}</h2>
 				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">
@@ -1254,37 +1233,50 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[12px]">
 							<p className="text-[13px] font-bold mb-[6px]">Here's the story 📊</p>
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{battle.explanation}</p>
-							<p className="text-[12px] text-amber-400 font-semibold mt-[10px]">+{battle.xp} XP</p>
+							{!alreadyWon && <p className="text-[12px] text-amber-400 font-semibold mt-[10px]">+{battle.xp} XP</p>}
 						</div>
 						<div className="space-y-[8px]">
 							<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f43f5e,#e11d48)" }}>
 								All Battles
 							</button>
-							<button type="button" onClick={() => { setSelected(null); xpAwarded.current = false; }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
-								Rematch ↺
-							</button>
+							{/* Rematch only available if you lost — winners can only view */}
+							{!alreadyWon && selected && liveWinner && selected !== liveWinner && (
+								<button type="button" onClick={() => { setSelected(null); xpAwarded.current = false; }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+									Try Again ↺
+								</button>
+							)}
 						</div>
 					</div>
 				) : (
-					<p className="text-center text-[13px] dark:text-slate-400 text-slate-500 mt-[8px]">Tap a stock to make your pick</p>
+					<p className="text-center text-[13px] dark:text-slate-400 text-slate-500 mt-[8px]">
+						{alreadyWon ? "Loading result…" : "Tap a stock to make your pick"}
+					</p>
 				)}
 			</div>
 		</div>
 	);
 }
 
-function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
+function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete, weeklyBattleIds, weekLabel, battlesPool }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void; weeklyBattleIds?: string[]; weekLabel?: string; battlesPool?: typeof STOCK_BATTLES }) {
+	const pool = battlesPool ?? STOCK_BATTLES;
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
-	const [results, setResults] = useState<Record<string, "win" | "loss">>({});
+	// Seed local results from Firestore weeklyCompleted so state survives navigation
+	const [results, setResults] = useState<Record<string, "win" | "loss">>(() => {
+		const seed: Record<string, "win" | "loss"> = {};
+		if (weeklyCompleted) {
+			for (const id of weeklyCompleted) seed[id] = "win";
+		}
+		return seed;
+	});
 
 	const wins = Object.values(results).filter(r => r === "win").length;
 	const total = Object.keys(results).length;
 
 	const handleBattleResult = (battleId: string, won: boolean) => {
 		setResults(r => ({ ...r, [battleId]: won ? "win" : "loss" }));
-		// Mark weekly activity complete if this battle is in the weekly pack
+		// completeWeeklyActivity is the single XP source — BattleDetail no longer calls addXp directly
 		if (won && weekKey && weeklyCompleted && !weeklyCompleted.has(battleId) && onWeeklyComplete) {
-			const battle = STOCK_BATTLES.find(b => b.id === battleId);
+			const battle = pool.find(b => b.id === battleId);
 			if (battle) onWeeklyComplete(weekKey, battleId, battle.xp);
 		}
 	};
@@ -1293,8 +1285,10 @@ function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { o
 		return (
 			<BattleDetail
 				battleId={activeBattleId}
+				alreadyWon={weeklyCompleted?.has(activeBattleId)}
 				onBack={() => setActiveBattleId(null)}
 				onResult={(won) => handleBattleResult(activeBattleId, won)}
+				battlesPool={pool}
 			/>
 		);
 	}
@@ -1304,7 +1298,10 @@ function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { o
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Stock Battles</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Pick the winner. See the real numbers.</p>
+				<div className="flex items-center gap-[8px] mb-[16px]">
+					<p className="text-[13px] dark:text-slate-400 text-slate-500">Pick the winner. See the real numbers.</p>
+					{weekLabel && <span className="text-[10px] font-bold bg-violet-500/15 text-violet-400 px-[7px] py-[2px] rounded-full">{weekLabel}</span>}
+				</div>
 
 				{/* Win rate banner */}
 				{total > 0 && (
@@ -1325,7 +1322,7 @@ function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { o
 				)}
 
 				<div className="space-y-[8px]">
-					{STOCK_BATTLES.map(b => {
+					{(weeklyBattleIds ? pool.filter(b => weeklyBattleIds.includes(b.id)) : pool).map(b => {
 						const result = results[b.id];
 						return (
 							<button key={b.id} type="button" onClick={() => setActiveBattleId(b.id)}
@@ -1353,29 +1350,46 @@ function BattlesView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { o
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
-	const { addXp } = useAccount();
+function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete, weeklyEarningsIds, weekLabel, earningsPool }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void; weeklyEarningsIds?: string[]; weekLabel?: string; earningsPool?: typeof EARNINGS_SCENARIOS }) {
+	const pool = earningsPool ?? EARNINGS_SCENARIOS;
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [phase, setPhase] = useState<"question" | "outcome">("question");
-	const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-	const xpAwarded = useRef(false);
-	const savedScrollY = useRef(0); // save list scroll position when entering a scenario
+	// Seed completedIds from Firestore so it survives navigation
+	const [completedIds, setCompletedIds] = useState<Set<string>>(() => new Set(weeklyCompleted ?? []));
+	// Re-sync if weeklyCompleted arrives after mount (Firestore late hydration)
+	const prevWeeklyRef = useRef(weeklyCompleted);
+	useEffect(() => {
+		if (weeklyCompleted && weeklyCompleted !== prevWeeklyRef.current) {
+			prevWeeklyRef.current = weeklyCompleted;
+			setCompletedIds(prev => {
+				// Merge: add any Firestore IDs not yet in local state
+				const merged = new Set(prev);
+				for (const id of weeklyCompleted) merged.add(id);
+				return merged;
+			});
+		}
+	}, [weeklyCompleted]);
+	const savedScrollY = useRef(0);
 
-	const scenario = EARNINGS_SCENARIOS.find(s => s.id === activeId);
-	const currentIdx = EARNINGS_SCENARIOS.findIndex(s => s.id === activeId);
-	const nextScenario = EARNINGS_SCENARIOS[currentIdx + 1];
+	const visibleScenarios = weeklyEarningsIds ? pool.filter(s => weeklyEarningsIds.includes(s.id)) : pool;
+	const scenario = pool.find(s => s.id === activeId);
+	const currentIdx = visibleScenarios.findIndex(s => s.id === activeId);
+	// Next scenario: skip ones already correctly completed
+	const nextScenario = visibleScenarios.slice(currentIdx + 1).find(s => !completedIds.has(s.id)) ?? visibleScenarios[currentIdx + 1];
 
 	const scrollEl = () => document.querySelector("[data-scroll-root]");
 
 	const openScenario = (id: string) => {
-		// Save current scroll position so we can restore it when going back
 		savedScrollY.current = scrollEl()?.scrollTop ?? 0;
 		setActiveId(id);
-		setSelected(null);
-		setPhase("question");
-		xpAwarded.current = false;
+		const alreadyCorrect = completedIds.has(id);
+		const resolvedCorrectId = pool.find(s => s.id === id)?.correctId ?? null;
+		// Only jump to outcome if already correct AND we can resolve the correctId
+		// If correctId is missing, fall back to question phase to avoid a broken state
+		setSelected(alreadyCorrect && resolvedCorrectId ? resolvedCorrectId : null);
+		setPhase(alreadyCorrect && resolvedCorrectId ? "outcome" : "question");
 		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	};
 
@@ -1393,9 +1407,8 @@ function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }:
 		const alreadyDone = completedIds.has(scenario.id);
 		return (
 			<div className="min-h-full bg-background text-foreground">
-			{XPFloat}
+				{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					{XPFloat}
 				<BackBtn onClick={backToList} label="All Scenarios" />
 					<div className="flex items-center gap-[10px] mb-[16px]">
 						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
@@ -1450,12 +1463,13 @@ function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }:
 												const correct = opt.id === scenario.correctId;
 												setSelected(opt.id);
 												setPhase("outcome");
-												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (correct && !xpAwarded.current) {
-													xpAwarded.current = true;
-													addXp(scenario.xp).catch(() => {});
+												if (correct) {
+													// Guard with weeklyCompleted (Firestore source of truth) to prevent
+													// double-fire from stale completedIds closure on rapid re-tap
+													const alreadyAwarded = weeklyCompleted?.has(scenario.id) ?? false;
+													setCompletedIds(prev => new Set([...prev, scenario.id]));
 													showXp(scenario.xp);
-													if (weekKey && weeklyCompleted && !weeklyCompleted.has(scenario.id) && onWeeklyComplete)
+													if (weekKey && !alreadyAwarded && onWeeklyComplete)
 														onWeeklyComplete(weekKey, scenario.id, scenario.xp);
 												}
 											}
@@ -1517,25 +1531,28 @@ function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }:
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Earnings Lab</h2>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Learn why stocks react the way they do after earnings.</p>
+				<div className="flex items-center gap-[8px] mb-[16px]">
+					<p className="text-[13px] dark:text-slate-400 text-slate-500">Learn why stocks react after earnings.</p>
+					{weekLabel && <span className="text-[10px] font-bold bg-purple-500/15 text-purple-400 px-[7px] py-[2px] rounded-full">{weekLabel}</span>}
+				</div>
 
 				{/* Progress indicator */}
 				{doneCount > 0 && (
 					<div className="flex items-center gap-[10px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[10px] mb-[16px]">
 						<div className="flex-1">
 							<div className="flex items-center justify-between mb-[4px]">
-								<p className="text-[12px] font-semibold">{doneCount}/{EARNINGS_SCENARIOS.length} completed</p>
-								{doneCount === EARNINGS_SCENARIOS.length && <span className="text-[11px] text-emerald-400 font-bold">All done! 🎉</span>}
+								<p className="text-[12px] font-semibold">{doneCount}/{visibleScenarios.length} completed</p>
+								{doneCount === visibleScenarios.length && <span className="text-[11px] text-emerald-400 font-bold">All done! 🎉</span>}
 							</div>
 							<div className="h-[4px] rounded-full bg-foreground/10">
-								<div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${(doneCount / EARNINGS_SCENARIOS.length) * 100}%` }} />
+								<div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${(doneCount / visibleScenarios.length) * 100}%` }} />
 							</div>
 						</div>
 					</div>
 				)}
 
 				<div className="space-y-[8px]">
-					{EARNINGS_SCENARIOS.map(s => {
+					{visibleScenarios.map(s => {
 						const done = completedIds.has(s.id);
 						return (
 							<button key={s.id} type="button" onClick={() => openScenario(s.id)}
@@ -1563,20 +1580,22 @@ function EarningsLabView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }:
 
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
-function RiskLabView({ onBack }: { onBack: () => void }) {
-	const { addXp } = useAccount();
+function RiskLabView({ onBack, weeklyRiskIds, weekLabel, weekKey, weeklyCompleted, onWeeklyComplete, riskPool }: { onBack: () => void; weeklyRiskIds?: string[]; weekLabel?: string; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void; riskPool?: typeof RISK_SCENARIOS }) {
+	const pool = riskPool ?? RISK_SCENARIOS;
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const [done, setDone] = useState(false);
 	const [correct, setCorrect] = useState(0);
-	const awardedRisk = useRef(new Set<number>());
-	const scenario = RISK_SCENARIOS[index];
-
-	if (!scenario) return null;
+	// sessionCorrect tracks IDs completed in THIS session so Try Again can replay them
+	const [sessionCorrect, setSessionCorrect] = useState<Set<string>>(new Set());
+	const weeklyIds = weeklyRiskIds ? pool.filter(r => weeklyRiskIds.includes(r.id)) : pool;
+	// Exclude already-completed scenarios EXCEPT ones just done this session (allow replay via Try Again)
+	const visibleRisk = weeklyIds.filter(r => !weeklyCompleted?.has(r.id) || sessionCorrect.has(r.id));
+	const scenario = visibleRisk[index];
 
 	if (done) {
-		const total = RISK_SCENARIOS.length;
+		const total = visibleRisk.length;
 		const pct = Math.round((correct / total) * 100);
 		const tier = pct >= 80 ? { emoji: "🛡️", label: "Risk Expert", msg: "You spotted every trap. You understand what separates safe stocks from dangerous ones.", color: "text-orange-400", border: "border-orange-500/25", bg: "bg-orange-500/[0.07]" }
 			: pct >= 50 ? { emoji: "⚠️", label: "Risk Aware", msg: "You caught most of them. The trickier cases are where real losses happen — review the ones you missed.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
@@ -1595,8 +1614,37 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 					</div>
 					<div className="space-y-[8px]">
 						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>Back to Playground</button>
-						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedRisk.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
+						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); setSessionCorrect(new Set()); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
 					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// "All done" state — every scenario this week was already correctly answered
+	if (visibleRisk.length === 0 && !done) {
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
+						<span className="text-[48px] block mb-[10px]">✅</span>
+						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done This Week</h2>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Risk Lab scenario right. New ones unlock next week.</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Empty state — no scenarios available (0 risk items in this week's pack)
+	if (!scenario) {
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<h2 className="text-[22px] font-extrabold mb-[8px]">Risk Lab</h2>
+					<p className="text-[14px] dark:text-slate-400 text-slate-500">No risk scenarios this week. Check back next week — they unlock as you level up.</p>
 				</div>
 			</div>
 		);
@@ -1604,7 +1652,12 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 	const next = () => {
 		const isCorrect = selected === scenario.riskierOption;
-		if (index < RISK_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c); }
+		if (isCorrect) {
+			setSessionCorrect(prev => new Set([...prev, scenario.id]));
+			if (weekKey && !weeklyCompleted?.has(scenario.id) && onWeeklyComplete)
+				onWeeklyComplete(weekKey, scenario.id, scenario.xp);
+		}
+		if (index < visibleRisk.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c); }
 		else { setCorrect(c => isCorrect ? c + 1 : c); setDone(true); }
 	};
 
@@ -1614,14 +1667,14 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div>
-						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Risk Lab</p>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Risk Lab {weekLabel && <span className="text-[10px] font-bold bg-orange-500/15 text-orange-400 px-[6px] py-[1px] rounded-full ml-[6px]">{weekLabel}</span>}</p>
 						<h2 className="text-[18px] font-extrabold">Spot the Risk</h2>
 					</div>
-					<p className="text-[12px] dark:text-slate-400 text-slate-500">{index + 1} / {RISK_SCENARIOS.length}</p>
+					<p className="text-[12px] dark:text-slate-400 text-slate-500">{index + 1} / {visibleRisk.length}</p>
 				</div>
 
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]">
-					<div className="h-full rounded-full bg-orange-400 transition-all" style={{ width: `${((index + 1) / RISK_SCENARIOS.length) * 100}%` }} />
+					<div className="h-full rounded-full bg-orange-400 transition-all" style={{ width: `${((index + 1) / visibleRisk.length) * 100}%` }} />
 				</div>
 
 				<p className="text-[16px] font-bold mb-[16px]">{scenario.prompt}</p>
@@ -1630,16 +1683,21 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 					{(["A", "B"] as const).map(side => {
 						const text = side === "A" ? scenario.optionA : scenario.optionB;
 						const isRiskier = side === scenario.riskierOption;
+						const isUserPick = selected === side;
 						let state: OptionState = "idle";
-						if (selected) state = isRiskier ? "wrong" : "correct";
-						else if (selected === side) state = "selected";
+						if (selected) {
+							// Riskier = wrong answer (user should pick the RISKIER option — that's correct)
+							// Wait: scenario.riskierOption IS the correct answer
+							if (isRiskier) state = isUserPick ? "correct" : "idle";
+							else state = isUserPick ? "wrong" : "idle";
+						} else if (isUserPick) state = "selected";
 						return (
 							<OptionBtn
 								key={side}
 								letter={side}
 								text={text + (selected ? (isRiskier ? " — Higher Risk ⚠️" : " — More Stable ✓") : "")}
 								state={state}
-								onClick={() => { if (!selected) { const isCorrect = side === scenario!.riskierOption; setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); } } } }}
+								onClick={() => { if (!selected) { const isCorrect = side === scenario!.riskierOption; setSelected(side); if (isCorrect) { showXp(scenario!.xp); } } }}
 								disabled={!!selected}
 							/>
 						);
@@ -1648,14 +1706,15 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 				{selected && (
 					<>
-						<div className="rounded-[12px] border border-orange-500/25 bg-orange-500/[0.07] p-[14px] mb-[14px]">
+						<div className={`rounded-[12px] border p-[14px] mb-[14px] ${selected === scenario.riskierOption ? "border-emerald-500/25 bg-emerald-500/[0.07]" : "border-rose-500/25 bg-rose-500/[0.07]"}`}>
+							<p className="text-[12px] font-bold mb-[4px]">{selected === scenario.riskierOption ? "Correct ✓" : "Not quite —"}</p>
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-							<p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>
+							{selected === scenario.riskierOption && <p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>}
 						</div>
 						<button type="button" onClick={next}
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 							style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>
-							{index < RISK_SCENARIOS.length - 1 ? "Next →" : "Done"}
+							{index < visibleRisk.length - 1 ? "Next →" : "Done"}
 						</button>
 					</>
 				)}
@@ -1666,20 +1725,20 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void }) {
-	const { addXp } = useAccount();
+function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete, weeklyMoodIds, weekLabel, moodPool }: { onBack: () => void; weekKey?: string; weeklyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number) => void; weeklyMoodIds?: string[]; weekLabel?: string; moodPool?: typeof MOOD_SCENARIOS }) {
+	const pool = moodPool ?? MOOD_SCENARIOS;
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
 	const [correct, setCorrect] = useState(0);
-	const awardedMood = useRef(new Set<number>());
-	const scenario = MOOD_SCENARIOS[index];
-
-	if (!scenario) return null;
+	const [sessionCorrectMood, setSessionCorrectMood] = useState<Set<string>>(new Set());
+	const weeklyIds = weeklyMoodIds ? pool.filter(m => weeklyMoodIds.includes(m.id)) : pool;
+	const visibleMood = weeklyIds.filter(m => !weeklyCompleted?.has(m.id) || sessionCorrectMood.has(m.id));
+	const scenario = visibleMood[index];
 
 	if (done) {
-		const total = MOOD_SCENARIOS.length;
+		const total = visibleMood.length;
 		const pct = Math.round((correct / total) * 100);
 		const tier = pct >= 80 ? { emoji: "🧠", label: "Macro Mind", msg: "You understand how global events ripple through markets. That's a rare edge most investors never develop.", color: "text-cyan-400", border: "border-cyan-500/25", bg: "bg-cyan-500/[0.07]" }
 			: pct >= 50 ? { emoji: "📊", label: "Getting There", msg: "Solid macro awareness. The tricky ones usually involve second-order effects — practice makes these intuitive.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
@@ -1698,8 +1757,37 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 					</div>
 					<div className="space-y-[8px]">
 						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>Back to Playground</button>
-						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); awardedMood.current.clear(); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
+						<button type="button" onClick={() => { setIndex(0); setSelected(null); setDone(false); setCorrect(0); setSessionCorrectMood(new Set()); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Try Again</button>
 					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// All done state — all scenarios this week correctly answered
+	if (visibleMood.length === 0 && !done) {
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
+						<span className="text-[48px] block mb-[10px]">✅</span>
+						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done This Week</h2>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Market Mood scenario right. New ones unlock next week.</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Empty state — no scenarios in this week's pack
+	if (!scenario) {
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<h2 className="text-[22px] font-extrabold mb-[8px]">Market Mood</h2>
+					<p className="text-[14px] dark:text-slate-400 text-slate-500">No scenarios this week. Check back next week!</p>
 				</div>
 			</div>
 		);
@@ -1707,7 +1795,12 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 
 	const next = () => {
 		const isRight = selected === scenario.correctId;
-		if (index < MOOD_SCENARIOS.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
+		if (isRight) {
+			setSessionCorrectMood(prev => new Set([...prev, scenario.id]));
+			if (weekKey && !weeklyCompleted?.has(scenario.id) && onWeeklyComplete)
+				onWeeklyComplete(weekKey, scenario.id, scenario.xp);
+		}
+		if (index < visibleMood.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
 		else { setCorrect(c => isRight ? c + 1 : c); setDone(true); }
 	};
 	const isCorrect = selected === scenario.correctId;
@@ -1718,14 +1811,14 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div>
-						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Market Mood</p>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Market Mood {weekLabel && <span className="text-[10px] font-bold bg-cyan-500/15 text-cyan-400 px-[6px] py-[1px] rounded-full ml-[6px]">{weekLabel}</span>}</p>
 						<h2 className="text-[18px] font-extrabold">Simulator</h2>
 					</div>
-					<p className="text-[12px] dark:text-slate-400 text-slate-500">{index + 1} / {MOOD_SCENARIOS.length}</p>
+					<p className="text-[12px] dark:text-slate-400 text-slate-500">{index + 1} / {visibleMood.length}</p>
 				</div>
 
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]">
-					<div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${((index + 1) / MOOD_SCENARIOS.length) * 100}%` }} />
+					<div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${((index + 1) / visibleMood.length) * 100}%` }} />
 				</div>
 
 				<div className="rounded-[14px] border border-cyan-500/25 bg-cyan-500/[0.07] px-[16px] py-[14px] mb-[16px]">
@@ -1741,7 +1834,7 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 							letter={LETTERS[i] ?? String(i + 1)}
 							text={opt.text}
 							state={optionState(opt.id, scenario.correctId, selected, !!selected)}
-							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); if (isCorrect) { addXp(scenario!.xp).catch(() => {}); showXp(scenario!.xp); if (weekKey && weeklyCompleted && !weeklyCompleted.has(scenario!.id) && onWeeklyComplete) onWeeklyComplete(weekKey, scenario!.id, scenario!.xp); } } } }}
+							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (isCorrect) { showXp(scenario!.xp); } } }}
 							disabled={!!selected}
 						/>
 					))}
@@ -1752,12 +1845,12 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 						<div className={`rounded-[12px] p-[14px] mb-[14px] ${isCorrect ? "bg-emerald-500/10 border border-emerald-500/25" : "bg-amber-500/10 border border-amber-500/25"}`}>
 							<p className="text-[13px] font-bold mb-[4px]">{isCorrect ? "Correct! 🎉" : "Good try."}</p>
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-							<p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>
+							{isCorrect && <p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>}
 						</div>
 						<button type="button" onClick={next}
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 							style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>
-							{index < MOOD_SCENARIOS.length - 1 ? "Next →" : "Done"}
+							{index < visibleMood.length - 1 ? "Next →" : "Done"}
 						</button>
 					</>
 				)}
@@ -1768,16 +1861,245 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete 
 
 // ── Practice Mode ─────────────────────────────────────────────
 
+// ── Practice question engine ─────────────────────────────────────────────────
+
+interface PracticeQuestion {
+	type: "pe" | "margin" | "growth" | "momentum" | "decision";
+	prompt: string;
+	options: { id: string; text: string }[];
+	correctId: string;
+	explanation: string;
+}
+
+// Sector P/E reference bands
+const SECTOR_PE: Record<string, { low: number; high: number }> = {
+	tech: { low: 25, high: 45 }, consumer: { low: 18, high: 28 },
+	finance: { low: 10, high: 18 }, healthcare: { low: 18, high: 30 },
+	energy: { low: 8, high: 16 }, default: { low: 15, high: 30 },
+};
+function sectorBand(ticker: string) {
+	const tech = ["AAPL","MSFT","GOOGL","META","NVDA","AMD","AMZN","DDOG","CRWD","PLTR","SHOP","COIN","HOOD","RBLX","DUOL","NFLX","TSLA"];
+	const finance = ["V","MA","JPM","BAC","GS"];
+	const energy = ["XOM","CVX","BP"];
+	const healthcare = ["JNJ","PFE","UNH","ABBV"];
+	if (tech.includes(ticker)) return SECTOR_PE.tech!;
+	if (finance.includes(ticker)) return SECTOR_PE.finance!;
+	if (energy.includes(ticker)) return SECTOR_PE.energy!;
+	if (healthcare.includes(ticker)) return SECTOR_PE.healthcare!;
+	return SECTOR_PE.default!;
+}
+
+function buildQuestion(
+	stock: { ticker: string; name: string; prompt: string },
+	quote: { price: number; changePercent: number } | null | undefined,
+	metrics: { peRatio?: number | null; revenueGrowth?: string | number | null; profitMargin?: string | number | null } | null | undefined,
+	questionSlot: number,
+): PracticeQuestion {
+	const pe = metrics?.peRatio ?? null;
+	const rawGrowth = metrics?.revenueGrowth;
+	const rawMargin = metrics?.profitMargin;
+	const growth = rawGrowth != null ? parseFloat(String(rawGrowth)) : null;
+	const margin = rawMargin != null ? parseFloat(String(rawMargin)) : null;
+	const change = quote?.changePercent ?? null;
+
+	// Rotate question type based on slot + available data
+	const available: PracticeQuestion["type"][] = ["decision"];
+	if (pe != null) available.push("pe");
+	if (growth != null && !isNaN(growth)) available.push("growth");
+	if (margin != null && !isNaN(margin)) available.push("margin");
+	if (change != null) available.push("momentum");
+
+	const type = available[questionSlot % available.length]!;
+
+	if (type === "pe" && pe != null) {
+		const band = sectorBand(stock.ticker);
+		const label = pe > band.high ? "expensive" : pe < band.low ? "cheap" : "fairly valued";
+		const correctId = pe > band.high ? "a" : pe < band.low ? "c" : "b";
+		return {
+			type: "pe",
+			prompt: `${stock.name} has a P/E ratio of ${pe}x. For its sector (typical range ${band.low}–${band.high}x), this looks:`,
+			options: [
+				{ id: "a", text: `Expensive — investors are paying a premium` },
+				{ id: "b", text: `Fairly valued — in line with peers` },
+				{ id: "c", text: `Cheap — trading at a discount to peers` },
+			],
+			correctId,
+			explanation: `At ${pe}x earnings, ${stock.name} is ${label} relative to its sector. ${pe > band.high ? `A high P/E means the market expects strong future growth to justify the price — the stock has less room for error.` : pe < band.low ? `A low P/E can signal undervaluation, but also lower growth expectations or sector headwinds. Worth digging into why.` : `Fairly valued stocks can still outperform — execution and earnings surprises matter most from here.`}`,
+		};
+	}
+
+	if (type === "growth" && growth != null && !isNaN(growth)) {
+		const level = growth > 25 ? "strong" : growth > 10 ? "moderate" : "weak";
+		const correctId = growth > 25 ? "a" : growth > 10 ? "b" : "c";
+		return {
+			type: "growth",
+			prompt: `${stock.name}'s revenue grew ${growth > 0 ? "+" : ""}${growth.toFixed(1)}% year-over-year. How would you read this?`,
+			options: [
+				{ id: "a", text: `Strong — top-line momentum, demand is real` },
+				{ id: "b", text: `Moderate — healthy, but not accelerating` },
+				{ id: "c", text: `Weak — growth is stalling` },
+			],
+			correctId,
+			explanation: `${growth.toFixed(1)}% revenue growth is ${level} by market standards. ${growth > 25 ? `High-growth companies are typically valued on future potential — this rate supports a premium multiple. Watch for margin improvement as the next signal.` : growth > 10 ? `Steady growers tend to be rewarded with stable multiples. The question is whether growth accelerates or decelerates from here.` : `Slowing growth pressures valuation multiples. Investors will want to see a catalyst for reacceleration or a pivot to profitability.`}`,
+		};
+	}
+
+	if (type === "margin" && margin != null && !isNaN(margin)) {
+		const level = margin > 20 ? "high" : margin > 8 ? "average" : "low";
+		const correctId = margin > 20 ? "a" : margin > 8 ? "b" : "c";
+		return {
+			type: "margin",
+			prompt: `${stock.name} has a profit margin of ${margin.toFixed(1)}%. What does this say about the business?`,
+			options: [
+				{ id: "a", text: `Highly profitable — strong pricing power` },
+				{ id: "b", text: `Average — competitive but not dominant` },
+				{ id: "c", text: `Thin margins — vulnerable to cost pressure` },
+			],
+			correctId,
+			explanation: `A ${margin.toFixed(1)}% margin is ${level} vs the ~15% market average. ${margin > 20 ? `High margins signal real pricing power — customers pay a premium and switching costs are high. This is one of the best signs of business quality.` : margin > 8 ? `Average margins mean the business is viable but competitive. Look for whether margins are expanding or contracting as the key trend.` : `Thin margins mean most revenue goes to costs. A small revenue decline or cost spike can wipe out profits entirely — this business needs careful monitoring.`}`,
+		};
+	}
+
+	if (type === "momentum" && change != null) {
+		const bigMove = Math.abs(change) > 5;
+		const correctId = bigMove ? (change > 0 ? "a" : "b") : "c";
+		return {
+			type: "momentum",
+			prompt: `${stock.name} is ${change >= 0 ? "up" : "down"} ${Math.abs(change).toFixed(1)}% today. What's the most likely driver of a move this ${bigMove ? "large" : "small"}?`,
+			options: bigMove
+				? change > 0
+					? [
+						{ id: "a", text: `Earnings beat or major positive news catalyst` },
+						{ id: "b", text: `Sector rotation — money flowing into this area` },
+						{ id: "c", text: `Short squeeze — forced buying by bears` },
+					]
+					: [
+						{ id: "a", text: `Sector selloff — macro pressure across the board` },
+						{ id: "b", text: `Earnings miss or bad news specific to this company` },
+						{ id: "c", text: `Insider selling — management reducing exposure` },
+					]
+				: [
+					{ id: "a", text: `Major news — market-moving announcement` },
+					{ id: "b", text: `Technical rebound — buying near support level` },
+					{ id: "c", text: `Normal daily drift — no major catalyst` },
+				],
+			correctId,
+			explanation: bigMove
+				? change > 0
+					? `A ${change.toFixed(1)}% single-day gain usually means a strong earnings report, upgraded guidance, or a significant product/deal announcement. Sector rotations do cause moves, but rarely this sharp.`
+					: `A ${Math.abs(change).toFixed(1)}% drop in one day usually means company-specific bad news — an earnings miss, guidance cut, or regulatory issue. Sector moves tend to be smaller and affect many stocks simultaneously.`
+				: `A ${Math.abs(change).toFixed(1)}% daily move is within normal noise. Most days, stocks drift with the market without any specific catalyst — this is just regular price discovery.`,
+		};
+	}
+
+	// Fallback: decision question driven by the overall signal
+	const signal = pe != null && pe > 40 ? "expensive but high-growth" : pe != null && pe < 15 ? "cheap but low-growth" : "mixed";
+	return {
+		type: "decision",
+		prompt: `Based on what you know about ${stock.name} — how would you approach it right now?`,
+		options: [
+			{ id: "a", text: `Research deeper — looks interesting enough to dig in` },
+			{ id: "b", text: `Watch and wait — not enough conviction yet` },
+			{ id: "c", text: `Pass for now — doesn't fit my criteria` },
+		],
+		correctId: "a",
+		explanation: `${stock.prompt} ${signal === "expensive but high-growth" ? "High-growth, high-valuation stocks require understanding the long-term thesis. Researching the competitive moat and addressable market is the right first step." : signal === "cheap but low-growth" ? "Low-multiple stocks can be value traps or genuine bargains. Digging into the balance sheet and understanding why it's cheap tells you which it is." : "Any stock is worth understanding before forming a view. The goal of research isn't just to buy — it's to get comfortable enough to act with conviction or pass with confidence."}`,
+	};
+}
+
 function PracticeModeView({ onBack }: { onBack: () => void }) {
-	const [shuffled] = useState(() => [...PRACTICE_TICKERS].sort(() => Math.random() - 0.5));
+	const { account } = useAccount();
+
+	// Build stock pool: user's Stak first, then fallback to PRACTICE_TICKERS
+	const pool = useMemo(() => {
+		const stakIds = new Set(account?.stakBrandIds ?? []);
+		const stakStocks = stakIds.size > 0
+			? allBrands
+				.filter(b => stakIds.has(b.id))
+				.map(b => ({ ticker: b.ticker, name: b.name, prompt: b.bio ?? `${b.name} is a publicly traded company.` }))
+			: [];
+		// Merge: user's stocks first, then fill with PRACTICE_TICKERS not already in stak
+		const stakTickers = new Set(stakStocks.map(s => s.ticker));
+		const fallback = PRACTICE_TICKERS.filter(p => !stakTickers.has(p.ticker));
+		return [...stakStocks, ...fallback];
+	}, [account?.stakBrandIds]);
+
+	const [shuffled] = useState<typeof pool>(() => [...pool].sort(() => Math.random() - 0.5));
+	// Use the original pool if shuffled is empty (component created before pool resolved)
+	const stocks = shuffled.length > 0 ? shuffled : pool;
+
 	const [idx, setIdx] = useState(0);
-	const [decision, setDecision] = useState<'save' | 'pass' | 'learn' | null>(null);
-	const stock = shuffled[idx % shuffled.length]!;
-	const { data: stockData, isLoading } = useQuery({ queryKey: ['stock', stock.ticker], queryFn: () => getStockData(stock.ticker), staleTime: 2 * 60 * 1000, retry: 1 });
-	const next = () => { setIdx(i => (i + 1) % shuffled.length); setDecision(null); };
+	const [answered, setAnswered] = useState<string | null>(null);	// selected option id
+	const [questionSlot, setQuestionSlot] = useState(0);
+	const [score, setScore] = useState({ correct: 0, total: 0 });
+	const [showSummary, setShowSummary] = useState(false);
+
+	const stock = stocks[idx % stocks.length]!;
+	const { data: stockData, isLoading } = useQuery({
+		queryKey: ["stock", stock.ticker],
+		queryFn: () => getStockData(stock.ticker),
+		staleTime: 5 * 60 * 1000,
+		retry: 1,
+	});
 	const quote = stockData?.quote;
 	const metrics = stockData?.metrics;
 	const isUp = (quote?.changePercent ?? 0) >= 0;
+
+	const question = useMemo(
+		() => buildQuestion(stock, quote, metrics, questionSlot),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[stock.ticker, quote?.price, metrics?.peRatio, questionSlot],
+	);
+
+	const isCorrect = answered === question.correctId;
+
+	const handleAnswer = (id: string) => {
+		if (answered) return;
+		setAnswered(id);
+		setScore(s => ({ correct: s.correct + (id === question.correctId ? 1 : 0), total: s.total + 1 }));
+	};
+
+	const next = () => {
+		const nextIdx = (idx + 1) % stocks.length;
+		// Show summary after cycling through all stocks
+		if (nextIdx === 0 && score.total >= stocks.length) {
+			setShowSummary(true);
+			return;
+		}
+		setIdx(nextIdx);
+		setAnswered(null);
+		setQuestionSlot(s => s + 1);
+	};
+
+	// ── Summary screen ───────────────────────────────────────────
+	if (showSummary) {
+		const pct = Math.round((score.correct / score.total) * 100);
+		const tier = pct >= 80
+			? { emoji: "🏆", label: "Sharp Analyst", msg: "You read market signals well. Your instincts are grounded in the data.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
+			: pct >= 50
+			? { emoji: "📈", label: "Getting There", msg: "Solid fundamentals awareness. Keep practicing — pattern recognition compounds over time.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
+			: { emoji: "📚", label: "Keep Practicing", msg: "Stock analysis takes time to click. Every round builds new intuition.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
+		return (
+			<div className="min-h-full bg-background text-foreground">
+				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
+					<BackBtn onClick={onBack} />
+					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
+						<span className="text-[56px] block mb-[10px]">{tier.emoji}</span>
+						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Practice Session</p>
+						<h2 className="text-[24px] font-extrabold mb-[4px]">{tier.label}</h2>
+						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[12px]`}>
+							{score.correct}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{score.total}</span>
+						</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[280px] mx-auto">{tier.msg}</p>
+					</div>
+					<div className="space-y-[8px]">
+						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>Back to Playground</button>
+						<button type="button" onClick={() => { setIdx(0); setAnswered(null); setQuestionSlot(0); setScore({ correct: 0, total: 0 }); setShowSummary(false); }} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Practice Again</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-full bg-background text-foreground">
@@ -1785,42 +2107,110 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[2px]">
 					<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
-					<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">{(idx % shuffled.length) + 1} / {shuffled.length}</span>
-				</div>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Real stock. Fake stakes. What would you do?</p>
-				<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[18px] mb-[20px]">
-					<div className="flex items-center justify-between mb-[14px]">
-						<div><p className="text-[22px] font-extrabold">{stock.name}</p><p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p></div>
-						{quote ? (<div className="text-right"><p className="text-[20px] font-extrabold">${quote.price.toFixed(2)}</p><p className={`text-[13px] font-semibold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{isUp ? '+' : ''}{quote.changePercent.toFixed(2)}% today</p></div>) : isLoading ? (<div className="space-y-[4px]"><div className="h-[20px] w-[80px] rounded bg-foreground/10 animate-pulse" /><div className="h-[13px] w-[60px] rounded bg-foreground/10 animate-pulse" /></div>) : null}
+					<div className="flex items-center gap-[8px]">
+						{score.total > 0 && (
+							<span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-[8px] py-[3px] rounded-full">
+								{score.correct}/{score.total} correct
+							</span>
+						)}
+						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
+							{(idx % stocks.length) + 1} / {stocks.length}
+						</span>
 					</div>
-					{metrics && (<div className="grid grid-cols-3 gap-[8px] mb-[14px]">{[{label:'P/E',value:metrics.peRatio!=null?`${metrics.peRatio}x`:'N/A'},{label:'Rev. Growth',value:metrics.revenueGrowth??'N/A'},{label:'Margin',value:metrics.profitMargin??'N/A'}].map(m=>(<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center"><p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p><p className="text-[13px] font-bold">{m.value}</p></div>))}</div>)}
-					<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed italic">"{stock.prompt}"</p>
 				</div>
-				{!decision ? (<>
-					<p className="text-[13px] font-semibold text-center dark:text-slate-400 text-slate-500 mb-[12px] uppercase tracking-wide">What's your move?</p>
-					<div className="space-y-[10px]">
-						{([
-							{ d: 'save' as const,  emoji: "✅", label: "Save it",    sub: "Add to watchlist for tracking",   cls: "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-400" },
-							{ d: 'learn' as const, emoji: "🔍", label: "Learn More", sub: "Read analysis before deciding",   cls: "border-blue-500/35 bg-blue-500/[0.07] text-blue-400" },
-							{ d: 'pass' as const,  emoji: "⏩", label: "Pass",       sub: "Not for me right now",            cls: "border-foreground/15 bg-foreground/[0.03] dark:text-slate-400 text-slate-500" },
-						]).map(({ d, emoji, label, sub, cls }) => (
-							<button key={d} type="button" onClick={() => setDecision(d)}
-								className={`w-full flex items-center gap-[14px] rounded-[14px] border px-[16px] py-[14px] text-left active:opacity-80 transition-opacity ${cls}`}>
-								<span className="text-[24px] shrink-0">{emoji}</span>
-								<div>
-									<p className="text-[14px] font-bold">{label}</p>
-									<p className="text-[11px] opacity-70 mt-[1px]">{sub}</p>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">Real data. Read the signal. Build your instincts.</p>
+
+				{/* Progress bar */}
+				<div className="h-[3px] rounded-full bg-foreground/10 mb-[20px]">
+					<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
+						style={{ width: `${((idx % stocks.length) / stocks.length) * 100}%` }} />
+				</div>
+
+				{/* Stock card */}
+				<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]">
+					<div className="flex items-center justify-between mb-[12px]">
+						<div>
+							<p className="text-[20px] font-extrabold">{stock.name}</p>
+							<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
+						</div>
+						{quote ? (
+							<div className="text-right">
+								<p className="text-[18px] font-extrabold">${quote.price.toFixed(2)}</p>
+								<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
+									{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
+								</p>
+							</div>
+						) : isLoading ? (
+							<div className="space-y-[4px]">
+								<div className="h-[18px] w-[70px] rounded bg-foreground/10 animate-pulse" />
+								<div className="h-[12px] w-[50px] rounded bg-foreground/10 animate-pulse" />
+							</div>
+						) : null}
+					</div>
+					{metrics && (
+						<div className="grid grid-cols-3 gap-[6px]">
+							{[
+								{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
+								{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
+								{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
+							].map(m => (
+								<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
+									<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
+									<p className="text-[13px] font-bold">{m.value}</p>
 								</div>
+							))}
+						</div>
+					)}
+				</div>
+
+				{/* Question */}
+				<div className="rounded-[14px] border border-foreground/[0.08] bg-foreground/[0.02] px-[14px] py-[12px] mb-[14px]">
+					<p className="text-[11px] font-bold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[6px]">Question</p>
+					<p className="text-[14px] font-semibold leading-snug text-foreground">{question.prompt}</p>
+				</div>
+
+				{/* Options */}
+				<div className="space-y-[8px] mb-[14px]">
+					{question.options.map((opt, i) => {
+						const isSelected = answered === opt.id;
+						const isRight = opt.id === question.correctId;
+						let cls = "border-foreground/10 bg-surface-1 text-foreground";
+						if (answered) {
+							if (isRight) cls = "border-emerald-500/40 bg-emerald-500/[0.08]";
+							else if (isSelected) cls = "border-rose-500/40 bg-rose-500/[0.08]";
+							else cls = "border-foreground/[0.06] bg-foreground/[0.02] opacity-50";
+						}
+						return (
+							<button key={opt.id} type="button" onClick={() => handleAnswer(opt.id)} disabled={!!answered}
+								className={`w-full flex items-center gap-[12px] rounded-[12px] border px-[14px] py-[12px] text-left transition-all active:opacity-80 ${cls}`}>
+								<span className={`flex-shrink-0 w-[24px] h-[24px] rounded-full border text-[11px] font-bold flex items-center justify-center transition-colors ${
+									answered
+										? isRight ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
+										: isSelected ? "border-rose-500/60 bg-rose-500/20 text-rose-400"
+										: "border-foreground/10 dark:text-slate-500 text-slate-400"
+									: "border-foreground/20 dark:text-slate-400 text-slate-500"
+								}`}>{LETTERS[i]}</span>
+								<p className="text-[13px] font-medium flex-1">{opt.text}</p>
+								{answered && isRight && <span className="shrink-0 text-[16px]">✓</span>}
+								{answered && isSelected && !isRight && <span className="shrink-0 text-[16px]">✗</span>}
 							</button>
-						))}
+						);
+					})}
+				</div>
+
+				{/* Answer reveal */}
+				{answered && (
+					<div className={`rounded-[13px] border p-[14px] mb-[14px] answer-pop ${isCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
+						<p className="text-[13px] font-bold mb-[4px]">{isCorrect ? "Correct ✓" : "Not quite —"}</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{question.explanation}</p>
 					</div>
-				</>) : (<>
-					<div className={`rounded-[14px] border p-[14px] mb-[14px] ${decision==='save'?'border-emerald-500/30 bg-emerald-500/[0.07]':decision==='pass'?'border-rose-500/30 bg-rose-500/[0.07]':'border-blue-500/30 bg-blue-500/[0.07]'}`}>
-						<p className="text-[13px] font-bold mb-[6px]">{decision==='save'?'Good instinct.':decision==='pass'?'Smart discipline.':'Great approach.'}</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{decision === 'save' ? `Good instinct adding ${stock.name}. ${stock.prompt}` : decision === 'pass' ? `Passing on ${stock.name} is valid. ${stock.prompt} Patience is a skill.` : `Smart — learning more first. ${stock.prompt} Understanding the thesis gives you conviction.`}</p>
-					</div>
-					<button type="button" onClick={next} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:'linear-gradient(90deg,#10b981,#3b82f6)'}}>Next Stock</button>
-				</>)}
+				)}
+
+				{answered && (
+					<button type="button" onClick={next} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
+						{idx + 1 >= stocks.length ? "See Results" : "Next Stock →"}
+					</button>
+				)}
 			</div>
 		</div>
 	);

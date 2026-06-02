@@ -60,7 +60,7 @@ export interface BattleMatchup {
 	tickerB: string;
 	nameB: string;
 	category: string;
-	metric: "revenueGrowth" | "profitMargin" | "peRatio" | "marketCap";
+	metric?: "revenueGrowth" | "profitMargin" | "peRatio" | "marketCap";
 	metricLabel: string;
 	higherWins: boolean;
 	explanation: string;
@@ -1006,7 +1006,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Revenue Growth",
 		higherWins: true,
 		explanation: "NVIDIA's H100 and H200 GPUs became the must-have hardware for training AI models — every major cloud provider (AWS, Azure, Google) scrambled to buy them. That scarcity created explosive revenue growth. AMD makes competitive AI chips (MI300X) and is gaining share, but NVIDIA's CUDA software ecosystem creates a switching cost: most AI developers have built workflows on CUDA for over a decade and don't want to relearn. That lock-in gives NVIDIA pricing power AMD can't easily match.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "sbux-vs-cmg",
@@ -1019,7 +1019,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Profit Margin",
 		higherWins: true,
 		explanation: "Chipotle's menu has just 5 proteins and 7 toppings — every store runs the same simple assembly line, so training is fast and waste is low. Starbucks has thousands of drink combinations, expensive espresso machines, barista training, and a mobile ordering system that creates backlogs during peak hours. Those backlogs slow service, frustrate customers, and raise labour costs. Starbucks also operated too many low-profit locations and relied on price increases to mask slowing foot traffic — a strategy that has limits.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "coin-vs-hood",
@@ -1032,7 +1032,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Revenue Growth",
 		higherWins: true,
 		explanation: "Coinbase earns transaction fees every time someone buys or sells crypto. When Bitcoin rallies and retail traders flood in, Coinbase's revenue explodes. But in a crypto winter (like 2022), trading volumes collapse and so does revenue. Robinhood earns money through payment for order flow (PFOF) on stock trades and is actively diversifying into crypto, retirement accounts, and credit cards. That diversification makes Robinhood's revenue more stable but means it grows slower than Coinbase does in a crypto bull market.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "msft-vs-googl",
@@ -1045,7 +1045,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Profit Margin",
 		higherWins: true,
 		explanation: "Microsoft sells Office 365 and Azure cloud services on recurring subscriptions — once a company is on Microsoft's tools, switching is painful, so customers stay for years and margins stay high. Alphabet earns ~80% of revenue from advertising, which is highly profitable but more vulnerable to economic slowdowns (advertisers cut budgets in recessions) and to competition from TikTok and Amazon eating into ad share. Microsoft's subscription model is simply more predictable and defensible.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "tsla-vs-rivn",
@@ -1058,7 +1058,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Profit Margin",
 		higherWins: true,
 		explanation: "Tesla built its own factories, battery technology, and software — after years of losses, it figured out how to manufacture EVs profitably. Rivian is earlier on that same journey: it sells R1T trucks and R1S SUVs plus Amazon delivery vans, but each vehicle still costs more to build than it sells for. The challenge is that scaling a car factory is brutally expensive — tooling, supply chains, and quality control all take years to optimise. Rivian is improving but hasn't cracked the unit economics yet.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "cost-vs-wmt",
@@ -1071,7 +1071,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "P/E Ratio",
 		higherWins: false,
 		explanation: "Costco's P/E is much higher than Walmart's because of its membership model — customers pay $65/year just to shop there, which gives Costco guaranteed, predictable revenue before selling a single product. That loyalty also means Costco can sell goods at razor-thin margins (sometimes at cost) and still profit from the membership fees. Walmart competes on low prices without that guaranteed income, making it more vulnerable to Amazon. Investors pay a premium for Costco's predictability and its almost cult-like customer loyalty.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "crm-vs-now",
@@ -1084,7 +1084,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Revenue Growth",
 		higherWins: true,
 		explanation: "ServiceNow sells software that automates IT workflows inside large companies — think 'help desk tickets, software deployments, and IT approvals, but automated.' That market is still massively underpenetrated and ServiceNow has been adding AI features that drive expansions within existing customers. Salesforce invented the CRM (customer relationship management) category but that market is now mature and crowded — Microsoft, HubSpot, and others compete hard. Salesforce has to spend heavily on sales and acquisition to keep growing.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "meta-vs-snap",
@@ -1097,7 +1097,7 @@ export const STOCK_BATTLES: BattleMatchup[] = [
 		metricLabel: "Profit Margin",
 		higherWins: true,
 		explanation: "Meta owns Facebook, Instagram, and WhatsApp — 3 billion daily users across platforms that advertisers pay premium rates to reach. Meta has also invested heavily in AI-powered ad targeting that delivers measurable results for businesses. Snap's problem is its audience: mostly younger users who advertisers pay less to reach, on a platform where brand advertising is harder to measure. Snap has tried augmented reality features and a paid subscription but can't escape the fundamental mismatch between its user base and what advertisers want to buy.",
-		xp: 20,
+		xp: 5,
 	},
 ];
 
@@ -1121,7 +1121,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "a",
 		outcome: "Nike beat on revenue but missed margins and lowered guidance. The stock fell 6% the next day — investors cared more about the weaker future outlook than the past beat.",
 		explanation: "When a beaten-down stock reports earnings, investors need both a present beat AND a positive forward outlook to rally. A beat with weak guidance still signals continued trouble ahead.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-netflix",
@@ -1140,7 +1140,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "a",
 		outcome: "Netflix beat on subscribers and EPS, but the stock barely moved. Much of the upside had already been priced in by traders who bought the run-up.",
 		explanation: "When a stock rises sharply ahead of earnings, investors have already 'bought the rumor.' Even a solid beat may produce little additional upside — or the stock can actually fall on the news.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-meta",
@@ -1159,7 +1159,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "c",
 		outcome: "Meta stock was volatile — initially falling on the spending news, then rallying as management explained the AI ROI story convincingly on the earnings call.",
 		explanation: "Context matters. Increased spending can be bullish if it's building durable competitive advantages, or bearish if it seems wasteful. How management frames it often determines the reaction.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-amd",
@@ -1178,7 +1178,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "b",
 		outcome: "AMD fell sharply despite beating on headline numbers. At 180x earnings, investors needed a blockbuster AI report. Even a slight miss on the core AI thesis was punished severely.",
 		explanation: "When a stock trades at an extreme valuation, it needs to perfectly execute on the story that justifies the premium. Any doubt about the thesis — even small — can cause large selloffs.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-microsoft",
@@ -1197,7 +1197,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "a",
 		outcome: "Microsoft rallied ~4% after hours. Both EPS and Azure growth beat estimates, and management raised forward guidance. At a premium valuation, investors needed confirmation the AI investment is paying off — and they got it.",
 		explanation: "Even at a high valuation, a genuine beat with raised guidance can drive meaningful moves. The key was Azure acceleration — the number investors were most focused on — coming in above expectations.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-snap",
@@ -1216,7 +1216,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "c",
 		outcome: "Snap spiked on the beat but quickly faded when management guided revenue lower than expected for the next quarter. The initial rally reversed within hours.",
 		explanation: "Low-expectation stocks can rally sharply on beats, but the sustainability depends on guidance. A revenue beat with soft forward guidance signals the problem isn't fixed — just delayed. The 'relief rally' quickly became a sell.",
-		xp: 30,
+		xp: 7,
 	},
 	{
 		id: "el-costco",
@@ -1235,7 +1235,7 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		correctId: "c",
 		outcome: "Costco stock moved less than 1% after the report. Meeting expectations at a premium valuation is acceptable but not exciting. The market needed an upside surprise to push it higher.",
 		explanation: "At a 50x P/E, investors are paying a premium for above-average execution. Meeting estimates keeps existing shareholders happy but doesn't attract new buyers. Flat is actually a good outcome for a richly-valued stock that didn't disappoint.",
-		xp: 25,
+		xp: 7,
 	},
 ];
 
@@ -1249,7 +1249,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "AST SpaceMobile (ASTS)",
 		riskierOption: "B",
 		explanation: "ASTS is a pre-revenue satellite internet company whose future depends on successful deployment, technology execution, and regulatory approval. Coca-Cola has sold drinks for 130 years, generates billions in profit, and pays a growing dividend. The risk levels are not comparable.",
-		xp: 15,
+		xp: 5,
 	},
 	{
 		id: "rl-apple-vs-spce",
@@ -1258,7 +1258,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "Virgin Galactic (SPCE)",
 		riskierOption: "B",
 		explanation: "Apple generates $100B+ in annual profit, has $60B in cash, and sells products 2 billion people use daily. Virgin Galactic is a pre-revenue space tourism company that has been burning cash for years and is building its next-generation spaceship. The risk of permanent loss is dramatically higher with SPCE.",
-		xp: 15,
+		xp: 5,
 	},
 	{
 		id: "rl-jnj-vs-mrna",
@@ -1267,7 +1267,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "Moderna (MRNA)",
 		riskierOption: "B",
 		explanation: "J&J is a 130-year-old healthcare conglomerate with diversified revenue across pharmaceuticals, medical devices, and consumer products. Moderna built a single product (COVID vaccine) that drove most of its revenue. As COVID demand fell, revenue crashed. Single-product biotech companies carry far more risk.",
-		xp: 15,
+		xp: 5,
 	},
 	{
 		id: "rl-tsla-vs-f",
@@ -1276,7 +1276,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "Ford (F)",
 		riskierOption: "A",
 		explanation: "Ford is a 120-year-old automaker with billions in revenue, a profitable ICE business funding its EV transition, and a dividend. Rivian is an EV startup still scaling production, burning cash, and yet to prove it can manufacture at scale profitably. The risk profiles are completely different.",
-		xp: 15,
+		xp: 5,
 	},
 	{
 		id: "rl-utility-vs-crypto",
@@ -1285,7 +1285,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "Coinbase (COIN) — a crypto exchange",
 		riskierOption: "B",
 		explanation: "Duke Energy earns regulated returns on power transmission — its earnings are predictable and its dividend is stable. Coinbase's revenue is directly tied to crypto trading volumes, which can fall 80%+ in a bear market. During crypto winters, Coinbase's revenue collapses.",
-		xp: 15,
+		xp: 5,
 	},
 	{
 		id: "rl-microsoft-vs-ai-startup",
@@ -1294,7 +1294,7 @@ export const RISK_SCENARIOS: RiskScenario[] = [
 		optionB: "A newly-listed AI startup with no revenue",
 		riskierOption: "B",
 		explanation: "Microsoft has $200B+ in revenue, 40%+ profit margins, Azure cloud growing fast, and a decades-long track record. An AI startup with no revenue is entirely dependent on future execution, fund-raising, and market conditions — any of which can fail. Most startups don't survive.",
-		xp: 15,
+		xp: 5,
 	},
 ];
 
@@ -1312,7 +1312,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "High-growth tech stocks rely on future earnings projections. Rising rates increase the discount rate applied to those future profits, making them worth less today. Utilities and staples are more stable because their current earnings are more predictable.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-inflation-hot",
@@ -1325,7 +1325,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "b",
 		explanation: "High inflation forces the Fed to raise rates aggressively to cool the economy. Higher rates slow economic growth and compress stock valuations — especially for growth and tech stocks.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-fed-cuts",
@@ -1338,7 +1338,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "Rate cuts reduce the discount rate applied to future profits, making growth stock valuations expand. Cheap money also encourages borrowing and spending, which benefits high-growth businesses. Banks actually earn less on loans when rates fall.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-oil-spike",
@@ -1351,7 +1351,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "Energy companies sell oil and gas — higher prices mean more revenue and profit for them. Airlines and shipping are hurt by higher fuel costs. Tech is mostly unaffected directly, though broader inflation concerns can weigh on all stocks.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-ai-rally",
@@ -1364,7 +1364,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "AI advancements require massive computing power — more chips, more data centers, more cloud infrastructure. Companies like NVIDIA (GPUs), Microsoft (Azure AI), and Alphabet (Google Cloud) are direct beneficiaries of AI adoption curves.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-consumer-weak",
@@ -1377,7 +1377,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "Consumer discretionary companies sell non-essential goods and services — restaurants, fashion, travel, luxury. When consumers pull back, these companies see revenue fall immediately. Healthcare and defence spending is less dependent on consumer sentiment.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-bitcoin-jumps",
@@ -1390,7 +1390,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "a",
 		explanation: "Coinbase's revenue is directly tied to crypto trading volumes and prices. When Bitcoin rallies, retail and institutional traders flood back into crypto markets — driving higher transaction fees for Coinbase. Goldman and Walmart have minimal direct crypto exposure.",
-		xp: 20,
+		xp: 5,
 	},
 	{
 		id: "mm-recession-feared",
@@ -1403,7 +1403,7 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 		],
 		correctId: "b",
 		explanation: "In recessions, people still pay electricity bills, buy medicine, and purchase basic groceries. Defensive sectors (utilities, healthcare, staples) see more stable earnings. Discretionary spending, speculative assets, and crypto tend to fall hardest when economic fear rises.",
-		xp: 20,
+		xp: 5,
 	},
 ];
 
@@ -1702,11 +1702,11 @@ const BATTLE_TIERS: Record<string, number> = {
 
 // Tier XP multipliers
 const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
-	1: { lesson: 20, battle: 20, lab: 25, label: "Beginner Pack",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { lesson: 28, battle: 28, lab: 32, label: "Learner Pack",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { lesson: 35, battle: 35, lab: 40, label: "Investor Pack",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { lesson: 45, battle: 45, lab: 52, label: "Analyst Pack",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
-	5: { lesson: 60, battle: 60, lab: 70, label: "Expert Pack",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner Pack",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner Pack",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor Pack",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { lesson: 45, battle: 8,  lab: 8,  label: "Analyst Pack",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { lesson: 60, battle: 10, lab: 10, label: "Expert Pack",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 
 function xpTier(totalXp: number): number {
@@ -1729,9 +1729,20 @@ function seededPick<T>(arr: T[], seed: number, count: number): T[] {
 	return result;
 }
 
-/** Returns a deterministic weekly pack based on user's XP level and the current week */
+// How many of each activity type per tier
+const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; wwyd: number }> = {
+	1: { lessons: 3, battles: 1, earnings: 1, risk: 2, mood: 1, wwyd: 0 },
+	2: { lessons: 4, battles: 2, earnings: 1, risk: 2, mood: 2, wwyd: 1 },
+	3: { lessons: 4, battles: 2, earnings: 2, risk: 3, mood: 2, wwyd: 1 },
+	4: { lessons: 5, battles: 3, earnings: 2, risk: 3, mood: 3, wwyd: 2 },
+	5: { lessons: 5, battles: 3, earnings: 3, risk: 4, mood: 3, wwyd: 2 },
+};
+
+/**
+ * Returns the full weekly pack — this IS the content for the week.
+ * Lesson Library, Battles, Labs etc. only show content from this pack.
+ */
 export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
-	// Seed from week key
 	let seed = 0;
 	for (let i = 0; i < weekKey.length; i++) {
 		seed = ((seed << 5) - seed) + weekKey.charCodeAt(i);
@@ -1740,34 +1751,49 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 
 	const tier = xpTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
+	const counts = TIER_COUNTS[tier]!;
 
-	// Pick 2 lessons at or below tier
+	// Lessons — tier-appropriate only
 	const eligibleLessons = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
-	const pickedLessons = seededPick(eligibleLessons, seed, 2).map(l => ({
+	const pickedLessons = seededPick(eligibleLessons, seed, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	// Pick 1 battle at or below tier
+	// Battles — tier-appropriate
 	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
-	const pickedBattles = seededPick(eligibleBattles, seed + 1, 1).map(b => ({
+	const pickedBattles = seededPick(eligibleBattles, seed + 1, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	// Pick 1 earnings scenario
-	const pickedEarnings = seededPick(EARNINGS_SCENARIOS, seed + 2, 1).map(s => ({
+	// Earnings scenarios
+	const pickedEarnings = seededPick(EARNINGS_SCENARIOS, seed + 2, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	// Pick 1 mood scenario
-	const pickedMood = seededPick(MOOD_SCENARIOS, seed + 3, 1).map(s => ({
-		id: s.id, type: "mood" as ActivityType,
-		title: s.event.replace(/^[^\s]+ /, ""), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
+	// Risk comparisons
+	const pickedRisk = seededPick(RISK_SCENARIOS, seed + 3, counts.risk).map(s => ({
+		id: s.id, type: "risk" as ActivityType,
+		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	const activities = [...pickedLessons, ...pickedBattles, ...pickedEarnings, ...pickedMood];
+	// Mood simulations
+	const pickedMood = seededPick(MOOD_SCENARIOS, seed + 4, counts.mood).map(s => ({
+		id: s.id, type: "mood" as ActivityType,
+		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
+	}));
+
+	// WWYD scenarios (unlocks at tier 2+)
+	const pickedWwyd = counts.wwyd > 0
+		? seededPick(WWYD_SCENARIOS, seed + 5, counts.wwyd).map(s => ({
+			id: s.id, type: "wwyd" as ActivityType,
+			title: s.scenario.slice(0, 40) + "…", subtitle: "What Would You Do?", emoji: "🎯", xp: xpRates.lab,
+		}))
+		: [];
+
+	const activities = [...pickedLessons, ...pickedBattles, ...pickedEarnings, ...pickedRisk, ...pickedMood, ...pickedWwyd];
 	const totalXpForPack = activities.reduce((sum, a) => sum + a.xp, 0);
 
 	return {

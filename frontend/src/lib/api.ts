@@ -402,6 +402,18 @@ const DYNAMIC_STOCKS_TTL_MS = 2 * 60 * 60 * 1000;
 let _dynamicStocksCache: import("@/data/brands").BrandProfile[] = [];
 let _dynamicStocksCachedAt = 0;
 
+export async function generatePlaygroundQuestions(
+	weekKey: string,
+	tier: number,
+	type: "battle" | "earnings" | "risk" | "mood",
+	count: number,
+): Promise<unknown[]> {
+	return apiRequest<{ questions: unknown[] }>("/api/playground/generate", {
+		method: "POST",
+		body: JSON.stringify({ weekKey, tier, type, count }),
+	}).then(r => r.questions ?? []);
+}
+
 export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[] {
 	return _dynamicStocksCache;
 }
