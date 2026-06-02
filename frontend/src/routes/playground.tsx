@@ -2321,74 +2321,223 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 
 	const clear = (slotIdx: number) => setPicks(p => ({ ...p, [slotIdx]: null }));
 
-	// Grade the watchlist
+	// ── Watchlist grading engine ────────────────────────────────────────────────
+
+	// Sector groupings for diversification scoring
+	const SECTOR_GROUP: Record<string, string> = {
+		aapl:"tech", msft:"tech", nvda:"tech", meta:"tech", amzn:"tech",
+		nflx:"streaming", rblx:"gaming",
+		tsla:"ev", rivn:"ev",
+		ko:"consumer", sbux:"consumer", wmt:"consumer", cost:"consumer", nke:"consumer",
+		jnj:"healthcare",
+		coin:"crypto", pltr:"ai_data",
+		asts:"space", spce:"space",
+		shop:"ecommerce",
+	};
+
+	// Per-brand quality note per slot type it fits — shown in result screen
+	const SLOT_NOTE: Record<string, Partial<Record<string, string>>> = {
+		aapl:  { familiar:"Premium brand with high margins and loyal users — a strong familiar pick.", dividend:"Growing dividend but yield is low (~0.5%). Better for growth than income.", defensive:"Resilient in downturns but premium valuation adds risk." },
+		tsla:  { familiar:"Widely recognised but highly volatile — bumpier ride than a typical familiar pick.", growth:"High growth potential, but swings wildly. Conviction required.", speculative:"Lots of upside, but high valuation makes it risky even as a spec play." },
+		nvda:  { growth:"Best-in-class AI chip exposure. Premium valuation is the main risk.", speculative:"Dominant position but the valuation means any slowdown hurts fast." },
+		sbux:  { familiar:"Well-known but facing real operational headwinds — watch the turnaround story.", dividend:"Steady payer but growth is stalling, which limits future dividend growth." },
+		nflx:  { familiar:"Streaming leader with improving margins. Solid pick for a familiar slot.", growth:"Ad tier and subscriber growth give this real upside potential." },
+		ko:    { defensive:"Textbook defensive — 60+ years of dividend growth, recession-proof demand.", dividend:"One of the most reliable dividend payers on the market. Classic income stock." },
+		wmt:   { defensive:"Essential retail giant. Holds up well in recessions and is expanding e-commerce.", dividend:"Steady dividend with slow but consistent growth." },
+		jnj:   { defensive:"Healthcare giant with a 60+ year dividend streak. One of the best defensive holds.", dividend:"Dividend Aristocrat — over 60 straight years of increases. Elite income stock." },
+		meta:  { growth:"Ad revenue machine with strong AI infrastructure investment. Good growth pick.", familiar:"Billions of users across FB/IG/WhatsApp — extremely recognisable brand." },
+		coin:  { speculative:"Pure-play crypto exposure — revenue moves with the market cycle. High risk, high reward.", growth:"If crypto adoption continues, this is a direct beneficiary. Volatile though." },
+		pltr:  { speculative:"Government and enterprise AI data contracts growing fast, but expensive valuation.", growth:"Strong revenue growth but the P/E is extreme — priced for perfection." },
+		msft:  { growth:"Cloud (Azure) + AI + Office + Xbox — diversified quality growth.", dividend:"Growing dividend backed by massive cash flow. Reliable long-term payer.", defensive:"One of the most resilient mega-caps. Holds up well through cycles." },
+		amzn:  { familiar:"AWS powers the internet; shopping is a daily habit for millions.", growth:"AWS + advertising are fast-growing profit engines — strong growth pick." },
+		rblx:  { familiar:"Gen Z's playground — highly recognisable to younger users.", speculative:"Pre-profitable with big user base. Monetisation is the key risk." },
+		asts:  { speculative:"Pre-revenue satellite broadband. Massive potential, massive execution risk." },
+		spce:  { speculative:"Space tourism pioneer — high concept, high risk. Rebuilding with Delta-class ships." },
+		rivn:  { speculative:"EV truck startup with Amazon as a customer. Still burning cash to scale.", growth:"Production growing but profitability is years away." },
+		cost:  { defensive:"Membership model and loyal customers make Costco one of the most stable retailers.", dividend:"Consistent dividend plus special dividends. Reliable income." },
+		shop:  { growth:"E-commerce infrastructure play — strong revenue growth, improving profitability." },
+		nke:   { familiar:"Global sportswear brand with decades of marketing dominance.", dividend:"Consistent payer currently restructuring — upside once the turnaround clicks." },
+	};
+
+	const getSlotNote = (brandId: string, slotType: string): string => {
+		return SLOT_NOTE[brandId]?.[slotType] ?? `Good fit for the ${slotType} slot.`;
+	};
+
+	// Quality rating per brand within its slot type
+	const SLOT_QUALITY: Record<string, Partial<Record<string, "best" | "good" | "ok">>> = {
+		aapl: { familiar:"best", dividend:"good", defensive:"ok" },
+		tsla: { familiar:"ok", growth:"good", speculative:"ok" },
+		nvda: { growth:"best", speculative:"ok" },
+		sbux: { familiar:"good", dividend:"ok" },
+		nflx: { familiar:"good", growth:"good" },
+		ko:   { defensive:"best", dividend:"best" },
+		wmt:  { defensive:"best", dividend:"good" },
+		jnj:  { defensive:"best", dividend:"best" },
+		meta: { growth:"best", familiar:"good" },
+		coin: { speculative:"good", growth:"ok" },
+		pltr: { speculative:"good", growth:"ok" },
+		msft: { growth:"best", dividend:"best", defensive:"best" },
+		amzn: { familiar:"best", growth:"best" },
+		rblx: { familiar:"good", speculative:"ok" },
+		asts: { speculative:"best" },
+		spce: { speculative:"best" },
+		rivn: { speculative:"good", growth:"ok" },
+		cost: { defensive:"best", dividend:"good" },
+		shop: { growth:"best" },
+		nke:  { familiar:"best", dividend:"good" },
+	};
+
 	const gradeWatchlist = () => {
-		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== undefined);
-		// Count unique brands per primary type (first type = primary) to avoid double-counting multi-typed brands
-		const primaryTypes = pickedBrands.map(b => b.types[0]!);
-		const specCount = primaryTypes.filter(t => t === "speculative").length;
-		const growthCount = primaryTypes.filter(t => t === "growth").length;
-		const defCount = primaryTypes.filter(t => t === "defensive" || t === "dividend").length;
+		const slotEntries = WATCHLIST_SLOTS.map((slot, i) => ({
+			slot,
+			brand: picks[i] ? WATCHLIST_BRANDS.find(b => b.id === picks[i]) ?? null : null,
+		}));
+		const pickedBrands = slotEntries.map(e => e.brand).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== null);
+
+		// ── 1. Risk balance (0–35): penalise over-concentration in speculative/growth
+		const specCount = slotEntries.filter(e => e.slot.type === "speculative").length;
+		const specPct = Math.round((specCount / totalSlots) * 100);
+		const riskScore = specCount === 0 ? 35 : specCount === 1 ? 32 : specCount === 2 ? 22 : specCount === 3 ? 12 : 0;
+
+		// ── 2. Diversification (0–35): unique sector groups
+		const sectors = new Set(pickedBrands.map(b => SECTOR_GROUP[b.id] ?? b.id));
+		const sectorScore = Math.min(35, Math.round((sectors.size / totalSlots) * 35));
+
+		// ── 3. Income & stability (0–30): has defensive anchor + dividend payer?
 		const hasDefensive = pickedBrands.some(b => b.types.includes("defensive"));
 		const hasDividend = pickedBrands.some(b => b.types.includes("dividend"));
-		const specPct = Math.round((specCount / totalSlots) * 100);
+		const incomeScore = (hasDefensive ? 15 : 0) + (hasDividend ? 15 : 0);
+
+		const total = riskScore + sectorScore + incomeScore;
+
+		// ── Slot quality ratings
+		const slotRatings = slotEntries.map(e => ({
+			slot: e.slot,
+			brand: e.brand,
+			quality: e.brand ? (SLOT_QUALITY[e.brand.id]?.[e.slot.type] ?? "ok") : null,
+			note: e.brand ? getSlotNote(e.brand.id, e.slot.type) : null,
+		}));
+
+		// ── Grade
+		const grade =
+			total >= 90 ? "A"  : total >= 82 ? "A-" :
+			total >= 74 ? "B+" : total >= 66 ? "B"  :
+			total >= 58 ? "B-" : total >= 48 ? "C+" :
+			total >= 38 ? "C"  : "D";
+
+		// ── Actionable tip based on biggest weakness
+		const tip =
+			!hasDefensive && !hasDividend ? "Add at least one defensive or dividend stock (KO, JNJ, WMT, COST, MSFT) to anchor your portfolio against downturns."
+			: !hasDefensive ? "Your portfolio has no defensive anchor. A stock like Coca-Cola, Johnson & Johnson, or Costco would add stability in rough markets."
+			: !hasDividend ? "Consider adding a dividend payer (MSFT, KO, JNJ, WMT) — income compounds over time and cushions drawdowns."
+			: specCount >= 3 ? "You have a lot of speculative exposure. Consider trimming one spec play and replacing it with a growth or defensive stock."
+			: sectors.size <= 3 ? "Your picks are concentrated in similar sectors. Try spreading across consumer, healthcare, or finance for better diversification."
+			: "Strong portfolio. Fine-tune by considering whether your growth picks have competitive moats.";
+
+		const growthCount = slotEntries.filter(e => e.slot.type === "growth").length;
+		const defCount = slotEntries.filter(e => e.slot.type === "defensive" || e.slot.type === "dividend").length;
 		const growthPct = Math.round((growthCount / totalSlots) * 100);
 		const defensivePct = Math.round((defCount / totalSlots) * 100);
-		let grade = "B";
-		let feedback = "";
-		if (hasDefensive && hasDividend && specPct <= 29) { grade = "A"; feedback = "Solid balance. You have defensive anchors, dividend income, and controlled speculative exposure."; }
-		else if (specPct >= 57) { grade = "C"; feedback = "Very speculative. You are heavy on high-risk names. Consider adding a defensive or dividend stock for balance."; }
-		else if (!hasDefensive) { grade = "B-"; feedback = "Good start but no defensive anchor. Adding a stable stock like Costco or J&J would reduce your downside risk."; }
-		else { grade = "B"; feedback = "Decent portfolio. A mix of growth and stability. You could tighten the risk profile with more dividend exposure."; }
-		return { grade, feedback, specPct, growthPct, defensivePct };
+
+		return { grade, total, riskScore, sectorScore, incomeScore, tip, slotRatings, specPct, growthPct, defensivePct };
 	};
 
 	if (showResult) {
-		const { grade, feedback, specPct, growthPct, defensivePct } = gradeWatchlist();
-		const pickedBrands = Object.values(picks).filter(Boolean).map(id => WATCHLIST_BRANDS.find(b => b.id === id)).filter((b): b is typeof WATCHLIST_BRANDS[number] => b !== undefined);
+		const { grade, total, riskScore, sectorScore, incomeScore, tip, slotRatings, specPct, growthPct, defensivePct } = gradeWatchlist();
+		const gradeColor = grade.startsWith("A") ? "text-emerald-400" : grade.startsWith("B") ? "text-blue-400" : grade.startsWith("C") ? "text-amber-400" : "text-rose-400";
+		const gradeBorder = grade.startsWith("A") ? "border-emerald-500/25" : grade.startsWith("B") ? "border-blue-500/20" : grade.startsWith("C") ? "border-amber-500/25" : "border-rose-500/25";
+		const gradeBg = grade.startsWith("A") ? "bg-emerald-500/[0.06]" : grade.startsWith("B") ? "bg-blue-500/[0.05]" : grade.startsWith("C") ? "bg-amber-500/[0.06]" : "bg-rose-500/[0.06]";
+		const qualityLabel: Record<string, string> = { best: "Best fit ✓", good: "Good fit ✓", ok: "Acceptable" };
+		const qualityColor: Record<string, string> = { best: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25", good: "text-blue-400 bg-blue-500/10 border-blue-500/25", ok: "dark:text-slate-400 text-slate-500 bg-foreground/[0.04] border-foreground/10" };
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<button type="button" onClick={() => setShowResult(false)} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Edit Picks</button>
-					<h2 className="text-[22px] font-extrabold mb-[2px]">Your Watchlist</h2>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Here is how your picks look.</p>
-					<div className={`rounded-[18px] border overflow-hidden mb-[16px] ${grade.startsWith('A') ? 'border-emerald-500/25' : grade.startsWith('B') ? 'border-blue-500/20' : 'border-amber-500/25'}`}>
-						{/* Grade header */}
-						<div className={`p-[18px] text-center ${grade.startsWith('A') ? 'bg-emerald-500/[0.08]' : grade.startsWith('B') ? 'bg-blue-500/[0.07]' : 'bg-amber-500/[0.08]'}`}>
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Portfolio Grade</p>
-							<p className={`text-[58px] font-extrabold leading-none ${grade.startsWith('A') ? 'text-emerald-400' : grade.startsWith('B') ? 'text-blue-400' : 'text-amber-400'}`}>{grade}</p>
-							<p className="text-[13px] dark:text-slate-300 text-slate-600 mt-[8px] leading-relaxed max-w-[280px] mx-auto">{feedback}</p>
+					<h2 className="text-[22px] font-extrabold mb-[4px]">Watchlist Grade</h2>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">How well-balanced is your portfolio?</p>
+
+					{/* Grade card */}
+					<div className={`rounded-[18px] border ${gradeBorder} ${gradeBg} p-[20px] mb-[16px]`}>
+						<div className="flex items-center gap-[16px] mb-[16px]">
+							<p className={`text-[64px] font-extrabold leading-none ${gradeColor}`}>{grade}</p>
+							<div>
+								<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500">Portfolio Score</p>
+								<p className="text-[24px] font-extrabold">{total}<span className="text-[14px] dark:text-slate-400 text-slate-500 font-normal">/100</span></p>
+							</div>
 						</div>
-						{/* Portfolio mix bar */}
-						<div className="p-[14px] bg-surface-1">
-							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Mix</p>
-							{/* Stacked bar */}
-							<div className="flex h-[10px] rounded-full overflow-hidden gap-[2px] mb-[10px]">
-								{growthPct > 0 && <div className="bg-blue-500 rounded-l-full" style={{width:`${growthPct}%`}} />}
-								{defensivePct > 0 && <div className={`bg-emerald-500 ${growthPct === 0 ? 'rounded-l-full' : ''} ${specPct === 0 ? 'rounded-r-full' : ''}`} style={{width:`${defensivePct}%`}} />}
-								{specPct > 0 && <div className="bg-rose-500 rounded-r-full" style={{width:`${specPct}%`}} />}
-								{(100 - growthPct - defensivePct - specPct) > 0 && <div className="bg-foreground/20 rounded-r-full flex-1" />}
-							</div>
-							<div className="flex justify-between text-[11px]">
-								{[{label:'Growth',pct:growthPct,dot:'bg-blue-500'},{label:'Defensive',pct:defensivePct,dot:'bg-emerald-500'},{label:'Speculative',pct:specPct,dot:'bg-rose-500'}].map(s => (
-									<div key={s.label} className="flex items-center gap-[5px]">
-										<div className={`w-[6px] h-[6px] rounded-full ${s.dot}`} />
-										<span className="font-semibold dark:text-slate-300 text-slate-600">{s.label} {s.pct}%</span>
+						{/* 3 dimension bars */}
+						<div className="space-y-[10px]">
+							{[
+								{ label: "Risk Balance", score: riskScore, max: 35, color: "bg-orange-400", tip: "Penalises heavy speculative exposure" },
+								{ label: "Diversification", score: sectorScore, max: 35, color: "bg-blue-400", tip: "Rewards spreading across sectors" },
+								{ label: "Income & Stability", score: incomeScore, max: 30, color: "bg-emerald-400", tip: "Rewards defensive + dividend picks" },
+							].map(d => (
+								<div key={d.label}>
+									<div className="flex items-center justify-between mb-[4px]">
+										<p className="text-[12px] font-semibold">{d.label}</p>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500">{d.score}/{d.max}</p>
 									</div>
-								))}
-							</div>
+									<div className="h-[6px] rounded-full bg-foreground/10">
+										<div className={`h-full rounded-full ${d.color} transition-all duration-500`} style={{ width: `${(d.score / d.max) * 100}%` }} />
+									</div>
+								</div>
+							))}
 						</div>
 					</div>
-					<div className="space-y-[6px]">
-						{pickedBrands.map(b => (
-							<div key={b.id} className="flex items-center gap-[12px] rounded-[10px] border border-foreground/10 bg-surface-1 px-[12px] py-[10px]">
-								<p className="text-[13px] font-bold min-w-[48px]">{b.ticker}</p>
-								<div className="flex-1 min-w-0"><p className="text-[12px] dark:text-slate-300 text-slate-600 truncate">{b.name}</p></div>
-								<div className="flex gap-[4px]">{b.types.slice(0,2).map(t => (<span key={t} className="text-[10px] px-[6px] py-[2px] rounded-full bg-foreground/[0.06] dark:text-slate-400 text-slate-500">{t}</span>))}</div>
-							</div>
+
+					{/* Mix bar */}
+					<div className="rounded-[13px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Mix</p>
+						<div className="flex h-[8px] rounded-full overflow-hidden mb-[10px] gap-[2px]">
+							{growthPct > 0 && <div className="bg-blue-500 rounded-l-full" style={{width:`${growthPct}%`}} />}
+							{defensivePct > 0 && <div className={`bg-emerald-500 ${growthPct === 0 ? "rounded-l-full" : ""} ${specPct === 0 ? "rounded-r-full" : ""}`} style={{width:`${defensivePct}%`}} />}
+							{specPct > 0 && <div className="bg-rose-500 rounded-r-full" style={{width:`${specPct}%`}} />}
+							{(100 - growthPct - defensivePct - specPct) > 0 && <div className="bg-foreground/20 flex-1" />}
+						</div>
+						<div className="flex justify-between text-[11px]">
+							{[{label:"Growth",pct:growthPct,dot:"bg-blue-500"},{label:"Stable",pct:defensivePct,dot:"bg-emerald-500"},{label:"Spec",pct:specPct,dot:"bg-rose-500"}].map(s => (
+								<div key={s.label} className="flex items-center gap-[4px]">
+									<div className={`w-[6px] h-[6px] rounded-full ${s.dot}`} />
+									<span className="font-semibold dark:text-slate-300 text-slate-600">{s.label} {s.pct}%</span>
+								</div>
+							))}
+						</div>
+					</div>
+
+					{/* Actionable tip */}
+					<div className="rounded-[12px] border border-amber-500/25 bg-amber-500/[0.07] px-[14px] py-[12px] mb-[16px]">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-amber-400 mb-[4px]">What to improve</p>
+						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{tip}</p>
+					</div>
+
+					{/* Per-pick breakdown */}
+					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Pick by Pick</p>
+					<div className="space-y-[8px] mb-[20px]">
+						{slotRatings.map(({ slot, brand, quality, note }, i) => (
+							brand ? (
+								<div key={i} className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[12px]">
+									<div className="flex items-start justify-between gap-[8px] mb-[4px]">
+										<div className="flex items-center gap-[8px]">
+											<span className="text-[16px]">{slot.emoji}</span>
+											<div>
+												<p className="text-[12px] dark:text-slate-400 text-slate-500">{slot.label}</p>
+												<p className="text-[14px] font-bold">{brand.ticker} — {brand.name}</p>
+											</div>
+										</div>
+										<span className={`shrink-0 text-[10px] font-semibold px-[7px] py-[2px] rounded-full border ${qualityColor[quality ?? "ok"]}`}>
+											{qualityLabel[quality ?? "ok"]}
+										</span>
+									</div>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed mt-[4px] pl-[24px]">{note}</p>
+								</div>
+							) : null
 						))}
 					</div>
-					<button type="button" onClick={onBack} className="mt-[20px] w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:'linear-gradient(90deg,#3b82f6,#6366f1)'}}>Done</button>
+
+					<div className="space-y-[8px]">
+						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:"linear-gradient(90deg,#3b82f6,#6366f1)"}}>Done</button>
+						<button type="button" onClick={() => setShowResult(false)} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Edit Picks</button>
+					</div>
 				</div>
 			</div>
 		);
