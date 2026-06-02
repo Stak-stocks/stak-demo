@@ -36,7 +36,7 @@ function ForgotPasswordPage() {
 	}
 
 	return (
-		<div className="dark relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
+		<div className="relative flex flex-col items-center justify-center min-h-screen bg-surface-1 px-6 overflow-hidden">
 			<FloatingBrands />
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
