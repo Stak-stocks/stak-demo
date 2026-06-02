@@ -1702,19 +1702,19 @@ const BATTLE_TIERS: Record<string, number> = {
 
 // Tier XP multipliers
 const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
-	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner Pack",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner Pack",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor Pack",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { lesson: 45, battle: 8,  lab: 8,  label: "Analyst Pack",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
-	5: { lesson: 60, battle: 10, lab: 10, label: "Expert Pack",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { lesson: 45, battle: 8,  lab: 8,  label: "Analyst",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { lesson: 60, battle: 10, lab: 10, label: "Expert",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 
 function xpTier(totalXp: number): number {
-	if (totalXp >= 1000) return 5;
-	if (totalXp >= 600) return 4;
-	if (totalXp >= 300) return 3;
-	if (totalXp >= 100) return 2;
-	return 1;
+	if (totalXp >= 7500) return 5;  // Expert
+	if (totalXp >= 3500) return 4;  // Analyst
+	if (totalXp >= 1500) return 3;  // Investor
+	if (totalXp >= 500)  return 2;  // Learner
+	return 1;                        // Beginner
 }
 
 function seededPick<T>(arr: T[], seed: number, count: number): T[] {
@@ -1806,12 +1806,7 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 	};
 }
 
-/** Get the current ISO week key, e.g. "2026-W22" */
+/** Get the current day key, e.g. "2026-06-02" */
 export function getCurrentWeekKey(): string {
-	const d = new Date();
-	const dayNum = d.getUTCDay() || 7;
-	d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-	const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-	const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-	return `${d.getUTCFullYear()}-W${week}`;
+	return new Date().toISOString().split("T")[0]!;
 }

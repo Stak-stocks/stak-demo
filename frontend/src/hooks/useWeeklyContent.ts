@@ -18,7 +18,7 @@ import {
 type GenerableType = "battle" | "earnings" | "risk" | "mood";
 const GENERABLE_TYPES: GenerableType[] = ["battle", "earnings", "risk", "mood"];
 
-const GEN_STALE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — fresh each week
+const GEN_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours — fresh each day
 
 export function useWeeklyContent(staticPack: WeeklyPack) {
 	const { weekKey, tier } = staticPack;

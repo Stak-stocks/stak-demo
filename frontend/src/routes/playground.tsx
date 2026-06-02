@@ -320,7 +320,7 @@ export function PlaygroundPage() {
 	const weeklyXpEarned = account?.weeklyProgress?.weekKey === weekKey
 		? (account.weeklyProgress.xpEarned ?? 0) : 0;
 
-	// Find next incomplete lesson from this week's pack for "Continue Learning"
+	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
 		const weeklyLessonIds = weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
 		return LESSONS.find(l => weeklyLessonIds.includes(l.id) && !weeklyCompleted.has(l.id));
@@ -414,11 +414,11 @@ export function PlaygroundPage() {
 
 	// ── Level system ─────────────────────────────────────────────────────────
 	const LEVELS = [
-		{ min: 0,    max: 99,   name: "Beginner",  color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"      },
-		{ min: 100,  max: 299,  name: "Learner",   color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"        },
-		{ min: 300,  max: 599,  name: "Investor",  color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"        },
-		{ min: 600,  max: 999,  name: "Analyst",   color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500"    },
-		{ min: 1000, max: 9999, name: "Expert",    color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"     },
+		{ min: 0,     max: 499,   name: "Beginner",  color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"      },
+		{ min: 500,   max: 1499,  name: "Learner",   color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"        },
+		{ min: 1500,  max: 3499,  name: "Investor",  color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"        },
+		{ min: 3500,  max: 7499,  name: "Analyst",   color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500"    },
+		{ min: 7500,  max: 99999, name: "Expert",    color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"     },
 	];
 	const currentLevel = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
 	const nextLevel = LEVELS.find(l => l.min > totalXp);
@@ -570,31 +570,31 @@ export function PlaygroundPage() {
 					{[
 						{
 							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "lesson").length} this week · 20–60 XP`, view: "lessons" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "lesson").length} today · 20–60 XP`, view: "lessons" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "lesson" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "lesson").length,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "battle").length} this week · 20–60 XP`, view: "battles" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "battle").length} today · 20–60 XP`, view: "battles" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "battle" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "battle").length,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "earnings").length} this week · 25–70 XP`, view: "earnings-lab" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "earnings").length} today · 25–70 XP`, view: "earnings-lab" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "earnings" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "earnings").length,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "risk").length} this week · 15 XP each`, view: "risk-lab" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "risk").length} today · 15 XP each`, view: "risk-lab" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "risk" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "risk").length,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
-							subtitle: `${weeklyPack.activities.filter(a => a.type === "mood").length} this week · 20 XP each`, view: "mood-simulator" as const,
+							subtitle: `${weeklyPack.activities.filter(a => a.type === "mood").length} today · 20 XP each`, view: "mood-simulator" as const,
 							done: weeklyCompleted ? weeklyPack.activities.filter(a => a.type === "mood" && weeklyCompleted.has(a.id)).length : 0,
 							total: weeklyPack.activities.filter(a => a.type === "mood").length,
 						},
@@ -666,7 +666,7 @@ function LessonLibrary({
 	const completedIds = new Set(
 		Object.entries(account?.lessonProgress ?? {}).filter(([, v]) => v.completed).map(([k]) => k)
 	);
-	// Only show this week's lessons
+	// Only show today's lessons
 	const thisWeekLessons = LESSONS.filter(l => weeklyLessonIds.includes(l.id));
 	const pastLessons = LESSONS.filter(l => !weeklyLessonIds.includes(l.id) && completedIds.has(l.id));
 	const visibleLessons = selectedCategory
@@ -685,10 +685,10 @@ function LessonLibrary({
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[2px]">
-					<h2 className="text-[22px] font-extrabold">This Week's Lessons</h2>
+					<h2 className="text-[22px] font-extrabold">Today's Lessons</h2>
 					<span className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[8px] py-[3px] rounded-full">{weekLabel}</span>
 				</div>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{thisWeekLessons.filter(l => completedIds.has(l.id)).length}/{thisWeekLessons.length} done this week</p>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{thisWeekLessons.filter(l => completedIds.has(l.id)).length}/{thisWeekLessons.length} done today</p>
 
 				{/* Week progress bar */}
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[16px]">
@@ -720,7 +720,7 @@ function LessonLibrary({
 				{/* Lessons */}
 				<div className="space-y-[8px]">
 					{visibleLessons.length === 0 && (
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons this week.</p>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons today.</p>
 					)}
 					{visibleLessons.map(lesson => {
 						const done = completedIds.has(lesson.id);
@@ -1626,7 +1626,7 @@ function RiskLabView({ onBack, weeklyRiskIds, weekLabel, weekKey, weeklyComplete
 		);
 	}
 
-	// "All done" state — every scenario this week was already correctly answered
+	// "All done" state — every scenario today was already correctly answered
 	if (visibleRisk.length === 0 && !done) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
@@ -1634,22 +1634,22 @@ function RiskLabView({ onBack, weeklyRiskIds, weekLabel, weekKey, weeklyComplete
 					<BackBtn onClick={onBack} />
 					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
 						<span className="text-[48px] block mb-[10px]">✅</span>
-						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done This Week</h2>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Risk Lab scenario right. New ones unlock next week.</p>
+						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done Today</h2>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Risk Lab scenario right. New ones unlock tomorrow.</p>
 					</div>
 				</div>
 			</div>
 		);
 	}
 
-	// Empty state — no scenarios available (0 risk items in this week's pack)
+	// Empty state — no scenarios available (0 risk items in today's pack)
 	if (!scenario) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<h2 className="text-[22px] font-extrabold mb-[8px]">Risk Lab</h2>
-					<p className="text-[14px] dark:text-slate-400 text-slate-500">No risk scenarios this week. Check back next week — they unlock as you level up.</p>
+					<p className="text-[14px] dark:text-slate-400 text-slate-500">No risk scenarios today. Check back tomorrow — they unlock as you level up.</p>
 				</div>
 			</div>
 		);
@@ -1769,7 +1769,7 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete,
 		);
 	}
 
-	// All done state — all scenarios this week correctly answered
+	// All done state — all scenarios today correctly answered
 	if (visibleMood.length === 0 && !done) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
@@ -1777,22 +1777,22 @@ function MoodSimulatorView({ onBack, weekKey, weeklyCompleted, onWeeklyComplete,
 					<BackBtn onClick={onBack} />
 					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
 						<span className="text-[48px] block mb-[10px]">✅</span>
-						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done This Week</h2>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Market Mood scenario right. New ones unlock next week.</p>
+						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done Today</h2>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Market Mood scenario right. New ones unlock tomorrow.</p>
 					</div>
 				</div>
 			</div>
 		);
 	}
 
-	// Empty state — no scenarios in this week's pack
+	// Empty state — no scenarios in today's pack
 	if (!scenario) {
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<h2 className="text-[22px] font-extrabold mb-[8px]">Market Mood</h2>
-					<p className="text-[14px] dark:text-slate-400 text-slate-500">No scenarios this week. Check back next week!</p>
+					<p className="text-[14px] dark:text-slate-400 text-slate-500">No scenarios today. Check back tomorrow!</p>
 				</div>
 			</div>
 		);
