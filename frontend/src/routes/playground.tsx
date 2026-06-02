@@ -316,11 +316,6 @@ export function PlaygroundPage() {
 		if (wp?.weekKey !== weekKey) return new Set<string>();
 		return new Set(wp.completedIds ?? []);
 	}, [account?.weeklyProgress, weekKey]);
-	const weeklyDone = weeklyCompleted.size;
-	const weeklyTotal = weeklyPack.activities.length;
-	const weeklyXpEarned = account?.weeklyProgress?.weekKey === weekKey
-		? (account.weeklyProgress.xpEarned ?? 0) : 0;
-
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
 		const weeklyLessonIds = weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
@@ -3565,7 +3560,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// Initialise cash on first open
 	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
 
-	const sandboxCash = account?.sandboxCash ?? (account?.sandboxPortfolio !== undefined ? 0 : SANDBOX_BUDGET);
+	const sandboxCash = account?.sandboxCash ?? SANDBOX_BUDGET;
 
 	// Queries for all held tickers
 	const stockQueries = tickers.map(ticker => ({
@@ -3580,7 +3575,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const entry = sandbox[ticker]!;
 		const quote = (results[i] as { data?: { quote?: { price?: number; changePercent?: number } } })?.data?.quote;
 		const currentPrice = quote?.price ?? null;
-		const shares = entry.shares ?? 1;
+		const shares = entry.shares ?? 0; // 0 = malformed legacy entry, skips P&L calculation
 		const costBasis = entry.priceAtAdd != null ? entry.priceAtAdd * shares : 0;
 		const currentValue = currentPrice != null ? currentPrice * shares : costBasis;
 		const pricePct = entry.priceAtAdd && currentPrice

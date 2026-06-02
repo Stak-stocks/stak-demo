@@ -63,20 +63,10 @@ export interface DailyChallengeState {
 export interface SandboxEntry {
 	addedAt: number;
 	priceAtAdd: number | null;
-	shares?: number;           // number of shares purchased (new model); absent = legacy $1k model
+	shares: number;
 	thesis?: string;
 }
 
-export interface SandboxTrade {
-	ticker: string;
-	action: "buy" | "sell";
-	priceAtAction: number | null;
-	value: number;          // 1000 for buy, currentValue for sell
-	pnl: number | null;     // null for buy, dollar gain/loss for sell
-	pnlPct: number | null;
-	timestamp: number;
-	thesis?: string;
-}
 
 export interface UserDoc {
 	uid?: string;
@@ -109,7 +99,7 @@ export interface UserDoc {
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
 	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
-	sandboxTradeHistory?: SandboxTrade[];  // last 30 trades
+
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 }
@@ -122,7 +112,6 @@ interface AccountContextType {
 	updatePassedBrands: (entries: PassedEntry[]) => Promise<void>;
 	incrementSwipeCount: () => Promise<void>;
 	updateDeckOrder: (order: string[]) => Promise<void>;
-	updateIntelState: (state: IntelCardState) => Promise<void>;
 	updateStreak: (streak: { date: string; count: number }) => Promise<void>;
 	updatePreferences: (prefs: UserDoc["preferences"]) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
@@ -134,7 +123,6 @@ interface AccountContextType {
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => Promise<void>;
-	removeFromSandbox: (ticker: string) => Promise<void>;
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
@@ -247,13 +235,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
-	const updateIntelState = useCallback(
-		async (state: IntelCardState) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { intelCardState: state });
-		},
-		[user],
-	);
 
 	const addSearchHistory = useCallback(
 		async (query: string) => {
@@ -371,16 +352,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			// This prevents double-spend races from rapid taps or concurrent sessions
 			await runTransaction(db, async (tx) => {
 				const snap = await tx.get(userRef);
-				const data = snap.data() as { sandboxCash?: number; sandboxTradeHistory?: SandboxTrade[] } | undefined;
+				const data = snap.data() as { sandboxCash?: number } | undefined;
 				const liveCash = data?.sandboxCash ?? SANDBOX_STARTING_CASH;
 				if (liveCash < cost) return; // insufficient funds — abort silently
 				const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
-				const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: cost, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
-				const history = [...(data?.sandboxTradeHistory ?? []), trade].slice(-30);
 				tx.update(userRef, {
 					[`sandboxPortfolio.${ticker}`]: entry,
 					sandboxCash: Math.round((liveCash - cost) * 100) / 100,
-					sandboxTradeHistory: history,
 				});
 			});
 		},
@@ -391,15 +369,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
 			if (!user) return;
 			const entry = account?.sandboxPortfolio?.[ticker];
-			const totalShares = entry?.shares ?? 1;
+			const totalShares = entry?.shares ?? 0;
 			const qty = sharesToSell ?? totalShares; // default: sell everything
 			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * qty : 0;
 			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
-			const pnlPct = entry?.priceAtAdd && currentPrice
-				? Math.round(((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 1000) / 10
-				: null;
-			const trade: SandboxTrade = { ticker, action: "sell", priceAtAction: currentPrice, value: Math.round(currentValue * 100) / 100, pnl, pnlPct, timestamp: Date.now(), ...(entry?.thesis ? { thesis: entry.thesis } : {}) };
-			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
 			const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
 			const updated = { ...(account?.sandboxPortfolio ?? {}) };
 			if (remainingShares <= 0) {
@@ -411,18 +384,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			await updateDoc(doc(db, "users", user.uid), {
 				sandboxPortfolio: updated,
 				sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
-				sandboxTradeHistory: history,
 			});
-		},
-		[user, account],
-	);
-
-	const removeFromSandbox = useCallback(
-		async (ticker: string) => {
-			if (!user) return;
-			const updated = { ...(account?.sandboxPortfolio ?? {}) };
-			delete updated[ticker];
-			await updateDoc(doc(db, "users", user.uid), { sandboxPortfolio: updated });
 		},
 		[user, account],
 	);
@@ -432,7 +394,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await updateDoc(doc(db, "users", user.uid), {
 			sandboxPortfolio: {},
 			sandboxCash: SANDBOX_STARTING_CASH,
-			sandboxTradeHistory: [],
 			sandboxMilestones: [],
 		});
 	}, [user]);
@@ -476,7 +437,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updatePassedBrands,
 				incrementSwipeCount,
 				updateDeckOrder,
-				updateIntelState,
 				updateStreak,
 				updatePreferences,
 				completeLesson,
@@ -484,7 +444,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				addXp,
 				addToSandbox,
 				sellFromSandbox,
-				removeFromSandbox,
 				initSandboxCash,
 				resetSandbox,
 				markSandboxMilestone,

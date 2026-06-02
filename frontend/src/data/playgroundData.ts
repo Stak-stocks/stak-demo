@@ -1682,7 +1682,7 @@ export interface WeeklyActivity {
 }
 
 export interface WeeklyPack {
-	weekKey: string;    // "2026-W22"
+	weekKey: string;    // daily date string, e.g. "2026-06-02"
 	tier: number;       // 1–5
 	activities: WeeklyActivity[];
 	totalXp: number;

@@ -224,13 +224,6 @@ export interface CalendarEntry {
 	revenueEstimate: number | null;
 }
 
-export function getEarningsCalendar() {
-	return apiRequest<{
-		today: CalendarEntry[];
-		tomorrow: CalendarEntry[];
-		week: CalendarEntry[];
-	}>("/api/stock/calendar");
-}
 
 export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
