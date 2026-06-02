@@ -49,6 +49,22 @@ export interface StakSaveEntry {
 	priceAtSave: number | null;
 }
 
+export interface LessonProgress {
+	completed: boolean;
+	completedAt: number;
+	xpEarned: number;
+}
+
+export interface DailyChallengeState {
+	date: string;
+	completedIds: string[];
+}
+
+export interface SandboxEntry {
+	addedAt: number;
+	priceAtAdd: number | null;
+}
+
 export interface UserDoc {
 	uid?: string;
 	email?: string;
@@ -73,6 +89,11 @@ export interface UserDoc {
 	searchHistory?: SearchEntry[];
 	tagScores?: Record<string, number>;
 	lastBriefDate?: string;
+	// Playground
+	totalXp?: number;
+	lessonProgress?: Record<string, LessonProgress>;
+	dailyChallengeState?: DailyChallengeState;
+	sandboxPortfolio?: Record<string, SandboxEntry>;
 }
 
 interface AccountContextType {
@@ -90,6 +111,10 @@ interface AccountContextType {
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
 	clearSearchHistory: () => Promise<void>;
 	updateLastBriefDate: (date: string) => Promise<void>;
+	completeLesson: (lessonId: string, xp: number) => Promise<void>;
+	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
+	addToSandbox: (ticker: string, priceAtAdd: number | null) => Promise<void>;
+	removeFromSandbox: (ticker: string) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -264,6 +289,57 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
+	const completeLesson = useCallback(
+		async (lessonId: string, xp: number) => {
+			if (!user) return;
+			const existing = account?.lessonProgress ?? {};
+			if (existing[lessonId]?.completed) return;
+			const entry: LessonProgress = { completed: true, completedAt: Date.now(), xpEarned: xp };
+			const totalXp = (account?.totalXp ?? 0) + xp;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`lessonProgress.${lessonId}`]: entry,
+				totalXp,
+			});
+		},
+		[user, account],
+	);
+
+	const completeChallenge = useCallback(
+		async (challengeId: string, xp: number) => {
+			if (!user) return;
+			const today = new Date().toISOString().split("T")[0];
+			const current = account?.dailyChallengeState;
+			const completedIds = current?.date === today ? [...(current.completedIds ?? []), challengeId] : [challengeId];
+			const totalXp = (account?.totalXp ?? 0) + xp;
+			await updateDoc(doc(db, "users", user.uid), {
+				dailyChallengeState: { date: today, completedIds },
+				totalXp,
+			});
+		},
+		[user, account],
+	);
+
+	const addToSandbox = useCallback(
+		async (ticker: string, priceAtAdd: number | null) => {
+			if (!user) return;
+			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd };
+			await updateDoc(doc(db, "users", user.uid), {
+				[`sandboxPortfolio.${ticker}`]: entry,
+			});
+		},
+		[user],
+	);
+
+	const removeFromSandbox = useCallback(
+		async (ticker: string) => {
+			if (!user) return;
+			const updated = { ...(account?.sandboxPortfolio ?? {}) };
+			delete updated[ticker];
+			await updateDoc(doc(db, "users", user.uid), { sandboxPortfolio: updated });
+		},
+		[user, account],
+	);
+
 	return (
 		<AccountContext.Provider
 			value={{
@@ -277,6 +353,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updateIntelState,
 				updateStreak,
 				updatePreferences,
+				completeLesson,
+				completeChallenge,
+				addToSandbox,
+				removeFromSandbox,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
