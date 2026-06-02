@@ -140,6 +140,28 @@ function optionState(
 	return "idle";
 }
 
+// ── Floating XP indicator ────────────────────────────────────────────────────
+
+function useXpFloat() {
+	const [xpFloat, setXpFloat] = useState<{ id: number; amount: number } | null>(null);
+	const idRef = useRef(0);
+
+	const showXp = (amount: number) => {
+		idRef.current += 1;
+		setXpFloat({ id: idRef.current, amount });
+		setTimeout(() => setXpFloat(null), 1700);
+	};
+
+	const XPFloat = xpFloat ? (
+		<div key={xpFloat.id} className="fixed bottom-[100px] left-1/2 -translate-x-1/2 z-[999] xp-float flex items-center gap-[5px] rounded-full bg-amber-500/20 border border-amber-400/40 px-[12px] py-[6px] shadow-lg shadow-amber-500/20">
+			<Star size={13} className="text-amber-400" fill="currentColor" />
+			<span className="text-[13px] font-extrabold text-amber-400">+{xpFloat.amount} XP</span>
+		</div>
+	) : null;
+
+	return { showXp, XPFloat };
+}
+
 // ── Shared back button ───────────────────────────────────────────────────────
 
 function BackBtn({ onClick, label = "Back" }: { onClick: () => void; label?: string }) {
@@ -712,6 +734,7 @@ function LessonPlayer({
 	onComplete: () => void;
 }) {
 	const { completeLesson } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const lesson = LESSONS.find(l => l.id === lessonId);
 	const [cardIndex, setCardIndex] = useState(0);
 	const [phase, setPhase] = useState<"cards" | "quiz" | "done">("cards");
@@ -745,6 +768,8 @@ function LessonPlayer({
 		if (showResult) return;
 		setSelectedOption(optionId);
 		setShowResult(true);
+		// Only show XP float on correct answer
+		if (optionId === lesson.quiz.correctId) showXp(lesson.xp);
 		if (!alreadyCompleted) {
 			await completeLesson(lesson.id, lesson.xp);
 			// Level-up check — show toast if XP crosses a level boundary
@@ -786,6 +811,7 @@ function LessonPlayer({
 
 	return (
 		<div className="min-h-full bg-background text-foreground flex flex-col">
+			{XPFloat}
 			<div className="max-w-lg mx-auto w-full px-[18px] pt-[20px] pb-[32px] flex flex-col flex-1">
 				{/* Nav */}
 				<div className="flex items-center justify-between mb-[16px]">
@@ -929,6 +955,7 @@ function DailyChallengeView({
 	onBack: () => void;
 }) {
 	const { completeChallenge } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const [selected, setSelected] = useState<string | null>(null);
 	const [showResult, setShowResult] = useState(alreadyCompleted);
 	const isCorrect = selected === challenge.correctId;
@@ -937,15 +964,16 @@ function DailyChallengeView({
 		if (showResult) return;
 		setSelected(id);
 		setShowResult(true);
+		if (id === challenge.correctId) showXp(challenge.xp);
 		if (!alreadyCompleted) {
 			await completeChallenge(challenge.id, challenge.xp);
-			// Counts as qualifying activity for streak (same as brand_tap)
 			trackEvent("brand_tap").catch(() => {});
 		}
 	};
 
 	return (
 		<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center gap-[10px] mb-[20px]">
@@ -994,11 +1022,12 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 	const battle = STOCK_BATTLES.find(b => b.id === battleId)!;
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const { addXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const xpAwarded = useRef(false);
 	const handlePick = (side: "A" | "B") => {
 		if (selected) return;
 		setSelected(side);
-		if (!xpAwarded.current) { xpAwarded.current = true; addXp(battle.xp).catch(() => {}); }
+		if (!xpAwarded.current) { xpAwarded.current = true; addXp(battle.xp).catch(() => {}); showXp(battle.xp); }
 		// Report win/loss once live data is available; if not available, skip
 		setTimeout(() => {
 			if (liveWinner) onResult?.(side === liveWinner);
@@ -1046,6 +1075,7 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 
 	return (
 		<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} label="All Battles" />
 				<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">{battle.category}</p>
@@ -1203,6 +1233,7 @@ function BattlesView({ onBack }: { onBack: () => void }) {
 
 function EarningsLabView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [phase, setPhase] = useState<"question" | "outcome">("question");
@@ -1240,8 +1271,10 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 		const alreadyDone = completedIds.has(scenario.id);
 		return (
 			<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={backToList} label="All Scenarios" />
+					{XPFloat}
+				<BackBtn onClick={backToList} label="All Scenarios" />
 					<div className="flex items-center gap-[10px] mb-[16px]">
 						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
 							<FlaskConical size={18} />
@@ -1295,7 +1328,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 												setSelected(opt.id);
 												setPhase("outcome");
 												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); }
+												if (!xpAwarded.current) { xpAwarded.current = true; addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); }
 											}
 										}}
 									/>
@@ -1399,6 +1432,7 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 
 function RiskLabView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const [done, setDone] = useState(false);
@@ -1416,6 +1450,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 			: { emoji: "📚", label: "Keep Learning", msg: "Risk is one of the hardest concepts in investing. The more scenarios you see, the sharper your instincts get.", color: "text-rose-400", border: "border-rose-500/25", bg: "bg-rose-500/[0.07]" };
 		return (
 			<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
@@ -1471,7 +1506,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 								letter={side}
 								text={text + (selected ? (isRiskier ? " — Higher Risk ⚠️" : " — More Stable ✓") : "")}
 								state={state}
-								onClick={() => { if (!selected) { setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); addXp(scenario!.xp).catch(() => {}); } } }}
+								onClick={() => { if (!selected) { const isCorrect = side !== scenario!.riskierOption; setSelected(side); if (!awardedRisk.current.has(index)) { awardedRisk.current.add(index); addXp(scenario!.xp).catch(() => {}); if (isCorrect) showXp(scenario!.xp); } } }}
 								disabled={!!selected}
 							/>
 						);
@@ -1500,6 +1535,7 @@ function RiskLabView({ onBack }: { onBack: () => void }) {
 
 function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
@@ -1517,6 +1553,7 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 			: { emoji: "🌍", label: "Macro is Hard", msg: "Macro is genuinely complex — professional investors get it wrong constantly. Keep going through the scenarios.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
 		return (
 			<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
@@ -1571,7 +1608,7 @@ function MoodSimulatorView({ onBack }: { onBack: () => void }) {
 							letter={LETTERS[i] ?? String(i + 1)}
 							text={opt.text}
 							state={optionState(opt.id, scenario.correctId, selected, !!selected)}
-							onClick={() => { if (!selected) { setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); addXp(scenario!.xp).catch(() => {}); } } }}
+							onClick={() => { if (!selected) { const isCorrect = opt.id === scenario!.correctId; setSelected(opt.id); if (!awardedMood.current.has(index)) { awardedMood.current.add(index); addXp(scenario!.xp).catch(() => {}); if (isCorrect) showXp(scenario!.xp); } } }}
 							disabled={!!selected}
 						/>
 					))}
@@ -1660,6 +1697,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 function WWYDView({ onBack }: { onBack: () => void }) {
 	const { addXp } = useAccount();
+	const { showXp, XPFloat } = useXpFloat();
 	const [idx, setIdx] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
 	const awardedWwyd = useRef(new Set<number>());
@@ -1667,9 +1705,10 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 	if (!scenario) return null;
 	const isBest = selected === scenario.bestId;
 	const next = () => { if (idx < WWYD_SCENARIOS.length - 1) { setIdx(i => i + 1); setSelected(null); } else onBack(); };
-	const handleSelect = (id: string) => { if (selected) return; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); addXp(scenario.xp).catch(() => {}); } };
+	const handleSelect = (id: string) => { if (selected) return; const isBestPick = id === scenario.bestId; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); addXp(scenario.xp).catch(() => {}); if (isBestPick) showXp(scenario.xp); } };
 	return (
 		<div className="min-h-full bg-background text-foreground">
+			{XPFloat}
 			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
