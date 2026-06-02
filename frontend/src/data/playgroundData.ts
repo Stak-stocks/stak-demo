@@ -1703,9 +1703,10 @@ const LESSON_TIERS: Record<string, number> = {
 
 // Assign each battle a tier
 const BATTLE_TIERS: Record<string, number> = {
-	"nvda-vs-amd": 3, "sbux-vs-cmg": 2, "coin-vs-hood": 3,
-	"msft-vs-googl": 3, "tsla-vs-rivn": 2, "cost-vs-wmt": 2,
-	"crm-vs-now": 4, "meta-vs-snap": 3,
+	"nvda-vs-amd": 3, "coin-vs-hood": 3,
+	"msft-vs-googl": 3, "crm-vs-now": 4, "meta-vs-snap": 3,
+	// Tier 1 — simple, well-known matchups for beginners
+	"sbux-vs-cmg": 1, "tsla-vs-rivn": 1, "cost-vs-wmt": 1,
 };
 
 // Tier XP multipliers

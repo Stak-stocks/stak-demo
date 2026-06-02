@@ -364,20 +364,27 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const addToSandbox = useCallback(
 		async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
 			if (!user) return;
-			const currentCash = account?.sandboxCash ?? SANDBOX_STARTING_CASH;
 			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
 			if (cost <= 0) return;
-			if (currentCash < cost) return;
-			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
-			const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: cost, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
-			const history = [...(account?.sandboxTradeHistory ?? []), trade].slice(-30);
-			await updateDoc(doc(db, "users", user.uid), {
-				[`sandboxPortfolio.${ticker}`]: entry,
-				sandboxCash: Math.round((currentCash - cost) * 100) / 100,
-				sandboxTradeHistory: history,
+			const userRef = doc(db, "users", user.uid);
+			// Use a Firestore transaction to atomically read balance and deduct cost
+			// This prevents double-spend races from rapid taps or concurrent sessions
+			await runTransaction(db, async (tx) => {
+				const snap = await tx.get(userRef);
+				const data = snap.data() as { sandboxCash?: number; sandboxTradeHistory?: SandboxTrade[] } | undefined;
+				const liveCash = data?.sandboxCash ?? SANDBOX_STARTING_CASH;
+				if (liveCash < cost) return; // insufficient funds — abort silently
+				const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
+				const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: cost, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
+				const history = [...(data?.sandboxTradeHistory ?? []), trade].slice(-30);
+				tx.update(userRef, {
+					[`sandboxPortfolio.${ticker}`]: entry,
+					sandboxCash: Math.round((liveCash - cost) * 100) / 100,
+					sandboxTradeHistory: history,
+				});
 			});
 		},
-		[user, account],
+		[user],
 	);
 
 	const sellFromSandbox = useCallback(

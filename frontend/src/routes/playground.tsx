@@ -261,7 +261,8 @@ export function PlaygroundPage() {
 		if (showOnboarding) scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	}, [showOnboarding]);
 
-	const todayKey = new Date().toISOString().split("T")[0];
+	// Use local time to match weekKey (getCurrentWeekKey also uses local time)
+	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
 
 	// Weekly Pack — computed after totalXp is available (see line ~310)
@@ -426,8 +427,8 @@ export function PlaygroundPage() {
 		? Math.round(((totalXp - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
 		: 100;
 
-	const todayKey2 = new Date().toISOString().split("T")[0];
-	const yesterdayKey2 = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+	const todayKey2 = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+	const yesterdayKey2 = (() => { const d = new Date(Date.now() - 86400000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 	const streakCount = (account?.lastStreakDate === todayKey2 || account?.lastStreakDate === yesterdayKey2)
 		? (account?.streakCount ?? 0) : 0;
 
@@ -4120,7 +4121,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			{/* Floating "+" button */}
 			<button
 				type="button"
-				onClick={() => { setSearchQuery(""); setShowSearch(true); }}
+				onClick={() => { setSearchQuery(""); setOrderAction(null); setOrderQty(1); setOrderAmount(100); setOrderMode("shares"); setShowSearch(true); }}
 				className="fixed right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
 				style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 16px)", background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
 			>
