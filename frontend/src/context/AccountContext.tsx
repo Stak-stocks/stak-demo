@@ -94,6 +94,7 @@ export interface UserDoc {
 	lessonProgress?: Record<string, LessonProgress>;
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
+	sandboxCash?: number; // unallocated cash — starts at $10,000, decreases on buy, increases on sell
 }
 
 interface AccountContextType {
@@ -115,7 +116,9 @@ interface AccountContextType {
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null) => Promise<void>;
+	sellFromSandbox: (ticker: string, currentValue: number) => Promise<void>;
 	removeFromSandbox: (ticker: string) => Promise<void>;
+	initSandboxCash: () => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -329,15 +332,44 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
+	const SANDBOX_STARTING_CASH = 10000;
+	const SANDBOX_POSITION_COST = 1000;
+
+	const initSandboxCash = useCallback(async () => {
+		if (!user) return;
+		if (account?.sandboxCash !== undefined) return; // already initialised
+		// For users with existing positions, give them cash = 10000 - (positions × 1000)
+		const existingPositions = Object.keys(account?.sandboxPortfolio ?? {}).length;
+		const initialCash = Math.max(0, SANDBOX_STARTING_CASH - existingPositions * SANDBOX_POSITION_COST);
+		await updateDoc(doc(db, "users", user.uid), { sandboxCash: initialCash });
+	}, [user, account]);
+
 	const addToSandbox = useCallback(
 		async (ticker: string, priceAtAdd: number | null) => {
 			if (!user) return;
+			const currentCash = account?.sandboxCash ?? SANDBOX_STARTING_CASH;
+			if (currentCash < SANDBOX_POSITION_COST) return; // not enough cash
 			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd };
 			await updateDoc(doc(db, "users", user.uid), {
 				[`sandboxPortfolio.${ticker}`]: entry,
+				sandboxCash: currentCash - SANDBOX_POSITION_COST,
 			});
 		},
-		[user],
+		[user, account],
+	);
+
+	const sellFromSandbox = useCallback(
+		async (ticker: string, currentValue: number) => {
+			if (!user) return;
+			const updated = { ...(account?.sandboxPortfolio ?? {}) };
+			delete updated[ticker];
+			const currentCash = account?.sandboxCash ?? 0;
+			await updateDoc(doc(db, "users", user.uid), {
+				sandboxPortfolio: updated,
+				sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
+			});
+		},
+		[user, account],
 	);
 
 	const removeFromSandbox = useCallback(
@@ -367,7 +399,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				completeChallenge,
 				addXp,
 				addToSandbox,
+				sellFromSandbox,
 				removeFromSandbox,
+				initSandboxCash,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,
