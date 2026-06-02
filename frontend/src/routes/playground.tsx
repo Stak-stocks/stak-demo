@@ -180,10 +180,27 @@ export function PlaygroundPage() {
 		typeof window !== "undefined" && !localStorage.getItem("playground-onboarded")
 	);
 
-	// Reset scroll to top whenever the active view changes
+	// Scroll management: save position when entering a sub-view, restore when returning home
+	const homeScrollY = useRef(0);
+	const scrollEl = () => document.querySelector("[data-scroll-root]");
+
+	const goToView = (view: ActiveView) => {
+		homeScrollY.current = scrollEl()?.scrollTop ?? 0;
+		setActiveView(view);
+		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
+	};
+
+	const goHome = () => {
+		setActiveView(null);
+		requestAnimationFrame(() => {
+			scrollEl()?.scrollTo({ top: homeScrollY.current, behavior: "instant" });
+		});
+	};
+
+	// Still reset scroll when entering onboarding
 	useEffect(() => {
-		document.querySelector("[data-scroll-root]")?.scrollTo({ top: 0, behavior: "instant" });
-	}, [activeView, showOnboarding]);
+		if (showOnboarding) scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
+	}, [showOnboarding]);
 
 	const todayKey = new Date().toISOString().split("T")[0];
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
@@ -259,7 +276,7 @@ export function PlaygroundPage() {
 				selectedCategory={activeCategory}
 				onSelectCategory={setActiveCategory}
 				onSelectLesson={(id) => { setActiveLessonId(id); setActiveView("lesson-player"); }}
-				onBack={() => { setActiveView(null); setActiveCategory(null); }}
+				onBack={() => { goHome(); setActiveCategory(null); }}
 			/>
 		);
 	}
@@ -281,33 +298,33 @@ export function PlaygroundPage() {
 				challenge={dailyChallenge}
 				alreadyCompleted={challengeCompleted}
 				account={account}
-				onBack={() => setActiveView(null)}
+				onBack={goHome}
 			/>
 		);
 	}
 	if (activeView === "battles") {
-		return <BattlesView onBack={() => setActiveView(null)} />;
+		return <BattlesView onBack={goHome} />;
 	}
 	if (activeView === "earnings-lab") {
-		return <EarningsLabView onBack={() => setActiveView(null)} />;
+		return <EarningsLabView onBack={goHome} />;
 	}
 	if (activeView === "risk-lab") {
-		return <RiskLabView onBack={() => setActiveView(null)} />;
+		return <RiskLabView onBack={goHome} />;
 	}
 	if (activeView === "mood-simulator") {
-		return <MoodSimulatorView onBack={() => setActiveView(null)} />;
+		return <MoodSimulatorView onBack={goHome} />;
 	}
 	if (activeView === "practice") {
-		return <PracticeModeView onBack={() => setActiveView(null)} />;
+		return <PracticeModeView onBack={goHome} />;
 	}
 	if (activeView === "wwyd") {
-		return <WWYDView onBack={() => setActiveView(null)} />;
+		return <WWYDView onBack={goHome} />;
 	}
 	if (activeView === "watchlist") {
-		return <WatchlistGameView onBack={() => setActiveView(null)} />;
+		return <WatchlistGameView onBack={goHome} />;
 	}
 	if (activeView === "sandbox") {
-		return <SandboxView onBack={() => setActiveView(null)} />;
+		return <SandboxView onBack={goHome} />;
 	}
 
 	// ── Level system ─────────────────────────────────────────────────────────
@@ -401,7 +418,7 @@ export function PlaygroundPage() {
 						</p>
 						<button
 							type="button"
-							onClick={() => { setActiveLessonId(featuredLesson.id); setActiveView("lesson-player"); }}
+							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(featuredLesson.id); setActiveView("lesson-player"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 							className="w-full rounded-[14px] border border-amber-500/30 bg-amber-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
 						>
 							<div className="flex items-center gap-[12px]">
@@ -425,7 +442,7 @@ export function PlaygroundPage() {
 						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Continue Learning</p>
 						<button
 							type="button"
-							onClick={() => { setActiveLessonId(nextLesson.id); setActiveView("lesson-player"); }}
+							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(nextLesson.id); setActiveView("lesson-player"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 							className="w-full rounded-[14px] border border-blue-500/30 bg-blue-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
 						>
 							<div className="flex items-center gap-[12px]">
@@ -447,7 +464,7 @@ export function PlaygroundPage() {
 				<div className="mb-[20px]">
 					<button
 						type="button"
-						onClick={() => setActiveView("daily-challenge")}
+						onClick={() => goToView("daily-challenge")}
 						className={`w-full rounded-[18px] border overflow-hidden text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30" : "border-amber-500/30"}`}
 					>
 						{/* Gradient header strip */}
@@ -519,7 +536,7 @@ export function PlaygroundPage() {
 							<button
 								key={s.title}
 								type="button"
-								onClick={() => setActiveView(s.view)}
+								onClick={() => goToView(s.view)}
 								className={`rounded-[14px] border ${c.border} ${c.bg} px-[14px] py-[14px] text-left active:opacity-80 transition-opacity relative overflow-hidden`}
 							>
 								{/* Completion shimmer overlay */}
@@ -543,8 +560,8 @@ export function PlaygroundPage() {
 					})}
 				</div>
 				<div className="space-y-[10px]">
-					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => setActiveView("watchlist")} />
-					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 practice portfolio" onClick={() => setActiveView("sandbox")} />
+					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => goToView("watchlist")} />
+					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 practice portfolio" onClick={() => goToView("sandbox")} />
 				</div>
 
 			</div>
