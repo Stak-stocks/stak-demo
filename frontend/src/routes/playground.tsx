@@ -616,26 +616,31 @@ function LessonLibrary({
 				<div className="space-y-[8px]">
 					{visibleLessons.map(lesson => {
 						const done = completedIds.has(lesson.id);
+						const barColor = CATEGORY_BAR[lesson.category];
 						return (
 							<button
 								key={lesson.id}
 								type="button"
 								onClick={() => onSelectLesson(lesson.id)}
-								className="w-full flex items-center gap-[14px] rounded-[13px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-left active:opacity-80 transition-opacity"
+								className="w-full flex items-stretch rounded-[13px] border border-foreground/10 bg-surface-1 overflow-hidden text-left active:opacity-80 transition-opacity"
 							>
-								<span className="text-[26px] shrink-0">{lesson.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<p className="text-[13px] font-bold text-foreground">{lesson.title}</p>
-									<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{lesson.subtitle}</p>
-									<div className="flex items-center gap-[8px] mt-[5px]">
-										<span className={`text-[10px] font-semibold px-[6px] py-[2px] rounded-full border ${CATEGORY_COLORS[lesson.category]}`}>{lesson.category}</span>
-										<span className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.durationMin} min · {lesson.xp} XP</span>
+								{/* Left accent stripe */}
+								<div className={`w-[4px] shrink-0 bg-gradient-to-b ${barColor} ${done ? "opacity-40" : ""}`} />
+								<div className="flex items-center gap-[14px] px-[14px] py-[12px] flex-1 min-w-0">
+									<span className={`text-[26px] shrink-0 ${done ? "opacity-50" : ""}`}>{lesson.emoji}</span>
+									<div className="flex-1 min-w-0">
+										<p className={`text-[13px] font-bold ${done ? "dark:text-slate-400 text-slate-500" : "text-foreground"}`}>{lesson.title}</p>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{lesson.subtitle}</p>
+										<div className="flex items-center gap-[8px] mt-[5px]">
+											<span className={`text-[10px] font-semibold px-[6px] py-[2px] rounded-full border ${CATEGORY_COLORS[lesson.category]}`}>{lesson.category}</span>
+											<span className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.durationMin} min · {lesson.xp} XP</span>
+										</div>
 									</div>
+									{done
+										? <div className="shrink-0 grid h-[22px] w-[22px] place-items-center rounded-full bg-emerald-500/15 text-emerald-400 text-[12px] font-bold">✓</div>
+										: <ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
+									}
 								</div>
-								{done
-									? <span className="shrink-0 text-[12px] text-emerald-400 font-bold">✓</span>
-									: <ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
-								}
 							</button>
 						);
 					})}
@@ -750,17 +755,37 @@ function LessonPlayer({
 				</div>
 
 				{phase === "done" ? (
-					<div className="flex-1 flex flex-col items-center justify-center text-center gap-[10px]">
-						<span className="text-[72px] answer-pop" style={{display:"block"}}>🎉</span>
-						<h2 className="text-[24px] font-extrabold mt-[4px]">Lesson Complete!</h2>
-						<div className="flex items-center gap-[8px] rounded-full bg-amber-500/15 border border-amber-500/25 px-[16px] py-[8px]">
-							<Star size={16} className="text-amber-400" />
-							<span className="text-[14px] font-bold text-amber-400">+{lesson.xp} XP earned</span>
+					<div className="flex-1 flex flex-col items-center justify-center text-center gap-[10px] relative overflow-hidden">
+						{/* CSS confetti pieces */}
+						{[
+							{ color: "bg-amber-400",   left: "20%", delay: "0s"    },
+							{ color: "bg-blue-400",    left: "35%", delay: "0.1s"  },
+							{ color: "bg-emerald-400", left: "50%", delay: "0.05s" },
+							{ color: "bg-rose-400",    left: "65%", delay: "0.15s" },
+							{ color: "bg-violet-400",  left: "80%", delay: "0.08s" },
+							{ color: "bg-cyan-400",    left: "10%", delay: "0.12s" },
+							{ color: "bg-pink-400",    left: "90%", delay: "0.2s"  },
+						].map((c, i) => (
+							<div key={i} className={`confetti-piece ${c.color}`} style={{ left: c.left, animationDelay: c.delay, top: "10%" }} />
+						))}
+						<span className="text-[80px] answer-pop" style={{display:"block"}}>🎉</span>
+						<h2 className="text-[26px] font-extrabold tracking-tight">Lesson Complete!</h2>
+						<div className={`rounded-[14px] border px-[20px] py-[12px] ${alreadyCompleted ? "border-foreground/10 bg-surface-1" : "border-amber-500/25 bg-amber-500/[0.1]"}`}>
+							{alreadyCompleted ? (
+								<p className="text-[13px] dark:text-slate-400 text-slate-500">Already completed — no double XP</p>
+							) : (
+								<div className="flex items-center gap-[10px]">
+									<Star size={18} className="text-amber-400" />
+									<span className="text-[16px] font-extrabold text-amber-400">+{lesson.xp} XP earned</span>
+								</div>
+							)}
 						</div>
-						{alreadyCompleted && <p className="text-[12px] dark:text-slate-400 text-slate-500">(You already had this one — no double XP)</p>}
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 mt-[4px]">
-							{completedLessons + (alreadyCompleted ? 0 : 1)}/{totalLessons} lessons done
-						</p>
+						<div className="flex items-center gap-[6px] dark:text-slate-400 text-slate-500">
+							<div className="h-[5px] w-[80px] rounded-full bg-foreground/10 overflow-hidden">
+								<div className="h-full rounded-full bg-blue-400" style={{ width: `${((completedLessons + (alreadyCompleted ? 0 : 1)) / totalLessons) * 100}%` }} />
+							</div>
+							<span className="text-[12px]">{completedLessons + (alreadyCompleted ? 0 : 1)}/{totalLessons}</span>
+						</div>
 					</div>
 				) : phase === "cards" ? (
 					<div className="flex-1 flex flex-col"
@@ -985,7 +1010,11 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 					Which has the {battle.higherWins ? "higher" : "lower"} {battle.metricLabel}?
 				</p>
 
-				<div className="grid grid-cols-2 gap-[12px] mb-[20px]">
+				<div className="relative grid grid-cols-2 gap-[12px] mb-[20px]">
+					{/* VS badge — centred between cards */}
+					<div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 grid h-[28px] w-[28px] place-items-center rounded-full bg-background border border-foreground/15 text-[11px] font-extrabold dark:text-slate-400 text-slate-500">
+						VS
+					</div>
 					{(["A", "B"] as const).map(side => {
 						const name = side === "A" ? battle.nameA : battle.nameB;
 						const ticker = side === "A" ? battle.tickerA : battle.tickerB;
@@ -995,11 +1024,13 @@ function BattleDetail({ battleId, onBack, onResult }: { battleId: string; onBack
 						let cls = "border-foreground/10 bg-surface-1";
 						if (selected) {
 							if (isWinner) cls = "border-emerald-500/50 bg-emerald-500/[0.08]";
-							else cls = "border-foreground/10 bg-surface-1 opacity-60";
+							else cls = "border-foreground/10 bg-surface-1 opacity-50";
 						} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
 						return (
 							<button key={side} type="button" onClick={() => handlePick(side)}
-								className={`rounded-[14px] border px-[16px] py-[18px] text-center transition-all ${cls}`}>
+								className={`rounded-[14px] border px-[16px] py-[18px] text-center transition-all relative ${cls}`}>
+								{/* Crown on winner */}
+								{isWinner && <span className="absolute -top-[14px] left-1/2 -translate-x-1/2 text-[20px]">👑</span>}
 								<p className="text-[15px] font-extrabold text-foreground">{ticker}</p>
 								<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{name}</p>
 								{selected && val ? (
@@ -1168,20 +1199,29 @@ function EarningsLabView({ onBack }: { onBack: () => void }) {
 						{alreadyDone && <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>}
 					</div>
 
-					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px] space-y-[8px]">
-						<p className="text-[13px] dark:text-slate-300 text-slate-600">{scenario.context}</p>
-						<div className="grid grid-cols-3 gap-[8px] pt-[4px]">
-							<div className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400">Revenue Est.</p>
-								<p className="text-[13px] font-bold">{scenario.revenueExpected}</p>
-							</div>
-							<div className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400">EPS Est.</p>
-								<p className="text-[13px] font-bold">{scenario.epsExpected}</p>
-							</div>
-							<div className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400">Stock</p>
-								<p className="text-[12px] font-bold">{scenario.stockContext}</p>
+					{/* Analyst card — pre-question context */}
+					<div className="rounded-[14px] border border-purple-500/20 overflow-hidden mb-[16px]">
+						{/* Header strip */}
+						<div className="bg-purple-500/[0.08] px-[14px] py-[10px] border-b border-purple-500/15 flex items-center justify-between">
+							<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">Pre-Earnings Brief</p>
+							<p className="text-[11px] dark:text-slate-400 text-slate-500">{scenario.ticker}</p>
+						</div>
+						<div className="p-[14px] bg-surface-1">
+							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[12px]">{scenario.context}</p>
+							{/* Analyst estimates row */}
+							<div className="grid grid-cols-3 gap-[8px]">
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Revenue Est.</p>
+									<p className="text-[14px] font-extrabold">{scenario.revenueExpected}</p>
+								</div>
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">EPS Est.</p>
+									<p className="text-[14px] font-extrabold">{scenario.epsExpected}</p>
+								</div>
+								<div className={`rounded-[10px] border p-[10px] text-center ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "border-rose-500/20 bg-rose-500/[0.05]" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") || scenario.stockContext.includes("near") ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-foreground/[0.07] bg-foreground/[0.03]"}`}>
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Stock</p>
+									<p className={`text-[11px] font-bold leading-tight ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "text-rose-400" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") ? "text-emerald-400" : "text-foreground"}`}>{scenario.stockContext}</p>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -1533,12 +1573,22 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed italic">"{stock.prompt}"</p>
 				</div>
 				{!decision ? (<>
-					<p className="text-[14px] font-bold text-center mb-[14px]">What is your move?</p>
-					<div className="grid grid-cols-3 gap-[10px]">
-						{(['save','pass','learn'] as const).map(d => {
-							const cfg={save:{label:'Save it',cls:'border-emerald-500/40 bg-emerald-500/[0.08] text-emerald-400'},pass:{label:'Pass',cls:'border-rose-500/40 bg-rose-500/[0.08] text-rose-400'},learn:{label:'Learn More',cls:'border-blue-500/40 bg-blue-500/[0.08] text-blue-400'}}[d];
-							return <button key={d} type="button" onClick={()=>setDecision(d)} className={`rounded-[12px] border py-[14px] text-[13px] font-bold active:opacity-80 ${cfg.cls}`}>{cfg.label}</button>;
-						})}
+					<p className="text-[13px] font-semibold text-center dark:text-slate-400 text-slate-500 mb-[12px] uppercase tracking-wide">What's your move?</p>
+					<div className="space-y-[10px]">
+						{([
+							{ d: 'save' as const,  emoji: "✅", label: "Save it",    sub: "Add to watchlist for tracking",   cls: "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-400" },
+							{ d: 'learn' as const, emoji: "🔍", label: "Learn More", sub: "Read analysis before deciding",   cls: "border-blue-500/35 bg-blue-500/[0.07] text-blue-400" },
+							{ d: 'pass' as const,  emoji: "⏩", label: "Pass",       sub: "Not for me right now",            cls: "border-foreground/15 bg-foreground/[0.03] dark:text-slate-400 text-slate-500" },
+						]).map(({ d, emoji, label, sub, cls }) => (
+							<button key={d} type="button" onClick={() => setDecision(d)}
+								className={`w-full flex items-center gap-[14px] rounded-[14px] border px-[16px] py-[14px] text-left active:opacity-80 transition-opacity ${cls}`}>
+								<span className="text-[24px] shrink-0">{emoji}</span>
+								<div>
+									<p className="text-[14px] font-bold">{label}</p>
+									<p className="text-[11px] opacity-70 mt-[1px]">{sub}</p>
+								</div>
+							</button>
+						))}
 					</div>
 				</>) : (<>
 					<div className={`rounded-[14px] border p-[14px] mb-[14px] ${decision==='save'?'border-emerald-500/30 bg-emerald-500/[0.07]':decision==='pass'?'border-rose-500/30 bg-rose-500/[0.07]':'border-blue-500/30 bg-blue-500/[0.07]'}`}>
@@ -1573,7 +1623,16 @@ function WWYDView({ onBack }: { onBack: () => void }) {
 					<p className="text-[12px] dark:text-slate-400 text-slate-500">{idx + 1}/{WWYD_SCENARIOS.length}</p>
 				</div>
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]"><div className="h-full rounded-full bg-purple-400 transition-all" style={{width:`${((idx+1)/WWYD_SCENARIOS.length)*100}%`}} /></div>
-				<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]"><p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[6px] font-medium">Scenario</p><p className="text-[15px] font-bold leading-snug">{scenario.scenario}</p></div>
+				<div className="rounded-[14px] border border-violet-500/20 bg-surface-1 overflow-hidden mb-[16px] flex">
+					<div className="w-[4px] shrink-0 bg-gradient-to-b from-violet-500 to-purple-400" />
+					<div className="p-[16px]">
+						<div className="flex items-center gap-[6px] mb-[8px]">
+							<span className="text-[14px]">📋</span>
+							<p className="text-[11px] font-bold uppercase tracking-wider text-violet-400">Scenario</p>
+						</div>
+						<p className="text-[15px] font-bold leading-snug">{scenario.scenario}</p>
+					</div>
+				</div>
 				<div className="space-y-[8px] mb-[16px]">
 					{scenario.options.map((opt, i) => (
 						<OptionBtn
@@ -1672,18 +1731,32 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 					<button type="button" onClick={() => setShowResult(false)} className="flex items-center gap-[6px] text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]"><ChevronRight size={14} className="rotate-180" /> Edit Picks</button>
 					<h2 className="text-[22px] font-extrabold mb-[2px]">Your Watchlist</h2>
 					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Here is how your picks look.</p>
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[18px] mb-[16px] text-center">
-						<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Portfolio Grade</p>
-						<p className={`text-[52px] font-extrabold ${grade.startsWith('A') ? 'text-emerald-400' : grade.startsWith('B') ? 'text-blue-400' : 'text-amber-400'}`}>{grade}</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 mt-[6px] leading-relaxed">{feedback}</p>
-					</div>
-					<div className="grid grid-cols-3 gap-[8px] mb-[16px]">
-						{[{label:'Speculative',pct:specPct,color:'text-rose-400'},{label:'Growth',pct:growthPct,color:'text-blue-400'},{label:'Defensive',pct:defensivePct,color:'text-emerald-400'}].map(s => (
-							<div key={s.label} className="rounded-[10px] border border-foreground/10 bg-surface-1 p-[10px] text-center">
-								<p className="text-[10px] dark:text-slate-500 text-slate-400">{s.label}</p>
-								<p className={`text-[20px] font-extrabold ${s.color}`}>{s.pct}%</p>
+					<div className={`rounded-[18px] border overflow-hidden mb-[16px] ${grade.startsWith('A') ? 'border-emerald-500/25' : grade.startsWith('B') ? 'border-blue-500/20' : 'border-amber-500/25'}`}>
+						{/* Grade header */}
+						<div className={`p-[18px] text-center ${grade.startsWith('A') ? 'bg-emerald-500/[0.08]' : grade.startsWith('B') ? 'bg-blue-500/[0.07]' : 'bg-amber-500/[0.08]'}`}>
+							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Portfolio Grade</p>
+							<p className={`text-[58px] font-extrabold leading-none ${grade.startsWith('A') ? 'text-emerald-400' : grade.startsWith('B') ? 'text-blue-400' : 'text-amber-400'}`}>{grade}</p>
+							<p className="text-[13px] dark:text-slate-300 text-slate-600 mt-[8px] leading-relaxed max-w-[280px] mx-auto">{feedback}</p>
+						</div>
+						{/* Portfolio mix bar */}
+						<div className="p-[14px] bg-surface-1">
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Portfolio Mix</p>
+							{/* Stacked bar */}
+							<div className="flex h-[10px] rounded-full overflow-hidden gap-[2px] mb-[10px]">
+								{growthPct > 0 && <div className="bg-blue-500 rounded-l-full" style={{width:`${growthPct}%`}} />}
+								{defensivePct > 0 && <div className={`bg-emerald-500 ${growthPct === 0 ? 'rounded-l-full' : ''} ${specPct === 0 ? 'rounded-r-full' : ''}`} style={{width:`${defensivePct}%`}} />}
+								{specPct > 0 && <div className="bg-rose-500 rounded-r-full" style={{width:`${specPct}%`}} />}
+								{(100 - growthPct - defensivePct - specPct) > 0 && <div className="bg-foreground/20 rounded-r-full flex-1" />}
 							</div>
-						))}
+							<div className="flex justify-between text-[11px]">
+								{[{label:'Growth',pct:growthPct,dot:'bg-blue-500'},{label:'Defensive',pct:defensivePct,dot:'bg-emerald-500'},{label:'Speculative',pct:specPct,dot:'bg-rose-500'}].map(s => (
+									<div key={s.label} className="flex items-center gap-[5px]">
+										<div className={`w-[6px] h-[6px] rounded-full ${s.dot}`} />
+										<span className="font-semibold dark:text-slate-300 text-slate-600">{s.label} {s.pct}%</span>
+									</div>
+								))}
+							</div>
+						</div>
 					</div>
 					<div className="space-y-[6px]">
 						{pickedBrands.map(b => (

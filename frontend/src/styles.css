@@ -219,6 +219,20 @@ input::-webkit-credentials-auto-fill-button {
 	}
 }
 
+/* Confetti burst — fires on lesson completion */
+@keyframes confetti-fall {
+	0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+	100% { transform: translateY(60px) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	border-radius: 2px;
+	animation: confetti-fall 1s ease-out forwards;
+}
+
 /* Answer reveal pulse — fires when correct badge appears */
 @keyframes answer-pop {
 	0%   { transform: scale(1); }
