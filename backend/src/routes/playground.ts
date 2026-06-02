@@ -139,7 +139,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 
 	// Cache key is tier+week+type only — count excluded so level-ups don't miss cache
 	const cacheKey = `playground:gen:v1:${weekKey}__t${tier}__${type}`;
-	const cached = cacheGet<unknown[]>(cacheKey);
+	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
 		return;
@@ -262,7 +262,7 @@ Rules:
 			q => q && typeof q === "object" && typeof (q as Record<string, unknown>).id === "string"
 		);
 		if (valid.length === 0) throw new Error("No valid items in response");
-		cacheSet(cacheKey, valid, CACHE_TTL_MS);
+		await cacheSet(cacheKey, valid, CACHE_TTL_MS);
 		res.json({ questions: valid });
 	} catch {
 		res.status(500).json({ error: "Failed to parse generated content" });

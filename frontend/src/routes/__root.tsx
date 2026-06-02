@@ -112,7 +112,8 @@ function Root() {
 	// Write to Firestore first so a failed write doesn't cause the modal to reappear every session.
 	useEffect(() => {
 		if (!user || !account?.onboardingCompleted || isAuthPage) return;
-		const today = new Date().toISOString().split("T")[0];
+		const d = new Date();
+		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 		if (account.lastBriefDate === today) return;
 		// Show first, then write — this way the date is only marked "seen" once the modal
 		// actually opens. Writing before the open was causing the timeout to be cancelled

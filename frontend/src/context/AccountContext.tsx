@@ -14,7 +14,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
+import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile } from "../lib/api";
 import { useAuth } from "./AuthContext";
@@ -112,7 +112,6 @@ interface AccountContextType {
 	updatePassedBrands: (entries: PassedEntry[]) => Promise<void>;
 	incrementSwipeCount: () => Promise<void>;
 	updateDeckOrder: (order: string[]) => Promise<void>;
-	updateStreak: (streak: { date: string; count: number }) => Promise<void>;
 	updatePreferences: (prefs: UserDoc["preferences"]) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
@@ -195,13 +194,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const saveToStak = useCallback(
 		async (brandId: string, priceAtSave?: number | null) => {
 			if (!user) return;
-			const existing = account?.stakBrandIds ?? [];
-			if (existing.includes(brandId)) return;
+			// Optimistic duplicate check against local state (fast path)
+			if ((account?.stakBrandIds ?? []).includes(brandId)) return;
 			const entry: StakSaveEntry = { savedAt: Date.now(), priceAtSave: priceAtSave ?? null };
-			const savedAtMap = { ...(account?.stakSavedAt ?? {}), [brandId]: entry };
+			// arrayUnion is atomic — safe against rapid double-tap race conditions
 			await updateDoc(doc(db, "users", user.uid), {
-				stakBrandIds: [...existing, brandId],
-				stakSavedAt: savedAtMap,
+				stakBrandIds: arrayUnion(brandId),
+				[`stakSavedAt.${brandId}`]: entry,
 			});
 		},
 		[user, account],
@@ -271,13 +270,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await updateDoc(doc(db, "users", user.uid), { searchHistory: [] });
 	}, [user]);
 
-	const updateStreak = useCallback(
-		async (streak: { date: string; count: number }) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { streak });
-		},
-		[user],
-	);
 
 	const updatePreferences = useCallback(
 		async (prefs: UserDoc["preferences"]) => {
@@ -301,10 +293,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			const existing = account?.lessonProgress ?? {};
 			if (existing[lessonId]?.completed) return;
 			const entry: LessonProgress = { completed: true, completedAt: Date.now(), xpEarned: xp };
-			const totalXp = (account?.totalXp ?? 0) + xp;
+			// Use increment() to avoid stale-read race on totalXp
 			await updateDoc(doc(db, "users", user.uid), {
 				[`lessonProgress.${lessonId}`]: entry,
-				totalXp,
+				totalXp: increment(xp),
 			});
 		},
 		[user, account],
@@ -313,13 +305,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const completeChallenge = useCallback(
 		async (challengeId: string, xp: number) => {
 			if (!user) return;
-			const today = new Date().toISOString().split("T")[0];
+			// Use local time to match playground todayKey (not UTC which rolls over at 7pm ET)
+			const d = new Date();
+			const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 			const current = account?.dailyChallengeState;
 			const completedIds = current?.date === today ? [...(current.completedIds ?? []), challengeId] : [challengeId];
-			const totalXp = (account?.totalXp ?? 0) + xp;
 			await updateDoc(doc(db, "users", user.uid), {
 				dailyChallengeState: { date: today, completedIds },
-				totalXp,
+				totalXp: increment(xp),
 			});
 		},
 		[user, account],
@@ -437,7 +430,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updatePassedBrands,
 				incrementSwipeCount,
 				updateDeckOrder,
-				updateStreak,
+	
 				updatePreferences,
 				completeLesson,
 				completeChallenge,

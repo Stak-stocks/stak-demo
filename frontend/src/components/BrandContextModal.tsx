@@ -129,7 +129,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	const startTime = useRef(0);
 
 	// Live data queries — all fire only when the modal is open
-	const { data: peerData } = useQuery({
+	const { data: peerData, isLoading: peerLoading } = useQuery({
 		queryKey: ["peer-metrics", brand?.ticker],
 		queryFn: () => getPeerMetrics(brand!.ticker),
 		enabled: !!brand && open,
@@ -175,8 +175,10 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	});
 
 	const pctForMove = stockData?.quote?.changePercent;
+	// Use direction (up/down/flat) as cache key discriminator — stable within 30min TTL
+	const moveDirection = pctForMove == null ? null : pctForMove > 0.15 ? "up" : pctForMove < -0.15 ? "down" : "flat";
 	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
-		queryKey: ["daily-move", brand?.ticker, pctForMove?.toFixed(2)],
+		queryKey: ["daily-move", brand?.ticker, moveDirection],
 		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name),
 		enabled: !!brand && open && pctForMove !== undefined,
 		staleTime: 30 * 60 * 1000,
@@ -358,21 +360,21 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 						<PeerStat
 							label="P/E"
 							stockVal={brand.financials.peRatio.value}
-							peerVal={peerData?.pe ?? null}
+							peerVal={peerLoading ? null : (peerData?.pe ?? null)}
 							format={(v) => `${v.toFixed(1)}x`}
 							higherIsBetter={false}
 						/>
 						<PeerStat
 							label="Rev Growth"
 							stockVal={brand.financials.revenueGrowth.value}
-							peerVal={peerData?.revenueGrowth ?? null}
+							peerVal={peerLoading ? null : (peerData?.revenueGrowth ?? null)}
 							format={(v) => `${v.toFixed(1)}%`}
 							higherIsBetter={true}
 						/>
 						<PeerStat
 							label="Net Margin"
 							stockVal={brand.financials.profitMargin.value}
-							peerVal={peerData?.profitMargin ?? null}
+							peerVal={peerLoading ? null : (peerData?.profitMargin ?? null)}
 							format={(v) => `${v.toFixed(1)}%`}
 							higherIsBetter={true}
 						/>

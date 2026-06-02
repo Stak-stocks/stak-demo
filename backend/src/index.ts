@@ -38,8 +38,19 @@ const allowedOrigins = [
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Allow all Vercel preview deploy URLs (e.g. stak-demo-git-feat-xyz-team.vercel.app)
+const vercelPreviewPattern = /^https:\/\/stak-demo(-[a-z0-9-]+)?\.vercel\.app$/;
+
 app.set("trust proxy", 1); // Trust GCP Cloud Run load balancer — enables real client IP for rate limiting
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({
+	origin: (origin, callback) => {
+		if (!origin || allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
+			callback(null, true);
+		} else {
+			callback(new Error("Not allowed by CORS"));
+		}
+	},
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "../public")));
 

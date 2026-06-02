@@ -214,15 +214,6 @@ export interface LiveMetrics {
 	week52Low: number | null;
 }
 
-export interface CalendarEntry {
-	symbol: string;
-	date: string;
-	hour: string;
-	epsActual: number | null;
-	epsEstimate: number | null;
-	revenueActual: number | null;
-	revenueEstimate: number | null;
-}
 
 
 export function getStockData(symbol: string) {
