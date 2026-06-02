@@ -6,7 +6,6 @@ import { logEvent } from "@/lib/firebase";
 import type { NewsArticle } from "@/data/brands";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
-import { MarketEarningsWidget, EarningsCalendarButton } from "@/components/EarningsCalendar";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedPage,
@@ -182,14 +181,7 @@ function FeedPage() {
 	return (
 		<div className="min-h-full bg-background">
 			<MarketBar />
-			{/* Earnings calendar — pinned top-left */}
-			<div className="flex justify-start px-4 pt-4">
-				<EarningsCalendarButton onOpen={() => {
-				logEvent("earnings_calendar_open");
-				trackEvent("earnings_calendar_open").catch(() => {});
-			}} />
-			</div>
-			<div className="max-w-2xl mx-auto px-4 pt-2 pb-24">
+			<div className="max-w-2xl mx-auto px-4 pt-4 pb-24">
 				{/* Header */}
 				<div className="mb-4">
 					<h1 className="text-[22px] font-extrabold text-foreground">Market News</h1>
