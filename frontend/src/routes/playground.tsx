@@ -2641,7 +2641,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [sortBy, setSortBy] = useState<"pnl" | "today" | "recent">("recent");
 	const [confirmSell, setConfirmSell] = useState<string | null>(null);
 	const [thesis, setThesis] = useState("");
-	const [showHistory, setShowHistory] = useState(false);
+
 	const [confirmReset, setConfirmReset] = useState(false);
 
 	// Initialise cash on first open (handles existing users with positions but no cash field)
@@ -2687,16 +2687,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const entry = sandbox[ticker]!;
 		const quote = (results[i] as { data?: { quote?: { price?: number; changePercent?: number } } })?.data?.quote;
 		const currentPrice = quote?.price ?? null;
-		// Support both new (shares × price) and legacy ($1k fixed) model
-		const shares = entry.shares ?? null;
-		const costBasis = entry.priceAtAdd != null && shares != null
-			? entry.priceAtAdd * shares
-			: 1000; // legacy fallback
-		const currentValue = currentPrice != null && shares != null
-			? currentPrice * shares
-			: (currentPrice != null && entry.priceAtAdd != null)
-				? 1000 * (currentPrice / entry.priceAtAdd)
-				: costBasis;
+		const shares = entry.shares ?? 1;
+		const costBasis = entry.priceAtAdd != null ? entry.priceAtAdd * shares : 0;
+		const currentValue = currentPrice != null ? currentPrice * shares : costBasis;
 		const pricePct = entry.priceAtAdd && currentPrice
 			? ((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 100 : null;
 		const priceDollar = pricePct !== null ? costBasis * (pricePct / 100) : null;
@@ -2997,21 +2990,21 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 												</div>
 												{h.entry.thesis && <p className="text-[10px] dark:text-slate-500 text-slate-400 italic mt-[2px] truncate">"{h.entry.thesis}"</p>}
 											</div>
-											{/* P&L + dollar + today */}
+											{/* P&L + dollar + weight */}
 											<div className="text-right shrink-0">
 												{h.pricePct !== null ? (
 													<>
-														<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-															{h.pricePct >= 0 ? '+' : ''}{h.pricePct.toFixed(1)}%
+														<p className={`text-[13px] font-bold ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+															{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
 														</p>
 														{h.priceDollar !== null && (
-															<p className={`text-[11px] font-semibold ${h.priceDollar >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
-																{h.priceDollar >= 0 ? '+' : ''}${h.priceDollar.toFixed(0)}
+															<p className={`text-[11px] font-semibold ${h.priceDollar >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
+																{h.priceDollar >= 0 ? "+" : ""}${h.priceDollar.toFixed(2)}
 															</p>
 														)}
-														{h.changePercent !== null && (
-															<p className={`text-[10px] dark:text-slate-500 text-slate-400`}>
-																{h.changePercent >= 0 ? '▲' : '▼'} {Math.abs(h.changePercent).toFixed(2)}% today
+														{totalValue > 0 && (
+															<p className="text-[10px] dark:text-slate-500 text-slate-400">
+																{((h.currentValue / totalValue) * 100).toFixed(1)}% weight
 															</p>
 														)}
 													</>
@@ -3102,11 +3095,30 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						<div className="px-[14px] py-[10px] border-b border-foreground/[0.06] space-y-[8px]">
 							<div className="flex items-center justify-between">
 								<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares to buy</p>
-								<div className="flex items-center gap-[10px]">
+								<div className="flex items-center gap-[8px]">
 									<button type="button" onClick={() => setShareQty(q => Math.max(1, q - 1))}
 										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">−</button>
-									<span className="text-[16px] font-extrabold w-[24px] text-center">{shareQty}</span>
-									<button type="button" onClick={() => setShareQty(q => q + 1)}
+									<input
+										type="number"
+										inputMode="numeric"
+										min={1}
+										value={shareQty}
+										onChange={e => {
+											const v = parseInt(e.target.value, 10);
+											if (!isNaN(v) && v >= 1) setShareQty(v);
+										}}
+										className="w-[44px] text-center text-[16px] font-extrabold bg-transparent text-foreground outline-none border-b border-foreground/20 pb-[1px]"
+									/>
+									<button type="button" onClick={() => {
+											// Cap at what buying power allows for the cheapest visible stock
+											const prices = allBrands
+												.filter(b => b.ticker && !tickers.includes(b.ticker.toUpperCase()))
+												.map(b => queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null)
+												.filter((p): p is number => p != null && p > 0);
+											const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+											const cap = minPrice != null ? Math.floor(sandboxCash / minPrice) : 9999;
+											setShareQty(q => Math.min(q + 1, Math.max(1, cap)));
+										}}
 										className="w-[28px] h-[28px] rounded-full border border-foreground/15 flex items-center justify-center text-[16px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70">+</button>
 								</div>
 							</div>
@@ -3134,6 +3146,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 									const livePrice = queryClient.getQueryData<{ quote?: { price?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote?.price ?? null;
 									const cost = livePrice != null ? livePrice * shareQty : null;
 									const canAfford = cost == null || cost <= sandboxCash;
+									// Max shares user can afford for this stock
+									const maxShares = livePrice != null && livePrice > 0 ? Math.floor(sandboxCash / livePrice) : null;
 									return (
 										<button
 											key={b.id}
@@ -3177,7 +3191,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">Quick Add from My STAK</p>
 								<div className="flex flex-wrap gap-[6px]">
 									{stakNotInSandbox.map(b => (
-										<button key={b.id} type="button" onClick={() => handleAdd(b.ticker!)}
+										<button key={b.id} type="button" onClick={() => { setSearch(b.ticker!); setAdding(true); }}
 											className="flex items-center gap-[6px] rounded-full border border-violet-500/25 bg-violet-500/[0.07] px-[10px] py-[5px] text-[12px] font-semibold text-violet-400 active:opacity-70">
 											<span>{b.ticker}</span>
 											<span className="text-violet-400/60">+</span>
@@ -3194,33 +3208,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				)}
 			</div>
 
-				{/* Trade History */}
-				{tradeHistory.length > 0 && (
-					<div className="mt-[16px]">
-						<button type="button" onClick={() => setShowHistory(h => !h)}
-							className="w-full flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[8px]">
-							<span>Trade History · {tradeHistory.length} trades</span>
-							<ChevronRight size={14} className={`transition-transform ${showHistory ? "rotate-90" : ""}`} />
-						</button>
-						{showHistory && (
-							<div className="space-y-[4px]">
-								{[...tradeHistory].reverse().map((t, i) => (
-									<div key={i} className={`flex items-center gap-[10px] rounded-[10px] border px-[12px] py-[9px] ${t.action === "sell" ? (t.pnl != null && t.pnl >= 0 ? "border-emerald-500/15 bg-emerald-500/[0.04]" : "border-rose-500/15 bg-rose-500/[0.04]") : "border-foreground/[0.06] bg-surface-1"}`}>
-										<span className={`text-[10px] font-bold uppercase px-[6px] py-[2px] rounded-full shrink-0 ${t.action === "buy" ? "bg-blue-500/15 text-blue-400" : t.pnl != null && t.pnl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>{t.action}</span>
-										<div className="flex-1 min-w-0">
-											<p className="text-[12px] font-bold">{t.ticker}</p>
-											{t.thesis && <p className="text-[10px] dark:text-slate-500 text-slate-400 italic truncate">"{t.thesis}"</p>}
-										</div>
-										<div className="text-right shrink-0">
-											{t.action === "sell" && t.pnl !== null ? (<p className={`text-[12px] font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(0)}{t.pnlPct != null ? ` (${t.pnlPct >= 0 ? "+" : ""}${t.pnlPct.toFixed(1)}%)` : ""}</p>) : <p className="text-[12px] dark:text-slate-400 text-slate-500">-$1,000</p>}
-											<p className="text-[10px] dark:text-slate-500 text-slate-400">{new Date(t.timestamp).toLocaleDateString()}</p>
-										</div>
-									</div>
-								))}
-							</div>
-						)}
-					</div>
-				)}
 
 				{/* Reset */}
 				{(tickers.length > 0 || sandboxCash !== SANDBOX_BUDGET) && (

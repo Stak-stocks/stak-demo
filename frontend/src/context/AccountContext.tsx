@@ -352,26 +352,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	);
 
 	const SANDBOX_STARTING_CASH = 10000;
-	const SANDBOX_POSITION_COST = 1000;
 
 	const initSandboxCash = useCallback(async () => {
 		if (!user) return;
-		if (account?.sandboxCash !== undefined) return; // already initialised
-		// Legacy users: estimate spent cash from old $1k-per-position model
-		const existingPositions = Object.values(account?.sandboxPortfolio ?? {});
-		const legacyCost = existingPositions.filter(e => !e.shares).length * SANDBOX_POSITION_COST;
-		const newModelCost = existingPositions
-			.filter(e => e.shares && e.priceAtAdd)
-			.reduce((sum, e) => sum + (e.priceAtAdd! * e.shares!), 0);
-		const initialCash = Math.max(0, SANDBOX_STARTING_CASH - legacyCost - newModelCost);
-		await updateDoc(doc(db, "users", user.uid), { sandboxCash: Math.round(initialCash * 100) / 100 });
+		if (account?.sandboxCash !== undefined) return;
+		await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_STARTING_CASH });
 	}, [user, account]);
 
 	const addToSandbox = useCallback(
 		async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
 			if (!user) return;
 			const currentCash = account?.sandboxCash ?? SANDBOX_STARTING_CASH;
-			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : SANDBOX_POSITION_COST;
+			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
+			if (cost <= 0) return;
 			if (currentCash < cost) return;
 			const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
 			const trade: SandboxTrade = { ticker, action: "buy", priceAtAction: priceAtAdd, value: cost, pnl: null, pnlPct: null, timestamp: Date.now(), ...(thesis ? { thesis } : {}) };
@@ -390,7 +383,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			if (!user) return;
 			const entry = account?.sandboxPortfolio?.[ticker];
 			const shares = entry?.shares ?? 1;
-			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * shares : SANDBOX_POSITION_COST;
+			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * shares : 0;
 			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
 			const pnlPct = entry?.priceAtAdd && currentPrice
 				? Math.round(((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 1000) / 10
