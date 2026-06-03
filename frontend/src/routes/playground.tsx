@@ -806,9 +806,10 @@ function LessonPlayer({
 	const xpAwardedRef = useRef(false); // prevents double-fire before Firestore propagates
 	const alreadyCompleted = !!(account?.lessonProgress?.[lessonId]?.completed);
 
-	if (!lesson) return null;
+	// Guard against generated lessons with empty/missing cards
+	if (!lesson || !lesson.cards?.length) return null;
 
-	const isLastCard = cardIndex === lesson.cards.length - 1;
+	const isLastCard = cardIndex >= lesson.cards.length - 1;
 	const isCorrect = selectedOption === lesson.quiz.correctId;
 
 	const goNext = () => {
@@ -946,8 +947,8 @@ function LessonPlayer({
 									))}
 									<div className="ml-auto text-[11px] dark:text-slate-400 text-slate-500 font-medium">{cardIndex + 1} / {lesson.cards.length}</div>
 								</div>
-								<h2 className="text-[21px] font-extrabold mb-[14px] leading-snug tracking-tight">{lesson.cards[cardIndex]!.heading}</h2>
-								<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed flex-1">{lesson.cards[cardIndex]!.body}</p>
+								<h2 className="text-[21px] font-extrabold mb-[14px] leading-snug tracking-tight">{lesson.cards[cardIndex]?.heading ?? ""}</h2>
+								<p className="text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed flex-1">{lesson.cards[cardIndex]?.body ?? ""}</p>
 							</div>
 						</div>
 						<button

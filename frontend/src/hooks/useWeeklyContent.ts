@@ -170,9 +170,11 @@ export function useWeeklyContent(staticPack: WeeklyPack) {
 				const cards = Array.isArray(r.cards) ? r.cards.filter(
 					(c: unknown) => c && typeof c === "object" &&
 						typeof (c as Record<string, unknown>).heading === "string" &&
-						typeof (c as Record<string, unknown>).body === "string"
+						(c as Record<string, unknown>).heading !== "" &&
+						typeof (c as Record<string, unknown>).body === "string" &&
+						(c as Record<string, unknown>).body !== ""
 				) : [];
-				if (cards.length === 0) continue;
+				if (cards.length < 1) continue; // require at least 1 valid card
 				// Validate quiz
 				const quiz = r.quiz as Record<string, unknown> | undefined;
 				if (!quiz || typeof quiz.question !== "string" || !Array.isArray(quiz.options)) continue;
