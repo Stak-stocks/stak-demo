@@ -584,7 +584,7 @@ export function PlaygroundPage() {
 							total: dailyPack.activities.filter(a => a.type === "mood").length,
 						},
 						{
-							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Practice",
+							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Skill Drills",
 							subtitle: `${PRACTICE_TICKERS.length} stocks`, view: "practice" as const,
 							done: null, total: null,
 						},
@@ -2052,34 +2052,91 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const { showXp, XPFloat } = useXpFloat();
 
 	// ── Types ────────────────────────────────────────────────────────────────────
-	type RoundType = "move" | "redflag" | "sentiment" | "nextstep" | "portfoliofit";
-	type MovePhase = "decision" | "reason" | "feedback";
+	type RoundType = "spot_signal" | "sentiment" | "nextstep";
 	type OtherPhase = "question" | "feedback";
 
 	// ── Static scenario data ─────────────────────────────────────────────────────
-	// Date-based offset so the starting scenario rotates daily (same day = same starting point = consistent)
+	// Date-based offset so the starting scenario rotates daily
 	const _todayOffset = useMemo(() => {
 		const d = new Date();
 		return d.getFullYear() * 1000 + d.getMonth() * 31 + d.getDate();
 	}, []);
 
-	const RED_FLAG_SCENARIOS = [
-		{ scenario: "A stock is up 45% this month but revenue growth just turned negative.", question: "What's the biggest risk right now?", options: ["Valuation risk", "Strong momentum", "Low dividend yield", "High employee count"], correctIdx: 0, skill: "valuation", explanation: "When a stock rallies sharply but fundamentals weaken, valuation becomes the biggest concern. The price has run ahead of the business." },
-		{ scenario: "A company has a P/E of 120x but just beat earnings estimates by 40%.", question: "What matters most for investors evaluating this?", options: ["Whether growth justifies the valuation", "The company's office location", "Yesterday's trading volume", "The CEO's social media followers"], correctIdx: 0, skill: "valuation", explanation: "A very high P/E only makes sense if growth is truly exceptional. The key question is whether future growth can justify paying such a premium." },
-		{ scenario: "A tech startup has 80% YoY revenue growth but its profit margin is -45%.", question: "What should you investigate first?", options: ["Cash runway and burn rate", "Stock ticker length", "Logo design", "Number of employees"], correctIdx: 0, skill: "profitability", explanation: "Rapid revenue growth with deep losses means the company is burning cash fast. The key question is: how long can they sustain this before needing to raise capital?" },
-		{ scenario: "A retailer's same-store sales fell 3% but online sales grew 25%.", question: "How would you describe this trend?", options: ["Mixed — offline shrinking, online growing", "Purely bearish", "Purely bullish", "Not meaningful"], correctIdx: 0, skill: "growth", explanation: "This is a classic retail transition story. Declining store traffic offset by digital growth — the question is whether online can grow fast enough to compensate." },
-		{ scenario: "A biotech company announces it failed a Phase 3 drug trial.", question: "What typically happens to the stock?", options: ["Sharp sell-off — the drug was priced in", "Rally — failed trials attract buyers", "No reaction — trials don't matter", "Mild decline — investors expected it"], correctIdx: 0, skill: "risk", explanation: "Biotech stocks are often priced assuming the drug succeeds. A failed trial destroys that thesis immediately, causing a sharp sell-off." },
-		{ scenario: "A company's gross margin just fell from 70% to 55% in one quarter.", question: "What is the most important question to ask?", options: ["Is this margin compression permanent or temporary?", "Did they change their logo?", "How many Twitter followers do they have?", "What color is their office?"], correctIdx: 0, skill: "profitability", explanation: "Gross margin compression signals pricing power is weakening or costs are rising faster than revenue. Whether it's temporary (supply chain) or structural (competition) is the critical question." },
-		{ scenario: "A software company has 95% gross margins but operating margins of -60%.", question: "What does this tell you about the business?", options: ["The product is strong but expenses are very high", "The business is fundamentally broken", "Margins don't matter for software", "The stock is a guaranteed buy"], correctIdx: 0, skill: "profitability", explanation: "High gross margins mean the core product is efficient and valuable. Negative operating margins usually mean the company is spending heavily on sales/marketing/R&D — often deliberate in early growth stages." },
-		{ scenario: "A stock has been in a downtrend for 6 months, but insiders just bought $10M of shares.", question: "What's the most important thing to consider?", options: ["Insiders rarely buy unless they see improving fundamentals", "Insiders always buy at the right time", "Insider buying is meaningless", "Buy immediately without further research"], correctIdx: 0, skill: "risk", explanation: "Insider buying is a positive signal — management putting personal money in suggests confidence in the business. But it's one data point, not a guarantee. Always check why the stock fell first." },
-		{ scenario: "A company's revenue grew 30% last year but is guiding for 5% growth next year.", question: "What's the key risk here?", options: ["A sharp deceleration in growth", "Strong future prospects", "Dividend cut risk", "Currency risk"], correctIdx: 0, skill: "growth", explanation: "Growth deceleration is often punished severely in markets — especially for stocks priced at high multiples. The jump from 30% to 5% growth would typically cause a major valuation re-rating downward." },
-		{ scenario: "A company generates $500M in operating income but has $5B in debt.", question: "What's the primary concern?", options: ["High leverage — debt could become unsustainable", "Revenue is too concentrated", "P/E ratio is too high", "The company needs to pay dividends"], correctIdx: 0, skill: "risk", explanation: "A debt/operating-income ratio of 10x is very high. If business conditions worsen, servicing that debt becomes a serious challenge. Leverage amplifies both gains and losses." },
-		{ scenario: "A company reports strong Q3 earnings but the CFO resigns the same day.", question: "What should you do first?", options: ["Research why the CFO is leaving — sudden C-suite exits are a red flag", "Buy immediately on the strong earnings", "Ignore it — CFOs change jobs all the time", "Sell everything immediately"], correctIdx: 0, skill: "risk", explanation: "A sudden CFO resignation alongside earnings is a serious warning sign. CFOs have the most detailed view of the company's finances — unexpected departures often precede bad news." },
-		{ scenario: "A consumer brand is gaining market share but reducing prices by 15% to do it.", question: "What's the long-term concern?", options: ["Winning market share by cutting prices often destroys margins permanently", "Price cuts are always a sign of strength", "Market share always compensates for lower prices", "Consumers will pay more later"], correctIdx: 0, skill: "profitability", explanation: "Competing on price is a dangerous strategy — it trains customers to expect low prices and makes it hard to raise them later. Durable market share should come from product quality or brand strength." },
-		{ scenario: "A company beats EPS estimates every quarter for 3 years straight.", question: "What's a potential concern with this pattern?", options: ["Management may be setting expectations artificially low (sandbagging)", "Consistent beats are always a buy signal", "No concern — consistency is always good", "EPS is the only metric that matters"], correctIdx: 0, skill: "earnings", explanation: "When a company consistently beats estimates by small amounts, it sometimes means management guides conservatively on purpose. This can be fine, but it also means consensus estimates may not reflect the company's real potential." },
-		{ scenario: "A company's free cash flow is positive, but net income is deeply negative.", question: "Which metric should you prioritize?", options: ["Free cash flow — it reflects actual cash the business generates", "Net income — it's the official profit number", "Neither matters for young companies", "Revenue growth only"], correctIdx: 0, skill: "profitability", explanation: "Free cash flow is often considered the most reliable indicator of business health. Net income can be distorted by accounting items like depreciation, amortization, and stock-based compensation." },
-		{ scenario: "A stock's short interest just jumped from 5% to 25% of float.", question: "What does this signal?", options: ["Many professional investors are betting the stock will fall", "The stock is about to squeeze higher guaranteed", "Short sellers are always wrong", "This is normal and unimportant"], correctIdx: 0, skill: "risk", explanation: "Rising short interest means more investors are betting on a decline — often because they've identified risks the market hasn't fully priced in. It's worth understanding why before taking a position." },
-	];
+	// ── Spot the Signal — per-archetype question definitions ─────────────────────
+	const STOCK_ARCHETYPES: Record<string, "quality_compounder" | "high_growth" | "speculative" | "defensive" | "familiar"> = {
+		// Quality Compounders
+		AMZN: "quality_compounder", MSFT: "quality_compounder", AAPL: "quality_compounder",
+		COST: "quality_compounder", GOOGL: "quality_compounder",
+		// High-Growth
+		NVDA: "high_growth", PLTR: "high_growth", SHOP: "high_growth",
+		DDOG: "high_growth", CRWD: "high_growth", DUOL: "high_growth", AMD: "high_growth",
+		// Speculative
+		COIN: "speculative", ASTS: "speculative", HOOD: "speculative", RBLX: "speculative",
+		TSLA: "speculative", RIVN: "speculative",
+		// Defensive
+		KO: "defensive", WMT: "defensive", JNJ: "defensive",
+		// Familiar
+		META: "familiar", NFLX: "familiar", SBUX: "familiar", NKE: "familiar",
+		SPOT: "high_growth", DIS: "familiar", UBER: "familiar",
+	};
+
+	interface SignalQuestion {
+		question: string;
+		correctChip: string;
+		wrongChip: string;
+		distractors: string[];
+		correctFeedback: string;
+		wrongFeedback: string;
+		skill: string;
+	}
+
+	const SIGNAL_QUESTIONS: Record<string, SignalQuestion> = {
+		quality_compounder: {
+			question: "What is the most important signal here?",
+			correctChip: "Platform / cloud strength",
+			wrongChip: "One-day price drop",
+			distractors: ["Stock ticker symbol", "Company headquarters"],
+			correctFeedback: "Right. Platform businesses like this generate compounding revenue from subscriptions and services — that matters far more than a daily price move.",
+			wrongFeedback: "Not quite. A one-day move is noise. The most important thing here is the quality of the underlying business model.",
+			skill: "valuation",
+		},
+		high_growth: {
+			question: "What matters most when evaluating this stock?",
+			correctChip: "Revenue growth rate",
+			wrongChip: "Today's price move",
+			distractors: ["Logo design", "Number of employees"],
+			correctFeedback: "Correct. For high-growth companies, the revenue growth rate tells you whether the business is accelerating or slowing — that drives the valuation.",
+			wrongFeedback: "Not quite. A daily price swing doesn't tell you about business quality. Focus on whether revenue growth is accelerating or decelerating.",
+			skill: "growth",
+		},
+		speculative: {
+			question: "What is the key risk to understand first?",
+			correctChip: "Revenue stability",
+			wrongChip: "Dividend history",
+			distractors: ["Office location", "Years since founding"],
+			correctFeedback: "Right. Speculative names often have volatile or cycle-dependent revenue. Understanding what drives revenue stability (or instability) is the core risk question.",
+			wrongFeedback: "Not quite. Speculative companies rarely pay dividends. The key question is whether revenue is stable or highly cyclical.",
+			skill: "risk",
+		},
+		defensive: {
+			question: "What signal matters most for this type of stock?",
+			correctChip: "Dividend consistency",
+			wrongChip: "Short-term price move",
+			distractors: ["Stock split history", "Competitor count"],
+			correctFeedback: "Right. Defensive stocks are typically held for steady dividend income and stability — dividend consistency is the core signal investors watch.",
+			wrongFeedback: "Not quite. Defensive stocks are valued for their stability, not their price movements. Dividend consistency is what matters.",
+			skill: "growth",
+		},
+		familiar: {
+			question: "What should you look at beyond brand recognition?",
+			correctChip: "Revenue trend vs peers",
+			wrongChip: "One-day price drop",
+			distractors: ["Brand color scheme", "Social media followers"],
+			correctFeedback: "Exactly. Familiar brands are easy to recognize but that doesn't make them good investments. You need to check whether the business is actually growing relative to its peers.",
+			wrongFeedback: "Not quite. One-day moves are noise. The real question for a familiar brand is whether the business is still growing — compare revenue trend to peers.",
+			skill: "growth",
+		},
+	};
 
 	const SENTIMENT_SCENARIOS = [
 		{ scenario: "A company beats revenue estimates by 8% but lowers full-year guidance by 5%.", correct: "Mixed" as const, explanation: "Mixed to bearish. Investors often care more about forward guidance than past results. A guidance cut signals the company expects slower growth ahead." },
@@ -2113,195 +2170,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		{ scenario: "A company's revenue growth is slowing from 40% to 15% over three years.", question: "What should you determine first?", options: ["Whether the slowdown is from market saturation or competition", "What industry events they sponsored", "Their office square footage", "How long the CEO has been in the role"], correctIdx: 0, skill: "growth", explanation: "Growth deceleration can be natural (market maturing) or concerning (competition taking share). The distinction matters enormously — natural deceleration often means the business is stabilizing, while competitive pressure can be a structural problem." },
 	];
 
-	const PORTFOLIO_FIT_SCENARIOS = [
-		{ condition: "tech-heavy", scenario: "Your watchlist is 70% tech stocks already.", question: "Which addition would best balance your portfolio?", options: ["A consumer staples dividend stock", "Another semiconductor company", "A second cloud software name", "A startup in the same sector"], correctIdx: 0, skill: "portfolio", explanation: "When heavily concentrated in one sector, adding a company from a different sector (especially defensive/dividend) reduces correlation risk and smooths volatility." },
-		{ condition: "no-defensive", scenario: "Your watchlist has no defensive or dividend stocks.", question: "What type of stock would reduce your portfolio's downside risk?", options: ["A dividend-paying consumer staples company", "Another high-growth tech name", "A speculative biotech play", "A meme stock"], correctIdx: 0, skill: "portfolio", explanation: "Defensive and dividend stocks tend to hold their value better in market downturns. Adding one creates a buffer when your growth names pull back sharply." },
-	];
-
-	// ── Scoring for Round Type A ─────────────────────────────────────────────────
-	type CallTier = "strong" | "reasonable" | "weak" | "poor";
-
-	const STOCK_ARCHETYPES: Record<string, "quality_compounder" | "high_growth" | "speculative" | "defensive" | "familiar"> = {
-		// Quality Compounders
-		AMZN: "quality_compounder", MSFT: "quality_compounder", AAPL: "quality_compounder",
-		COST: "quality_compounder", GOOGL: "quality_compounder",
-		// High-Growth / Expensive
-		NVDA: "high_growth", PLTR: "high_growth", SHOP: "high_growth",
-		DDOG: "high_growth", CRWD: "high_growth", DUOL: "high_growth", AMD: "high_growth",
-		// Speculative / Volatile
-		COIN: "speculative", ASTS: "speculative", HOOD: "speculative", RBLX: "speculative",
-		TSLA: "speculative", RIVN: "speculative",
-		// Defensive / Stable
-		KO: "defensive", WMT: "defensive", JNJ: "defensive",
-		// Familiar / Consumer brand
-		META: "familiar", NFLX: "familiar", SBUX: "familiar", NKE: "familiar",
-		// Additional common brands
-		SPOT: "high_growth", DIS: "familiar", UBER: "familiar",
-	};
-
-	interface ArchetypeMatrix {
-		bestActions: string[];
-		acceptableActions: string[];
-		weakActions: string[];
-		strongReasonKeywords: string[];
-		acceptableReasonKeywords: string[];
-		weakReasonKeywords: string[];
-		invalidReasonKeywords: string[];
-		reasonChips: string[];
-		keyTakeaway: string;
-	}
-
-	const ARCHETYPE_MATRIX: Record<string, ArchetypeMatrix> = {
-		quality_compounder: {
-			bestActions: ["Track It", "Study More"],
-			acceptableActions: ["Compare First"],
-			weakActions: ["Avoid For Now"],
-			strongReasonKeywords: ["strong revenue", "thin margins", "cloud", "growth"],
-			acceptableReasonKeywords: ["valuation", "price drop"],
-			weakReasonKeywords: ["price drop today"],
-			invalidReasonKeywords: ["volatility risk"],
-			// chips must contain a keyword substring for scoring to work correctly
-			reasonChips: ["Strong revenue growth", "High valuation", "Thin margins concern", "Cloud platform strength", "Price drop today", "Not sure"],
-			keyTakeaway: "Quality compounders with strong fundamentals are worth tracking even on red days.",
-		},
-		high_growth: {
-			bestActions: ["Study More", "Compare First", "Track It"],
-			acceptableActions: ["Avoid For Now"],
-			weakActions: [],
-			strongReasonKeywords: ["high valuation", "growth", "margin", "expensive"],
-			acceptableReasonKeywords: ["price drop", "volatility"],
-			weakReasonKeywords: ["not sure"],
-			invalidReasonKeywords: [],
-			reasonChips: ["Strong revenue growth", "Very high valuation", "Margin improving", "AI / tech tailwinds", "Price drop today", "Not sure"],
-			keyTakeaway: "High-growth stocks need careful valuation work before committing — Study More or Compare First is often the right call.",
-		},
-		speculative: {
-			bestActions: ["Study More", "Avoid For Now", "Compare First"],
-			acceptableActions: ["Track It"],
-			weakActions: [],
-			strongReasonKeywords: ["volatility", "risk", "crypto", "speculative", "uncertainty", "regulatory", "market cycles", "upside"],
-			acceptableReasonKeywords: ["growth", "platform"],
-			weakReasonKeywords: ["strong revenue"],
-			invalidReasonKeywords: [],
-			// chips must contain a keyword substring
-			reasonChips: ["Volatility risk", "Revenue tied to market cycles", "Regulatory uncertainty", "High upside potential", "Price drop today", "Not sure"],
-			keyTakeaway: "Speculative stocks can swing sharply — caution and more research are both valid responses.",
-		},
-		defensive: {
-			bestActions: ["Track It", "Compare First"],
-			acceptableActions: ["Study More"],
-			weakActions: ["Avoid For Now"],
-			strongReasonKeywords: ["stability", "dividend", "defensive", "margin"],
-			acceptableReasonKeywords: ["growth", "valuation"],  // "slower growth" contains "growth"
-			weakReasonKeywords: ["volatility", "price"],
-			invalidReasonKeywords: ["volatility risk"],
-			// chips must contain a keyword substring
-			reasonChips: ["Defensive business model", "Dividend income", "Slower growth", "Stable margins", "Price move today", "Not sure"],
-			keyTakeaway: "Defensive stocks offer stability — they're rarely exciting but provide a portfolio anchor.",
-		},
-		familiar: {
-			bestActions: ["Track It", "Study More", "Compare First"],
-			acceptableActions: ["Avoid For Now"],
-			weakActions: [],
-			strongReasonKeywords: ["brand", "growth", "revenue", "margin", "profitability"],
-			acceptableReasonKeywords: ["valuation", "price drop", "competition"],
-			weakReasonKeywords: ["volatility"],
-			invalidReasonKeywords: [],
-			// chips must contain a keyword substring — "Profitability trend" now matches "profitability"
-			reasonChips: ["Strong brand recognition", "Revenue growth", "Competition risk", "Profitability trend", "Price drop today", "Not sure"],
-			keyTakeaway: "Familiar brands can be great investments, but brand recognition alone isn't enough — check the numbers.",
-		},
-	};
-
-	function isWeakReason(reasonLower: string, matrix: ArchetypeMatrix): boolean {
-		return matrix.weakReasonKeywords.some(k => reasonLower.includes(k));
-	}
-
-	function generateFeedback(
-		decision: string, reason: string, tier: CallTier, archetype: string,
-		ticker: string, _metrics: { pe: number | null; revenueGrowth: string | null; margin: string | null; change: number },
-		matrix: ArchetypeMatrix
-	): string {
-		if (tier === "strong") {
-			if (archetype === "quality_compounder") return `Strong call. ${ticker} has the fundamentals to support tracking — ${reason.toLowerCase()} is exactly the right signal to focus on here.`;
-			if (archetype === "speculative") return `Strong call. Recognising the ${reason.toLowerCase()} for a speculative name like ${ticker} shows real risk awareness.`;
-			if (archetype === "high_growth") return `Strong call. Focusing on ${reason.toLowerCase()} before committing to a high-multiple stock is smart investing.`;
-			return `Strong call. You identified the most relevant signal (${reason.toLowerCase()}) for this type of stock.`;
-		}
-		if (tier === "reasonable") {
-			if (decision === "Avoid For Now" && archetype === "quality_compounder") return `Reasonable, but worth revisiting. Quality compounders like ${ticker} rarely deserve avoidance based on short-term signals alone. "${reason}" is a valid concern but not the whole picture.`;
-			if (decision === "Compare First") return `Reasonable move. Comparing ${ticker} to peers before committing is solid practice — just make sure you're comparing on the right metric.`;
-			return `Reasonable call. "${reason}" is relevant for ${ticker}, though there may be a stronger signal in the data shown.`;
-		}
-		if (tier === "weak") {
-			if (matrix.invalidReasonKeywords.some(k => reason.toLowerCase().includes(k))) return `Weak fit. "${reason}" is not the main concern for ${ticker}. Focus on ${archetype === "quality_compounder" ? "revenue growth and margins" : archetype === "speculative" ? "volatility and catalyst risk" : "the core business metrics"} instead.`;
-			return `Weak call. "${reason}" is a minor signal here. The more important question for ${ticker} is ${archetype === "high_growth" ? "whether the valuation is justified by the growth rate" : archetype === "speculative" ? "what drives its revenue and how volatile that is" : "how the fundamentals compare to the price"}.`;
-		}
-		// poor
-		return `Missed the main signal. "${reason}" is not the key factor for ${ticker}. ${archetype === "quality_compounder" ? "A one-day price move alone is not a reason to avoid a fundamentally strong company." : archetype === "speculative" ? "Focus on revenue stability and risk profile, not surface signals." : "Look at the actual business metrics shown on the card."}`;
-	}
-
-	function scoreRound(
-		decision: string,
-		reason: string,
-		ticker: string,
-		metrics: { pe: number | null; revenueGrowth: string | null; margin: string | null; change: number }
-	): { xp: number; tier: CallTier; label: string; feedback: string; keyTakeaway: string; skill: string } {
-		const archetype = STOCK_ARCHETYPES[ticker?.toUpperCase()] ?? "familiar";
-		const matrix = ARCHETYPE_MATRIX[archetype]!;
-
-		if (reason === "Not sure") {
-			return { xp: 3, tier: "weak", label: "Uncertain", feedback: `Honest answer — but the data shown gives you something to work with. Look at the ${archetype === "speculative" ? "volatility and revenue stability" : "revenue growth and margins"} next time.`, keyTakeaway: matrix.keyTakeaway, skill: "awareness" };
-		}
-
-		const reasonLower = reason.toLowerCase();
-		const isStrongReason = matrix.strongReasonKeywords.some(k => reasonLower.includes(k));
-		const isAcceptableReason = matrix.acceptableReasonKeywords.some(k => reasonLower.includes(k));
-		const isInvalidReason = matrix.invalidReasonKeywords.some(k => reasonLower.includes(k));
-
-		const isBestAction = matrix.bestActions.includes(decision);
-		const isAcceptableAction = matrix.acceptableActions.includes(decision);
-		const isWeakAction = matrix.weakActions.includes(decision);
-
-		let tier: CallTier;
-		let xp: number;
-
-		if (isBestAction && isStrongReason) {
-			tier = "strong"; xp = 15;
-		} else if ((isBestAction && isAcceptableReason) || (isAcceptableAction && isStrongReason)) {
-			tier = "reasonable"; xp = 10;
-		} else if (isBestAction && isInvalidReason) {
-			// Good action but irrelevant reason — still reasonable (action credit)
-			tier = "reasonable"; xp = 10;
-		} else if ((isWeakAction && isAcceptableReason) || (isAcceptableAction && isWeakReason(reasonLower, matrix))) {
-			tier = "weak"; xp = 4;
-		} else if (isWeakAction && (isInvalidReason || isWeakReason(reasonLower, matrix))) {
-			// Poor: bad action AND bad/irrelevant reason
-			tier = "poor"; xp = 1;
-		} else if (isAcceptableAction && isInvalidReason) {
-			tier = "weak"; xp = 4;
-		} else {
-			tier = isBestAction || isAcceptableAction ? "reasonable" : "weak";
-			xp = tier === "reasonable" ? 10 : 4;
-		}
-
-		const TIER_LABELS: Record<CallTier, string> = {
-			strong: "Strong Call",
-			reasonable: "Reasonable Call",
-			weak: "Weak Call",
-			poor: "Missed the Main Signal",
-		};
-
-		const feedback = generateFeedback(decision, reason, tier, archetype, ticker, metrics, matrix);
-
-		const skillMap: Record<string, string> = {
-			quality_compounder: "growth", high_growth: "valuation",
-			speculative: "risk", defensive: "growth", familiar: "growth",
-		};
-
-		return { xp, tier, label: TIER_LABELS[tier], feedback, keyTakeaway: matrix.keyTakeaway, skill: skillMap[archetype] ?? "awareness" };
-	}
-
 	// ── Stock pool ───────────────────────────────────────────────────────────────
 	const pool = useMemo(() => {
 		const stakIds = new Set(account?.stakBrandIds ?? []);
@@ -2319,13 +2187,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const stockList = stocks.length > 0 ? stocks : pool;
 
 	// ── Round sequence ───────────────────────────────────────────────────────────
-	const ROUND_SEQUENCE: RoundType[] = ["move", "redflag", "sentiment", "move", "nextstep", "move", "portfoliofit", "move", "sentiment", "redflag"];
-	const hasEnoughForPortfolioFit = (account?.stakBrandIds?.length ?? 0) >= 3;
+	const ROUND_SEQUENCE: RoundType[] = ["spot_signal", "sentiment", "nextstep", "spot_signal", "sentiment", "spot_signal", "nextstep", "spot_signal", "sentiment", "nextstep"];
 
-	function getRoundType(sessionIdx: number): RoundType {
-		const t = ROUND_SEQUENCE[sessionIdx % ROUND_SEQUENCE.length] ?? "move";
-		if (t === "portfoliofit" && !hasEnoughForPortfolioFit) return "move";
-		return t;
+	function getRoundType(idx: number): RoundType {
+		return ROUND_SEQUENCE[idx % ROUND_SEQUENCE.length] ?? "spot_signal";
 	}
 
 	// ── Home vs. in-session ──────────────────────────────────────────────────────
@@ -2341,22 +2206,18 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [sessionSkillXp, setSessionSkillXp] = useState<Record<string, number>>({});
 	const [correctCount, setCorrectCount] = useState(0);
 
-	// Round Type A state
-	const [movePhase, setMovePhase] = useState<MovePhase>("decision");
-	const [moveDecision, setMoveDecision] = useState<string | null>(null);
-	const [moveReason, setMoveReason] = useState<string | null>(null);
-	const [moveFeedback, setMoveFeedback] = useState<ReturnType<typeof scoreRound> | null>(null);
-
-	// Round Types B/C/D/E state
+	// Round state (shared for sentiment / nextstep)
 	const [otherPhase, setOtherPhase] = useState<OtherPhase>("question");
 	const [otherSelected, setOtherSelected] = useState<string | null>(null);
 	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
 
+	// Spot the Signal state
+	const [signalSelected, setSignalSelected] = useState<string | null>(null);
+	const [signalRevealed, setSignalRevealed] = useState<boolean>(false);
+
 	// Scenario indices — start at today's date offset so each day begins from a different scenario
-	const [redFlagIdx, setRedFlagIdx] = useState(() => _todayOffset % 15);
 	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 15);
 	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 11);
-	const [portfolioFitIdx, setPortfolioFitIdx] = useState(0);
 
 	const currentRoundType = getRoundType(sessionIdx);
 	const stock = stockList[stockIdx % stockList.length]!;
@@ -2370,13 +2231,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	const quote = stockData?.quote;
 	const metrics = stockData?.metrics;
-
-	// ── Chip generation for Round A reason step ──────────────────────────────────
-	const reasonChips = useMemo(() => {
-		const archetype = STOCK_ARCHETYPES[stock.ticker?.toUpperCase()] ?? "familiar";
-		const matrix = ARCHETYPE_MATRIX[archetype]!;
-		return matrix.reasonChips;
-	}, [stock.ticker]);
 
 	// ── Award XP helper — ref guard prevents double-fire on rapid taps ───────────
 	const xpAwardedThisRound = useRef(false);
@@ -2405,14 +2259,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		setStockIdx(nextStockIdx);
 
 		// Reset round state
-		xpAwardedThisRound.current = false; // allow XP for next round
-		setMovePhase("decision");
-		setMoveDecision(null);
-		setMoveReason(null);
-		setMoveFeedback(null);
+		xpAwardedThisRound.current = false;
 		setOtherPhase("question");
 		setOtherSelected(null);
 		setOtherCorrect(false);
+		setSignalSelected(null);
+		setSignalRevealed(false);
 	};
 
 	// ── Summary screen ────────────────────────────────────────────────────────────
@@ -2443,7 +2295,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					<BackBtn onClick={onBack} />
 					<div className={`rounded-[18px] border ${tier.border} ${tier.bg} p-[24px] mb-[16px] text-center`}>
 						<span className="text-[56px] block mb-[10px]">{tier.emoji}</span>
-						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Practice Session Complete</p>
+						<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-[4px]">Skill Drills Complete</p>
 						<h2 className="text-[24px] font-extrabold mb-[4px]">{tier.label}</h2>
 						<p className={`text-[42px] font-extrabold ${tier.color} leading-none my-[10px]`}>
 							{correctCount}<span className="text-[22px] dark:text-slate-400 text-slate-500">/{total}</span>
@@ -2478,10 +2330,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						<button type="button" onClick={() => {
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
-							setMovePhase("decision"); setMoveDecision(null); setMoveReason(null); setMoveFeedback(null);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							// Restore date-seeded starting indices so replay continues from today's daily offset
-						setRedFlagIdx(_todayOffset % 15); setSentimentIdx((_todayOffset + 5) % 15); setNextStepIdx((_todayOffset + 3) % 11); setPortfolioFitIdx(0);
+							setSignalSelected(null); setSignalRevealed(false);
+							setSentimentIdx((_todayOffset + 5) % 15); setNextStepIdx((_todayOffset + 3) % 11);
 							setSessionStarted(false);
 						}}
 							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
@@ -2493,96 +2344,23 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		);
 	}
 
-	// ── Skill progression panel data ────────────────────────────────────────────
-	const SKILLS_META = [
-		{ key: "valuation",    label: "Valuation",       color: "bg-cyan-500",    text: "text-cyan-400"    },
-		{ key: "growth",       label: "Growth",           color: "bg-blue-500",    text: "text-blue-400"    },
-		{ key: "profitability",label: "Profitability",    color: "bg-emerald-500", text: "text-emerald-400" },
-		{ key: "risk",         label: "Risk Spotting",    color: "bg-rose-500",    text: "text-rose-400"    },
-		{ key: "news",         label: "News Reading",     color: "bg-amber-500",   text: "text-amber-400"   },
-		{ key: "peers",        label: "Peer Comparison",  color: "bg-violet-500",  text: "text-violet-400"  },
-		{ key: "earnings",     label: "Earnings",         color: "bg-purple-500",  text: "text-purple-400"  },
-		{ key: "portfolio",    label: "Portfolio Fit",    color: "bg-teal-500",    text: "text-teal-400"    },
-		{ key: "awareness",    label: "Market Awareness", color: "bg-slate-500",   text: "text-slate-400"   },
-	];
-	const XP_PER_LEVEL = 100;
-	const MAX_LEVEL = 5;
-
 	// ── Home screen (shown before session starts) ────────────────────────────────
 	if (!sessionStarted) {
-		const practiceSkills = account?.practiceSkills ?? {};
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
-					<div className="flex items-center justify-between mb-[2px]">
-						<h2 className="text-[22px] font-extrabold">Practice Mode</h2>
-						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-							{stockList.length} stocks
-						</span>
-					</div>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[20px]">Real data. 5 round types. Build your investor instincts.</p>
+					<h2 className="text-[22px] font-extrabold mb-[4px]">Skill Drills</h2>
+					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[24px]">Quick questions to sharpen your investing instincts</p>
 
-					{/* Round types preview */}
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px] mb-[20px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">What you'll practice</p>
-						<div className="space-y-[8px]">
-							{[
-								{ label: "What's Your Move?", desc: "Evaluate a real stock and make your call", color: "text-emerald-400" },
-								{ label: "Spot the Red Flag", desc: "Identify the biggest risk in a scenario", color: "text-rose-400" },
-								{ label: "Bullish, Bearish, or Mixed?", desc: "Read earnings and news like an analyst", color: "text-blue-400" },
-								{ label: "What Should You Check Next?", desc: "Pick the most useful next research step", color: "text-violet-400" },
-								{ label: "Portfolio Fit", desc: "Balance and diversify your watchlist", color: "text-teal-400" },
-							].map(r => (
-								<div key={r.label} className="flex items-start gap-[10px]">
-									<div className={`w-[6px] h-[6px] rounded-full mt-[6px] shrink-0 ${r.color.replace("text-", "bg-")}`} />
-									<div>
-										<p className="text-[13px] font-semibold">{r.label}</p>
-										<p className="text-[11px] dark:text-slate-400 text-slate-500">{r.desc}</p>
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-
-					{/* Start button */}
 					<button
 						type="button"
 						onClick={() => setSessionStarted(true)}
-						className="w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80 mb-[28px]"
+						className="w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}
 					>
-						Start Session · {stockList.length} rounds
+						Start Drills →
 					</button>
-
-					{/* Skill progression panel */}
-					<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Your Investor Skills</p>
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[14px]">
-						<div className="space-y-[12px]">
-							{SKILLS_META.map(s => {
-								const totalXp = practiceSkills[s.key] ?? 0;
-								const level = Math.min(MAX_LEVEL, Math.floor(totalXp / XP_PER_LEVEL));
-								const xpInLevel = totalXp % XP_PER_LEVEL;
-								const pct = level >= MAX_LEVEL ? 100 : xpInLevel;
-								return (
-									<div key={s.key}>
-										<div className="flex items-center justify-between mb-[4px]">
-											<p className="text-[13px] font-semibold">{s.label}</p>
-											<span className={`text-[11px] font-bold ${s.text}`}>
-												{level >= MAX_LEVEL ? "MAX" : `Lv ${level}`}
-											</span>
-										</div>
-										<div className="h-[5px] rounded-full bg-foreground/10">
-											<div
-												className={`h-full rounded-full ${s.color} transition-all duration-500`}
-												style={{ width: `${pct}%` }}
-											/>
-										</div>
-									</div>
-								);
-							})}
-						</div>
-					</div>
 				</div>
 			</div>
 		);
@@ -2590,208 +2368,16 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// ── Header shared across all round types ─────────────────────────────────────
 	const ROUND_LABELS: Record<RoundType, string> = {
-		move: "What's Your Move?",
-		redflag: "Spot the Red Flag",
+		spot_signal: "Spot the Signal",
 		sentiment: "Bullish, Bearish, or Mixed?",
 		nextstep: "What Should You Check Next?",
-		portfoliofit: "Portfolio Fit",
 	};
 
 	const isUp = (quote?.changePercent ?? 0) >= 0;
 
 	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE A: "What's Your Move?" — 3-step flow
-	// ────────────────────────────────────────────────────────────────────────────
-	if (currentRoundType === "move") {
-		const DECISIONS = [
-			"Track It",
-			"Study More",
-			"Compare First",
-			"Avoid For Now",
-		];
-
-		// Step 1: Decision
-		if (movePhase === "decision") {
-			return (
-				<div className="min-h-full bg-background text-foreground">
-					{XPFloat}
-					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-						<BackBtn onClick={onBack} />
-						<div className="flex items-center justify-between mb-[2px]">
-							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.move}</h2>
-							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-								{stockIdx + 1} / {stockList.length}
-							</span>
-						</div>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">Review the stock, then make your call.</p>
-
-						<div className="h-[3px] rounded-full bg-foreground/10 mb-[18px]">
-							<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
-								style={{ width: `${(stockIdx / stockList.length) * 100}%` }} />
-						</div>
-
-						{/* Stock card */}
-						<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[14px]">
-							<div className="flex items-center justify-between mb-[10px]">
-								<div>
-									<p className="text-[18px] font-extrabold">{stock.name}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
-								</div>
-								{quote ? (
-									<div className="text-right">
-										<p className="text-[17px] font-extrabold">${quote.price.toFixed(2)}</p>
-										<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
-											{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
-										</p>
-									</div>
-								) : isLoading ? (
-									<div className="space-y-[4px]">
-										<div className="h-[16px] w-[64px] rounded bg-foreground/10 animate-pulse" />
-										<div className="h-[12px] w-[44px] rounded bg-foreground/10 animate-pulse" />
-									</div>
-								) : null}
-							</div>
-							{metrics && (
-								<div className="grid grid-cols-3 gap-[6px] mb-[10px]">
-									{[
-										{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
-										{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
-										{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
-									].map(m => (
-										<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-											<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
-											<p className="text-[13px] font-bold">{String(m.value)}</p>
-										</div>
-									))}
-								</div>
-							)}
-							<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed">{stock.prompt}</p>
-						</div>
-
-						<p className="text-[14px] font-bold mb-[10px]">What's your move?</p>
-						<div className="space-y-[8px]">
-							{DECISIONS.map((d) => (
-								<button
-									key={d}
-									type="button"
-									onClick={() => { setMoveDecision(d); setMovePhase("reason"); }}
-									className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[13px] text-left active:opacity-80 transition-colors"
-								>
-									<p className="text-[14px] font-medium flex-1">{d}</p>
-									<ChevronRight size={14} className="shrink-0 dark:text-slate-500 text-slate-400" />
-								</button>
-							))}
-						</div>
-					</div>
-				</div>
-			);
-		}
-
-		// Step 2: Reason
-		if (movePhase === "reason") {
-			return (
-				<div className="min-h-full bg-background text-foreground">
-					{XPFloat}
-					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-						<BackBtn onClick={() => setMovePhase("decision")} label="Back" />
-						<div className="flex items-center justify-between mb-[2px]">
-							<h2 className="text-[20px] font-extrabold">What caught your eye?</h2>
-							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-								{stockIdx + 1} / {stockList.length}
-							</span>
-						</div>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[16px]">You picked: <span className="font-semibold text-foreground">{moveDecision}</span></p>
-
-						<div className="flex flex-wrap gap-[8px]">
-							{reasonChips.map(chip => (
-								<button
-									key={chip}
-									type="button"
-									onClick={() => {
-										setMoveReason(chip);
-										const liveMetrics = {
-											pe: metrics?.peRatio != null ? Number(metrics.peRatio) : null,
-											revenueGrowth: metrics?.revenueGrowth != null ? String(metrics.revenueGrowth) : null,
-											margin: metrics?.profitMargin != null ? String(metrics.profitMargin) : null,
-											change: quote?.changePercent ?? 0,
-										};
-										const result = scoreRound(moveDecision!, chip, stock.ticker, liveMetrics);
-										setMoveFeedback(result);
-										// strong (100) and reasonable (70) both count as correct
-									awardXp(result.xp, result.skill, result.xp >= 70);
-										setMovePhase("feedback");
-									}}
-									className="text-[13px] font-semibold px-[14px] py-[9px] rounded-full border border-foreground/15 bg-surface-1 dark:text-slate-300 text-slate-600 active:opacity-70 transition-opacity"
-								>
-									{chip}
-								</button>
-							))}
-						</div>
-					</div>
-				</div>
-			);
-		}
-
-		// Step 3: Feedback
-		if (movePhase === "feedback" && moveFeedback) {
-			const result = moveFeedback;
-			return (
-				<div className="min-h-full bg-background text-foreground">
-					{XPFloat}
-					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-						<BackBtn onClick={onBack} label="Playground" />
-						<div className="flex items-center justify-between mb-[14px]">
-							<h2 className="text-[20px] font-extrabold">Round Feedback</h2>
-							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-								{stockIdx + 1} / {stockList.length}
-							</span>
-						</div>
-
-						<div className="rounded-[16px] border border-foreground/10 overflow-hidden mb-[14px]">
-							{/* Block 1: Result tier */}
-							<div className={`px-[16px] py-[12px] border-b border-foreground/[0.06] ${
-								result.tier === "strong" ? "bg-emerald-500/[0.08]" :
-								result.tier === "reasonable" ? "bg-blue-500/[0.07]" :
-								result.tier === "weak" ? "bg-amber-500/[0.07]" : "bg-rose-500/[0.07]"
-							}`}>
-								<p className={`text-[16px] font-extrabold ${
-									result.tier === "strong" ? "text-emerald-400" :
-									result.tier === "reasonable" ? "text-blue-400" :
-									result.tier === "weak" ? "text-amber-400" : "text-rose-400"
-								}`}>{result.label}</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">+{result.xp} XP</p>
-							</div>
-							{/* Block 2: Your choice */}
-							<div className="px-[16px] py-[10px] border-b border-foreground/[0.06] bg-surface-1">
-								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Your Call</p>
-								<p className="text-[13px] font-semibold">{moveDecision} · <span className="dark:text-slate-400 text-slate-500 font-normal">{moveReason}</span></p>
-							</div>
-							{/* Block 3: Why */}
-							<div className="px-[16px] py-[12px] border-b border-foreground/[0.06]">
-								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[4px]">Why</p>
-								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{result.feedback}</p>
-							</div>
-							{/* Block 4: Key takeaway */}
-							<div className="px-[16px] py-[10px] bg-foreground/[0.02]">
-								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 italic">{result.keyTakeaway}</p>
-							</div>
-						</div>
-
-						<button type="button" onClick={advanceRound}
-							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
-							{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
-						</button>
-					</div>
-				</div>
-			);
-		}
-	}
-
-	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE B: "Spot the Red Flag" — static MC
-	// Rotate options so the correct answer isn't always position 0 — uses scenario index as seed
+	// Helper: rotateOptions — used by sentiment/nextstep rounds
+	// Rotate options so the correct answer isn't always position 0
 	function rotateOptions(options: string[], correctIdx: number, seed: number) {
 		const n = options.length;
 		const offset = seed % n;
@@ -2801,91 +2387,126 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	}
 
 	// ────────────────────────────────────────────────────────────────────────────
-	if (currentRoundType === "redflag") {
-		const sc = RED_FLAG_SCENARIOS[redFlagIdx % RED_FLAG_SCENARIOS.length]!;
-		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, redFlagIdx + _todayOffset);
+	// ────────────────────────────────────────────────────────────────────────────
+	// ROUND TYPE 1: "Spot the Signal"
+	// ────────────────────────────────────────────────────────────────────────────
+	if (currentRoundType === "spot_signal") {
+		const archetype = STOCK_ARCHETYPES[stock.ticker?.toUpperCase()] ?? "familiar";
+		const sq = SIGNAL_QUESTIONS[archetype]!;
 
-		if (otherPhase === "question") {
-			return (
-				<div className="min-h-full bg-background text-foreground">
-					{XPFloat}
-					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-						<BackBtn onClick={onBack} />
-						<div className="flex items-center justify-between mb-[14px]">
-							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.redflag}</h2>
-							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-								{stockIdx + 1} / {stockList.length}
-							</span>
-						</div>
-						<div className="rounded-[14px] border border-rose-500/25 bg-rose-500/[0.07] px-[14px] py-[12px] mb-[14px]">
-							<p className="text-[11px] font-bold uppercase tracking-wide text-rose-400 mb-[4px]">Scenario</p>
-							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
-						</div>
-						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
-						<div className="space-y-[8px]">
-							{opts.map((opt, i) => (
-								<OptionBtn
-									key={opt.id}
-									letter={LETTERS[i] ?? String(i + 1)}
-									text={opt.text}
-									state="idle"
-									onClick={() => {
-										const correct = opt.id === correctId;
-										setOtherSelected(opt.id);
-										setOtherCorrect(correct);
-										setOtherPhase("feedback");
-										const xp = correct ? 10 : 3;
-										awardXp(xp, sc.skill, correct);
-									}}
-								/>
-							))}
-						</div>
-					</div>
-				</div>
-			);
-		}
+		// Build 4 options: correct + wrongChip + one distractor + "Not sure"
+		const distractor = sq.distractors[stockIdx % sq.distractors.length]!;
+		const rawOptions = [sq.correctChip, sq.wrongChip, distractor, "Not sure"];
+		// Rotate so correct isn't always first
+		const seed = stockIdx + _todayOffset;
+		const n = rawOptions.length;
+		const offset = seed % n;
+		const rotated = [...rawOptions.slice(offset), ...rawOptions.slice(0, offset)];
+		const correctIdxRotated = rotated.indexOf(sq.correctChip);
+		const signalOpts = rotated.map((text, i) => ({ id: String(i), text }));
+		const signalCorrectId = String(correctIdxRotated);
 
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={onBack} label="Playground" />
+					<BackBtn onClick={onBack} />
 					<div className="flex items-center justify-between mb-[14px]">
-						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.redflag}</h2>
+						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.spot_signal}</h2>
 						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
 							{stockIdx + 1} / {stockList.length}
 						</span>
 					</div>
+
+					{/* Progress bar */}
+					<div className="h-[3px] rounded-full bg-foreground/10 mb-[16px]">
+						<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
+							style={{ width: `${(stockIdx / stockList.length) * 100}%` }} />
+					</div>
+
+					{/* Stock card */}
+					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]">
+						<div className="flex items-center justify-between mb-[10px]">
+							<div>
+								<p className="text-[18px] font-extrabold">{stock.name}</p>
+								<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
+							</div>
+							{quote ? (
+								<div className="text-right">
+									<p className="text-[17px] font-extrabold">${quote.price.toFixed(2)}</p>
+									<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
+										{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
+									</p>
+								</div>
+							) : isLoading ? (
+								<div className="space-y-[4px]">
+									<div className="h-[16px] w-[64px] rounded bg-foreground/10 animate-pulse" />
+									<div className="h-[12px] w-[44px] rounded bg-foreground/10 animate-pulse" />
+								</div>
+							) : null}
+						</div>
+						{metrics && (
+							<div className="grid grid-cols-3 gap-[6px]">
+								{[
+									{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
+									{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
+									{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
+								].map(m => (
+									<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
+										<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
+										<p className="text-[13px] font-bold">{String(m.value)}</p>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+
+					<p className="text-[14px] font-bold mb-[10px]">{sq.question}</p>
 					<div className="space-y-[8px] mb-[14px]">
-						{opts.map((opt, i) => (
+						{signalOpts.map((opt, i) => (
 							<OptionBtn
 								key={opt.id}
 								letter={LETTERS[i] ?? String(i + 1)}
 								text={opt.text}
-								state={optionState(opt.id, correctId, otherSelected, true)}
-								disabled
+								state={optionState(opt.id, signalCorrectId, signalSelected, signalRevealed)}
+								disabled={signalRevealed}
+								onClick={() => {
+									if (signalRevealed) return;
+									const correct = opt.id === signalCorrectId;
+									setSignalSelected(opt.id);
+									setSignalRevealed(true);
+									const xp = correct ? 10 : 3;
+									awardXp(xp, sq.skill, correct);
+								}}
 							/>
 						))}
 					</div>
-					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
-						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-rose-400"}`}>
-							{otherCorrect ? "Good catch! ✓" : "Not bad — here's what you missed."}
-						</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
-					</div>
-					<button type="button"
-						onClick={() => { setRedFlagIdx(i => i + 1); advanceRound(); }}
-						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-						style={{ background: "linear-gradient(90deg,#f43f5e,#3b82f6)" }}>
-						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
-					</button>
+
+					{signalRevealed && (
+						<>
+							<div className={`rounded-[13px] border p-[14px] mb-[14px] ${signalSelected === signalCorrectId ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
+								<p className={`text-[13px] font-bold mb-[4px] ${signalSelected === signalCorrectId ? "text-emerald-400" : "text-rose-400"}`}>
+									{signalSelected === signalCorrectId ? "Correct! ✓" : "Not quite."}
+								</p>
+								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">
+									{signalSelected === signalCorrectId ? sq.correctFeedback : sq.wrongFeedback}
+								</p>
+							</div>
+							<button type="button"
+								onClick={() => { setSignalSelected(null); setSignalRevealed(false); advanceRound(); }}
+								className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
+								style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
+								{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
+							</button>
+						</>
+					)}
 				</div>
 			</div>
 		);
 	}
 
 	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE C: "Bullish, Bearish, or Mixed?"
+	// ROUND TYPE 2: "Bullish, Bearish, or Mixed?"
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "sentiment") {
 		const sc = SENTIMENT_SCENARIOS[sentimentIdx % SENTIMENT_SCENARIOS.length]!;
@@ -2975,7 +2596,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	}
 
 	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE D: "What Should You Check Next?"
+	// ROUND TYPE 3: "What Should You Check Next?"
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "nextstep") {
 		const sc = NEXT_STEP_SCENARIOS[nextStepIdx % NEXT_STEP_SCENARIOS.length]!;
@@ -3053,92 +2674,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => { setNextStepIdx(i => i + 1); advanceRound(); }}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
-						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
-					</button>
-				</div>
-			</div>
-		);
-	}
-
-	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE E: "Portfolio Fit"
-	// ────────────────────────────────────────────────────────────────────────────
-	if (currentRoundType === "portfoliofit") {
-		const sc = PORTFOLIO_FIT_SCENARIOS[portfolioFitIdx % PORTFOLIO_FIT_SCENARIOS.length]!;
-		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, portfolioFitIdx + _todayOffset);
-
-		if (otherPhase === "question") {
-			return (
-				<div className="min-h-full bg-background text-foreground">
-					{XPFloat}
-					<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-						<BackBtn onClick={onBack} />
-						<div className="flex items-center justify-between mb-[14px]">
-							<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.portfoliofit}</h2>
-							<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-								{stockIdx + 1} / {stockList.length}
-							</span>
-						</div>
-						<div className="rounded-[14px] border border-emerald-500/25 bg-emerald-500/[0.07] px-[14px] py-[12px] mb-[14px]">
-							<p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-[4px]">Your Portfolio</p>
-							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
-						</div>
-						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
-						<div className="space-y-[8px]">
-							{opts.map((opt, i) => (
-								<OptionBtn
-									key={opt.id}
-									letter={LETTERS[i] ?? String(i + 1)}
-									text={opt.text}
-									state="idle"
-									onClick={() => {
-										const correct = opt.id === correctId;
-										setOtherSelected(opt.id);
-										setOtherCorrect(correct);
-										setOtherPhase("feedback");
-										const xp = correct ? 10 : 3;
-										awardXp(xp, sc.skill, correct);
-									}}
-								/>
-							))}
-						</div>
-					</div>
-				</div>
-			);
-		}
-
-		return (
-			<div className="min-h-full bg-background text-foreground">
-				{XPFloat}
-				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={onBack} label="Playground" />
-					<div className="flex items-center justify-between mb-[14px]">
-						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.portfoliofit}</h2>
-						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-							{stockIdx + 1} / {stockList.length}
-						</span>
-					</div>
-					<div className="space-y-[8px] mb-[14px]">
-						{opts.map((opt, i) => (
-							<OptionBtn
-								key={opt.id}
-								letter={LETTERS[i] ?? String(i + 1)}
-								text={opt.text}
-								state={optionState(opt.id, correctId, otherSelected, true)}
-								disabled
-							/>
-						))}
-					</div>
-					<div className={`rounded-[13px] border p-[14px] mb-[14px] ${otherCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
-						<p className={`text-[13px] font-bold mb-[4px] ${otherCorrect ? "text-emerald-400" : "text-amber-400"}`}>
-							{otherCorrect ? "Good call! ✓" : "Not bad — here's what you missed."}
-						</p>
-						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
-					</div>
-					<button type="button"
-						onClick={() => { setPortfolioFitIdx(i => i + 1); advanceRound(); }}
-						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-						style={{ background: "linear-gradient(90deg,#10b981,#6366f1)" }}>
 						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
 					</button>
 				</div>
