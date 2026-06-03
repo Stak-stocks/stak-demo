@@ -51,8 +51,16 @@ async function getQuoteChange(symbol: string): Promise<number | null> {
 	return pct;
 }
 
-type Mood = "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
+type Mood = "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed" | "Risk-On" | "Risk-Off";
 type Session = "open" | "midday" | "close";
+
+// 11 sector ETFs — count green/red for breadth
+const SECTOR_ETFS = ["XLK","XLF","XLC","XLY","XLP","XLV","XLE","XLI","XLB","XLRE","XLU"];
+const SECTOR_NAMES: Record<string, string> = {
+	XLK: "Technology", XLF: "Financials", XLC: "Communication", XLY: "Consumer Discretionary",
+	XLP: "Consumer Staples", XLV: "Healthcare", XLE: "Energy", XLI: "Industrials",
+	XLB: "Materials", XLRE: "Real Estate", XLU: "Utilities",
+};
 
 function getMarketSession(): Session {
 	const now = new Date();
@@ -64,37 +72,74 @@ function getMarketSession(): Session {
 	return "close";                                 // 3:30 PM ET onwards
 }
 
-function deriveMood(spyDp: number | null, qqqDp: number | null, diaDp: number | null): Mood {
-	const values = [spyDp, qqqDp, diaDp].filter((v): v is number => v !== null);
-	if (values.length === 0) return "Mixed";
+interface MarketData {
+	spyDp: number | null;
+	qqqDp: number | null;
+	diaDp: number | null;
+	iwmDp: number | null;  // Russell 2000
+	vixDp: number | null;  // VIX % change
+	sectorsGreen: number;  // 0-11
+	sectorsRed: number;
+	topSector: string | null;
+	worstSector: string | null;
+}
 
-	const avg = values.reduce((a, b) => a + b, 0) / values.length;
-	const max = Math.max(...values);
-	const min = Math.min(...values);
-	const divergence = values.length > 1 ? max - min : 0;
+function classifyMood(d: MarketData): Mood {
+	const { spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed } = d;
 
-	// Strong directional moves take priority — a +3% rally is Bullish, not Volatile
-	if (avg >= 1.5) return "Bullish";
-	if (avg <= -1.5) return "Bearish";
+	// --- Calm: very small moves, stable VIX, no major catalyst ---
+	const spyCalm = spyDp !== null && Math.abs(spyDp) <= 0.3;
+	const qqqCalm = qqqDp !== null && Math.abs(qqqDp) <= 0.4;
+	const vixCalm = vixDp !== null && Math.abs(vixDp) <= 3;
+	if (spyCalm && qqqCalm && vixCalm) return "Calm";
 
-	// Volatile: indices pointing in genuinely opposite directions (one up, one down)
-	// or abnormally large swings with no clear direction
-	if (divergence >= 2.5 && min < 0 && max > 0) return "Volatile";
-	if (Math.abs(avg) >= 1.5) return "Volatile"; // safety net for large uncategorised swings
+	// --- Volatile: big moves or big VIX spike ---
+	const bigMove = (spyDp !== null && Math.abs(spyDp) > 1.5) || (qqqDp !== null && Math.abs(qqqDp) > 1.5);
+	const vixSpike = vixDp !== null && vixDp > 7;
+	if (bigMove || vixSpike) {
+		// Even in volatile day, if all green it's Bullish
+		if (spyDp !== null && spyDp > 1.5 && qqqDp !== null && qqqDp > 1.5 && (vixDp === null || vixDp <= 0)) return "Bullish";
+		if (spyDp !== null && spyDp < -1.5 && qqqDp !== null && qqqDp < -1.5) return "Bearish";
+		return "Volatile";
+	}
 
-	if (avg <= -0.5) return "Cautious";
-	if (Math.abs(avg) <= 0.4) return "Calm";
+	// --- Bullish: S&P > +0.5%, Nasdaq > +0.7%, VIX flat/down, 6+ sectors green ---
+	if (spyDp !== null && spyDp > 0.5 && qqqDp !== null && qqqDp > 0.7 && (vixDp === null || vixDp <= 0) && sectorsGreen >= 6) return "Bullish";
+
+	// --- Bearish: S&P < -0.5%, Nasdaq < -0.7%, VIX up, 6+ sectors red ---
+	if (spyDp !== null && spyDp < -0.5 && qqqDp !== null && qqqDp < -0.7 && (vixDp === null || vixDp > 0) && sectorsRed >= 6) return "Bearish";
+
+	// --- Risk-On: Nasdaq significantly outperforms S&P, growth leads ---
+	if (spyDp !== null && qqqDp !== null && qqqDp - spyDp >= 0.5 && qqqDp > 0 && (vixDp === null || vixDp <= 0)) return "Risk-On";
+
+	// --- Risk-Off: Nasdaq significantly underperforms S&P, defensive leads ---
+	if (spyDp !== null && qqqDp !== null && spyDp - qqqDp >= 0.5 && (vixDp === null || vixDp > 0)) return "Risk-Off";
+
+	// --- Mixed: S&P and Nasdaq disagree, split sectors ---
+	if (spyDp !== null && qqqDp !== null && ((spyDp > 0.2 && qqqDp < -0.2) || (qqqDp > 0.2 && spyDp < -0.2))) return "Mixed";
+	if (sectorsGreen >= 4 && sectorsRed >= 4) return "Mixed";
+
+	// --- Cautious: flat with slight down tilt or upcoming catalyst uncertainty ---
+	if (spyDp !== null && spyDp < 0) return "Cautious";
+
 	return "Mixed";
+}
+
+// Legacy wrapper for backward compat — used when we don't have full data
+function deriveMood(spyDp: number | null, qqqDp: number | null, diaDp: number | null): Mood {
+	return classifyMood({ spyDp, qqqDp, diaDp, iwmDp: null, vixDp: null, sectorsGreen: 5, sectorsRed: 5, topSector: null, worstSector: null });
 }
 
 function getFallbackText(mood: Mood): { moodExplanation: string; plainEnglish: string } {
 	const map: Record<Mood, { moodExplanation: string; plainEnglish: string }> = {
-		Bullish:  { moodExplanation: "Strong earnings and optimistic data are lifting markets today.", plainEnglish: "Stocks are moving up — a good day to see what's rallying." },
-		Bearish:  { moodExplanation: "Economic concerns and selling pressure are weighing on markets.", plainEnglish: "Stocks are down — defensive and value plays may be worth a look." },
-		Cautious: { moodExplanation: "Mixed signals are keeping investors on edge today.", plainEnglish: "Markets are hesitant — expect choppier moves than usual." },
-		Volatile: { moodExplanation: "Sharp swings across sectors are creating a high-uncertainty day.", plainEnglish: "Big moves in both directions today — volatility is elevated." },
-		Calm:     { moodExplanation: "Low volatility and stable data are keeping markets steady.", plainEnglish: "Markets are quiet — a great day to dig into fundamentals." },
-		Mixed:    { moodExplanation: "Some sectors are up, others down — no clear direction today.", plainEnglish: "It's a split market — sector selection matters more than usual." },
+		Bullish:   { moodExplanation: "Stocks moved higher today with broad strength across major indexes and low volatility.", plainEnglish: "Investors leaned into risk today — a good day to see what's rallying." },
+		Bearish:   { moodExplanation: "Stocks moved lower today as investors pulled back from riskier assets and market weakness spread.", plainEnglish: "Markets are down — defensive and value plays may be worth a look." },
+		Cautious:  { moodExplanation: "Markets were mostly steady today but investors stayed careful ahead of key upcoming data.", plainEnglish: "No strong direction — investors are waiting before making bigger moves." },
+		Volatile:  { moodExplanation: "Stocks swung sharply today as investors reacted to economic data and shifting expectations.", plainEnglish: "Big moves in both directions — volatility is elevated today." },
+		Calm:      { moodExplanation: "Major indexes were little changed today with no major catalyst driving broad moves.", plainEnglish: "There was no major rush to buy or sell — investors mostly waited for the next update." },
+		Mixed:     { moodExplanation: "The market had no clear direction today — some sectors held up while others pulled back.", plainEnglish: "Some parts of the market worked, others didn't — stock selection matters more than the broad market." },
+		"Risk-On": { moodExplanation: "Investors leaned into growth today, with tech, AI, and higher-upside names leading the market.", plainEnglish: "Investors were more willing to take risk today, so growth stocks and tech names got more attention." },
+		"Risk-Off": { moodExplanation: "Investors moved toward safer areas of the market today as growth and speculative stocks came under pressure.", plainEnglish: "Investors played defense today — riskier stocks can struggle while steadier companies hold up better." },
 	};
 	return map[mood];
 }
@@ -111,25 +156,46 @@ async function generateMarketText(
 	spyDp: number | null,
 	qqqDp: number | null,
 	diaDp: number | null,
+	vixDp?: number | null,
+	sectorsGreen?: number,
+	sectorsRed?: number,
+	topSector?: string | null,
+	worstSector?: string | null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:${mood}:${today}:${session}`;
+	const cacheKey = `daily-brief:text:v2:${mood}:${today}:${session}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
+	const fmt = (v: number | null | undefined, prefix = "") => v != null ? `${prefix}${v >= 0 ? "+" : ""}${v}%` : null;
 	const snapshot = [
-		spyDp !== null ? `S&P 500: ${spyDp >= 0 ? "+" : ""}${spyDp}%` : null,
-		qqqDp !== null ? `Nasdaq: ${qqqDp >= 0 ? "+" : ""}${qqqDp}%` : null,
-		diaDp !== null ? `Dow Jones: ${diaDp >= 0 ? "+" : ""}${diaDp}%` : null,
-	].filter(Boolean).join(", ");
+		spyDp != null   ? `S&P 500 ${fmt(spyDp)}` : null,
+		qqqDp != null   ? `Nasdaq ${fmt(qqqDp)}` : null,
+		diaDp != null   ? `Dow ${fmt(diaDp)}` : null,
+		vixDp != null   ? `VIX ${fmt(vixDp)}` : null,
+		sectorsGreen != null ? `${sectorsGreen} sectors green, ${sectorsRed ?? 0} red` : null,
+		topSector       ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
 
-	const prompt = `You are writing the market mood section of a daily brief for a stock-learning app aimed at Gen Z / millennials who are beginning to invest. Be concise, engaging, and jargon-free.
+	const PLAIN_ENGLISH_GUIDE: Record<Mood, string> = {
+		Bullish:    "There was no major rush to buy or sell today. Investors mostly waited for the next big update before making stronger moves.",
+		Bearish:    "Investors pulled back from riskier assets. Selling pressure was broad-based.",
+		Cautious:   "No strong direction — investors are waiting before making bigger moves.",
+		Volatile:   "Big moves in both directions today — volatility is elevated.",
+		Calm:       "There was no major rush to buy or sell today. Investors mostly waited for the next big update.",
+		Mixed:      "Some parts of the market worked, others did not. Stock selection mattered more than the overall market direction.",
+		"Risk-On":  "Investors were more willing to take risk today, so growth stocks and tech names got more attention.",
+		"Risk-Off": "Investors played defense today, which usually means riskier stocks can struggle while steadier companies hold up better.",
+	};
+
+	const prompt = `You are writing the market mood section of a daily brief for a stock-learning app aimed at Gen Z / millennials. Be concise, data-backed, and jargon-free.
 
 Market data: ${snapshot || "data unavailable"}. Overall mood: ${mood}. ${SESSION_TONE[session]}
 
 Return JSON with exactly two fields:
-- "moodExplanation": 1–2 sentences explaining WHY markets feel ${mood.toLowerCase()} right now. Mention a plausible macro driver (earnings season, inflation, rates, sector rotation). Max 110 chars.
-- "plainEnglish": 1 sentence explaining what a ${mood.toLowerCase()} market means for stock prices in plain English. Max 85 chars.
+- "moodExplanation": 1–2 sentences explaining WHY markets feel ${mood} right now using the actual data above (mention the S&P/Nasdaq moves, sector leadership, or VIX). Be specific — say "S&P 500 rose +0.8%" not "markets moved higher". Max 120 chars.
+- "plainEnglish": 1 plain-English sentence a beginner can understand. Use this style: "${PLAIN_ENGLISH_GUIDE[mood]}". Max 90 chars.
 
 No financial advice. No disclaimers. Just describe what is happening.`;
 
@@ -207,12 +273,14 @@ function buildPersonalizedImpact(tagScores: Record<string, number>, mood: Mood):
 			: `${top[0]}, ${top[1]}, and ${top[2]}`;
 
 	const context: Record<Mood, string> = {
-		Bullish:  `tend to benefit most when markets rally — a good day to explore them.`,
-		Bearish:  `may see pressure today. Watch for dips that could be buying opportunities.`,
-		Cautious: `could see choppier moves than usual with today's uncertainty.`,
-		Volatile: `may swing sharply today — big moves in either direction are possible.`,
-		Calm:     `fundamentals can shine through on quiet days like today.`,
-		Mixed:    `results today will depend on individual catalysts, not the broad market.`,
+		Bullish:    `tend to benefit most when markets rally — a good day to explore them.`,
+		Bearish:    `may see pressure today. Watch for dips that could be buying opportunities.`,
+		Cautious:   `could see choppier moves than usual with today's uncertainty.`,
+		Volatile:   `may swing sharply today — big moves in either direction are possible.`,
+		Calm:       `fundamentals can shine through on quiet days like today.`,
+		Mixed:      `results today will depend on individual catalysts, not the broad market.`,
+		"Risk-On":  `are in focus today as investors lean into growth and higher-upside names.`,
+		"Risk-Off": `may face headwinds today as investors rotate toward safer, more defensive positions.`,
 	};
 
 	return `Your feed leans toward ${topStr} — those ${context[mood]}`;
@@ -333,6 +401,16 @@ const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
 		midday: { id: "rotation",   title: "Who's Winning Today",  subtitle: "The sectors and stocks leading right now",icon: "trending_up", color: "green" },
 		close:  { id: "balance",    title: "Wrap It Up",           subtitle: "End-of-day picks to carry into tomorrow",icon: "shield",      color: "purple" },
 	},
+	"Risk-On": {
+		open:   { id: "high_growth", title: "Growth in Focus",     subtitle: "Tech and growth names leading today",    icon: "zap",         color: "blue"   },
+		midday: { id: "momentum",    title: "Risk-On Rally",       subtitle: "What's climbing as investors lean in",   icon: "trending_up", color: "green"  },
+		close:  { id: "leaders",     title: "Today's Growth Leaders",subtitle: "What drove the risk-on session",       icon: "trending_up", color: "green"  },
+	},
+	"Risk-Off": {
+		open:   { id: "defensive",   title: "Playing Defense",     subtitle: "Safer picks as growth faces pressure",   icon: "shield",      color: "purple" },
+		midday: { id: "quality",     title: "Defensive Hold",      subtitle: "What's holding up in a risk-off day",   icon: "book",        color: "blue",  bars: true },
+		close:  { id: "dividend",    title: "Safety First",        subtitle: "Steadier picks after a risk-off session", icon: "sun",        color: "blue"   },
+	},
 };
 
 const MOOD_DECKS: Record<Mood, DeckDef[]> = {
@@ -366,6 +444,16 @@ const MOOD_DECKS: Record<Mood, DeckDef[]> = {
 		{ id: "high_growth",   title: "Growth Watch",     subtitle: "Who's still climbing",          icon: "trending_up", color: "green"  },
 		{ id: "defensive",     title: "Defensive Blend",  subtitle: "Balance for mixed signals",     icon: "shield",      color: "purple" },
 	],
+	"Risk-On": [
+		{ id: "high_growth",   title: "High Growth",      subtitle: "Riding the risk-on momentum",   icon: "zap",         color: "blue"   },
+		{ id: "consumer_tech", title: "Consumer Tech",    subtitle: "Where risk appetite is going",  icon: "trending_up", color: "green"  },
+		{ id: "explore",       title: "Explore Growth",   subtitle: "See what's leading the charge", icon: "book",        color: "purple", bars: true },
+	],
+	"Risk-Off": [
+		{ id: "defensive",     title: "Defensive Picks",  subtitle: "Stability when risk is off",    icon: "shield",      color: "purple" },
+		{ id: "dividend",      title: "Dividend Stocks",  subtitle: "Earn while playing defense",    icon: "sun",         color: "blue",   bars: true },
+		{ id: "quality",       title: "Quality Names",    subtitle: "Strong fundamentals in focus",  icon: "book",        color: "green"  },
+	],
 };
 
 // GET /api/daily-brief
@@ -373,20 +461,40 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 	try {
 		const uid = req.user!.uid;
 
-		const [spyDp, qqqDp, diaDp, userSnap] = await Promise.all([
+		// Fetch major indices + VIX + sectors in parallel
+		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, userSnap, ...sectorChanges] = await Promise.all([
 			getQuoteChange("SPY"),
 			getQuoteChange("QQQ"),
 			getQuoteChange("DIA"),
+			getQuoteChange("IWM"),   // Russell 2000
+			getQuoteChange("VIX"),   // VIX
 			adminDb.collection("users").doc(uid).get(),
+			...SECTOR_ETFS.map(s => getQuoteChange(s)),
 		]);
 
-		const mood = deriveMood(spyDp, qqqDp, diaDp);
+		// Build sector summary
+		let sectorsGreen = 0, sectorsRed = 0;
+		let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
+		let topVal = -Infinity, worstVal = Infinity;
+		SECTOR_ETFS.forEach((sym, i) => {
+			const pct = sectorChanges[i] as number | null;
+			if (pct === null) return;
+			if (pct > 0) sectorsGreen++;
+			else if (pct < 0) sectorsRed++;
+			if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
+			if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
+		});
+		const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
+		const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+
+		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+		const mood = classifyMood(marketData);
 		const session = getMarketSession();
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
-			generateMarketText(mood, session, spyDp, qqqDp, diaDp),
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector),
 			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, spyDp, qqqDp, uid),
 		]);
 
@@ -400,9 +508,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			personalizedImpact,
 			decks,
 			marketSnapshot: {
-				spyChange: spyDp,
-				qqqChange: qqqDp,
-				diaChange: diaDp,
+				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
+				iwmChange: iwmDp, vixChange: vixDp,
+				sectorsGreen, sectorsRed, topSector, worstSector,
 			},
 			generatedAt: new Date().toISOString(),
 		});
