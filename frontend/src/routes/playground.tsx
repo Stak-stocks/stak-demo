@@ -7,7 +7,7 @@ import { useAccount } from "@/context/AccountContext";
 import {
 	LESSONS, LESSON_CATEGORIES, getDailyChallenge, getWeeklyPack, getCurrentWeekKey,
 	STOCK_BATTLES, EARNINGS_SCENARIOS, RISK_SCENARIOS, MOOD_SCENARIOS,
-	WWYD_SCENARIOS, PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
+	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
 	type WatchlistSlotType, type WeeklyActivity,
 	type Lesson, type LessonCategory,
 } from "@/data/playgroundData";
@@ -195,7 +195,7 @@ type ActiveView =
 	| "risk-lab"
 	| "mood-simulator"
 	| "practice"
-	| "wwyd"
+
 	| "watchlist"
 	| "sandbox";
 
@@ -397,9 +397,6 @@ export function PlaygroundPage() {
 	}
 	if (activeView === "practice") {
 		return <PracticeModeView onBack={goHome} />;
-	}
-	if (activeView === "wwyd") {
-		return <WWYDView onBack={goHome} />;
 	}
 	if (activeView === "watchlist") {
 		return <WatchlistGameView onBack={goHome} />;
@@ -2918,80 +2915,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 // ── What Would You Do? ────────────────────────────────────────
 
-function WWYDView({ onBack }: { onBack: () => void }) {
-	const { addXp } = useAccount();
-	const { showXp, XPFloat } = useXpFloat();
-	const [idx, setIdx] = useState(0);
-	const [selected, setSelected] = useState<string | null>(null);
-	const awardedWwyd = useRef(new Set<number>());
-	const scenario = WWYD_SCENARIOS[idx];
-	if (!scenario) return null;
-	const isBest = selected === scenario.bestId;
-	const next = () => { if (idx < WWYD_SCENARIOS.length - 1) { setIdx(i => i + 1); setSelected(null); } else onBack(); };
-	const handleSelect = (id: string) => { if (selected) return; const isBestPick = id === scenario.bestId; setSelected(id); if (!awardedWwyd.current.has(idx)) { awardedWwyd.current.add(idx); if (isBestPick) { addXp(scenario.xp).catch(() => {}); showXp(scenario.xp); } } };
-	return (
-		<div className="min-h-full bg-background text-foreground">
-			{XPFloat}
-			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={onBack} />
-				<div className="flex items-center justify-between mb-[20px]">
-					<div><p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Decision Training</p><h2 className="text-[18px] font-extrabold">What Would You Do?</h2></div>
-					<p className="text-[12px] dark:text-slate-400 text-slate-500">{idx + 1}/{WWYD_SCENARIOS.length}</p>
-				</div>
-				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]"><div className="h-full rounded-full bg-purple-400 transition-all" style={{width:`${((idx+1)/WWYD_SCENARIOS.length)*100}%`}} /></div>
-				<div className="rounded-[14px] border border-violet-500/20 bg-surface-1 overflow-hidden mb-[16px] flex">
-					<div className="w-[4px] shrink-0 bg-gradient-to-b from-violet-500 to-purple-400" />
-					<div className="p-[16px]">
-						<div className="flex items-center gap-[6px] mb-[8px]">
-							<span className="text-[14px]">📋</span>
-							<p className="text-[11px] font-bold uppercase tracking-wider text-violet-400">Scenario</p>
-						</div>
-						<p className="text-[15px] font-bold leading-snug">{scenario.scenario}</p>
-					</div>
-				</div>
-				<div className="space-y-[8px] mb-[16px]">
-					{scenario.options.map((opt, i) => (
-						<OptionBtn
-							key={opt.id}
-							letter={LETTERS[i] ?? String(i + 1)}
-							text={opt.text}
-							state={optionState(opt.id, scenario.bestId, selected, !!selected)}
-							onClick={() => handleSelect(opt.id)}
-							disabled={!!selected}
-						/>
-					))}
-				</div>
-				{selected && (<>
-					{/* Why each option was right or wrong */}
-					<div className="space-y-[6px] mb-[12px]">
-						{scenario.options.map(opt => {
-							const isBestOpt = opt.id === scenario.bestId;
-							const isUserPick = opt.id === selected;
-							const wrongNote = scenario.wrongNotes?.[opt.id];
-							if (isBestOpt) return (
-								<div key={opt.id} className="rounded-[10px] border border-emerald-500/30 bg-emerald-500/[0.07] px-[12px] py-[10px]">
-									<p className="text-[12px] font-bold text-emerald-400 mb-[2px]">✓ Best move{isUserPick ? " — your pick" : ""}</p>
-									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-								</div>
-							);
-							if (wrongNote) return (
-								<div key={opt.id} className={`rounded-[10px] border px-[12px] py-[10px] ${isUserPick ? "border-rose-500/30 bg-rose-500/[0.07]" : "border-foreground/[0.06] bg-foreground/[0.02]"}`}>
-									<p className={`text-[12px] font-bold mb-[2px] ${isUserPick ? "text-rose-400" : "dark:text-slate-400 text-slate-500"}`}>{isUserPick ? "✗ Your pick" : `Option ${opt.id.toUpperCase()}`}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 leading-relaxed">{wrongNote}</p>
-								</div>
-							);
-							return null;
-						})}
-					</div>
-					<div className="flex items-center justify-between mb-[12px]">
-						<p className="text-[12px] text-amber-400 font-semibold">+{scenario.xp} XP</p>
-					</div>
-					<button type="button" onClick={next} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{background:'linear-gradient(90deg,#8b5cf6,#6366f1)'}}>{idx<WWYD_SCENARIOS.length-1?'Next Scenario':'Done'}</button>
-				</>)}
-			</div>
-		</div>
-	);
-}
 // ── Build Your First Watchlist ────────────────────────────────
 
 function WatchlistGameView({ onBack }: { onBack: () => void }) {

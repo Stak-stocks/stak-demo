@@ -1407,147 +1407,6 @@ export const MOOD_SCENARIOS: MoodScenario[] = [
 	},
 ];
 
-// ── What Would You Do? Scenarios ────────────────────────────────────────────
-
-export interface WWYDScenario {
-	id: string;
-	scenario: string;
-	options: QuizOption[];
-	bestId: string;
-	explanation: string;
-	wrongNotes?: Record<string, string>; // optionId → brief dismissal of why it's not ideal
-	xp: number;
-}
-
-export const WWYD_SCENARIOS: WWYDScenario[] = [
-	{
-		id: "wwyd-down-after-earnings",
-		scenario: "A stock in your watchlist drops 12% after earnings. Revenue beat but guidance was cut. What do you do first?",
-		options: [
-			{ id: "a", text: "Panic and remove it immediately" },
-			{ id: "b", text: "Read why guidance was cut before deciding" },
-			{ id: "c", text: "Buy more — it's cheaper now" },
-			{ id: "d", text: "Ignore it entirely" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "Panic-selling locks in a loss before you understand if the thesis is broken. Many great investors add on weakness — but only after reading the situation.",
-			c: "Buying more without understanding the guidance cut is risky. A 12% drop on cut guidance can become 30% if the problems are structural.",
-			d: "Ignoring a -12% move with cut guidance means you're flying blind. You don't need to act, but you should understand what happened.",
-		},
-		explanation: "The right first move is to understand why guidance was cut. Was it a one-time issue, macro headwinds, or a structural problem? Context determines whether you should hold, sell, or buy more.",
-		xp: 25,
-	},
-	{
-		id: "wwyd-up-30",
-		scenario: "A stock you saved is up 30% in 3 weeks after a product announcement. What do you do?",
-		options: [
-			{ id: "a", text: "Sell everything — lock in the gain" },
-			{ id: "b", text: "Buy more — momentum is strong" },
-			{ id: "c", text: "Re-evaluate: has the thesis changed or is it just hype?" },
-			{ id: "d", text: "Nothing — just watch it go higher" },
-		],
-		bestId: "c",
-		wrongNotes: {
-			a: "Selling immediately after a 30% run ignores whether the move is justified. If the thesis is intact, you may be selling a winner too early.",
-			b: "Adding more purely on momentum without checking valuation is speculation, not investing. What if the product announcement was already priced in?",
-			d: "Doing nothing at all means not engaging with the question of whether the new price still makes sense. Watching without thinking is passive risk.",
-		},
-		explanation: "A sharp 30% move warrants re-evaluation. Is the product announcement fundamentally worth 30% more? If the thesis is intact, hold or add. If it looks stretched on hype, trimming is rational.",
-		xp: 25,
-	},
-	{
-		id: "wwyd-beat-fell",
-		scenario: "A company beats both EPS and revenue by 10%+ but the stock falls 8% after-hours. What's your reaction?",
-		options: [
-			{ id: "a", text: "The market is wrong — buy the dip immediately" },
-			{ id: "b", text: "Something is wrong — dig into the earnings call for clues" },
-			{ id: "c", text: "Sell — if a beat causes a drop, the stock is broken" },
-			{ id: "d", text: "Wait until tomorrow and see what happens" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "The market isn't often wrong collectively — a 8% drop on a beat usually means there's bad news buried in the report. Don't assume, investigate.",
-			c: "A stock falling on a beat doesn't mean it's broken — it often means guidance was soft or investors expected even more. Selling without context is reactive.",
-			d: "Waiting blindly without reading the report means you'll wake up without context. The earnings call transcript is usually available within hours.",
-		},
-		explanation: "A drop despite a beat usually signals weak guidance, margin compression, or a worrying metric. Read the earnings call transcript before making any move.",
-		xp: 25,
-	},
-	{
-		id: "wwyd-high-growth-no-profit",
-		scenario: "You're considering adding a stock growing revenue at 60% YoY but losing money. What matters most?",
-		options: [
-			{ id: "a", text: "Revenue growth alone — losses don't matter for growth stocks" },
-			{ id: "b", text: "The path to profitability — are losses shrinking as revenue grows?" },
-			{ id: "c", text: "The current stock price — if it's cheap, buy it" },
-			{ id: "d", text: "Avoid all unprofitable companies" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "Revenue growth matters enormously, but losses do matter. Companies that grow revenue without improving margins eventually run out of cash or dilute shareholders.",
-			c: "A 'cheap' share price tells you nothing. $2 can be very expensive if the company is burning cash with no path to profit.",
-			d: "Many of the best investments — Amazon, Uber, Spotify — were unprofitable for years. The question isn't profitability now, it's whether the path is clear.",
-		},
-		explanation: "Revenue growth is great, but look for improving gross margins and operating leverage — signs that scale will eventually produce profits.",
-		xp: 25,
-	},
-	{
-		id: "wwyd-analyst-upgrade",
-		scenario: "An analyst from Goldman Sachs upgrades a stock you own with a $50 higher price target. What do you do?",
-		options: [
-			{ id: "a", text: "Buy more immediately — Goldman is never wrong" },
-			{ id: "b", text: "Understand why they upgraded before acting" },
-			{ id: "c", text: "Sell — the upgrade is already priced in" },
-			{ id: "d", text: "Ignore analyst opinions entirely" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "Goldman is not infallible — analysts have been spectacularly wrong. More importantly, the upgrade may already be priced in by the time you act.",
-			c: "Sometimes upgrades are already priced in, sometimes not. You can't know without understanding what changed in the thesis.",
-			d: "Analyst research can be valuable signal, especially when a high-conviction firm changes direction. Ignoring it entirely means missing useful data.",
-		},
-		explanation: "The key question is why they upgraded. If the reason aligns with your own thesis, it's reinforcing. If it's vague, be more sceptical.",
-		xp: 20,
-	},
-	{
-		id: "wwyd-dividend-cut",
-		scenario: "A dividend stock you follow cuts its dividend by 40%. The stock is down 15% today. What's your first move?",
-		options: [
-			{ id: "a", text: "Buy immediately — 15% discount is a gift" },
-			{ id: "b", text: "Investigate why the dividend was cut before deciding" },
-			{ id: "c", text: "Sell — dividend cuts always mean the company is doomed" },
-			{ id: "d", text: "Hold without doing anything" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "A 15% drop on a dividend cut can become 40% if the cut signals deeper financial trouble. Discounts only matter if the underlying business is sound.",
-			c: "Not always. Some cuts are strategic — a company might cut dividends to fund an acquisition or invest in growth. Context is everything.",
-			d: "Holding without understanding is passive risk. You don't need to sell, but you should know why the cut happened before deciding to stay.",
-		},
-		explanation: "A dividend cut is a serious signal, but context is everything. Understand whether it signals financial stress or a strategic pivot before deciding.",
-		xp: 20,
-	},
-	{
-		id: "wwyd-entire-sector-selling",
-		scenario: "The entire tech sector is down 15% this week due to a Fed rate hike. A stock you've been watching is now at a 52-week low. What do you do?",
-		options: [
-			{ id: "a", text: "Buy it — sector dips are always opportunities" },
-			{ id: "b", text: "Check if the business fundamentals changed or if it's just rate fear" },
-			{ id: "c", text: "Avoid tech entirely until rates stabilise" },
-			{ id: "d", text: "Wait for the bottom before buying" },
-		],
-		bestId: "b",
-		wrongNotes: {
-			a: "Sector dips are not always opportunities — some stocks fall because the business is deteriorating, not just because of macro. Check fundamentals first.",
-			c: "Avoiding an entire sector based on macro timing is hard to get right. Quality tech companies often recover faster than you expect when rates stabilise.",
-			d: "Waiting for 'the bottom' is nearly impossible to time. By the time the bottom is confirmed, the easy gains have usually already happened.",
-		},
-		explanation: "Sector-wide selloffs create opportunities — but only if the business is still healthy. Check: is the company still growing? Rate-driven dips in solid companies have historically been good entry points.",
-		xp: 25,
-	},
-];
-
 // ── Practice Mode tickers ─────────────────────────────────────────────────────
 // A curated selection of well-known brands for practice scenarios
 
@@ -1670,7 +1529,7 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 
 // ── Weekly Pack system ────────────────────────────────────────────────────────
 
-export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood" | "wwyd";
+export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood";
 
 export interface WeeklyActivity {
 	id: string;
@@ -1739,12 +1598,12 @@ function seededPick<T>(arr: T[], seed: number, count: number): T[] {
 }
 
 // How many of each activity type per tier
-const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; wwyd: number }> = {
-	1: { lessons: 3, battles: 1, earnings: 1, risk: 2, mood: 1, wwyd: 0 },
-	2: { lessons: 4, battles: 2, earnings: 1, risk: 2, mood: 2, wwyd: 1 },
-	3: { lessons: 4, battles: 2, earnings: 2, risk: 3, mood: 2, wwyd: 1 },
-	4: { lessons: 5, battles: 3, earnings: 2, risk: 3, mood: 3, wwyd: 2 },
-	5: { lessons: 5, battles: 3, earnings: 3, risk: 4, mood: 3, wwyd: 2 },
+const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; }> = {
+	1: { lessons: 3, battles: 1, earnings: 1, risk: 2, mood: 1, },
+	2: { lessons: 4, battles: 2, earnings: 1, risk: 2, mood: 2, },
+	3: { lessons: 4, battles: 2, earnings: 2, risk: 3, mood: 2, },
+	4: { lessons: 5, battles: 3, earnings: 2, risk: 3, mood: 3, },
+	5: { lessons: 5, battles: 3, earnings: 3, risk: 4, mood: 3, },
 };
 
 /**
@@ -1794,15 +1653,7 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
 
-	// WWYD scenarios (unlocks at tier 2+)
-	const pickedWwyd = counts.wwyd > 0
-		? seededPick(WWYD_SCENARIOS, seed + 5, counts.wwyd).map(s => ({
-			id: s.id, type: "wwyd" as ActivityType,
-			title: s.scenario.slice(0, 40) + "…", subtitle: "What Would You Do?", emoji: "🎯", xp: xpRates.lab,
-		}))
-		: [];
-
-	const activities = [...pickedLessons, ...pickedBattles, ...pickedEarnings, ...pickedRisk, ...pickedMood, ...pickedWwyd];
+	const activities = [...pickedLessons, ...pickedBattles, ...pickedEarnings, ...pickedRisk, ...pickedMood];
 	const totalXpForPack = activities.reduce((sum, a) => sum + a.xp, 0);
 
 	return {
