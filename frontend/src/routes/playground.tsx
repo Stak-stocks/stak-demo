@@ -2119,19 +2119,175 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	];
 
 	// ── Scoring for Round Type A ─────────────────────────────────────────────────
-	function scoreRound(decision: string, reason: string): { xp: number; skill: string; feedback: string } {
-		if (decision === "Avoid For Now" && reason === "Revenue decline") return { xp: 100, skill: "growth", feedback: "Smart move. Declining revenue is a major red flag — you spotted it early." };
-		if (decision === "Avoid For Now" && reason === "High valuation") return { xp: 100, skill: "valuation", feedback: "Good call. A stretched valuation with no margin for error is risky. Smart to stay cautious." };
-		if (decision === "Study More" && reason === "High valuation") return { xp: 100, skill: "valuation", feedback: "Smart move. High-multiple stocks deserve more scrutiny before committing." };
-		if (decision === "Study More" && reason === "Revenue decline") return { xp: 90, skill: "growth", feedback: "Good call. Wanting more context on a revenue decline before deciding is the right instinct." };
-		if (decision === "Track It" && reason === "Strong revenue") return { xp: 90, skill: "growth", feedback: "Smart move. Strong revenue growth is one of the best leading indicators of a healthy business." };
-		if (decision === "Track It" && reason === "Strong margins") return { xp: 90, skill: "profitability", feedback: "Good catch. High margins signal real pricing power — one of the best signs of business quality." };
-		if (decision === "Compare First" && reason === "High valuation") return { xp: 90, skill: "valuation", feedback: "Smart move. Comparing against peers before paying a premium is exactly the right framework." };
-		if (decision === "Compare First") return { xp: 70, skill: "peers", feedback: "Good instinct. Peer comparison is always worth doing before forming a strong view." };
-		if (decision === "Track It" && reason === "High valuation") return { xp: 40, skill: "valuation", feedback: "Not bad — here's what you might be missing: tracking a high-valuation stock is fine, but be careful not to overpay. The market has already priced in a lot of optimism." };
-		if (decision === "Track It" && reason === "Revenue decline") return { xp: 30, skill: "growth", feedback: "Not bad — here's what you might be missing: declining revenue is a serious warning sign. Most strong investments have growing top lines." };
-		if (reason === "Not sure") return { xp: 20, skill: "awareness", feedback: "That's honest — and awareness is the first step. Keep building your instincts with each round." };
-		return { xp: 60, skill: "awareness", feedback: "Good effort. Keep building pattern recognition with each round." };
+	type CallTier = "strong" | "reasonable" | "weak" | "poor";
+
+	const STOCK_ARCHETYPES: Record<string, "quality_compounder" | "high_growth" | "speculative" | "defensive" | "familiar"> = {
+		// Quality Compounders
+		AMZN: "quality_compounder", MSFT: "quality_compounder", AAPL: "quality_compounder",
+		COST: "quality_compounder", GOOGL: "quality_compounder",
+		// High-Growth / Expensive
+		NVDA: "high_growth", PLTR: "high_growth", SHOP: "high_growth",
+		DDOG: "high_growth", CRWD: "high_growth", DUOL: "high_growth", AMD: "high_growth",
+		// Speculative / Volatile
+		COIN: "speculative", ASTS: "speculative", HOOD: "speculative", RBLX: "speculative",
+		TSLA: "speculative", RIVN: "speculative",
+		// Defensive / Stable
+		KO: "defensive", WMT: "defensive", JNJ: "defensive",
+		// Familiar / Consumer brand
+		META: "familiar", NFLX: "familiar", SBUX: "familiar", NKE: "familiar",
+	};
+
+	interface ArchetypeMatrix {
+		bestActions: string[];
+		acceptableActions: string[];
+		weakActions: string[];
+		strongReasonKeywords: string[];
+		acceptableReasonKeywords: string[];
+		weakReasonKeywords: string[];
+		invalidReasonKeywords: string[];
+		reasonChips: string[];
+		keyTakeaway: string;
+	}
+
+	const ARCHETYPE_MATRIX: Record<string, ArchetypeMatrix> = {
+		quality_compounder: {
+			bestActions: ["Track It", "Study More"],
+			acceptableActions: ["Compare First"],
+			weakActions: ["Avoid For Now"],
+			strongReasonKeywords: ["strong revenue", "strong margins", "aws", "cloud", "growth"],
+			acceptableReasonKeywords: ["valuation", "thin margins", "price drop"],
+			weakReasonKeywords: ["price drop"],
+			invalidReasonKeywords: ["volatility risk"],
+			reasonChips: ["Strong revenue growth", "High valuation", "Thin retail margins", "Cloud / platform strength", "Price drop today", "Not sure"],
+			keyTakeaway: "Quality compounders with strong fundamentals are worth tracking even on red days.",
+		},
+		high_growth: {
+			bestActions: ["Study More", "Compare First", "Track It"],
+			acceptableActions: ["Avoid For Now"],
+			weakActions: [],
+			strongReasonKeywords: ["high valuation", "growth", "margin", "expensive"],
+			acceptableReasonKeywords: ["price drop", "volatility"],
+			weakReasonKeywords: ["not sure"],
+			invalidReasonKeywords: [],
+			reasonChips: ["Strong revenue growth", "Very high valuation", "Margin improving", "AI / tech tailwinds", "Price drop today", "Not sure"],
+			keyTakeaway: "High-growth stocks need careful valuation work before committing — Study More or Compare First is often the right call.",
+		},
+		speculative: {
+			bestActions: ["Study More", "Avoid For Now", "Compare First"],
+			acceptableActions: ["Track It"],
+			weakActions: [],
+			strongReasonKeywords: ["volatility", "risk", "crypto", "speculative", "uncertainty", "regulatory"],
+			acceptableReasonKeywords: ["growth", "platform"],
+			weakReasonKeywords: ["strong revenue"],
+			invalidReasonKeywords: [],
+			reasonChips: ["Volatility risk", "Revenue tied to market cycles", "Regulatory uncertainty", "High upside potential", "Price drop today", "Not sure"],
+			keyTakeaway: "Speculative stocks can swing sharply — caution and more research are both valid responses.",
+		},
+		defensive: {
+			bestActions: ["Track It", "Compare First"],
+			acceptableActions: ["Study More"],
+			weakActions: ["Avoid For Now"],
+			strongReasonKeywords: ["stability", "dividend", "defensive", "margin"],
+			acceptableReasonKeywords: ["lower growth", "valuation"],
+			weakReasonKeywords: ["volatility", "price drop"],
+			invalidReasonKeywords: ["volatility risk"],
+			reasonChips: ["Defensive business model", "Dividend income", "Slower growth", "Stable margins", "Price move today", "Not sure"],
+			keyTakeaway: "Defensive stocks offer stability — they're rarely exciting but provide a portfolio anchor.",
+		},
+		familiar: {
+			bestActions: ["Track It", "Study More", "Compare First"],
+			acceptableActions: ["Avoid For Now"],
+			weakActions: [],
+			strongReasonKeywords: ["brand", "growth", "revenue", "margin"],
+			acceptableReasonKeywords: ["valuation", "price drop", "competition"],
+			weakReasonKeywords: ["volatility"],
+			invalidReasonKeywords: [],
+			reasonChips: ["Strong brand recognition", "Revenue growth", "Competition risk", "Profitability trend", "Price drop today", "Not sure"],
+			keyTakeaway: "Familiar brands can be great investments, but brand recognition alone isn't enough — check the numbers.",
+		},
+	};
+
+	function isWeakReason(reasonLower: string, matrix: ArchetypeMatrix): boolean {
+		return matrix.weakReasonKeywords.some(k => reasonLower.includes(k));
+	}
+
+	function generateFeedback(
+		decision: string, reason: string, tier: CallTier, archetype: string,
+		ticker: string, _metrics: { pe: number | null; revenueGrowth: string | null; margin: string | null; change: number },
+		matrix: ArchetypeMatrix
+	): string {
+		if (tier === "strong") {
+			if (archetype === "quality_compounder") return `Strong call. ${ticker} has the fundamentals to support tracking — ${reason.toLowerCase()} is exactly the right signal to focus on here.`;
+			if (archetype === "speculative") return `Strong call. Recognising the ${reason.toLowerCase()} for a speculative name like ${ticker} shows real risk awareness.`;
+			if (archetype === "high_growth") return `Strong call. Focusing on ${reason.toLowerCase()} before committing to a high-multiple stock is smart investing.`;
+			return `Strong call. You identified the most relevant signal (${reason.toLowerCase()}) for this type of stock.`;
+		}
+		if (tier === "reasonable") {
+			if (decision === "Avoid For Now" && archetype === "quality_compounder") return `Reasonable, but worth revisiting. Quality compounders like ${ticker} rarely deserve avoidance based on short-term signals alone. "${reason}" is a valid concern but not the whole picture.`;
+			if (decision === "Compare First") return `Reasonable move. Comparing ${ticker} to peers before committing is solid practice — just make sure you're comparing on the right metric.`;
+			return `Reasonable call. "${reason}" is relevant for ${ticker}, though there may be a stronger signal in the data shown.`;
+		}
+		if (tier === "weak") {
+			if (matrix.invalidReasonKeywords.some(k => reason.toLowerCase().includes(k))) return `Weak fit. "${reason}" is not the main concern for ${ticker}. Focus on ${archetype === "quality_compounder" ? "revenue growth and margins" : archetype === "speculative" ? "volatility and catalyst risk" : "the core business metrics"} instead.`;
+			return `Weak call. "${reason}" is a minor signal here. The more important question for ${ticker} is ${archetype === "high_growth" ? "whether the valuation is justified by the growth rate" : archetype === "speculative" ? "what drives its revenue and how volatile that is" : "how the fundamentals compare to the price"}.`;
+		}
+		// poor
+		return `Missed the main signal. "${reason}" is not the key factor for ${ticker}. ${archetype === "quality_compounder" ? "A one-day price move alone is not a reason to avoid a fundamentally strong company." : archetype === "speculative" ? "Focus on revenue stability and risk profile, not surface signals." : "Look at the actual business metrics shown on the card."}`;
+	}
+
+	function scoreRound(
+		decision: string,
+		reason: string,
+		ticker: string,
+		metrics: { pe: number | null; revenueGrowth: string | null; margin: string | null; change: number }
+	): { xp: number; tier: CallTier; label: string; feedback: string; keyTakeaway: string; skill: string } {
+		const archetype = STOCK_ARCHETYPES[ticker?.toUpperCase()] ?? "familiar";
+		const matrix = ARCHETYPE_MATRIX[archetype]!;
+
+		if (reason === "Not sure") {
+			return { xp: 20, tier: "weak", label: "Uncertain", feedback: `Honest answer — but the data shown gives you something to work with. Look at the ${archetype === "speculative" ? "volatility and revenue stability" : "revenue growth and margins"} next time.`, keyTakeaway: matrix.keyTakeaway, skill: "awareness" };
+		}
+
+		const reasonLower = reason.toLowerCase();
+		const isStrongReason = matrix.strongReasonKeywords.some(k => reasonLower.includes(k));
+		const isAcceptableReason = matrix.acceptableReasonKeywords.some(k => reasonLower.includes(k));
+		const isInvalidReason = matrix.invalidReasonKeywords.some(k => reasonLower.includes(k));
+
+		const isBestAction = matrix.bestActions.includes(decision);
+		const isAcceptableAction = matrix.acceptableActions.includes(decision);
+		const isWeakAction = matrix.weakActions.includes(decision);
+
+		let tier: CallTier;
+		let xp: number;
+
+		if (isBestAction && isStrongReason) {
+			tier = "strong"; xp = 100;
+		} else if ((isBestAction && isAcceptableReason) || (isAcceptableAction && isStrongReason)) {
+			tier = "reasonable"; xp = 70;
+		} else if ((isWeakAction && isAcceptableReason) || (isAcceptableAction && isWeakReason(reasonLower, matrix))) {
+			tier = "weak"; xp = 35;
+		} else if (isInvalidReason || (isWeakAction && (isInvalidReason || isWeakReason(reasonLower, matrix)))) {
+			tier = "poor"; xp = 10;
+		} else {
+			tier = isBestAction || isAcceptableAction ? "reasonable" : "weak";
+			xp = tier === "reasonable" ? 70 : 35;
+		}
+
+		const TIER_LABELS: Record<CallTier, string> = {
+			strong: "Strong Call",
+			reasonable: "Reasonable Call",
+			weak: "Weak Call",
+			poor: "Missed the Main Signal",
+		};
+
+		const feedback = generateFeedback(decision, reason, tier, archetype, ticker, metrics, matrix);
+
+		const skillMap: Record<string, string> = {
+			quality_compounder: "growth", high_growth: "valuation",
+			speculative: "risk", defensive: "growth", familiar: "growth",
+		};
+
+		return { xp, tier, label: TIER_LABELS[tier], feedback, keyTakeaway: matrix.keyTakeaway, skill: skillMap[archetype] ?? "awareness" };
 	}
 
 	// ── Stock pool ───────────────────────────────────────────────────────────────
@@ -2177,7 +2333,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [movePhase, setMovePhase] = useState<MovePhase>("decision");
 	const [moveDecision, setMoveDecision] = useState<string | null>(null);
 	const [moveReason, setMoveReason] = useState<string | null>(null);
-	const [moveFeedback, setMoveFeedback] = useState<{ xp: number; skill: string; feedback: string } | null>(null);
+	const [moveFeedback, setMoveFeedback] = useState<ReturnType<typeof scoreRound> | null>(null);
 
 	// Round Types B/C/D/E state
 	const [otherPhase, setOtherPhase] = useState<OtherPhase>("question");
@@ -2205,26 +2361,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// ── Chip generation for Round A reason step ──────────────────────────────────
 	const reasonChips = useMemo(() => {
-		const chips: string[] = [];
-		const pe = metrics?.peRatio != null ? Number(metrics.peRatio) : null;
-		const growth = metrics?.revenueGrowth != null ? String(metrics.revenueGrowth) : null;
-		const margin = metrics?.profitMargin != null ? String(metrics.profitMargin) : null;
-		const change = quote?.changePercent ?? 0;
-
-		if (pe != null && pe > 35) chips.push("High valuation");
-		if (pe != null && pe < 12) chips.push("Low P/E");
-		if (growth != null && (growth.includes("-") || parseFloat(growth) < 0)) chips.push("Revenue decline");
-		if (growth != null && !growth.includes("-") && parseFloat(growth) > 20) chips.push("Strong revenue");
-		if (margin != null && (margin.includes("-") || parseFloat(margin) < 10)) chips.push("Thin margins");
-		if (margin != null && !margin.includes("-") && parseFloat(margin) > 25) chips.push("Strong margins");
-		if (change < -3) chips.push("Price drop today");
-		if (change > 3) chips.push("Price surge today");
-		chips.push("Volatility risk");
-		chips.push("Not sure");
-
-		// Deduplicate and limit to 6
-		return Array.from(new Set(chips)).slice(0, 6);
-	}, [metrics?.peRatio, metrics?.revenueGrowth, metrics?.profitMargin, quote?.changePercent]);
+		const archetype = STOCK_ARCHETYPES[stock.ticker?.toUpperCase()] ?? "familiar";
+		const matrix = ARCHETYPE_MATRIX[archetype]!;
+		return matrix.reasonChips;
+	}, [stock.ticker]);
 
 	// ── Award XP helper — ref guard prevents double-fire on rapid taps ───────────
 	const xpAwardedThisRound = useRef(false);
@@ -2557,7 +2697,13 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 									type="button"
 									onClick={() => {
 										setMoveReason(chip);
-										const result = scoreRound(moveDecision!, chip);
+										const liveMetrics = {
+											pe: metrics?.peRatio != null ? Number(metrics.peRatio) : null,
+											revenueGrowth: metrics?.revenueGrowth != null ? String(metrics.revenueGrowth) : null,
+											margin: metrics?.profitMargin != null ? String(metrics.profitMargin) : null,
+											change: quote?.changePercent ?? 0,
+										};
+										const result = scoreRound(moveDecision!, chip, stock.ticker, liveMetrics);
 										setMoveFeedback(result);
 										awardXp(result.xp, result.skill, result.xp >= 80);
 										setMovePhase("feedback");
@@ -2575,7 +2721,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 		// Step 3: Feedback
 		if (movePhase === "feedback" && moveFeedback) {
-			const isGoodScore = moveFeedback.xp >= 80;
+			const result = moveFeedback;
 			return (
 				<div className="min-h-full bg-background text-foreground">
 					{XPFloat}
@@ -2588,22 +2734,35 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							</span>
 						</div>
 
-						<div className={`rounded-[16px] border p-[20px] mb-[14px] ${isGoodScore ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-amber-500/30 bg-amber-500/[0.07]"}`}>
-							<div className="flex items-center gap-[10px] mb-[10px]">
-								<div className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full ${isGoodScore ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
-									<Star size={18} fill="currentColor" />
-								</div>
-								<div>
-									<p className={`text-[22px] font-extrabold ${isGoodScore ? "text-emerald-400" : "text-amber-400"}`}>+{moveFeedback.xp} XP</p>
-									<p className="text-[11px] capitalize dark:text-slate-400 text-slate-500">{moveFeedback.skill} skill</p>
-								</div>
+						<div className="rounded-[16px] border border-foreground/10 overflow-hidden mb-[14px]">
+							{/* Block 1: Result tier */}
+							<div className={`px-[16px] py-[12px] border-b border-foreground/[0.06] ${
+								result.tier === "strong" ? "bg-emerald-500/[0.08]" :
+								result.tier === "reasonable" ? "bg-blue-500/[0.07]" :
+								result.tier === "weak" ? "bg-amber-500/[0.07]" : "bg-rose-500/[0.07]"
+							}`}>
+								<p className={`text-[16px] font-extrabold ${
+									result.tier === "strong" ? "text-emerald-400" :
+									result.tier === "reasonable" ? "text-blue-400" :
+									result.tier === "weak" ? "text-amber-400" : "text-rose-400"
+								}`}>{result.label}</p>
+								<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">+{result.xp} XP</p>
 							</div>
-							<p className="text-[14px] font-semibold leading-relaxed text-foreground">{moveFeedback.feedback}</p>
-						</div>
-
-						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] mb-[16px]">
-							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px]">Your call</p>
-							<p className="text-[13px] font-bold">{moveDecision} · <span className="text-emerald-400">{moveReason}</span></p>
+							{/* Block 2: Your choice */}
+							<div className="px-[16px] py-[10px] border-b border-foreground/[0.06] bg-surface-1">
+								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Your Call</p>
+								<p className="text-[13px] font-semibold">{moveDecision} · <span className="dark:text-slate-400 text-slate-500 font-normal">{moveReason}</span></p>
+							</div>
+							{/* Block 3: Why */}
+							<div className="px-[16px] py-[12px] border-b border-foreground/[0.06]">
+								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[4px]">Why</p>
+								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{result.feedback}</p>
+							</div>
+							{/* Block 4: Key takeaway */}
+							<div className="px-[16px] py-[10px] bg-foreground/[0.02]">
+								<p className="text-[10px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
+								<p className="text-[12px] dark:text-slate-400 text-slate-500 italic">{result.keyTakeaway}</p>
+							</div>
 						</div>
 
 						<button type="button" onClick={advanceRound}
