@@ -1303,23 +1303,6 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, weeklyB
 					{dayLabel && <span className="text-[10px] font-bold bg-violet-500/15 text-violet-400 px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
 				</div>
 
-				{/* Win rate banner */}
-				{total > 0 && (
-					<div className="flex items-center gap-[10px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[10px] mb-[16px]">
-						<div className="grid h-[36px] w-[36px] place-items-center rounded-[9px] bg-rose-500/10 text-rose-400">
-							<Swords size={18} />
-						</div>
-						<div className="flex-1">
-							<p className="text-[12px] font-bold">Your Record: {wins}W – {total - wins}L</p>
-							<div className="h-[4px] rounded-full bg-foreground/10 mt-[4px]">
-								<div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(wins / total) * 100}%` }} />
-							</div>
-						</div>
-						<p className={`text-[14px] font-extrabold ${wins / total >= 0.5 ? "text-emerald-400" : "text-rose-400"}`}>
-							{Math.round((wins / total) * 100)}%
-						</p>
-					</div>
-				)}
 
 				<div className="space-y-[8px]">
 					{(weeklyBattleIds ? pool.filter(b => weeklyBattleIds.includes(b.id)) : pool).map(b => {
@@ -1536,20 +1519,6 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, wee
 					{dayLabel && <span className="text-[10px] font-bold bg-purple-500/15 text-purple-400 px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
 				</div>
 
-				{/* Progress indicator */}
-				{doneCount > 0 && (
-					<div className="flex items-center gap-[10px] rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[10px] mb-[16px]">
-						<div className="flex-1">
-							<div className="flex items-center justify-between mb-[4px]">
-								<p className="text-[12px] font-semibold">{doneCount}/{visibleScenarios.length} completed</p>
-								{doneCount === visibleScenarios.length && <span className="text-[11px] text-emerald-400 font-bold">All done! 🎉</span>}
-							</div>
-							<div className="h-[4px] rounded-full bg-foreground/10">
-								<div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${(doneCount / visibleScenarios.length) * 100}%` }} />
-							</div>
-						</div>
-					</div>
-				)}
 
 				<div className="space-y-[8px]">
 					{visibleScenarios.map(s => {
