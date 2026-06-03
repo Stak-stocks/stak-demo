@@ -11,7 +11,7 @@ import {
 	type WatchlistSlotType, type WeeklyActivity,
 	type Lesson, type LessonCategory,
 } from "@/data/playgroundData";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
 import { useWeeklyContent } from "@/hooks/useWeeklyContent";
@@ -225,6 +225,8 @@ export function PlaygroundPage() {
 	const { account, completeWeeklyActivity } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
+	// Optimistic local completions — updates instantly before Firestore onSnapshot fires
+	const [localCompleted, setLocalCompleted] = useState<Set<string>>(new Set());
 
 	// Clear sub-view state on unmount so returning to Playground (tab switch / sign-out)
 	// always lands on the home page, not mid-session inside a sub-view
@@ -313,9 +315,16 @@ export function PlaygroundPage() {
 	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticDailyPack);
 	const dailyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;
-		if (wp?.weekKey !== dayKey) return new Set<string>();
-		return new Set(wp.completedIds ?? []);
-	}, [account?.weeklyProgress, dayKey]);
+		const fromFirestore = wp?.weekKey === dayKey ? new Set(wp.completedIds ?? []) : new Set<string>();
+		// Merge with localCompleted so checkmarks appear instantly before Firestore propagates
+		return new Set([...fromFirestore, ...localCompleted]);
+	}, [account?.weeklyProgress, dayKey, localCompleted]);
+
+	// Wrapper that also updates local state immediately for instant UI feedback
+	const markActivityComplete = useCallback((wk: string, id: string, xp: number) => {
+		setLocalCompleted(prev => new Set([...prev, id]));
+		completeWeeklyActivity(wk, id, xp).catch(() => {});
+	}, [completeWeeklyActivity]);
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
 		const dailyLessonIds = dailyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
@@ -358,7 +367,7 @@ export function PlaygroundPage() {
 				totalLessons={totalLessons}
 				dayKey={dayKey}
 				dailyCompleted={dailyCompleted}
-				onWeeklyComplete={completeWeeklyActivity}
+				onWeeklyComplete={markActivityComplete}
 				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 			/>
@@ -375,23 +384,23 @@ export function PlaygroundPage() {
 		);
 	}
 	if (activeView === "battles") {
-		return <BattlesView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={completeWeeklyActivity}
+		return <BattlesView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			weeklyBattleIds={dailyPack.activities.filter(a => a.type === "battle").map(a => a.id)}
 			dayLabel={dailyPack.label} battlesPool={mergedBattles} />;
 	}
 	if (activeView === "earnings-lab") {
-		return <EarningsLabView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={completeWeeklyActivity}
+		return <EarningsLabView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			weeklyEarningsIds={dailyPack.activities.filter(a => a.type === "earnings").map(a => a.id)}
 			dayLabel={dailyPack.label} earningsPool={mergedEarnings} />;
 	}
 	if (activeView === "risk-lab") {
 		return <RiskLabView onBack={goHome}
 			weeklyRiskIds={dailyPack.activities.filter(a => a.type === "risk").map(a => a.id)}
-			dayLabel={dailyPack.label} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={completeWeeklyActivity}
+			dayLabel={dailyPack.label} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			riskPool={mergedRisk} />;
 	}
 	if (activeView === "mood-simulator") {
-		return <MoodSimulatorView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={completeWeeklyActivity}
+		return <MoodSimulatorView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			weeklyMoodIds={dailyPack.activities.filter(a => a.type === "mood").map(a => a.id)}
 			dayLabel={dailyPack.label} moodPool={mergedMood} />;
 	}
@@ -711,14 +720,14 @@ function LessonLibrary({
 								key={lesson.id}
 								type="button"
 								onClick={() => onSelectLesson(lesson.id)}
-								className={`w-full flex items-stretch rounded-[13px] border overflow-hidden text-left active:opacity-80 transition-opacity ${done ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-foreground/10 bg-surface-1"}`}
+								className={`w-full flex items-stretch rounded-[13px] border overflow-hidden text-left active:opacity-80 transition-opacity ${done ? "border-emerald-500/40 bg-surface-1" : "border-foreground/10 bg-surface-1"}`}
 							>
 								{/* Left accent stripe */}
-								<div className={`w-[4px] shrink-0 bg-gradient-to-b ${barColor} ${done ? "opacity-40" : ""}`} />
+								<div className={`w-[4px] shrink-0 bg-gradient-to-b ${barColor}`} />
 								<div className="flex items-center gap-[14px] px-[14px] py-[12px] flex-1 min-w-0">
-									<span className={`text-[26px] shrink-0 ${done ? "opacity-50" : ""}`}>{lesson.emoji}</span>
+									<span className="text-[26px] shrink-0">{lesson.emoji}</span>
 									<div className="flex-1 min-w-0">
-										<p className={`text-[13px] font-bold ${done ? "dark:text-slate-400 text-slate-500" : "text-foreground"}`}>{lesson.title}</p>
+										<p className="text-[13px] font-bold text-foreground">{lesson.title}</p>
 										<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{lesson.subtitle}</p>
 										<div className="flex items-center gap-[8px] mt-[5px]">
 											<span className={`text-[10px] font-semibold px-[6px] py-[2px] rounded-full border ${CATEGORY_COLORS[lesson.category]}`}>{lesson.category}</span>
@@ -726,7 +735,7 @@ function LessonLibrary({
 										</div>
 									</div>
 									{done
-										? <div className="shrink-0 grid h-[22px] w-[22px] place-items-center rounded-full bg-emerald-500/15 text-emerald-400 text-[12px] font-bold">✓</div>
+										? <span className="shrink-0 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-[8px] py-[3px] rounded-full border border-emerald-500/30">Done ✓</span>
 										: <ChevronRight size={16} className="shrink-0 dark:text-slate-500 text-slate-400" />
 									}
 								</div>
