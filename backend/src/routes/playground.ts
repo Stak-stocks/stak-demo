@@ -138,7 +138,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	}
 
 	// Cache key is tier+week+type only — count excluded so level-ups don't miss cache
-	const cacheKey = `playground:gen:v3:${weekKey}__t${tier}__${type}`;
+	const cacheKey = `playground:gen:v4:${weekKey}__t${tier}__${type}`;
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
@@ -200,6 +200,8 @@ Return a JSON array of exactly ${rawCount} objects:
   "context": "2-3 sentences describing the pre-earnings situation and analyst expectations.",
   "revenueExpected": "$12.4B",
   "epsExpected": "$0.84",
+  "revenueActual": "$12.3B",
+  "epsActual": "$0.85",
   "stockContext": "Up 8% YTD",
   "question": "Based on this setup, what do you predict will happen to Nike's stock after earnings?",
   "options": [
@@ -209,13 +211,14 @@ Return a JSON array of exactly ${rawCount} objects:
     {"id": "d", "text": "Down 10%+ — major miss and guidance cut"}
   ],
   "correctId": "c",
-  "outcome": "What actually happened (or a plausible realistic outcome).",
+  "outcome": "Brief description of what happened and how the stock reacted.",
   "explanation": "2-3 sentences explaining why the market reacted this way.",
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
 - Use real companies and plausible earnings scenarios
-- The correct answer should reflect real market behavior patterns
+- revenueActual and epsActual must match the outcome — they should show clearly whether the company beat or missed
+- The correct answer should be derivable from comparing actual vs expected numbers
 - Scenarios should be educational and teach something about earnings reactions
 - Do NOT use the same company more than once
 - Only output the JSON array, nothing else`;

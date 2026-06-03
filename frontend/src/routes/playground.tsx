@@ -1478,7 +1478,26 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, wee
 							</div>
 
 							<div className="rounded-[12px] border border-purple-500/30 bg-purple-500/[0.07] p-[14px] mb-[12px]">
-								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[4px]">What Actually Happened</p>
+								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[8px]">What Actually Happened</p>
+								{/* Actual vs Estimate comparison — shown when actual numbers are available */}
+								{(scenario.revenueActual || scenario.epsActual) && (
+									<div className="grid grid-cols-2 gap-[8px] mb-[10px]">
+										{scenario.revenueActual && (
+											<div className="rounded-[8px] bg-white/5 p-[8px]">
+												<p className="text-[9px] font-semibold uppercase tracking-wide text-purple-300 mb-[3px]">Revenue</p>
+												<p className="text-[14px] font-extrabold text-white">{scenario.revenueActual}</p>
+												<p className="text-[10px] text-purple-300/70">est. {scenario.revenueExpected}</p>
+											</div>
+										)}
+										{scenario.epsActual && (
+											<div className="rounded-[8px] bg-white/5 p-[8px]">
+												<p className="text-[9px] font-semibold uppercase tracking-wide text-purple-300 mb-[3px]">EPS</p>
+												<p className="text-[14px] font-extrabold text-white">{scenario.epsActual}</p>
+												<p className="text-[10px] text-purple-300/70">est. {scenario.epsExpected}</p>
+											</div>
+										)}
+									</div>
+								)}
 								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
 							</div>
 							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">

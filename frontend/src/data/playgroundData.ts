@@ -74,6 +74,8 @@ export interface EarningsScenario {
 	context: string;
 	revenueExpected: string;
 	epsExpected: string;
+	revenueActual?: string;   // what they actually reported
+	epsActual?: string;
 	stockContext: string;
 	question: string;
 	options: QuizOption[];

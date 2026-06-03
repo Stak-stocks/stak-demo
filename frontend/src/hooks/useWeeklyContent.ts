@@ -111,6 +111,8 @@ export function useWeeklyContent(staticPack: WeeklyPack) {
 					context: String(r.context ?? ""),
 					revenueExpected: String(r.revenueExpected ?? "N/A"),
 					epsExpected: String(r.epsExpected ?? "N/A"),
+					...(typeof r.revenueActual === "string" && r.revenueActual ? { revenueActual: r.revenueActual } : {}),
+					...(typeof r.epsActual === "string" && r.epsActual ? { epsActual: r.epsActual } : {}),
 					stockContext: String(r.stockContext ?? ""),
 					question: String(r.question ?? "What do you predict?"),
 					options: opts.map((o: Record<string, unknown>) => ({ id: String(o.id ?? "a"), text: String(o.text ?? "") })),
