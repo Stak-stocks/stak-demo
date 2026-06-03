@@ -200,7 +200,7 @@ export const LESSONS: Lesson[] = [
 			},
 			{
 				heading: "More than US stocks",
-				body: "Companies around the world are publicly traded too — Toyota (TM), Samsung (SSNLF), Alibaba (BABA). Some trade as ADRs on US exchanges so Americans can easily invest.",
+				body: "Companies around the world are publicly traded too — Toyota (TM), Samsung (SSNLF), Alibaba (BABA). Some trade as ADRs (American Depositary Receipts — basically a US-listed version of a foreign stock) on US exchanges so Americans can easily invest.",
 			},
 		],
 		quiz: {
