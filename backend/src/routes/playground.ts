@@ -138,7 +138,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	}
 
 	// Cache key is tier+week+type only — count excluded so level-ups don't miss cache
-	const cacheKey = `playground:gen:v2:${weekKey}__t${tier}__${type}`;
+	const cacheKey = `playground:gen:v3:${weekKey}__t${tier}__${type}`;
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
@@ -176,12 +176,13 @@ Return a JSON array of exactly ${rawCount} objects with this schema:
   "category": "Tech",
   "metricLabel": "Revenue Growth",
   "higherWins": true,
-  "explanation": "Detailed 2-3 sentence explanation of why one wins, citing real business fundamentals.",
+  "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins. The explanation should educate regardless of which company the live data shows winning.",
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
 - Use companies that are genuinely comparable (same sector/industry)
-- The explanation must be accurate and educational
+- The explanation must describe BOTH companies' fundamentals on the metric — not declare a winner
+- The live winner is determined by real-time data, not by the explanation
 - Vary the metric (revenue growth, profit margin, P/E ratio, market cap, etc.)
 - Do NOT use the same company more than once across the ${rawCount} matchups
 - Only output the JSON array, nothing else`;
