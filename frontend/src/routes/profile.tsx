@@ -141,8 +141,8 @@ function ProfilePage() {
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string; progress: number; progressLabel?: string } | null>(null);
 
 	// Streak — from backend's authoritative tracker
-	const todayKey = new Date().toISOString().split("T")[0];
-	const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+	const yesterdayKey = (() => { const d = new Date(Date.now() - 86400000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 	const streak = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
 		? (account?.streakCount ?? 0) : 0;
 	const totalSwipeCount = account?.totalSwipeCount ?? 0;

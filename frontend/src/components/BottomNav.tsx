@@ -51,7 +51,7 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 	const currentPath = router.location.pathname;
 	const { account } = useAccount();
 
-	const todayKey = new Date().toISOString().split("T")[0];
+	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 	const todayChallenge = getDailyChallenge(todayKey);
 	const challengeDone = account?.dailyChallengeState?.date === todayKey &&
 		(account.dailyChallengeState.completedIds ?? []).includes(todayChallenge.id);

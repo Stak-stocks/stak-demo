@@ -727,7 +727,7 @@ function BuildingStep({
 		updateDeckOrder([]).catch(() => { });
 
 		// Suppress daily brief on the day of onboarding — they just saw the app for the first time.
-		updateLastBriefDate(new Date().toISOString().split("T")[0]).catch(() => {});
+		const _nd = new Date(); updateLastBriefDate(`${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,"0")}-${String(_nd.getDate()).padStart(2,"0")}`).catch(() => {});
 
 		// Sync via REST — backend sets onboardingCompleted in Firestore AND
 		// writes a JWT custom claim so future loads skip this page instantly.
