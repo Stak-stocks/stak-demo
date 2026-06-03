@@ -2244,7 +2244,17 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// Use getCurrentWeekKey and account directly (not PlaygroundPage's dayKey/totalXp)
 	const _drillDayKey = useMemo(() => getCurrentWeekKey(), []);
-	const _drillTier = (account?.totalXp ?? 0) > 500 ? 2 : 1;
+	// Freeze tier at session start — prevents mid-session refetch if user earns XP
+	// Use full 1-5 tier scale to match backend difficulty settings
+	const _drillTier = useMemo(() => {
+		const xp = account?.totalXp ?? 0;
+		if (xp >= 7500) return 5;
+		if (xp >= 3500) return 4;
+		if (xp >= 1500) return 3;
+		if (xp >= 500)  return 2;
+		return 1;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // intentionally empty — freeze at mount, don't change mid-session
 
 	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools
 	const { data: genSentimentData } = useQuery({
@@ -2260,12 +2270,20 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// Merge static + generated pools (dedup by scenario text)
 	const allSentimentScenarios = useMemo(() => {
-		const extras = Array.isArray(genSentimentData) ? genSentimentData.filter(
-			(r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } =>
-				!!r && typeof r === "object" &&
-				typeof (r as Record<string,unknown>).scenario === "string" &&
-				["Bullish","Bearish","Mixed"].includes(String((r as Record<string,unknown>).correct))
-		) : [];
+		const VALID_SENTIMENTS = ["Bullish","Bearish","Mixed"];
+		const extras = Array.isArray(genSentimentData) ? genSentimentData
+			.map(r => {
+				if (!r || typeof r !== "object") return null;
+				const rec = r as Record<string,unknown>;
+				if (typeof rec.scenario !== "string") return null;
+				// Normalize case — Gemini may return "bullish" instead of "Bullish"
+				const raw = String(rec.correct ?? "");
+				const normalized = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+				if (!VALID_SENTIMENTS.includes(normalized)) return null;
+				return { scenario: rec.scenario, correct: normalized as "Bullish"|"Bearish"|"Mixed", explanation: String(rec.explanation ?? "") };
+			})
+			.filter((r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } => r !== null)
+		: [];
 		const seen = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
 		return [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
 	}, [genSentimentData]);
@@ -2398,7 +2416,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
 							setSignalSelected(null); setSignalRevealed(false);
-							setSentimentIdx((_todayOffset + 5) % 15); setNextStepIdx((_todayOffset + 3) % 11);
+							setSentimentIdx((_todayOffset + 5) % 30); setNextStepIdx((_todayOffset + 3) % 21);
 							setSessionStarted(false);
 						}}
 							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">

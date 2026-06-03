@@ -374,10 +374,14 @@ Rules:
 
 	try {
 		const questions = parseQuestions(raw);
-		// Minimal safety: each item must at least be an object with an id string
-		const valid = questions.filter(
-			q => q && typeof q === "object" && typeof (q as Record<string, unknown>).id === "string"
-		);
+		// Drill types don't have an id field — use scenario/event as required field
+		const isDrillType = type === "drill_sentiment" || type === "drill_nextstep";
+		const valid = questions.filter(q => {
+			if (!q || typeof q !== "object") return false;
+			const rec = q as Record<string, unknown>;
+			if (isDrillType) return typeof rec.scenario === "string"; // drill items use scenario
+			return typeof rec.id === "string"; // all other types require id
+		});
 		if (valid.length === 0) throw new Error("No valid items in response");
 		await cacheSet(cacheKey, valid, CACHE_TTL_MS);
 		res.json({ questions: valid });
