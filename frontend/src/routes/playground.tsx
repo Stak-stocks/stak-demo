@@ -711,7 +711,7 @@ function LessonLibrary({
 								key={lesson.id}
 								type="button"
 								onClick={() => onSelectLesson(lesson.id)}
-								className="w-full flex items-stretch rounded-[13px] border border-foreground/10 bg-surface-1 overflow-hidden text-left active:opacity-80 transition-opacity"
+								className={`w-full flex items-stretch rounded-[13px] border overflow-hidden text-left active:opacity-80 transition-opacity ${done ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-foreground/10 bg-surface-1"}`}
 							>
 								{/* Left accent stripe */}
 								<div className={`w-[4px] shrink-0 bg-gradient-to-b ${barColor} ${done ? "opacity-40" : ""}`} />
@@ -981,7 +981,7 @@ function LessonPlayer({
 									className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white shadow-lg active:opacity-80"
 									style={{ background: isCorrect ? "linear-gradient(90deg,#10b981,#3b82f6)" : "linear-gradient(90deg,#3b82f6,#6366f1)" }}
 								>
-									{isCorrect ? `Finish · +${lesson.xp} XP 🎉` : "Got it — finish lesson"}
+									{isCorrect ? "Finish ✓" : "Got it — finish lesson"}
 								</button>
 								{!isCorrect && (
 									<button
