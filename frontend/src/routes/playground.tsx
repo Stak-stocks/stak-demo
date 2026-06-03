@@ -2135,6 +2135,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		KO: "defensive", WMT: "defensive", JNJ: "defensive",
 		// Familiar / Consumer brand
 		META: "familiar", NFLX: "familiar", SBUX: "familiar", NKE: "familiar",
+		// Additional common brands
+		SPOT: "high_growth", DIS: "familiar", UBER: "familiar",
 	};
 
 	interface ArchetypeMatrix {
@@ -2154,11 +2156,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			bestActions: ["Track It", "Study More"],
 			acceptableActions: ["Compare First"],
 			weakActions: ["Avoid For Now"],
-			strongReasonKeywords: ["strong revenue", "strong margins", "aws", "cloud", "growth"],
-			acceptableReasonKeywords: ["valuation", "thin margins", "price drop"],
-			weakReasonKeywords: ["price drop"],
+			strongReasonKeywords: ["strong revenue", "thin margins", "cloud", "growth"],
+			acceptableReasonKeywords: ["valuation", "price drop"],
+			weakReasonKeywords: ["price drop today"],
 			invalidReasonKeywords: ["volatility risk"],
-			reasonChips: ["Strong revenue growth", "High valuation", "Thin retail margins", "Cloud / platform strength", "Price drop today", "Not sure"],
+			// chips must contain a keyword substring for scoring to work correctly
+			reasonChips: ["Strong revenue growth", "High valuation", "Thin margins concern", "Cloud platform strength", "Price drop today", "Not sure"],
 			keyTakeaway: "Quality compounders with strong fundamentals are worth tracking even on red days.",
 		},
 		high_growth: {
@@ -2176,10 +2179,11 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			bestActions: ["Study More", "Avoid For Now", "Compare First"],
 			acceptableActions: ["Track It"],
 			weakActions: [],
-			strongReasonKeywords: ["volatility", "risk", "crypto", "speculative", "uncertainty", "regulatory"],
+			strongReasonKeywords: ["volatility", "risk", "crypto", "speculative", "uncertainty", "regulatory", "market cycles", "upside"],
 			acceptableReasonKeywords: ["growth", "platform"],
 			weakReasonKeywords: ["strong revenue"],
 			invalidReasonKeywords: [],
+			// chips must contain a keyword substring
 			reasonChips: ["Volatility risk", "Revenue tied to market cycles", "Regulatory uncertainty", "High upside potential", "Price drop today", "Not sure"],
 			keyTakeaway: "Speculative stocks can swing sharply — caution and more research are both valid responses.",
 		},
@@ -2188,9 +2192,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			acceptableActions: ["Study More"],
 			weakActions: ["Avoid For Now"],
 			strongReasonKeywords: ["stability", "dividend", "defensive", "margin"],
-			acceptableReasonKeywords: ["lower growth", "valuation"],
-			weakReasonKeywords: ["volatility", "price drop"],
+			acceptableReasonKeywords: ["growth", "valuation"],  // "slower growth" contains "growth"
+			weakReasonKeywords: ["volatility", "price"],
 			invalidReasonKeywords: ["volatility risk"],
+			// chips must contain a keyword substring
 			reasonChips: ["Defensive business model", "Dividend income", "Slower growth", "Stable margins", "Price move today", "Not sure"],
 			keyTakeaway: "Defensive stocks offer stability — they're rarely exciting but provide a portfolio anchor.",
 		},
@@ -2198,10 +2203,11 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			bestActions: ["Track It", "Study More", "Compare First"],
 			acceptableActions: ["Avoid For Now"],
 			weakActions: [],
-			strongReasonKeywords: ["brand", "growth", "revenue", "margin"],
+			strongReasonKeywords: ["brand", "growth", "revenue", "margin", "profitability"],
 			acceptableReasonKeywords: ["valuation", "price drop", "competition"],
 			weakReasonKeywords: ["volatility"],
 			invalidReasonKeywords: [],
+			// chips must contain a keyword substring — "Profitability trend" now matches "profitability"
 			reasonChips: ["Strong brand recognition", "Revenue growth", "Competition risk", "Profitability trend", "Price drop today", "Not sure"],
 			keyTakeaway: "Familiar brands can be great investments, but brand recognition alone isn't enough — check the numbers.",
 		},
@@ -2264,10 +2270,16 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			tier = "strong"; xp = 100;
 		} else if ((isBestAction && isAcceptableReason) || (isAcceptableAction && isStrongReason)) {
 			tier = "reasonable"; xp = 70;
+		} else if (isBestAction && isInvalidReason) {
+			// Good action but irrelevant reason — still reasonable (action credit)
+			tier = "reasonable"; xp = 70;
 		} else if ((isWeakAction && isAcceptableReason) || (isAcceptableAction && isWeakReason(reasonLower, matrix))) {
 			tier = "weak"; xp = 35;
-		} else if (isInvalidReason || (isWeakAction && (isInvalidReason || isWeakReason(reasonLower, matrix)))) {
+		} else if (isWeakAction && (isInvalidReason || isWeakReason(reasonLower, matrix))) {
+			// Poor: bad action AND bad/irrelevant reason
 			tier = "poor"; xp = 10;
+		} else if (isAcceptableAction && isInvalidReason) {
+			tier = "weak"; xp = 35;
 		} else {
 			tier = isBestAction || isAcceptableAction ? "reasonable" : "weak";
 			xp = tier === "reasonable" ? 70 : 35;
@@ -2705,7 +2717,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										};
 										const result = scoreRound(moveDecision!, chip, stock.ticker, liveMetrics);
 										setMoveFeedback(result);
-										awardXp(result.xp, result.skill, result.xp >= 80);
+										// strong (100) and reasonable (70) both count as correct
+									awardXp(result.xp, result.skill, result.xp >= 70);
 										setMovePhase("feedback");
 									}}
 									className="text-[13px] font-semibold px-[14px] py-[9px] rounded-full border border-foreground/15 bg-surface-1 dark:text-slate-300 text-slate-600 active:opacity-70 transition-opacity"
