@@ -921,12 +921,6 @@ function LessonPlayer({
 								</div>
 							)}
 						</div>
-						<div className="flex items-center gap-[6px] dark:text-slate-400 text-slate-500">
-							<div className="h-[5px] w-[80px] rounded-full bg-foreground/10 overflow-hidden">
-								<div className="h-full rounded-full bg-blue-400" style={{ width: `${((completedLessons + (alreadyCompleted ? 0 : 1)) / totalLessons) * 100}%` }} />
-							</div>
-							<span className="text-[12px]">{completedLessons + (alreadyCompleted ? 0 : 1)}/{totalLessons}</span>
-						</div>
 					</div>
 				) : phase === "cards" ? (
 					<div className="flex-1 flex flex-col"
