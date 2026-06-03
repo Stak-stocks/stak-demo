@@ -6,10 +6,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { brands as allBrands, type BrandProfile } from "@/data/brands";
-import { INTEL_CARDS, type IntelCard } from "@/data/intelCards";
 import { TAG_SCORE_MAX } from "@/lib/constants";
-import { IntelCardModal } from "@/components/IntelCardModal";
-import { getIntelCards } from "@/lib/api";
 import {
 	ChevronRight,
 	User,
@@ -110,32 +107,6 @@ function ProfilePage() {
 			.filter(Boolean) as BrandProfile[];
 	}, [account?.stakBrandIds]);
 
-	// Intel Library — card objects from API, read IDs from Firestore account
-	const { data: intelCardsData } = useQuery({
-		queryKey: ["intel-cards"],
-		queryFn: getIntelCards,
-		staleTime: 7 * 24 * 60 * 60 * 1000,
-		gcTime: 7 * 24 * 60 * 60 * 1000,
-		retry: 1,
-	});
-	const allIntelCards = useMemo(() => {
-		const apiCards = intelCardsData?.cards ?? [];
-		const merged = [...apiCards];
-		for (const card of INTEL_CARDS) {
-			if (!merged.find((c) => c.id === card.id)) merged.push(card);
-		}
-		return merged;
-	}, [intelCardsData]);
-	const readIds = account?.intelCardState?.readIds ?? [];
-	const readCards = useMemo(
-		() => allIntelCards.filter((c) => readIds.includes(c.id)),
-		[allIntelCards, readIds],
-	);
-
-	const [showLibrary, setShowLibrary] = useState(false);
-	const sheetDragStartY = useRef(0);
-	const [sheetTranslate, setSheetTranslate] = useState(0);
-	const [reviewCard, setReviewCard] = useState<IntelCard | null>(null);
 
 	// Badge tooltip
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string; progress: number; progressLabel?: string } | null>(null);
@@ -169,7 +140,6 @@ function ProfilePage() {
 	const maxTagScore = Math.max(0, ...Object.values(tagScores));
 	const categoriesEngaged = Object.keys(tagScores).length;
 	const hasStaked = stakBrands.length >= 1;
-	const hasReadIntel = readCards.length >= 1;
 
 	const allBadges = [
 		// Stak-building badges (derived from current stak size)
@@ -186,8 +156,6 @@ function ProfilePage() {
 		{ id: "market_explorer",      label: "Market Explorer",     emoji: "⚡", desc: "7-day streak — you're building real momentum.",       earned: earnedBackendBadges.has("market_explorer") || streak >= 7,    progress: Math.min(streak / 7, 1),               progressLabel: `${Math.min(streak, 7)}/7 days`                  },
 		{ id: "trend_reader",         label: "Trend Reader",        emoji: "📈", desc: "14-day streak — you now see insights before others.", earned: earnedBackendBadges.has("trend_reader") || streak >= 14,      progress: Math.min(streak / 14, 1),              progressLabel: `${Math.min(streak, 14)}/14 days`                },
 		{ id: "market_insider",       label: "STAK Insider",        emoji: "💎", desc: "30-day streak — you're in the top % of users.",      earned: earnedBackendBadges.has("market_insider") || streak >= 30,    progress: Math.min(streak / 30, 1),              progressLabel: `${Math.min(streak, 30)}/30 days`                },
-		// Engagement combo badge
-		{ id: "signal-finder",        label: "Signal Finder",       emoji: "🎯", desc: "Staked brands and read intel — the full loop.",       earned: hasStaked && hasReadIntel,                            progress: (hasStaked ? 0.5 : 0) + (hasReadIntel ? 0.5 : 0), progressLabel: hasStaked && hasReadIntel ? "Complete" : !hasStaked ? "Stake a brand first" : "Read an Intel card" },
 	];
 	const earnedBadges = allBadges.filter((b) => b.earned);
 	const inProgressBadges = allBadges.filter((b) => !b.earned && b.progress > 0);
@@ -335,55 +303,7 @@ function ProfilePage() {
 						</div>
 					</div>
 
-					{/* Playground Level */}
-					{(() => {
-						const totalXp = account?.totalXp ?? 0;
-						const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
-						const LEVELS = [
-							{ min: 0,    name: "Beginner", emoji: "🌱", color: "text-slate-500 dark:text-slate-400", bar: "bg-slate-400" },
-							{ min: 100,  name: "Learner",  emoji: "📚", color: "text-blue-500 dark:text-blue-400",   bar: "bg-blue-400"  },
-							{ min: 300,  name: "Investor", emoji: "📈", color: "text-cyan-600 dark:text-cyan-400",   bar: "bg-cyan-400"  },
-							{ min: 600,  name: "Analyst",  emoji: "🔬", color: "text-violet-600 dark:text-violet-400", bar: "bg-violet-400"},
-							{ min: 1000, name: "Expert",   emoji: "🏆", color: "text-amber-600 dark:text-amber-400",  bar: "bg-amber-400" },
-						];
-						const nextLevel = LEVELS.find(l => l.min > totalXp);
-						const current = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
-						const levelPct = nextLevel ? Math.round(((totalXp - current.min) / (nextLevel.min - current.min)) * 100) : 100;
-						if (totalXp === 0 && completedLessons === 0) return null;
-						return (
-							<div className="rounded-[14px] border border-violet-500/15 bg-surface-1 p-[14px]">
-								<div className="flex items-center gap-[12px] mb-[10px]">
-									<span className="text-[28px]">{current.emoji}</span>
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center justify-between">
-											<p className={`text-[14px] font-extrabold ${current.color}`}>{current.name}</p>
-											<p className="text-[13px] font-bold text-foreground">{totalXp} XP</p>
-										</div>
-										<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Playground · {completedLessons} lessons done</p>
-									</div>
-								</div>
-								<div className="h-[5px] rounded-full bg-foreground/10">
-									<div className={`h-full rounded-full ${current.bar} transition-all`} style={{ width: `${levelPct}%` }} />
-								</div>
-								{nextLevel && <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-[5px]">{nextLevel.min - totalXp} XP to {nextLevel.name}</p>}
-							</div>
-						);
-					})()}
 
-					{/* Intel Library */}
-					<button type="button" onClick={() => setShowLibrary(true)} className="w-full rounded-[14px] border border-cyan-500/20 bg-surface-1 p-[14px] text-left active:opacity-80 transition-opacity">
-						<div className="flex items-center justify-between mb-[10px]">
-							<div className="flex items-center gap-[8px]">
-								<div className="grid h-[28px] w-[28px] place-items-center rounded-[7px] bg-cyan-500/10 text-cyan-500 dark:text-cyan-400"><BookOpen className="w-[14px] h-[14px]" /></div>
-								<p className="text-[13px] font-bold">Intel Library</p>
-							</div>
-							<p className="text-[14px] font-extrabold text-cyan-500 dark:text-cyan-400">{readCards.length}<span className="text-[11px] dark:text-slate-400 text-slate-500 font-normal ml-[3px]">/ {INTEL_CARDS.length}</span></p>
-						</div>
-						<div className="h-[5px] rounded-full bg-foreground/10 overflow-hidden">
-							<div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${(readCards.length / INTEL_CARDS.length) * 100}%` }} />
-						</div>
-						{readCards.length === 0 && <p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[6px]">Swipe 5× to unlock your first insight</p>}
-					</button>
 
 				</div>
 
@@ -466,65 +386,6 @@ function ProfilePage() {
 			</div>
 
 			{/* ════════ INTEL LIBRARY BOTTOM SHEET ════════ */}
-			{showLibrary && createPortal(
-				<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-					<div
-						aria-hidden="true"
-						className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
-						onClick={() => { setShowLibrary(false); setSheetTranslate(0); }}
-					/>
-					<div
-						className="relative z-[1] bg-white dark:bg-surface-1 rounded-t-3xl max-h-[65vh] flex flex-col border border-zinc-200 dark:border-cyan-500/20"
-						style={{ transform: `translateY(${sheetTranslate}px)`, transition: sheetTranslate === 0 ? "transform 0.3s ease" : "none" }}
-						onTouchStart={(e) => { sheetDragStartY.current = e.touches[0].clientY; }}
-						onTouchMove={(e) => { const dy = e.touches[0].clientY - sheetDragStartY.current; if (dy > 0) setSheetTranslate(dy); }}
-						onTouchEnd={() => { if (sheetTranslate > 80) { setShowLibrary(false); setSheetTranslate(0); } else { setSheetTranslate(0); } }}
-					>
-						{/* Drag handle */}
-						<div className="px-5 pt-4 pb-3 shrink-0 cursor-grab active:cursor-grabbing">
-							<div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-slate-600 mx-auto mb-4" />
-							<div className="flex items-center justify-between">
-								<div>
-									<h3 className="text-base font-bold">Intel Library</h3>
-									<p className="text-[11px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-0.5">{readCards.length} of {INTEL_CARDS.length} concepts unlocked</p>
-								</div>
-								<button type="button" onClick={() => { setShowLibrary(false); setSheetTranslate(0); }} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors">
-									<X className="w-4 h-4" />
-								</button>
-							</div>
-						</div>
-						<div className="overflow-y-auto px-5 pb-8 space-y-2">
-							{readCards.length === 0 ? (
-								<div className="py-12 text-center">
-									<p className="text-3xl mb-3">📚</p>
-									<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 font-medium">No cards read yet</p>
-									<p className="text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-600 mt-1">Swipe 5 times on Discover to get your first Intel Card</p>
-								</div>
-							) : (
-								readCards.map((card) => (
-									<button
-										key={card.id}
-										type="button"
-										onClick={() => { setReviewCard(card); setShowLibrary(false); setSheetTranslate(0); }}
-										className="w-full flex items-center gap-3 p-3 rounded-[12px] bg-surface-1 border border-foreground/10 text-left hover:border-cyan-500/30 active:opacity-80 transition-colors"
-									>
-										<span className="text-2xl shrink-0">{card.emoji}</span>
-										<div className="flex-1 min-w-0">
-											<p className="text-sm font-semibold truncate">{card.title}</p>
-											<p className="text-[11px] dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 line-clamp-1 mt-0.5">{card.takeaway}</p>
-										</div>
-										<ChevronRight className="w-4 h-4 dark:text-zinc-300 text-zinc-700 dark:text-zinc-600 shrink-0" />
-									</button>
-								))
-							)}
-						</div>
-					</div>
-				</div>,
-				document.body,
-			)}
-
-			{/* ════════ INTEL CARD REVIEW MODAL ════════ */}
-			{reviewCard && <IntelCardModal card={reviewCard} onDismiss={() => setReviewCard(null)} />}
 
 		{/* Badge info tooltip */}
 		{activeBadge && createPortal(
