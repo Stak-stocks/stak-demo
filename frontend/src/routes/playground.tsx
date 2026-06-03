@@ -328,6 +328,8 @@ export function PlaygroundPage() {
 	const markActivityComplete = useCallback((wk: string, id: string, xp: number) => {
 		setLocalCompleted(prev => new Set([...prev, id]));
 		completeWeeklyActivity(wk, id, xp).catch(() => {});
+		// Fire streak update — any playground completion counts toward daily streak
+		trackEvent("playground_activity", { activityId: id }).catch(() => {});
 	}, [completeWeeklyActivity]);
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {

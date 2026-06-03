@@ -108,6 +108,9 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 			recordActivity(uid, "intel_view").catch(() => {});
 		} else if (type === "brand_tap") {
 			recordActivity(uid, "brand_tap").catch(() => {});
+		} else if (type === "playground_activity") {
+			// Completing any playground activity (lesson, battle, etc.) counts toward streak
+			recordActivity(uid, "swipe").catch(() => {});
 		}
 
 		// Update weighted taste profile for brand-specific engagement events
