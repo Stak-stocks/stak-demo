@@ -222,7 +222,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 }
 
 export function PlaygroundPage() {
-	const { account, completeWeeklyActivity } = useAccount();
+	const { account, accountLoading, completeWeeklyActivity, markPlaygroundOnboarded } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
 	// Optimistic local completions — updates instantly before Firestore onSnapshot fires
@@ -235,9 +235,13 @@ export function PlaygroundPage() {
 	}, []);
 	const [activeLessonId, setActiveLessonId] = useState<string | null>(restored.lessonId);
 	const [activeCategory, setActiveCategory] = useState<LessonCategory | null>(null);
-	const [showOnboarding, setShowOnboarding] = useState(() =>
-		typeof window !== "undefined" && !localStorage.getItem("playground-onboarded")
-	);
+	// Onboarding flag lives in Firestore — shows correctly on every device / new account
+	const [showOnboarding, setShowOnboarding] = useState(false);
+	useEffect(() => {
+		if (account !== null && !accountLoading) {
+			setShowOnboarding(!account?.playgroundOnboarded);
+		}
+	}, [account?.playgroundOnboarded, accountLoading]);
 
 	// Scroll management: save position when entering a sub-view, restore when returning home
 	const homeScrollY = useRef(0);
@@ -336,7 +340,7 @@ export function PlaygroundPage() {
 		return (
 			<PlaygroundOnboarding
 				onDone={(startView) => {
-					localStorage.setItem("playground-onboarded", "1");
+					markPlaygroundOnboarded();
 					setShowOnboarding(false);
 					if (startView) setActiveView(startView);
 				}}
