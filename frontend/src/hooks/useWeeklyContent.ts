@@ -237,12 +237,9 @@ export function useWeeklyContent(staticPack: WeeklyPack) {
 				existingIds.add(m.id);
 			}
 		}
-		for (const l of extraLessons) {
-			if (!existingIds.has(l.id)) {
-				newActivities.push({ id: l.id, type: "lesson", title: l.title, subtitle: l.category, emoji: l.emoji, xp: l.xp });
-				existingIds.add(l.id);
-			}
-		}
+		// Generated lessons go into the pool (mergedLessons) but NOT into newActivities —
+		// the daily lesson count is set by TIER_COUNTS. Generated content extends the pool
+		// so LessonPlayer can find them when static lessons are exhausted.
 
 		const totalXp = newActivities.reduce((sum, a) => sum + a.xp, 0);
 		return { ...staticPack, activities: newActivities, totalXp };
