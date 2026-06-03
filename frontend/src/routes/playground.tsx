@@ -793,6 +793,7 @@ function LessonPlayer({
 	const [showResult, setShowResult] = useState(false);
 	const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
 	const swipeStartX = useRef<number | null>(null);
+	const xpAwardedRef = useRef(false); // prevents double-fire before Firestore propagates
 	const alreadyCompleted = !!(account?.lessonProgress?.[lessonId]?.completed);
 
 	if (!lesson) return null;
@@ -820,22 +821,28 @@ function LessonPlayer({
 		setSelectedOption(optionId);
 		setShowResult(true);
 		const correct = optionId === lesson.quiz.correctId;
-		if (correct) showXp(lesson.xp);
-		if (!alreadyCompleted) {
-			await completeLesson(lesson.id, correct ? lesson.xp : 0);
-			if (correct && dayKey && dailyCompleted && !dailyCompleted.has(lesson.id) && onWeeklyComplete)
-				onWeeklyComplete(dayKey, lesson.id, lesson.xp);
+		// Only award XP + mark complete on correct answer.
+		// xpAwardedRef blocks double-fire if the user taps fast before Firestore propagates.
+		// Wrong answers stay incomplete so the user can try again — no XP awarded.
+		if (correct && !alreadyCompleted && !xpAwardedRef.current) {
+			xpAwardedRef.current = true;
+			showXp(lesson.xp);
+			// completeLesson is the single XP source (marks lessonProgress + increments totalXp)
+			await completeLesson(lesson.id, lesson.xp);
+			// Pass xp:0 — daily checkmark only, no extra XP (avoids double-counting)
+			if (dayKey && dailyCompleted && !dailyCompleted.has(lesson.id) && onWeeklyComplete)
+				onWeeklyComplete(dayKey, lesson.id, 0);
+			// Level-up toast
 			const prevXp = account?.totalXp ?? 0;
-			const newXp = prevXp + (correct ? lesson.xp : 0);
-			if (!correct) return;
-			const LEVEL_THRESHOLDS = [100, 300, 600, 1000];
+			const newXp = prevXp + lesson.xp;
+			const LEVEL_THRESHOLDS = [500, 1500, 3500, 7500];
 			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
 			if (crossed) {
 				const levelDefs: Record<number, { name: string; emoji: string; bar: string }> = {
-					100:  { name: "Learner",  emoji: "📚", bar: "from-blue-400 to-blue-500"     },
-					300:  { name: "Investor", emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
-					600:  { name: "Analyst",  emoji: "🔬", bar: "from-violet-400 to-purple-500" },
-					1000: { name: "Expert",   emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
+					500:  { name: "Learner",  emoji: "📚", bar: "from-blue-400 to-blue-500"     },
+					1500: { name: "Investor", emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
+					3500: { name: "Analyst",  emoji: "🔬", bar: "from-violet-400 to-purple-500" },
+					7500: { name: "Expert",   emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
 				};
 				const lv = levelDefs[crossed]!;
 				import("sonner").then(({ toast }) => toast.custom(() => (
