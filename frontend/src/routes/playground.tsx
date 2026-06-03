@@ -2251,7 +2251,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const matrix = ARCHETYPE_MATRIX[archetype]!;
 
 		if (reason === "Not sure") {
-			return { xp: 20, tier: "weak", label: "Uncertain", feedback: `Honest answer — but the data shown gives you something to work with. Look at the ${archetype === "speculative" ? "volatility and revenue stability" : "revenue growth and margins"} next time.`, keyTakeaway: matrix.keyTakeaway, skill: "awareness" };
+			return { xp: 3, tier: "weak", label: "Uncertain", feedback: `Honest answer — but the data shown gives you something to work with. Look at the ${archetype === "speculative" ? "volatility and revenue stability" : "revenue growth and margins"} next time.`, keyTakeaway: matrix.keyTakeaway, skill: "awareness" };
 		}
 
 		const reasonLower = reason.toLowerCase();
@@ -2267,22 +2267,22 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		let xp: number;
 
 		if (isBestAction && isStrongReason) {
-			tier = "strong"; xp = 100;
+			tier = "strong"; xp = 15;
 		} else if ((isBestAction && isAcceptableReason) || (isAcceptableAction && isStrongReason)) {
-			tier = "reasonable"; xp = 70;
+			tier = "reasonable"; xp = 10;
 		} else if (isBestAction && isInvalidReason) {
 			// Good action but irrelevant reason — still reasonable (action credit)
-			tier = "reasonable"; xp = 70;
+			tier = "reasonable"; xp = 10;
 		} else if ((isWeakAction && isAcceptableReason) || (isAcceptableAction && isWeakReason(reasonLower, matrix))) {
-			tier = "weak"; xp = 35;
+			tier = "weak"; xp = 4;
 		} else if (isWeakAction && (isInvalidReason || isWeakReason(reasonLower, matrix))) {
 			// Poor: bad action AND bad/irrelevant reason
-			tier = "poor"; xp = 10;
+			tier = "poor"; xp = 1;
 		} else if (isAcceptableAction && isInvalidReason) {
-			tier = "weak"; xp = 35;
+			tier = "weak"; xp = 4;
 		} else {
 			tier = isBestAction || isAcceptableAction ? "reasonable" : "weak";
-			xp = tier === "reasonable" ? 70 : 35;
+			xp = tier === "reasonable" ? 10 : 4;
 		}
 
 		const TIER_LABELS: Record<CallTier, string> = {
@@ -2834,7 +2834,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 80 : 20;
+										const xp = correct ? 10 : 3;
 										awardXp(xp, sc.skill, correct);
 									}}
 								/>
@@ -2924,7 +2924,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 80 : 20;
+										const xp = correct ? 10 : 3;
 										awardXp(xp, "news", correct);
 									}}
 								/>
@@ -3010,7 +3010,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 80 : 20;
+										const xp = correct ? 10 : 3;
 										awardXp(xp, sc.skill, correct);
 									}}
 								/>
@@ -3096,7 +3096,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 80 : 20;
+										const xp = correct ? 10 : 3;
 										awardXp(xp, sc.skill, correct);
 									}}
 								/>
