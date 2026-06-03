@@ -3706,9 +3706,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [showSearch, setShowSearch] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	// Order quantity
-	const [orderQty, setOrderQty] = useState<number>(1);
+	const [orderQty, setOrderQty] = useState<number>(0);
 	const [orderMode, setOrderMode] = useState<"shares" | "amount">("shares");
-	const [orderAmount, setOrderAmount] = useState<number>(100); // dollar amount mode
+	const [orderAmount, setOrderAmount] = useState<number>(0); // 0 shows greyed placeholder
 	// Reset confirm
 	const [confirmReset, setConfirmReset] = useState(false);
 
@@ -3794,7 +3794,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const closeOrder = () => {
 		setOrderAction(null);
 		setOrderQty(1);
-		setOrderAmount(100);
+		setOrderAmount(0);
 		setOrderMode("shares");
 	};
 
@@ -3901,50 +3901,42 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 
 					{orderMode === "shares" || orderAction === "sell" ? (
 						<>
-							<div className="flex items-center justify-center gap-[16px] mb-[8px]">
-								<button type="button"
-									onClick={() => setOrderQty(q => Math.max(0.01, Math.round((q - step) * 1000) / 1000))}
-									className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
-									−
-								</button>
+							<div className="flex items-center justify-center mb-[8px]">
 								<input
-									type="number"
+									type="text"
 									inputMode="decimal"
-									min={0.01}
-									step={0.01}
-									value={orderQty}
+									autoFocus
+									placeholder="0"
+									value={orderQty > 0 ? String(orderQty) : ""}
 									onChange={e => {
-										const v = parseFloat(e.target.value);
-										if (!isNaN(v) && v > 0) setOrderQty(Math.round(v * 1000) / 1000);
+										const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+										if (raw === "" || raw === ".") { setOrderQty(0); return; }
+										const v = parseFloat(raw);
+										if (!isNaN(v)) setOrderQty(Math.round(v * 1000) / 1000);
 									}}
-									className="w-[120px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px] placeholder:text-foreground/25"
 								/>
-								<button type="button"
-									onClick={() => {
-										const max = orderAction === "buy" ? maxBuyQty : sharesOwned;
-										setOrderQty(q => Math.min(Math.round((q + step) * 1000) / 1000, max));
-									}}
-									className="w-[44px] h-[44px] rounded-full border border-foreground/15 flex items-center justify-center text-[24px] font-bold dark:text-slate-400 text-slate-500 active:opacity-70 shrink-0">
-									+
-								</button>
 							</div>
 							<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[16px]">shares</p>
 						</>
 					) : (
 						<>
 							<div className="flex items-center justify-center gap-[10px] mb-[8px]">
-								<span className="text-[36px] font-extrabold dark:text-slate-400 text-slate-500">$</span>
+								<span className={`text-[36px] font-extrabold ${orderAmount > 0 ? "dark:text-slate-400 text-slate-400" : "text-foreground/25"}`}>$</span>
 								<input
-									type="number"
+									type="text"
 									inputMode="decimal"
-									min={0.01}
-									step={1}
-									value={orderAmount}
+									autoFocus
+									placeholder="0"
+									value={orderAmount > 0 ? String(orderAmount) : ""}
 									onChange={e => {
-										const v = parseFloat(e.target.value);
-										if (!isNaN(v) && v > 0) setOrderAmount(Math.round(v * 100) / 100);
+										// Allow clearing — only digits and one decimal point
+										const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+										if (raw === "" || raw === ".") { setOrderAmount(0); return; }
+										const v = parseFloat(raw);
+										if (!isNaN(v)) setOrderAmount(Math.round(v * 100) / 100);
 									}}
-									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/20 pb-[2px]"
+									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px] placeholder:text-foreground/25"
 								/>
 							</div>
 							{/* Quick amount buttons */}
@@ -4119,7 +4111,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						<button
 							type="button"
 							disabled={tickers.length >= SANDBOX_MAX_POSITIONS && !inPortfolio}
-							onClick={() => { setOrderQty(1); setOrderAction("buy"); }}
+							onClick={() => { setOrderQty(0); setOrderAction("buy"); }}
 							className="h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
 							style={{ background: "linear-gradient(90deg,#7c3aed,#6366f1)" }}
 						>
@@ -4128,7 +4120,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						{inPortfolio && (
 							<button
 								type="button"
-								onClick={() => { setOrderQty(1); setOrderAction("sell"); }}
+								onClick={() => { setOrderQty(0); setOrderAction("sell"); }}
 								className="h-[52px] rounded-[14px] font-bold text-[16px] border border-rose-500/30 bg-rose-500/[0.07] text-rose-400 active:opacity-80 transition-opacity"
 							>
 								Sell
@@ -4277,7 +4269,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			{/* Floating "+" button */}
 			<button
 				type="button"
-				onClick={() => { setSearchQuery(""); setOrderAction(null); setOrderQty(1); setOrderAmount(100); setOrderMode("shares"); setShowSearch(true); }}
+				onClick={() => { setSearchQuery(""); setOrderAction(null); setOrderQty(0); setOrderAmount(0); setOrderMode("shares"); setShowSearch(true); }}
 				className="fixed right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
 				style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 16px)", background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
 			>

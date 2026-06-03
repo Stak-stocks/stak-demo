@@ -132,14 +132,14 @@ function deriveMood(spyDp: number | null, qqqDp: number | null, diaDp: number | 
 
 function getFallbackText(mood: Mood): { moodExplanation: string; plainEnglish: string } {
 	const map: Record<Mood, { moodExplanation: string; plainEnglish: string }> = {
-		Bullish:   { moodExplanation: "Stocks moved higher today with broad strength across major indexes and low volatility.", plainEnglish: "Investors leaned into risk today — a good day to see what's rallying." },
-		Bearish:   { moodExplanation: "Stocks moved lower today as investors pulled back from riskier assets and market weakness spread.", plainEnglish: "Markets are down — defensive and value plays may be worth a look." },
-		Cautious:  { moodExplanation: "Markets were mostly steady today but investors stayed careful ahead of key upcoming data.", plainEnglish: "No strong direction — investors are waiting before making bigger moves." },
-		Volatile:  { moodExplanation: "Stocks swung sharply today as investors reacted to economic data and shifting expectations.", plainEnglish: "Big moves in both directions — volatility is elevated today." },
-		Calm:      { moodExplanation: "Major indexes were little changed today with no major catalyst driving broad moves.", plainEnglish: "There was no major rush to buy or sell — investors mostly waited for the next update." },
-		Mixed:     { moodExplanation: "The market had no clear direction today — some sectors held up while others pulled back.", plainEnglish: "Some parts of the market worked, others didn't — stock selection matters more than the broad market." },
-		"Risk-On": { moodExplanation: "Investors leaned into growth today, with tech, AI, and higher-upside names leading the market.", plainEnglish: "Investors were more willing to take risk today, so growth stocks and tech names got more attention." },
-		"Risk-Off": { moodExplanation: "Investors moved toward safer areas of the market today as growth and speculative stocks came under pressure.", plainEnglish: "Investors played defense today — riskier stocks can struggle while steadier companies hold up better." },
+		Bullish:   { moodExplanation: "Stocks moved higher today with broad strength across major indexes and low volatility.", plainEnglish: "The S&P and Nasdaq are both up today as investors lean into risk. Growth and tech names are leading — a good session to watch what's running." },
+		Bearish:   { moodExplanation: "Stocks moved lower today as selling pressure spread across most sectors with VIX rising.", plainEnglish: "Markets are under pressure today with broad selling across sectors. This kind of pullback is normal — not a crash, but worth watching your risk exposure." },
+		Cautious:  { moodExplanation: "Markets are holding near flat as investors wait on upcoming economic data before making bigger moves.", plainEnglish: "No big moves today — investors are in wait-and-see mode ahead of key data. Expect lower volume until a catalyst arrives." },
+		Volatile:  { moodExplanation: "Stocks swung sharply today as major catalysts triggered large moves across indexes.", plainEnglish: "Big swings in both directions today — a catalyst hit and volatility spiked. Stocks in your Stak may move more than usual." },
+		Calm:      { moodExplanation: "Major indexes are near flat today with low volatility and no major catalyst in play.", plainEnglish: "Markets are quiet today — no major news moving things. A good day to study fundamentals rather than react to price action." },
+		Mixed:     { moodExplanation: "The market has no clear direction — growth names and value stocks are moving in opposite directions.", plainEnglish: "The broader market is split today. Some sectors are up while others pull back — what you own matters more than the overall index direction." },
+		"Risk-On": { moodExplanation: "Investors are leaning into growth today with tech, AI, and higher-upside names outperforming.", plainEnglish: "It's a risk-on session — growth and tech stocks are getting attention while the VIX falls. Good day to watch momentum names." },
+		"Risk-Off": { moodExplanation: "Investors shifted toward defensive assets today as growth and speculative stocks came under pressure.", plainEnglish: "Investors are playing defense today — riskier names are selling off while stable, dividend-paying stocks hold up better." },
 	};
 	return map[mood];
 }
@@ -163,7 +163,7 @@ async function generateMarketText(
 	worstSector?: string | null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v2:${mood}:${today}:${session}`;
+	const cacheKey = `daily-brief:text:v3:${mood}:${today}:${session}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -178,26 +178,22 @@ async function generateMarketText(
 		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
 	].filter(Boolean).join(" | ");
 
-	const PLAIN_ENGLISH_GUIDE: Record<Mood, string> = {
-		Bullish:    "There was no major rush to buy or sell today. Investors mostly waited for the next big update before making stronger moves.",
-		Bearish:    "Investors pulled back from riskier assets. Selling pressure was broad-based.",
-		Cautious:   "No strong direction — investors are waiting before making bigger moves.",
-		Volatile:   "Big moves in both directions today — volatility is elevated.",
-		Calm:       "There was no major rush to buy or sell today. Investors mostly waited for the next big update.",
-		Mixed:      "Some parts of the market worked, others did not. Stock selection mattered more than the overall market direction.",
-		"Risk-On":  "Investors were more willing to take risk today, so growth stocks and tech names got more attention.",
-		"Risk-Off": "Investors played defense today, which usually means riskier stocks can struggle while steadier companies hold up better.",
-	};
+	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
 
-	const prompt = `You are writing the market mood section of a daily brief for a stock-learning app aimed at Gen Z / millennials. Be concise, data-backed, and jargon-free.
-
-Market data: ${snapshot || "data unavailable"}. Overall mood: ${mood}. ${SESSION_TONE[session]}
+Market data right now: ${snapshot || "data unavailable"}
+Overall mood: ${mood}
+${SESSION_TONE[session]}
 
 Return JSON with exactly two fields:
-- "moodExplanation": 1–2 sentences explaining WHY markets feel ${mood} right now using the actual data above (mention the S&P/Nasdaq moves, sector leadership, or VIX). Be specific — say "S&P 500 rose +0.8%" not "markets moved higher". Max 120 chars.
-- "plainEnglish": 1 plain-English sentence a beginner can understand. Use this style: "${PLAIN_ENGLISH_GUIDE[mood]}". Max 90 chars.
 
-No financial advice. No disclaimers. Just describe what is happening.`;
+"moodExplanation": 1–2 sentences explaining WHAT is driving markets today. Reference the actual numbers above. Be specific — name sectors, mention the S&P/Nasdaq actual % move, mention VIX direction if notable. Example: "The S&P 500 is down ${spyDp != null ? Math.abs(spyDp) + "%" : "slightly"} as ${topSector ? topSector + " stocks lead" : "growth names weigh on sentiment"}, with selling concentrated in higher-risk names." Max 140 chars.
+
+"plainEnglish": 2 short sentences. Sentence 1: what is actually happening right now with specific context (mention the move size, which sector or asset is driving it, and why — e.g. yields, geopolitics, earnings). Sentence 2: what this means in simple terms for someone watching their stocks. DO NOT use vague phrases like "some parts worked, others did not" or "investors were cautious". Be direct and specific. Max 180 chars total.
+
+Example of good plainEnglish for a Mixed day: "The S&P is flat but the Nasdaq slipped as software stocks face selling pressure after yesterday's rally. Tech names in your Stak may see some chop today while consumer staples hold up better."
+Example of good plainEnglish for a Bearish day: "The S&P 500 is down ${spyDp != null ? Math.abs(spyDp) + "%" : "about 0.5%"} today, driven by ${worstSector ?? "growth stock"} weakness and higher bond yields. This is a normal pullback — not a crash."
+
+No financial advice. No disclaimers. Just describe what is happening clearly.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
