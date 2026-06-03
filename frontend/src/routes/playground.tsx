@@ -1590,17 +1590,43 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 		);
 	}
 
-	// "All done" state — every scenario today was already correctly answered
+	// "All done" state — show review of completed scenarios
 	if (visibleRisk.length === 0 && !done) {
+		const completedRisk = weeklyIds.filter(r => dailyCompleted?.has(r.id));
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
-					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
-						<span className="text-[48px] block mb-[10px]">✅</span>
-						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done Today</h2>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Risk Lab scenario right. New ones unlock tomorrow.</p>
+					<div className="rounded-[16px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[18px] text-center mb-[20px]">
+						<span className="text-[40px] block mb-[8px]">✅</span>
+						<h2 className="text-[20px] font-extrabold mb-[4px]">All Done Today</h2>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500">New scenarios unlock tomorrow.</p>
 					</div>
+					{completedRisk.length > 0 && (
+						<>
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Review Today's Answers</p>
+							<div className="space-y-[10px]">
+								{completedRisk.map(r => (
+									<div key={r.id} className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[14px]">
+										<p className="text-[13px] font-semibold mb-[8px]">{r.prompt}</p>
+										<div className="space-y-[6px] mb-[10px]">
+											{(["A", "B"] as const).map(side => {
+												const text = side === "A" ? r.optionA : r.optionB;
+												const isCorrect = side === r.riskierOption;
+												return (
+													<div key={side} className={`flex items-center gap-[8px] rounded-[10px] border px-[10px] py-[8px] text-[12px] ${isCorrect ? "border-orange-500/30 bg-orange-500/[0.07] text-orange-400 font-semibold" : "border-foreground/[0.06] dark:text-slate-400 text-slate-500"}`}>
+														<span className={`text-[10px] font-bold w-[16px] h-[16px] rounded-full flex items-center justify-center shrink-0 ${isCorrect ? "bg-orange-500/20" : "bg-foreground/[0.06]"}`}>{side}</span>
+														{text}{isCorrect ? " ⚠️ Higher Risk" : " ✓ More Stable"}
+													</div>
+												);
+											})}
+										</div>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500 leading-relaxed">{r.explanation}</p>
+									</div>
+								))}
+							</div>
+						</>
+					)}
 				</div>
 			</div>
 		);
@@ -1735,15 +1761,41 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, w
 
 	// All done state — all scenarios today correctly answered
 	if (visibleMood.length === 0 && !done) {
+		const completedMood = weeklyIds.filter(m => dailyCompleted?.has(m.id));
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
-					<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[24px] text-center">
-						<span className="text-[48px] block mb-[10px]">✅</span>
-						<h2 className="text-[22px] font-extrabold mb-[6px]">All Done Today</h2>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500">You got every Market Mood scenario right. New ones unlock tomorrow.</p>
+					<div className="rounded-[16px] border border-emerald-500/25 bg-emerald-500/[0.07] p-[18px] text-center mb-[20px]">
+						<span className="text-[40px] block mb-[8px]">✅</span>
+						<h2 className="text-[20px] font-extrabold mb-[4px]">All Done Today</h2>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500">New scenarios unlock tomorrow.</p>
 					</div>
+					{completedMood.length > 0 && (
+						<>
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Review Today's Answers</p>
+							<div className="space-y-[10px]">
+								{completedMood.map(m => (
+									<div key={m.id} className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[14px]">
+										<p className="text-[12px] font-bold text-cyan-400 mb-[4px]">{m.event}</p>
+										<p className="text-[13px] font-semibold mb-[8px]">{m.question}</p>
+										<div className="space-y-[5px] mb-[10px]">
+											{m.options.map((opt, i) => {
+												const isCorrect = opt.id === m.correctId;
+												return (
+													<div key={opt.id} className={`flex items-center gap-[8px] rounded-[10px] border px-[10px] py-[7px] text-[12px] ${isCorrect ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-400 font-semibold" : "border-foreground/[0.06] dark:text-slate-400 text-slate-500"}`}>
+														<span className={`text-[10px] font-bold w-[16px] h-[16px] rounded-full flex items-center justify-center shrink-0 ${isCorrect ? "bg-emerald-500/20" : "bg-foreground/[0.06]"}`}>{LETTERS[i] ?? String(i + 1)}</span>
+														{opt.text}{isCorrect ? " ✓" : ""}
+													</div>
+												);
+											})}
+										</div>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500 leading-relaxed">{m.explanation}</p>
+									</div>
+								))}
+							</div>
+						</>
+					)}
 				</div>
 			</div>
 		);
