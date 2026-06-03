@@ -127,7 +127,9 @@ function computeRecommendationScore(
 	const catCountInRecent = recentlyShownCats.slice(0, 5).filter((c) => c === primaryCat).length;
 	const diversityAdjustment = primaryCat && catCountInRecent >= 3 ? -0.10 : 0;
 
-	return Math.max(0, Math.min(1, tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment));
+	// No Math.max(0) floor — negative scores are intentional: stocks in a category the user
+	// has repeatedly passed should sink below neutral stocks, not tie with them at 0.
+	return Math.min(1, tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment);
 }
 
 export const Route = createFileRoute("/")({

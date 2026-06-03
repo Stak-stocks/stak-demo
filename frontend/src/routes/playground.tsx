@@ -13,9 +13,11 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, type ChartRange } from "@/lib/api";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useWeeklyContent } from "@/hooks/useWeeklyContent";
 import { brands as allBrands } from "@/data/brands";
+import { BrandLogo } from "@/components/BrandLogo";
 import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
@@ -621,7 +623,7 @@ export function PlaygroundPage() {
 				</div>
 				<div className="space-y-[10px]">
 					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => goToView("watchlist")} />
-					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle="$10,000 · real prices, real shares" onClick={() => goToView("sandbox")} />
+					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle={`$${sandboxBudgetForXp(totalXp).toLocaleString()} budget · real prices, real shares`} onClick={() => goToView("sandbox")} />
 				</div>
 
 			</div>
@@ -2052,7 +2054,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const { showXp, XPFloat } = useXpFloat();
 
 	// ── Types ────────────────────────────────────────────────────────────────────
-	type RoundType = "spot_signal" | "sentiment" | "nextstep";
+	type RoundType = "sentiment" | "nextstep";
 	type OtherPhase = "question" | "feedback";
 
 	// ── Static scenario data ─────────────────────────────────────────────────────
@@ -2216,10 +2218,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const stockList = stocks.length > 0 ? stocks : pool;
 
 	// ── Round sequence ───────────────────────────────────────────────────────────
-	const ROUND_SEQUENCE: RoundType[] = ["spot_signal", "sentiment", "nextstep", "spot_signal", "sentiment", "spot_signal", "nextstep", "spot_signal", "sentiment", "nextstep"];
+	const ROUND_SEQUENCE: RoundType[] = ["sentiment", "nextstep", "sentiment", "nextstep", "sentiment", "nextstep"];
 
 	function getRoundType(idx: number): RoundType {
-		return ROUND_SEQUENCE[idx % ROUND_SEQUENCE.length] ?? "spot_signal";
+		return ROUND_SEQUENCE[idx % ROUND_SEQUENCE.length] ?? "sentiment";
 	}
 
 	// ── Home vs. in-session ──────────────────────────────────────────────────────
@@ -2240,9 +2242,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [otherSelected, setOtherSelected] = useState<string | null>(null);
 	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
 
-	// Spot the Signal state
-	const [signalSelected, setSignalSelected] = useState<string | null>(null);
-	const [signalRevealed, setSignalRevealed] = useState<boolean>(false);
 
 	// Use getCurrentWeekKey and account directly (not PlaygroundPage's dayKey/totalXp)
 	const _drillDayKey = useMemo(() => getCurrentWeekKey(), []);
@@ -2350,8 +2349,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		setOtherPhase("question");
 		setOtherSelected(null);
 		setOtherCorrect(false);
-		setSignalSelected(null);
-		setSignalRevealed(false);
 	};
 
 	// ── Summary screen ────────────────────────────────────────────────────────────
@@ -2418,7 +2415,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setSignalSelected(null); setSignalRevealed(false);
 							setSentimentIdx((_todayOffset + 5) % 30); setNextStepIdx((_todayOffset + 3) % 21);
 							setSessionStarted(false);
 						}}
@@ -2455,7 +2451,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// ── Header shared across all round types ─────────────────────────────────────
 	const ROUND_LABELS: Record<RoundType, string> = {
-		spot_signal: "Spot the Signal",
 		sentiment: "Bullish, Bearish, or Mixed?",
 		nextstep: "What Should You Check Next?",
 	};
@@ -2477,135 +2472,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// ────────────────────────────────────────────────────────────────────────────
 	// ROUND TYPE 1: "Spot the Signal"
 	// ────────────────────────────────────────────────────────────────────────────
-	if (currentRoundType === "spot_signal") {
-		const archetype = STOCK_ARCHETYPES[stock.ticker?.toUpperCase()] ?? "familiar";
-		const sq = SIGNAL_QUESTIONS[archetype]!;
-
-		// Build 4 options: correct + wrongChip + one distractor + "Not sure"
-		const distractor = sq.distractors[stockIdx % sq.distractors.length]!;
-		const rawOptions = [sq.correctChip, sq.wrongChip, distractor, "Not sure"];
-		// Rotate so correct isn't always first
-		const seed = stockIdx + _todayOffset;
-		const n = rawOptions.length;
-		const offset = seed % n;
-		const rotated = [...rawOptions.slice(offset), ...rawOptions.slice(0, offset)];
-		const correctIdxRotated = rotated.indexOf(sq.correctChip);
-		const signalOpts = rotated.map((text, i) => ({ id: String(i), text }));
-		const signalCorrectId = String(correctIdxRotated);
-
-		return (
-			<div className="min-h-full bg-background text-foreground">
-				{XPFloat}
-				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={onBack} />
-					<div className="flex items-center justify-between mb-[14px]">
-						<h2 className="text-[20px] font-extrabold">{ROUND_LABELS.spot_signal}</h2>
-						<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[10px] py-[4px] rounded-full">
-							{stockIdx + 1} / {stockList.length}
-						</span>
-					</div>
-
-					{/* Progress bar */}
-					<div className="h-[3px] rounded-full bg-foreground/10 mb-[16px]">
-						<div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all duration-500"
-							style={{ width: `${(stockIdx / stockList.length) * 100}%` }} />
-					</div>
-
-					{/* Stock card */}
-					<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[16px] mb-[16px]">
-						<div className="flex items-center justify-between mb-[10px]">
-							<div>
-								<p className="text-[18px] font-extrabold">{stock.name}</p>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500">{stock.ticker}</p>
-							</div>
-							{quote ? (
-								<div className="text-right">
-									<p className="text-[17px] font-extrabold">${quote.price.toFixed(2)}</p>
-									<p className={`text-[12px] font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
-										{isUp ? "+" : ""}{quote.changePercent.toFixed(2)}% today
-									</p>
-								</div>
-							) : isLoading ? (
-								<div className="space-y-[4px]">
-									<div className="h-[16px] w-[64px] rounded bg-foreground/10 animate-pulse" />
-									<div className="h-[12px] w-[44px] rounded bg-foreground/10 animate-pulse" />
-								</div>
-							) : null}
-						</div>
-						{isLoading && !metrics ? (
-							<div className="grid grid-cols-3 gap-[6px]">
-								{["P/E","Rev. Growth","Margin"].map(l => (
-									<div key={l} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-										<p className="text-[10px] dark:text-slate-500 text-slate-400">{l}</p>
-										<div className="h-[13px] w-[36px] rounded bg-foreground/10 animate-pulse mx-auto mt-[2px]" />
-									</div>
-								))}
-							</div>
-						) : metrics ? (
-							<div className="grid grid-cols-3 gap-[6px]">
-								{[
-									{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
-									{ label: "Rev. Growth", value: metrics.revenueGrowth ?? "N/A" },
-									{ label: "Margin", value: metrics.profitMargin ?? "N/A" },
-								].map(m => (
-									<div key={m.label} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
-										<p className="text-[10px] dark:text-slate-500 text-slate-400">{m.label}</p>
-										<p className="text-[13px] font-bold">{String(m.value)}</p>
-									</div>
-								))}
-							</div>
-						) : null}
-					</div>
-
-					<p className="text-[14px] font-bold mb-[10px]">{sq.question}</p>
-					{isLoading && !metrics && (
-						<p className="text-[12px] dark:text-slate-500 text-slate-400 mb-[8px]">Loading data…</p>
-					)}
-					<div className="space-y-[8px] mb-[14px]">
-						{signalOpts.map((opt, i) => (
-							<OptionBtn
-								key={opt.id}
-								letter={LETTERS[i] ?? String(i + 1)}
-								text={opt.text}
-								state={optionState(opt.id, signalCorrectId, signalSelected, signalRevealed)}
-								disabled={signalRevealed || (isLoading && !metrics)}
-								onClick={() => {
-									if (signalRevealed || (isLoading && !metrics)) return;
-									const correct = opt.id === signalCorrectId;
-									setSignalSelected(opt.id);
-									setSignalRevealed(true);
-									const xp = correct ? 10 : 3;
-									awardXp(xp, sq.skill, correct);
-								}}
-							/>
-						))}
-					</div>
-
-					{signalRevealed && (
-						<>
-							<div className={`rounded-[13px] border p-[14px] mb-[14px] ${signalSelected === signalCorrectId ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
-								<p className={`text-[13px] font-bold mb-[4px] ${signalSelected === signalCorrectId ? "text-emerald-400" : "text-rose-400"}`}>
-									{signalSelected === signalCorrectId ? "Correct! ✓" : "Not quite."}
-								</p>
-								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">
-									{signalSelected === signalCorrectId ? sq.correctFeedback : sq.wrongFeedback}
-								</p>
-							</div>
-							<button type="button"
-								onClick={() => { setSignalSelected(null); setSignalRevealed(false); advanceRound(); }}
-								className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-								style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
-								{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
-							</button>
-						</>
-					)}
-				</div>
-			</div>
-		);
-	}
-
 	// ────────────────────────────────────────────────────────────────────────────
-	// ROUND TYPE 2: "Bullish, Bearish, or Mixed?"
+	// ROUND TYPE 1: "Bullish, Bearish, or Mixed?"
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "sentiment") {
 		const sc = allSentimentScenarios[sentimentIdx % allSentimentScenarios.length]!;
@@ -2644,7 +2512,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 10 : 3;
+										const xp = correct ? 3 : 1;
 										awardXp(xp, "news", correct);
 									}}
 								/>
@@ -2730,7 +2598,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 										setOtherSelected(opt.id);
 										setOtherCorrect(correct);
 										setOtherPhase("feedback");
-										const xp = correct ? 10 : 3;
+										const xp = correct ? 3 : 1;
 										awardXp(xp, sc.skill, correct);
 									}}
 								/>
@@ -3309,9 +3177,31 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	);
 }
 
+// ── Sparkline ─────────────────────────────────────────────────
+function Sparkline({ prices, positive }: { prices: number[]; positive: boolean }) {
+	if (prices.length < 2) return null;
+	const min = Math.min(...prices);
+	const max = Math.max(...prices);
+	const range = max - min || 1;
+	const W = 60, H = 26;
+	const pts = prices
+		.map((p, i) => `${(i / (prices.length - 1)) * W},${H - ((p - min) / range) * H}`)
+		.join(" ");
+	const color = positive ? "#34d399" : "#f87171";
+	return (
+		<svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible shrink-0">
+			<polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	);
+}
+
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
-const SANDBOX_BUDGET = 10000;
+const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
+const sandboxBudgetForXp = (xp: number) => {
+	const tier = xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
+	return SANDBOX_BUDGET_BY_TIER[tier]!;
+};
 const SANDBOX_MAX_POSITIONS = 10;
 
 // Category display config for portfolio themes
@@ -3341,6 +3231,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const [searchQuery, setSearchQuery] = useState("");
 	// Order quantity
 	const [orderQty, setOrderQty] = useState<number>(0);
+	const [orderQtyStr, setOrderQtyStr] = useState<string>(""); // raw input text — keeps "0." alive while typing decimals
 	const [orderMode, setOrderMode] = useState<"shares" | "amount">("shares");
 	const [orderAmount, setOrderAmount] = useState<number>(0); // 0 shows greyed placeholder
 	// Reset confirm
@@ -3355,7 +3246,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// Initialise cash on first open
 	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
 
-	const sandboxCash = account?.sandboxCash ?? SANDBOX_BUDGET;
+	const sandboxTotalXp = account?.totalXp ?? 0;
+	const sandboxCash = account?.sandboxCash ?? sandboxBudgetForXp(sandboxTotalXp);
 
 	// Queries for all held tickers
 	const stockQueries = tickers.map(ticker => ({
@@ -3379,6 +3271,25 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const brand = brandMap.get(ticker.toUpperCase());
 		return { ticker, entry, currentPrice, currentValue, costBasis, shares, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
 	});
+
+	// Sparkline data for each holding (1-month, batched)
+	const sparklineResults = useQueries({
+		queries: tickers.map(ticker => ({
+			queryKey: ["stock-chart", ticker, "1m"],
+			queryFn: () => getStockChart(ticker, "1m"),
+			staleTime: 4 * 60 * 60 * 1000,
+			retry: 1,
+		})),
+	});
+	const sparklineMap = useMemo(() => {
+		const map = new Map<string, number[]>();
+		tickers.forEach((ticker, i) => {
+			const pts = (sparklineResults[i]?.data?.prices ?? []).map(p => p.close);
+			if (pts.length > 1) map.set(ticker, pts);
+		});
+		return map;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tickers, sparklineResults.length, sparklineResults.filter(r => r.isSuccess).length]);
 
 	// Portfolio totals
 	const investedTotal = holdings.reduce((sum, h) => sum + h.costBasis, 0);
@@ -3418,8 +3329,76 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	});
 	const activePrice = activeStockData?.quote?.price ?? null;
 	const activeTodayPct = activeStockData?.quote?.changePercent ?? null;
+	const activeTodayChange = activeStockData?.quote?.change ?? null;
+
+	const [chartRange, setChartRange] = useState<ChartRange>("1d");
+	const { data: chartData, isLoading: chartLoading } = useQuery({
+		queryKey: ["stock-chart", activeStock ?? "", chartRange],
+		queryFn: () => getStockChart(activeStock!, chartRange),
+		staleTime: 4 * 60 * 60 * 1000,
+		retry: 1,
+		enabled: activeStock !== null,
+	});
 
 	// Handle add (buy) — accepts ticker, shares, price directly
+	// Portfolio-level chart
+	const [portfolioChartRange, setPortfolioChartRange] = useState<ChartRange>("1d");
+
+	// The portfolio "started" when the earliest holding was added. After a reset holdings are empty,
+	// so startMs returns Date.now() and any historical data is filtered out automatically.
+	const portfolioStartMs = useMemo(
+		() => holdings.length > 0 ? Math.min(...holdings.map(h => h.entry.addedAt)) : Date.now(),
+		[holdings],
+	);
+
+	const portfolioChartQueries = useQueries({
+		queries: tickers.map(ticker => ({
+			queryKey: ["stock-chart", ticker, portfolioChartRange],
+			queryFn: () => getStockChart(ticker, portfolioChartRange),
+			staleTime: 4 * 60 * 60 * 1000,
+			retry: 1,
+			enabled: investedTotal > 0,
+		})),
+	});
+	const portfolioChartLoading = portfolioChartQueries.some(q => q.isLoading);
+
+	const portfolioChartData = useMemo(() => {
+		const now = new Date().toISOString();
+
+		// No investments → single flat point (triggers "buy first stock" state)
+		if (investedTotal <= 0) return [{ ts: now, value: totalPortfolioValue }];
+
+		const tickerPts = tickers.map((t, i) => ({ ticker: t, points: portfolioChartQueries[i]?.data?.prices ?? [] }));
+		const base = tickerPts.reduce((best, t) => t.points.length > best.points.length ? t : best, { ticker: "", points: [] as { ts: string; close: number }[] });
+
+		if (base.points.length === 0) return [{ ts: now, value: totalPortfolioValue }];
+
+		// Cost-basis total = what the portfolio was worth at first purchase (flat before that)
+		const flatStartVal = Math.round((sandboxCash + investedTotal) * 100) / 100;
+
+		const mapped = base.points.map(point => {
+			const pointMs = new Date(point.ts).getTime();
+			if (pointMs < portfolioStartMs) return { ts: point.ts, value: flatStartVal };
+			let value = sandboxCash;
+			tickers.forEach((ticker, i) => {
+				const h = holdings.find(h => h.ticker === ticker);
+				if (!h) return;
+				const pts = tickerPts[i]!.points;
+				let price: number | null = null;
+				for (let j = pts.length - 1; j >= 0; j--) {
+					if (pts[j]!.ts <= point.ts) { price = pts[j]!.close; break; }
+				}
+				value += h.shares * (price ?? h.entry.priceAtAdd ?? h.currentPrice ?? 0);
+			});
+			return { ts: point.ts, value: Math.round(value * 100) / 100 };
+		});
+		// Always append the live portfolio value so the chart ends at the current price,
+		// not at the last closed bar (which can be hours old for 1W/1M ranges).
+		mapped.push({ ts: now, value: Math.round(totalPortfolioValue * 100) / 100 });
+		return mapped;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tickers, sandboxCash, investedTotal, totalPortfolioValue, portfolioChartRange, portfolioChartLoading, portfolioStartMs]);
+
 	const handleAdd = async (ticker: string, shares: number, price: number | null) => {
 		await addToSandbox(ticker.toUpperCase(), price, shares, undefined);
 	};
@@ -3427,7 +3406,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// Close order sheet helper
 	const closeOrder = () => {
 		setOrderAction(null);
-		setOrderQty(1);
+		setOrderQty(0);
+		setOrderQtyStr("");
 		setOrderAmount(0);
 		setOrderMode("shares");
 	};
@@ -3541,9 +3521,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 									inputMode="decimal"
 									autoFocus
 									placeholder="0"
-									value={orderQty > 0 ? String(orderQty) : ""}
+									value={orderQtyStr}
 									onChange={e => {
 										const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+										setOrderQtyStr(raw);
 										if (raw === "" || raw === ".") { setOrderQty(0); return; }
 										const v = parseFloat(raw);
 										if (!isNaN(v)) setOrderQty(Math.round(v * 1000) / 1000);
@@ -3666,7 +3647,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const holding = holdings.find(h => h.ticker === activeStock);
 		const brand = brandMap.get(activeStock.toUpperCase());
 		const name = brand?.name ?? activeStock;
-		const logoUrl = brand?.domain ? `https://logo.clearbit.com/${brand.domain}` : null;
 		const inPortfolio = !!holding;
 
 		return (
@@ -3674,35 +3654,152 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[120px]">
 					<BackBtn onClick={() => { setActiveStock(null); setOrderAction(null); }} label="Portfolio" />
 					<div className="flex items-center gap-[14px] mb-[24px]">
-						<div className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full bg-white shadow-md overflow-hidden">
-							{logoUrl ? (
-								<img src={logoUrl} alt="" className="w-[38px] h-[38px] object-contain"
-									onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-							) : (
-								<span className="text-[14px] font-bold text-slate-600">{activeStock.slice(0, 2)}</span>
-							)}
-						</div>
+						{brand ? (
+							<BrandLogo brand={brand} className="w-[52px] h-[52px] rounded-full" />
+						) : (
+							<div className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full bg-white shadow-md overflow-hidden">
+								<img src={`https://financialmodelingprep.com/image-stock/${activeStock}.png`} alt="" className="w-[38px] h-[38px] object-contain"
+									onError={e => {
+										const img = e.target as HTMLImageElement;
+										img.style.display = "none";
+										(img.parentElement as HTMLElement).innerHTML = `<span class="text-[14px] font-bold text-slate-600">${activeStock.slice(0, 2)}</span>`;
+									}} />
+							</div>
+						)}
 						<div>
 							<p className="text-[20px] font-extrabold leading-tight">{name}</p>
 							<p className="text-[13px] dark:text-slate-400 text-slate-500">{activeStock}</p>
 						</div>
 					</div>
-					<div className="mb-[24px]">
+					<div className="mb-[20px]">
 						{activePrice != null ? (
 							<>
-								<p className="text-[44px] font-extrabold leading-none mb-[6px]">
+								<p className="text-[44px] font-extrabold leading-none mb-[4px]">
 									${activePrice.toFixed(2)}
 								</p>
-								{activeTodayPct != null && (
-									<p className={`text-[16px] font-semibold ${activeTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-										{activeTodayPct >= 0 ? "+" : ""}{activeTodayPct.toFixed(2)}% today
-									</p>
-								)}
+								{chartRange === "1d" ? (
+									<>
+										{activeTodayPct != null && (
+											<p className={`text-[15px] font-semibold ${activeTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+												{activeTodayPct >= 0 ? "▲" : "▼"} {activeTodayChange != null ? `$${Math.abs(activeTodayChange).toFixed(2)} (` : ""}{activeTodayPct >= 0 ? "+" : ""}{activeTodayPct.toFixed(2)}%{activeTodayChange != null ? ")" : ""} today
+											</p>
+										)}
+										{(() => {
+											const q = activeStockData?.quote;
+											const ms = q?.marketState;
+											const ep = q?.extendedPrice;
+											const ec = q?.extendedChange;
+											const ecp = q?.extendedChangePercent;
+											if (!ep || (!ec && ec !== 0)) return null;
+											const label = ms === "PRE" || ms === "PREPRE" ? "Pre-market" : "After-hours";
+											const up = ec >= 0;
+											return (
+												<p className={`text-[13px] font-semibold mt-[2px] ${up ? "text-emerald-400/80" : "text-rose-400/80"}`}>
+													{up ? "▲" : "▼"} ${Math.abs(ec).toFixed(2)} ({ecp != null ? `${(ecp * 100).toFixed(2)}%` : ""}) {label}
+												</p>
+											);
+										})()}
+									</>
+								) : (() => {
+									const prices = chartData?.prices ?? [];
+									const first = prices[0]?.close;
+									const last = prices[prices.length - 1]?.close;
+									if (!first || !last) return null;
+									const rd = last - first;
+									const rp = ((last - first) / first) * 100;
+									const RLABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
+									return (
+										<p className={`text-[15px] font-semibold ${rp >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+											{rp >= 0 ? "▲" : "▼"} ${Math.abs(rd).toFixed(2)} ({rp >= 0 ? "+" : ""}{rp.toFixed(2)}%) <span className="text-[13px] font-normal dark:text-slate-400 text-slate-500">{RLABELS[chartRange]}</span>
+										</p>
+									);
+								})()}
 							</>
 						) : (
 							<p className="text-[20px] font-bold dark:text-slate-400 text-slate-500">Loading…</p>
 						)}
 					</div>
+
+					{/* Price chart */}
+					{(() => {
+						const prices = chartData?.prices ?? [];
+						const isUp = prices.length >= 2 && prices[prices.length - 1]!.close >= prices[0]!.close;
+						const color = isUp ? "#34d399" : "#f87171";
+
+						const RANGE_LABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
+
+						const fmtLabel = (ts: string) => {
+							const d = new Date(ts);
+							if (chartRange === "1d") {
+								const s = prices.find(p => p.ts === ts)?.session;
+								const sfx = s === "pre" ? " · Pre-market" : s === "post" ? " · After-hours" : "";
+								return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) + sfx;
+							}
+							if (chartRange === "1w") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+							return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+						};
+
+						// Session boundary reference lines (still useful on 1d/1w even without color difference)
+						const sessionBoundaries: string[] = [];
+						if (chartRange === "1d" || chartRange === "1w") {
+							for (let i = 1; i < prices.length; i++) {
+								const prev = prices[i - 1]!.session ?? "regular";
+								const curr = prices[i]!.session ?? "regular";
+								if (prev !== curr) sessionBoundaries.push(prices[i]!.ts);
+							}
+						}
+
+						const RANGES: ChartRange[] = ["1d", "1w", "1m", "3m", "ytd", "1y"];
+
+						return (
+							<div className="mb-[20px]">
+								{chartLoading ? (
+									<div className="h-[140px] rounded-[14px] bg-surface-1 animate-pulse" />
+								) : prices.length > 1 ? (
+									<div className="rounded-[14px] overflow-hidden bg-surface-1 px-[2px] pt-[10px] pb-[2px]">
+										<ResponsiveContainer width="100%" height={130}>
+											<AreaChart data={prices} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+												<defs>
+													<linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+														<stop offset="5%" stopColor={color} stopOpacity={0.2} />
+														<stop offset="95%" stopColor={color} stopOpacity={0} />
+													</linearGradient>
+												</defs>
+												<YAxis domain={["auto", "auto"]} hide />
+												<Tooltip
+													contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
+													labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
+													formatter={(v: number) => [`$${v.toFixed(2)}`, ""]}
+													labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
+												/>
+												{sessionBoundaries.map(ts => (
+													<ReferenceLine key={ts} x={ts} stroke="rgba(148,163,184,0.2)" strokeDasharray="3 3" strokeWidth={1} />
+												))}
+												<Area type="monotone" dataKey="close" stroke={color} strokeWidth={2} fill="url(#chartFill)" dot={false} activeDot={{ r: 4, fill: color }} />
+											</AreaChart>
+										</ResponsiveContainer>
+									</div>
+								) : (
+									<div className="h-[130px] flex items-center justify-center rounded-[14px] bg-surface-1">
+										<p className="text-[12px] dark:text-slate-500 text-slate-400">No chart data</p>
+									</div>
+								)}
+								{/* Range selector */}
+								<div className="flex justify-between mt-[10px] px-[2px]">
+									{RANGES.map(r => (
+										<button
+											key={r}
+											type="button"
+											onClick={() => setChartRange(r)}
+											className={`flex-1 py-[5px] text-[11px] font-bold rounded-full transition-colors ${chartRange === r ? "bg-violet-500/20 text-violet-400" : "dark:text-slate-500 text-slate-400"}`}
+										>
+											{r.toUpperCase()}
+										</button>
+									))}
+								</div>
+							</div>
+						);
+					})()}
 					{inPortfolio && holding ? (
 						<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[18px] py-[16px] mb-[20px]">
 							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[14px] font-semibold">Your Position</p>
@@ -3712,25 +3809,49 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 									<p className="text-[18px] font-extrabold">{holding.shares}</p>
 								</div>
 								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Avg Price</p>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Avg cost</p>
 									<p className="text-[18px] font-extrabold">
 										{holding.entry.priceAtAdd != null ? `$${holding.entry.priceAtAdd.toFixed(2)}` : "—"}
 									</p>
 								</div>
 								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Current Value</p>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Market value</p>
 									<p className="text-[18px] font-extrabold">${holding.currentValue.toFixed(2)}</p>
 								</div>
 								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Total P&amp;L</p>
-									<p className={`text-[18px] font-extrabold ${(holding.priceDollar ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-										{(holding.priceDollar ?? 0) >= 0 ? "+" : ""}${(holding.priceDollar ?? 0).toFixed(2)}
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Portfolio diversity</p>
+									<p className="text-[18px] font-extrabold">
+										{totalPortfolioValue > 0 ? `${((holding.currentValue / totalPortfolioValue) * 100).toFixed(1)}%` : "—"}
 									</p>
-									{holding.pricePct != null && (
-										<p className={`text-[12px] font-semibold ${holding.pricePct >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-											{holding.pricePct >= 0 ? "+" : ""}{holding.pricePct.toFixed(2)}%
-										</p>
-									)}
+								</div>
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Total return</p>
+									{(() => {
+										const d = holding.priceDollar ?? 0;
+										const p = holding.pricePct;
+										const up = d >= 0;
+										return (
+											<p className={`text-[15px] font-extrabold ${up ? "text-emerald-400" : "text-rose-400"}`}>
+												{up ? "+" : "-"}${Math.abs(d).toFixed(2)}{p != null ? ` (${up ? "+" : ""}${p.toFixed(2)}%)` : ""}
+											</p>
+										);
+									})()}
+								</div>
+								<div>
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Today's return</p>
+									{(() => {
+										// If bought today, today's return = total return (both start from purchase price)
+										const boughtToday = new Date(holding.entry.addedAt).toDateString() === new Date().toDateString();
+										const d = boughtToday ? (holding.priceDollar ?? 0) : activeTodayChange != null ? holding.shares * activeTodayChange : null;
+										const p = boughtToday ? holding.pricePct : activeTodayPct;
+										if (d == null) return <p className="text-[15px] font-extrabold dark:text-slate-400 text-slate-500">—</p>;
+										const up = d >= 0;
+										return (
+											<p className={`text-[15px] font-extrabold ${up ? "text-emerald-400" : "text-rose-400"}`}>
+												{up ? "+" : "-"}${Math.abs(d).toFixed(2)}{p != null ? ` (${up ? "+" : ""}${p.toFixed(2)}%)` : ""}
+											</p>
+										);
+									})()}
 								</div>
 							</div>
 						</div>
@@ -3787,62 +3908,122 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					<h2 className="text-[24px] font-extrabold">Sandbox</h2>
 					<p className="text-[13px] dark:text-slate-400 text-slate-500">Practice mode</p>
 				</div>
-				{/* Overview card */}
-				<div className="rounded-[16px] border border-violet-500/25 bg-violet-500/[0.06] px-[18px] pt-[18px] pb-[16px] mb-[20px] mt-[16px]">
-					<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[4px] font-medium">Invested Value</p>
-					<p className="text-[38px] font-extrabold leading-none mb-[4px]">
-						${tickers.length > 0 ? totalValue.toFixed(2) : "0.00"}
-					</p>
-					{investedTotal > 0 && (
-						<div className="flex items-center gap-[10px] mb-[14px]">
-							<span className={`text-[16px] font-extrabold ${totalPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-								{totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
-							</span>
-							<span className={`text-[13px] font-semibold ${totalDollarPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-								({totalDollarPnl >= 0 ? "+" : ""}${totalDollarPnl.toFixed(2)})
-							</span>
-						</div>
-					)}
-					{investedTotal === 0 && <div className="mb-[14px]" />}
-					<div className="grid grid-cols-2 gap-[10px]">
-						<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
-							<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Buying Power</p>
-							<p className={`text-[18px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
-								${sandboxCash.toFixed(2)}
+				{/* Portfolio overview + chart */}
+				{(() => {
+					const chartColor = totalDollarPnl >= 0 ? "#34d399" : "#f87171";
+					const firstVal = portfolioChartData[0]?.value;
+					const lastVal = portfolioChartData[portfolioChartData.length - 1]?.value;
+					const chartPct = firstVal && lastVal ? ((lastVal - firstVal) / firstVal) * 100 : null;
+					const chartDollar = firstVal && lastVal ? lastVal - firstVal : null;
+					const PRANGES: ChartRange[] = ["1d", "1w", "1m", "3m", "ytd", "1y"];
+					const fmtLabel = (ts: string) => {
+						const d = new Date(ts);
+						if (portfolioChartRange === "1d") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+						if (portfolioChartRange === "1w") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+						return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+					};
+					return (
+						<div className="mt-[16px] mb-[20px]">
+							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[2px] font-medium">Portfolio Value</p>
+							<p className="text-[38px] font-extrabold leading-none mb-[2px]">
+								${totalPortfolioValue.toFixed(2)}
 							</p>
+							{(() => {
+								const PLABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
+								if (investedTotal <= 0) return <p className="text-[14px] font-semibold mb-[10px] text-emerald-400">$0.00 (0.00%) <span className="dark:text-slate-400 text-slate-500 font-normal">{PLABELS[portfolioChartRange]}</span></p>;
+								if (chartPct == null || chartDollar == null) return <div className="mb-[10px]" />;
+								return (
+									<p className={`text-[14px] font-semibold mb-[10px] ${chartPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+										{chartPct >= 0 ? "▲" : "▼"} ${Math.abs(chartDollar).toFixed(2)} ({chartPct >= 0 ? "+" : ""}{chartPct.toFixed(2)}%) <span className="dark:text-slate-400 text-slate-500 font-normal">{PLABELS[portfolioChartRange]}</span>
+									</p>
+								);
+							})()}
+							{/* Chart — always shown, flat line when no holdings */}
+							{portfolioChartLoading && investedTotal > 0 ? (
+								<div className="h-[150px] rounded-[14px] bg-surface-1 animate-pulse mb-[6px]" />
+							) : portfolioChartData.length > 1 ? (
+								<div className="rounded-[14px] overflow-hidden bg-surface-1 px-[2px] pt-[10px] pb-[2px] mb-[4px]">
+									<ResponsiveContainer width="100%" height={140}>
+										<AreaChart data={portfolioChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+											<defs>
+												<linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
+													<stop offset="5%" stopColor={chartColor} stopOpacity={0.2} />
+													<stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+												</linearGradient>
+											</defs>
+											<YAxis domain={["auto", "auto"]} hide />
+											<Tooltip
+												contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
+												labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
+												formatter={(v: number) => [`$${v.toFixed(2)}`, "Portfolio"]}
+												labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
+											/>
+											<Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2} fill="url(#portfolioFill)" dot={false} activeDot={{ r: 4, fill: chartColor }} />
+										</AreaChart>
+									</ResponsiveContainer>
+								</div>
+							) : (
+								/* Flat line — no investments yet or just reset */
+								<div className="h-[80px] flex flex-col items-center justify-center rounded-[14px] bg-surface-1 mb-[4px]">
+									<div className="w-full h-[2px] bg-emerald-400/40 mx-[16px]" style={{ width: "calc(100% - 32px)" }} />
+									<p className="text-[11px] dark:text-slate-500 text-slate-400 mt-[10px]">
+										{investedTotal <= 0 ? "Buy your first stock to see your chart" : "Not enough data for this range yet"}
+									</p>
+								</div>
+							)}
+							<div className="flex justify-between px-[2px] mb-[16px]">
+								{PRANGES.map(r => (
+									<button key={r} type="button" onClick={() => setPortfolioChartRange(r)}
+										className={`flex-1 py-[5px] text-[11px] font-bold rounded-full transition-colors ${portfolioChartRange === r ? "bg-violet-500/20 text-violet-400" : "dark:text-slate-500 text-slate-400"}`}>
+										{r.toUpperCase()}
+									</button>
+								))}
+							</div>
+							<div className="grid grid-cols-2 gap-[10px]">
+								<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
+									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Buying Power</p>
+									<p className={`text-[18px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
+										${sandboxCash.toFixed(2)}
+									</p>
+								</div>
+								<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
+									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Cost Basis</p>
+									<p className="text-[18px] font-extrabold">${investedTotal.toFixed(2)}</p>
+								</div>
+							</div>
 						</div>
-						<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
-							<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Cost Basis</p>
-							<p className="text-[18px] font-extrabold">${investedTotal.toFixed(2)}</p>
-						</div>
-					</div>
-				</div>
+					);
+				})()}
 				{/* Holdings list */}
 				{tickers.length > 0 ? (
 					<div className="space-y-[8px] mb-[24px]">
 						{holdings.map(h => {
-							const logoUrl = h.brand?.domain ? `https://logo.clearbit.com/${h.brand.domain}` : null;
 							return (
 								<button
 									key={h.ticker}
 									type="button"
-									onClick={() => setActiveStock(h.ticker)}
+									onClick={() => { setActiveStock(h.ticker); setChartRange("1d"); }}
 									className="w-full flex items-center gap-[12px] rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[13px] text-left active:opacity-80 transition-opacity"
 								>
-									<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-										{logoUrl ? (
-											<img src={logoUrl} alt="" className="w-[28px] h-[28px] object-contain"
-												onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-										) : (
-											<span className="text-[11px] font-bold text-slate-600">{h.ticker.slice(0, 2)}</span>
-										)}
-									</div>
+									{h.brand ? (
+										<BrandLogo brand={h.brand} className="w-[40px] h-[40px] rounded-full" />
+									) : (
+										<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
+											<img src={`https://financialmodelingprep.com/image-stock/${h.ticker}.png`} alt="" className="w-[28px] h-[28px] object-contain"
+												onError={e => {
+													const img = e.target as HTMLImageElement;
+													img.style.display = "none";
+													(img.parentElement as HTMLElement).innerHTML = `<span class="text-[11px] font-bold text-slate-600">${h.ticker.slice(0, 2)}</span>`;
+												}} />
+										</div>
+									)}
 									<div className="flex-1 min-w-0">
 										<p className="text-[14px] font-bold leading-tight truncate">{h.brand?.name ?? h.ticker}</p>
 										<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">
 											{h.ticker} · {h.shares} sh
 										</p>
 									</div>
+							{(() => { const pts = sparklineMap.get(h.ticker); return pts ? <Sparkline prices={pts} positive={(h.pricePct ?? 0) >= 0} /> : null; })()}
 									<div className="text-right shrink-0">
 										<p className="text-[14px] font-extrabold">${h.currentValue.toFixed(2)}</p>
 										<div className="flex flex-col items-end gap-[1px] mt-[2px]">
@@ -3868,22 +4049,22 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 						<div className="text-[48px] mb-[14px]">📈</div>
 						<p className="text-[16px] font-extrabold mb-[6px]">Start trading</p>
 						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto mb-[10px]">
-							Search for a stock to get started with your $10,000 practice cash.
+							Search for a stock to get started with your ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()} practice cash.
 						</p>
 						<p className="text-[12px] text-violet-400 font-semibold">Real prices · real shares · no risk</p>
 					</div>
 				)}
 				{/* Reset */}
-				{(tickers.length > 0 || sandboxCash !== SANDBOX_BUDGET) && (
+				{(tickers.length > 0 || sandboxCash !== sandboxBudgetForXp(sandboxTotalXp)) && (
 					<div className="mt-[8px] pt-[16px] border-t border-foreground/[0.06]">
 						{!confirmReset ? (
 							<button type="button" onClick={() => setConfirmReset(true)}
 								className="w-full text-[12px] dark:text-slate-500 text-slate-400 text-center active:opacity-70 py-[4px]">
-								Reset portfolio to $10,000
+								Reset portfolio to ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()}
 							</button>
 						) : (
 							<div className="rounded-[12px] border border-rose-500/20 bg-rose-500/[0.06] px-[14px] py-[12px]">
-								<p className="text-[12px] font-bold mb-[4px]">Reset to $10,000?</p>
+								<p className="text-[12px] font-bold mb-[4px]">Reset to ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()}?</p>
 								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[10px]">All positions will be cleared. Cannot be undone.</p>
 								<div className="flex gap-[8px]">
 									<button type="button" onClick={() => setConfirmReset(false)}
@@ -3943,7 +4124,6 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								const liveQuote = queryClient.getQueryData<{ quote?: { price?: number; changePercent?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote;
 								const livePrice = liveQuote?.price ?? null;
 								const changePct = liveQuote?.changePercent ?? null;
-								const logoSrc = b.logo ?? (b.domain ? `https://logo.clearbit.com/${b.domain}` : null);
 								return (
 									<button
 										key={b.id}
@@ -3951,19 +4131,11 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 										onClick={() => {
 											setShowSearch(false);
 											setSearchQuery("");
-											setActiveStock(b.ticker!.toUpperCase());
+											setActiveStock(b.ticker!.toUpperCase()); setChartRange("1d");
 										}}
 										className="w-full flex items-center gap-[13px] py-[13px] border-b border-foreground/[0.05] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
 									>
-										<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-											{logoSrc ? (
-												<img src={logoSrc} alt={b.name}
-													className="w-[28px] h-[28px] object-contain"
-													onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-											) : (
-												<span className="text-[11px] font-bold text-slate-600">{b.ticker?.slice(0, 2)}</span>
-											)}
-										</div>
+										<BrandLogo brand={b} className="w-[40px] h-[40px] rounded-full" />
 										<div className="flex-1 min-w-0">
 											<p className="text-[14px] font-semibold truncate">{b.name}</p>
 											<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.ticker}</p>

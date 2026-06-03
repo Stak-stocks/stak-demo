@@ -14,8 +14,8 @@ const ACTION_POINTS: Record<string, number> = {
 	save: 5,
 	right_swipe: 5,
 	learn_more: 3,
-	pass: -1,
-	left_swipe: -1,
+	pass: -2,
+	left_swipe: -2,
 	skip: 0,
 	remove_from_watchlist: -5,
 };
@@ -175,7 +175,7 @@ export async function updateUserTasteProfile(
 
 		for (const lt of stock.learningTags) {
 			const delta = actionPoints * lt.weight;
-			updated[lt.tag] = Math.max(0, (updated[lt.tag] ?? 0) + delta);
+			updated[lt.tag] = Math.max(-10, (updated[lt.tag] ?? 0) + delta);
 		}
 
 		tx.set(userRef, { tagScores: updated }, { merge: true });

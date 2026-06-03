@@ -4,6 +4,7 @@ import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { PEER_GROUPS } from "../data/peerGroups.js";
+import { getYahooCrumb } from "../lib/yahooAuth.js";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -393,6 +394,61 @@ stockRouter.get("/market-earnings", async (req, res) => {
 	res.json(result);
 });
 
+// ── Market session helper ─────────────────────────────────────────────────────
+// Returns true when US markets are outside regular hours (pre or after-hours)
+function isExtendedHours(): boolean {
+	const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+	const day = et.getDay();
+	if (day === 0 || day === 6) return true; // weekend
+	const mins = et.getHours() * 60 + et.getMinutes();
+	return mins < 570 || mins >= 960; // before 9:30 AM or after 4:00 PM ET
+}
+
+// ── Yahoo Finance extended-hours quote ────────────────────────────────────────
+// Only called outside regular market hours to get pre/after prices.
+
+interface YahooExtended {
+	extendedPrice: number;
+	extendedChange: number;
+	extendedChangePercent: number;
+	marketState: "PRE" | "REGULAR" | "POST" | "POSTPOST" | "PREPRE" | "CLOSED";
+}
+
+async function fetchYahooExtended(symbol: string): Promise<YahooExtended | null> {
+	try {
+		const auth = await getYahooCrumb();
+		const crumbParam = auth ? `&crumb=${encodeURIComponent(auth.crumb)}` : "";
+		const cookie = auth?.cookie ?? "";
+		const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price${crumbParam}`;
+		const r = await fetch(url, {
+			headers: { "User-Agent": "Mozilla/5.0", ...(cookie ? { Cookie: cookie } : {}) },
+			signal: AbortSignal.timeout(8000),
+		});
+		if (!r.ok) return null;
+		const data = await r.json() as {
+			quoteSummary?: { result?: Array<{ price?: Record<string, { raw?: number }> }> };
+		};
+		const p = data?.quoteSummary?.result?.[0]?.price;
+		if (!p) return null;
+		const marketState = ((p.marketState as unknown as string) ?? "CLOSED") as YahooExtended["marketState"];
+		const isPre = marketState === "PRE" || marketState === "PREPRE";
+		const isPost = marketState === "POST" || marketState === "POSTPOST";
+		if (!isPre && !isPost) return null;
+		const ep = isPre ? (p.preMarketPrice?.raw ?? null) : (p.postMarketPrice?.raw ?? null);
+		const ec = isPre ? (p.preMarketChange?.raw ?? null) : (p.postMarketChange?.raw ?? null);
+		const ecp = isPre ? (p.preMarketChangePercent?.raw ?? null) : (p.postMarketChangePercent?.raw ?? null);
+		if (!ep || ec == null || ecp == null) return null;
+		return {
+			extendedPrice: Math.round(ep * 100) / 100,
+			extendedChange: Math.round(ec * 100) / 100,
+			extendedChangePercent: Math.round(ecp * 10000) / 10000,
+			marketState,
+		};
+	} catch {
+		return null;
+	}
+}
+
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
 
 stockRouter.get("/:symbol", async (req, res) => {
@@ -400,15 +456,28 @@ stockRouter.get("/:symbol", async (req, res) => {
 	const symbol = resolveSymbol(raw);
 
 	try {
-		// Quote (1-min cache)
-		const quoteKey = `quote:${symbol}`;
-		let quoteRaw = await cacheGet<Record<string, number>>(quoteKey);
-		if (!quoteRaw) {
-			quoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-			if (quoteRaw) await cacheSet(quoteKey, quoteRaw, QUOTE_TTL_MS);
+		const extended = isExtendedHours();
+
+		// Finnhub for regular market price (fast, reliable)
+		const fbKey = `quote:fb:${symbol}`;
+		let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
+		if (!finnhubQuoteRaw) {
+			finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+			if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, QUOTE_TTL_MS);
 		}
 
-		// Fundamentals (6-hour cache)
+		// Yahoo only during extended hours — gets pre/after-market prices
+		let yahooExt: YahooExtended | null = null;
+		if (extended) {
+			const yKey = `quote:ext:${symbol}`;
+			yahooExt = await cacheGet<YahooExtended>(yKey);
+			if (!yahooExt) {
+				yahooExt = await fetchYahooExtended(symbol);
+				if (yahooExt) await cacheSet(yKey, yahooExt, QUOTE_TTL_MS);
+			}
+		}
+
+		// Fundamentals (6-hour cache) — Finnhub
 		const metricsKey = `metrics:${symbol}`;
 		let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
 		if (!metricsRaw) {
@@ -416,19 +485,23 @@ stockRouter.get("/:symbol", async (req, res) => {
 			if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
 		}
 
-		const q = quoteRaw ?? {};
 		const m = metricsRaw?.metric ?? {};
+		const fb = finnhubQuoteRaw ?? {};
 
-		// c === 0 means Finnhub has no data for this symbol
-		const quote = q.c
+		const quote = fb.c
 			? {
-					price: q.c,
-					change: q.d,
-					changePercent: q.dp,
-					high: q.h,
-					low: q.l,
-					open: q.o,
-					prevClose: q.pc,
+					// Regular hours: Finnhub price. Extended hours: Yahoo extended price if available, else last Finnhub close
+					price: extended && yahooExt ? yahooExt.extendedPrice : fb.c,
+					change: fb.d,
+					changePercent: fb.dp,
+					high: fb.h,
+					low: fb.l,
+					open: fb.o,
+					prevClose: fb.pc,
+					marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
+					extendedPrice: yahooExt?.extendedPrice ?? null,
+					extendedChange: yahooExt?.extendedChange ?? null,
+					extendedChangePercent: yahooExt?.extendedChangePercent ?? null,
 				}
 			: null;
 
@@ -926,4 +999,100 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
 	res.json(fallback);
+});
+
+// ── Price chart ───────────────────────────────────────────────────────────────
+// GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
+// 1d/1w include pre/after-hours via prePost=true
+
+stockRouter.get("/:symbol/chart", async (req, res) => {
+	const symbol = (req.params["symbol"] as string).toUpperCase();
+	const range = (req.query.range as string) || "1m";
+	const cacheKey = `stock:chart:v3:${symbol}:${range}`;
+	const cached = await cacheGet<{ prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] }>(cacheKey);
+	if (cached) { res.json(cached); return; }
+
+	const now = Math.floor(Date.now() / 1000);
+	let from: number;
+	let interval: string;
+	let cacheTtl: number;
+	let prePost = false;
+
+	if (range === "1d") {
+		// Start 6 hours before market open to capture pre-market
+		const d = new Date(); d.setHours(0, 0, 0, 0);
+		from = Math.floor(d.getTime() / 1000);
+		interval = "5m"; cacheTtl = 5 * 60 * 1000; prePost = true;
+	} else if (range === "1w") {
+		from = now - 7 * 24 * 60 * 60;
+		interval = "1h"; cacheTtl = 30 * 60 * 1000; prePost = true;
+	} else if (range === "ytd") {
+		const jan1 = new Date(new Date().getFullYear(), 0, 1);
+		from = Math.floor(jan1.getTime() / 1000);
+		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	} else if (range === "3m") {
+		from = now - 91 * 24 * 60 * 60;
+		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	} else if (range === "1y") {
+		from = now - 365 * 24 * 60 * 60;
+		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	} else { // 1m default
+		from = now - 35 * 24 * 60 * 60;
+		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	}
+
+	try {
+		const prePostParam = prePost ? "&includePrePost=true" : "";
+		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${from}&period2=${now}&interval=${interval}${prePostParam}`;
+		const r = await fetch(url, {
+			headers: { "User-Agent": "Mozilla/5.0" },
+			signal: AbortSignal.timeout(10000),
+		});
+		if (!r.ok) { res.json({ prices: [] }); return; }
+		const data = await r.json() as {
+			chart?: { result?: Array<{
+				timestamp?: number[];
+				indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+				meta?: { tradingPeriods?: { regular?: Array<Array<{ start: number; end: number }>> } };
+			}> };
+		};
+		const result = data?.chart?.result?.[0];
+		const timestamps = result?.timestamp ?? [];
+		const closes = result?.indicators?.quote?.[0]?.close ?? [];
+
+		// Build a flat set of regular-session windows from the metadata
+		type RegularWindow = { start: number; end: number };
+		const regularWindows: RegularWindow[] = (result?.meta?.tradingPeriods?.regular ?? []).flat();
+
+		function getSession(unixSec: number): "pre" | "regular" | "post" {
+			if (regularWindows.length === 0) return "regular";
+			for (const w of regularWindows) {
+				if (unixSec >= w.start && unixSec < w.end) return "regular";
+			}
+			// Determine which side of the nearest session window we're on
+			const first = regularWindows[0]!;
+			const last = regularWindows[regularWindows.length - 1]!;
+			if (unixSec < first.start) return "pre";
+			if (unixSec >= last.end) return "post";
+			// Between two sessions on different days — overnight counts as post of previous day
+			return "post";
+		}
+
+		const prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] = [];
+		for (let i = 0; i < timestamps.length; i++) {
+			const c = closes[i];
+			if (c == null) continue;
+			const unixSec = timestamps[i]!;
+			prices.push({
+				ts: new Date(unixSec * 1000).toISOString(),
+				close: Math.round(c * 100) / 100,
+				session: prePost ? getSession(unixSec) : "regular",
+			});
+		}
+		const payload = { prices };
+		await cacheSet(cacheKey, payload, cacheTtl);
+		res.json(payload);
+	} catch {
+		res.json({ prices: [] });
+	}
 });

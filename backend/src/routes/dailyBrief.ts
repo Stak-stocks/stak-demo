@@ -287,42 +287,80 @@ async function generatePersonalizedImpact(
 	stakBrandIds: string[],
 	mood: Mood,
 	session: Session,
-	spyDp: number | null,
-	qqqDp: number | null,
+	market: MarketData,
 	uid: string,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:${uid}:${today}:${session}`;
+	const cacheKey = `daily-brief:impact:v2:${uid}:${today}:${session}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
-	const topTags = Object.entries(tagScores)
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 5)
-		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
-
-	const topBrands = stakBrandIds.slice(0, 6).map((id) => id.toUpperCase());
-
-	if (topTags.length === 0 && topBrands.length === 0) {
+	if (stakBrandIds.length === 0 && Object.keys(tagScores).length === 0) {
 		return "Swipe on more brands to unlock personalized market insights here.";
 	}
 
-	const marketData = [
-		spyDp !== null ? `S&P 500 ${spyDp >= 0 ? "+" : ""}${spyDp}%` : null,
-		qqqDp !== null ? `Nasdaq ${qqqDp >= 0 ? "+" : ""}${qqqDp}%` : null,
-	].filter(Boolean).join(", ");
+	// Look up tickers + names for top 5 staked brands, then fetch their today's move
+	let stockLines: string[] = [];
+	const topIds = stakBrandIds.slice(0, 5);
+	if (topIds.length > 0) {
+		try {
+			const refs = topIds.map(id => adminDb.collection("brands").doc(id));
+			const docs = await adminDb.getAll(...refs);
+			const brandInfos = docs
+				.filter(d => d.exists && d.data()?.ticker)
+				.map(d => ({ ticker: d.data()!.ticker as string, name: d.data()!.name as string }))
+				.slice(0, 4);
 
-	const prompt = `You are writing a short personalized market insight for a young investor (Gen Z / millennial) using a stock-learning app called STAK.
+			if (brandInfos.length > 0) {
+				const changes = await Promise.all(brandInfos.map(b => getQuoteChange(b.ticker)));
+				stockLines = brandInfos.map((b, i) => {
+					const c = changes[i];
+					if (c === null) return null;
+					return `${b.name} (${b.ticker}) ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+				}).filter(Boolean) as string[];
+			}
+		} catch {
+			// non-fatal
+		}
+	}
 
-Today's market: ${marketData || "data unavailable"}. Overall mood: ${mood}.
-User's saved stocks: ${topBrands.length > 0 ? topBrands.join(", ") : "none yet"}.
-User's top interests: ${topTags.length > 0 ? topTags.join(", ") : "general investing"}.
+	// Build full market context with real numbers
+	const { spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = market;
+	const marketLines = [
+		spyDp !== null ? `S&P 500 ${spyDp >= 0 ? "+" : ""}${spyDp.toFixed(2)}%` : null,
+		qqqDp !== null ? `Nasdaq ${qqqDp >= 0 ? "+" : ""}${qqqDp.toFixed(2)}%` : null,
+		diaDp !== null ? `Dow ${diaDp >= 0 ? "+" : ""}${diaDp.toFixed(2)}%` : null,
+		vixDp !== null ? `VIX ${vixDp >= 0 ? "+" : ""}${vixDp.toFixed(1)}%` : null,
+		(sectorsGreen !== null && sectorsRed !== null) ? `${sectorsGreen}/11 sectors green` : null,
+		topSector ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
 
-Write exactly 2 short sentences:
-1. Name 1–2 of their specific saved stocks or interest areas and explain how today's ${mood.toLowerCase()} market directly affects them.
-2. Give one concrete thing to look at or think about today — not financial advice, just a direction to explore.
+	// Fallback to tag interests if no stock data
+	const topTags = Object.entries(tagScores)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 3)
+		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
-Rules: friendly and direct tone, no jargon, no disclaimers, no fluff. Max 190 characters total. Plain text only.`;
+	const stockSection = stockLines.length > 0
+		? `User's stocks today: ${stockLines.join(", ")}`
+		: topTags.length > 0
+			? `User's top interests: ${topTags.join(", ")}`
+			: "User hasn't saved stocks yet";
+
+	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
+
+Today's market data:
+${marketLines || "unavailable"}
+
+${stockSection}
+Mood: ${mood}
+
+Write exactly 2 punchy sentences:
+1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what's happening to it today.
+2. Give one specific, concrete thing to watch or act on today — tied directly to the mood (${mood}) and leading/lagging sectors above.
+
+Rules: use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -334,7 +372,7 @@ Rules: friendly and direct tone, no jargon, no disclaimers, no fluff. Max 190 ch
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.6, maxOutputTokens: 130 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 200 },
 					}),
 					signal: AbortSignal.timeout(12000),
 				},
@@ -491,7 +529,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, spyDp, qqqDp, uid),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid),
 		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];

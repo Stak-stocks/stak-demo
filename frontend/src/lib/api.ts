@@ -201,6 +201,10 @@ export interface LiveQuote {
 	low: number;
 	open: number;
 	prevClose: number;
+	marketState?: "PRE" | "REGULAR" | "POST" | "POSTPOST" | "PREPRE" | "CLOSED";
+	extendedPrice?: number | null;
+	extendedChange?: number | null;
+	extendedChangePercent?: number | null;
 }
 
 export interface LiveMetrics {
@@ -312,6 +316,15 @@ export function getDailyMove(symbol: string, changePercent?: number, name?: stri
 	if (name) params.set("name", name);
 	const qs = params.toString() ? `?${params.toString()}` : "";
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
+}
+
+export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
+export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y";
+
+export function getStockChart(symbol: string, range: ChartRange = "1m") {
+	return apiRequest<{ prices: StockChartPoint[] }>(
+		`/api/stock/${encodeURIComponent(symbol)}/chart?range=${range}`,
+	);
 }
 
 export interface DailyBriefDeck {

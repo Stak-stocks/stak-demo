@@ -98,6 +98,7 @@ export interface UserDoc {
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
+	sandboxTier?: number;
 	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
 
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
@@ -329,12 +330,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
-	const SANDBOX_STARTING_CASH = 10000;
+	const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
+	const xpToSandboxTier = (xp: number) => xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
 
 	const initSandboxCash = useCallback(async () => {
 		if (!user) return;
 		if (account?.sandboxCash !== undefined) return;
-		await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_STARTING_CASH });
+		const tier = xpToSandboxTier(account?.totalXp ?? 0);
+		await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
 	}, [user, account]);
 
 	const addToSandbox = useCallback(
@@ -343,14 +346,25 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
 			if (cost <= 0) return;
 			const userRef = doc(db, "users", user.uid);
-			// Use a Firestore transaction to atomically read balance and deduct cost
-			// This prevents double-spend races from rapid taps or concurrent sessions
 			await runTransaction(db, async (tx) => {
 				const snap = await tx.get(userRef);
-				const data = snap.data() as { sandboxCash?: number } | undefined;
-				const liveCash = data?.sandboxCash ?? SANDBOX_STARTING_CASH;
-				if (liveCash < cost) return; // insufficient funds — abort silently
-				const entry: SandboxEntry = { addedAt: Date.now(), priceAtAdd, shares, ...(thesis ? { thesis } : {}) };
+				const data = snap.data() as { sandboxCash?: number; sandboxPortfolio?: Record<string, SandboxEntry> } | undefined;
+				const liveCash = data?.sandboxCash ?? SANDBOX_BUDGET_BY_TIER[1]!;
+				if (liveCash < cost) return;
+				const existing = data?.sandboxPortfolio?.[ticker];
+				const existingShares = existing?.shares ?? 0;
+				const existingPrice = existing?.priceAtAdd ?? null;
+				// Accumulate shares and compute weighted average cost basis
+				const newShares = Math.round((existingShares + shares) * 1000) / 1000;
+				const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
+					? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
+					: priceAtAdd;
+				const entry: SandboxEntry = {
+					addedAt: existing?.addedAt ?? Date.now(),
+					priceAtAdd: newPriceAtAdd,
+					shares: newShares,
+					...(thesis ? { thesis } : existing?.thesis ? { thesis: existing.thesis } : {}),
+				};
 				tx.update(userRef, {
 					[`sandboxPortfolio.${ticker}`]: entry,
 					sandboxCash: Math.round((liveCash - cost) * 100) / 100,
@@ -386,12 +400,41 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const resetSandbox = useCallback(async () => {
 		if (!user) return;
+		const tier = xpToSandboxTier(account?.totalXp ?? 0);
 		await updateDoc(doc(db, "users", user.uid), {
 			sandboxPortfolio: {},
-			sandboxCash: SANDBOX_STARTING_CASH,
+			sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
 			sandboxMilestones: [],
+			sandboxTier: tier,
 		});
-	}, [user]);
+	}, [user, account]);
+
+	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
+	// Existing users without sandboxTier get migrated silently (no cash change).
+	useEffect(() => {
+		if (!user || account?.sandboxCash === undefined) return;
+		const currentTier = xpToSandboxTier(account.totalXp ?? 0);
+		const storedTier = account.sandboxTier;
+		if (storedTier === undefined) {
+			// Migration: stamp current tier without changing cash
+			updateDoc(doc(db, "users", user.uid), { sandboxTier: currentTier }).catch(() => {});
+			return;
+		}
+		if (currentTier <= storedTier) return;
+		const userRef = doc(db, "users", user.uid);
+		runTransaction(db, async (tx) => {
+			const snap = await tx.get(userRef);
+			const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
+			const liveTier = data?.sandboxTier ?? storedTier;
+			const liveCurrentTier = xpToSandboxTier(data?.totalXp ?? 0);
+			if (liveCurrentTier <= liveTier) return;
+			const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
+			tx.update(userRef, {
+				sandboxCash: Math.round(((data?.sandboxCash ?? 0) + increase) * 100) / 100,
+				sandboxTier: liveCurrentTier,
+			});
+		}).catch(() => {});
+	}, [user, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
 	const completeWeeklyActivity = useCallback(async (weekKey: string, activityId: string, xp: number) => {
 		if (!user) return;
