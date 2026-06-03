@@ -160,6 +160,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	};
 
 	useEffect(() => {
+		isDismissing.current = false; // reset on each open so swipe-to-dismiss works again
 		document.body.style.overflow = "hidden";
 		return () => { document.body.style.overflow = ""; };
 	}, []);

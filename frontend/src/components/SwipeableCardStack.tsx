@@ -581,7 +581,7 @@ export function SwipeableCardStack({
 						/>
 					)}
 					<div style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', height: '100%' }}>
-						<StockCard brand={deck[currentIndex]} quote={stockData?.quote} isTopCard scale={scale} isPopular={popularSet.has(deck[currentIndex]?.id)} />
+						{deck[currentIndex] && <StockCard brand={deck[currentIndex]} quote={stockData?.quote} isTopCard scale={scale} isPopular={popularSet.has(deck[currentIndex]?.id)} />}
 					</div>
 				</div>
 

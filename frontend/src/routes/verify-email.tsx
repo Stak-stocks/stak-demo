@@ -80,31 +80,37 @@ function VerifyEmailPage() {
 	useEffect(() => {
 		if (!user || pendingCode || sessionStorage.getItem("pendingVerifyCode") || dispatchingRef.current) return;
 
+		let mounted = true; // guard against navigating after unmount
+
 		async function check() {
 			try {
 				await auth.currentUser?.reload();
+				if (!mounted) return; // user navigated away while reload was in-flight
 				if (auth.currentUser?.emailVerified) {
 					clearInterval(pollRef.current!);
-					// Force-refresh JWT so backend sees email_verified: true
 					await auth.currentUser.getIdToken(true);
+					if (!mounted) return;
 					toast.success("Email verified! Welcome to STAK!");
 					navigate({ to: "/onboarding" });
 				}
 			} catch (err: unknown) {
-				// Account was deleted (cleanup job ran or user deleted manually)
+				if (!mounted) return;
 				const code = (err as { code?: string }).code ?? "";
 				if (code === "auth/user-token-expired" || code === "auth/user-not-found") {
 					clearInterval(pollRef.current!);
 					toast.error("Verification window expired. Please sign up again.");
 					await logout();
-					navigate({ to: "/signup" });
+					if (mounted) navigate({ to: "/signup" });
 				}
 			}
 		}
 
-		check(); // immediate check — no 3 s wait on first load
+		check();
 		pollRef.current = setInterval(check, 3000);
-		return () => { if (pollRef.current) clearInterval(pollRef.current); };
+		return () => {
+			mounted = false;
+			if (pollRef.current) clearInterval(pollRef.current);
+		};
 	}, [user, pendingCode, navigate, logout]);
 
 	// Cooldown countdown

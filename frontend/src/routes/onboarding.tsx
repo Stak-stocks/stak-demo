@@ -720,20 +720,18 @@ function BuildingStep({
 			...(familiarity ? { familiarity } : {}),
 			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
 		};
+		// Fire all writes — these are best-effort; onboardingCompleted is the critical one.
+		// Errors are swallowed so the animation always completes.
 		updatePreferences(prefs).catch(() => { });
-
-		// Clear any stale deckOrder from previous sessions so index.tsx always
-		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
-
-		// Suppress daily brief on the day of onboarding — they just saw the app for the first time.
 		const _nd = new Date(); updateLastBriefDate(`${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,"0")}-${String(_nd.getDate()).padStart(2,"0")}`).catch(() => {});
 
-		// Sync via REST — backend sets onboardingCompleted in Firestore AND
-		// writes a JWT custom claim so future loads skip this page instantly.
+		// Critical write — backend sets onboardingCompleted. If this fails the root
+		// guard will redirect back to /onboarding; the user can just re-tap "Get started"
+		// which replays this step. We log the error to aid debugging.
 		updateProfile({ onboardingCompleted: true, preferences: prefs })
 			.then(() => refreshClaims())
-			.catch(() => { });
+			.catch((err) => { console.warn("[onboarding] updateProfile failed:", err); });
 
 		logEvent("onboarding_complete", { interests: prefs.interests });
 		trackEvent("onboarding_complete", { interests: prefs.interests }).catch(() => {});

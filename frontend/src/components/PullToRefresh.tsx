@@ -9,21 +9,23 @@ interface PullToRefreshProps {
 
 const THRESHOLD = 70; // px to pull before triggering refresh
 const MAX_PULL = 110; // max pull distance
+const MIN_ARM_DISTANCE = 8; // px downward before arming — prevents iOS rubber-band false triggers
 
 export function PullToRefresh({ scrollRef, children }: PullToRefreshProps) {
 	const [pullDistance, setPullDistance] = useState(0);
 	const [refreshing, setRefreshing] = useState(false);
 	const touchStartY = useRef(0);
 	const isPulling = useRef(false);
+	const isArmed = useRef(false); // true only after confirmed intentional downward drag
 
 	const handleTouchStart = useCallback(
 		(e: TouchEvent) => {
 			const el = scrollRef.current;
 			if (!el || refreshing) return;
-			// Only allow pull when scrolled to top
 			if (el.scrollTop <= 0) {
-				touchStartY.current = e.touches[0].clientY;
+				touchStartY.current = e.touches[0]!.clientY;
 				isPulling.current = true;
+				isArmed.current = false; // require MIN_ARM_DISTANCE before activating
 			}
 		},
 		[scrollRef, refreshing],
@@ -35,10 +37,13 @@ export function PullToRefresh({ scrollRef, children }: PullToRefreshProps) {
 			const el = scrollRef.current;
 			if (!el) return;
 
-			const dy = e.touches[0].clientY - touchStartY.current;
+			const dy = e.touches[0]!.clientY - touchStartY.current;
 
-			// Only engage if pulling down and at the top
-			if (dy > 0 && el.scrollTop <= 0) {
+			// Require a minimum intentional downward drag before arming (prevents iOS rubber-band false triggers)
+			if (!isArmed.current && dy >= MIN_ARM_DISTANCE) isArmed.current = true;
+
+			// Only engage if pulling down, armed, and at the top
+			if (isArmed.current && dy > 0 && el.scrollTop <= 0) {
 				// Dampened pull (feels natural)
 				const distance = Math.min(dy * 0.45, MAX_PULL);
 				setPullDistance(distance);
