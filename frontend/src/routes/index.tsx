@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { STAK_WEIGHTED_STOCK_TAGS } from "@/data/stockTags";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
@@ -138,6 +138,7 @@ export const Route = createFileRoute("/")({
 function App() {
 	const { user } = useAuth();
 	const { account, updateStak, updatePassedBrands, updateDeckOrder } = useAccount();
+	const queryClient = useQueryClient();
 	const uid = user?.uid ?? "guest";
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
@@ -445,6 +446,8 @@ function App() {
 		toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
 	});
 
+		// Invalidate brief — swap changes which brands are personalized
+		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		toast.success(`Swapped ${brandToRemove.name} for ${pendingBrand.name}`, {
 			duration: 2000,
 		});

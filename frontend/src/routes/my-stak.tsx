@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { BrandProfile } from "@/data/brands";
 import { brands } from "@/data/brands";
@@ -467,6 +467,7 @@ function fmtPeerMetric(key: MetricKey, peerData: PeerMetrics | undefined): strin
 function MyStakPage() {
 	const { account, accountLoading, updateStak } = useAccount();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [earningsCalendarOpen, setEarningsCalendarOpen] = useState(false);
 	// Reset on unmount so navigating away and back doesn't re-open the calendar
 	useEffect(() => () => setEarningsCalendarOpen(false), []);
@@ -670,6 +671,8 @@ function MyStakPage() {
 		e.stopPropagation();
 		const updatedIds = (account?.stakBrandIds ?? []).filter((id) => id !== brand.id);
 		updateStak(updatedIds).catch(() => {});
+		// Invalidate brief so personalization reflects the removed brand immediately
+		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		recordEngagement("removed_from_stak", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 		toast.success("Removed from your Stak", {
 			description: brand.name,
