@@ -213,30 +213,8 @@ export function useWeeklyContent(staticPack: WeeklyPack) {
 		const newActivities: WeeklyActivity[] = [...staticPack.activities];
 		const existingIds = new Set(newActivities.map(a => a.id));
 
-		for (const b of extraBattles) {
-			if (!existingIds.has(b.id)) {
-				newActivities.push({ id: b.id, type: "battle", title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: b.xp });
-				existingIds.add(b.id);
-			}
-		}
-		for (const s of extraEarnings) {
-			if (!existingIds.has(s.id)) {
-				newActivities.push({ id: s.id, type: "earnings", title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: s.xp });
-				existingIds.add(s.id);
-			}
-		}
-		for (const r of extraRisk) {
-			if (!existingIds.has(r.id)) {
-				newActivities.push({ id: r.id, type: "risk", title: r.prompt, subtitle: "Risk Lab", emoji: "⚠️", xp: r.xp });
-				existingIds.add(r.id);
-			}
-		}
-		for (const m of extraMood) {
-			if (!existingIds.has(m.id)) {
-				newActivities.push({ id: m.id, type: "mood", title: m.event.slice(0, 40), subtitle: "Market Mood", emoji: "🌍", xp: m.xp });
-				existingIds.add(m.id);
-			}
-		}
+		// Generated activities extend the pool (mergedBattles/mergedEarnings/mergedRisk/mergedMood)
+		// but NOT newActivities — daily counts are set by TIER_COUNTS, not by generation.
 		// Generated lessons go into the pool (mergedLessons) but NOT into newActivities —
 		// the daily lesson count is set by TIER_COUNTS. Generated content extends the pool
 		// so LessonPlayer can find them when static lessons are exhausted.
