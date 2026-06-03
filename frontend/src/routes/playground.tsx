@@ -310,7 +310,7 @@ export function PlaygroundPage() {
 
 	// Weekly Pack (declared here so totalXp is available)
 	const staticWeeklyPack = useMemo(() => getWeeklyPack(totalXp, weekKey), [totalXp, weekKey]);
-	const { pack: weeklyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood } = useWeeklyContent(staticWeeklyPack);
+	const { pack: weeklyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticWeeklyPack);
 	const weeklyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;
 		if (wp?.weekKey !== weekKey) return new Set<string>();
@@ -319,7 +319,7 @@ export function PlaygroundPage() {
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
 		const weeklyLessonIds = weeklyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
-		return LESSONS.find(l => weeklyLessonIds.includes(l.id) && !weeklyCompleted.has(l.id));
+		return mergedLessons.find(l => weeklyLessonIds.includes(l.id) && !weeklyCompleted.has(l.id));
 	}, [weeklyPack.activities, weeklyCompleted]);
 
 	// Onboarding gate
@@ -624,6 +624,7 @@ function LessonLibrary({
 	onBack,
 	weeklyLessonIds,
 	weekLabel,
+	lessonsPool,
 }: {
 	account: ReturnType<typeof useAccount>["account"];
 	selectedCategory: LessonCategory | null;
@@ -632,20 +633,22 @@ function LessonLibrary({
 	onBack: () => void;
 	weeklyLessonIds: string[];
 	weekLabel: string;
+	lessonsPool?: typeof LESSONS;
 }) {
+	const pool = lessonsPool ?? LESSONS;
 	const completedIds = new Set(
 		Object.entries(account?.lessonProgress ?? {}).filter(([, v]) => v.completed).map(([k]) => k)
 	);
 	// Only show today's lessons
-	const thisWeekLessons = LESSONS.filter(l => weeklyLessonIds.includes(l.id));
-	const pastLessons = LESSONS.filter(l => !weeklyLessonIds.includes(l.id) && completedIds.has(l.id));
+	const thisWeekLessons = pool.filter(l => weeklyLessonIds.includes(l.id));
+	const pastLessons = pool.filter(l => !weeklyLessonIds.includes(l.id) && completedIds.has(l.id));
 	const visibleLessons = selectedCategory
 		? thisWeekLessons.filter(l => l.category === selectedCategory)
 		: thisWeekLessons;
 
 	// Category completion: all lessons in a category done
 	const categoryComplete = (cat: LessonCategory) => {
-		const inCat = LESSONS.filter(l => l.category === cat);
+		const inCat = pool.filter(l => l.category === cat);
 		return inCat.length > 0 && inCat.every(l => completedIds.has(l.id));
 	};
 	const totalCompleted = completedIds.size;
@@ -760,6 +763,7 @@ function LessonPlayer({
 	onWeeklyComplete,
 	onBack,
 	onComplete,
+	lessonsPool,
 }: {
 	lessonId: string;
 	account: ReturnType<typeof useAccount>["account"];
@@ -770,10 +774,11 @@ function LessonPlayer({
 	onWeeklyComplete?: (wk: string, id: string, xp: number) => void;
 	onBack: () => void;
 	onComplete: () => void;
+	lessonsPool?: typeof LESSONS;
 }) {
 	const { completeLesson } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
-	const lesson = LESSONS.find(l => l.id === lessonId);
+	const lesson = (lessonsPool ?? LESSONS).find(l => l.id === lessonId);
 	const [cardIndex, setCardIndex] = useState(0);
 	const [phase, setPhase] = useState<"cards" | "quiz" | "done">("cards");
 	const [selectedOption, setSelectedOption] = useState<string | null>(null);

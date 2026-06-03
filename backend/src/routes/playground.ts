@@ -124,7 +124,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	const rawType = String(req.body?.type ?? "");
 	const rawCount = Math.min(Math.max(Number(req.body?.count ?? 3), 1), 10);
 
-	const VALID_TYPES = ["battle", "earnings", "risk", "mood"] as const;
+	const VALID_TYPES = ["battle", "earnings", "risk", "mood", "lesson"] as const;
 	type ValidType = typeof VALID_TYPES[number];
 
 	// Validate and sanitize inputs
@@ -222,8 +222,7 @@ Rules:
 - Explanations must be accurate and teach real risk concepts
 - Vary the type of risk (volatility, liquidity, concentration, leverage, etc.)
 - Only output the JSON array, nothing else`;
-	} else {
-		// mood
+	} else if (type === "mood") {
 		prompt = `Generate ${rawCount} market mood simulator scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents a real-world macro event and asks how markets would react.
 Difficulty level: ${tierLabel}.
@@ -246,6 +245,57 @@ Rules:
 - Events should be realistic macro events that actually affect markets
 - The correct answer must be grounded in real economic relationships
 - Vary topics: Fed, inflation, geopolitics, earnings seasons, sector rotations
+- Only output the JSON array, nothing else`;
+	} else if (type === "lesson") {
+		const CATEGORIES = ["Stock Basics", "Market Basics", "Valuation", "Earnings", "Risk", "Dividends", "Sectors"];
+		const TIER_TOPICS: Record<number, string> = {
+			1: "foundational concepts: what stocks are, how markets work, basic terms",
+			2: "intermediate concepts: P/E ratios, revenue growth, dividends, sectors",
+			3: "practical analysis: reading earnings, understanding beta, sector rotation",
+			4: "advanced analysis: valuation multiples, macro factors, portfolio construction",
+			5: "expert topics: options basics, technical analysis concepts, advanced risk management",
+		};
+		prompt = `You are generating investing education lessons for a ${tierLabel}-level student.
+Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
+
+Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
+
+Return a JSON array of exactly ${rawCount} objects with this exact schema:
+[{
+  "id": "gen-lesson-unique-slug",
+  "title": "What is Revenue Growth?",
+  "subtitle": "How fast a company is growing its sales",
+  "category": "Stock Basics",
+  "emoji": "📈",
+  "durationMin": 3,
+  "xp": ${tier <= 2 ? 20 : tier <= 3 ? 28 : tier <= 4 ? 35 : 45},
+  "cards": [
+    { "heading": "The concept", "body": "2-3 sentence plain-English explanation." },
+    { "heading": "Why it matters", "body": "Why investors care about this. Real example." },
+    { "heading": "What to watch for", "body": "Practical signal or red flag to look for." }
+  ],
+  "quiz": {
+    "question": "A clear, specific question testing understanding of the lesson.",
+    "options": [
+      { "id": "a", "text": "First option" },
+      { "id": "b", "text": "Second option" },
+      { "id": "c", "text": "Third option" }
+    ],
+    "correctId": "b",
+    "explanation": "Why the correct answer is right, in plain English."
+  }
+}]
+
+CRITICAL — before outputting, verify your own quiz answer:
+Step 1: Read your question and all options.
+Step 2: Determine which option is factually correct.
+Step 3: Confirm correctId matches that option. Fix it if not.
+
+Rules:
+- Each lesson must be a different topic and category
+- Cards must be educational, plain English, no jargon without explanation
+- Quiz must have exactly one unambiguously correct answer
+- correctId must be the actual correct answer — double-check the math or fact
 - Only output the JSON array, nothing else`;
 	}
 
