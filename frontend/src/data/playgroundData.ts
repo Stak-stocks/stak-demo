@@ -177,8 +177,8 @@ export const LESSONS: Lesson[] = [
 				{ id: "b", text: "$10 billion" },
 				{ id: "c", text: "$20 million" },
 			],
-			correctId: "a",
-			explanation: "500 million × $20 = $10 billion. Wait — actually $10B. 500M × $20 = $10,000M = $10B. The answer is $10 billion.",
+			correctId: "b",
+			explanation: "500 million × $20 = $10,000 million = $10 billion. Market cap = shares outstanding × stock price.",
 		},
 	},
 	{
