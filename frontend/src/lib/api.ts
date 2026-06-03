@@ -389,7 +389,7 @@ let _dynamicStocksCachedAt = 0;
 export async function generatePlaygroundQuestions(
 	weekKey: string,
 	tier: number,
-	type: "battle" | "earnings" | "risk" | "mood" | "lesson",
+	type: "battle" | "earnings" | "risk" | "mood" | "lesson" | "drill_sentiment" | "drill_nextstep",
 	count: number,
 ): Promise<unknown[]> {
 	return apiRequest<{ questions: unknown[] }>("/api/playground/generate", {

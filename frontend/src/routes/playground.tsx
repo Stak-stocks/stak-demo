@@ -13,7 +13,7 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions } from "@/lib/api";
 import { useWeeklyContent } from "@/hooks/useWeeklyContent";
 import { brands as allBrands } from "@/data/brands";
 import { StakLogo } from "@/components/StakLogo";
@@ -2154,6 +2154,22 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		{ scenario: "A company with $2B in annual revenue announces it will be profitable for the first time.", correct: "Bullish" as const, explanation: "Bullish. Reaching profitability is a major milestone — it proves the business model works at scale and reduces reliance on external capital." },
 		{ scenario: "A streaming service loses 2 million subscribers but raises prices by 20%.", correct: "Mixed" as const, explanation: "Mixed. Losing subscribers is negative for long-term growth, but a 20% price increase on remaining subscribers could actually grow revenue. It's a bet on pricing power over volume." },
 		{ scenario: "A company beats EPS by 15% but revenue only matched estimates.", correct: "Mixed" as const, explanation: "Mixed. Strong EPS beats are positive, but if they came purely from cost cuts rather than revenue growth, sustainability is questionable. Top-line growth quality matters." },
+		// Extended pool — 15 more to reduce repetition
+		{ scenario: "The Federal Reserve signals it will keep rates higher for longer.", correct: "Bearish" as const, explanation: "Bearish for growth stocks. Higher rates for longer increases the discount rate applied to future earnings, making high-multiple stocks less attractive relative to bonds." },
+		{ scenario: "A software company reports 40% revenue growth with expanding margins.", correct: "Bullish" as const, explanation: "Bullish. Accelerating growth with improving margins is the best combination — it means the company is scaling efficiently while also growing its top line." },
+		{ scenario: "A company's CEO suddenly resigns with no explanation.", correct: "Bearish" as const, explanation: "Bearish. Unexpected C-suite departures are a red flag — the departing executive may know something negative, and uncertainty about leadership direction spooks investors." },
+		{ scenario: "A retailer beats same-store sales but inventory is rising faster than sales.", correct: "Mixed" as const, explanation: "Mixed. Strong current sales are good, but rising inventory suggests the company may be building up unsold goods — which can force future discounting and hurt margins." },
+		{ scenario: "The unemployment rate drops to a 50-year low.", correct: "Mixed" as const, explanation: "Mixed. Low unemployment signals a strong economy (bullish for consumer spending) but also raises fears of wage inflation and higher rates (bearish for valuations)." },
+		{ scenario: "A company announces it will split its stock 10-for-1.", correct: "Bullish" as const, explanation: "Slightly bullish sentiment, but economically neutral. Stock splits don't change company value but often attract retail investors and signal management confidence." },
+		{ scenario: "A tech company's cloud revenue growth slows from 35% to 18% year-over-year.", correct: "Bearish" as const, explanation: "Bearish. Cloud growth deceleration signals market saturation or competition gaining share. For cloud-first companies, this is often the most watched metric." },
+		{ scenario: "A consumer brand reports strong US sales but significant weakness in China.", correct: "Mixed" as const, explanation: "Mixed. Strong domestic results are good, but China weakness matters — it's one of the largest consumer markets globally, and many brands rely on it for growth." },
+		{ scenario: "A bank reports record profits but credit card delinquencies are rising.", correct: "Mixed" as const, explanation: "Mixed. Current profits look good, but rising delinquencies are a leading indicator of future loan losses. The trend is more important than today's headline profit." },
+		{ scenario: "GDP growth comes in at 3.2%, well above the expected 1.8%.", correct: "Bullish" as const, explanation: "Bullish overall. Stronger-than-expected economic growth signals healthy consumer spending and business activity — generally good for corporate earnings." },
+		{ scenario: "A biotech stock surges 40% after a competitor's drug trial fails.", correct: "Bullish" as const, explanation: "Bullish for the surviving competitor. A rival's failure removes competitive pressure, potentially increasing the surviving company's market share and pricing power." },
+		{ scenario: "A car company reports record EV deliveries but gross margins on EVs are -5%.", correct: "Mixed" as const, explanation: "Mixed. Strong delivery growth shows demand, but selling at a loss means the more they sell, the more they lose until they achieve scale. Profitability path matters." },
+		{ scenario: "The 10-year Treasury yield jumps from 4.2% to 4.8% in two weeks.", correct: "Bearish" as const, explanation: "Bearish. A sharp rise in the risk-free rate makes bonds more attractive versus stocks, raises borrowing costs for companies, and compresses equity valuations — especially growth stocks." },
+		{ scenario: "A company raises its dividend by 15% for the fifth year in a row.", correct: "Bullish" as const, explanation: "Bullish. Consistent dividend growth signals management's confidence in future earnings and cash flow. It's a strong quality signal for income-focused investors." },
+		{ scenario: "A company beats earnings but the CFO sells $10M of stock the next day.", correct: "Mixed" as const, explanation: "Mixed. The earnings beat is positive, but significant insider selling right after can signal the CFO believes the stock is fairly valued or has personal reasons to sell — worth watching." },
 	];
 
 	const NEXT_STEP_SCENARIOS = [
@@ -2168,6 +2184,17 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		{ scenario: "A company's revenue is growing 20% but its stock is down 30% this year.", question: "What might explain this?", options: ["Valuation compression — the P/E ratio contracted as rates rose", "Revenue growth is always positive for stocks", "Investors don't care about revenue", "The CFO changed"], correctIdx: 0, skill: "valuation", explanation: "In a rising interest rate environment, high-multiple stocks often see their P/E ratios compress significantly even when fundamentals are improving — because the discount rate applied to future earnings goes up." },
 		{ scenario: "A company just announced record free cash flow but hasn't paid a dividend or done buybacks.", question: "What should investors ask?", options: ["What management plans to do with the cash", "Why they haven't raised prices", "Whether they have enough office space", "How big their marketing team is"], correctIdx: 0, skill: "profitability", explanation: "Strong free cash flow with no capital return program raises the question of capital allocation: is management reinvesting into the business, sitting on cash, or planning an acquisition? Each has different implications." },
 		{ scenario: "A company's revenue growth is slowing from 40% to 15% over three years.", question: "What should you determine first?", options: ["Whether the slowdown is from market saturation or competition", "What industry events they sponsored", "Their office square footage", "How long the CEO has been in the role"], correctIdx: 0, skill: "growth", explanation: "Growth deceleration can be natural (market maturing) or concerning (competition taking share). The distinction matters enormously — natural deceleration often means the business is stabilizing, while competitive pressure can be a structural problem." },
+		// Extended pool — 10 more to reduce repetition
+		{ scenario: "A consumer company's gross margin drops from 65% to 52% in one year.", question: "What's the most important thing to understand?", options: ["Whether input cost inflation is temporary or structural", "Their social media engagement rate", "Whether the CEO has changed", "How many stores they have opened"], correctIdx: 0, skill: "profitability", explanation: "A sudden margin drop can come from temporary factors (commodity prices, supply chain) or structural ones (competition forcing price cuts). The distinction determines whether to buy the dip or exit." },
+		{ scenario: "A company has $5B in cash but its stock hasn't moved in 3 years.", question: "What should you investigate first?", options: ["What management plans to do with the cash — buybacks, dividends, or acquisitions", "Why the stock has low social media mentions", "Whether the company hosts a podcast", "How many patents they own"], correctIdx: 0, skill: "valuation", explanation: "A large cash position is only valuable if management deploys it well. Sitting on cash earning low returns while the stock stagnates suggests poor capital allocation — or management waiting for something. You need to know which." },
+		{ scenario: "A cloud software company just lost its second-largest customer.", question: "What metric should you check next?", options: ["Net Revenue Retention (NRR) — how much revenue from existing customers grows year over year", "How many new offices they opened", "Whether they changed their logo", "Their number of job postings"], correctIdx: 0, skill: "growth", explanation: "NRR tells you whether existing customers are spending more or less over time. A high NRR (above 120%) means existing customers expand, offsetting any churn — this is the most important health metric for SaaS companies." },
+		{ scenario: "An EV company just achieved its first quarter of positive gross margin.", question: "What should you evaluate next?", options: ["Whether they can sustain and expand that margin at scale", "Their factory décor", "What colors they offer their cars in", "Their headquarters location"], correctIdx: 0, skill: "profitability", explanation: "Reaching gross margin profitability is a milestone, but the key question is durability. Can they maintain margins as they scale, or did they just cut corners this quarter? Look at unit economics over multiple quarters." },
+		{ scenario: "A retailer reports flat same-store sales but strong e-commerce growth of 35%.", question: "What should you model out?", options: ["Whether e-commerce can eventually offset the declining physical stores", "Their store window displays", "How many employees work in HR", "Their return policy details"], correctIdx: 0, skill: "growth", explanation: "Channel shift is a common retail story. The key question is the economics: e-commerce margins are often different (sometimes worse) than physical retail. You need to understand if the digital growth is actually profitable." },
+		{ scenario: "A company has high revenue growth but its 'Days Sales Outstanding' (DSO) is rising.", question: "What does rising DSO indicate?", options: ["Customers are taking longer to pay — which can signal collections problems or channel stuffing", "The company is growing too fast", "Employees are leaving", "Margins are improving"], correctIdx: 0, skill: "risk", explanation: "Rising DSO means the company is booking revenue but not collecting cash as quickly. This can be a sign of aggressive revenue recognition, channel stuffing, or customers in financial difficulty — a quality-of-earnings red flag." },
+		{ scenario: "A company's operating leverage is high — fixed costs are 70% of total costs.", question: "What does this mean for investors?", options: ["Revenue growth flows directly to profit — but revenue declines also hurt profit disproportionately", "The company is very stable regardless of revenue", "Fixed costs are always good for margins", "Operating leverage doesn't affect stock performance"], correctIdx: 0, skill: "profitability", explanation: "High operating leverage amplifies outcomes in both directions. When revenue grows, profit grows faster (great). When revenue falls, profit falls faster (dangerous). Understanding this explains why some stocks are very volatile around earnings." },
+		{ scenario: "A fintech company reports strong user growth but declining average revenue per user (ARPU).", question: "What should you investigate?", options: ["Whether new users are lower-value or whether the company is offering discounts to grow", "Their app store rating", "How many engineers they employ", "Whether their logo has changed recently"], correctIdx: 0, skill: "growth", explanation: "Declining ARPU despite user growth often means the company is acquiring cheaper, less engaged users — or pricing down to attract volume. Growth quality matters as much as growth rate." },
+		{ scenario: "An industrial company reports strong revenue but working capital is increasing as a percentage of sales.", question: "What should you check?", options: ["Whether cash conversion is deteriorating — meaning growth is consuming more cash than it generates", "Their number of warehouse locations", "How many patents they filed", "Their LinkedIn followers"], correctIdx: 0, skill: "profitability", explanation: "Rising working capital as a percentage of revenue means the company needs more cash tied up in inventory and receivables to generate each dollar of sales. This can signal inefficiency or over-production, and will eventually pressure free cash flow." },
+		{ scenario: "A subscription business reports strong subscriber growth but increasing churn rate.", question: "What metric most directly measures the impact?", options: ["Customer Lifetime Value (LTV) vs Customer Acquisition Cost (CAC)", "Their website design", "How many support tickets they get", "Whether they offer annual or monthly plans"], correctIdx: 0, skill: "risk", explanation: "The LTV/CAC ratio tells you whether acquiring new customers actually creates value. High churn destroys LTV — if it costs more to acquire a customer than you earn from them before they leave, growth destroys value rather than creating it." },
 	];
 
 	// ── Stock pool ───────────────────────────────────────────────────────────────
@@ -2215,9 +2242,48 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [signalSelected, setSignalSelected] = useState<string | null>(null);
 	const [signalRevealed, setSignalRevealed] = useState<boolean>(false);
 
+	// Use getCurrentWeekKey and account directly (not PlaygroundPage's dayKey/totalXp)
+	const _drillDayKey = useMemo(() => getCurrentWeekKey(), []);
+	const _drillTier = (account?.totalXp ?? 0) > 500 ? 2 : 1;
+
+	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools
+	const { data: genSentimentData } = useQuery({
+		queryKey: ["playground-gen", _drillDayKey, _drillTier, "drill_sentiment"],
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier, "drill_sentiment", 10),
+		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
+	});
+	const { data: genNextStepData } = useQuery({
+		queryKey: ["playground-gen", _drillDayKey, _drillTier, "drill_nextstep"],
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier, "drill_nextstep", 8),
+		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
+	});
+
+	// Merge static + generated pools (dedup by scenario text)
+	const allSentimentScenarios = useMemo(() => {
+		const extras = Array.isArray(genSentimentData) ? genSentimentData.filter(
+			(r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } =>
+				!!r && typeof r === "object" &&
+				typeof (r as Record<string,unknown>).scenario === "string" &&
+				["Bullish","Bearish","Mixed"].includes(String((r as Record<string,unknown>).correct))
+		) : [];
+		const seen = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		return [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
+	}, [genSentimentData]);
+
+	const allNextStepScenarios = useMemo(() => {
+		const extras = Array.isArray(genNextStepData) ? genNextStepData.filter(
+			(r): r is { scenario: string; question: string; options: string[]; correctIdx: number; skill: string; explanation: string } =>
+				!!r && typeof r === "object" &&
+				typeof (r as Record<string,unknown>).scenario === "string" &&
+				Array.isArray((r as Record<string,unknown>).options)
+		) : [];
+		const seen = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		return [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
+	}, [genNextStepData]);
+
 	// Scenario indices — start at today's date offset so each day begins from a different scenario
-	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 15);
-	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 11);
+	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 30);
+	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
 
 	const currentRoundType = getRoundType(sessionIdx);
 	const stock = stockList[stockIdx % stockList.length]!;
@@ -2509,7 +2575,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// ROUND TYPE 2: "Bullish, Bearish, or Mixed?"
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "sentiment") {
-		const sc = SENTIMENT_SCENARIOS[sentimentIdx % SENTIMENT_SCENARIOS.length]!;
+		const sc = allSentimentScenarios[sentimentIdx % allSentimentScenarios.length]!;
 		const sentimentOpts = [
 			{ id: "Bullish", text: "Bullish" },
 			{ id: "Bearish", text: "Bearish" },
@@ -2599,7 +2665,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// ROUND TYPE 3: "What Should You Check Next?"
 	// ────────────────────────────────────────────────────────────────────────────
 	if (currentRoundType === "nextstep") {
-		const sc = NEXT_STEP_SCENARIOS[nextStepIdx % NEXT_STEP_SCENARIOS.length]!;
+		const sc = allNextStepScenarios[nextStepIdx % allNextStepScenarios.length]!;
 		const { opts, correctId } = rotateOptions(sc.options, sc.correctIdx, nextStepIdx + _todayOffset);
 
 		if (otherPhase === "question") {

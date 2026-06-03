@@ -124,7 +124,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	const rawType = String(req.body?.type ?? "");
 	const rawCount = Math.min(Math.max(Number(req.body?.count ?? 3), 1), 10);
 
-	const VALID_TYPES = ["battle", "earnings", "risk", "mood", "lesson"] as const;
+	const VALID_TYPES = ["battle", "earnings", "risk", "mood", "lesson", "drill_sentiment", "drill_nextstep"] as const;
 	type ValidType = typeof VALID_TYPES[number];
 
 	// Validate and sanitize inputs
@@ -321,6 +321,48 @@ Rules:
 - Cards must be educational, plain English, no jargon without explanation
 - Quiz must have exactly one unambiguously correct answer
 - correctId must be the actual correct answer — double-check the math or fact
+- Only output the JSON array, nothing else`;
+	} else if (type === "drill_sentiment") {
+		prompt = `Generate ${rawCount} "Bullish, Bearish, or Mixed?" skill drill scenarios for a ${tierLabel}-level investing student.
+Each shows a company or market event and the user classifies it.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
+Return a JSON array of exactly ${rawCount} objects:
+[{
+  "id": "gen-drill-sent-1",
+  "scenario": "A company reports 25% revenue growth but announces it will miss profitability targets this year.",
+  "correct": "Mixed",
+  "explanation": "Mixed. Growth is strong, but missing profitability targets signals the business is burning more cash than expected — investors need to weigh both signals."
+}]
+Rules:
+- "correct" must be exactly "Bullish", "Bearish", or "Mixed"
+- Scenarios must be realistic and clearly classifiable
+- Explanation must teach WHY (2 sentences max)
+- Vary the mix across all three labels
+- Do NOT use the same scenario twice
+- Only output the JSON array, nothing else`;
+	} else if (type === "drill_nextstep") {
+		prompt = `Generate ${rawCount} "What Should You Check Next?" skill drill scenarios for a ${tierLabel}-level investing student.
+Each shows a stock situation and asks what the investor should investigate first.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
+Return a JSON array of exactly ${rawCount} objects:
+[{
+  "id": "gen-drill-next-1",
+  "scenario": "A company's revenue is growing 25% but gross margins are falling each quarter.",
+  "question": "What should you investigate first?",
+  "options": ["Whether input costs are rising structurally or temporarily", "Their employee count", "Whether they have a mascot", "Their office locations"],
+  "correctIdx": 0,
+  "skill": "profitability",
+  "explanation": "Falling gross margins despite strong revenue growth is a quality concern. Understanding whether the cause is temporary (commodity prices) or structural (competition) determines whether this is a buying opportunity or a warning sign."
+}]
+Rules:
+- correctIdx must ALWAYS be 0 (the first option is always correct — frontend shuffles positions)
+- Include exactly 1 clearly correct option + 2 obviously irrelevant distractors (logo, employees, etc.) + 1 plausible but wrong option
+- skill must be one of: valuation, growth, profitability, risk, earnings
+- explanation must teach WHY this metric matters (2 sentences max)
 - Only output the JSON array, nothing else`;
 	}
 
