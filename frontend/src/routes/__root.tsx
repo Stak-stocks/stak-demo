@@ -94,6 +94,8 @@ function Root() {
 		const priceAtSave = cachedStock?.quote?.price ?? null;
 		saveToStak(brand.id, priceAtSave).catch(() => {});
 		incrementSwipeCount().catch(() => {});
+		// Invalidate daily brief so personalization reflects the new Stak brand
+		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
 		
 	}, [account, saveToStak, incrementSwipeCount, queryClient]);

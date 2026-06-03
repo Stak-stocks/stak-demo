@@ -422,8 +422,9 @@ export function PlaygroundPage() {
 		? Math.round(((totalXp - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
 		: 100;
 
-	const todayKey2 = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
-	const yesterdayKey2 = (() => { const d = new Date(Date.now() - 86400000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+	// Backend streak writes UTC — compare in UTC
+	const todayKey2 = new Date().toISOString().split("T")[0]!;
+	const yesterdayKey2 = new Date(Date.now() - 86400000).toISOString().split("T")[0]!;
 	const streakCount = (account?.lastStreakDate === todayKey2 || account?.lastStreakDate === yesterdayKey2)
 		? (account?.streakCount ?? 0) : 0;
 
