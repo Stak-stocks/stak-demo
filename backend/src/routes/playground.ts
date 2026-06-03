@@ -138,7 +138,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	}
 
 	// Cache key is tier+week+type only — count excluded so level-ups don't miss cache
-	const cacheKey = `playground:gen:v1:${weekKey}__t${tier}__${type}`;
+	const cacheKey = `playground:gen:v2:${weekKey}__t${tier}__${type}`;
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
@@ -146,13 +146,26 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	}
 
 	const tierLabel = ["", "Beginner", "Learner", "Investor", "Analyst", "Expert"][tier] ?? "Intermediate";
+
+	// Explicit difficulty guidance per tier — used across all prompt types
+	const DIFFICULTY_GUIDE: Record<number, string> = {
+		1: `BEGINNER level: Use only well-known household brands (Apple, Nike, Netflix, Tesla). Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
+		2: `LEARNER level: Use well-known companies and introduce basic metrics (P/E ratio, revenue growth, dividend yield). One or two wrong options should be plausible to someone new. Topics: valuation basics, earnings beats/misses, sector categories, simple risk concepts.`,
+		3: `INVESTOR level: Assume familiarity with P/E, EPS, revenue growth, market cap, beta. Use moderately complex scenarios with plausible distractors that require real understanding to eliminate. Topics: comparing companies on metrics, reading earnings context, sector rotation, basic macro.`,
+		4: `ANALYST level: Assume solid investing knowledge. Use nuanced scenarios where multiple answers seem reasonable — only someone who deeply understands the concept can distinguish the best answer. Topics: advanced valuation, guidance vs actuals, macro impact on sectors, portfolio construction principles.`,
+		5: `EXPERT level: Use sophisticated concepts and insider vocabulary. All wrong options should be credible — only an experienced investor with deep knowledge can identify the single best answer. Topics: options concepts, technical analysis signals, advanced risk models, cross-asset relationships.`,
+	};
+
+	const difficultyGuide = DIFFICULTY_GUIDE[tier] ?? DIFFICULTY_GUIDE[3]!;
 	let prompt = "";
 
 	if (type === "battle") {
 		prompt = `You are generating stock battle questions for a ${tierLabel}-level investing app.
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
-Difficulty level: ${tierLabel}.
-Use real, well-known companies appropriate for a ${tierLabel} investor.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
+Use real companies and metrics appropriate for this level.
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
   "id": "gen-battle-{weekKey}-{index}",
@@ -175,7 +188,9 @@ Rules:
 	} else if (type === "earnings") {
 		prompt = `Generate ${rawCount} earnings lab scenarios for a ${tierLabel}-level investing education app.
 Each scenario tests the user on predicting how a company's stock would react after earnings.
-Difficulty level: ${tierLabel}.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-earn-1",
@@ -206,7 +221,9 @@ Rules:
 	} else if (type === "risk") {
 		prompt = `Generate ${rawCount} risk identification scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents two investment options and asks which is riskier.
-Difficulty level: ${tierLabel}.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-risk-1",
@@ -225,7 +242,9 @@ Rules:
 	} else if (type === "mood") {
 		prompt = `Generate ${rawCount} market mood simulator scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents a real-world macro event and asks how markets would react.
-Difficulty level: ${tierLabel}.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-mood-1",
@@ -257,6 +276,8 @@ Rules:
 		};
 		prompt = `You are generating investing education lessons for a ${tierLabel}-level student.
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
+
+DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
 
