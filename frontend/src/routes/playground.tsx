@@ -2090,50 +2090,52 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		skill: string;
 	}
 
+	// All correctChip values reference metrics VISIBLE on the card (P/E, Rev Growth, Margin, Today %)
+	// so users can always derive the answer from the displayed data
 	const SIGNAL_QUESTIONS: Record<string, SignalQuestion> = {
 		quality_compounder: {
-			question: "What is the most important signal here?",
-			correctChip: "Platform / cloud strength",
-			wrongChip: "One-day price drop",
-			distractors: ["Stock ticker symbol", "Company headquarters"],
-			correctFeedback: "Right. Platform businesses like this generate compounding revenue from subscriptions and services — that matters far more than a daily price move.",
-			wrongFeedback: "Not quite. A one-day move is noise. The most important thing here is the quality of the underlying business model.",
-			skill: "valuation",
+			question: "Which metric shown here matters most for a company like this?",
+			correctChip: "Revenue growth",
+			wrongChip: "Today's price move",
+			distractors: ["Stock ticker symbol", "Company name length"],
+			correctFeedback: "Right. Revenue growth tells you whether the business is expanding. One red day in the price doesn't change the underlying business quality at all.",
+			wrongFeedback: "Not quite. A one-day price move is noise. For quality businesses, the revenue growth trend is far more meaningful for understanding long-term value.",
+			skill: "growth",
 		},
 		high_growth: {
-			question: "What matters most when evaluating this stock?",
-			correctChip: "Revenue growth rate",
+			question: "What is the most telling signal on this card?",
+			correctChip: "Revenue growth",
 			wrongChip: "Today's price move",
-			distractors: ["Logo design", "Number of employees"],
-			correctFeedback: "Correct. For high-growth companies, the revenue growth rate tells you whether the business is accelerating or slowing — that drives the valuation.",
-			wrongFeedback: "Not quite. A daily price swing doesn't tell you about business quality. Focus on whether revenue growth is accelerating or decelerating.",
+			distractors: ["Company name", "Number of shares"],
+			correctFeedback: "Correct. High-growth companies live or die by their revenue growth rate — it tells you if the business is still accelerating or starting to slow down.",
+			wrongFeedback: "Not quite. Daily price moves are just noise. For a high-growth stock, the revenue growth rate is what drives the valuation and investor expectations.",
 			skill: "growth",
 		},
 		speculative: {
-			question: "What is the key risk to understand first?",
-			correctChip: "Revenue stability",
-			wrongChip: "Dividend history",
-			distractors: ["Office location", "Years since founding"],
-			correctFeedback: "Right. Speculative names often have volatile or cycle-dependent revenue. Understanding what drives revenue stability (or instability) is the core risk question.",
-			wrongFeedback: "Not quite. Speculative companies rarely pay dividends. The key question is whether revenue is stable or highly cyclical.",
+			question: "Which of these is the most important signal for a speculative stock?",
+			correctChip: "Today's price move",
+			wrongChip: "Profit margin",
+			distractors: ["Company headquarters", "Years since IPO"],
+			correctFeedback: "Right. Speculative stocks can swing sharply on sentiment. A large price move today often signals a catalyst — earnings, news, or macro shift — that you need to investigate.",
+			wrongFeedback: "Not quite. Many speculative companies run at a loss intentionally. The price move is more immediately relevant — it signals whether something significant just happened.",
 			skill: "risk",
 		},
 		defensive: {
-			question: "What signal matters most for this type of stock?",
-			correctChip: "Dividend consistency",
-			wrongChip: "Short-term price move",
-			distractors: ["Stock split history", "Competitor count"],
-			correctFeedback: "Right. Defensive stocks are typically held for steady dividend income and stability — dividend consistency is the core signal investors watch.",
-			wrongFeedback: "Not quite. Defensive stocks are valued for their stability, not their price movements. Dividend consistency is what matters.",
-			skill: "growth",
+			question: "For a defensive stock, which metric shown here matters most?",
+			correctChip: "Profit margin",
+			wrongChip: "Today's price move",
+			distractors: ["Ticker symbol", "Listing exchange"],
+			correctFeedback: "Right. Defensive stocks are held for stability and reliable earnings. A consistent profit margin signals the company can weather tough economic conditions.",
+			wrongFeedback: "Not quite. Defensive stocks are valued for stability, not price momentum. Their margins tell you how resilient the business is when conditions get difficult.",
+			skill: "profitability",
 		},
 		familiar: {
-			question: "What should you look at beyond brand recognition?",
-			correctChip: "Revenue trend vs peers",
-			wrongChip: "One-day price drop",
-			distractors: ["Brand color scheme", "Social media followers"],
-			correctFeedback: "Exactly. Familiar brands are easy to recognize but that doesn't make them good investments. You need to check whether the business is actually growing relative to its peers.",
-			wrongFeedback: "Not quite. One-day moves are noise. The real question for a familiar brand is whether the business is still growing — compare revenue trend to peers.",
+			question: "What should you check first on this familiar brand's card?",
+			correctChip: "Revenue growth",
+			wrongChip: "Today's price move",
+			distractors: ["Brand name spelling", "Stock exchange listed on"],
+			correctFeedback: "Exactly. Brand recognition is not the same as a good investment. Revenue growth tells you if the business behind the brand is actually getting bigger.",
+			wrongFeedback: "Not quite. One-day moves are noise. The revenue growth rate tells you if this familiar brand is still expanding — that's what drives long-term returns.",
 			skill: "growth",
 		},
 	};
@@ -2304,7 +2306,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
 
 	const currentRoundType = getRoundType(sessionIdx);
-	const stock = stockList[stockIdx % stockList.length]!;
+	// Guard against empty pool — PRACTICE_TICKERS is non-empty so this only fires in dev
+	const stock = stockList.length > 0 ? stockList[stockIdx % stockList.length]! : { ticker: "SPY", name: "S&P 500", prompt: "" };
 
 	const { data: stockData, isLoading } = useQuery({
 		queryKey: ["stock", stock.ticker],
@@ -2529,7 +2532,16 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 								</div>
 							) : null}
 						</div>
-						{metrics && (
+						{isLoading && !metrics ? (
+							<div className="grid grid-cols-3 gap-[6px]">
+								{["P/E","Rev. Growth","Margin"].map(l => (
+									<div key={l} className="rounded-[8px] bg-foreground/[0.04] p-[8px] text-center">
+										<p className="text-[10px] dark:text-slate-500 text-slate-400">{l}</p>
+										<div className="h-[13px] w-[36px] rounded bg-foreground/10 animate-pulse mx-auto mt-[2px]" />
+									</div>
+								))}
+							</div>
+						) : metrics ? (
 							<div className="grid grid-cols-3 gap-[6px]">
 								{[
 									{ label: "P/E", value: metrics.peRatio != null ? `${metrics.peRatio}x` : "N/A" },
@@ -2542,10 +2554,13 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 									</div>
 								))}
 							</div>
-						)}
+						) : null}
 					</div>
 
 					<p className="text-[14px] font-bold mb-[10px]">{sq.question}</p>
+					{isLoading && !metrics && (
+						<p className="text-[12px] dark:text-slate-500 text-slate-400 mb-[8px]">Loading data…</p>
+					)}
 					<div className="space-y-[8px] mb-[14px]">
 						{signalOpts.map((opt, i) => (
 							<OptionBtn
@@ -2553,9 +2568,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 								letter={LETTERS[i] ?? String(i + 1)}
 								text={opt.text}
 								state={optionState(opt.id, signalCorrectId, signalSelected, signalRevealed)}
-								disabled={signalRevealed}
+								disabled={signalRevealed || (isLoading && !metrics)}
 								onClick={() => {
-									if (signalRevealed) return;
+									if (signalRevealed || (isLoading && !metrics)) return;
 									const correct = opt.id === signalCorrectId;
 									setSignalSelected(opt.id);
 									setSignalRevealed(true);
