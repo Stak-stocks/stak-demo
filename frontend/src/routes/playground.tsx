@@ -678,11 +678,11 @@ function LessonLibrary({
 					<h2 className="text-[22px] font-extrabold">Today's Lessons</h2>
 					<span className="text-[11px] font-semibold dark:text-slate-400 text-slate-500 bg-foreground/[0.06] px-[8px] py-[3px] rounded-full">{dayLabel}</span>
 				</div>
-				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{thisWeekLessons.filter(l => todayDoneIds.has(l.id)).length}/{thisWeekLessons.length} done today</p>
+				<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[14px]">{thisWeekLessons.filter(l => todayDoneIds.has(l.id) || allTimeDoneIds.has(l.id)).length}/{thisWeekLessons.length} done today</p>
 
 				{/* Week progress bar */}
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[16px]">
-					<div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-violet-400 transition-all" style={{ width: `${thisWeekLessons.length > 0 ? (thisWeekLessons.filter(l => todayDoneIds.has(l.id)).length / thisWeekLessons.length) * 100 : 0}%` }} />
+					<div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-violet-400 transition-all" style={{ width: `${thisWeekLessons.length > 0 ? (thisWeekLessons.filter(l => todayDoneIds.has(l.id) || allTimeDoneIds.has(l.id)).length / thisWeekLessons.length) * 100 : 0}%` }} />
 				</div>
 
 				{/* Category filter pills with completion badges */}
@@ -713,7 +713,8 @@ function LessonLibrary({
 						<p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons today.</p>
 					)}
 					{visibleLessons.map(lesson => {
-						const done = todayDoneIds.has(lesson.id);
+						// Done if completed today OR ever (all-time) — XP guard prevents re-earning
+					const done = todayDoneIds.has(lesson.id) || allTimeDoneIds.has(lesson.id);
 						const barColor = CATEGORY_BAR[lesson.category];
 						return (
 							<button
