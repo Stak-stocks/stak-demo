@@ -109,17 +109,17 @@ function Root() {
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
 
-	// Show Daily Brief once per day after user is authenticated and onboarded.
-	// Stored in Firestore so it's cross-device — seeing it on phone won't show it again on iPad.
-	// Write to Firestore first so a failed write doesn't cause the modal to reappear every session.
+	// Show Daily Brief once per day — only from 9am CT onwards.
+	// Before 9am CT markets haven't opened yet so the brief has no real market data.
+	// Stored in Firestore so it's cross-device.
 	useEffect(() => {
 		if (!user || !account?.onboardingCompleted || isAuthPage) return;
 		const d = new Date();
 		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 		if (account.lastBriefDate === today) return;
-		// Show first, then write — this way the date is only marked "seen" once the modal
-		// actually opens. Writing before the open was causing the timeout to be cancelled
-		// (by navigation or re-renders) while the date was already saved, silently skipping the brief.
+		// Check if it's 9am CT or later (CT = America/Chicago)
+		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
+		if (ctHour < 9) return; // too early — will re-check when user re-opens app
 		const t = setTimeout(() => {
 			setBriefOpen(true);
 			updateLastBriefDate(today).catch(() => {});
