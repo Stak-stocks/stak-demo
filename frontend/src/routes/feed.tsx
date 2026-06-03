@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { getMarketNews, searchNews, trackEvent } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
 import type { NewsArticle } from "@/data/brands";
@@ -130,6 +131,14 @@ function FeedPage() {
 	const [inputValue, setInputValue] = useState("");
 	const [activeQuery, setActiveQuery] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
+	const location = useLocation();
+
+	// Clear search when navigating away and back (route stays mounted with TanStack Router)
+	useEffect(() => {
+		setInputValue("");
+		setActiveQuery("");
+		setVisibleCount(PAGE_SIZE);
+	}, [location.pathname]);
 
 	const isSearching = activeQuery.length >= 2;
 

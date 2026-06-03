@@ -33,8 +33,14 @@ function VerifyEmailPage() {
 
 		if (oobCode) {
 			if (mode === "resetPassword" || mode === "recoverEmail") {
-				dispatchingRef.current = true; // prevent guard from redirecting to /signup
-				globalThis.location.replace(`/reset-password?${params.toString()}`);
+				// Check code validity before redirecting — avoids user typing new password only to learn the link expired
+				checkActionCode(auth, oobCode).then(() => {
+					dispatchingRef.current = true;
+					globalThis.location.replace(`/reset-password?${params.toString()}`);
+				}).catch(() => {
+					// Link is expired or already used — show the error state on this page
+					setCodeValid(false);
+				});
 				return;
 			}
 			if (mode === "verifyEmail") {
