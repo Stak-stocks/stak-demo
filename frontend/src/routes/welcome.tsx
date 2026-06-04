@@ -2410,7 +2410,7 @@ function MobileFooter({ onSubscribe }: { onSubscribe: (email: string) => void })
 							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
 								<p style={{ fontFamily: SR, fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
-								<div style={{ width: 74, height: 15 }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
+								<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
 							</div>
 						</div>
 						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
@@ -2882,7 +2882,7 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
 								<p style={{ fontFamily: SR, fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
-								<div style={{ width: 74, height: 15 }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
+								<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
 							</div>
 						</div>
 						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
