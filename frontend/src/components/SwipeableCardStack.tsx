@@ -46,6 +46,9 @@ interface SwipeableCardStackProps {
 	loading?: boolean;
 	/** Called with streak result after each swipe */
 	onStreakUpdate?: (result: StreakUpdate) => void;
+	/** Today's counts — persists across tab switches */
+	initialSavedCount?: number;
+	initialPassedCount?: number;
 }
 
 
@@ -121,6 +124,8 @@ export function SwipeableCardStack({
 	stakSize,
 	loading,
 	onStreakUpdate,
+	initialSavedCount = 0,
+	initialPassedCount = 0,
 }: SwipeableCardStackProps) {
 	const navigate = useNavigate();
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -129,8 +134,8 @@ export function SwipeableCardStack({
 	const [isExiting, setIsExiting] = useState(false);
 	const [timeUntilReset, setTimeUntilReset] = useState(getTimeUntilReset);
 	const [scale, setScale] = useState(1);
-	const [savedCount, setSavedCount] = useState(0);
-	const [passedCount, setPassedCount] = useState(0);
+	const [savedCount, setSavedCount] = useState(initialSavedCount);
+	const [passedCount, setPassedCount] = useState(initialPassedCount);
 	const [skipSet, setSkipSet] = useState<Set<string>>(new Set());
 
 	// Deck with skipped cards shuffled to the end

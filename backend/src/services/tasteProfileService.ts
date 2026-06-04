@@ -136,18 +136,20 @@ export function getDisplayCategories(tagScores: Record<string, number>): Display
 	};
 
 	for (const [tag, score] of Object.entries(tagScores)) {
+		const positiveScore = Math.max(0, score);
 		const buckets = TAG_TO_DISPLAY_BUCKETS[tag] ?? [];
 		for (const bucket of buckets) {
-			if (bucket in raw) raw[bucket] += score;
+			if (bucket in raw) raw[bucket] += positiveScore;
 		}
 	}
 
+	const pct = (v: number) => Math.max(0, Math.min(100, Math.round((v / 30) * 100)));
 	return {
-		techCurious: Math.min(100, Math.round((raw.techCurious / 30) * 100)),
-		consumerBrands: Math.min(100, Math.round((raw.consumerBrands / 30) * 100)),
-		highGrowth: Math.min(100, Math.round((raw.highGrowth / 30) * 100)),
-		incomeDividends: Math.min(100, Math.round((raw.incomeDividends / 30) * 100)),
-		speculativePlays: Math.min(100, Math.round((raw.speculativePlays / 30) * 100)),
+		techCurious:    pct(raw.techCurious),
+		consumerBrands: pct(raw.consumerBrands),
+		highGrowth:     pct(raw.highGrowth),
+		incomeDividends:pct(raw.incomeDividends),
+		speculativePlays:pct(raw.speculativePlays),
 	};
 }
 

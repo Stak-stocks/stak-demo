@@ -578,24 +578,35 @@ function App() {
 
 			<div className="max-w-7xl mx-auto px-[18px] pt-8 pb-2 sm:pb-4">
 				<div className="relative flex flex-col items-center">
-				<SwipeableCardStack
-					brands={[
-						...recommendedOrder,
-					].filter(
-						(brand) =>
-							!swipedBrands.some((b) => b.id === brand.id) &&
-							!passedBrandIds.has(brand.id),
-					)}
-					onLearnMore={handleLearnMore}
-					onSwipeRight={handleSwipeRight}
-					onSwipeLeft={handleSwipeLeft}
-					onSwipe={handleSwipe}
-					hasReachedLimit={hasReachedLimit}
-					onIncrement={incrementSwipe}
-					stakSize={account?.stakBrandIds?.length ?? 0}
-					loading={recommendedOrder.length === 0 && !hasReachedLimit}
-				onStreakUpdate={handleStreakUpdate}
-				/>
+				{(() => {
+					const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+					const todayMs = todayStart.getTime();
+					const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
+					const todaySwipes = account?.dailySwipeState?.date === `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}` ? (account.dailySwipeState.count ?? 0) : 0;
+					const todaySaved = Math.max(0, todaySwipes - todayPassed);
+					return (
+						<SwipeableCardStack
+							brands={[
+								...recommendedOrder,
+							].filter(
+								(brand) =>
+									!swipedBrands.some((b) => b.id === brand.id) &&
+									!passedBrandIds.has(brand.id),
+							)}
+							onLearnMore={handleLearnMore}
+							onSwipeRight={handleSwipeRight}
+							onSwipeLeft={handleSwipeLeft}
+							onSwipe={handleSwipe}
+							hasReachedLimit={hasReachedLimit}
+							onIncrement={incrementSwipe}
+							stakSize={account?.stakBrandIds?.length ?? 0}
+							loading={recommendedOrder.length === 0 && !hasReachedLimit}
+							onStreakUpdate={handleStreakUpdate}
+							initialSavedCount={todaySaved}
+							initialPassedCount={todayPassed}
+						/>
+					);
+				})()}
 
 			</div>
 

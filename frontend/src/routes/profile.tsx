@@ -68,8 +68,11 @@ function computeDisplayCategories(tagScores: Record<string, number>): Record<str
 		techCurious: 0, consumerBrands: 0, highGrowth: 0, incomeDividends: 0, speculativePlays: 0,
 	};
 	for (const [tag, score] of Object.entries(tagScores)) {
+		// Only count positive signal per tag — negative scores suppress recommendations
+		// but shouldn't erase display credit for categories the user has actually saved
+		const positiveScore = Math.max(0, score);
 		for (const bucket of TAG_TO_DISPLAY_BUCKETS[tag] ?? []) {
-			if (bucket in raw) raw[bucket] += score;
+			if (bucket in raw) raw[bucket] += positiveScore;
 		}
 	}
 	const maxScore = Math.max(1, ...Object.values(raw));
