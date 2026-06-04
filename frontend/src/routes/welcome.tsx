@@ -2688,10 +2688,237 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 	);
 }
 
+function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
+	const bubble = (text: string, dark: boolean, key: number) => (
+		<div key={key} style={{ background: dark ? "rgba(169,191,254,0.37)" : "#fff", width: 197.542, height: 55.871, borderRadius: 41.903, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+			<div style={{ position: "absolute", left: 11.97, top: 8.98, display: "flex", alignItems: "center", gap: 19.954 }}>
+				<div style={{ width: 37.912, height: 37.912, borderRadius: 49.884, overflow: "hidden", flexShrink: 0 }}>
+					<img src={A.emAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
+				</div>
+				<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 8.182, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
+			</div>
+		</div>
+	);
+	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const stat = (num: string, label: string) => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 13.838, alignItems: "center", justifyContent: "center" }}>
+			<div style={{ display: "flex", alignItems: "center" }}>
+				<div style={{ width: 16.347, height: 19.616, flexShrink: 0 }}><img src={A.emStatArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				<p style={{ fontFamily: SQ, fontSize: 43.589, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" }}>{num}</p>
+			</div>
+			<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 11, color: "#f5f1f1", margin: 0, textAlign: "center", whiteSpace: "nowrap" }}>{label}</p>
+		</div>
+	);
+	return (
+		<section style={{ position: "absolute", left: 0, top: 5473, width: MOBILE390_WIDTH, height: 883, background: SECTION_BG, overflow: "hidden" }}>
+			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
+				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Early Momentum</p>
+					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				</div>
+				<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: 298 }}>
+					<p style={{ margin: 0, lineHeight: "35px" }}>Everything You Need.</p>
+					<p style={{ margin: 0, lineHeight: "35px" }}>Nothing You Don't.</p>
+				</div>
+			</div>
+			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
+			<div style={{ position: "absolute", left: 82.97, top: 435.36, display: "flex", gap: 10.52 }}>{r3.map(([t, d], i) => bubble(t, d, i))}</div>
+			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
+			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, #0a1020 0%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
+			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 635.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
+				{stat("50M", "Young active Users")}
+				{stat("30M", "Sign up for early access")}
+			</div>
+			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 128.5, top: 785.1, background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
+				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
+				<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+			</button>
+		</section>
+	);
+}
+
+function MobileFaq390({ onEmail }: { onEmail: () => void }) {
+	const [openIdx, setOpenIdx] = useState<number | null>(null);
+	return (
+		<section style={{ position: "absolute", left: 0, top: 6356, width: MOBILE390_WIDTH, height: 1230, background: SECTION_BG, overflow: "hidden" }}>
+			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 160 }}>
+				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
+					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+						<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>STAK FAQ</p>
+						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					</div>
+					<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
+						<p style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", lineHeight: "35px", width: 298, margin: 0 }}>We’re here to answer all your questions.</p>
+						<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, width: 308 }}>
+							<p style={{ margin: 0, lineHeight: "25px" }}>If you are new to world of stocks and financial discipline, STAK is built for you.</p>
+						</div>
+					</div>
+				</div>
+				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
+					<div style={{ width: 306, display: "flex", flexDirection: "column", gap: 20 }}>
+						{FAQS.map((f, i) => (
+							<div key={i} style={{ width: 306, display: "flex", flexDirection: "column", gap: 17, alignItems: "flex-start" }}>
+								<button type="button" onClick={() => setOpenIdx((pv) => (pv === i ? null : i))} style={{ ...btnReset, width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+									<div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+										<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "left", width: 268 }}>{f.q}</p>
+										<div style={{ width: 18, height: 18, flexShrink: 0 }}><img src={openIdx === i ? A.faqMinus : A.faqPlus} alt="" style={{ width: "100%", height: "100%" }} /></div>
+									</div>
+									{openIdx === i && f.a && <p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "rgba(255,255,255,0.7)", margin: 0, textAlign: "left", width: 306 }}>{f.a}</p>}
+								</button>
+								<div style={{ width: 306, height: 0, borderTop: "0.5px solid rgba(255,255,255,0.18)" }} />
+							</div>
+						))}
+					</div>
+					<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center" }}>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Have more questions?</p>
+						<button type="button" onClick={onEmail} style={{ ...btnReset, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", gap: 7.226, filter: CTA_SHADOW, cursor: "pointer" }}>
+							<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Email Us</span>
+							<div style={{ width: 13.775, height: 11.48, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+						</button>
+					</div>
+				</div>
+			</div>
+		</section>
+	);
+}
+
+function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+	const [email, setEmail] = useState("");
+	const tb: CSSProperties = { width: 182.724, height: 97.944, borderRadius: 6.319, overflow: "hidden", position: "relative", flexShrink: 0 };
+	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", ...st }} /></div>;
+	const maskTile = (src: string, st: CSSProperties, mpos: string, key: number) => (
+		<div key={key} style={tb}>
+			<div style={{ position: "absolute", WebkitMaskImage: `url(${A.ctaMqMask})`, maskImage: `url(${A.ctaMqMask})`, WebkitMaskSize: "182.724px 97.944px", maskSize: "182.724px 97.944px", WebkitMaskPosition: mpos, maskPosition: mpos, WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", ...st }}>
+				<img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+			</div>
+		</div>
+	);
+	const txt = (t: string, key: number) => <div key={key} style={tb}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontVariantCaps: "small-caps", fontSize: 42.126, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "23.696px" }}>{t}</p></div>;
+	const emptyTile = (key: number) => <div key={key} style={{ ...tb, background: "#172037" }} />;
+	const row = (tiles: React.ReactNode[], left: string, top: number, w: number) => (
+		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 10.532, alignItems: "center" }}>{tiles}</div>
+	);
+	return (
+		<section style={{ position: "absolute", left: 0, top: 7586, width: MOBILE390_WIDTH, height: 1067, background: SECTION_BG, overflow: "hidden" }}>
+			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60, zIndex: 2 }}>
+				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Our growing community</p>
+					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				</div>
+				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", width: 298 }}>
+						<p style={{ margin: 0, lineHeight: "35px" }}>Our community of fast rising </p>
+						<p style={{ margin: 0, lineHeight: "35px" }}>young investors</p>
+					</div>
+					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, width: 308 }}>
+						<p style={{ margin: 0, lineHeight: "25px" }}>If you are new to world of stocks and financial discipline, STAK is built for you.</p>
+					</div>
+				</div>
+			</div>
+			{row([
+				maskTile(A.ctaMqA8, { left: "calc(50% + 0.53px)", top: "calc(50% + 45.14px)", transform: "translate(-50%,-50%)", width: 190.078, height: 285.117 }, "3.143px 48.45px", 0),
+				txt("STAK", 1),
+				maskTile(A.ctaMq9e, { left: -1.58, top: -58.45, width: 185.744, height: 278.035 }, "1.577px 58.453px", 2),
+				imgTile(A.ctaMqF7, { left: "calc(50% - 0.23px)", top: "calc(50% + 36.6px)", transform: "translate(-50%,-50%)", width: 238.083, height: 237.488 }, 3),
+			], "calc(50% + 147.05px)", 504.4, 762.489)}
+			{row([
+				imgTile(A.ctaMq85, { left: "calc(50% + 0.09px)", top: "calc(50% + 13.43px)", transform: "translate(-50%,-50%)", width: 197.643, height: 296.465 }, 0),
+				maskTile(A.ctaMqC5, { left: -6.26, top: -18.43, width: 197.939, height: 262.653 }, "6.261px 18.429px", 1),
+				imgTile(A.ctaMq85, { left: "calc(50% + 0.09px)", top: "calc(50% + 13.43px)", transform: "translate(-50%,-50%)", width: 197.643, height: 296.465 }, 2),
+				txt("IT", 3),
+				imgTile(A.ctaMq4a, { left: -23.17, top: -247.5, width: 265.36, height: 494.46 }, 4),
+				emptyTile(5),
+			], "calc(50% + 200.5px)", 617.09, 1149)}
+			{row([
+				imgTile(A.ctaMq02, { left: -36.86, top: -12.64, width: 239.068, height: 239.068 }, 0),
+				txt("UP", 1),
+				imgTile(A.ctaMqE0, { left: "calc(50% + 0.26px)", top: "calc(50% - 5.79px)", transform: "translate(-50%,-50%)", width: 218.005, height: 218.005 }, 2),
+				imgTile(A.ctaMqBb, { left: -12.11, top: -68.45, width: 206.42, height: 294.485 }, 3),
+				maskTile(A.ctaMqC5, { left: -6.26, top: -18.43, width: 197.939, height: 262.653 }, "6.256px 18.435px", 4),
+			], "calc(50% + 159.69px)", 729.78, 955.745)}
+			<div style={{ position: "absolute", left: "calc(50% - 0.05px)", top: 948.2, transform: "translateX(-50%)", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13, zIndex: 2 }}>
+				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 120 }} />
+					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: "0.361px solid rgba(101,158,173,0.63)", borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
+						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Join us</span>
+					</button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
+function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+	const [email, setEmail] = useState("");
+	const linkCol = (title: string, items: string[]) => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
+			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
+			<div style={{ display: "flex", flexDirection: "column", gap: 14, fontFamily: SR, fontWeight: 300, fontSize: 16, color: "#fff", lineHeight: "25px" }}>
+				{items.map((it, i) => <p key={i} style={{ margin: 0, whiteSpace: "nowrap" }}>{it}</p>)}
+			</div>
+		</div>
+	);
+	return (
+		<section style={{ position: "absolute", left: 0, top: 8653, width: MOBILE390_WIDTH, height: 1173.93, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 58, alignItems: "flex-start", padding: "40px 0", width: "100%" }}>
+				<div style={{ display: "flex", flexDirection: "column", gap: 59, alignItems: "flex-start", justifyContent: "center", width: 310 }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: 40, alignItems: "flex-start", width: "100%" }}>
+						<div style={{ position: "relative", width: 109.131, height: 26.479 }}>
+							<div style={{ position: "absolute", left: 0, top: 0, width: 26.478, height: 26.479 }}><img src={A.footerLogoIcon} alt="STAK" style={{ width: "100%", height: "100%" }} /></div>
+							<div style={{ position: "absolute", left: 30.97, top: 5.76, width: 78.163, height: 14.983 }}><img src={A.footerLogoWord} alt="" style={{ width: "100%", height: "100%" }} /></div>
+						</div>
+						<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: "#fff", width: "100%" }}>
+							<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often." But nobody tells you how. Every platform you open hits you with charts, tickers, and jargon that feels`}</p>
+							<p style={{ margin: 0, lineHeight: "25px" }}>designed to make you feel dumb</p>
+						</div>
+					</div>
+					<div style={{ display: "flex", gap: 15, alignItems: "center" }}>
+						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
+							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+								<p style={{ fontFamily: SR, fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
+								<div style={{ width: 74, height: 15 }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
+							</div>
+						</div>
+						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
+							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
+								<p style={{ fontFamily: SR, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
+								<p style={{ fontFamily: SR, fontWeight: 500, fontSize: 18, margin: 0, lineHeight: "1", letterSpacing: -0.47 }}>App Store</p>
+							</div>
+						</div>
+					</div>
+				</div>
+				{linkCol("Useful Links", ["Home", "How it works", "Features", "Blog", "Privacy terms"])}
+				{linkCol("Social Links", ["Facebook", "Instagram", "X", "Tiktok", "Discord"])}
+				<div style={{ display: "flex", flexDirection: "column", gap: 51, alignItems: "flex-start" }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start" }}>
+						<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "pre" }}>{`Subscribe to our  newsletter`}</p>
+						<div style={{ background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13 }}>
+							<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+								<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 120 }} />
+								<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: "0.361px solid rgba(101,158,173,0.63)", borderRadius: 5.781, padding: "7.226px 14.453px", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
+									<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
+								</button>
+							</div>
+						</div>
+					</div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>2026 All right reserved</p>
+				</div>
+			</div>
+		</section>
+	);
+}
+
 function MobileLanding390({ scale, onSignup, onEmail, onSubscribe }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void }) {
 	// 390px phone canvas (Figma node 1:1586 / Frame 222). Height grows as sections are added.
 	void onEmail; void onSubscribe;
-	const H = 5473;
+	const H = 9826.93;
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE390_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
@@ -2700,6 +2927,10 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe }: { scale: nu
 				<MobileProblem390 onSignup={onSignup} />
 				<MobileHowItWorks390 onSignup={onSignup} />
 				<MobileFeatures390 onSignup={onSignup} />
+				<MobileEarlyMomentum390 onSignup={onSignup} />
+				<MobileFaq390 onEmail={onEmail} />
+				<MobileFinalCta390 onSubscribe={onSubscribe} />
+				<MobileFooter390 onSubscribe={onSubscribe} />
 			</div>
 		</div>
 	);
