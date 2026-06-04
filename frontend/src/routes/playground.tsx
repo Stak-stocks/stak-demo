@@ -3841,10 +3841,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 								<div>
 									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Today's return</p>
 									{(() => {
-										// If bought today, today's return = total return (both start from purchase price)
-										const boughtToday = new Date(holding.entry.addedAt).toDateString() === new Date().toDateString();
-										const d = boughtToday ? (holding.priceDollar ?? 0) : activeTodayChange != null ? holding.shares * activeTodayChange : null;
-										const p = boughtToday ? holding.pricePct : activeTodayPct;
+										// Robinhood style: always (current price - previous close) × shares
+										const d = activeTodayChange != null ? holding.shares * activeTodayChange : null;
+										const p = activeTodayPct;
 										if (d == null) return <p className="text-[15px] font-extrabold dark:text-slate-400 text-slate-500">—</p>;
 										const up = d >= 0;
 										return (
@@ -3911,11 +3910,12 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				</div>
 				{/* Portfolio overview + chart */}
 				{(() => {
-					const chartColor = totalDollarPnl >= 0 ? "#34d399" : "#f87171";
 					const firstVal = portfolioChartData[0]?.value;
 					const lastVal = portfolioChartData[portfolioChartData.length - 1]?.value;
 					const chartPct = firstVal && lastVal ? ((lastVal - firstVal) / firstVal) * 100 : null;
 					const chartDollar = firstVal && lastVal ? lastVal - firstVal : null;
+					// Color based on range performance (like Robinhood), not all-time P&L
+					const chartColor = (chartDollar ?? totalDollarPnl) >= 0 ? "#34d399" : "#f87171";
 					const PRANGES: ChartRange[] = ["1d", "1w", "1m", "3m", "ytd", "1y"];
 					const fmtLabel = (ts: string) => {
 						const d = new Date(ts);
@@ -4027,18 +4027,11 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 							{(() => { const pts = sparklineMap.get(h.ticker); return pts ? <Sparkline prices={pts} positive={(h.pricePct ?? 0) >= 0} /> : null; })()}
 									<div className="text-right shrink-0">
 										<p className="text-[14px] font-extrabold">${h.currentValue.toFixed(2)}</p>
-										<div className="flex flex-col items-end gap-[1px] mt-[2px]">
-											{h.pricePct != null && (
-												<p className={`text-[12px] font-semibold ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-													{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
-												</p>
-											)}
-											{h.changePercent != null && (
-												<p className={`text-[11px] ${h.changePercent >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-													{h.changePercent >= 0 ? "+" : ""}{h.changePercent.toFixed(2)}% today
-												</p>
-											)}
-										</div>
+										{h.pricePct != null && (
+											<p className={`text-[12px] font-semibold mt-[2px] ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+												{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
+											</p>
+										)}
 									</div>
 									<ChevronRight size={16} className="shrink-0 dark:text-slate-600 text-slate-300" />
 								</button>
