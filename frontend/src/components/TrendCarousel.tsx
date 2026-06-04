@@ -118,12 +118,12 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 					<Badge type={card.type} label={card.label} />
 
 					{card.topic && (
-						<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-3 sm:mb-5">
+						<h3 className="text-sm sm:text-lg font-extrabold text-foreground leading-tight mb-3 sm:mb-5">
 							{card.topic}
 						</h3>
 					)}
 
-					<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
+					<p className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 						{card.why}
 					</p>
 				</div>
@@ -151,12 +151,12 @@ function StandardTrendCard({ card }: { card: TrendCard }) {
 				<Badge type={card.type} label={card.label} />
 
 				{card.headline && (
-					<h3 className="text-sm sm:text-lg font-extrabold text-white leading-tight mb-2 sm:mb-4">
+					<h3 className="text-sm sm:text-lg font-extrabold text-foreground leading-tight mb-2 sm:mb-4">
 						{card.headline}
 					</h3>
 				)}
 
-				<p className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">
+				<p className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 					{card.explanation}
 				</p>
 			</div>
@@ -188,15 +188,15 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 				<div className="overflow-y-auto no-scrollbar">
 					<Badge type="stak" label={card.label} />
 
-					<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
+					<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed mb-3 sm:mb-5">
 						{card.synthesis}
 					</p>
 				</div>
 
 				{card.takeaway && (
 					<div className="mt-auto pt-3 shrink-0">
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
-							<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+						<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
+							<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
 					</div>
@@ -222,7 +222,7 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 
 					<div className="flex flex-col gap-3 mt-1">
 						{cleanIntro && (
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 								{cleanIntro}
 							</p>
 						)}
@@ -232,14 +232,14 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 								{cleanForces.map((force, i) => (
 									<li key={i} className="flex items-start gap-2">
 										<span className="text-amber-400 font-bold mt-0.5 shrink-0">•</span>
-										<span className="text-zinc-300 text-xs sm:text-[14px] leading-relaxed">{force}</span>
+										<span className="dark:text-zinc-300 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">{force}</span>
 									</li>
 								))}
 							</ul>
 						)}
 
 						{card.stockReflects && (
-							<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed">
+							<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed">
 								{card.stockReflects}
 							</p>
 						)}
@@ -251,8 +251,8 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 						className="mt-auto pt-3 shrink-0"
 						style={{ borderTop: `1px solid rgba(${c.rgb}, 0.15)` }}
 					>
-						<p className="text-zinc-200 text-xs sm:text-[14px] leading-relaxed italic">
-							<span className="not-italic font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+						<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[14px] leading-relaxed italic">
+							<span className="not-italic font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 							{card.takeaway}
 						</p>
 					</div>
@@ -268,15 +268,15 @@ function StakInsightCard({ card }: { card: TrendCard }) {
 			<div className="overflow-y-auto no-scrollbar">
 				<Badge type="stak" label={card.label} />
 
-				<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed mt-1">
+				<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[15px] leading-relaxed mt-1">
 					{highlightTrendRefs(card.explanation ?? "")}
 				</p>
 			</div>
 
 			{card.takeaway && (
 				<div className="mt-auto pt-3 shrink-0">
-					<p className="text-zinc-200 text-xs sm:text-[15px] leading-relaxed">
-						<span className="font-bold text-white">💡 The Subconscious Takeaway:&nbsp;</span>
+					<p className="dark:text-zinc-200 text-zinc-700 text-xs sm:text-[15px] leading-relaxed">
+						<span className="font-bold text-foreground">💡 The Subconscious Takeaway:&nbsp;</span>
 						{card.takeaway}
 					</p>
 				</div>
@@ -372,15 +372,15 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 
 	if (!trends || trends.length === 0) {
 		return (
-			<div className="bg-[#0f1629]/50 border border-slate-700/50 rounded-xl p-6">
+			<div className="bg-surface-1/50 border dark:border-slate-700/50 border-slate-200 rounded-xl p-6">
 				<div className="flex flex-col items-center justify-center py-12 text-center gap-3">
 					{isLoading ? (
 						<>
 							<div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-							<p className="text-zinc-400 text-sm">Generating trends…</p>
+							<p className="dark:text-zinc-400 text-zinc-600 text-sm">Generating trends…</p>
 						</>
 					) : (
-						<p className="text-zinc-400 text-sm">No trend data available yet.</p>
+						<p className="dark:text-zinc-400 text-zinc-600 text-sm">No trend data available yet.</p>
 					)}
 				</div>
 			</div>
@@ -478,7 +478,7 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 				<button
 					type="button"
 					onClick={goPrev}
-					className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-foreground backdrop-blur-sm transition-colors"
 					aria-label="Previous trend"
 				>
 					<ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -486,7 +486,7 @@ export function TrendCarousel({ trends, ticker: _ticker, isLoading }: TrendCarou
 				<button
 					type="button"
 					onClick={goNext}
-					className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm transition-colors"
+					className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 sm:p-2 rounded-full bg-black/40 hover:bg-black/60 text-foreground backdrop-blur-sm transition-colors"
 					aria-label="Next trend"
 				>
 					<ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />

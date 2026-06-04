@@ -162,8 +162,8 @@ newsRouter.get("/market", async (_req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const raw = await getMarketNews(40);
-		const articles = capByTopicDiversity(raw, 2).slice(0, 16);
+		const raw = await getMarketNews(30);
+		const articles = capByTopicDiversity(raw, 2).slice(0, 10);
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		const result = { articles: simplified };
 		if (simplified.length > 0) await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);

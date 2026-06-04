@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 import { applyActionCode } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
@@ -103,19 +103,19 @@ function ResetPasswordPage() {
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Logo */}
 				<div className="flex items-center justify-center gap-2 mb-2">
-					<StakLogoIcon width={32} height={32} />
-					<span className="text-white text-2xl font-bold tracking-wider">STAK</span>
+					<StakLogo size={32} />
+					<span className="text-foreground text-2xl font-bold tracking-wider">STAK</span>
 				</div>
 
 				{invalidCode ? (
 					<div className="space-y-4">
-						<h1 className="text-3xl font-bold text-white">Invalid Link</h1>
-						<p className="text-slate-400">
+						<h1 className="text-[26px] font-extrabold text-foreground">Invalid Link</h1>
+						<p className="dark:text-slate-400 text-slate-500">
 							This password reset link is invalid or has expired.
 						</p>
 						<Link
 							to="/forgot-password"
-							className="block w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+							className="block w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 						>
 							Request a new link
 						</Link>
@@ -123,15 +123,15 @@ function ResetPasswordPage() {
 				) : (
 					<>
 						<div>
-							<h1 className="text-3xl font-bold text-white">New Password</h1>
-							<p className="text-slate-400 mt-1">
-								Enter a new password for <strong className="text-slate-300">{email}</strong>
+							<h1 className="text-[26px] font-extrabold text-foreground">New Password</h1>
+							<p className="dark:text-slate-400 text-slate-500 mt-1">
+								Enter a new password for <strong className="dark:text-slate-300 text-slate-600">{email}</strong>
 							</p>
 						</div>
 
 						<form onSubmit={handleSubmit} className="space-y-4 text-left">
 							<div>
-								<label htmlFor="new-password" className="block text-sm text-slate-400 mb-1.5">New Password</label>
+								<label htmlFor="new-password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">New Password</label>
 								<div className="relative">
 									<input
 										id="new-password"
@@ -139,13 +139,13 @@ function ResetPasswordPage() {
 										placeholder="At least 6 characters"
 										value={password}
 										onChange={(e) => setPassword(e.target.value)}
-										className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+										className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 										autoFocus
 									/>
 									<button
 										type="button"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:dark:text-slate-300 text-slate-600"
 									>
 										{showPassword ? (
 											<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -162,25 +162,25 @@ function ResetPasswordPage() {
 							</div>
 
 							<div>
-								<label htmlFor="confirm-new-password" className="block text-sm text-slate-400 mb-1.5">Confirm Password</label>
+								<label htmlFor="confirm-new-password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Confirm Password</label>
 								<input
 									id="confirm-new-password"
 									type={showPassword ? "text" : "password"}
 									placeholder="Confirm new password"
 									value={confirmPassword}
 									onChange={(e) => setConfirmPassword(e.target.value)}
-									className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+									className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 								/>
 							</div>
 
 							<button
 								type="submit"
 								disabled={resetting || !password || !confirmPassword}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 							>
 								{resetting ? (
 									<div className="flex items-center justify-center gap-2">
-										<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+										<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 										Resetting...
 									</div>
 								) : (
@@ -191,7 +191,7 @@ function ResetPasswordPage() {
 					</>
 				)}
 
-				<p className="text-slate-400 text-sm pt-2">
+				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
 					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
 						Back to Sign In
 					</Link>

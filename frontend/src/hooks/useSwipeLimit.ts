@@ -18,12 +18,11 @@ const RESET_HOUR = 9; // 9 AM local time
 
 export function getTodayKey(): string {
 	const now = new Date();
-	if (now.getHours() < RESET_HOUR) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		return yesterday.toISOString().split("T")[0];
-	}
-	return now.toISOString().split("T")[0];
+	const target = now.getHours() < RESET_HOUR ? new Date(now.setDate(now.getDate() - 1)) : now;
+	const y = target.getFullYear();
+	const m = String(target.getMonth() + 1).padStart(2, "0");
+	const d = String(target.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
 }
 
 // ── localStorage helpers (guest path only) ────────────────────────────────────

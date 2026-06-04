@@ -179,7 +179,7 @@ export function FloatingBrands() {
 					className="absolute top-0 left-0 will-change-transform"
 					style={{ width: brand.s, height: brand.s, opacity: 0 }}
 				>
-					<div className="w-full h-full rounded-full bg-white/5 backdrop-blur-[2px] border border-white/[0.06] p-1.5 shadow-lg shadow-black/20">
+					<div className="w-full h-full rounded-full bg-white/5 backdrop-blur-[2px] border border-foreground/[0.06] p-1.5 shadow-lg shadow-black/20">
 						<img
 							src={brand.logo}
 							alt={brand.name}

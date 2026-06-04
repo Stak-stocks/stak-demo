@@ -13,31 +13,32 @@ type ErrorBoundaryProps = JSX.IntrinsicElements["div"] & {
 	children: React.ReactNode;
 };
 
-// using singleton. maybe not cool but works IF ONLY ONE ERROR BOUNDARY IS USED AT A TIME
-let normalContainer: HTMLDivElement | null = null;
-let clonedStage: HTMLDivElement | null = null;
-
 export class ErrorBoundary extends React.Component<
 	ErrorBoundaryProps,
 	ErrorBoundaryState
 > {
+	// Instance-level refs — safe with multiple ErrorBoundary instances
+	private normalContainer: HTMLDivElement | null = null;
+	private clonedStage: HTMLDivElement | null = null;
+
 	constructor(props: ErrorBoundaryProps) {
 		super(props);
 		this.state = { hasError: false };
 	}
 
 	static getDerivedStateFromError(error: Error) {
-		clonedStage = normalContainer?.cloneNode(true) as HTMLDivElement;
+		// cloneNode happens in componentDidCatch where we have `this`
 		return { hasError: true, error };
 	}
 
 	componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+		this.clonedStage = this.normalContainer?.cloneNode(true) as HTMLDivElement ?? null;
 		this.setState({ hasError: true, error, errorInfo });
 	}
 
 	applyClonedContent = (target: HTMLDivElement | null) => {
-		if (!clonedStage || !target) return;
-		for (const node of clonedStage.childNodes) target.appendChild(node);
+		if (!this.clonedStage || !target || target.hasChildNodes()) return;
+		for (const node of Array.from(this.clonedStage.childNodes)) target.appendChild(node);
 	};
 
 	render() {
@@ -61,9 +62,7 @@ export class ErrorBoundary extends React.Component<
 		return (
 			<Container
 				{...props}
-				ref={(e) => {
-					normalContainer = e;
-				}}
+				ref={(e) => { this.normalContainer = e; }}
 			>
 				{children}
 			</Container>

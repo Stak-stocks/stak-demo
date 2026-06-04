@@ -110,7 +110,7 @@ export function MarketBar() {
 				onClick={() => setExpanded((v) => !v)}
 				className="w-full text-left border-b border-zinc-700/50 bg-zinc-800/30 transition-all"
 			>
-				<div className="flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium text-zinc-400">
+				<div className="flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium dark:text-zinc-400 text-zinc-600">
 					<span>🔴</span>
 					<span className="font-semibold">Market Closed</span>
 					<span className="text-zinc-600">·</span>
@@ -125,7 +125,7 @@ export function MarketBar() {
 					<div className="px-6 pb-3 pt-1 grid grid-cols-3 gap-x-6 gap-y-1.5 text-xs border-t border-zinc-700/30">
 						<div>
 							<p className="text-zinc-600 text-[10px] uppercase tracking-wide">Price</p>
-							<p className="font-bold text-zinc-300">${quote.price.toFixed(2)}</p>
+							<p className="font-bold dark:text-zinc-300 text-zinc-700">${quote.price.toFixed(2)}</p>
 						</div>
 						<div>
 							<p className="text-zinc-600 text-[10px] uppercase tracking-wide">Change</p>
@@ -168,7 +168,7 @@ export function MarketBar() {
 		>
 			<div className="flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium">
 				<span>{up ? "📈" : "📉"}</span>
-				<span className="text-zinc-400">Market Today</span>
+				<span className="dark:text-zinc-400 text-zinc-600">Market Today</span>
 				<span className="font-semibold">S&amp;P 500</span>
 				<span className="font-bold">
 					{up ? "+" : ""}{quote.changePercent.toFixed(2)}%
@@ -180,7 +180,7 @@ export function MarketBar() {
 				<div className="px-6 pb-3 pt-1 grid grid-cols-3 gap-x-6 gap-y-1.5 text-xs border-t border-current/10">
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Price</p>
-						<p className="font-bold text-white">${quote.price.toFixed(2)}</p>
+						<p className="font-bold text-foreground">${quote.price.toFixed(2)}</p>
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Change</p>
@@ -188,19 +188,19 @@ export function MarketBar() {
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Day High</p>
-						<p className="font-semibold text-zinc-300">${quote.high.toFixed(2)}</p>
+						<p className="font-semibold dark:text-zinc-300 text-zinc-700">${quote.high.toFixed(2)}</p>
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Day Low</p>
-						<p className="font-semibold text-zinc-300">${quote.low.toFixed(2)}</p>
+						<p className="font-semibold dark:text-zinc-300 text-zinc-700">${quote.low.toFixed(2)}</p>
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Open</p>
-						<p className="font-semibold text-zinc-300">${quote.open.toFixed(2)}</p>
+						<p className="font-semibold dark:text-zinc-300 text-zinc-700">${quote.open.toFixed(2)}</p>
 					</div>
 					<div>
 						<p className="text-zinc-500 text-[10px] uppercase tracking-wide">Prev Close</p>
-						<p className="font-semibold text-zinc-300">${quote.prevClose.toFixed(2)}</p>
+						<p className="font-semibold dark:text-zinc-300 text-zinc-700">${quote.prevClose.toFixed(2)}</p>
 					</div>
 				</div>
 			)}

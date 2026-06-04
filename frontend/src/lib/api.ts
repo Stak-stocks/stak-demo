@@ -52,6 +52,10 @@ export function getBrands() {
 	return apiRequest<{ brands: unknown[] }>("/api/brands");
 }
 
+export function getPopularBrands() {
+	return apiRequest<{ brandIds: string[] }>("/api/brands/popular");
+}
+
 // Stak
 export function getStak() {
 	return apiRequest<{ brandIds: string[] }>("/api/me/stak");
@@ -197,6 +201,10 @@ export interface LiveQuote {
 	low: number;
 	open: number;
 	prevClose: number;
+	marketState?: "PRE" | "REGULAR" | "POST" | "POSTPOST" | "PREPRE" | "CLOSED";
+	extendedPrice?: number | null;
+	extendedChange?: number | null;
+	extendedChangePercent?: number | null;
 }
 
 export interface LiveMetrics {
@@ -210,23 +218,7 @@ export interface LiveMetrics {
 	week52Low: number | null;
 }
 
-export interface CalendarEntry {
-	symbol: string;
-	date: string;
-	hour: string;
-	epsActual: number | null;
-	epsEstimate: number | null;
-	revenueActual: number | null;
-	revenueEstimate: number | null;
-}
 
-export function getEarningsCalendar() {
-	return apiRequest<{
-		today: CalendarEntry[];
-		tomorrow: CalendarEntry[];
-		week: CalendarEntry[];
-	}>("/api/stock/calendar");
-}
 
 export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
@@ -252,6 +244,44 @@ export function getMarketEarnings(period: "today" | "tomorrow" | "week", extraTi
 	);
 }
 
+export interface AnalystData {
+	priceTarget: { low: number | null; avg: number | null; high: number | null } | null;
+	recommendation: {
+		strongBuy: number; buy: number; hold: number; sell: number; strongSell: number;
+		period: string | null;
+	} | null;
+}
+
+export function getAnalystData(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst${qs}`);
+}
+
+export interface AnalystAction {
+	firm: string;
+	action: string;
+	priceTarget: number | null;
+}
+
+export function getAnalystActions(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystAction[]>(`/api/stock/${encodeURIComponent(symbol)}/analyst-actions${qs}`);
+}
+
+export interface PeerMetrics {
+	ticker: string;
+	peerTickers: string[];
+	peerCount: number;
+	pe: number | null;
+	revenueGrowth: number | null;
+	profitMargin: number | null;
+	beta: number | null;
+}
+
+export function getPeerMetrics(symbol: string) {
+	return apiRequest<PeerMetrics>(`/api/stock/peer-metrics/${encodeURIComponent(symbol)}`);
+}
+
 export function getEarnings(symbol: string, name?: string) {
 	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
 	return apiRequest<{
@@ -261,12 +291,125 @@ export function getEarnings(symbol: string, name?: string) {
 	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings${qs}`);
 }
 
+export interface EarningsQuick {
+	period: string;
+	quarter: number;
+	year: number;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	beat: boolean | null;
+	surprisePercent: number | null;
+}
+
+export function getEarningsQuick(symbol: string) {
+	return apiRequest<EarningsQuick | null>(`/api/stock/${encodeURIComponent(symbol)}/earnings-quick`);
+}
+
+export interface DailyMoveData {
+	explanation: string;
+	direction: "up" | "down" | "flat";
+}
+
+export function getDailyMove(symbol: string, changePercent?: number, name?: string) {
+	const params = new URLSearchParams();
+	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
+	if (name) params.set("name", name);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
+}
+
+export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
+export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y";
+
+export function getStockChart(symbol: string, range: ChartRange = "1m") {
+	return apiRequest<{ prices: StockChartPoint[] }>(
+		`/api/stock/${encodeURIComponent(symbol)}/chart?range=${range}`,
+	);
+}
+
+export interface DailyBriefDeck {
+	id: string;
+	title: string;
+	subtitle: string;
+	icon: string;
+	color: "green" | "purple" | "blue";
+	bars?: boolean;
+}
+
+export interface DailyBriefResponse {
+	mood: "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
+	session: "open" | "midday" | "close";
+	moodExplanation: string;
+	plainEnglish: string;
+	personalizedImpact: string;
+	decks: DailyBriefDeck[];
+	marketSnapshot: {
+		spyChange: number | null;
+		qqqChange: number | null;
+		diaChange: number | null;
+	};
+	generatedAt: string;
+}
+
+export function getDailyBrief() {
+	return apiRequest<DailyBriefResponse>("/api/daily-brief");
+}
+
+export interface RecommendationDebugStock {
+	ticker: string;
+	primaryCategory: string;
+	displayTags: string[];
+	finalScore: number;
+	scoreBreakdown: {
+		tasteMatchScore: number;
+		freshnessBoost: number;
+		dailyBriefThemeBoost: number;
+		diversityAdjustment: number;
+	};
+	matchedUserTags: string[];
+}
+
+export interface FreshnessSignals {
+	majorNewsLast48h: string[];
+	unusualMovers: string[];
+	analystUpdatesLast7d: string[];
+}
+
+export function getRecommendationFreshness() {
+	return apiRequest<FreshnessSignals>("/api/recommendations/freshness");
+}
+
+export function getRecommendationDebug(limit = 50) {
+	return apiRequest<{
+		uid: string;
+		hasTagScores: boolean;
+		tagScoreCount: number;
+		upcomingEarningsCount: number;
+		upcomingEarningsTickers: string[];
+		totalStocks: number;
+		returnedCount: number;
+		stocks: RecommendationDebugStock[];
+	}>(`/api/recommendations/debug?limit=${limit}`);
+}
+
 // Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
 
 // Module-level cache — populated on first fetch, refreshed every 2 hours
 const DYNAMIC_STOCKS_TTL_MS = 2 * 60 * 60 * 1000;
 let _dynamicStocksCache: import("@/data/brands").BrandProfile[] = [];
 let _dynamicStocksCachedAt = 0;
+
+export async function generatePlaygroundQuestions(
+	weekKey: string,
+	tier: number,
+	type: "battle" | "earnings" | "risk" | "mood" | "lesson" | "drill_sentiment" | "drill_nextstep",
+	count: number,
+): Promise<unknown[]> {
+	return apiRequest<{ questions: unknown[] }>("/api/playground/generate", {
+		method: "POST",
+		body: JSON.stringify({ weekKey, tier, type, count }),
+	}).then(r => r.questions ?? []);
+}
 
 export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[] {
 	return _dynamicStocksCache;

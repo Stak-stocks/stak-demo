@@ -66,11 +66,11 @@ function ResultsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] text-gray-900 dark:text-white">
+		<div className="min-h-screen bg-background text-foreground">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 				<button
 					onClick={() => navigate({ to: "/league" })}
-					className="inline-flex items-center gap-2 text-gray-400 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
+					className="inline-flex items-center gap-2 text-gray-400 dark:dark:text-zinc-400 text-zinc-600 hover:text-gray-900 dark:hover:text-foreground transition-colors mb-8"
 				>
 					<ArrowLeft className="w-5 h-5" />
 					<span>Back to League</span>
@@ -85,16 +85,16 @@ function ResultsPage() {
 						)}
 						<h1
 							className={`text-5xl font-bold mb-4 ${
-								isWin ? "text-yellow-500" : "text-gray-400 dark:text-zinc-400"
+								isWin ? "text-yellow-500" : "text-gray-400 dark:dark:text-zinc-400 text-zinc-600"
 							}`}
 						>
 							{isWin ? "You Won!" : "Not This Week"}
 						</h1>
-							<p className="text-2xl text-gray-600 dark:text-zinc-300">{message}</p>
+							<p className="text-2xl text-gray-600 dark:dark:text-zinc-300 text-zinc-700">{message}</p>
 					</div>
 
-						<div className="bg-white dark:bg-[#0f1629]/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-8 max-w-2xl mx-auto">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+						<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-8 max-w-2xl mx-auto">
+							<h2 className="text-xl font-bold text-foreground mb-6">
 								Week {weekKey} Results
 							</h2>
 
@@ -127,13 +127,13 @@ function ResultsPage() {
 							</div>
 						</div>
 
-							<div className="border-t border-gray-200 dark:border-slate-700/50 pt-6">
-								<p className="text-gray-500 dark:text-zinc-400 mb-4">Your picks:</p>
+							<div className="border-t border-gray-200 dark:dark:border-slate-700/50 border-slate-200 pt-6">
+								<p className="text-gray-500 dark:dark:text-zinc-400 text-zinc-600 mb-4">Your picks:</p>
 								<div className="flex flex-wrap gap-2 justify-center">
 									{starters.map((brand) => (
 										<div
 											key={brand.id}
-											className="px-3 py-1 bg-gray-100 dark:bg-[#162036] rounded-full text-sm"
+											className="px-3 py-1 bg-gray-100 dark:bg-surface-2 rounded-full text-sm"
 									>
 										{brand.ticker}
 									</div>
@@ -145,7 +145,7 @@ function ResultsPage() {
 					<div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-6 max-w-2xl mx-auto">
 						<div className="flex items-center justify-center gap-4 mb-4">
 							<Zap className="w-6 h-6 text-yellow-500" />
-							<h3 className="text-xl font-bold text-gray-900 dark:text-white">Rewards Earned</h3>
+							<h3 className="text-xl font-bold text-foreground">Rewards Earned</h3>
 							</div>
 							<div className="flex items-center justify-center gap-8">
 								<div>
@@ -167,7 +167,7 @@ function ResultsPage() {
 
 					<Button
 						onClick={() => navigate({ to: "/league" })}
-						className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white text-lg px-8 py-6 h-auto"
+						className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-foreground text-lg px-8 py-6 h-auto"
 					>
 						Back to League Home
 					</Button>

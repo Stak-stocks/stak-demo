@@ -50,7 +50,7 @@ export interface StreakResult {
 export async function recordActivity(
 	uid: string,
 	activityType: "swipe" | "intel_view" | "brand_tap",
-): Promise<StreakResult> {
+): Promise<StreakResult | null> {
 	try {
 		const userRef = adminDb.collection("users").doc(uid);
 		const today = new Date().toISOString().split("T")[0];
@@ -71,7 +71,7 @@ export async function recordActivity(
 					...(activityType === "swipe"      && { totalSwipeCount }),
 					...(activityType === "intel_view" && { totalIntelViews }),
 				}, { merge: true });
-				return { streak: data.streakCount ?? 0, newBadges: [], bonusSwipesAdded: 0 };
+				return null; // streak already counted today, nothing new to report
 			}
 
 			// ── Streak calculation ───────────────────────────────────────────────
@@ -150,6 +150,6 @@ export async function recordActivity(
 		});
 	} catch (err) {
 		console.error("streakService error:", err);
-		return { streak: 0, newBadges: [], bonusSwipesAdded: 0 };
+		return null;
 	}
 }

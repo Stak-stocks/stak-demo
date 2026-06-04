@@ -32,7 +32,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function getGeminiKeys(): string[] {
+export function getGeminiKeys(): string[] {
 	return [
 		process.env.GEMINI_API_KEY,
 		process.env.GEMINI_API_KEY_2,
@@ -42,36 +42,50 @@ function getGeminiKeys(): string[] {
 
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
 
+// Use the lite model for high-volume article simplification — faster and cheaper
+const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
+const SIMPLIFY_TIMEOUT_MS = 12000;
+
 /** Try one Gemini key with one retry on 429. Returns parsed results or null if rate-limited. */
 async function trySimplifyKey(key: string, prompt: string, count: number): Promise<SimplifyResult[] | null> {
 	for (let attempt = 0; attempt < 2; attempt++) {
-		if (attempt > 0) await sleep(2000);
+		if (attempt > 0) await sleep(1500);
 
-		const res = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
-				}),
-			},
-		);
-
-		if (res.status === 429) continue;
-		if (!res.ok) throw new Error(`Gemini error ${res.status}`);
-
-		const geminiData = await res.json();
-		const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), SIMPLIFY_TIMEOUT_MS);
 		try {
-			return JSON.parse(rawText);
-		} catch {
-			return Array.from({ length: count }, () => ({
-				explanation: "Could not simplify this article.",
-				whyItMatters: "Check the original source for details.",
-				sentiment: "neutral",
-			}));
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/${SIMPLIFY_MODEL}:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, responseMimeType: "application/json" },
+					}),
+					signal: controller.signal,
+				},
+			);
+
+			if (res.status === 429) continue;
+			if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+			const geminiData = await res.json();
+			const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+			try {
+				return JSON.parse(rawText);
+			} catch {
+				return Array.from({ length: count }, () => ({
+					explanation: "Could not simplify this article.",
+					whyItMatters: "Check the original source for details.",
+					sentiment: "neutral",
+				}));
+			}
+		} catch (e) {
+			if ((e as Error)?.name === "AbortError") return null; // timed out — try next key
+			throw e;
+		} finally {
+			clearTimeout(timeout);
 		}
 	}
 	return null;
@@ -204,14 +218,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 					}),
 				},
 			);
@@ -268,13 +282,13 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0, maxOutputTokens: 10 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
 					}),
 				},
 			);
@@ -345,13 +359,13 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			const timeout = setTimeout(() => controller.abort(), 2500);
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
-							generationConfig: { temperature: 0, responseMimeType: "application/json" },
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, responseMimeType: "application/json" },
 						}),
 						signal: controller.signal,
 					},

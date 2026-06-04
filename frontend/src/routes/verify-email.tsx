@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { auth } from "../lib/firebase";
 import { applyActionCode, checkActionCode } from "firebase/auth";
 import { toast } from "sonner";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/verify-email")({
 	component: VerifyEmailPage,
@@ -33,8 +33,14 @@ function VerifyEmailPage() {
 
 		if (oobCode) {
 			if (mode === "resetPassword" || mode === "recoverEmail") {
-				dispatchingRef.current = true; // prevent guard from redirecting to /signup
-				globalThis.location.replace(`/reset-password?${params.toString()}`);
+				// Check code validity before redirecting — avoids user typing new password only to learn the link expired
+				checkActionCode(auth, oobCode).then(() => {
+					dispatchingRef.current = true;
+					globalThis.location.replace(`/reset-password?${params.toString()}`);
+				}).catch(() => {
+					// Link is expired or already used — show the error state on this page
+					setCodeValid(false);
+				});
 				return;
 			}
 			if (mode === "verifyEmail") {
@@ -80,31 +86,37 @@ function VerifyEmailPage() {
 	useEffect(() => {
 		if (!user || pendingCode || sessionStorage.getItem("pendingVerifyCode") || dispatchingRef.current) return;
 
+		let mounted = true; // guard against navigating after unmount
+
 		async function check() {
 			try {
 				await auth.currentUser?.reload();
+				if (!mounted) return; // user navigated away while reload was in-flight
 				if (auth.currentUser?.emailVerified) {
 					clearInterval(pollRef.current!);
-					// Force-refresh JWT so backend sees email_verified: true
 					await auth.currentUser.getIdToken(true);
+					if (!mounted) return;
 					toast.success("Email verified! Welcome to STAK!");
 					navigate({ to: "/onboarding" });
 				}
 			} catch (err: unknown) {
-				// Account was deleted (cleanup job ran or user deleted manually)
+				if (!mounted) return;
 				const code = (err as { code?: string }).code ?? "";
 				if (code === "auth/user-token-expired" || code === "auth/user-not-found") {
 					clearInterval(pollRef.current!);
 					toast.error("Verification window expired. Please sign up again.");
 					await logout();
-					navigate({ to: "/signup" });
+					if (mounted) navigate({ to: "/signup" });
 				}
 			}
 		}
 
-		check(); // immediate check — no 3 s wait on first load
+		check();
 		pollRef.current = setInterval(check, 3000);
-		return () => { if (pollRef.current) clearInterval(pollRef.current); };
+		return () => {
+			mounted = false;
+			if (pollRef.current) clearInterval(pollRef.current);
+		};
 	}, [user, pendingCode, navigate, logout]);
 
 	// Cooldown countdown
@@ -205,8 +217,8 @@ function VerifyEmailPage() {
 			return (
 				<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 					<div className="absolute top-5 left-6 flex items-center gap-2">
-						<StakLogoIcon width={28} height={28} />
-						<span className="text-white text-base font-bold tracking-wider">STAK</span>
+						<StakLogo size={28} />
+						<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 					</div>
 					<div className="w-full max-w-sm text-center space-y-6">
 						<div className="flex justify-center">
@@ -217,8 +229,8 @@ function VerifyEmailPage() {
 							</div>
 						</div>
 						<div>
-							<h1 className="text-2xl font-bold text-white">Link expired</h1>
-							<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+							<h1 className="text-[22px] font-extrabold text-foreground">Link expired</h1>
+							<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 								This verification link has expired or has already been used.
 								Request a new one below.
 							</p>
@@ -230,7 +242,7 @@ function VerifyEmailPage() {
 									setPendingCode(null);
 									await handleResend();
 								}}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 							>
 								Send a new verification email
 							</button>
@@ -238,7 +250,7 @@ function VerifyEmailPage() {
 							<button
 								type="button"
 								onClick={() => navigate({ to: "/login" })}
-								className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+								className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 							>
 								Sign in to resend
 							</button>
@@ -252,8 +264,8 @@ function VerifyEmailPage() {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 				<div className="absolute top-5 left-6 flex items-center gap-2">
-					<StakLogoIcon width={28} height={28} />
-					<span className="text-white text-base font-bold tracking-wider">STAK</span>
+					<StakLogo size={28} />
+					<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 				</div>
 
 				<div className="w-full max-w-sm text-center space-y-6">
@@ -266,10 +278,10 @@ function VerifyEmailPage() {
 					</div>
 
 					<div>
-						<h1 className="text-2xl font-bold text-white">Almost there!</h1>
-						<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+						<h1 className="text-[22px] font-extrabold text-foreground">Almost there!</h1>
+						<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 							Tap the button below to confirm your email address
-							{user && <>{" "}<span className="text-white font-medium">{user.email}</span></>}
+							{user && <>{" "}<span className="text-foreground font-medium">{user.email}</span></>}
 							{" "}and get started.
 						</p>
 					</div>
@@ -278,11 +290,11 @@ function VerifyEmailPage() {
 						type="button"
 						onClick={handleVerifyNow}
 						disabled={verifying}
-						className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-green-500/25"
+						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-green-500/25"
 					>
 						{verifying ? (
 							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 								Verifying...
 							</div>
 						) : (
@@ -300,8 +312,8 @@ function VerifyEmailPage() {
 		<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6">
 			{/* Logo */}
 			<div className="absolute top-5 left-6 flex items-center gap-2">
-				<StakLogoIcon width={28} height={28} />
-				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+				<StakLogo size={28} />
+				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</div>
 
 			<div className="w-full max-w-sm text-center space-y-6">
@@ -315,10 +327,10 @@ function VerifyEmailPage() {
 				</div>
 
 				<div>
-					<h1 className="text-2xl font-bold text-white">Check your inbox</h1>
-					<p className="text-slate-400 mt-2 text-sm leading-relaxed">
+					<h1 className="text-[22px] font-extrabold text-foreground">Check your inbox</h1>
+					<p className="dark:text-slate-400 text-slate-500 mt-2 text-sm leading-relaxed">
 						We sent a verification link to{" "}
-						<span className="text-white font-medium">{user.email}</span>.
+						<span className="text-foreground font-medium">{user.email}</span>.
 						Click it to activate your account.
 					</p>
 				</div>
@@ -328,11 +340,11 @@ function VerifyEmailPage() {
 					type="button"
 					onClick={handleCheckNow}
 					disabled={checking}
-					className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-orange-500/25"
+					className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-orange-500/25"
 				>
 					{checking ? (
 						<div className="flex items-center justify-center gap-2">
-							<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+							<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 							Checking...
 						</div>
 					) : (
@@ -345,7 +357,7 @@ function VerifyEmailPage() {
 					type="button"
 					onClick={handleResend}
 					disabled={cooldown > 0}
-					className="w-full py-3 rounded-xl font-medium text-slate-300 border border-slate-700 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+					className="w-full py-3 rounded-xl font-medium dark:text-slate-300 text-slate-600 border dark:border-slate-700 border-slate-200 hover:border-slate-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 				>
 					{cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
 				</button>
@@ -354,7 +366,7 @@ function VerifyEmailPage() {
 				<button
 					type="button"
 					onClick={async () => { await logout(); navigate({ to: "/signup" }); }}
-					className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+					className="text-sm text-slate-500 hover:dark:text-slate-300 text-slate-600 transition-colors"
 				>
 					Wrong email? Sign out and try again
 				</button>

@@ -120,7 +120,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 					{/* Label with eye icon — clickable */}
 					<div className="relative" ref={openPopover === i ? popoverRef : undefined}>
 						<button
-							className="flex items-center gap-1.5 text-sm font-bold text-white cursor-pointer hover:text-zinc-200 transition-colors active:scale-95 touch-manipulation"
+							className="flex items-center gap-1.5 text-sm font-bold text-foreground cursor-pointer hover:dark:text-zinc-200 text-zinc-700 transition-colors active:scale-95 touch-manipulation"
 							type="button"
 							aria-label={`Learn about ${vibe.name}`}
 							onClick={(e) => {
@@ -136,7 +136,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 						{/* Click popover */}
 						{openPopover === i && (
 							<div
-								className="absolute left-0 bottom-full mb-2 z-50 w-64 sm:w-72 rounded-xl border border-slate-700/50 px-4 py-3 text-sm text-slate-100 leading-relaxed shadow-xl"
+								className="absolute left-0 bottom-full mb-2 z-50 w-64 sm:w-72 rounded-xl border dark:border-slate-700/50 border-slate-200 px-4 py-3 text-sm text-foreground/95 leading-relaxed shadow-xl"
 								style={{
 									background: "linear-gradient(145deg, #131929 0%, #0d1222 100%)",
 									boxShadow: `0 0 12px ${resolveColor(vibe)}40, 0 8px 24px rgba(0,0,0,0.5)`,
@@ -147,7 +147,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 								<p>{VIBE_EXPLANATIONS[vibe.name] || ""}</p>
 								{/* Arrow */}
 								<div
-									className="absolute left-4 -bottom-1.5 w-3 h-3 rotate-45 border-r border-b border-slate-700/50"
+									className="absolute left-4 -bottom-1.5 w-3 h-3 rotate-45 border-r border-b dark:border-slate-700/50 border-slate-200"
 									style={{ background: "#0d1222" }}
 								/>
 							</div>
@@ -170,7 +170,7 @@ export function VibeSliders({ vibes, isTopCard = false }: VibeSlidersProps) {
 						{/* Percentage badge above bar */}
 						{(hoveredIndex === i || tappedBar === i) && (
 							<div
-								className="absolute -top-7 px-2 py-0.5 rounded-md text-xs font-bold text-white pointer-events-none z-10"
+								className="absolute -top-7 px-2 py-0.5 rounded-md text-xs font-bold text-foreground pointer-events-none z-10"
 								style={{
 									left: `${vibe.value}%`,
 									transform: "translateX(-50%)",

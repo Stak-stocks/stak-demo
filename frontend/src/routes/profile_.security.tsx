@@ -83,7 +83,7 @@ function SecurityPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
+			className="min-h-screen bg-background text-foreground pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;
@@ -99,7 +99,7 @@ function SecurityPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -112,14 +112,14 @@ function SecurityPage() {
 
 				{/* Sign-in Method */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Sign-in Method</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6">
 					<div className="flex items-center gap-3 px-4 py-3.5">
 						<div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
 							<Shield className="w-4 h-4 text-amber-400" />
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Provider</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white">{isGoogle ? "Google" : "Email & Password"}</p>
+							<p className="text-sm font-medium text-foreground">{isGoogle ? "Google" : "Email & Password"}</p>
 						</div>
 						<span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 border", isGoogle ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-cyan-400 bg-cyan-500/10 border-cyan-500/20"].join(" ")}>
 							{isGoogle ? "Google" : "Email"}
@@ -131,20 +131,20 @@ function SecurityPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Password</p>
 
 				{isGoogle ? (
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-4 text-center">
+					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-4 text-center">
 						<div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center mx-auto mb-3">
 							<KeyRound className="w-5 h-5 text-blue-400" />
 						</div>
-						<p className="text-sm font-medium text-zinc-900 dark:text-white mb-1">Password managed by Google</p>
+						<p className="text-sm font-medium text-foreground mb-1">Password managed by Google</p>
 						<p className="text-xs text-zinc-500">Your sign-in is handled by Google. To change your password, visit your Google account settings.</p>
 					</div>
 				) : (
-					<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30">
+					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30">
 
 						{/* Current Password */}
 						<div className="flex items-center gap-3 px-4 py-3.5">
-							<div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center shrink-0">
-								<Lock className="w-4 h-4 text-zinc-400" />
+							<div className="w-8 h-8 rounded-lg dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center shrink-0">
+								<Lock className="w-4 h-4 dark:text-zinc-400 text-zinc-600" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Current Password</p>
@@ -153,10 +153,10 @@ function SecurityPage() {
 									value={currentPassword}
 									onChange={(e) => setCurrentPassword(e.target.value)}
 									placeholder="Enter current password"
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-zinc-600"
 								/>
 							</div>
-							<button type="button" onClick={() => setShowCurrent((v) => !v)} className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">
+							<button type="button" onClick={() => setShowCurrent((v) => !v)} className="text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors shrink-0">
 								{showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 							</button>
 						</div>
@@ -173,10 +173,10 @@ function SecurityPage() {
 									value={newPassword}
 									onChange={(e) => setNewPassword(e.target.value)}
 									placeholder="Min. 6 characters"
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-zinc-600"
 								/>
 							</div>
-							<button type="button" onClick={() => setShowNew((v) => !v)} className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">
+							<button type="button" onClick={() => setShowNew((v) => !v)} className="text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors shrink-0">
 								{showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 							</button>
 						</div>
@@ -194,7 +194,7 @@ function SecurityPage() {
 									onChange={(e) => setConfirmPassword(e.target.value)}
 									placeholder="Repeat new password"
 									onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }}
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-zinc-600"
 								/>
 							</div>
 						</div>
@@ -218,7 +218,7 @@ function SecurityPage() {
 					<button
 						type="button"
 						onClick={handleSendReset}
-						className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-2"
+						className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors py-2"
 					>
 						<Mail className="w-3.5 h-3.5" />
 						Forgot password? Send reset email to {user.email}
