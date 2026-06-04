@@ -137,7 +137,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 		return;
 	}
 
-	// Cache key is tier+week+type only — count excluded so level-ups don't miss cache
+	// Cache key is shared per week+tier+type — same Gemini content for all users that week
 	const cacheKey = `playground:gen:v4:${weekKey}__t${tier}__${type}`;
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
@@ -163,12 +163,13 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 		prompt = `You are generating stock battle questions for a ${tierLabel}-level investing app.
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
 
+WEEK: ${weekKey} — use this as a seed for variety. Each week must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
+
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
-Use real companies and metrics appropriate for this level.
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
-  "id": "gen-battle-{weekKey}-{index}",
+  "id": "gen-battle-${weekKey}-1",
   "tickerA": "AAPL",
   "nameA": "Apple",
   "tickerB": "MSFT",
@@ -176,25 +177,27 @@ Return a JSON array of exactly ${rawCount} objects with this schema:
   "category": "Tech",
   "metricLabel": "Revenue Growth",
   "higherWins": true,
-  "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins. The explanation should educate regardless of which company the live data shows winning.",
+  "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins.",
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
 - Use companies that are genuinely comparable (same sector/industry)
 - The explanation must describe BOTH companies' fundamentals on the metric — not declare a winner
 - The live winner is determined by real-time data, not by the explanation
-- Vary the metric (revenue growth, profit margin, P/E ratio, market cap, etc.)
+- Vary the metric each week (revenue growth, profit margin, P/E ratio, market cap, dividend yield, etc.)
 - Do NOT use the same company more than once across the ${rawCount} matchups
 - Only output the JSON array, nothing else`;
 	} else if (type === "earnings") {
 		prompt = `Generate ${rawCount} earnings lab scenarios for a ${tierLabel}-level investing education app.
 Each scenario tests the user on predicting how a company's stock would react after earnings.
 
+WEEK: ${weekKey} — use this as a seed for variety. Each week must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
+
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-earn-1",
+  "id": "gen-earn-${weekKey}-1",
   "company": "Nike",
   "ticker": "NKE",
   "context": "2-3 sentences describing the pre-earnings situation and analyst expectations.",
@@ -226,11 +229,13 @@ Rules:
 		prompt = `Generate ${rawCount} risk identification scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents two investment options and asks which is riskier.
 
+WEEK: ${weekKey} — use this as a seed for variety. Each week must produce DIFFERENT companies, industries, and risk types from any other week.
+
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-risk-1",
+  "id": "gen-risk-${weekKey}-1",
   "prompt": "Which stock carries more risk?",
   "optionA": "Procter & Gamble (PG) — consumer staples giant",
   "optionB": "A small biotech with a single drug in Phase 2 trials",
@@ -239,19 +244,21 @@ Return a JSON array of exactly ${rawCount} objects:
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
-- Mix easy/obvious comparisons (at ${tierLabel} level) with subtler ones
+- Each week use DIFFERENT companies and industries — rotate across tech, healthcare, energy, retail, finance, industrials
+- Vary the type of risk each scenario tests (volatility, liquidity, concentration, leverage, business model risk, regulatory risk)
 - Explanations must be accurate and teach real risk concepts
-- Vary the type of risk (volatility, liquidity, concentration, leverage, etc.)
 - Only output the JSON array, nothing else`;
 	} else if (type === "mood") {
 		prompt = `Generate ${rawCount} market mood simulator scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents a real-world macro event and asks how markets would react.
 
+WEEK: ${weekKey} — use this as a seed for variety. Each week must cover DIFFERENT macro events and economic topics from any other week.
+
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-mood-1",
+  "id": "gen-mood-${weekKey}-1",
   "event": "📈 The Fed signals it will pause rate hikes for the rest of the year",
   "question": "Which sector would most likely benefit from this news?",
   "options": [
@@ -265,9 +272,8 @@ Return a JSON array of exactly ${rawCount} objects:
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
-- Events should be realistic macro events that actually affect markets
+- Each week cover DIFFERENT macro themes — rotate across: Fed policy, inflation, GDP/recession, geopolitics, commodity prices, earnings seasons, currency moves, sector rotations, trade policy, consumer sentiment
 - The correct answer must be grounded in real economic relationships
-- Vary topics: Fed, inflation, geopolitics, earnings seasons, sector rotations
 - Only output the JSON array, nothing else`;
 	} else if (type === "lesson") {
 		const CATEGORIES = ["Stock Basics", "Market Basics", "Valuation", "Earnings", "Risk", "Dividends", "Sectors"];
@@ -281,13 +287,15 @@ Rules:
 		prompt = `You are generating investing education lessons for a ${tierLabel}-level student.
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
 
+WEEK: ${weekKey} — use this as a seed for variety. Each week must cover DIFFERENT concepts and topics from any other week. Do not repeat lesson titles or concepts that would have been covered in previous weeks.
+
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
 
 Return a JSON array of exactly ${rawCount} objects with this exact schema:
 [{
-  "id": "gen-lesson-unique-slug",
+  "id": "gen-lesson-${weekKey}-unique-slug",
   "title": "What is Revenue Growth?",
   "subtitle": "How fast a company is growing its sales",
   "category": "Stock Basics",

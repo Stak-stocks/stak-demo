@@ -317,7 +317,8 @@ export function PlaygroundPage() {
 	const totalLessons = LESSONS.length;
 
 	// Weekly Pack (declared here so totalXp is available)
-	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey), [totalXp, dayKey]);
+	const seenActivityIds = useMemo(() => new Set(account?.allTimeCompletedActivityIds ?? []), [account?.allTimeCompletedActivityIds]);
+	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey, seenActivityIds), [totalXp, dayKey, seenActivityIds]);
 	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticDailyPack);
 	const dailyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;

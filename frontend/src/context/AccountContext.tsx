@@ -100,6 +100,7 @@ export interface UserDoc {
 	sandboxCash?: number;
 	sandboxTier?: number;
 	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
+	allTimeCompletedActivityIds?: string[];
 
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
@@ -444,9 +445,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		if (alreadyDone) return;
 		const completedIds = isSameWeek ? [...(current!.completedIds), activityId] : [activityId];
 		const xpEarned = (isSameWeek ? (current!.xpEarned ?? 0) : 0) + xp;
+		const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
+		const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
 		await updateDoc(doc(db, "users", user.uid), {
 			weeklyProgress: { weekKey, completedIds, xpEarned },
 			totalXp: increment(xp),
+			...allTimeUpdate,
 		});
 	}, [user, account]);
 

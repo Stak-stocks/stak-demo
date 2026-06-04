@@ -1113,15 +1113,17 @@ export const EARNINGS_SCENARIOS: EarningsScenario[] = [
 		context: "Nike is the world's largest sportswear company. The stock has fallen 15% over the past 3 months on concerns about slowing demand in China and North America.",
 		revenueExpected: "$12.4B",
 		epsExpected: "$0.76",
+		revenueActual: "$12.3B",
+		epsActual: "$0.79",
 		stockContext: "Down 15% in the last 3 months",
-		question: "What outcome would most likely cause the stock to rally after earnings?",
+		question: "Nike narrowly missed on revenue but beat EPS. Management lowered full-year guidance due to weak China demand. What do you predict happened to the stock?",
 		options: [
-			{ id: "a", text: "Revenue beats and management raises full-year guidance" },
-			{ id: "b", text: "Revenue beats but management warns of 'near-term headwinds'" },
-			{ id: "c", text: "Revenue misses but management says it's 'just temporary'" },
+			{ id: "a", text: "Rallied — EPS beat was enough to excite investors" },
+			{ id: "b", text: "Fell — the guidance cut outweighed the EPS beat" },
+			{ id: "c", text: "Flat — mixed results cancelled each other out" },
 		],
-		correctId: "a",
-		outcome: "Nike beat on revenue but missed margins and lowered guidance. The stock fell 6% the next day — investors cared more about the weaker future outlook than the past beat.",
+		correctId: "b",
+		outcome: "Nike fell 6% the next day. Even though EPS narrowly beat, investors focused on the lowered guidance — a sign that the demand problems weren't over.",
 		explanation: "When a beaten-down stock reports earnings, investors need both a present beat AND a positive forward outlook to rally. A beat with weak guidance still signals continued trouble ahead.",
 		xp: 7,
 	},
@@ -1612,7 +1614,7 @@ const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: 
  * Returns the full weekly pack — this IS the content for the week.
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
-export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
+export function getWeeklyPack(totalXp: number, weekKey: string, seenIds: Set<string> = new Set()): WeeklyPack {
 	let seed = 0;
 	for (let i = 0; i < weekKey.length; i++) {
 		seed = ((seed << 5) - seed) + weekKey.charCodeAt(i);
@@ -1630,27 +1632,34 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	// Battles — tier-appropriate
-	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
-	const pickedBattles = seededPick(eligibleBattles, seed + 1, counts.battles).map(b => ({
+	// Battles — tier-appropriate, unseen first
+	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && !seenIds.has(b.id));
+	const fallbackBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && seenIds.has(b.id));
+	const pickedBattles = seededPick([...eligibleBattles, ...fallbackBattles], seed + 1, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	// Earnings scenarios
-	const pickedEarnings = seededPick(EARNINGS_SCENARIOS, seed + 2, counts.earnings).map(s => ({
+	// Earnings scenarios — unseen first
+	const eligibleEarnings = EARNINGS_SCENARIOS.filter(s => !seenIds.has(s.id));
+	const fallbackEarnings = EARNINGS_SCENARIOS.filter(s => seenIds.has(s.id));
+	const pickedEarnings = seededPick([...eligibleEarnings, ...fallbackEarnings], seed + 2, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	// Risk comparisons
-	const pickedRisk = seededPick(RISK_SCENARIOS, seed + 3, counts.risk).map(s => ({
+	// Risk comparisons — unseen first
+	const eligibleRisk = RISK_SCENARIOS.filter(s => !seenIds.has(s.id));
+	const fallbackRisk = RISK_SCENARIOS.filter(s => seenIds.has(s.id));
+	const pickedRisk = seededPick([...eligibleRisk, ...fallbackRisk], seed + 3, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	// Mood simulations
-	const pickedMood = seededPick(MOOD_SCENARIOS, seed + 4, counts.mood).map(s => ({
+	// Mood simulations — unseen first
+	const eligibleMood = MOOD_SCENARIOS.filter(s => !seenIds.has(s.id));
+	const fallbackMood = MOOD_SCENARIOS.filter(s => seenIds.has(s.id));
+	const pickedMood = seededPick([...eligibleMood, ...fallbackMood], seed + 4, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
@@ -1668,11 +1677,13 @@ export function getWeeklyPack(totalXp: number, weekKey: string): WeeklyPack {
 	};
 }
 
-/** Get the current day key in local time, e.g. "2026-06-02" */
+/** Get the current ISO week key, e.g. "2026-W23" — changes every Monday */
 export function getCurrentWeekKey(): string {
 	const d = new Date();
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
+	// ISO week: find Thursday of current week, then get its year and week number
+	const thursday = new Date(d);
+	thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
+	const jan1 = new Date(thursday.getFullYear(), 0, 1);
+	const week = Math.ceil(((thursday.getTime() - jan1.getTime()) / 86400000 + 1) / 7);
+	return `${thursday.getFullYear()}-W${String(week).padStart(2, "0")}`;
 }
