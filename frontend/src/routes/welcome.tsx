@@ -345,8 +345,8 @@ function NavBar({ onSignup, onScrollTo }: { onLogin: () => void; onSignup: () =>
 				<div style={{ display: "flex", alignItems: "center", gap: 35.168, fontFamily: SR, fontWeight: 400, fontSize: 16, color: "#fff" }}>
 					<button type="button" onClick={() => onScrollTo("hero")} style={btnReset}>Home</button>
 					<button type="button" onClick={() => onScrollTo("features")} style={btnReset}>Features</button>
-					<button type="button" onClick={() => onScrollTo("howItWorks")} style={{ ...btnReset, whiteSpace: "pre" }}>{"How It Works   "}</button>
-					<button type="button" onClick={() => onScrollTo("faq")} style={btnReset}>Blog</button>
+					<button type="button" onClick={() => onScrollTo("howItWorks")} style={btnReset}>How It Works</button>
+					<button type="button" onClick={() => onScrollTo("faq")} style={btnReset}>FAQ</button>
 				</div>
 				{/* Figma navbar (node 1:315 / Frame 52) has NO Login button — */}
 				<CtaButton label="Get started" withArrow={false} fontSize={14.453} onClick={onSignup} />
@@ -397,7 +397,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 					<Headline lines={["The Stock Market,", "Finally Speaks Your Language."]} style={{ fontSize: 50 }} />
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 20, color: "#fff", textAlign: "center" }}>
 						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>{`STAK matches you with stocks you'll actually understand —through swipes, smart insights, `}</p>
-						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>and zero pressure.Before you buy anything, STAK it.</p>
+						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>and zero pressure. Before you buy anything, STAK it.</p>
 					</div>
 				</div>
 			</div>
@@ -477,7 +477,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				<Pill label="The Problem" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["The Market Isn't Hard.", "It's Just Been Made That Way."]} />
-					<Subhead lines={['You’ve heard the advice — "invest early, invest often."', "But nobody tells you how. Here’s how"]} />
+					<Subhead lines={[`You’ve heard the advice — “invest early, invest often.”`, "But nobody tells you how. Here’s how:"]} />
 				</div>
 			</div>
 
@@ -517,7 +517,7 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 	const cards = [
 		{ n: "01/", title: "Tell Us Who You Are", body: ["Take a quick risk quiz. STAK learns your personality, your goals, and your vibe. ", "No spreadsheets. No jargon."] },
 		{ n: "02/", title: "Swipe Through Stocks", body: ["Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. ", "It's that simple."] },
-		{ n: "03/", title: "STAK Before You Spend", body: ["Practice with real market data and zero real money.Build confidence before you commit a single dollar."] },
+		{ n: "03/", title: "STAK Before You Spend", body: ["Practice with real market data and zero real money. Build confidence before you commit a single dollar."] },
 	];
 
 	return (
@@ -678,25 +678,25 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
    Row 2 (middle, 1:792):    Buzz / Tsla / STAK / STAK / STAK
    Row 3 (bottom, 1:771):    Bullish / printing / Gold / STAK / STAK */
 const CHAT_BUBBLES_R1 = [
-	{ t: "Lets fvking STAK i!", dark: false },
+	{ t: "Just STAKed Amazon!", dark: false },
 	{ t: "Time to save more!", dark: true },
 	{ t: "Woooo!!", dark: false },
-	{ t: "Lets fvking STAK i!", dark: false },
-	{ t: "Lets fvking STAK i!", dark: false },
+	{ t: "Portfolio up this week!", dark: false },
+	{ t: "New to STAK, loving it!", dark: false },
 ];
 const CHAT_BUBBLES_R2 = [
-	{ t: "Whats the Buzz About?", dark: true },
+	{ t: "What's the Buzz About?", dark: true },
 	{ t: "Is $Tsla a good buy?", dark: false },
-	{ t: "Lets fvking STAK i!", dark: true },
-	{ t: "Lets fvking STAK i!", dark: false },
-	{ t: "Lets fvking STAK i!", dark: false },
+	{ t: "Bullish on tech stocks!", dark: true },
+	{ t: "STAKed Apple today!", dark: false },
+	{ t: "Up 12% this month!", dark: false },
 ];
 const CHAT_BUBBLES_R3 = [
 	{ t: "Bullish! on S&P 500", dark: false },
-	{ t: "I love printing money", dark: true },
+	{ t: "My portfolio is growing!", dark: true },
 	{ t: "Gold, Google", dark: false },
-	{ t: "Lets fvking STAK i!", dark: false },
-	{ t: "Lets fvking STAK i!", dark: false },
+	{ t: "Big gains incoming!", dark: false },
+	{ t: "This app is different!", dark: false },
 ];
 
 function ChatBubble({ text, dark }: { text: string; dark: boolean }) {
@@ -722,7 +722,7 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: 96, top: 70, width: 1747.269, height: 615.698 }}>
 				<div style={{ position: "absolute", left: "calc(50% - 269.63px)", top: 0, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", gap: 77, alignItems: "center" }}>
 					<Pill label="Early Momentum" />
-					<Headline lines={["Everything You Need.", "Nothing You Don't."]} />
+					<Headline lines={["Real People.", "Real Momentum."]} />
 				</div>
 
 				{/* Stats column (50M / 30M) + bubble grid, pushed to the LEFT edge
@@ -735,8 +735,8 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 				    flex row (was "center" which left empty padding to its left). */}
 				<div style={{ position: "absolute", left: -96, top: 350, display: "flex", gap: 85, alignItems: "center", justifyContent: "flex-start" }}>
 					<div style={{ width: 252.275, display: "flex", flexDirection: "column", gap: 50 }}>
-						<StatBlock value="50M" label="Young active Users " />
-						<StatBlock value="30M" label="Sign up for early access" />
+						<StatBlock value="50M+" label="Millennials & Gen Z investing today" />
+						<StatBlock value="30M+" label="Investors seeking better tools" />
 					</div>
 
 					<div style={{ position: "relative", marginLeft: 100 }}>
@@ -1255,20 +1255,11 @@ function FinalCta() {
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 8: FOOTER                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
-function Footer({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+function Footer({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	const [email, setEmail] = useState("");
 	return (
 		<section style={{ position: "absolute", left: 0, top: SEC.footer, width: CANVAS_WIDTH, height: 683, background: SECTION_BG, overflow: "visible", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
 			<div style={{ width: "100%", height: 335, background: SECTION_BG, overflow: "visible", position: "relative" }}>
-				{/* Footer column layout — viewport-anchored.
-				    The row spans the full viewport width minus 80px of padding on
-				    each side (so brand sits ~80px from viewport-left, newsletter sits
-				    ~80px from viewport-right) at ANY viewport width. Inside the row,
-				    Brand + Useful + Social stay grouped together on the LEFT with
-				    the original 58px Figma gaps; Newsletter is pushed to the RIGHT
-				    via justify-content:space-between (the space-between distributes
-				    free space between the two flex children — the link-group and
-				    the newsletter). */}
 				<div
 					style={{
 						position: "absolute",
@@ -1281,15 +1272,12 @@ function Footer({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 						justifyContent: "space-between",
 					}}
 				>
-					{/* Left group: Brand + Useful links + Social links, kept together
-					    with the original Figma 58px gap. */}
 					<div style={{ display: "flex", gap: 58, alignItems: "flex-start" }}>
 						<FooterBrandColumn />
-						<FooterUsefulLinks />
+						<FooterUsefulLinks onScrollTo={onScrollTo} />
 						<FooterSocialLinks />
 					</div>
 
-					{/* Right: Newsletter + copyright, anchored to viewport right. */}
 					<FooterNewsletterCol email={email} setEmail={setEmail} onSubscribe={onSubscribe} />
 				</div>
 			</div>
@@ -1578,7 +1566,7 @@ function FooterPlayStoreButton() {
 				>
 					GET IT ON
 				</p>
-				<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }} data-node-id="1:1045">
+				<div style={{ width: 74, height: 15 }} data-node-id="1:1045">
 					<img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} />
 				</div>
 			</div>
@@ -1612,7 +1600,7 @@ function FooterNewsletter({ email, setEmail, onSubscribe }: { email: string; set
 				style={{ fontFamily: SR, fontWeight: 400, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "pre" }}
 				data-node-id="1:1071"
 			>
-				{"Subsribe to our  newsletter"}
+				{"Subscribe to our newsletter"}
 			</p>
 			<div
 				style={{ background: "rgba(255,255,255,0.07)", padding: "8px 9px 8px 11px", borderRadius: 13, display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}
@@ -1741,7 +1729,7 @@ function FooterCopyright() {
 				style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap", textAlign: "center" }}
 				data-node-id="1:1078"
 			>
-				2026 All right reserved
+				© 2026 All rights reserved
 			</p>
 		</div>
 	);
@@ -1784,11 +1772,11 @@ function FooterSocialLinks() {
 				style={{ display: "flex", flexDirection: "column", gap: 18, alignItems: "flex-start", justifyContent: "center", width: "100%", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }}
 				data-node-id="1:1063"
 			>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1064">Facebook</p>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1065">Instagram</p>
-				<p style={{ margin: 0, minWidth: "100%" }} data-node-id="1:1066">X</p>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1067">Tiktok</p>
-				<p style={{ margin: 0, minWidth: "100%" }} data-node-id="1:1068">Discord</p>
+				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1064">Facebook</a>
+				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1065">Instagram</a>
+				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1066">X</a>
+				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1067">Tiktok</a>
+				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1068">Discord</a>
 			</div>
 		</div>
 	);
@@ -1802,27 +1790,23 @@ function FooterSocialLinks() {
          ├── Features (1:1058)
          ├── Blog (1:1059)
          └── Privacy terms (1:1060) */
-function FooterUsefulLinks() {
+function FooterUsefulLinks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void }) {
+	const linkStyle: CSSProperties = { ...btnReset, margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff" };
 	return (
 		<div
 			style={{ display: "flex", flexDirection: "column", gap: 49, alignItems: "flex-start", width: 135, color: "#fff" }}
 			data-node-id="1:1053"
 		>
-			<p
-				style={{ fontFamily: SR, fontWeight: 400, fontSize: 18, lineHeight: "25px", margin: 0, textAlign: "center", whiteSpace: "nowrap" }}
-				data-node-id="1:1054"
-			>
-				Useful Links
-			</p>
+			<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 18, lineHeight: "25px", margin: 0, whiteSpace: "nowrap" }} data-node-id="1:1054">Useful Links</p>
 			<div
-				style={{ display: "flex", flexDirection: "column", gap: 18, alignItems: "flex-start", justifyContent: "center", width: "100%", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }}
+				style={{ display: "flex", flexDirection: "column", gap: 18, alignItems: "flex-start", justifyContent: "center", width: "100%" }}
 				data-node-id="1:1055"
 			>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1056">Home</p>
-				<p style={{ margin: 0, minWidth: "100%" }} data-node-id="1:1057">How it works</p>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1058">Features</p>
-				<p style={{ margin: 0, whiteSpace: "nowrap", textAlign: "center" }} data-node-id="1:1059">Blog</p>
-				<p style={{ margin: 0, minWidth: "100%" }} data-node-id="1:1060">Privacy terms</p>
+				<button type="button" onClick={() => onScrollTo("hero")} style={linkStyle}>Home</button>
+				<button type="button" onClick={() => onScrollTo("howItWorks")} style={linkStyle}>How it works</button>
+				<button type="button" onClick={() => onScrollTo("features")} style={linkStyle}>Features</button>
+				<button type="button" onClick={() => onScrollTo("faq")} style={linkStyle}>FAQ</button>
+				<p style={{ margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }} data-node-id="1:1060">Privacy terms</p>
 			</div>
 		</div>
 	);
@@ -1965,7 +1949,7 @@ function MobileHero({ onSignup }: { onSignup: () => void }) {
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center" }}>
 						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>{`STAK matches you with stocks you'll actually understand —through swipes, `}</p>
-						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>smart insights, and zero pressure.Before you buy anything, STAK it.</p>
+						<p style={{ margin: 0, lineHeight: "25px", whiteSpace: "pre" }}>smart insights, and zero pressure. Before you buy anything, STAK it.</p>
 					</div>
 				</div>
 			</div>
@@ -2209,9 +2193,9 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 			</div>
 		</div>
 	);
-	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r1: [string, boolean][] = [["Just STAKed Amazon!", false], ["Time to save more!", true], ["Woooo!!", false], ["Portfolio up this week!", false], ["New to STAK, loving it!", false]];
+	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["My portfolio is growing!", true], ["Gold, Google", false], ["Big gains incoming!", false], ["This app is different!", false]];
+	const r3: [string, boolean][] = [["What's the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Bullish on tech stocks!", true], ["STAKed Apple today!", false], ["Up 12% this month!", false]];
 	const stat = (arrow: string, num: string, label: string) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 20.075, alignItems: "center", width: "100%" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
@@ -2229,16 +2213,15 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Early Momentum</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				{/* headline matches Figma node 1:1357 (it reuses the Features copy) */}
 				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", whiteSpace: "nowrap" }}>
-					<p style={{ margin: 0, lineHeight: "45px" }}>Everything You Need.</p>
-					<p style={{ margin: 0, lineHeight: "45px" }}>Nothing You Don't.</p>
+					<p style={{ margin: 0, lineHeight: "45px" }}>Real People.</p>
+					<p style={{ margin: 0, lineHeight: "45px" }}>Real Momentum.</p>
 				</div>
 			</div>
 			{/* stats */}
 			<div style={{ position: "absolute", left: 49, top: 410, width: 199.412, display: "flex", flexDirection: "column", gap: 39.523, alignItems: "center" }}>
-				{stat(A.emStatArrow, "50M", "Young active Users")}
-				{stat(A.emStatArrow, "30M", "Sign up for early access")}
+				{stat(A.emStatArrow, "50M+", "Millennials & Gen Z investing today")}
+				{stat(A.emStatArrow, "30M+", "Investors seeking better tools")}
 			</div>
 			{/* chat bubbles (3 staggered rows, overflow right with fade) */}
 			<div style={{ position: "absolute", left: 315.6, top: 402, width: 494.4, height: 209.231, overflow: "hidden" }}>
@@ -2384,13 +2367,17 @@ function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void 
 }
 
 /* Mobile Footer — Figma node 1:1520 (Frame 238), 810×589 */
-function MobileFooter({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	const [email, setEmail] = useState("");
-	const linkCol = (title: string, items: string[]) => (
+	const itemStyle: CSSProperties = { margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff" };
+	const linkCol = (title: string, items: { label: string; onClick?: () => void }[]) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
 			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
-			<div style={{ display: "flex", flexDirection: "column", gap: 14, fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }}>
-				{items.map((it, i) => <p key={i} style={{ margin: 0, whiteSpace: "nowrap" }}>{it}</p>)}
+			<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+				{items.map((it, i) => it.onClick
+					? <button key={i} type="button" onClick={it.onClick} style={{ ...btnReset, ...itemStyle }}>{it.label}</button>
+					: <p key={i} style={itemStyle}>{it.label}</p>
+				)}
 			</div>
 		</div>
 	);
@@ -2424,12 +2411,24 @@ function MobileFooter({ onSubscribe }: { onSubscribe: (email: string) => void })
 				</div>
 				<div style={{ display: "flex", gap: 134, alignItems: "flex-start" }}>
 					<div style={{ display: "flex", gap: 58, alignItems: "flex-start", color: "#fff" }}>
-						{linkCol("Useful Links", ["Home", "How it works", "Features", "Blog", "Privacy terms"])}
-						{linkCol("Social Links", ["Facebook", "Instagram", "X", "Tiktok", "Discord"])}
+						{linkCol("Useful Links", [
+							{ label: "Home", onClick: () => onScrollTo("hero") },
+							{ label: "How it works", onClick: () => onScrollTo("howItWorks") },
+							{ label: "Features", onClick: () => onScrollTo("features") },
+							{ label: "FAQ", onClick: () => onScrollTo("faq") },
+							{ label: "Privacy terms" },
+						])}
+						{linkCol("Social Links", [
+							{ label: "Facebook" },
+							{ label: "Instagram" },
+							{ label: "X" },
+							{ label: "Tiktok" },
+							{ label: "Discord" },
+						])}
 					</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 127, alignItems: "flex-start" }}>
 						<div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start" }}>
-							<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "pre" }}>{`Subscribe to our  newsletter`}</p>
+							<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0 }}>{"Subscribe to our newsletter"}</p>
 							<div style={{ background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13 }}>
 								<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
 									<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 130 }} />
@@ -2447,7 +2446,7 @@ function MobileFooter({ onSubscribe }: { onSubscribe: (email: string) => void })
 	);
 }
 
-function MobileLanding({ scale, onSignup, onEmail, onSubscribe }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void }) {
+function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	// full mobile canvas height (Figma node 1:1123 / Frame 220)
 	const H = 8417.48;
 	return (
@@ -2461,7 +2460,7 @@ function MobileLanding({ scale, onSignup, onEmail, onSubscribe }: { scale: numbe
 				<MobileEarlyMomentum onSignup={onSignup} />
 				<MobileFaq onEmail={onEmail} />
 				<MobileFinalCta onSubscribe={onSubscribe} />
-				<MobileFooter onSubscribe={onSubscribe} />
+				<MobileFooter onSubscribe={onSubscribe} onScrollTo={onScrollTo} />
 			</div>
 		</div>
 	);
@@ -2593,18 +2592,9 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
-					<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-						<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", width: "100%" }}>
-							<p style={{ margin: 0, lineHeight: "35px" }}>{`The Market Isn't `}</p>
-							<p style={{ margin: 0, lineHeight: "35px" }}>Hard. </p>
-							<p style={{ margin: 0, lineHeight: "35px" }}>{`It's Just Been `}</p>
-							<p style={{ margin: 0, lineHeight: "35px" }}>Made That Way.</p>
-						</div>
-						<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", width: 308 }}>
-							<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often."`}</p>
-							<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how. </p>
-							<p style={{ margin: 0, lineHeight: "25px" }}>Here’s how:</p>
-						</div>
+					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+						<p style={{ margin: 0, lineHeight: "35px" }}>Three Swipes to</p>
+						<p style={{ margin: 0, lineHeight: "35px" }}>Smarter Investing.</p>
 					</div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
@@ -2997,7 +2987,7 @@ export function LandingPage() {
 			{isPhone ? (
 				<MobileLanding390 scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} />
 			) : isMobile ? (
-				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} />
+				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 			) : (
 			<div className="landing-wrapper" style={{ width: "100%", height: TOTAL_HEIGHT * scale, overflow: "hidden" }}>
 				<div
@@ -3019,7 +3009,7 @@ export function LandingPage() {
 					<EarlyMomentum onSignup={handleSignup} />
 					<Faq onEmail={handleEmail} />
 					<FinalCta />
-					<Footer onSubscribe={handleSubscribe} />
+					<Footer onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 				</div>
 			</div>
 			)}
