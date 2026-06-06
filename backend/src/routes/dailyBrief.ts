@@ -176,7 +176,7 @@ function getFallbackText(mood: Mood): { moodExplanation: string; plainEnglish: s
 const SESSION_TONE: Record<Session, string> = {
 	open:   "Markets are opening right now. Write in a forward-looking tone — what should investors watch for today?",
 	midday: "Markets are mid-session. Write in a present-tense tone — how are markets trending so far today?",
-	close:  "Markets are closing or have just closed. Write in a recap tone — what happened today and what does it mean going forward?",
+	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
 async function generateMarketText(
@@ -190,9 +190,11 @@ async function generateMarketText(
 	sectorsRed?: number,
 	topSector?: string | null,
 	worstSector?: string | null,
+	marketClosed = false,
+	dayLabel = "Today's",
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v3:${mood}:${today}:${session}`;
+	const cacheKey = `daily-brief:text:v3:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -207,22 +209,29 @@ async function generateMarketText(
 		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
 	].filter(Boolean).join(" | ");
 
+	const timeContext = marketClosed
+		? "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
+		: SESSION_TONE[session];
+
+	const timeWord = marketClosed ? "on Friday" : "today";
+	const dayRef = marketClosed ? "Friday's" : dayLabel;
+
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
 
-Market data right now: ${snapshot || "data unavailable"}
+Market data: ${snapshot || "data unavailable"}
 Overall mood: ${mood}
-${SESSION_TONE[session]}
+${timeContext}
 
 Return JSON with exactly two fields:
 
-"moodExplanation": 1–2 sentences explaining WHAT is driving markets today. Reference the actual numbers above. Be specific — name sectors, mention the S&P/Nasdaq actual % move, mention VIX direction if notable. Example: "The S&P 500 is down ${spyDp != null ? Math.abs(spyDp) + "%" : "slightly"} as ${topSector ? topSector + " stocks lead" : "growth names weigh on sentiment"}, with selling concentrated in higher-risk names." Max 140 chars.
+"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Reference the actual numbers. Be specific — name sectors, mention the S&P/Nasdaq actual % move, VIX if notable. Do NOT say "today" if the market is closed — use "on Friday" instead. Max 140 chars.
 
-"plainEnglish": 2 short sentences. Sentence 1: what is actually happening right now with specific context (mention the move size, which sector or asset is driving it, and why — e.g. yields, geopolitics, earnings). Sentence 2: what this means in simple terms for someone watching their stocks. DO NOT use vague phrases like "some parts worked, others did not" or "investors were cautious". Be direct and specific. Max 180 chars total.
+"plainEnglish": 2 short sentences. Sentence 1: what happened with specific context (move size, sector, why — e.g. yields, geopolitics, earnings). Sentence 2: what this means for someone watching their stocks heading into the next session. Do NOT say "today" if the market is closed. Max 180 chars total.
 
-Example of good plainEnglish for a Mixed day: "The S&P is flat but the Nasdaq slipped as software stocks face selling pressure after yesterday's rally. Tech names in your Stak may see some chop today while consumer staples hold up better."
-Example of good plainEnglish for a Bearish day: "The S&P 500 is down ${spyDp != null ? Math.abs(spyDp) + "%" : "about 0.5%"} today, driven by ${worstSector ?? "growth stock"} weakness and higher bond yields. This is a normal pullback — not a crash."
+Example moodExplanation (closed): "The S&P 500 fell ${spyDp != null ? Math.abs(spyDp) + "%" : "on Friday"} on Friday as ${worstSector ?? "growth"} stocks sold off, with the Nasdaq leading the decline."
+Example plainEnglish (closed): "${dayRef} drop was driven by ${worstSector ?? "rate-sensitive"} weakness and rising bond yields. Heading into next week, watch for follow-through selling in tech."
 
-No financial advice. No disclaimers. Just describe what is happening clearly.`;
+No financial advice. No disclaimers. Just describe what happened clearly.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -318,9 +327,10 @@ async function generatePersonalizedImpact(
 	session: Session,
 	market: MarketData,
 	uid: string,
+	marketClosed = false,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v2:${uid}:${today}:${session}`;
+	const cacheKey = `daily-brief:impact:v2:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -372,22 +382,25 @@ async function generatePersonalizedImpact(
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
 	const stockSection = stockLines.length > 0
-		? `User's stocks today: ${stockLines.join(", ")}`
+		? `User's stocks ${marketClosed ? "at Friday's close" : "today"}: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
+	const timeWord = marketClosed ? "on Friday" : "today";
+	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
+
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
-Today's market data:
+${marketClosed ? "Friday's close" : "Today's"} market data:
 ${marketLines || "unavailable"}
 
 ${stockSection}
 Mood: ${mood}
 
 Write exactly 2 punchy sentences:
-1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what's happening to it today.
-2. Give one specific, concrete thing to watch or act on today — tied directly to the mood (${mood}) and leading/lagging sectors above.
+1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what happened to it ${timeWord}. Do NOT use the word "today" if the market is closed.
+2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}) and leading/lagging sectors above.
 
 Rules: use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
 
@@ -700,8 +713,8 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact, macroEvent] = await Promise.all([
-			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid),
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed),
 			getTodaysMacroEvent(),
 		]);
 
