@@ -1422,7 +1422,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, wee
 	const visibleScenarios = weeklyEarningsIds ? pool.filter(s => weeklyEarningsIds.includes(s.id)) : pool;
 	const scenario = pool.find(s => s.id === activeId);
 	const currentIdx = visibleScenarios.findIndex(s => s.id === activeId);
-	// Next scenario: skip ones already correctly completed
+	// Next scenario: skip ones already attempted
 	const nextScenario = visibleScenarios.slice(currentIdx + 1).find(s => !completedIds.has(s.id)) ?? visibleScenarios[currentIdx + 1];
 
 	const scrollEl = () => document.querySelector("[data-scroll-root]");
@@ -1509,15 +1509,12 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, wee
 												const correct = opt.id === scenario.correctId;
 												setSelected(opt.id);
 												setPhase("outcome");
-												if (correct) {
-													// Guard with dailyCompleted (Firestore source of truth) to prevent
-													// double-fire from stale completedIds closure on rapid re-tap
-													const alreadyAwarded = dailyCompleted?.has(scenario.id) ?? false;
-													setCompletedIds(prev => new Set([...prev, scenario.id]));
-													showXp(scenario.xp);
-													if (dayKey && !alreadyAwarded && onWeeklyComplete)
-														onWeeklyComplete(dayKey, scenario.id, scenario.xp);
-												}
+												// Always mark as attempted (0 XP if wrong) so it never reappears on re-entry
+												const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
+												setCompletedIds(prev => new Set([...prev, scenario.id]));
+												if (correct) showXp(scenario.xp);
+												if (dayKey && !alreadyAttempted && onWeeklyComplete)
+													onWeeklyComplete(dayKey, scenario.id, correct ? scenario.xp : 0);
 											}
 										}}
 									/>
@@ -1638,10 +1635,12 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const [done, setDone] = useState(false);
 	const [correct, setCorrect] = useState(0);
-	// sessionCorrect tracks IDs completed in THIS session so Try Again can replay them
+	// sessionCorrect tracks IDs completed correctly THIS session so Try Again can replay them
 	const [sessionCorrect, setSessionCorrect] = useState<Set<string>>(new Set());
+	// wrongThisSession flushes to dailyCompleted at session end so they never reappear on re-entry
+	const wrongThisSession = useRef<Set<string>>(new Set());
 	const weeklyIds = weeklyRiskIds ? pool.filter(r => weeklyRiskIds.includes(r.id)) : pool;
-	// Exclude already-completed scenarios EXCEPT ones just done this session (allow replay via Try Again)
+	// Exclude already-completed scenarios EXCEPT ones just done correctly this session (allow replay via Try Again)
 	const visibleRisk = weeklyIds.filter(r => !dailyCompleted?.has(r.id) || sessionCorrect.has(r.id));
 	const scenario = visibleRisk[index];
 
@@ -1733,9 +1732,20 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 			setSessionCorrect(prev => new Set([...prev, scenario.id]));
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onWeeklyComplete)
 				onWeeklyComplete(dayKey, scenario.id, scenario.xp);
+		} else {
+			// Track wrong answers to flush at session end — prevents reappearance on re-entry
+			if (!dailyCompleted?.has(scenario.id)) wrongThisSession.current.add(scenario.id);
 		}
-		if (index < visibleRisk.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c); }
-		else { setCorrect(c => isCorrect ? c + 1 : c); setDone(true); }
+		if (index < visibleRisk.length - 1) {
+			setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c);
+		} else {
+			setCorrect(c => isCorrect ? c + 1 : c);
+			// Flush wrong-answer IDs so they don't reappear on re-entry
+			if (dayKey && onWeeklyComplete) {
+				for (const id of wrongThisSession.current) onWeeklyComplete(dayKey, id, 0);
+			}
+			setDone(true);
+		}
 	};
 
 	return (
