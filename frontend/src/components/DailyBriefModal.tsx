@@ -94,9 +94,17 @@ const DECK_COLOR_CONFIG: Record<string, { border: string; bgClass: string; iconC
 	blue:   { border: "border-blue-500/25",    bgClass: "bg-blue-500/[0.07]",    iconColor: "blue",   textColor: "text-blue-600 dark:text-blue-300"       },
 };
 
-function ThemeCard({ deck, dayLabel = "Today's" }: { deck: DailyBriefDeck; dayLabel?: string }) {
+function ThemeCard({ deck, session = "open", nextTradingDayLabel = "tomorrow" }: { deck: DailyBriefDeck; session?: string; nextTradingDayLabel?: string }) {
 	const Icon = DECK_ICON_MAP[deck.icon] ?? TrendingUp;
 	const c = DECK_COLOR_CONFIG[deck.color] ?? DECK_COLOR_CONFIG.blue;
+	const isForwardLooking = session === "close";
+	const nextLabel = nextTradingDayLabel === "tomorrow" ? "tomorrow" : `ahead of ${nextTradingDayLabel}`;
+	const focusLabel = isForwardLooking
+		? `Stocks to Watch ${nextTradingDayLabel === "tomorrow" ? "for Tomorrow" : `Ahead of ${nextTradingDayLabel}`}`
+		: "Today's Focus";
+	const feedLine = isForwardLooking
+		? `We're surfacing ${deck.title} picks in your Discover feed ahead of ${nextLabel}'s open.`
+		: `We're surfacing ${deck.title} picks in your Discover feed today.`;
 	return (
 		<section
 			className={`mt-[10px] rounded-[14px] border ${c.border} ${c.bgClass} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}
@@ -104,10 +112,10 @@ function ThemeCard({ deck, dayLabel = "Today's" }: { deck: DailyBriefDeck; dayLa
 			<div className="flex gap-[15px]">
 				<IconCircle color={c.iconColor} icon={<Icon size={28} strokeWidth={1.8} />} large />
 				<div className="min-w-0 flex-1 pt-[2px]">
-					<p className="text-[13px] dark:text-slate-300 text-slate-600">{dayLabel} Focus</p>
+					<p className="text-[13px] dark:text-slate-300 text-slate-600">{focusLabel}</p>
 					<h3 className={`mt-[2px] text-[22px] font-bold leading-none tracking-[-0.03em] ${c.textColor}`}>{deck.title}</h3>
 					<p className="mt-[9px] text-[13px] leading-[18px] text-foreground/85">
-						{deck.subtitle} — We're surfacing {deck.title} picks in your Discover feed today.
+						{deck.subtitle} — {feedLine}
 					</p>
 				</div>
 			</div>
@@ -138,6 +146,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	const mood = MOOD_CONFIG[brief.mood] ?? MOOD_CONFIG.Mixed;
 	const dayLabel = (brief as { dayLabel?: string }).dayLabel ?? "Today's";
 	const marketClosed = (brief as { marketClosed?: boolean }).marketClosed ?? false;
+	const nextTradingDayLabel = (brief as { nextTradingDayLabel?: string }).nextTradingDayLabel ?? "tomorrow";
 	const sessionLabel = marketClosed
 		? `${dayLabel} Market Close Recap`
 		: (SESSION_LABELS[brief.session] ?? "Morning Brief");
@@ -237,8 +246,8 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 				{/* Why this matters */}
 				<InfoCard color="cyan" icon={<UserRound size={26} strokeWidth={1.8} />} title="Why this matters to you" text={brief.personalizedImpact} />
 
-				{/* Today's / Friday's Focus */}
-				{brief.decks && brief.decks.length > 0 && <ThemeCard deck={brief.decks[0]} dayLabel={dayLabel} />}
+				{/* Today's Focus / Stocks to Watch */}
+				{brief.decks && brief.decks.length > 0 && <ThemeCard deck={brief.decks[0]} session={brief.session} nextTradingDayLabel={nextTradingDayLabel} />}
 
 				{/* CTA */}
 				{source !== "mystak" && (
@@ -249,7 +258,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						style={{ background: "linear-gradient(90deg,#23d6dd 0%,#5f7cff 50%,#9853ee 100%)" }}
 					>
 						<Play size={15} fill="white" className="shrink-0" />
-						Start {dayLabel} Deck
+						Start Today's Deck
 					</button>
 				)}
 

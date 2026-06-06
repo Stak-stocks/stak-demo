@@ -64,29 +64,36 @@ const SECTOR_NAMES: Record<string, string> = {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function getMarketStatus(): { session: Session; marketClosed: boolean; dayLabel: string } {
+function getNextTradingDayLabel(fromDayNum: number): string {
+	let nextDayNum = (fromDayNum + 1) % 7;
+	let daysAhead = 1;
+	while (nextDayNum === 0 || nextDayNum === 6) {
+		nextDayNum = (nextDayNum + 1) % 7;
+		daysAhead++;
+	}
+	return daysAhead === 1 ? "tomorrow" : DAY_NAMES[nextDayNum];
+}
+
+function getMarketStatus(): { session: Session; marketClosed: boolean; dayLabel: string; nextTradingDayLabel: string } {
 	const now = new Date();
-	const etDay  = parseInt(now.toLocaleString("en-US", { weekday: "short", timeZone: "America/New_York" }).slice(0, 1) === "S" ? "6" : "0", 10);
-	// Get actual ET weekday number (0=Sun … 6=Sat)
 	const etDayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
 	const etDayNum  = DAY_NAMES.indexOf(etDayName); // 0=Sun, 6=Sat
 	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
 	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit",               timeZone: "America/New_York" }), 10);
 	const total  = etHour * 60 + etMin;
+	const nextTradingDayLabel = getNextTradingDayLabel(etDayNum);
 
-	const isWeekend = etDayNum === 0 || etDayNum === 6; // Sun or Sat
+	const isWeekend = etDayNum === 0 || etDayNum === 6;
 	if (isWeekend) {
-		// Last trading day was Friday
-		return { session: "close", marketClosed: true, dayLabel: "Friday's" };
+		return { session: "close", marketClosed: true, dayLabel: "Friday's", nextTradingDayLabel };
 	}
 
-	// Weekday — normal session detection
 	let session: Session;
-	if (total < 12 * 60)       session = "open";
+	if (total < 12 * 60)           session = "open";
 	else if (total < 15 * 60 + 30) session = "midday";
-	else                       session = "close";
+	else                           session = "close";
 
-	return { session, marketClosed: false, dayLabel: "Today's" };
+	return { session, marketClosed: false, dayLabel: "Today's", nextTradingDayLabel };
 }
 
 // kept for backwards compat — internal callers that only need session
@@ -688,7 +695,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
 		const mood = classifyMood(marketData);
-		const { session, marketClosed, dayLabel } = getMarketStatus();
+		const { session, marketClosed, dayLabel, nextTradingDayLabel } = getMarketStatus();
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
@@ -707,6 +714,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			session,
 			dayLabel,
 			marketClosed,
+			nextTradingDayLabel,
 			moodExplanation,
 			plainEnglish,
 			personalizedImpact,

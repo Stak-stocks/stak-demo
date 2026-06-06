@@ -355,6 +355,7 @@ export interface DailyBriefResponse {
 	session: "open" | "midday" | "close";
 	dayLabel: string;
 	marketClosed: boolean;
+	nextTradingDayLabel: string;
 	moodExplanation: string;
 	plainEnglish: string;
 	personalizedImpact: string;
