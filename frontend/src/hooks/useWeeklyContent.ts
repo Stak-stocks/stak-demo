@@ -1,6 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getCurrentWeekKey } from "@/data/playgroundData";
 import { generatePlaygroundQuestions } from "@/lib/api";
 import type { WeeklyPack, WeeklyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
 import type {
@@ -27,9 +26,7 @@ const GENERABLE_TYPES: GenerableType[] = ["battle", "earnings", "risk", "mood", 
 const GEN_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours — fresh each day
 
 export function useWeeklyContent(staticPack: WeeklyPack) {
-	const { tier } = staticPack;
-	// Always use ISO week key for Gemini generation — independent of daily completion key
-	const weekKey = getCurrentWeekKey();
+	const { weekKey, tier } = staticPack;
 
 	// Count how many of each type is in the static pack
 	const staticCounts = useMemo(() => {
