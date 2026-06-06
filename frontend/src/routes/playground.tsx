@@ -578,7 +578,7 @@ export function PlaygroundPage() {
 								<div className="flex-1 min-w-0">
 									<p className="text-[14px] font-bold text-foreground">{featuredLesson.title}</p>
 									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{featuredLesson.subtitle}</p>
-									<p className="text-[11px] text-amber-400 mt-[3px]">{featuredLesson.durationMin} min · +{featuredLesson.xp} XP · Relevant to today's market</p>
+									<p className="text-[11px] text-amber-400 mt-[3px]">{featuredLesson.durationMin} min · +{featuredLesson.xp} XP · Relevant to the {briefData?.mood?.toLowerCase()} market</p>
 								</div>
 								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-amber-500/15 text-amber-400">
 									<ChevronRight size={16} />
