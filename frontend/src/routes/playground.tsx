@@ -275,7 +275,8 @@ export function PlaygroundPage() {
 	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
 
 	// Weekly Pack — computed after totalXp is available (see line ~310)
-	const dayKey = useMemo(() => getCurrentWeekKey(), []);
+	// Use daily key for completion tracking so each day brings fresh scenarios
+	const dayKey = todayKey;
 
 	// Daily Brief → Featured Lesson mapping
 	const { data: briefData } = useQuery({
