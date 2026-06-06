@@ -1648,10 +1648,9 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 	const [correct, setCorrect] = useState(0);
 	// sessionCorrect tracks IDs completed correctly THIS session so Try Again can replay them
 	const [sessionCorrect, setSessionCorrect] = useState<Set<string>>(new Set());
-	// wrongThisSession flushes to dailyCompleted at session end so they never reappear on re-entry
-	const wrongThisSession = useRef<Set<string>>(new Set());
 	const weeklyIds = weeklyRiskIds ? pool.filter(r => weeklyRiskIds.includes(r.id)) : pool;
-	// Exclude already-completed scenarios EXCEPT ones just done correctly this session (allow replay via Try Again)
+	// Exclude already-completed (correct) scenarios EXCEPT ones just done correctly this session.
+	// Wrong answers are intentionally NOT flushed — users can retry them on re-entry.
 	const visibleRisk = weeklyIds.filter(r => !dailyCompleted?.has(r.id) || sessionCorrect.has(r.id));
 	const scenario = visibleRisk[index];
 
@@ -1745,18 +1744,13 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 			setSessionCorrect(prev => new Set([...prev, scenario.id]));
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onWeeklyComplete)
 				onWeeklyComplete(dayKey, scenario.id, scenario.xp);
-		} else {
-			// Track wrong answers to flush at session end — prevents reappearance on re-entry
-			if (!dailyCompleted?.has(scenario.id)) wrongThisSession.current.add(scenario.id);
 		}
+		// Wrong answers are NOT marked complete — user can re-enter and retry them.
+		// The pack is now stable for the day so retrying won't cause a "new set" to appear.
 		if (index < visibleRisk.length - 1) {
 			setIndex(i => i + 1); setSelected(null); setCorrect(c => isCorrect ? c + 1 : c);
 		} else {
 			setCorrect(c => isCorrect ? c + 1 : c);
-			// Flush wrong-answer IDs so they don't reappear on re-entry
-			if (dayKey && onWeeklyComplete) {
-				for (const id of wrongThisSession.current) onWeeklyComplete(dayKey, id, 0);
-			}
 			setDone(true);
 		}
 	};
@@ -1833,7 +1827,6 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, w
 	const [done, setDone] = useState(false);
 	const [correct, setCorrect] = useState(0);
 	const [sessionCorrectMood, setSessionCorrectMood] = useState<Set<string>>(new Set());
-	const wrongThisSessionMood = useRef<Set<string>>(new Set());
 	const weeklyIds = weeklyMoodIds ? pool.filter(m => weeklyMoodIds.includes(m.id)) : pool;
 	const visibleMood = weeklyIds.filter(m => !dailyCompleted?.has(m.id) || sessionCorrectMood.has(m.id));
 	const scenario = visibleMood[index];
@@ -1927,19 +1920,10 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, w
 			setSessionCorrectMood(prev => new Set([...prev, scenario.id]));
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onWeeklyComplete)
 				onWeeklyComplete(dayKey, scenario.id, scenario.xp);
-		} else {
-			if (!dailyCompleted?.has(scenario.id)) wrongThisSessionMood.current.add(scenario.id);
 		}
-		if (index < visibleMood.length - 1) {
-			setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c);
-		} else {
-			setCorrect(c => isRight ? c + 1 : c);
-			// Flush wrong-answer IDs at session end so they never reappear on re-entry
-			if (dayKey && onWeeklyComplete) {
-				for (const id of wrongThisSessionMood.current) onWeeklyComplete(dayKey, id, 0);
-			}
-			setDone(true);
-		}
+		// Wrong answers are NOT marked complete — user can re-enter and retry them.
+		if (index < visibleMood.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
+		else { setCorrect(c => isRight ? c + 1 : c); setDone(true); }
 	};
 	const isCorrect = selected === scenario.correctId;
 
