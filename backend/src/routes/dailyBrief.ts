@@ -393,6 +393,149 @@ Rules: use real numbers from the data, plain language, no jargon, no disclaimers
 	return buildPersonalizedImpact(tagScores, mood);
 }
 
+// ── Market Moment (macro event lesson) ───────────────────────────────────────
+
+interface MacroCalendarEvent {
+	event: string;
+	actual: string | null;
+	estimate: string | null;
+	prev: string | null;
+	impact: string;
+	unit?: string;
+	country: string;
+}
+
+interface MacroLesson {
+	eventType: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+const HIGH_IMPACT_KEYWORDS = [
+	"nonfarm payrolls", "unemployment rate",
+	"consumer price index", "cpi",
+	"personal consumption expenditure", "pce",
+	"federal funds rate", "fomc",
+	"gross domestic product", "gdp",
+	"producer price index", "ppi",
+	"retail sales", "ism manufacturing", "ism services",
+	"initial jobless claims",
+];
+
+async function getTodaysMacroEvent(): Promise<MacroCalendarEvent | null> {
+	const today = new Date().toISOString().split("T")[0];
+	const cacheKey = `daily-brief:macro-event:v1:${today}`;
+	const cached = await cacheGet<MacroCalendarEvent | null>(cacheKey);
+	if (cached !== undefined && cached !== null) return cached;
+	// null cached explicitly means "checked today, nothing found"
+	if (cached === null) return null;
+
+	try {
+		const raw = await finnhubGet(`/calendar/economic?from=${today}&to=${today}`) as { economicCalendar?: MacroCalendarEvent[] } | null;
+		const events = raw?.economicCalendar ?? [];
+		const match = events.find(e =>
+			e.country === "US" &&
+			e.impact === "high" &&
+			e.actual &&
+			HIGH_IMPACT_KEYWORDS.some(kw => e.event.toLowerCase().includes(kw)),
+		) ?? null;
+		await cacheSet(cacheKey, match, 6 * 60 * 60 * 1000);
+		return match;
+	} catch {
+		return null;
+	}
+}
+
+async function generateMacroLesson(event: MacroCalendarEvent, spyDp: number | null, mood: string): Promise<MacroLesson | null> {
+	const today = new Date().toISOString().split("T")[0];
+	const cacheKey = `daily-brief:macro-lesson:v1:${today}:${event.event.replace(/\s+/g, "_")}`;
+	const cached = await cacheGet<MacroLesson>(cacheKey);
+	if (cached) return cached;
+
+	const unitStr = event.unit ? ` ${event.unit}` : "";
+	const beatStr = (event.estimate && event.actual)
+		? (parseFloat(event.actual) > parseFloat(event.estimate) ? "beat" : parseFloat(event.actual) < parseFloat(event.estimate) ? "missed" : "matched")
+		: null;
+
+	const prompt = `You are writing a short market education lesson for STAK, a stock-learning app for Gen Z and millennials.
+
+Today's major US economic release:
+- Event: ${event.event}
+- Actual: ${event.actual}${unitStr}
+- Estimate: ${event.estimate ?? "N/A"}${unitStr}
+- Previous: ${event.prev ?? "N/A"}${unitStr}
+${beatStr ? `- Result: ${beatStr} expectations` : ""}
+- S&P 500 today: ${spyDp != null ? (spyDp >= 0 ? "+" : "") + spyDp + "%" : "unknown"}
+- Market mood: ${mood}
+
+Write a 3-card lesson that teaches a beginner WHY this economic data matters for stocks. Focus on cause-and-effect, not just the number.
+
+Return JSON with this exact shape:
+{
+  "eventType": "jobs" | "inflation" | "fed" | "gdp" | "ppi" | "retail" | "pmi" | "other",
+  "title": "max 7 words, e.g. 'What Today's Jobs Report Means'",
+  "subtitle": "one hook sentence, max 12 words, e.g. 'Strong hiring just shifted market expectations — here's why'",
+  "emoji": "single relevant emoji",
+  "cards": [
+    { "heading": "What Just Happened", "body": "2-3 sentences. State the actual number vs estimate and last period. Note the immediate market reaction." },
+    { "heading": "Why It Moves Markets", "body": "2-3 sentences. Explain the mechanism in plain English. E.g. for jobs: strong hiring → Fed worries about inflation → may keep rates high → growth stocks get hit because future earnings are worth less at higher discount rates." },
+    { "heading": "What to Watch Now", "body": "2-3 sentences. Name 1-2 sectors or asset types most affected by this specific release. Explain why in simple terms." }
+  ],
+  "quiz": {
+    "question": "test the cause-and-effect mechanism, not the number itself",
+    "options": [
+      { "id": "a", "text": "..." },
+      { "id": "b", "text": "..." },
+      { "id": "c", "text": "..." }
+    ],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why correct answer is right, why the others are wrong"
+  }
+}
+
+Tone: confident, plain English, no jargon without explanation. No financial advice. No disclaimers.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (!text) continue;
+			const parsed = JSON.parse(text) as MacroLesson;
+			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+				await cacheSet(cacheKey, parsed, 24 * 60 * 60 * 1000);
+				return parsed;
+			}
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
+// ── Deck definitions ──────────────────────────────────────────────────────────
+
 interface DeckDef {
 	id: string;
 	title: string;
@@ -527,10 +670,13 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
-		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+		const [{ moodExplanation, plainEnglish }, personalizedImpact, macroEvent] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector),
 			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid),
+			getTodaysMacroEvent(),
 		]);
+
+		const macroLesson = macroEvent ? await generateMacroLesson(macroEvent, spyDp, mood) : null;
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
 
@@ -541,6 +687,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			plainEnglish,
 			personalizedImpact,
 			decks,
+			...(macroLesson ? { macroLesson } : {}),
 			marketSnapshot: {
 				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
 				iwmChange: iwmDp, vixChange: vixDp,

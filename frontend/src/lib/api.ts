@@ -336,6 +336,20 @@ export interface DailyBriefDeck {
 	bars?: boolean;
 }
 
+export interface MacroLesson {
+	eventType: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
 export interface DailyBriefResponse {
 	mood: "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
 	session: "open" | "midday" | "close";
@@ -343,6 +357,7 @@ export interface DailyBriefResponse {
 	plainEnglish: string;
 	personalizedImpact: string;
 	decks: DailyBriefDeck[];
+	macroLesson?: MacroLesson;
 	marketSnapshot: {
 		spyChange: number | null;
 		qqqChange: number | null;

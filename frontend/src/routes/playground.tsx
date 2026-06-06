@@ -191,6 +191,7 @@ type ActiveView =
 	| null
 	| "lessons"
 	| "lesson-player"
+	| "macro-lesson"
 	| "daily-challenge"
 	| "battles"
 	| "earnings-lab"
@@ -334,6 +335,24 @@ export function PlaygroundPage() {
 		// Fire streak update — any playground completion counts toward daily streak
 		trackEvent("playground_activity", { activityId: id }).catch(() => {});
 	}, [completeWeeklyActivity]);
+	// Build synthetic lesson object from today's macro event (if any)
+	const macroLessonObj = useMemo(() => {
+		const ml = briefData?.macroLesson;
+		if (!ml) return null;
+		const today = new Date().toISOString().split("T")[0];
+		return {
+			id: `macro-moment-${today}`,
+			title: ml.title,
+			subtitle: ml.subtitle,
+			category: "Market Basics" as LessonCategory,
+			durationMin: 3,
+			xp: 25,
+			emoji: ml.emoji,
+			cards: ml.cards,
+			quiz: ml.quiz,
+		};
+	}, [briefData?.macroLesson]);
+
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {
 		const dailyLessonIds = dailyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
@@ -379,6 +398,19 @@ export function PlaygroundPage() {
 				onWeeklyComplete={markActivityComplete}
 				onBack={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
 				onComplete={() => { setActiveView("lessons"); savePlaygroundState("lessons", null); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+			/>
+		);
+	}
+	if (activeView === "macro-lesson" && macroLessonObj) {
+		return (
+			<LessonPlayer
+				lessonId={macroLessonObj.id}
+				account={account}
+				completedLessons={completedLessons}
+				totalLessons={totalLessons}
+				lessonsPool={[macroLessonObj]}
+				onBack={goHome}
+				onComplete={goHome}
 			/>
 		);
 	}
@@ -490,6 +522,34 @@ export function PlaygroundPage() {
 						</div>
 					</div>
 				</div>
+
+				{/* Market Moment — Gemini lesson on major economic event days */}
+				{macroLessonObj && (
+					<div className="mb-[20px]">
+						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">
+							Market Moment · Today's Big Release
+						</p>
+						<button
+							type="button"
+							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveView("macro-lesson"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+							className="w-full rounded-[14px] border border-violet-500/30 bg-violet-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
+						>
+							<div className="flex items-center gap-[12px]">
+								<span className="text-[30px]">{macroLessonObj.emoji}</span>
+								<div className="flex-1 min-w-0">
+									<p className="text-[14px] font-bold text-foreground">{macroLessonObj.title}</p>
+									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{macroLessonObj.subtitle}</p>
+									<p className="text-[11px] text-violet-400 mt-[3px]">
+										{account?.lessonProgress?.[macroLessonObj.id]?.completed ? "Completed ✓" : `3 min · +25 XP · Major event today`}
+									</p>
+								</div>
+								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-violet-500/15 text-violet-400">
+									<ChevronRight size={16} />
+								</div>
+							</div>
+						</button>
+					</div>
+				)}
 
 				{/* Featured Lesson from Daily Brief */}
 				{featuredLesson && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (
