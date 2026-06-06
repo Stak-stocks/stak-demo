@@ -353,6 +353,8 @@ export interface MacroLesson {
 export interface DailyBriefResponse {
 	mood: "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
 	session: "open" | "midday" | "close";
+	dayLabel: string;
+	marketClosed: boolean;
 	moodExplanation: string;
 	plainEnglish: string;
 	personalizedImpact: string;

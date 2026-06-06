@@ -62,14 +62,36 @@ const SECTOR_NAMES: Record<string, string> = {
 	XLB: "Materials", XLRE: "Real Estate", XLU: "Utilities",
 };
 
-function getMarketSession(): Session {
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function getMarketStatus(): { session: Session; marketClosed: boolean; dayLabel: string } {
 	const now = new Date();
+	const etDay  = parseInt(now.toLocaleString("en-US", { weekday: "short", timeZone: "America/New_York" }).slice(0, 1) === "S" ? "6" : "0", 10);
+	// Get actual ET weekday number (0=Sun … 6=Sat)
+	const etDayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const etDayNum  = DAY_NAMES.indexOf(etDayName); // 0=Sun, 6=Sat
 	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
 	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit",               timeZone: "America/New_York" }), 10);
 	const total  = etHour * 60 + etMin;
-	if (total < 12 * 60)         return "open";    // midnight – 11:59 AM ET
-	if (total < 15 * 60 + 30)    return "midday";  // noon – 3:29 PM ET
-	return "close";                                 // 3:30 PM ET onwards
+
+	const isWeekend = etDayNum === 0 || etDayNum === 6; // Sun or Sat
+	if (isWeekend) {
+		// Last trading day was Friday
+		return { session: "close", marketClosed: true, dayLabel: "Friday's" };
+	}
+
+	// Weekday — normal session detection
+	let session: Session;
+	if (total < 12 * 60)       session = "open";
+	else if (total < 15 * 60 + 30) session = "midday";
+	else                       session = "close";
+
+	return { session, marketClosed: false, dayLabel: "Today's" };
+}
+
+// kept for backwards compat — internal callers that only need session
+function getMarketSession(): Session {
+	return getMarketStatus().session;
 }
 
 interface MarketData {
@@ -666,7 +688,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
 		const mood = classifyMood(marketData);
-		const session = getMarketSession();
+		const { session, marketClosed, dayLabel } = getMarketStatus();
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
@@ -683,6 +705,8 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		res.json({
 			mood,
 			session,
+			dayLabel,
+			marketClosed,
 			moodExplanation,
 			plainEnglish,
 			personalizedImpact,

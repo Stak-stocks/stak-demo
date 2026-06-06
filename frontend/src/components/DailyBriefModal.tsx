@@ -94,7 +94,7 @@ const DECK_COLOR_CONFIG: Record<string, { border: string; bgClass: string; iconC
 	blue:   { border: "border-blue-500/25",    bgClass: "bg-blue-500/[0.07]",    iconColor: "blue",   textColor: "text-blue-600 dark:text-blue-300"       },
 };
 
-function ThemeCard({ deck }: { deck: DailyBriefDeck }) {
+function ThemeCard({ deck, dayLabel = "Today's" }: { deck: DailyBriefDeck; dayLabel?: string }) {
 	const Icon = DECK_ICON_MAP[deck.icon] ?? TrendingUp;
 	const c = DECK_COLOR_CONFIG[deck.color] ?? DECK_COLOR_CONFIG.blue;
 	return (
@@ -104,7 +104,7 @@ function ThemeCard({ deck }: { deck: DailyBriefDeck }) {
 			<div className="flex gap-[15px]">
 				<IconCircle color={c.iconColor} icon={<Icon size={28} strokeWidth={1.8} />} large />
 				<div className="min-w-0 flex-1 pt-[2px]">
-					<p className="text-[13px] dark:text-slate-300 text-slate-600">Today's Focus</p>
+					<p className="text-[13px] dark:text-slate-300 text-slate-600">{dayLabel} Focus</p>
 					<h3 className={`mt-[2px] text-[22px] font-bold leading-none tracking-[-0.03em] ${c.textColor}`}>{deck.title}</h3>
 					<p className="mt-[9px] text-[13px] leading-[18px] text-foreground/85">
 						{deck.subtitle} — We're surfacing {deck.title} picks in your Discover feed today.
@@ -136,7 +136,11 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 
 	const brief = liveData ?? FALLBACK_BRIEF;
 	const mood = MOOD_CONFIG[brief.mood] ?? MOOD_CONFIG.Mixed;
-	const sessionLabel = SESSION_LABELS[brief.session] ?? "Morning Brief";
+	const dayLabel = (brief as { dayLabel?: string }).dayLabel ?? "Today's";
+	const marketClosed = (brief as { marketClosed?: boolean }).marketClosed ?? false;
+	const sessionLabel = marketClosed
+		? `${dayLabel} Market Close Recap`
+		: (SESSION_LABELS[brief.session] ?? "Morning Brief");
 	const MoodIcon = mood.icon;
 
 	// Swipe-right to dismiss
@@ -215,7 +219,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						<div className="min-w-0 flex-1 pt-[2px]">
 							<div className="flex items-start justify-between gap-2">
 								<div>
-									<p className="text-[13px] dark:text-slate-300 text-slate-600">Today's Market Mood</p>
+									<p className="text-[13px] dark:text-slate-300 text-slate-600">{dayLabel} Market Mood</p>
 									<h3 className={`mt-[2px] text-[31px] font-bold leading-none tracking-[-0.03em] ${mood.textColor}`}>{brief.mood}</h3>
 								</div>
 								<div className="mt-[8px] w-[90px] opacity-80">
@@ -233,8 +237,8 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 				{/* Why this matters */}
 				<InfoCard color="cyan" icon={<UserRound size={26} strokeWidth={1.8} />} title="Why this matters to you" text={brief.personalizedImpact} />
 
-				{/* Today's Focus */}
-				{brief.decks && brief.decks.length > 0 && <ThemeCard deck={brief.decks[0]} />}
+				{/* Today's / Friday's Focus */}
+				{brief.decks && brief.decks.length > 0 && <ThemeCard deck={brief.decks[0]} dayLabel={dayLabel} />}
 
 				{/* CTA */}
 				{source !== "mystak" && (
@@ -245,7 +249,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						style={{ background: "linear-gradient(90deg,#23d6dd 0%,#5f7cff 50%,#9853ee 100%)" }}
 					>
 						<Play size={15} fill="white" className="shrink-0" />
-						Start Today's Deck
+						Start {dayLabel} Deck
 					</button>
 				)}
 
