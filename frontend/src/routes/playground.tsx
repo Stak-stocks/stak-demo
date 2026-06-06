@@ -319,7 +319,17 @@ export function PlaygroundPage() {
 	const totalLessons = LESSONS.length;
 
 	// Weekly Pack (declared here so totalXp is available)
-	const seenActivityIds = useMemo(() => new Set(account?.allTimeCompletedActivityIds ?? []), [account?.allTimeCompletedActivityIds]);
+	// Snapshot seenIds once per day when account first loads — prevents the daily pack from
+	// changing mid-session as allTimeCompletedActivityIds grows when activities are completed.
+	// Without this, completing a risk scenario changes seenIds → getWeeklyPack picks different
+	// scenarios → re-entering shows a "new set" and the home bar shows 0 done.
+	const seenIdsSnapshotRef = useRef<Set<string>>(new Set());
+	const seenIdsDayKeyRef = useRef<string | null>(null);
+	if (!accountLoading && account !== null && seenIdsDayKeyRef.current !== dayKey) {
+		seenIdsDayKeyRef.current = dayKey;
+		seenIdsSnapshotRef.current = new Set(account.allTimeCompletedActivityIds ?? []);
+	}
+	const seenActivityIds = seenIdsSnapshotRef.current;
 	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey, seenActivityIds), [totalXp, dayKey, seenActivityIds]);
 	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticDailyPack);
 	const dailyCompleted = useMemo(() => {
@@ -1646,7 +1656,9 @@ function RiskLabView({ onBack, weeklyRiskIds, dayLabel, dayKey, dailyCompleted, 
 	const scenario = visibleRisk[index];
 
 	if (done) {
-		const total = visibleRisk.length;
+		// Use weeklyIds.length (full pack size) not visibleRisk.length — after flushing wrong
+		// answers visibleRisk shrinks, which would show "1/1" instead of the correct "1/2".
+		const total = weeklyIds.length;
 		const pct = Math.round((correct / total) * 100);
 		const tier = pct >= 80 ? { emoji: "🛡️", label: "Risk Expert", msg: "You spotted every trap. You understand what separates safe stocks from dangerous ones.", color: "text-orange-400", border: "border-orange-500/25", bg: "bg-orange-500/[0.07]" }
 			: pct >= 50 ? { emoji: "⚠️", label: "Risk Aware", msg: "You caught most of them. The trickier cases are where real losses happen — review the ones you missed.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
@@ -1821,12 +1833,14 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, w
 	const [done, setDone] = useState(false);
 	const [correct, setCorrect] = useState(0);
 	const [sessionCorrectMood, setSessionCorrectMood] = useState<Set<string>>(new Set());
+	const wrongThisSessionMood = useRef<Set<string>>(new Set());
 	const weeklyIds = weeklyMoodIds ? pool.filter(m => weeklyMoodIds.includes(m.id)) : pool;
 	const visibleMood = weeklyIds.filter(m => !dailyCompleted?.has(m.id) || sessionCorrectMood.has(m.id));
 	const scenario = visibleMood[index];
 
 	if (done) {
-		const total = visibleMood.length;
+		// Use weeklyIds.length (full pack size) not visibleMood.length — same reason as Risk Lab.
+		const total = weeklyIds.length;
 		const pct = Math.round((correct / total) * 100);
 		const tier = pct >= 80 ? { emoji: "🧠", label: "Macro Mind", msg: "You understand how global events ripple through markets. That's a rare edge most investors never develop.", color: "text-cyan-400", border: "border-cyan-500/25", bg: "bg-cyan-500/[0.07]" }
 			: pct >= 50 ? { emoji: "📊", label: "Getting There", msg: "Solid macro awareness. The tricky ones usually involve second-order effects — practice makes these intuitive.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
@@ -1913,9 +1927,19 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, w
 			setSessionCorrectMood(prev => new Set([...prev, scenario.id]));
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onWeeklyComplete)
 				onWeeklyComplete(dayKey, scenario.id, scenario.xp);
+		} else {
+			if (!dailyCompleted?.has(scenario.id)) wrongThisSessionMood.current.add(scenario.id);
 		}
-		if (index < visibleMood.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
-		else { setCorrect(c => isRight ? c + 1 : c); setDone(true); }
+		if (index < visibleMood.length - 1) {
+			setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c);
+		} else {
+			setCorrect(c => isRight ? c + 1 : c);
+			// Flush wrong-answer IDs at session end so they never reappear on re-entry
+			if (dayKey && onWeeklyComplete) {
+				for (const id of wrongThisSessionMood.current) onWeeklyComplete(dayKey, id, 0);
+			}
+			setDone(true);
+		}
 	};
 	const isCorrect = selected === scenario.correctId;
 
@@ -2315,7 +2339,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
 
 
-	// Use getCurrentWeekKey and account directly (not PlaygroundPage's dayKey/totalXp)
+	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getCurrentWeekKey(), []);
 	// Freeze tier at session start — prevents mid-session refetch if user earns XP
 	// Use full 1-5 tier scale to match backend difficulty settings

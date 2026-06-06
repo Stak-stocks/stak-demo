@@ -443,15 +443,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		const isSameWeek = current?.weekKey === weekKey;
 		const alreadyDone = isSameWeek && (current?.completedIds ?? []).includes(activityId);
 		if (alreadyDone) return;
-		const completedIds = isSameWeek ? [...(current!.completedIds), activityId] : [activityId];
-		const xpEarned = (isSameWeek ? (current!.xpEarned ?? 0) : 0) + xp;
 		const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
 		const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
-		await updateDoc(doc(db, "users", user.uid), {
-			weeklyProgress: { weekKey, completedIds, xpEarned },
-			totalXp: increment(xp),
-			...allTimeUpdate,
-		});
+		if (isSameWeek) {
+			// Use arrayUnion + increment to avoid race condition when multiple activities
+			// complete before Firestore propagates the first write back to local state.
+			// Replacing the whole weeklyProgress object would cause the second write to
+			// overwrite completedIds from the first (stale snapshot).
+			await updateDoc(doc(db, "users", user.uid), {
+				"weeklyProgress.completedIds": arrayUnion(activityId),
+				"weeklyProgress.xpEarned": increment(xp),
+				"weeklyProgress.weekKey": weekKey,
+				totalXp: increment(xp),
+				...allTimeUpdate,
+			});
+		} else {
+			// New day: reset the whole weeklyProgress object
+			await updateDoc(doc(db, "users", user.uid), {
+				weeklyProgress: { weekKey, completedIds: [activityId], xpEarned: xp },
+				totalXp: increment(xp),
+				...allTimeUpdate,
+			});
+		}
 	}, [user, account]);
 
 	const markPlaygroundOnboarded = useCallback(async () => {
