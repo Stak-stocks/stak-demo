@@ -1563,7 +1563,7 @@ function FooterPlayStoreButton() {
 				>
 					GET IT ON
 				</p>
-				<div style={{ width: 74, height: 15 }} data-node-id="1:1045">
+				<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }} data-node-id="1:1045">
 					<img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} />
 				</div>
 			</div>
@@ -1896,27 +1896,67 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 const MOBILE_WIDTH = 810;
 const MOBILE390_WIDTH = 390;
 
-function MobileNavBar({ width = 650, left = 80.367, gap = 495 }: { width?: number; left?: number; gap?: number } = {}) {
+function MobileNavBar({
+	width = 650,
+	left = 80.367,
+	gap = 495,
+	onSignup,
+	scrollToSection,
+	sectionTops,
+}: {
+	width?: number;
+	left?: number;
+	gap?: number;
+	onSignup?: () => void;
+	scrollToSection?: (top: number) => void;
+	sectionTops?: { howItWorks: number; features: number; faq: number };
+} = {}) {
+	const [open, setOpen] = useState(false);
+	const go = (top: number) => { scrollToSection?.(top); setOpen(false); };
+	const navLinks = [
+		{ label: "How It Works", onClick: () => go(sectionTops?.howItWorks ?? 0) },
+		{ label: "Features",     onClick: () => go(sectionTops?.features ?? 0) },
+		{ label: "FAQ",          onClick: () => go(sectionTops?.faq ?? 0) },
+	];
 	return (
-		<div style={{ position: "absolute", left, top: 26, width, height: 45.899, background: "#1a1d31", borderRadius: 10.752, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "12px 10px", boxSizing: "border-box", zIndex: 10 }}>
-			<div style={{ display: "flex", gap, alignItems: "center" }}>
-				<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
-					<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
-						<img src={A.logo1} alt="STAK" style={{ width: "100%", height: "100%", display: "block" }} />
+		<div style={{ position: "absolute", left, top: 26, width, zIndex: 20 }}>
+			<div style={{ height: 45.899, background: "#1a1d31", borderRadius: open ? "10.752px 10.752px 0 0" : 10.752, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "12px 10px", boxSizing: "border-box" }}>
+				<div style={{ display: "flex", gap, alignItems: "center" }}>
+					<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
+						<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
+							<img src={A.logo1} alt="STAK" style={{ width: "100%", height: "100%", display: "block" }} />
+						</div>
+						<div style={{ position: "absolute", left: "28.38%", top: "21.77%", right: 0, bottom: "21.64%" }}>
+							<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+						</div>
 					</div>
-					<div style={{ position: "absolute", left: "28.38%", top: "21.77%", right: 0, bottom: "21.64%" }}>
-						<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-					</div>
+					<button type="button" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen(v => !v)} style={{ ...btnReset, width: 31.922, height: 14.188, flexShrink: 0, cursor: "pointer" }}>
+						<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+					</button>
 				</div>
-				<button type="button" aria-label="Menu" style={{ ...btnReset, width: 31.922, height: 14.188, flexShrink: 0, cursor: "pointer" }}>
-					<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</button>
 			</div>
+			{open && (
+				<div style={{ background: "#1a1d31", borderRadius: "0 0 10.752px 10.752px", paddingBottom: 12, display: "flex", flexDirection: "column" }}>
+					<div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
+					{navLinks.map(({ label, onClick }) => (
+						<button key={label} type="button" onClick={onClick} style={{ ...btnReset, padding: "13px 20px", textAlign: "left", fontFamily: SR, fontSize: 14, fontWeight: 300, color: "rgba(255,255,255,0.85)", cursor: "pointer", letterSpacing: 0.2 }}>
+							{label}
+						</button>
+					))}
+					{onSignup && (
+						<div style={{ margin: "6px 12px 0" }}>
+							<button type="button" onClick={() => { onSignup(); setOpen(false); }} style={{ ...btnReset, background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: "11px 0", width: "100%", fontFamily: SR, fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer", textAlign: "center" }}>
+								Get started
+							</button>
+						</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
 
-function MobileHero({ onSignup }: { onSignup: () => void }) {
+function MobileHero({ onSignup, scrollToSection }: { onSignup: () => void; scrollToSection: (top: number) => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE_WIDTH, height: 924, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(46% 20% at 50% 55%, rgba(70,118,162,0.12) 0%, rgba(45,86,130,0.045) 46%, rgba(10,16,32,0) 72%)" }} />
@@ -1927,7 +1967,7 @@ function MobileHero({ onSignup }: { onSignup: () => void }) {
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", right: "-108.2%", bottom: "-179.01%", width: "auto", height: "auto", maxWidth: "none" }} />
 			</div>
 
-			<MobileNavBar />
+			<MobileNavBar onSignup={onSignup} scrollToSection={scrollToSection} sectionTops={{ howItWorks: 2080, features: 3298, faq: 5356 }} />
 
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -2401,7 +2441,7 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
 								<p style={{ fontFamily: SR, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
-								<p style={{ fontFamily: SR, fontWeight: 500, fontSize: 18, margin: 0, lineHeight: "1", letterSpacing: -0.47 }}>App Store</p>
+								<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 15, margin: 0, lineHeight: "1.1", letterSpacing: -0.3, whiteSpace: "nowrap" }}>App Store</p>
 							</div>
 						</div>
 					</div>
@@ -2443,13 +2483,14 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 	);
 }
 
-function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo, scrollToPixel }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void; scrollToPixel: (px: number) => void }) {
 	// full mobile canvas height (Figma node 1:1123 / Frame 220)
 	const H = 8417.48;
+	const scrollToSection = (canvasTop: number) => scrollToPixel(canvasTop * scale);
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
-				<MobileHero onSignup={onSignup} />
+				<MobileHero onSignup={onSignup} scrollToSection={scrollToSection} />
 				<MobileProofStrip />
 				<MobileProblem onSignup={onSignup} />
 				<MobileHowItWorks onSignup={onSignup} />
@@ -2464,7 +2505,7 @@ function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { 
 }
 
 /* === 390px PHONE LAYOUT (Figma node 1:1586 / Frame 222, 390px wide) === */
-function MobileHero390({ onSignup }: { onSignup: () => void }) {
+function MobileHero390({ onSignup, scrollToSection }: { onSignup: () => void; scrollToSection: (top: number) => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE390_WIDTH, height: 925, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: -216, top: 180, width: 470, height: 231, overflow: "visible", pointerEvents: "none" }}>
@@ -2473,7 +2514,7 @@ function MobileHero390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: 191, top: 441, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", right: "-108.2%", bottom: "-179.01%", width: "auto", height: "auto", maxWidth: "none" }} />
 			</div>
-			<MobileNavBar width={330.2} left={29.8} gap={188} />
+			<MobileNavBar width={330.2} left={29.8} gap={188} onSignup={onSignup} scrollToSection={scrollToSection} sectionTops={{ howItWorks: 1964, features: 3539, faq: 6356 }} />
 			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2876,7 +2917,7 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
 								<p style={{ fontFamily: SR, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
-								<p style={{ fontFamily: SR, fontWeight: 500, fontSize: 18, margin: 0, lineHeight: "1", letterSpacing: -0.47 }}>App Store</p>
+								<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 15, margin: 0, lineHeight: "1.1", letterSpacing: -0.3, whiteSpace: "nowrap" }}>App Store</p>
 							</div>
 						</div>
 					</div>
@@ -2902,14 +2943,15 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 	);
 }
 
-function MobileLanding390({ scale, onSignup, onEmail, onSubscribe }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void }) {
+function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, scrollToPixel }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; scrollToPixel: (px: number) => void }) {
 	// 390px phone canvas (Figma node 1:1586 / Frame 222). Height grows as sections are added.
 	void onEmail; void onSubscribe;
 	const H = 9826.93;
+	const scrollToSection = (canvasTop: number) => scrollToPixel(canvasTop * scale);
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE390_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
-				<MobileHero390 onSignup={onSignup} />
+				<MobileHero390 onSignup={onSignup} scrollToSection={scrollToSection} />
 				<MobileProofStrip390 />
 				<MobileProblem390 onSignup={onSignup} />
 				<MobileHowItWorks390 onSignup={onSignup} />
@@ -2960,6 +3002,10 @@ export function LandingPage() {
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
 
+	const scrollToPixel = useCallback((px: number) => {
+		scrollRef.current?.scrollTo({ top: px, behavior: "smooth" });
+	}, []);
+
 	const handleLogin = useCallback(() => navigate({ to: "/login" }), [navigate]);
 	const handleSignup = useCallback(() => navigate({ to: "/signup" }), [navigate]);
 	const handleEmail = useCallback(() => {
@@ -2989,9 +3035,9 @@ export function LandingPage() {
 				}
 			`}</style>
 			{isPhone ? (
-				<MobileLanding390 scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} />
+				<MobileLanding390 scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} scrollToPixel={scrollToPixel} />
 			) : isMobile ? (
-				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
+				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} scrollToPixel={scrollToPixel} />
 			) : (
 			<div className="landing-wrapper" style={{ width: "100%", height: TOTAL_HEIGHT * scale, overflow: "hidden" }}>
 				<div
