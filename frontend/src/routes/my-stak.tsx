@@ -224,8 +224,8 @@ function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 					</div>
 				) : (
 					<div>
-						<p className="text-[12px] font-semibold leading-[15px] text-foreground/95 break-words">{title}</p>
-						{subtitle && <p className="mt-[1px] text-[11px] leading-[14px] dark:text-slate-400 text-slate-500 break-words">{subtitle}</p>}
+						<p className="text-[10px] font-semibold leading-[13px] text-foreground/95 whitespace-nowrap">{title}</p>
+						{subtitle && <p className="mt-[1px] text-[10px] leading-[13px] dark:text-slate-400 text-slate-500 whitespace-nowrap">{subtitle}</p>}
 					</div>
 				)}
 			</div>
