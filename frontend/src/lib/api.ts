@@ -310,10 +310,11 @@ export interface DailyMoveData {
 	direction: "up" | "down" | "flat";
 }
 
-export function getDailyMove(symbol: string, changePercent?: number, name?: string) {
+export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number) {
 	const params = new URLSearchParams();
 	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
 	if (name) params.set("name", name);
+	if (sentences && sentences > 1) params.set("sentences", String(sentences));
 	const qs = params.toString() ? `?${params.toString()}` : "";
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }

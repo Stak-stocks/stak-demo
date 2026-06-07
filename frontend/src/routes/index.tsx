@@ -139,7 +139,7 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const { user } = useAuth();
-	const { account, updateStak, updatePassedBrands, updateDeckOrder } = useAccount();
+	const { account, updateStak, saveToStak, updatePassedBrands, updateDeckOrder } = useAccount();
 	const queryClient = useQueryClient();
 	const uid = user?.uid ?? "guest";
 
@@ -412,13 +412,13 @@ function App() {
 				duration: 2000,
 			});
 		} else {
-			
 			const updated = [...swipedBrands, brand];
 			setSwipedBrands(updated);
-			updateStak(updated.map((b) => b.id)).catch((e) => {
-			console.error("Failed to save stak:", e);
-			toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
-		});
+			const cachedPrice = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])?.quote?.price ?? null;
+			saveToStak(brand.id, cachedPrice).catch((e) => {
+				console.error("Failed to save stak:", e);
+				toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
+			});
 		}
 	};
 
@@ -443,10 +443,12 @@ function App() {
 			pendingBrand,
 		];
 		setSwipedBrands(updated);
+		const cachedSwapPrice = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", pendingBrand.ticker])?.quote?.price ?? null;
 		updateStak(updated.map((b) => b.id)).catch((e) => {
-		console.error("Failed to save stak:", e);
-		toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
-	});
+			console.error("Failed to save stak:", e);
+			toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
+		});
+		saveToStak(pendingBrand.id, cachedSwapPrice).catch(() => {});
 
 		// Invalidate brief — swap changes which brands are personalized
 		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });

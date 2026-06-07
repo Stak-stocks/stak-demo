@@ -528,8 +528,8 @@ function MyStakPage() {
 
 	const { data: dailyMoveData, isLoading: dailyMoveLoading, isError: dailyMoveError } = useQuery({
 		// Include direction in key so a direction change (flat→down) fetches fresh content
-		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection],
-		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name),
+		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection, 4],
+		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name, 4),
 		enabled: !!selectedBrand,
 		staleTime: 30 * 60 * 1000,
 		refetchInterval: 30 * 60 * 1000,
@@ -708,6 +708,7 @@ function MyStakPage() {
 		const priceUp = (stockData?.quote?.changePercent ?? 0) >= 0;
 
 	// Since You Saved
+	const inStak = selectedBrand ? (account?.stakBrandIds?.includes(selectedBrand.id) ?? false) : false;
 	const saveEntry = selectedBrand ? (account?.stakSavedAt?.[selectedBrand.id] ?? null) : null;
 	const currentQuotePrice = stockData?.quote?.price ?? null;
 	const sinceSavedPct = saveEntry?.priceAtSave && currentQuotePrice
@@ -715,7 +716,9 @@ function MyStakPage() {
 		: null;
 	const sinceSavedUp = sinceSavedPct !== null ? sinceSavedPct >= 0 : null;
 	const sinceSavedContent = (() => {
-		if (!saveEntry) return null;
+		if (!inStak) return null;
+		// Brand is in STAK but was saved before timestamp tracking was added
+		if (!saveEntry) return `You have this in your STAK.`;
 		const ageMs = Date.now() - saveEntry.savedAt;
 		const savedToday = ageMs < 24 * 60 * 60 * 1000;
 		const ago = formatSavedAgo(saveEntry.savedAt);
