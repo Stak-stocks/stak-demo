@@ -716,9 +716,7 @@ function MyStakPage() {
 		: null;
 	const sinceSavedUp = sinceSavedPct !== null ? sinceSavedPct >= 0 : null;
 	const sinceSavedContent = (() => {
-		if (!inStak) return null;
-		// Brand is in STAK but was saved before timestamp tracking was added
-		if (!saveEntry) return `You have this in your STAK.`;
+		if (!inStak || !saveEntry) return null;
 		const ageMs = Date.now() - saveEntry.savedAt;
 		const savedToday = ageMs < 24 * 60 * 60 * 1000;
 		const ago = formatSavedAgo(saveEntry.savedAt);
