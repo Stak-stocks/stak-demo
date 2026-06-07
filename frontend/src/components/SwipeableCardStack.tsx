@@ -161,6 +161,7 @@ export function SwipeableCardStack({
 	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const isProcessingSwipe = useRef(false);
+	const isDraggingRef = useRef(false);
 	const cardShownAt = useRef(Date.now());
 	const lastSwipeVelocity = useRef<number | undefined>(undefined);
 
@@ -242,6 +243,7 @@ export function SwipeableCardStack({
 		const currentBrand = deck[currentIndex];
 		if (!currentBrand) { isProcessingSwipe.current = false; return; }
 
+		isDraggingRef.current = false;
 		setIsDragging(false);
 		setIsExiting(true);
 
@@ -287,6 +289,7 @@ export function SwipeableCardStack({
 		const current = deck[currentIndex];
 		if (!current) { isProcessingSwipe.current = false; return; }
 
+		isDraggingRef.current = false;
 		setIsDragging(false);
 		setIsExiting(true);
 		setDragOffset({ x: 0, y: 4000 }); // slide card down off screen
@@ -302,6 +305,7 @@ export function SwipeableCardStack({
 	/* ── Drag handlers ── */
 	const handleDragStart = (clientX: number, clientY: number) => {
 		if (isProcessingSwipe.current) return;
+		isDraggingRef.current = true;
 		setIsDragging(true);
 		dragStartPos.current = { x: clientX, y: clientY };
 		dragStartTime.current = Date.now();
@@ -309,7 +313,7 @@ export function SwipeableCardStack({
 	};
 
 	const handleDragMove = (clientX: number, clientY: number) => {
-		if (!isDragging) return;
+		if (!isDraggingRef.current) return;
 		const deltaX = clientX - dragStartPos.current.x;
 		const deltaY = clientY - dragStartPos.current.y;
 		setDragOffset({ x: deltaX, y: deltaY });
@@ -321,7 +325,8 @@ export function SwipeableCardStack({
 	};
 
 	const handleDragEnd = () => {
-		if (!isDragging || isProcessingSwipe.current) return;
+		if (!isDraggingRef.current || isProcessingSwipe.current) return;
+		isDraggingRef.current = false;
 
 		// Calculate velocity from recent history
 		const history = velocityHistory.current;
@@ -571,8 +576,8 @@ export function SwipeableCardStack({
 					onMouseUp={isDragging ? handleMouseUp : undefined}
 					onMouseLeave={isDragging ? handleMouseUp : undefined}
 					onTouchStart={handleTouchStart}
-					onTouchMove={isDragging ? handleTouchMove : undefined}
-					onTouchEnd={isDragging ? handleTouchEnd : undefined}
+					onTouchMove={handleTouchMove}
+					onTouchEnd={handleTouchEnd}
 				>
 					{/* Swipe tint */}
 					{Math.abs(dragOffset.x) > 15 && (

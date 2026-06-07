@@ -8,8 +8,6 @@ import { brands } from "@/data/brands";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmark, ShoppingBag, Shield, CalendarDays, FileText, BarChart3, DollarSign, Building2, Target, Plus, ArrowLeftRight } from "lucide-react";
 
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-const SWIPE_EDGE_PX = 24;
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import type { PeerMetrics } from "@/lib/api";
@@ -211,7 +209,7 @@ function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 	const Wrapper = onClick ? "button" : "div";
 	return (
 		<Wrapper type={onClick ? "button" : undefined} onClick={onClick}
-			className={`flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl w-full text-left ${onClick ? "active:opacity-75 transition-opacity" : ""}`}>
+			className={`flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl w-full text-left overflow-hidden ${onClick ? "active:opacity-75 transition-opacity" : ""}`}>
 			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
 				{icon}
 			</div>
@@ -226,8 +224,8 @@ function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 					</div>
 				) : (
 					<div>
-						<p className="text-[14px] font-semibold leading-[17px] text-foreground/95">{title}</p>
-						{subtitle && <p className="mt-[1px] text-[12px] leading-[15px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
+						<p className="text-[12px] font-semibold leading-[15px] text-foreground/95 break-words">{title}</p>
+						{subtitle && <p className="mt-[1px] text-[11px] leading-[14px] dark:text-slate-400 text-slate-500 break-words">{subtitle}</p>}
 					</div>
 				)}
 			</div>
@@ -488,7 +486,6 @@ function MyStakPage() {
 	}, [account?.stakBrandIds]);
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
-		if (!IS_IOS || e.clientX > SWIPE_EDGE_PX) return;
 		swipeStartX.current = e.clientX;
 		startTime.current = Date.now();
 	}, []);
@@ -756,6 +753,7 @@ function MyStakPage() {
 				transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined,
 				transition: swipeX === 0 ? "transform 0.25s ease, opacity 0.25s ease" : "none",
 				opacity: swipeX > 0 ? Math.max(0.4, 1 - swipeX / 300) : 1,
+				touchAction: "pan-y",
 			}}
 			onPointerDown={handlePointerDown}
 			onPointerMove={handlePointerMove}

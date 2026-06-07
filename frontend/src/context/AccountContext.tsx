@@ -73,7 +73,7 @@ export interface UserDoc {
 	email?: string;
 	displayName?: string;
 	phone?: string;
-	preferences?: { interests?: string[]; familiarity?: string; onboardingSwipes?: string[] };
+	preferences?: { interests?: string[]; familiarity?: string; onboardingSwipes?: string[]; theme?: "light" | "dark" };
 	onboardingCompleted?: boolean;
 	stakBrandIds: string[];
 	stakSavedAt?: Record<string, StakSaveEntry>;
