@@ -98,7 +98,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 
 function ProfilePage() {
 	const { user, loading, logout } = useAuth();
-	const { account } = useAccount();
+	const { account, updatePreferences } = useAccount();
 	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();
 
@@ -351,7 +351,11 @@ function ProfilePage() {
 							role="switch"
 							aria-checked={resolvedTheme === "dark"}
 							aria-labelledby="theme-toggle-label"
-							onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+							onClick={() => {
+							const next = resolvedTheme === "dark" ? "light" : "dark";
+							setTheme(next);
+							updatePreferences({ ...account?.preferences, theme: next });
+						}}
 							className={`relative w-11 h-6 rounded-full transition-colors ${
 								resolvedTheme === "dark"
 									? "bg-violet-500"

@@ -30,7 +30,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 function Root() {
 	const { user, loading } = useAuth();
 	const { account, accountLoading, saveToStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
-	const { resolvedTheme, reapplyTheme } = useTheme();
+	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
@@ -40,6 +40,14 @@ function Root() {
 	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const themeAppliedForUid = useRef<string | null>(null);
+
+	// Apply theme from Firestore once per login — light by default, dark if user explicitly set it
+	useEffect(() => {
+		if (!account?.uid || themeAppliedForUid.current === account.uid) return;
+		themeAppliedForUid.current = account.uid;
+		setTheme(account.preferences?.theme ?? "light");
+	}, [account?.uid, account?.preferences?.theme, setTheme]);
 
 	// Auth/landing pages are always dark regardless of user theme preference
 	useEffect(() => {
