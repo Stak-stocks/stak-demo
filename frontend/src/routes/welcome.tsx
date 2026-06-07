@@ -482,10 +482,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 			</div>
 
 			<div style={{ position: "absolute", left: "calc(50% - 0.02px)", top: 311, transform: "translateX(-50%)", width: 1237.95, height: 767, overflow: "hidden" }}>
-				{/* Phone screenshot — Figma node 1:440. Figma applies a `blur-[3.285px]`
-				    filter to the image, but we render it crisp (no blur) per design
-				    intent — the blur in Figma was a stylization that obscured the
-				    actual screenshot content. */}
+				{/* Phone — replace problem-screenshot.png with a real STAK composite when ready */}
 				<div style={{ position: "absolute", left: "calc(50% + 1.48px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
 					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 				</div>
@@ -2974,7 +2971,7 @@ export function LandingPage() {
 	}, []);
 
 	return (
-		<div ref={scrollRef} style={{ background: SECTION_BG, height: "100vh", overflowY: "auto", overflowX: "hidden" }}>
+		<div ref={scrollRef} className="landing-scroll" style={{ background: SECTION_BG, height: "100vh", overflowY: "auto", overflowX: "hidden" }}>
 			<link
 				href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@300;400;600;700&display=swap"
 				rel="stylesheet"
@@ -2982,6 +2979,13 @@ export function LandingPage() {
 			<style>{`
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);
+				}
+				.landing-scroll::-webkit-scrollbar {
+					display: none;
+				}
+				.landing-scroll {
+					scrollbar-width: none;
+					-ms-overflow-style: none;
 				}
 			`}</style>
 			{isPhone ? (
