@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { getProfile } from "@/lib/api";
-import StakLogoIcon from "@/assets/stak-logo-icon.svg?react";
+import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -114,33 +114,33 @@ function SignUpPage() {
 		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
 			{/* Logo — top left */}
 			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
-				<StakLogoIcon width={28} height={28} />
-				<span className="text-white text-base font-bold tracking-wider">STAK</span>
+				<StakLogo size={28} />
+				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
 			</Link>
 
 			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
 				{/* Heading */}
 				<div>
-					<h1 className="text-3xl font-bold text-white">Create Account</h1>
-					<p className="text-slate-400 mt-1">Start building your stak</p>
+					<h1 className="text-[26px] font-extrabold text-foreground">Create Account</h1>
+					<p className="dark:text-slate-400 text-slate-500 mt-1">Start building your stak</p>
 				</div>
 
 				{/* Form */}
 				<form onSubmit={handleEmailSignUp} className="space-y-4 text-left">
 					<div>
-						<label htmlFor="email" className="block text-sm text-slate-400 mb-1.5">Email</label>
+						<label htmlFor="email" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Email</label>
 						<input
 							id="email"
 							type="email"
 							placeholder="Email"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 						/>
 					</div>
 
 					<div>
-						<label htmlFor="password" className="block text-sm text-slate-400 mb-1.5">Password</label>
+						<label htmlFor="password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Password</label>
 						<div className="relative">
 							<input
 								id="password"
@@ -148,12 +148,12 @@ function SignUpPage() {
 								placeholder="At least 6 characters"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
+								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
 							/>
 							<button
 								type="button"
 								onClick={() => setShowPassword(!showPassword)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:dark:text-slate-300 text-slate-600"
 							>
 								{showPassword ? (
 									<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -170,14 +170,14 @@ function SignUpPage() {
 					</div>
 
 					<div>
-						<label htmlFor="confirmPassword" className="block text-sm text-slate-400 mb-1.5">Confirm Password</label>
+						<label htmlFor="confirmPassword" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Confirm Password</label>
 						<input
 							id="confirmPassword"
 							type={showPassword ? "text" : "password"}
 							placeholder="Confirm password"
 							value={confirmPassword}
 							onChange={(e) => setConfirmPassword(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
 						/>
 					</div>
 
@@ -185,11 +185,11 @@ function SignUpPage() {
 					<button
 						type="submit"
 						disabled={signingUp || !email || !password || !confirmPassword}
-						className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 					>
 						{signingUp ? (
 							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 								Creating account...
 							</div>
 						) : (
@@ -211,7 +211,7 @@ function SignUpPage() {
 						type="button"
 						onClick={handleGoogleSignIn}
 						disabled={signingUp}
-						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 text-white font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
+						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
 					>
 						<svg className="w-5 h-5" viewBox="0 0 24 24">
 							<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -225,7 +225,7 @@ function SignUpPage() {
 				</div>
 
 				{/* Sign In Link */}
-				<p className="text-slate-400 text-sm pt-2">
+				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
 					Already have an account?{" "}
 					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
 						Sign in

@@ -59,7 +59,7 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 				</div>
 
 				{/* Title */}
-				<h2 className="text-xl font-extrabold text-white leading-tight mb-4">
+				<h2 className="text-xl font-extrabold text-foreground leading-tight mb-4">
 					{card.title}
 				</h2>
 
@@ -67,7 +67,7 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 				<div className="text-5xl mb-5 select-none">{card.emoji}</div>
 
 				{/* Explanation */}
-				<p className="text-sm text-slate-300 leading-relaxed mb-5">
+				<p className="text-sm dark:text-slate-300 text-slate-600 leading-relaxed mb-5">
 					{card.explanation}
 				</p>
 
@@ -79,7 +79,7 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 					<p className="text-xs font-bold text-yellow-400 tracking-wider uppercase mb-1.5">
 						💡 Stak Takeaway:
 					</p>
-					<p className="text-sm text-slate-300 leading-relaxed">
+					<p className="text-sm dark:text-slate-300 text-slate-600 leading-relaxed">
 						{card.takeaway}
 					</p>
 				</div>
@@ -88,7 +88,7 @@ export function IntelCardModal({ card, onDismiss }: Readonly<IntelCardModalProps
 				<button
 					type="button"
 					onClick={onDismiss}
-					className="mt-6 w-full py-3 rounded-xl border border-slate-500/60 text-white font-bold text-sm tracking-widest uppercase hover:bg-white/5 active:scale-95 transition-all"
+					className="mt-6 w-full py-3 rounded-xl border border-slate-500/60 text-foreground font-bold text-sm tracking-widest uppercase hover:bg-white/5 active:scale-95 transition-all"
 				>
 					Got It
 				</button>

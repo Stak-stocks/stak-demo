@@ -6,6 +6,7 @@ interface ThemeContextType {
 	theme: Theme;
 	setTheme: (theme: Theme) => void;
 	resolvedTheme: "light" | "dark";
+	reapplyTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -13,10 +14,10 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	const [theme, setTheme] = useState<Theme>(() => {
 		const saved = localStorage.getItem("stak-theme") as Theme;
-		return saved || "system";
+		return saved || "light";
 	});
 
-	const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("dark");
+	const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
 	useEffect(() => {
 		localStorage.setItem("stak-theme", theme);
@@ -43,6 +44,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 		applyTheme();
 
+		// Expose so external callers can force a re-apply (e.g. after auth-page dark override)
+		(window as unknown as Record<string, unknown>).__stakReapplyTheme = applyTheme;
+
 		if (theme === "system") {
 			const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 			const handleChange = () => applyTheme();
@@ -51,8 +55,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [theme]);
 
+	const reapplyTheme = () => {
+		const resolved = theme === "system"
+			? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+			: theme;
+		if (resolved === "dark") {
+			document.documentElement.classList.add("dark");
+		} else {
+			document.documentElement.classList.remove("dark");
+		}
+	};
+
 	return (
-		<ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+		<ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, reapplyTheme }}>
 			{children}
 		</ThemeContext.Provider>
 	);

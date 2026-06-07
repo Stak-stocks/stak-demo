@@ -89,10 +89,10 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#0b1121]">
+		<div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-background">
 			{/* Search header */}
 			<div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-slate-800/60">
-				<Search className="w-5 h-5 text-slate-400 shrink-0" />
+				<Search className="w-5 h-5 dark:text-slate-400 text-slate-500 shrink-0" />
 				<input
 					ref={inputRef}
 					type="search"
@@ -104,12 +104,12 @@ export function SearchOverlay({ open, onClose, onSelectBrand }: SearchOverlayPro
 					autoComplete="off"
 					autoCorrect="off"
 					spellCheck={false}
-					className="flex-1 bg-transparent text-white text-base outline-none placeholder:text-slate-500"
+					className="flex-1 bg-transparent text-foreground text-base outline-none placeholder:text-slate-500"
 				/>
 				<button
 					type="button"
 					onClick={onClose}
-					className="p-1.5 rounded-full text-slate-400 hover:text-white transition-colors"
+					className="p-1.5 rounded-full dark:text-slate-400 text-slate-500 hover:text-foreground transition-colors"
 				>
 					<X className="w-5 h-5" />
 				</button>
@@ -173,7 +173,7 @@ const BrandRow = memo(function BrandRow({ brand, onSelect }: { brand: BrandProfi
 			<BrandLogo brand={brand} className="w-9 h-9 rounded-lg" />
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2">
-					<span className="font-semibold text-white text-sm">{brand.name}</span>
+					<span className="font-semibold text-foreground text-sm">{brand.name}</span>
 					<span className="text-[10px] font-mono font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-1.5 py-0.5 rounded uppercase">
 						{brand.ticker}
 					</span>

@@ -10,11 +10,14 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { DailyBriefModal } from "@/components/DailyBriefModal";
 import type { BrandProfile } from "@/data/brands";
 import { getTodayKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
+import { DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
+import { STAK_CAPACITY } from "@/lib/constants";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -24,29 +27,36 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 	return <>{children}</>;
 }
 
-// Date key for daily swipe reset at 9 AM
-
-const DAILY_SWIPE_LIMIT = 20;
-const STAK_CAPACITY = 30;
-
 function Root() {
 	const { user, loading } = useAuth();
-	const { account, accountLoading, updateStak, incrementSwipeCount } = useAccount();
-	const { resolvedTheme } = useTheme();
+	const { account, accountLoading, saveToStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
+	const { resolvedTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [briefOpen, setBriefOpen] = useState(false);
+	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// Auth/landing pages are always dark regardless of user theme preference
+	useEffect(() => {
+		if (isAuthPage) {
+			document.documentElement.classList.add("dark");
+		} else {
+			// Restore user's actual theme by triggering ThemeProvider re-apply
+			reapplyTheme();
+		}
+	}, [isAuthPage, reapplyTheme]);
+
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
-		scrollRef.current?.scrollTo({ top: 0 });
-		document.body.style.overflow = "";
+		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+		if (!briefOpen) document.body.style.overflow = "";
 		logEvent("page_view", { page_path: location.pathname });
-	}, [location.pathname]);
+	}, [location.pathname, briefOpen]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly
 	const queryClient = useQueryClient();
@@ -65,7 +75,7 @@ function Root() {
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
 		if (stakIds.includes(brand.id)) {
-			toast.info("Already in your Stak", { description: brand.name, duration: 2000 });
+			
 			return;
 		}
 		if (stakIds.length >= STAK_CAPACITY) {
@@ -79,11 +89,16 @@ function Root() {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
-		updateStak([...stakIds, brand.id]).catch(() => {});
+		const cachedStock = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])
+			?? queryClient.getQueryData<{ quote: { price: number } | null }>(["stock-price", brand.ticker]);
+		const priceAtSave = cachedStock?.quote?.price ?? null;
+		saveToStak(brand.id, priceAtSave).catch(() => {});
 		incrementSwipeCount().catch(() => {});
+		// Invalidate daily brief so personalization reflects the new Stak brand
+		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
-		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
-	}, [account, updateStak, incrementSwipeCount]);
+		
+	}, [account, saveToStak, incrementSwipeCount, queryClient]);
 
 	useEffect(() => {
 		if (!loading && !accountLoading && !user && !isAuthPage) {
@@ -93,6 +108,24 @@ function Root() {
 			navigate({ to: "/onboarding" });
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
+
+	// Show Daily Brief once per day — only from 9am CT onwards.
+	// Before 9am CT markets haven't opened yet so the brief has no real market data.
+	// Stored in Firestore so it's cross-device.
+	useEffect(() => {
+		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		const d = new Date();
+		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+		if (account.lastBriefDate === today) return;
+		// Check if it's 9am CT or later (CT = America/Chicago)
+		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
+		if (ctHour < 9) return; // too early — will re-check when user re-opens app
+		const t = setTimeout(() => {
+			setBriefOpen(true);
+			updateLastBriefDate(today).catch(() => {});
+		}, 400);
+		return () => clearTimeout(t);
+	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -113,6 +146,17 @@ function Root() {
 		const handler = () => setSearchOpen(true);
 		window.addEventListener("open-search", handler);
 		return () => window.removeEventListener("open-search", handler);
+	}, []);
+
+	// Listen for custom event to open daily brief from child pages
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const source = (e as CustomEvent<{ source?: string }>).detail?.source;
+			setBriefSource(source === "mystak" ? "mystak" : "auto");
+			setBriefOpen(true);
+		};
+		window.addEventListener("open-brief", handler);
+		return () => window.removeEventListener("open-brief", handler);
 	}, []);
 
 	if (loading || accountLoading) {
@@ -142,7 +186,7 @@ function Root() {
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
+			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
 				<PullToRefresh scrollRef={scrollRef}>
 					<ErrorBoundary tagName="main" className="min-h-full">
 						<PageTransition pathname={location.pathname}>
@@ -169,6 +213,8 @@ function Root() {
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>
+
+		{briefOpen && <DailyBriefModal onClose={() => setBriefOpen(false)} source={briefSource} />}
 
 		</div>
 	);

@@ -84,7 +84,7 @@ function PersonalDetailsPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
+			className="min-h-screen bg-background text-foreground pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;
@@ -100,7 +100,7 @@ function PersonalDetailsPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -118,7 +118,7 @@ function PersonalDetailsPage() {
 							{user.photoURL ? (
 								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
-								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-3xl font-bold text-white">
+								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
 								</div>
 							)}
@@ -130,7 +130,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Info */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Info</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Display Name */}
 					<div className="flex items-center gap-3 px-4 py-3.5">
@@ -145,12 +145,12 @@ function PersonalDetailsPage() {
 									value={nameValue}
 									onChange={(e) => setNameValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") { saveName(); } else if (e.key === "Escape") { setNameValue(user.displayName ?? ""); setEditingName(false); } }}
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
+									className="w-full bg-transparent text-sm text-foreground outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
 									autoFocus
 									maxLength={50}
 								/>
 							) : (
-								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.displayName || "Not set"}</p>
+								<p className="text-sm font-medium text-foreground truncate">{user.displayName || "Not set"}</p>
 							)}
 						</div>
 						{editingName ? (
@@ -158,12 +158,12 @@ function PersonalDetailsPage() {
 								<button type="button" onClick={saveName} disabled={savingName} className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-colors">
 									<Check className="w-3.5 h-3.5" />
 								</button>
-								<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(false); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors">
+								<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
 									<X className="w-3.5 h-3.5" />
 								</button>
 							</div>
 						) : (
-							<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(true); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors shrink-0">
+							<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
 								<Pencil className="w-3 h-3" />
 							</button>
 						)}
@@ -176,7 +176,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Email</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{user.email}</p>
+							<p className="text-sm font-medium text-foreground truncate">{user.email}</p>
 						</div>
 						{user.emailVerified && (
 							<span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">Verified</span>
@@ -197,12 +197,12 @@ function PersonalDetailsPage() {
 									onChange={(e) => setPhoneValue(e.target.value)}
 									onKeyDown={(e) => { if (e.key === "Enter") savePhone(); if (e.key === "Escape") { setPhoneValue(phone); setEditingPhone(false); } }}
 									placeholder="+1 (555) 000-0000"
-									className="w-full bg-transparent text-sm text-zinc-900 dark:text-white outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
+									className="w-full bg-transparent text-sm text-foreground outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400 placeholder:text-zinc-600"
 									autoFocus
 									maxLength={20}
 								/>
 							) : (
-								<p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{phone || "Not set"}</p>
+								<p className="text-sm font-medium text-foreground truncate">{phone || "Not set"}</p>
 							)}
 						</div>
 						{editingPhone ? (
@@ -210,12 +210,12 @@ function PersonalDetailsPage() {
 								<button type="button" onClick={savePhone} disabled={savingPhone} className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-colors">
 									<Check className="w-3.5 h-3.5" />
 								</button>
-								<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(false); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors">
+								<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
 									<X className="w-3.5 h-3.5" />
 								</button>
 							</div>
 						) : (
-							<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(true); }} className="w-7 h-7 rounded-full bg-slate-700/50 flex items-center justify-center text-zinc-400 hover:bg-slate-700 transition-colors shrink-0">
+							<button type="button" onClick={() => { setPhoneValue(phone); setEditingPhone(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
 								<Pencil className="w-3 h-3" />
 							</button>
 						)}
@@ -224,7 +224,7 @@ function PersonalDetailsPage() {
 
 				{/* Account Details */}
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Account Details</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30 mb-5">
 
 					{/* Sign-in method */}
 					<div className="flex items-center gap-3 px-4 py-3.5">
@@ -233,7 +233,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Sign-in Method</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white">
+							<p className="text-sm font-medium text-foreground">
 								{isGoogle ? "Google" : "Email & Password"}
 							</p>
 						</div>
@@ -249,7 +249,7 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Member Since</p>
-							<p className="text-sm font-medium text-zinc-900 dark:text-white">{memberSince}</p>
+							<p className="text-sm font-medium text-foreground">{memberSince}</p>
 						</div>
 					</div>
 				</div>
