@@ -924,14 +924,16 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const raw = (req.params["symbol"] as string).toUpperCase();
 	const symbol = resolveSymbol(raw);
 
-	// Frontend passes the live changePercent and optional company name
+	// Frontend passes the live changePercent, optional company name, and sentence count
 	const pctParam = parseFloat(req.query.pct as string);
 	const changePercent = isFinite(pctParam) ? pctParam : 0;
 	const companyName = (req.query.name as string | undefined)?.trim() || symbol;
+	const sentencesParam = parseInt(req.query.sentences as string);
+	const sentences = isFinite(sentencesParam) && sentencesParam > 1 ? sentencesParam : 1;
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v6:${symbol}:${direction}`;
+	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
@@ -947,8 +949,15 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	}
 
 	// Pure Gemini + Google Search — no Finnhub dependency.
-	// Gemini searches the live web for today's specific catalyst.
-	const prompt = `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+	const prompt = sentences > 1
+		? `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+
+Search the web right now for why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+
+Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague.
+
+Return ONLY those ${sentences} sentences as plain text — no bullet points, no markdown, no JSON.`
+		: `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
 
 Search the web right now for the specific reason why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
@@ -968,7 +977,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 200 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: sentences > 1 ? 500 : 200 },
 					}),
 					signal: controller.signal,
 				},
@@ -979,9 +988,10 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 			// With Google Search grounding, text may be in a different part index
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
 			const raw = parts.map((p) => p.text ?? "").join("").trim();
-			// Enforce 1 sentence — take everything up to the first sentence-ending punctuation
-			const firstSentence = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
-			const explanation = firstSentence || raw;
+			// For 1-sentence mode enforce the limit; for multi-sentence pass through as-is
+			const explanation = sentences > 1
+				? raw
+				: (raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw);
 			if (explanation) {
 				const result = { explanation, direction };
 				await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
