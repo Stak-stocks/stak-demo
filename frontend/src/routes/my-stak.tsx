@@ -10,6 +10,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
@@ -578,7 +579,7 @@ function MyStakPage() {
 	});
 
 	const { data: myDailyBrief } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		retry: 0,

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyBrief, type DailyBriefDeck } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -129,7 +130,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	const firstName = user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
 
 	const { data: liveData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
