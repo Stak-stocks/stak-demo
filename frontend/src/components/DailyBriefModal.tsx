@@ -5,10 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	ChevronRight, TrendingUp, Cloud, Zap, Sun, Minus,
 	UserRound, MessageSquare, ShieldCheck, BookOpen,
-	TrendingDown, Play,
+	TrendingDown, Play, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyBrief, type DailyBriefDeck } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -41,6 +42,11 @@ const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; 
 	Calm:     { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]"   },
 	Mixed:    { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]"   },
 };
+
+function renderBold(text: string) {
+	const parts = text.split(/\*\*(.+?)\*\*/g);
+	return parts.map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part);
+}
 
 function getGreeting() {
 	const h = new Date().getHours();
@@ -81,7 +87,7 @@ function InfoCard({ icon, title, text, color }: { icon: React.ReactNode; title: 
 				<IconCircle color={isPurple ? "purple" : "cyan"} icon={icon} />
 				<div className="pt-[1px]">
 					<p className={`text-[13px] font-semibold ${isPurple ? "text-violet-300" : "text-cyan-300"}`}>{title}</p>
-					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-foreground/90">{text}</p>
+					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-foreground/90">{renderBold(text)}</p>
 				</div>
 			</div>
 		</section>
@@ -128,8 +134,8 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	const { user } = useAuth();
 	const firstName = user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
 
-	const { data: liveData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
+	const { data: liveData, isLoading: briefLoading } = useQuery({
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
@@ -142,12 +148,15 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 		close:  "Market Close Recap",
 	};
 
+	const isGenerating = briefLoading && !liveData;
 	const brief = liveData ?? FALLBACK_BRIEF;
 	const mood = MOOD_CONFIG[brief.mood] ?? MOOD_CONFIG.Mixed;
 	const dayLabel = (brief as { dayLabel?: string }).dayLabel ?? "Today's";
 	const marketClosed = (brief as { marketClosed?: boolean }).marketClosed ?? false;
 	const nextTradingDayLabel = (brief as { nextTradingDayLabel?: string }).nextTradingDayLabel ?? "tomorrow";
-	const sessionLabel = marketClosed
+	const sessionLabel = isGenerating
+		? "Daily Brief"
+		: marketClosed
 		? `${dayLabel} Market Close Recap`
 		: (SESSION_LABELS[brief.session] ?? "Morning Brief");
 	const MoodIcon = mood.icon;
@@ -221,8 +230,27 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 					</div>
 				</header>
 
+				{/* Generating state — shown instead of brief content when first fetching */}
+				{isGenerating && (
+					<div className="mt-[18px] rounded-[14px] border border-blue-500/20 bg-blue-500/[0.07] p-[18px] flex items-center gap-[14px]">
+						<div className="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[12px] bg-blue-500/15 text-blue-400">
+							<Sparkles size={22} />
+						</div>
+						<div className="flex-1 min-w-0">
+							<p className="text-[15px] font-bold text-foreground leading-none">Generating your brief...</p>
+							<p className="mt-[5px] text-[12px] dark:text-slate-400 text-slate-500">Gemini is pulling live market context.</p>
+							<div className="mt-[10px] inline-flex items-center gap-[5px] rounded-full border border-blue-500/20 bg-blue-500/10 px-[10px] py-[4px]">
+								<Sparkles size={10} className="text-blue-400" />
+								<span className="text-[11px] font-medium text-blue-400">Powered by Gemini</span>
+							</div>
+						</div>
+						<div className="shrink-0 h-[26px] w-[26px] rounded-full border-[2.5px] border-blue-400/30 border-t-blue-400 animate-spin" />
+					</div>
+				)}
+
 				{/* Market Mood */}
-				<section className={`mt-[18px] rounded-[14px] border ${mood.cardBorder} ${mood.cardBg} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}>
+				{!isGenerating && <section className={`mt-[18px] rounded-[14px] border ${mood.cardBorder} ${mood.cardBg} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}>
+
 					<div className="flex gap-[15px]">
 						<IconCircle color="cyan" icon={<MoodIcon size={31} strokeWidth={1.8} />} large />
 						<div className="min-w-0 flex-1 pt-[2px]">
@@ -238,8 +266,9 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 							<p className="mt-[11px] text-[13px] leading-[18px] text-foreground/90">{brief.moodExplanation}</p>
 						</div>
 					</div>
-				</section>
+				</section>}
 
+				{!isGenerating && <>
 				{/* In Plain English */}
 				<InfoCard color="purple" icon={<MessageSquare size={25} strokeWidth={1.8} />} title="In plain English:" text={brief.plainEnglish} />
 
@@ -261,6 +290,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 						Start Today's Deck
 					</button>
 				)}
+				</>}
 
 			</div>
 		</div>,

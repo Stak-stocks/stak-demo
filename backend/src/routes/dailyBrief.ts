@@ -194,7 +194,7 @@ async function generateMarketText(
 	dayLabel = "Today's",
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v3:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:text:v5:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -209,9 +209,12 @@ async function generateMarketText(
 		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
 	].filter(Boolean).join(" | ");
 
+	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
+
 	const timeContext = marketClosed
 		? "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
-		: SESSION_TONE[session];
+		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
 
 	const timeWord = marketClosed ? "on Friday" : "today";
 	const dayRef = marketClosed ? "Friday's" : dayLabel;
@@ -330,7 +333,7 @@ async function generatePersonalizedImpact(
 	marketClosed = false,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v2:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:impact:v5:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -381,8 +384,10 @@ async function generatePersonalizedImpact(
 		.slice(0, 3)
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
+	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+
 	const stockSection = stockLines.length > 0
-		? `User's stocks ${marketClosed ? "at Friday's close" : "today"}: ${stockLines.join(", ")}`
+		? `User's stocks ${marketClosed ? "at Friday's close" : `at ${etDayNameImpact}'s close`}: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
@@ -392,7 +397,7 @@ async function generatePersonalizedImpact(
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
-${marketClosed ? "Friday's close" : "Today's"} market data:
+${marketClosed ? "Friday's close" : `${etDayNameImpact}'s close`} market data:
 ${marketLines || "unavailable"}
 
 ${stockSection}
@@ -402,7 +407,11 @@ Write exactly 2 punchy sentences:
 1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what happened to it ${timeWord}. Do NOT use the word "today" if the market is closed.
 2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}) and leading/lagging sectors above.
 
-Rules: use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
+CRITICAL RULES:
+- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names (e.g. do NOT say "Apple" unless Apple is listed above).
+- If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total.
+- Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {

@@ -14,6 +14,7 @@ import {
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, type ChartRange } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useWeeklyContent } from "@/hooks/useWeeklyContent";
 import { brands as allBrands } from "@/data/brands";
@@ -280,7 +281,7 @@ export function PlaygroundPage() {
 
 	// Daily Brief → Featured Lesson mapping
 	const { data: briefData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,

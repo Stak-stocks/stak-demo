@@ -11,6 +11,7 @@ import stakLogo from "@/assets/stak-logo-icon.svg";
 import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
 import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
@@ -150,7 +151,7 @@ function App() {
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
