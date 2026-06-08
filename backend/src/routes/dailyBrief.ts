@@ -194,7 +194,7 @@ async function generateMarketText(
 	dayLabel = "Today's",
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v4:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:text:v5:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -214,9 +214,9 @@ async function generateMarketText(
 
 	const timeContext = marketClosed
 		? "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
-		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always reference today's session (${etDayName}) — do NOT reference Friday or any prior day unless explicitly relevant.`;
+		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
 
-	const timeWord = marketClosed ? "on Friday" : `on ${etDayName}`;
+	const timeWord = marketClosed ? "on Friday" : "today";
 	const dayRef = marketClosed ? "Friday's" : dayLabel;
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
@@ -392,8 +392,8 @@ async function generatePersonalizedImpact(
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
-	const timeWord = marketClosed ? "on Friday" : `on ${etDayNameImpact}`;
-	const actionWord = marketClosed ? "watch for when markets reopen" : `watch or act on today (${etDayNameImpact})`;
+	const timeWord = marketClosed ? "on Friday" : "today";
+	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
