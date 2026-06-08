@@ -333,7 +333,7 @@ async function generatePersonalizedImpact(
 	marketClosed = false,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v3:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:impact:v4:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -407,7 +407,10 @@ Write exactly 2 punchy sentences:
 1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what happened to it ${timeWord}. Do NOT use the word "today" if the market is closed.
 2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}) and leading/lagging sectors above.
 
-Rules: use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
+CRITICAL RULES:
+- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names (e.g. do NOT say "Apple" unless Apple is listed above).
+- If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
