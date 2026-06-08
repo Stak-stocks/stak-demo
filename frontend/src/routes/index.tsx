@@ -150,7 +150,7 @@ function App() {
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({
-		queryKey: ["daily-brief"],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,

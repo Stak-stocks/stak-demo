@@ -578,7 +578,7 @@ function MyStakPage() {
 	});
 
 	const { data: myDailyBrief } = useQuery({
-		queryKey: ["daily-brief"],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		retry: 0,
