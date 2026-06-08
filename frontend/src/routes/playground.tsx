@@ -280,7 +280,7 @@ export function PlaygroundPage() {
 
 	// Daily Brief → Featured Lesson mapping
 	const { data: briefData } = useQuery({
-		queryKey: ["daily-brief"],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,

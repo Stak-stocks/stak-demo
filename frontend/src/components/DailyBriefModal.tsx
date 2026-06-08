@@ -129,7 +129,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	const firstName = user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
 
 	const { data: liveData } = useQuery({
-		queryKey: ["daily-brief"],
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0]],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
