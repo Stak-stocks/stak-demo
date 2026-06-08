@@ -43,6 +43,11 @@ const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; 
 	Mixed:    { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]"   },
 };
 
+function renderBold(text: string) {
+	const parts = text.split(/\*\*(.+?)\*\*/g);
+	return parts.map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part);
+}
+
 function getGreeting() {
 	const h = new Date().getHours();
 	if (h < 12) return "Good morning";
@@ -82,7 +87,7 @@ function InfoCard({ icon, title, text, color }: { icon: React.ReactNode; title: 
 				<IconCircle color={isPurple ? "purple" : "cyan"} icon={icon} />
 				<div className="pt-[1px]">
 					<p className={`text-[13px] font-semibold ${isPurple ? "text-violet-300" : "text-cyan-300"}`}>{title}</p>
-					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-foreground/90">{text}</p>
+					<p className="mt-[5px] max-w-[255px] text-[13px] leading-[18px] text-foreground/90">{renderBold(text)}</p>
 				</div>
 			</div>
 		</section>

@@ -333,7 +333,7 @@ async function generatePersonalizedImpact(
 	marketClosed = false,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v4:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:impact:v5:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -410,7 +410,8 @@ Write exactly 2 punchy sentences:
 CRITICAL RULES:
 - ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names (e.g. do NOT say "Apple" unless Apple is listed above).
 - If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
-- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total. Plain text only.`;
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total.
+- Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
