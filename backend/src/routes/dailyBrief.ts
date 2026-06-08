@@ -194,7 +194,7 @@ async function generateMarketText(
 	dayLabel = "Today's",
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v3:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:text:v4:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -209,11 +209,14 @@ async function generateMarketText(
 		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
 	].filter(Boolean).join(" | ");
 
+	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
+
 	const timeContext = marketClosed
 		? "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
-		: SESSION_TONE[session];
+		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always reference today's session (${etDayName}) — do NOT reference Friday or any prior day unless explicitly relevant.`;
 
-	const timeWord = marketClosed ? "on Friday" : "today";
+	const timeWord = marketClosed ? "on Friday" : `on ${etDayName}`;
 	const dayRef = marketClosed ? "Friday's" : dayLabel;
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
@@ -330,7 +333,7 @@ async function generatePersonalizedImpact(
 	marketClosed = false,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v2:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:impact:v3:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -381,18 +384,20 @@ async function generatePersonalizedImpact(
 		.slice(0, 3)
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
+	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+
 	const stockSection = stockLines.length > 0
-		? `User's stocks ${marketClosed ? "at Friday's close" : "today"}: ${stockLines.join(", ")}`
+		? `User's stocks ${marketClosed ? "at Friday's close" : `at ${etDayNameImpact}'s close`}: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
-	const timeWord = marketClosed ? "on Friday" : "today";
-	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
+	const timeWord = marketClosed ? "on Friday" : `on ${etDayNameImpact}`;
+	const actionWord = marketClosed ? "watch for when markets reopen" : `watch or act on today (${etDayNameImpact})`;
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
-${marketClosed ? "Friday's close" : "Today's"} market data:
+${marketClosed ? "Friday's close" : `${etDayNameImpact}'s close`} market data:
 ${marketLines || "unavailable"}
 
 ${stockSection}
