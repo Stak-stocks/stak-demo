@@ -128,10 +128,11 @@ function Root() {
 		// Check if it's 9am CT or later (CT = America/Chicago)
 		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
 		if (ctHour < 9) return; // too early — will re-check when user re-opens app
+		// Open immediately (next tick) so Discover never flashes before the brief
 		const t = setTimeout(() => {
 			setBriefOpen(true);
 			updateLastBriefDate(today).catch(() => {});
-		}, 400);
+		}, 0);
 		return () => clearTimeout(t);
 	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
@@ -189,6 +190,20 @@ function Root() {
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
+	}
+
+	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes
+	if (!briefOpen && !isAuthPage && user && account?.onboardingCompleted) {
+		const d = new Date();
+		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
+		if (account.lastBriefDate !== today && ctHour >= 9) {
+			return (
+				<div className="flex items-center justify-center h-full bg-background">
+					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+				</div>
+			);
+		}
 	}
 
 	return (
