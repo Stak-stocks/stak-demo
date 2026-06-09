@@ -142,6 +142,9 @@ const SEC = {
 };
 const TOTAL_HEIGHT = 9589;
 const CANVAS_WIDTH = 1400;
+/* On screens wider than 1400 the canvas scales UP to fill the viewport,
+   capped so it never gets oversized on very large monitors. */
+const MAX_DESKTOP_SCALE = 1.6;
 
 const btnReset: CSSProperties = {
 	background: "none",
@@ -1081,21 +1084,8 @@ function FinalCta() {
 	   exceed the natural 1920px-viewport size. Other rows (Row 2, Row 3)
 	   stay at scale 1 (Figma exact). Row 2 and Row 3 top positions also
 	   adapt because Row 1's height changes with scale. */
-	const [row1Scale, setRow1Scale] = useState<number>(() => {
-		if (typeof window === "undefined") return 1;
-		return Math.min(1.34, Math.max(1.0, (window.innerWidth - 60) / 1388));
-	});
-	useEffect(() => {
-		const recompute = () => {
-			const vpW = window.innerWidth;
-			setRow1Scale(Math.min(1.34, Math.max(1.0, (vpW - 60) / 1388)));
-		};
-		window.addEventListener("resize", recompute);
-		return () => window.removeEventListener("resize", recompute);
-	}, []);
-	const row1Height = TILE_H * row1Scale; // 186·scale
-	const row2Top = 490 + row1Height + 28; // 28px inter-row gap (Figma original)
-	const row3Top = row2Top + TILE_H + 28; // Row 2 is Figma size 186 tall
+	const row2Top = 704; // 490 + Row-1 height (186) + 28 inter-row gap
+	const row3Top = 918; // 704 + 186 + 28
 
 	return (
 		<section style={{ position: "absolute", left: 0, top: SEC.finalCta, width: CANVAS_WIDTH, height: 1430, background: SECTION_BG, overflow: "visible" }}>
@@ -1125,11 +1115,11 @@ function FinalCta() {
 			    formula's natural sub-pixel offset for a 1920px row in a 1920vp
 			    viewport). Other rows (Row 2 and Row 3) stay at the original
 			    Figma 347 × 186 sizes — only Row 1 is scaled. */}
-			<div style={{ position: "absolute", left: "calc((1400px - 100vw) / 2)", top: 490, display: "flex", gap: 20, alignItems: "center" }}>
-				<ImageTile src={A.ctaTile1} scale={row1Scale} />
-				<LetterTile text="STAK" scale={row1Scale} />
-				<ImageTile src={A.ctaTile2} scale={row1Scale} />
-				<ImageTile src={A.ctaTile3} scale={row1Scale} />
+			<div style={{ position: "absolute", left: -24, top: 490, display: "flex", gap: 20, alignItems: "center" }}>
+				<ImageTile src={A.ctaTile1} />
+				<LetterTile text="STAK" />
+				<ImageTile src={A.ctaTile2} />
+				<ImageTile src={A.ctaTile3} />
 			</div>
 
 			{/* Row 2 — Figma 1:946 (x=-285.5, w=2182) — 6 cells:
@@ -1176,8 +1166,8 @@ function Footer({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => v
 				<div
 					style={{
 						position: "absolute",
-						left: "calc((1400px - 100vw) / 2 + 80px)",
-						right: "calc((1400px - 100vw) / 2 + 80px)",
+						left: 80,
+						right: 80,
 						top: "50%",
 						transform: "translateY(-50%)",
 						display: "flex",
@@ -1479,7 +1469,7 @@ function FooterPlayStoreButton() {
 				>
 					GET IT ON
 				</p>
-				<div style={{ width: 74, height: 15 }} data-node-id="1:1045">
+				<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }} data-node-id="1:1045">
 					<img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} />
 				</div>
 			</div>
@@ -1857,7 +1847,7 @@ function MobileHero({ onSignup }: { onSignup: () => void }) {
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market</p>
+						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "37px" }}>Finally Speaks Your Language.</p>
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center" }}>
@@ -1909,7 +1899,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The problem</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The Problem</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
@@ -1919,7 +1909,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center", width: 601 }}>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often."`}</p>
-						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how.  Here’s how</p>
+						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how. Here’s how</p>
 					</div>
 				</div>
 			</div>
@@ -1951,7 +1941,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
@@ -2145,7 +2135,7 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 			</div>
 			<div style={{ position: "absolute", left: 338.49, top: 735.3 }}>
 				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))", cursor: "pointer" }}>
-					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
+					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
 					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</button>
 			</div>
@@ -2398,7 +2388,7 @@ function MobileHero390({ onSignup }: { onSignup: () => void }) {
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "35px" }}>The Stock Market</p>
+						<p style={{ margin: 0, lineHeight: "35px" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Finally Speaks </p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Your Language.</p>
 					</div>
@@ -2456,7 +2446,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The problem</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The Problem</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
@@ -2501,7 +2491,7 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
 					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 						<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
 					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
@@ -2635,7 +2625,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 				{stat("30M+", "Investors seeking better tools")}
 			</div>
 			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 128.5, top: 785.1, background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
-				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
+				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
 				<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 			</button>
 		</section>
@@ -2718,7 +2708,7 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 						<p style={{ margin: 0, lineHeight: "35px" }}>young investors</p>
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, width: 308 }}>
-						<p style={{ margin: 0, lineHeight: "25px" }}>If you are new to world of stocks and financial discipline, STAK is built for you.</p>
+						<p style={{ margin: 0, lineHeight: "25px" }}>Join a generation that invests with confidence. Sign up free and start STAKing today.</p>
 					</div>
 				</div>
 			</div>
@@ -2864,13 +2854,13 @@ export function LandingPage() {
 	// otherwise the wide desktop canvas (1400px). Each scales to fit its width.
 	const isPhone = vw < 600;
 	const isMobile = vw < 850;
-	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? Math.min(1, vw / MOBILE_WIDTH) : Math.min(1, vw / CANVAS_WIDTH);
+	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? Math.min(1, vw / MOBILE_WIDTH) : Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
 
 	const scrollTo = useCallback((key: keyof typeof SEC) => {
 		const el = scrollRef.current;
 		if (!el) return;
 		const vw = window.innerWidth;
-		const s = Math.min(1, vw / CANVAS_WIDTH);
+		const s = Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
 		const top = SEC[key] * s;
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
