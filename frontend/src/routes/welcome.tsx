@@ -1662,7 +1662,7 @@ function FooterBottomBand() {
 		>
 			{/* Hairline divider at top (1:1122) — spans full viewport width */}
 			<div
-				style={{ position: "absolute", left: "calc((1400px - 100vw) / 2)", top: 5.5, width: "100vw", height: 0.5, background: "rgba(255,255,255,0.12)" }}
+				style={{ position: "absolute", left: 0, top: 5.5, width: "100%", height: 0.5, background: "rgba(255,255,255,0.12)" }}
 				data-node-id="1:1122"
 				aria-hidden="true"
 			/>
@@ -1677,7 +1677,7 @@ function FooterBottomBand() {
 				height={348}
 				viewBox="0 0 1920 348"
 				preserveAspectRatio="none"
-				style={{ position: "absolute", left: "calc((1400px - 100vw) / 2)", top: 0, width: "100vw", height: 348, overflow: "hidden", pointerEvents: "none" }}
+				style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 348, overflow: "hidden", pointerEvents: "none" }}
 				aria-hidden="true"
 			>
 				<defs>
