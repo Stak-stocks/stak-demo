@@ -477,7 +477,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				<Pill label="The Problem" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["The Market Isn't Hard.", "It's Just Been Made That Way."]} />
-					<Subhead lines={[`You’ve heard the advice — “invest early, invest often.”`, "But nobody tells you how. Here’s how:"]} />
+					<Subhead lines={[`You’ve heard the advice — “invest early, invest often.”`, "But nobody tells you how. Here’s how"]} />
 				</div>
 			</div>
 
@@ -857,96 +857,30 @@ const FAQS = [
 ];
 
 function FaqRow({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
-	/* Netflix-style FAQ row:
-	   - solid dark-grey card background (#1a2237); only the QUESTION HEADER
-	     lightens on hover (#26314f), not the answer panel below
-	   - rounded corners (4px), horizontal padding 24px, vertical padding 18px
-	   - plus/minus icon on the right, larger (24px) for the Netflix-style look
-	   - answer panel (when open) appears below the question, separated by a thin
-	     hairline divider, and keeps the dark base background regardless of hover
-	   - no external divider line between rows — the gap between cards is what
-	     visually separates them */
-	const [headerHover, setHeaderHover] = useState(false);
+	/* Flat Figma accordion row (node 1:866): transparent (no card fill), with a
+	   hairline divider under every row whether open or closed. Rows are separated
+	   by the container's 32px gap. */
 	return (
-		<div
-			style={{
-				width: 586,
-				display: "flex",
-				flexDirection: "column",
-				background: "#1a2237",   /* card base — always this color */
-				borderRadius: 4,
-				overflow: "hidden",
-			}}
-		>
+		<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 17, alignItems: "flex-start" }}>
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={onToggle}
-				onMouseEnter={() => setHeaderHover(true)}
-				onMouseLeave={() => setHeaderHover(false)}
-				style={{
-					...btnReset,
-					width: "100%",
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					gap: 16,
-					padding: "18px 24px",
-					textAlign: "left",
-					outline: "none",
-					WebkitTapHighlightColor: "transparent",
-					/* ONLY the header button changes background on hover. When the
-					   FAQ is open, the answer panel below has its own background
-					   (matching the card base) and is unaffected by this hover. */
-					background: headerHover ? "#26314f" : "#1a2237",
-					transition: "background-color 0.15s ease",
-				}}
+				style={{ ...btnReset, width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", cursor: "pointer" }}
 			>
-				<p
-					style={{
-						fontFamily: SR,
-						fontWeight: 600,
-						fontSize: 20,
-						lineHeight: "25px",
-						color: "#fff",
-						margin: 0,
-						whiteSpace: "normal",
-						textAlign: "left",
-						flex: 1,
-					}}
-				>
-					{q}
-				</p>
-				<div style={{ width: 24, height: open ? 2 : 24, flexShrink: 0 }}>
-					<img src={open ? A.faqMinus : A.faqPlus} alt={open ? "Collapse" : "Expand"} style={{ width: "100%", height: "100%" }} />
+				<div style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+					<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word", flex: 1 }}>{q}</p>
+					<div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 3 }}>
+						<img src={open ? A.faqMinus : A.faqPlus} alt={open ? "Collapse" : "Expand"} style={{ width: "100%", height: "100%" }} />
+					</div>
 				</div>
-			</button>
-			{open && a && (
-				<div
-					style={{
-						padding: "0 24px 20px 24px",
-						borderTop: "1px solid rgba(255,255,255,0.08)",
-						background: "#1a2237", /* explicit base bg so hover on the
-						                          button above doesn't bleed into here */
-					}}
-				>
-					<p
-						style={{
-							fontFamily: SR,
-							fontWeight: 300,
-							fontSize: 16,
-							lineHeight: "24px",
-							color: "rgba(255,255,255,0.85)",
-							margin: "16px 0 0 0",
-							textAlign: "left",
-							whiteSpace: "normal",
-							wordBreak: "break-word",
-						}}
-					>
+				{open && a && (
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "25px", color: "rgba(255,255,255,0.7)", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word" }}>
 						{a}
 					</p>
-				</div>
-			)}
+				)}
+			</button>
+			<div style={{ width: 586, height: 0, borderTop: "0.5px solid rgba(255,255,255,0.18)" }} />
 		</div>
 	);
 }
@@ -973,11 +907,8 @@ function Faq({ onEmail }: { onEmail: () => void }) {
 						</div>
 					</div>
 					<div style={{ width: 586, display: "flex", flexDirection: "column", alignItems: "center" }}>
-						{/* Gap reduced from Figma's 32px to 8px so each row reads as a
-						    discrete dark-grey card (Netflix-FAQ pattern), with just a
-						    thin breathing-space between cards instead of a tall vertical
-						    margin. */}
-						<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+						{/* Figma-exact 32px gap between the flat accordion rows. */}
+						<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 32 }}>
 							{FAQS.map((f, i) => (
 								<FaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => toggle(i)} />
 							))}
@@ -1169,7 +1100,7 @@ function FinalCta() {
 	return (
 		<section style={{ position: "absolute", left: 0, top: SEC.finalCta, width: CANVAS_WIDTH, height: 1430, background: SECTION_BG, overflow: "visible" }}>
 			<div style={{ position: "absolute", left: "50%", top: 70, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", alignItems: "center", gap: 77 }}>
-				<Pill label="Our growing community" size="lg" />
+				<Pill label="Our growing community" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["Our community of fast rising ", "young investors"]} />
 					<Subhead lines={["Join a generation that invests with confidence.", "Sign up free and start STAKing today."]} />
@@ -1220,33 +1151,15 @@ function FinalCta() {
 				<EmptyTile />
 			</div>
 
-			{/* Row 3 — Figma 1:960 (x=-179.5, w=1815) — 5 cells:
-			    [tile-7, UP, tile-8, tile-9, green-sweater (shoulder-curve crop)]
-			    Cell 4 hash c5f4fee4 = same image as Row 2 Cell 1 (green sweater).
-			    Cell 4 uses an OVERRIDE crop: the visible frame window covers natural
-			    region x=0..480 (left of the woman's face), y=500..757.
-
-			    Silhouette scan of the source image gives the woman's left-shoulder
-			    edge sweeping from natural x=495 at y=550 down to x=0 at y=800:
-			        y=550 → leftX=495      y=700 → leftX=50
-			        y=600 → leftX=165      y=750 → leftX=25
-			        y=650 → leftX=115      y=800 → leftX=0
-			    Cropping at y=500..757 places that shoulder curve in the bottom half
-			    of the cell (top half is pure teal background, bottom half has the
-			    sweater fold rising from lower-left to upper-right). That curve is
-			    what reads as "shoulder" in the rendered cell.
-
-			    Aspect 480/257 = 1.866 (matches cell). Scale = 347/480 = 0.723 →
-			    imgW = 1199·0.723 ≈ 866.9, imgH = 1591·0.723 ≈ 1150.2,
-			    imgX = 0, imgY = -361.5 (= -500·0.723).
-			    `top` pushed from 918 → 981 to preserve the original 28px gap
-			    after Row 2 was moved to top:767 (which ends at 953). */}
+			{/* Row 3 (Figma 1:960), 5 cells: [tile-7, UP, tile-8, tile-9, tile-5].
+			    Cell 4 reuses ctaTile5 with the standard crop (matches Figma = Row 2 cell 1).
+			    top tracks row2Top so the ~28px inter-row gap is preserved. */}
 			<div style={{ position: "absolute", left: -179.5, top: row3Top, display: "flex", gap: 20, alignItems: "center" }}>
 				<ImageTile src={A.ctaTile7} />
 				<LetterTile text="UP" />
 				<ImageTile src={A.ctaTile8} />
 				<ImageTile src={A.ctaTile9} />
-				<TileFrame src={A.ctaTile5} imgW={866.9} imgH={1150.2} imgX={0} imgY={-361.5} />
+				<ImageTile src={A.ctaTile5} />
 			</div>
 		</section>
 	);
@@ -1957,7 +1870,7 @@ function MobileHero({ onSignup }: { onSignup: () => void }) {
 			<BoxIllustration top={295.77} />
 
 			<div style={{ position: "absolute", left: "50%", top: 858, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))" }} />
+				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))" }} />
 			</div>
 		</section>
 	);
@@ -2006,7 +1919,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center", width: 601 }}>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often."`}</p>
-						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how.  Here’s how:</p>
+						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how.  Here’s how</p>
 					</div>
 				</div>
 			</div>
@@ -2020,7 +1933,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 				</div>
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% + 0.45px)", bottom: 44.55, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} fontSize={14.453} />
+				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} />
 			</div>
 		</section>
 	);
@@ -2500,9 +2413,8 @@ function MobileHero390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: -25.586, top: 383.891, width: 587.309, height: 545.016, transform: "scale(0.75)", transformOrigin: "top left", pointerEvents: "none" }}>
 				<BoxIllustration top={0} />
 			</div>
-			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.6, top: 849, width: 112.905, height: 32.453, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, display: "flex", alignItems: "center", justifyContent: "center", gap: 7.226, filter: CTA_SHADOW, cursor: "pointer", boxSizing: "border-box" }}>
+			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.6, top: 849, width: 112.905, height: 32.453, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", boxSizing: "border-box" }}>
 				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
-				<div style={{ width: 13.775, height: 11.48, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 			</button>
 		</section>
 	);
@@ -2557,7 +2469,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", width: 308 }}>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often."`}</p>
 						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how. </p>
-						<p style={{ margin: 0, lineHeight: "25px" }}>Here’s how:</p>
+						<p style={{ margin: 0, lineHeight: "25px" }}>Here’s how</p>
 					</div>
 				</div>
 			</div>
@@ -2614,9 +2526,9 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 }
 
 function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
-	const card: CSSProperties = { background: "#10172a", width: 295, height: 338, borderRadius: 9.142, overflow: "hidden", position: "relative", flexShrink: 0 };
+	const card: CSSProperties = { background: "#10172a", width: 295, height: 338, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "normal" };
-	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 12, color: "rgba(255,255,255,0.62)", lineHeight: "normal", margin: 0, textAlign: "center" };
+	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 11, color: "rgba(255,255,255,0.62)", lineHeight: "normal", margin: 0 };
 	const renderPhone = (variant: 1 | 2) => (
 		<div style={{ position: "absolute", left: 20.3, top: 24.2, width: 515.477, height: 490.504, transform: "scale(0.4928)", transformOrigin: "top left" }}>
 			<div style={{ position: "relative", width: "100%", height: "100%" }}><PhoneMockup variant={variant} /></div>
@@ -2632,7 +2544,7 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 	const phoneCard = (variant: 1 | 2, title: string, body: string) => (
 		<div style={card}>
 			{renderPhone(variant)}
-			<div style={{ position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 6.095, alignItems: "center", width: 231 }}>
+			<div style={{ position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "center", width: 231 }}>
 				<p style={titleS}>{title}</p>
 				<p style={{ ...bodyS, width: 231 }}>{body}</p>
 			</div>
@@ -2641,7 +2553,7 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 	const stackCard = (title: string, body: string) => (
 		<div style={card}>
 			{renderStack()}
-			<div style={{ position: "absolute", left: "50%", top: 155, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 6.095, alignItems: "center", width: 259 }}>
+			<div style={{ position: "absolute", left: "50%", top: 155, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "center", width: 259 }}>
 				<p style={titleS}>{title}</p>
 				<p style={{ ...bodyS, width: 259 }}>{body}</p>
 			</div>
@@ -2689,16 +2601,16 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 			</div>
 		</div>
 	);
-	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r1: [string, boolean][] = [["Just STAKed Amazon!", false], ["Time to save more!", true], ["Woooo!!", false], ["Portfolio up this week!", false], ["New to STAK, loving it!", false]];
+	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["My portfolio is growing!", true], ["Gold, Google", false], ["Big gains incoming!", false], ["This app is different!", false]];
+	const r3: [string, boolean][] = [["What's the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Bullish on tech stocks!", true], ["STAKed Apple today!", false], ["Up 12% this month!", false]];
 	const stat = (num: string, label: string) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 13.838, alignItems: "center", justifyContent: "center" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
 				<div style={{ width: 16.347, height: 19.616, flexShrink: 0 }}><img src={A.emStatArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				<p style={{ fontFamily: SQ, fontSize: 43.589, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" }}>{num}</p>
 			</div>
-			<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 11, color: "#f5f1f1", margin: 0, textAlign: "center", whiteSpace: "nowrap" }}>{label}</p>
+			<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 11, color: "#f5f1f1", margin: 0, textAlign: "center", width: 155 }}>{label}</p>
 		</div>
 	);
 	return (
@@ -2710,8 +2622,8 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: 298 }}>
-					<p style={{ margin: 0, lineHeight: "35px" }}>Everything You Need.</p>
-					<p style={{ margin: 0, lineHeight: "35px" }}>Nothing You Don't.</p>
+					<p style={{ margin: 0, lineHeight: "35px" }}>Real People.</p>
+					<p style={{ margin: 0, lineHeight: "35px" }}>Real Momentum.</p>
 				</div>
 			</div>
 			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
@@ -2719,8 +2631,8 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, #0a1020 0%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 635.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
-				{stat("50M", "Young active Users")}
-				{stat("30M", "Sign up for early access")}
+				{stat("50M+", "Millennials & Gen Z investing today")}
+				{stat("30M+", "Investors seeking better tools")}
 			</div>
 			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 128.5, top: 785.1, background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
