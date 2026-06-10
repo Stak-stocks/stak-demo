@@ -163,7 +163,8 @@ const btnReset: CSSProperties = {
 
    - `size="default"` matches Figma's 1:927 spec exactly (used by every section
      except the Final CTA): padding 6/10, radius 10, gap 12, 12px dot,
-     14px Sora-Light text with 45px line-height.
+     14px Sora-Light text. Figma cap-trims its 45px leading (text-box-trim),
+     so the chip renders 24px tall — the 12px CSS line-height reproduces that box.
    - `size="lg"` is a slightly chunkier variant: padding 14/22, radius 14,
      gap 14, 16px dot, 16px text with a tight 1.4 line-height. Used ONLY for
      the "Our growing community" pill at the top of the Final CTA section,
@@ -176,7 +177,7 @@ function Pill({ label, style, size = "default" }: { label: string; style?: CSSPr
 	const radius = isLg ? 14 : 10;
 	const dotSize = isLg ? 16 : 12;
 	const fontSize = isLg ? 16 : 14;
-	const lineHeight: string | number = isLg ? 1.4 : "45px";
+	const lineHeight: string | number = isLg ? 1.4 : "12px";
 	return (
 		<div
 			style={{
@@ -407,12 +408,8 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 
 			<BoxIllustration />
 
-			{/* Hero CTA — trim the drop-shadow to its two CLOSE layers. Figma's full
-			    5-layer glow projects up to 77px DOWNWARD, pooling blue light onto the
-			    proof-logo row just below. The close layers keep the button's sheen
-			    without bleeding onto the logos. */}
 			<div style={{ position: "absolute", left: "calc(50% - 0.43px)", top: 895, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))" }} />
+				<CtaButton label="Get started" onClick={onSignup} />
 			</div>
 
 			{/* Proof logos row — Figma node 1:380 "Frame 136", x=207, width=986.99,
@@ -480,7 +477,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				<Pill label="The Problem" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["The Market Isn't Hard.", "It's Just Been Made That Way."]} />
-					<Subhead lines={[`You’ve heard the advice — “invest early, invest often.”`, "But nobody tells you how. Here’s how"]} />
+					<Subhead lines={[`You've heard the advice — "invest early, invest often."`, "But nobody tells you how. Here’s how"]} />
 				</div>
 			</div>
 
@@ -543,7 +540,7 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 								<div style={{ position: "absolute", bottom: i === 0 ? 37 : 32, left: "calc(50% + 0.5px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: i === 2 ? 10 : 14, width: 330 }}>
 									<p style={{ fontFamily: SQ, fontSize: 30, color: "#fff", margin: 0, lineHeight: "normal" }}>{c.n}</p>
 									<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, width: "100%" }}>
-										<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: i === 0 ? "nowrap" : "normal" }}>{c.title}</p>
+										<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: i === 0 ? "nowrap" : "normal", height: i === 2 ? 30 : undefined }}>{c.title}</p>
 										<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: BODY_DIM, width: 330, height: 54, whiteSpace: "pre-wrap" }}>
 											{c.body.map((line, k) => (
 												<p key={k} style={{ margin: 0, lineHeight: "normal" }}>{line}</p>
@@ -718,39 +715,28 @@ function ChatBubble({ text, dark }: { text: string; dark: boolean }) {
 function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: SEC.earlyMomentum, width: CANVAS_WIDTH, height: 990, background: SECTION_BG, overflow: "visible" }}>
-			{/* Inner wrapper — at the Figma-exact left:96 so the headline+pill
-			    group (positioned via calc(50% - 269.63px) within this wrapper)
-			    remains centered in the section. The stats column is pushed left
-			    INDEPENDENTLY below via the flex container's left:-96. */}
+			{/* Inner wrapper — Figma node 1:728 "Frame 190" at section x=96. */}
 			<div style={{ position: "absolute", left: 96, top: 70, width: 1747.269, height: 615.698 }}>
 				<div style={{ position: "absolute", left: "calc(50% - 269.63px)", top: 0, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", gap: 77, alignItems: "center" }}>
 					<Pill label="Early Momentum" />
 					<Headline lines={["Real People.", "Real Momentum."]} />
 				</div>
 
-				{/* Stats column (50M / 30M) + bubble grid, pushed to the LEFT edge
-				    of the section INDEPENDENTLY of the wrapper. The wrapper itself
-				    is at section x=96 (Figma spec) to keep the centered headline+pill
-				    above looking right. This flex container is at left:-96 so it
-				    starts at section x = 96 + (-96) = 0 — the stats column's left
-				    edge ends up flush against the section's left edge.
-				    `justifyContent: "flex-start"` aligns stats to the LEFT of the
-				    flex row (was "center" which left empty padding to its left). */}
-				<div style={{ position: "absolute", left: -96, top: 350, display: "flex", gap: 85, alignItems: "center", justifyContent: "flex-start" }}>
+				{/* Stats column (50M / 30M) + bubble grid — Figma 1:734 "Frame 185" at x=0
+			    within the wrapper, so the stats column left edge lands at canvas x=96. */}
+				<div style={{ position: "absolute", left: 0, top: 350, display: "flex", gap: 85, alignItems: "center", justifyContent: "flex-start" }}>
 					<div style={{ width: 252.275, display: "flex", flexDirection: "column", gap: 50 }}>
 						<StatBlock value="50M+" label="Millennials & Gen Z investing today" />
 						<StatBlock value="30M+" label="Investors seeking better tools" />
 					</div>
 
-					<div style={{ position: "relative", marginLeft: 100 }}>
+					<div style={{ position: "relative" }}>
 						{/* Three rows of chat bubbles — staggered horizontally per Figma:
 						    R1 (STAK row, top):     Figma x=377.938 → marginLeft 8.13 from row baseline
 						    R2 (Buzz row, middle):  Figma x=444.481 → marginLeft 74.68 (+66.54 vs R1)
 						    R3 (Bullish row, bot):  Figma x=369.805 → marginLeft 0 (baseline)
 						    Vertical: each row is 70.682 tall; the gap between rows is 26.178
-						    (= 96.858 Figma-spec inter-row spacing − 70.682 bubble height).
-						    Outer marginLeft (100px) pushes the entire grid right of the stats column,
-						    giving the rows the same visual breathing room as the Figma render. */}
+						    (= 96.858 Figma-spec inter-row spacing − 70.682 bubble height). */}
 						<div style={{ marginLeft: 32.53 }}>
 							<div style={{ marginLeft: 8.13, display: "flex", gap: 13.309, alignItems: "center" }}>
 								{CHAT_BUBBLES_R1.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} />)}
@@ -830,7 +816,7 @@ function StatBlock({ value, label }: { value: string; label: string }) {
 				<div style={{ width: 30.002, height: 36.001, flexShrink: 0 }}>
 					<img src={A.emStatArrow} alt="" style={{ width: "100%", height: "100%" }} />
 				</div>
-				<p style={{ fontFamily: SQ, fontSize: 80, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" }}>{value}</p>
+				<p style={{ fontFamily: SQ, fontSize: 80, color: "#fff", margin: 0, lineHeight: "43px", height: 43, whiteSpace: "nowrap" }}>{value}</p>
 			</div>
 			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 11.852, color: "#f5f1f1", textAlign: "center", margin: 0, whiteSpace: "nowrap" }}>{label}</p>
 		</div>
@@ -1074,7 +1060,8 @@ function EmptyTile({ scale = 1 }: { scale?: number }) {
 	return <div style={{ width: TILE_W * scale, height: TILE_H * scale, flexShrink: 0 }} />;
 }
 
-function FinalCta() {
+function FinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+	const [email, setEmail] = useState("");
 	/* Row 1 scale is responsive to viewport width so the row ALWAYS fits the
 	   viewport exactly (no empty space on the right, no overflow that hides
 	   tile-3). The math: with 4 tiles of width 347·scale and 3 × 20px gaps,
@@ -1102,20 +1089,9 @@ function FinalCta() {
 			    matches Figma 1:1; the rows overflow the 1400-canvas on purpose so
 			    they read as a continuous marquee on wider viewports. */}
 
-			{/* Row 1 — Figma 1:934, tile sequence [tile-1, STAK, tile-2, tile-3].
-			    To get tile-1 flush at viewport-LEFT and tile-3 flush at
-			    viewport-RIGHT *with* the small Figma 20px gaps (not stretched-out
-			    gaps), the tiles in this row are scaled up by 1.34. The math:
-			       4 × (347·1.34) + 3 × 20 = 4 × 465 + 60 = 1920px
-			    which fits a 1920 viewport exactly. The image crop INSIDE each
-			    tile is uniformly scaled by 1.34 too, so visually it's the same
-			    photo, just rendered bigger.
-			    `left: calc((1400px - 100vw) / 2 + 8px)` lands the row's left
-			    edge precisely on viewport x=0 at 1920vp (the +8 absorbs the
-			    formula's natural sub-pixel offset for a 1920px row in a 1920vp
-			    viewport). Other rows (Row 2 and Row 3) stay at the original
-			    Figma 347 × 186 sizes — only Row 1 is scaled. */}
-			<div style={{ position: "absolute", left: -24, top: 490, display: "flex", gap: 20, alignItems: "center" }}>
+			{/* Row 1 — Figma 1:934, tile sequence [tile-1, STAK, tile-2, tile-3]
+			    at Figma-native 347×186 tiles, x=-20 relative to the section. */}
+			<div style={{ position: "absolute", left: -20, top: 490, display: "flex", gap: 20, alignItems: "center" }}>
 				<ImageTile src={A.ctaTile1} />
 				<LetterTile text="STAK" />
 				<ImageTile src={A.ctaTile2} />
@@ -1123,17 +1099,11 @@ function FinalCta() {
 			</div>
 
 			{/* Row 2 — Figma 1:946 (x=-285.5, w=2182) — 6 cells:
-			    [THINK_BIGGER (top-crop), green-sweater, THINK_BIGGER, IT, finger-phone, EMPTY]
-			    Cells 0 and 2 share hash 85ba8b96 (= tile-4 file = THINK BIGGER sign).
-			    Cell 0 uses an OVERRIDE crop (imgY=0 instead of -163) so the partial
-			    left-edge sliver shows only the cream background above the sign — without
-			    that override, the partial sliver shows the hand holding the sign, which
-			    looks like a crop artifact rather than a clean fade-in.
-			    Cell 5 is intentionally blank (Figma node 1:959 has no image child).
-			    `top` pushed from 704 → 767 because Row 1 is now 249 tall instead of
-			    186; this preserves the original ~28px inter-row gap. */}
+			    [THINK_BIGGER, green-sweater, THINK_BIGGER, IT, finger-phone, EMPTY].
+			    Cells 0 and 2 share the tile-4 image with the same standard crop.
+			    Cell 5 is intentionally blank (Figma node 1:959 has no image child). */}
 			<div style={{ position: "absolute", left: -285.5, top: row2Top, display: "flex", gap: 20, alignItems: "center" }}>
-				<TileFrame src={A.ctaTile4} imgW={375.333} imgH={563} imgX={-14} imgY={0} />
+				<ImageTile src={A.ctaTile4} />
 				<ImageTile src={A.ctaTile5} />
 				<ImageTile src={A.ctaTile4} />
 				<LetterTile text="IT" />
@@ -1151,6 +1121,16 @@ function FinalCta() {
 				<ImageTile src={A.ctaTile9} />
 				<ImageTile src={A.ctaTile5} />
 			</div>
+
+			{/* Email subscribe pill — Figma 1:920 "Frame 152", centered at section y=1214 */}
+			<div style={{ position: "absolute", left: "50%", top: 1214, transform: "translateX(-50%)", background: "rgba(255,255,255,0.07)", borderRadius: 13, padding: "8px 9px 8px 11px" }} data-node-id="1:920">
+				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 114 }} data-node-id="1:922" />
+					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", filter: CTA_SHADOW, cursor: "pointer" }} data-node-id="1:923">
+						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
+					</button>
+				</div>
+			</div>
 		</section>
 	);
 }
@@ -1166,8 +1146,8 @@ function Footer({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => v
 				<div
 					style={{
 						position: "absolute",
-						left: 80,
-						right: 80,
+						left: 87,
+						right: 87,
 						top: "50%",
 						transform: "translateY(-50%)",
 						display: "flex",
@@ -1397,7 +1377,7 @@ function FooterAppleStoreButton() {
 					Download on the
 				</p>
 				<p
-					style={{ fontFamily: "'SF Compact Display', -apple-system, sans-serif", fontWeight: 500, fontSize: 18, lineHeight: "normal", letterSpacing: -0.47, margin: 0, textAlign: "left" }}
+					style={{ fontFamily: "'SF Compact Display', -apple-system, sans-serif", fontWeight: 500, fontSize: 18, lineHeight: "1", letterSpacing: -0.47, margin: 0, textAlign: "left" }}
 					data-node-id="1:1052"
 				>
 					App Store
@@ -1518,7 +1498,7 @@ function FooterNewsletter({ email, setEmail, onSubscribe }: { email: string; set
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 						placeholder="Your email address"
-						style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "rgba(255,255,255,0.53)", background: "transparent", border: 0, outline: "none", textAlign: "left", width: 110 }}
+						style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "rgba(255,255,255,0.53)", background: "transparent", border: 0, outline: "none", textAlign: "left", width: 114 }}
 						data-node-id="1:1074"
 					/>
 					{/* Subscribe button (1:1075) — inlined (instead of <CtaButton>) so the
@@ -1565,7 +1545,7 @@ function FooterBottomBand() {
 		>
 			{/* Hairline divider at top (1:1122) — spans full viewport width */}
 			<div
-				style={{ position: "absolute", left: 0, top: 5.5, width: "100%", height: 0.5, background: "rgba(255,255,255,0.12)" }}
+				style={{ position: "absolute", left: 0, top: 5.5, width: "100%", height: 0.5, background: "rgba(255,255,255,0.47)" }}
 				data-node-id="1:1122"
 				aria-hidden="true"
 			/>
@@ -1603,15 +1583,15 @@ function FooterBottomBand() {
 				</defs>
 				<text
 					data-node-id="1:1121"
-					x={960}
-					y={275}
+					x={967.5}
+					y={280}
 					textAnchor="middle"
 					fontFamily="'Squarish Sans CT', 'Orbitron', 'Chakra Petch', sans-serif"
 					fontWeight={800}
-					fontSize={420}
+					fontSize={330}
 					fill="url(#stakWatermarkGradient)"
 					lengthAdjust="spacingAndGlyphs"
-					textLength={1900}
+					textLength={1727}
 				>
 					STAK
 				</text>
@@ -2910,7 +2890,7 @@ export function LandingPage() {
 					<Features onScrollTo={scrollTo} />
 					<EarlyMomentum onSignup={handleSignup} />
 					<Faq onEmail={handleEmail} />
-					<FinalCta />
+					<FinalCta onSubscribe={handleSubscribe} />
 					<Footer onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 				</div>
 			</div>
