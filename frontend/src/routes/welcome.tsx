@@ -434,7 +434,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 					<img src={A.proofAmplitude} alt="Amplitude" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
 				</div>
 				<div style={{ width: 135, height: 21.344, position: "relative", overflow: "hidden", display: "flex", alignItems: "center" }}>
-					<img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+					<img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "left top" }} />
 				</div>
 				{/* Brex (Figma node 1:384) — main logo (full width) + small detail
 				    mark, positioned per Figma rather than stretched/overlapped. */}
@@ -450,7 +450,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 					<img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
 				</div>
 				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden" }}>
-					<img src={A.proofSpotify} alt="Spotify" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+					<div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 				</div>
 			</div>
 		</section>
@@ -1856,13 +1856,13 @@ function MobileProofStrip() {
 					<div style={{ position: "absolute", inset: "9.07% 0 11.2% 18.72%" }}><img src={A.proofBwWord} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ width: 100, height: 21.834, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofAmplitude} alt="Amplitude" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
-				<div style={{ width: 135, height: 21.344, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+				<div style={{ width: 135, height: 21.344, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "left top" }} /></div>
 				<div style={{ width: 81.9, height: 21, position: "relative", flexShrink: 0 }} aria-label="Brex">
 					<div style={{ position: "absolute", inset: "0 1.42% 0 1.12%" }}><img src={A.proofBrexMain} alt="Brex" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 					<div style={{ position: "absolute", inset: "20.67% 16.9% 15.5% 68.18%" }}><img src={A.proofBrexDetail} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ width: 56.1, height: 19.513, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
-				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofSpotify} alt="Spotify" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div></div>
 			</div>
 			<div style={{ position: "absolute", left: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to right, #0a1020 28%, rgba(10,16,32,0) 100%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", right: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to left, #0a1020 28%, rgba(10,16,32,0) 100%)", pointerEvents: "none" }} />
@@ -2399,13 +2399,13 @@ function MobileProofStrip390() {
 					<div style={{ position: "absolute", inset: "9.07% 0 11.2% 18.72%" }}><img src={A.proofBwWord} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ width: 100, height: 21.834, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofAmplitude} alt="Amplitude" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
-				<div style={{ width: 135, height: 21.344, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+				<div style={{ width: 135, height: 21.344, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofBetterStack} alt="Better Stack" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "left top" }} /></div>
 				<div style={{ width: 81.9, height: 21, position: "relative", flexShrink: 0 }} aria-label="Brex">
 					<div style={{ position: "absolute", inset: "0 1.42% 0 1.12%" }}><img src={A.proofBrexMain} alt="Brex" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 					<div style={{ position: "absolute", inset: "20.67% 16.9% 15.5% 68.18%" }}><img src={A.proofBrexDetail} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ width: 56.1, height: 19.513, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
-				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofSpotify} alt="Spotify" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
+				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div></div>
 			</div>
 			<div style={{ position: "absolute", left: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to right, #0a1020 28%, rgba(10,16,32,0) 100%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", right: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to left, #0a1020 28%, rgba(10,16,32,0) 100%)", pointerEvents: "none" }} />
