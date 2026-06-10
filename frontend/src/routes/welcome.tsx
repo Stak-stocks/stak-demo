@@ -1609,7 +1609,7 @@ function FooterCopyright() {
 			data-node-id="1:1077"
 		>
 			<p
-				style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap", textAlign: "center" }}
+				style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "9px", height: 9, color: "#fff", margin: 0, whiteSpace: "nowrap", textAlign: "center" }}
 				data-node-id="1:1078"
 			>
 				© 2026 All rights reserved
