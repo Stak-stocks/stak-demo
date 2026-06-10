@@ -1724,7 +1724,7 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					<img src={A.boxGlow} alt="" style={{ position: "absolute", top: "-115.08%", left: "-46.74%", right: "-46.57%", bottom: "-115.08%", width: "auto", height: "auto", maxWidth: "none" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883 }}>
+				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%)" }}>
 					<div style={{ position: "absolute", left: 42.7, top: 76.68, width: 121.122, height: 222.201, overflow: "visible" }}>
 						<img src={A.inner111} alt="" style={{ position: "absolute", top: "-35.69%", bottom: "-14.12%", left: "-31.31%", right: "-39.93%", width: "auto", height: "auto", maxWidth: "none" }} />
 					</div>
@@ -1754,9 +1754,8 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					    glow, the whole group `screen`-blended onto the box and faded to
 					    transparent at the edges by a radial mask -> NO hard rectangle. */}
 					<div style={{ position: "absolute", left: "calc(50% + 0.01px)", top: 0, transform: "translateX(-50%)", width: 274.194, height: 205.645, pointerEvents: "none" }}>
-						<div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", background: "radial-gradient(52% 74% at 50% 68%, rgba(236,244,255,0.95) 0%, rgba(164,204,252,0.55) 28%, rgba(140,185,245,0.16) 54%, rgba(140,185,245,0) 78%)" }} />
-						<img src={A.gifAlpha} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 1, filter: "brightness(1.3)" }} />
-						<img src={A.gifAlpha} alt="" style={{ position: "absolute", left: "1.73%", top: "28.59%", width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 0.72 }} />
+						<div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", background: "radial-gradient(55% 55% at 50% 88%, rgba(190,219,254,0.38) 0%, rgba(160,198,250,0.18) 45%, rgba(140,185,245,0) 75%)" }} />
+						<img src={A.gifAlpha} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 1 }} />
 					</div>
 				</div>
 
