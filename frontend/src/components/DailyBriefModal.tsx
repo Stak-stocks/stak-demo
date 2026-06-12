@@ -8,7 +8,7 @@ import {
 	TrendingDown, Play, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getDailyBrief, type DailyBriefDeck } from "@/lib/api";
+import { getDailyBrief, type DailyBriefDeck, type MacroLesson } from "@/lib/api";
 import { marketSessionBucket } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
@@ -124,6 +124,78 @@ function ThemeCard({ deck, session = "open", nextTradingDayLabel = "tomorrow" }:
 						{deck.subtitle} — {feedLine}
 					</p>
 				</div>
+			</div>
+		</section>
+	);
+}
+
+const MACRO_COLORS: Record<string, { border: string; bg: string; text: string; iconBg: string }> = {
+	inflation: { border: "border-orange-500/20", bg: "bg-orange-500/[0.07]", text: "text-orange-500 dark:text-orange-400", iconBg: "bg-orange-500/15" },
+	jobs:      { border: "border-emerald-500/20", bg: "bg-emerald-500/[0.07]", text: "text-emerald-500 dark:text-emerald-400", iconBg: "bg-emerald-500/15" },
+	fed:       { border: "border-violet-500/20",  bg: "bg-violet-500/[0.07]",  text: "text-violet-500 dark:text-violet-400",  iconBg: "bg-violet-500/15"  },
+	gdp:       { border: "border-blue-500/20",    bg: "bg-blue-500/[0.07]",    text: "text-blue-500 dark:text-blue-400",    iconBg: "bg-blue-500/15"    },
+	ppi:       { border: "border-rose-500/20",    bg: "bg-rose-500/[0.07]",    text: "text-rose-500 dark:text-rose-400",    iconBg: "bg-rose-500/15"    },
+	retail:    { border: "border-cyan-500/20",    bg: "bg-cyan-500/[0.07]",    text: "text-cyan-600 dark:text-cyan-400",    iconBg: "bg-cyan-500/15"    },
+	pmi:       { border: "border-amber-500/20",   bg: "bg-amber-500/[0.07]",   text: "text-amber-600 dark:text-amber-400",  iconBg: "bg-amber-500/15"   },
+	other:     { border: "border-amber-500/20",   bg: "bg-amber-500/[0.07]",   text: "text-amber-600 dark:text-amber-400",  iconBg: "bg-amber-500/15"   },
+};
+
+function MacroLessonCard({ lesson }: { lesson: MacroLesson }) {
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const isAnswered = selectedId !== null;
+	const c = MACRO_COLORS[lesson.eventType] ?? MACRO_COLORS.other;
+
+	return (
+		<section className={`mt-[10px] rounded-[14px] border ${c.border} ${c.bg} p-[15px]`}>
+			{/* Header */}
+			<div className="flex items-start gap-[12px]">
+				<div className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[12px] ${c.iconBg} text-[24px]`}>
+					{lesson.emoji}
+				</div>
+				<div className="min-w-0 flex-1">
+					<p className="text-[12px] dark:text-slate-400 text-slate-500">Market Moment</p>
+					<h3 className={`text-[18px] font-bold leading-tight tracking-[-0.02em] ${c.text}`}>{lesson.title}</h3>
+					<p className="mt-[3px] text-[12px] leading-[16px] dark:text-slate-300 text-slate-600">{lesson.subtitle}</p>
+				</div>
+			</div>
+
+			{/* Lesson cards */}
+			<div className="mt-[12px] space-y-[8px]">
+				{lesson.cards.map((card) => (
+					<div key={card.heading} className="rounded-[10px] dark:bg-white/[0.05] bg-black/[0.03] p-[12px]">
+						<p className={`text-[12px] font-semibold ${c.text}`}>{card.heading}</p>
+						<p className="mt-[4px] text-[12px] leading-[17px] text-foreground/85">{card.body}</p>
+					</div>
+				))}
+			</div>
+
+			{/* Quiz */}
+			<div className="mt-[10px] rounded-[10px] dark:bg-white/[0.05] bg-black/[0.03] p-[12px]">
+				<p className="text-[12px] font-semibold text-foreground">Quick check: {lesson.quiz.question}</p>
+				<div className="mt-[8px] space-y-[6px]">
+					{lesson.quiz.options.map((opt) => {
+						const isCorrect = opt.id === lesson.quiz.correctId;
+						const isSelected = selectedId === opt.id;
+						const btnCls = [
+							"w-full text-left rounded-[8px] border px-[10px] py-[8px] text-[12px] transition-colors",
+							!isAnswered
+								? "border-foreground/10 dark:bg-white/[0.03] bg-black/[0.02] text-foreground/80 active:bg-foreground/10"
+								: isCorrect
+									? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
+									: isSelected
+										? "border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400"
+										: "border-foreground/10 opacity-40 text-foreground/60",
+						].join(" ");
+						return (
+							<button key={opt.id} type="button" disabled={isAnswered} className={btnCls} onClick={() => setSelectedId(opt.id)}>
+								<span className="font-bold uppercase mr-[6px]">{opt.id}.</span>{opt.text}
+							</button>
+						);
+					})}
+				</div>
+				{isAnswered && (
+					<p className="mt-[8px] text-[11px] leading-[16px] dark:text-slate-300 text-slate-600">{lesson.quiz.explanation}</p>
+				)}
 			</div>
 		</section>
 	);
@@ -274,6 +346,11 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 
 				{/* Why this matters */}
 				<InfoCard color="cyan" icon={<UserRound size={26} strokeWidth={1.8} />} title="Why this matters to you" text={brief.personalizedImpact} />
+
+				{/* Market Moment — only on major economic event days */}
+				{(brief as { macroLesson?: MacroLesson }).macroLesson && (
+					<MacroLessonCard lesson={(brief as { macroLesson: MacroLesson }).macroLesson} />
+				)}
 
 				{/* Today's Focus / Stocks to Watch */}
 				{brief.decks && brief.decks.length > 0 && <ThemeCard deck={brief.decks[0]} session={brief.session} nextTradingDayLabel={nextTradingDayLabel} />}
