@@ -114,7 +114,7 @@ const A = {
 };
 
 /* ─── FONTS ─────────────────────────────────────────────────────────── */
-const SQ = "'Squarish Sans CT', 'Chakra Petch', sans-serif";
+const SQ = "'Squarish Sans CT SC', 'Squarish Sans CT', 'Chakra Petch', sans-serif";
 const SR = "'Sora', sans-serif";
 
 /* ─── COMMON STYLES (exact Figma values) ────────────────────────────── */
@@ -221,7 +221,6 @@ function Headline({ lines, style }: { lines: string[]; style?: CSSProperties }) 
 				lineHeight: "45px",
 				color: "#fff",
 				textAlign: "center",
-				fontVariantCaps: "small-caps",
 				width: "100%",
 				...style,
 			}}
@@ -1044,7 +1043,6 @@ function LetterTile({ text, scale = 1 }: { text: string; scale?: number }) {
 					textAlign: "center",
 					margin: 0,
 					whiteSpace: "nowrap",
-					fontVariantCaps: "small-caps",
 				}}
 			>
 				{text}
@@ -1558,7 +1556,7 @@ function FooterBottomBand() {
 			    text textLength = 1900 (close to viewBox width) so STAK spans full width. */}
 			<svg
 				height={348}
-				viewBox="0 0 1920 348"
+				viewBox="0 0 1400 348"
 				preserveAspectRatio="none"
 				style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 348, overflow: "hidden", pointerEvents: "none" }}
 				aria-hidden="true"
@@ -1573,25 +1571,25 @@ function FooterBottomBand() {
 						y2={348}
 					>
 						<stop offset="0%" stopColor="#e6eef8" stopOpacity="1" />
-						<stop offset="20%" stopColor="#bccad8" stopOpacity="1" />
-						<stop offset="40%" stopColor="#7e92ad" stopOpacity="0.95" />
-						<stop offset="60%" stopColor="#384a66" stopOpacity="0.7" />
-						<stop offset="78%" stopColor="#1a263e" stopOpacity="0.35" />
-						<stop offset="90%" stopColor="#0e1626" stopOpacity="0.1" />
+						<stop offset="15%" stopColor="#bccad8" stopOpacity="1" />
+						<stop offset="30%" stopColor="#7e92ad" stopOpacity="0.9" />
+						<stop offset="46%" stopColor="#384a66" stopOpacity="0.55" />
+						<stop offset="64%" stopColor="#1a263e" stopOpacity="0.25" />
+						<stop offset="80%" stopColor="#0e1626" stopOpacity="0.07" />
 						<stop offset="100%" stopColor="#0a1020" stopOpacity="0" />
 					</linearGradient>
 				</defs>
 				<text
 					data-node-id="1:1121"
-					x={967.5}
-					y={280}
+					x={705.5}
+					y={284}
 					textAnchor="middle"
 					fontFamily="'Squarish Sans CT', 'Orbitron', 'Chakra Petch', sans-serif"
-					fontWeight={800}
-					fontSize={330}
+					fontWeight={400}
+					fontSize={450}
 					fill="url(#stakWatermarkGradient)"
 					lengthAdjust="spacingAndGlyphs"
-					textLength={1727}
+					textLength={1368}
 				>
 					STAK
 				</text>
@@ -1825,7 +1823,7 @@ function MobileHero({ onSignup }: { onSignup: () => void }) {
 					</div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "37px" }}>Finally Speaks Your Language.</p>
 					</div>
@@ -1882,7 +1880,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "45px" }}>The Market Isn't Hard.</p>
 						<p style={{ margin: 0, lineHeight: "45px" }}>It's Just Been Made That Way.</p>
 					</div>
@@ -1923,7 +1921,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Three Swipes to Smarter</p>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Investing.</p>
 				</div>
@@ -2008,7 +2006,7 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Features</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Everything You Need.</p>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Nothing You Don't.</p>
 				</div>
@@ -2095,7 +2093,7 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Early Momentum</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", whiteSpace: "nowrap" }}>
+				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", whiteSpace: "nowrap" }}>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Real People.</p>
 					<p style={{ margin: 0, lineHeight: "45px" }}>Real Momentum.</p>
 				</div>
@@ -2150,7 +2148,7 @@ function MobileFaq({ onEmail }: { onEmail: () => void }) {
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-						<div style={{ fontFamily: SQ, fontSize: 32, fontVariantCaps: "small-caps", width: "100%" }}>
+						<div style={{ fontFamily: SQ, fontSize: 32, width: "100%" }}>
 							<p style={{ margin: 0, lineHeight: "45px" }}>We’re here to answer</p>
 							<p style={{ margin: 0, lineHeight: "45px" }}>all your questions.</p>
 						</div>
@@ -2191,7 +2189,7 @@ function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void 
 			</div>
 		</div>
 	);
-	const txt = (t: string, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontVariantCaps: "small-caps", fontSize: 55.505, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "31.221px" }}>{t}</p></div>;
+	const txt = (t: string, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontSize: 55.505, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "31.221px" }}>{t}</p></div>;
 	const emptyTile = (key: number) => <div key={key} style={{ ...tb, background: "#172037" }} />;
 	const row = (tiles: React.ReactNode[], left: string, top: number, w: number) => (
 		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 13.876, alignItems: "center" }}>{tiles}</div>
@@ -2205,7 +2203,7 @@ function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void 
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 32, fontVariantCaps: "small-caps", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 32, width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Our community of fast rising</p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>young investors</p>
 					</div>
@@ -2366,7 +2364,7 @@ function MobileHero390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Finally Speaks </p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Your Language.</p>
@@ -2429,7 +2427,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>{`The Market Isn't `}</p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Hard. </p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>{`It's Just Been `}</p>
@@ -2473,7 +2471,7 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
-					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", textAlign: "center", width: "100%" }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, textAlign: "center", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Three Swipes to</p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Smarter Investing.</p>
 					</div>
@@ -2537,7 +2535,7 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Features</p>
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
-					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: "100%", lineHeight: "35px" }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", textAlign: "center", width: "100%", lineHeight: "35px" }}>
 						<p style={{ margin: 0 }}>Everything You Need.</p>
 						<p style={{ margin: 0 }}>Nothing You Don't.</p>
 					</div>
@@ -2590,7 +2588,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Early Momentum</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", fontVariantCaps: "small-caps", textAlign: "center", width: 298 }}>
+				<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", textAlign: "center", width: 298 }}>
 					<p style={{ margin: 0, lineHeight: "35px" }}>Real People.</p>
 					<p style={{ margin: 0, lineHeight: "35px" }}>Real Momentum.</p>
 				</div>
@@ -2623,7 +2621,7 @@ function MobileFaq390({ onEmail }: { onEmail: () => void }) {
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-						<p style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", lineHeight: "35px", width: 298, margin: 0 }}>We’re here to answer all your questions.</p>
+						<p style={{ fontFamily: SQ, fontSize: 30, lineHeight: "35px", width: 298, margin: 0 }}>We’re here to answer all your questions.</p>
 						<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, width: 308 }}>
 							<p style={{ margin: 0, lineHeight: "25px" }}>If you are new to world of stocks and financial discipline, STAK is built for you.</p>
 						</div>
@@ -2668,7 +2666,7 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 			</div>
 		</div>
 	);
-	const txt = (t: string, key: number) => <div key={key} style={tb}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontVariantCaps: "small-caps", fontSize: 42.126, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "23.696px" }}>{t}</p></div>;
+	const txt = (t: string, key: number) => <div key={key} style={tb}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontSize: 42.126, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "23.696px" }}>{t}</p></div>;
 	const emptyTile = (key: number) => <div key={key} style={{ ...tb, background: "#172037" }} />;
 	const row = (tiles: React.ReactNode[], left: string, top: number, w: number) => (
 		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 10.532, alignItems: "center" }}>{tiles}</div>
@@ -2682,7 +2680,7 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
-					<div style={{ fontFamily: SQ, fontSize: 30, fontVariantCaps: "small-caps", width: 298 }}>
+					<div style={{ fontFamily: SQ, fontSize: 30, width: 298 }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Our community of fast rising </p>
 						<p style={{ margin: 0, lineHeight: "35px" }}>young investors</p>
 					</div>
@@ -2871,6 +2869,18 @@ export function LandingPage() {
 				rel="stylesheet"
 			/>
 			<style>{`
+				@font-face {
+					font-family: "Squarish Sans CT";
+					src: url("/fonts/squarish-sans-ct.ttf") format("truetype");
+					font-weight: 400 800;
+					font-display: swap;
+				}
+				@font-face {
+					font-family: "Squarish Sans CT SC";
+					src: url("/fonts/squarish-sans-ct-sc.ttf") format("truetype");
+					font-weight: 400 800;
+					font-display: swap;
+				}
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);
 				}
