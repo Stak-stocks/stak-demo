@@ -1717,7 +1717,12 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					<img src={A.box3d} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.73 }}>
+				{/* Plinth light ring — Figma's base glow composite renders ~16L brighter
+				    than the exported flap SVGs; this screen-blended wash makes up the
+				    measured deficit (band y448-504, calibrated vs the 1:343 render). */}
+				<div style={{ position: "absolute", left: "50%", top: 434, transform: "translateX(-50%)", width: 470, height: 110, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(190,220,255,0.34) 0%, rgba(160,200,250,0.13) 52%, rgba(140,185,245,0) 74%)", pointerEvents: "none" }} />
+
+				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.84 }}>
 					<img src={A.boxGlow} alt="" style={{ position: "absolute", top: "-115.08%", left: "-46.74%", right: "-46.57%", bottom: "-115.08%", width: "auto", height: "auto", maxWidth: "none" }} />
 				</div>
 
