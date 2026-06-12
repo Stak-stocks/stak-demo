@@ -2823,23 +2823,33 @@ export function LandingPage() {
 	}, [user, loading, navigate, onboardingCompleted]);
 
 	useEffect(() => {
-		const compute = () => setVw(window.innerWidth);
+		/* Measure the scroll container's clientWidth — NOT window.innerWidth — so the
+		   canvas is sized to the area the user actually sees. innerWidth includes the
+		   vertical scrollbar (~17px on Windows), which made the canvas ~17px too wide
+		   and cropped the right edge. ResizeObserver also catches scrollbar appear/
+		   disappear and OS zoom changes, not just window resizes. */
+		const compute = () => setVw(scrollRef.current ? scrollRef.current.clientWidth : window.innerWidth);
 		compute();
 		window.addEventListener("resize", compute);
-		return () => window.removeEventListener("resize", compute);
+		const ro = typeof ResizeObserver !== "undefined" && scrollRef.current ? new ResizeObserver(compute) : null;
+		if (ro && scrollRef.current) ro.observe(scrollRef.current);
+		return () => {
+			window.removeEventListener("resize", compute);
+			if (ro) ro.disconnect();
+		};
 	}, []);
 
 	// Below 850px → dedicated mobile layout (Figma node 1:1123, 810px canvas);
 	// otherwise the wide desktop canvas (1400px). Each scales to fit its width.
 	const isPhone = vw < 600;
 	const isMobile = vw < 850;
-	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? Math.min(1, vw / MOBILE_WIDTH) : Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
+	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? vw / MOBILE_WIDTH : Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
 
 	const scrollTo = useCallback((key: keyof typeof SEC) => {
 		const el = scrollRef.current;
 		if (!el) return;
-		const vw = window.innerWidth;
-		const s = Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
+		const w = el.clientWidth;
+		const s = Math.min(MAX_DESKTOP_SCALE, w / CANVAS_WIDTH);
 		const top = SEC[key] * s;
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
