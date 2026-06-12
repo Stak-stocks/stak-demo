@@ -485,7 +485,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				    intent — the blur in Figma was a stylization that obscured the
 				    actual screenshot content. */}
 				<div style={{ position: "absolute", left: "calc(50% + 1.48px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
-					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
 				</div>
 				{/* Bottom fade — Figma node 1:441, EXACT values. A `to top`
 				    gradient: solid #0a1020 up to 30.374%, fading to transparent
@@ -1893,7 +1893,7 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 642, transform: "translate(-50%, -50%)", width: 611, height: 598, overflow: "hidden" }}>
 				<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: "calc(50% - 10px)", transform: "translate(-50%, -50%)", width: 1238, height: 746 }}>
 					<div style={{ position: "absolute", left: "calc(50% + 1.46px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
-						<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+						<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
 					</div>
 					<div style={{ position: "absolute", bottom: 31, left: -84, width: 1400, height: 214, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(12.798px)", pointerEvents: "none" }} />
 				</div>
@@ -2416,7 +2416,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-337.79%", left: "-108.2%", right: "-108.2%", bottom: "-337.79%", width: "auto", height: "auto", maxWidth: "none" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% - 0.21px)", top: "calc(50% + 128.5px)", transform: "translate(-50%, -50%)", width: 403.587, height: 395, overflow: "hidden" }}>
-				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "50%", top: 36, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover" }} />
+				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "50%", top: 36, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
 				<div style={{ position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)", width: 410, height: 142, background: "linear-gradient(to top, #0a1020 30%, rgba(10,16,32,0) 96%)" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
