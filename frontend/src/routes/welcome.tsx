@@ -142,9 +142,8 @@ const SEC = {
 };
 const TOTAL_HEIGHT = 9589;
 const CANVAS_WIDTH = 1400;
-/* On screens wider than 1400 the canvas scales UP to fill the viewport,
-   capped so it never gets oversized on very large monitors. */
-const MAX_DESKTOP_SCALE = 1.6;
+/* On screens wider than 1400 the canvas scales UP to fill the viewport —
+   uncapped, so the page keeps Figma proportions edge-to-edge at any width. */
 
 const btnReset: CSSProperties = {
 	background: "none",
@@ -2841,13 +2840,13 @@ export function LandingPage() {
 	// otherwise the wide desktop canvas (1400px). Each scales to fit its width.
 	const isPhone = vw < 600;
 	const isMobile = vw < 850;
-	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? vw / MOBILE_WIDTH : Math.min(MAX_DESKTOP_SCALE, vw / CANVAS_WIDTH);
+	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? vw / MOBILE_WIDTH : vw / CANVAS_WIDTH;
 
 	const scrollTo = useCallback((key: keyof typeof SEC) => {
 		const el = scrollRef.current;
 		if (!el) return;
 		const w = el.clientWidth;
-		const s = Math.min(MAX_DESKTOP_SCALE, w / CANVAS_WIDTH);
+		const s = w / CANVAS_WIDTH;
 		const top = SEC[key] * s;
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
