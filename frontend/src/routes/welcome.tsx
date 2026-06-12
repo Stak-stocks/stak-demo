@@ -344,12 +344,12 @@ function NavBar({ onSignup, onScrollTo }: { onLogin: () => void; onSignup: () =>
 				</div>
 			</div>
 
-			<div style={{ display: "flex", alignItems: "center", gap: 270 }}>
+			<div style={{ display: "flex", alignItems: "center", flex: 1, justifyContent: "space-between" }}>
 				<div style={{ display: "flex", alignItems: "center", gap: 35.168, fontFamily: SR, fontWeight: 400, fontSize: 16, color: "#fff" }}>
 					<button type="button" onClick={() => onScrollTo("hero")} style={btnReset}>Home</button>
 					<button type="button" onClick={() => onScrollTo("features")} style={btnReset}>Features</button>
 					<button type="button" onClick={() => onScrollTo("howItWorks")} style={btnReset}>How It Works</button>
-					<button type="button" onClick={() => onScrollTo("faq")} style={btnReset}>FAQ</button>
+					<button type="button" onClick={() => onScrollTo("faq")} style={{ ...btnReset, marginLeft: 12 }}>FAQ</button>
 				</div>
 				{/* Figma navbar (node 1:315 / Frame 52) has NO Login button — */}
 				<CtaButton label="Get started" withArrow={false} fontSize={14.453} onClick={onSignup} />
@@ -536,7 +536,7 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 					<div style={{ display: "flex", gap: 17 }}>
 						{cards.map((c, i) => (
 							<div key={i} style={{ background: CARD_BG, width: 389, height: 391, borderRadius: 12, overflow: "hidden", position: "relative" }}>
-								<div style={{ position: "absolute", bottom: i === 0 ? 37 : 32, left: "calc(50% + 0.5px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: i === 2 ? 10 : 14, width: 330 }}>
+								<div style={{ position: "absolute", bottom: i === 0 ? 37 : 32, left: "calc(50% + 0.5px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: i === 2 ? 13 : 17, width: 330 }}>
 									<p style={{ fontFamily: SQ, fontSize: 30, color: "#fff", margin: 0, lineHeight: "normal" }}>{c.n}</p>
 									<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, width: "100%" }}>
 										<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: i === 0 ? "nowrap" : "normal", height: i === 2 ? 30 : undefined }}>{c.title}</p>
@@ -587,13 +587,13 @@ function PhoneMockup({ variant }: { variant: 1 | 2 }) {
 				<div style={{ position: "absolute", top: "0.9%", bottom: "98.53%", left: "42.59%", right: "42.03%" }}>
 					<div style={{ position: "absolute", inset: "-50.03% -6.33% -49.48% -6.33%" }}><img src={g2819} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
-				<div style={{ position: "absolute", top: "2.33%", bottom: "2.23%", left: "5.54%", right: "5.34%", background: "#fff", overflow: "hidden", borderRadius: 38 }}>
+				<div style={{ position: "absolute", top: "2.33%", bottom: "2.23%", left: "5.54%", right: "5.34%", background: "#fff", overflow: "hidden", borderRadius: 23 }}>
 					<img src={A.featPhoneScreen} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 				</div>
 				<div style={{ position: "absolute", top: "2.33%", bottom: "94.04%", left: "29.66%", right: "29.43%" }}><img src={A.featSubtract} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				<div style={{ position: "absolute", top: "2.82%", bottom: "95.61%", left: "35.68%", right: "61.14%" }}><img src={g2170} alt="" style={{ width: "100%", height: "100%" }} /></div>
 			</div>
-			<div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(16,23,42,0) 40.429%, #10172a 73.762%)", borderRadius: 10.647, pointerEvents: "none" }} />
+			<div style={{ position: "absolute", inset: "0 0 -1px", background: "linear-gradient(to bottom, rgba(16,23,42,0) 40.429%, #10172a 73.762%)", borderRadius: 10.647, pointerEvents: "none" }} />
 		</div>
 	);
 }
@@ -724,7 +724,7 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 				{/* Stats column (50M / 30M) + bubble grid — Figma 1:734 "Frame 185" at x=0
 			    within the wrapper, so the stats column left edge lands at canvas x=96. */}
 				<div style={{ position: "absolute", left: 0, top: 350, display: "flex", gap: 85, alignItems: "center", justifyContent: "flex-start" }}>
-					<div style={{ width: 252.275, display: "flex", flexDirection: "column", gap: 50 }}>
+					<div style={{ width: 252.275, display: "flex", flexDirection: "column", gap: 48 }}>
 						<StatBlock value="50M+" label="Millennials & Gen Z investing today" />
 						<StatBlock value="30M+" label="Investors seeking better tools" />
 					</div>
@@ -810,7 +810,7 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 
 function StatBlock({ value, label }: { value: string; label: string }) {
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: 25.397, alignItems: "center", justifyContent: "center", width: "100%" }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: 23.9, alignItems: "center", justifyContent: "center", width: "100%" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
 				<div style={{ width: 30.002, height: 36.001, flexShrink: 0 }}>
 					<img src={A.emStatArrow} alt="" style={{ width: "100%", height: "100%" }} />
@@ -1125,7 +1125,7 @@ function FinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
 					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 114 }} data-node-id="1:922" />
 					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", filter: CTA_SHADOW, cursor: "pointer" }} data-node-id="1:923">
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
+						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "18.066px", color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
 					</button>
 				</div>
 			</div>
@@ -1581,7 +1581,7 @@ function FooterBottomBand() {
 				</defs>
 				<text
 					data-node-id="1:1121"
-					x={705.5}
+					x={700.5}
 					y={284}
 					textAnchor="middle"
 					fontFamily="'Squarish Sans CT', 'Orbitron', 'Chakra Petch', sans-serif"
@@ -1718,11 +1718,11 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					<img src={A.box3d} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: "calc(50% + 0.44px)", top: 242.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none" }}>
+				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.73 }}>
 					<img src={A.boxGlow} alt="" style={{ position: "absolute", top: "-115.08%", left: "-46.74%", right: "-46.57%", bottom: "-115.08%", width: "auto", height: "auto", maxWidth: "none" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%)" }}>
+				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", maskComposite: "intersect", WebkitMaskComposite: "source-in" }}>
 					<div style={{ position: "absolute", left: 42.7, top: 76.68, width: 121.122, height: 222.201, overflow: "visible" }}>
 						<img src={A.inner111} alt="" style={{ position: "absolute", top: "-35.69%", bottom: "-14.12%", left: "-31.31%", right: "-39.93%", width: "auto", height: "auto", maxWidth: "none" }} />
 					</div>
@@ -1752,7 +1752,7 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					    glow, the whole group `screen`-blended onto the box and faded to
 					    transparent at the edges by a radial mask -> NO hard rectangle. */}
 					<div style={{ position: "absolute", left: "calc(50% + 0.01px)", top: 0, transform: "translateX(-50%)", width: 274.194, height: 205.645, pointerEvents: "none" }}>
-						<div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", background: "radial-gradient(55% 55% at 50% 88%, rgba(190,219,254,0.38) 0%, rgba(160,198,250,0.18) 45%, rgba(140,185,245,0) 75%)" }} />
+						<div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", background: "radial-gradient(45% 55% at 50% 88%, rgba(190,219,254,0.38) 0%, rgba(160,198,250,0.18) 45%, rgba(140,185,245,0) 75%)" }} />
 						<img src={A.gifAlpha} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 1 }} />
 					</div>
 				</div>
