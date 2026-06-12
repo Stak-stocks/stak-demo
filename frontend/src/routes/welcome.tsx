@@ -1761,6 +1761,12 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					</div>
 				</div>
 
+				{/* Beam core — Figma concentrates the beam's light in a narrow hot core
+				    behind the floating coins; the exported beam assets render it ~18L dimmer.
+				    Sits ABOVE the beam stack (screen blend), below the coin sprites.
+				    Calibrated against the 1:343 render (waist & coin-gap patches). */}
+				<div style={{ position: "absolute", left: "50%", top: 80, transform: "translateX(-50%)", width: 210, height: 250, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(205,228,255,0.42) 0%, rgba(180,212,252,0.27) 45%, rgba(160,200,250,0.12) 70%, rgba(140,185,245,0) 90%)", pointerEvents: "none" }} />
+
 				<div style={{ position: "absolute", left: 313.7, top: 240.7, width: 38.341, height: 38.341 }}>
 					<img src={A.brandTwitch} alt="Twitch" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 				</div>
