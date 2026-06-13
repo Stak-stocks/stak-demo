@@ -1749,14 +1749,7 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 					    erases black and adds only the light, exactly like Figma. */}
 					<img src={A.boxBeamComposite} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 				</div>
-				{/* The two coins inside Frame 115 are re-drawn normal-blend so their
-				    glassy rims stay crisp over the screen-blended light (1:363, 1:365). */}
-				<div style={{ position: "absolute", left: 265.77, top: 198.88, width: 61.868, height: 61.868 }}>
-					<img src={A.brandAmazon} alt="Amazon" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-				</div>
-				<div style={{ position: "absolute", left: 294.52, top: 143.11, width: 73.196, height: 73.196 }}>
-					<img src={A.brandNvidia} alt="Nvidia" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-				</div>
+
 
 				<div style={{ position: "absolute", left: 313.7, top: 240.7, width: 38.341, height: 38.341 }}>
 					<img src={A.brandTwitch} alt="Twitch" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
