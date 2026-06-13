@@ -12,7 +12,7 @@ const A = {
 	box3d: "/images/landing-v2/hero-box-3d.png",
 	gif: "/images/landing-v2/hero-gif.gif",
 	gifAlpha: "/images/landing-v2/hero-gif-alpha.png",
-	boxBeamComposite: "/images/landing-v2/hero-beam-composite.png",
+	boxBeamComposite: "/images/landing-v2/hero-beam-composite-v2.png",
 	boxFlareComposite: "/images/landing-v2/hero-flare-composite.png",
 	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
 	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
