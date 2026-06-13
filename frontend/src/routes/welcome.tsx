@@ -1722,11 +1722,11 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 				    measured deficit (band y448-504, calibrated vs the 1:343 render). */}
 				<div style={{ position: "absolute", left: "50%", top: 434, transform: "translateX(-50%)", width: 470, height: 110, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(190,220,255,0.34) 0%, rgba(160,200,250,0.13) 52%, rgba(140,185,245,0) 74%)", pointerEvents: "none" }} />
 
-				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.84 }}>
+				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.84, maskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)" }}>
 					<img src={A.boxGlow} alt="" style={{ position: "absolute", top: "-115.08%", left: "-46.74%", right: "-46.57%", bottom: "-115.08%", width: "auto", height: "auto", maxWidth: "none" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.34) 27%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", maskComposite: "intersect", WebkitMaskComposite: "source-in" }}>
+				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.5) 27%, rgba(0,0,0,0.92) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.5) 27%, rgba(0,0,0,0.92) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", maskComposite: "intersect", WebkitMaskComposite: "source-in" }}>
 					<div style={{ position: "absolute", left: 42.7, top: 76.68, width: 121.122, height: 222.201, overflow: "visible" }}>
 						<img src={A.inner111} alt="" style={{ position: "absolute", top: "-35.69%", bottom: "-14.12%", left: "-31.31%", right: "-39.93%", width: "auto", height: "auto", maxWidth: "none" }} />
 					</div>
@@ -1760,6 +1760,12 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 						<img src={A.gifAlpha} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 1 }} />
 					</div>
 				</div>
+
+				{/* Beam waist flanks — Figma's silhouette at the waist (y110-190) runs
+				    ~20px wider per side than the exported beam assets; two faint washes
+				    sit directly on the flank edges (threshold-30 contour calibrated). */}
+				<div style={{ position: "absolute", left: "calc(50% - 94px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
+				<div style={{ position: "absolute", left: "calc(50% + 96px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
 
 				{/* Beam core — Figma concentrates the beam's light in a narrow hot core
 				    behind the floating coins; the exported beam assets render it ~18L dimmer.
