@@ -12,6 +12,8 @@ const A = {
 	box3d: "/images/landing-v2/hero-box-3d.png",
 	gif: "/images/landing-v2/hero-gif.gif",
 	gifAlpha: "/images/landing-v2/hero-gif-alpha.png",
+	boxBeamComposite: "/images/landing-v2/hero-beam-composite.png",
+	boxFlareComposite: "/images/landing-v2/hero-flare-composite.png",
 	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
 	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
 	boxFlap3: "/images/landing-v2/hero-box-flap-3.svg",
@@ -1722,56 +1724,39 @@ function BoxIllustration({ top = 325.77 }: { top?: number }) {
 				    measured deficit (band y448-504, calibrated vs the 1:343 render). */}
 				<div style={{ position: "absolute", left: "50%", top: 434, transform: "translateX(-50%)", width: 470, height: 110, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(190,220,255,0.34) 0%, rgba(160,200,250,0.13) 52%, rgba(140,185,245,0) 74%)", pointerEvents: "none" }} />
 
-				<div style={{ position: "absolute", left: "calc(50% + 12.44px)", top: 261.45, transform: "translateX(-50%)", width: 283.198, height: 115.022, overflow: "visible", pointerEvents: "none", opacity: 0.84, maskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)" }}>
-					<img src={A.boxGlow} alt="" style={{ position: "absolute", top: "-115.08%", left: "-46.74%", right: "-46.57%", bottom: "-115.08%", width: "auto", height: "auto", maxWidth: "none" }} />
+				{/* Mouth flare — Figma node 1:351 "Vector 6" as its flattened isolated
+				    render (dim navy radial; the old per-asset export baked it brighter
+				    and leaked light into the dark flanks). Render bounds = layout box
+				    + symmetric 132px blur bleed -> (20.09, 110.05) 548x380. */}
+				<div style={{ position: "absolute", left: 20.09, top: 110.05, width: 548, height: 380, pointerEvents: "none" }}>
+					<img src={A.boxFlareComposite} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 				</div>
 
-				<div style={{ position: "absolute", left: 189.96, top: 0.2, width: 208.259, height: 298.883, maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.5) 27%, rgba(0,0,0,0.92) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 13%, rgba(0,0,0,0.5) 27%, rgba(0,0,0,0.92) 40%, rgba(0,0,0,1) 50%), linear-gradient(to right, black 0%, black 84%, transparent 98%)", maskComposite: "intersect", WebkitMaskComposite: "source-in" }}>
-					<div style={{ position: "absolute", left: 42.7, top: 76.68, width: 121.122, height: 222.201, overflow: "visible" }}>
-						<img src={A.inner111} alt="" style={{ position: "absolute", top: "-35.69%", bottom: "-14.12%", left: "-31.31%", right: "-39.93%", width: "auto", height: "auto", maxWidth: "none" }} />
-					</div>
-					<div style={{ position: "absolute", left: 0, top: 0, width: 208.259, height: 264.027 }}>
-						<div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: 208.259, height: 222.201 }}>
-							<img src={A.innerVec7} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-						</div>
-						<div style={{ position: "absolute", left: 72.32, top: 31.37, width: 63.611, height: 222.201, overflow: "visible" }}>
-							<img src={A.inner113} alt="" style={{ position: "absolute", top: "-19.61%", bottom: "-19.61%", left: "-180.99%", right: "-180.93%", width: "auto", height: "auto", maxWidth: "none" }} />
-						</div>
-						<div style={{ position: "absolute", left: 72.32, top: 34.86, width: 63.611, height: 222.201, overflow: "visible" }}>
-							<img src={A.inner114} alt="" style={{ position: "absolute", top: "-19.61%", bottom: "-19.61%", left: "-180.99%", right: "-180.93%", width: "auto", height: "auto", maxWidth: "none" }} />
-						</div>
-						<div style={{ position: "absolute", left: 75.81, top: 198.68, width: 61.868, height: 61.868 }}>
-							<img src={A.brandAmazon} alt="Amazon" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-						</div>
-						<div style={{ position: "absolute", left: 104.56, top: 142.91, width: 73.196, height: 73.196 }}>
-							<img src={A.brandNvidia} alt="Nvidia" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-						</div>
-					</div>
-					{/* Light beam / sparkles — Figma node 1:366 "gif", rebuilt for the browser.
-					    The Figma gif is bright sparkles on PURE BLACK; its layer stack (a
-					    color-dodge group + overlay-black radial vignettes + black gradients)
-					    composites to an opaque dark RECTANGLE in browsers (Figma drops the
-					    black, the browser does not). Browser-safe equivalent: a pre-processed
-					    transparent-bg sparkle PNG (black -> alpha 0) over a soft white-blue beam
-					    glow, the whole group `screen`-blended onto the box and faded to
-					    transparent at the edges by a radial mask -> NO hard rectangle. */}
-					<div style={{ position: "absolute", left: "calc(50% + 0.01px)", top: 0, transform: "translateX(-50%)", width: 274.194, height: 205.645, pointerEvents: "none" }}>
-						<div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", background: "radial-gradient(45% 55% at 50% 88%, rgba(190,219,254,0.38) 0%, rgba(160,198,250,0.18) 45%, rgba(140,185,245,0) 75%)" }} />
-						<img src={A.gifAlpha} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", maxWidth: "none", mixBlendMode: "screen", opacity: 1 }} />
-					</div>
-				</div>
-
-				{/* Beam waist flanks — Figma's silhouette at the waist (y110-190) runs
-				    ~20px wider per side than the exported beam assets; two faint washes
-				    sit directly on the flank edges (threshold-30 contour calibrated). */}
+				{/* Beam waist flanks — the isolated export lacks the outermost fringe the
+				    sparkle layer gains against the page backdrop; two faint washes restore
+				    the silhouette (threshold-30 contour calibrated, waist rows exact). */}
 				<div style={{ position: "absolute", left: "calc(50% - 94px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
 				<div style={{ position: "absolute", left: "calc(50% + 96px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
 
-				{/* Beam core — Figma concentrates the beam's light in a narrow hot core
-				    behind the floating coins; the exported beam assets render it ~18L dimmer.
-				    Sits ABOVE the beam stack (screen blend), below the coin sprites.
-				    Calibrated against the 1:343 render (waist & coin-gap patches). */}
-				<div style={{ position: "absolute", left: "50%", top: 80, transform: "translateX(-50%)", width: 210, height: 250, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(205,228,255,0.42) 0%, rgba(180,212,252,0.27) 45%, rgba(160,200,250,0.12) 70%, rgba(140,185,245,0) 90%)", pointerEvents: "none" }} />
+				{/* Light beam + sparkles + falling amazon/nvidia coins — Figma node 1:352
+				    ("Frame 115") exported as ONE flattened composite (contentsOnly render),
+				    so the beam shape, its sparkles, and all internal blend modes are
+				    pixel-exact by construction. Render bounds (147.96, 0.2) 294x343 within
+				    Frame 124, aligned by cross-correlation against the 1:343 node render. */}
+				<div style={{ position: "absolute", left: 147.96, top: 0.2, width: 294, height: 343, pointerEvents: "none" }}>
+					{/* screen blend: the export bakes the sparkle layer's pure-black plate
+					    (Figma drops it at composite time, a browser will not) — screen()
+					    erases black and adds only the light, exactly like Figma. */}
+					<img src={A.boxBeamComposite} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+				</div>
+				{/* The two coins inside Frame 115 are re-drawn normal-blend so their
+				    glassy rims stay crisp over the screen-blended light (1:363, 1:365). */}
+				<div style={{ position: "absolute", left: 265.77, top: 198.88, width: 61.868, height: 61.868 }}>
+					<img src={A.brandAmazon} alt="Amazon" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+				</div>
+				<div style={{ position: "absolute", left: 294.52, top: 143.11, width: 73.196, height: 73.196 }}>
+					<img src={A.brandNvidia} alt="Nvidia" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+				</div>
 
 				<div style={{ position: "absolute", left: 313.7, top: 240.7, width: 38.341, height: 38.341 }}>
 					<img src={A.brandTwitch} alt="Twitch" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
