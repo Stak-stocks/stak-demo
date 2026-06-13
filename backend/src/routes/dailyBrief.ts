@@ -472,7 +472,7 @@ interface MacroLesson {
 
 const HIGH_IMPACT_KEYWORDS = [
 	"nonfarm payrolls", "unemployment rate",
-	"consumer price index", "cpi",
+	"consumer price index", "cpi", "inflation",
 	"personal consumption expenditure", "pce",
 	"federal funds rate", "fomc",
 	"gross domestic product", "gdp",
@@ -484,10 +484,11 @@ const HIGH_IMPACT_KEYWORDS = [
 async function getTodaysMacroEvent(): Promise<MacroCalendarEvent | null> {
 	const today = new Date().toISOString().split("T")[0];
 	const cacheKey = `daily-brief:macro-event:v1:${today}`;
-	const cached = await cacheGet<MacroCalendarEvent | null>(cacheKey);
-	if (cached !== undefined && cached !== null) return cached;
-	// null cached explicitly means "checked today, nothing found"
-	if (cached === null) return null;
+	const cached = await cacheGet<MacroCalendarEvent | { checked: true }>(cacheKey);
+	if (cached !== null) {
+		if ("checked" in (cached as object)) return null; // explicitly cached as nothing found
+		return cached as MacroCalendarEvent;
+	}
 
 	try {
 		const raw = await finnhubGet(`/calendar/economic?from=${today}&to=${today}`) as { economicCalendar?: MacroCalendarEvent[] } | null;
@@ -498,7 +499,7 @@ async function getTodaysMacroEvent(): Promise<MacroCalendarEvent | null> {
 			e.actual &&
 			HIGH_IMPACT_KEYWORDS.some(kw => e.event.toLowerCase().includes(kw)),
 		) ?? null;
-		await cacheSet(cacheKey, match, 6 * 60 * 60 * 1000);
+		await cacheSet(cacheKey, match ?? { checked: true }, 6 * 60 * 60 * 1000);
 		return match;
 	} catch {
 		return null;
