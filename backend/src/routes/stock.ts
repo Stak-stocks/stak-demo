@@ -1011,6 +1011,81 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 	res.json(fallback);
 });
 
+// ── Key risk ──────────────────────────────────────────────────────────────────
+// GET /api/stock/:symbol/key-risk
+// Gemini + Google Search: 1-2 sentence financial/macro risk for this stock.
+// Cached 6 hours — risks don't change minute-to-minute.
+
+stockRouter.get("/:symbol/key-risk", async (req, res) => {
+	const symbol = resolveSymbol((req.params["symbol"] as string).toUpperCase());
+	const companyName = ((req.query.name as string | undefined) || symbol).trim();
+	const betaStr = req.query.beta as string | undefined;
+	const peStr = req.query.pe as string | undefined;
+
+	const today = new Date().toISOString().split("T")[0];
+	const cacheKey = `key-risk:v1:${symbol}:${today}`;
+	const cached = await cacheGet<{ risk: string }>(cacheKey);
+	if (cached) { res.json(cached); return; }
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) { res.json({ risk: null }); return; }
+
+	const financialLines = [
+		betaStr ? `Beta: ${betaStr} (${parseFloat(betaStr) >= 1.4 ? "high volatility" : parseFloat(betaStr) >= 0.85 ? "moderate volatility" : "low volatility"})` : null,
+		peStr ? `P/E ratio: ${peStr}` : null,
+	].filter(Boolean).join(", ");
+
+	const prompt = `You are writing a "Key Risk" for ${companyName} (${symbol}) in a stock-learning app for young investors.
+${financialLines ? `Static financial context: ${financialLines}.` : ""}
+
+Search the web for what the main risk facing ${companyName} is right now. Look for:
+- Macro risk relevant to this company (interest rate sensitivity, tariff/trade exposure, currency risk, sector headwinds)
+- Valuation risk (is it trading at a stretched multiple?)
+- Company-specific financial risk (high debt load, slowing revenue growth, margin pressure, competition)
+- Any significant recent news that introduces new risk
+
+Write exactly 1–2 sentences in plain English explaining the most important risk to a beginner investor. Name the actual risk factor and explain briefly why it matters. No disclaimers, no "it's important to note", no financial advice language.
+
+Return ONLY those 1–2 sentences as plain text — no markdown, no JSON, no bullets.`;
+
+	for (const key of keys) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 15000);
+		try {
+			const gemRes = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 200 },
+					}),
+					signal: controller.signal,
+				},
+			);
+			if (gemRes.status === 429) continue;
+			if (!gemRes.ok) break;
+			const data = await gemRes.json();
+			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
+			const risk = parts.map(p => p.text ?? "").join("").trim();
+			if (risk) {
+				const result = { risk };
+				await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000);
+				res.json(result);
+				return;
+			}
+		} catch {
+			// timeout or network error — try next key
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	res.json({ risk: null });
+});
+
 // ── Price chart ───────────────────────────────────────────────────────────────
 // GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
 // 1d/1w include pre/after-hours via prePost=true

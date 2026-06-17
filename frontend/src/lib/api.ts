@@ -319,6 +319,15 @@ export function getDailyMove(symbol: string, changePercent?: number, name?: stri
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }
 
+export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: string) {
+	const params = new URLSearchParams();
+	if (name) params.set("name", name);
+	if (beta) params.set("beta", beta);
+	if (pe) params.set("pe", pe);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<{ risk: string | null }>(`/api/stock/${encodeURIComponent(symbol)}/key-risk${qs}`);
+}
+
 export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
 export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y";
 

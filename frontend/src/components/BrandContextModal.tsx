@@ -6,7 +6,7 @@ import { useAccount } from "@/context/AccountContext";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
-	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove,
+	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk,
 } from "@/lib/api";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
@@ -186,6 +186,20 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
+	const { data: keyRiskData, isLoading: keyRiskLoading } = useQuery({
+		queryKey: ["key-risk", brand?.ticker],
+		queryFn: () => getKeyRisk(
+			brand!.ticker,
+			brand!.name,
+			brand!.financials.beta.value,
+			brand!.financials.peRatio.value,
+		),
+		enabled: !!brand && open,
+		staleTime: 6 * 60 * 60 * 1000,
+		gcTime:    7 * 60 * 60 * 1000,
+		retry: 0,
+	});
+
 	useEffect(() => {
 		if (brand && open) {
 			document.body.style.overflow = "hidden";
@@ -231,43 +245,9 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	const priceUp = pct !== undefined ? pct >= 0 : true;
 	const whyContent = dailyMoveData?.explanation ?? null;
 
-	// 3. Key risks — real signals first, fallback to static culturalContext
-	const riskSignals: string[] = [];
-	// Earnings miss
-	if (earningsData && earningsData.beat === false) {
-		const missStr = earningsData.surprisePercent !== null
-			? ` by ${Math.abs(earningsData.surprisePercent).toFixed(1)}%`
-			: "";
-		riskSignals.push(`Missed ${quarterLabel(earningsData.quarter, earningsData.year)} earnings${missStr} (EPS ${fmtEps(earningsData.epsActual)} vs est. ${fmtEps(earningsData.epsEstimate)})`);
-	}
-	// Analyst sell pressure
-	if (analystData?.recommendation) {
-		const { strongBuy, buy, hold, sell, strongSell } = analystData.recommendation;
-		const total = strongBuy + buy + hold + sell + strongSell;
-		const bearish = sell + strongSell;
-		if (total >= 5 && bearish / total >= 0.25) {
-			riskSignals.push(`${Math.round((bearish / total) * 100)}% of analysts rate this a Sell or Strong Sell`);
-		}
-	}
-	// Price above analyst target
-	const targetAvgRisk = analystData?.priceTarget?.avg ?? null;
-	const currentPriceRisk = stockData?.quote?.price ?? null;
-	if (targetAvgRisk !== null && currentPriceRisk !== null && currentPriceRisk > 0) {
-		const upside = ((targetAvgRisk - currentPriceRisk) / currentPriceRisk) * 100;
-		if (upside < -10) {
-			riskSignals.push(`Trading ${Math.abs(upside).toFixed(0)}% above average analyst target of $${targetAvgRisk.toFixed(0)}`);
-		}
-	}
-	// Bearish news as a risk signal when no structural signals found
-	if (riskSignals.length === 0 && newsData) {
-		const bearishArticle = newsData.articles.find(a => a.sentiment === "bearish" && a.whyItMatters);
-		if (bearishArticle?.whyItMatters) riskSignals.push(bearishArticle.whyItMatters);
-	}
-	const riskLoading = earningsLoading || stockLoading || analystLoading || newsLoading;
-	const riskContent = riskSignals.length > 0
-		? riskSignals.join(". ") + "."
-		: (brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
-			?? brand.culturalContext.sections[brand.culturalContext.sections.length - 1])?.content ?? null;
+	// 3. Key risks — Gemini Search: financial + macro risk for this stock
+	const riskLoading = keyRiskLoading;
+	const riskContent = keyRiskData?.risk ?? null;
 
 	// 4. Recent earnings — EPS actual vs estimate
 	const earningsContent = (() => {
