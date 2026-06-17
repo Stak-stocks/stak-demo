@@ -37,14 +37,14 @@ const FALLBACK_BRIEF = {
 type MoodCircleColor = "cyan" | "purple" | "green" | "blue" | "rose" | "yellow" | "amber" | "slate";
 
 const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; cardBorder: string; cardBg: string; circleColor: MoodCircleColor; chartStroke: string; chartPath: string }> = {
-	Bullish:    { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 30 L12 28 L22 26 L32 24 L42 20 L52 17 L62 14 L72 10 L82 7 L92 5 L99 4"  },
-	Bearish:    { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 10 L12 12 L22 14 L32 16 L42 20 L52 23 L62 26 L72 30 L82 33 L92 36 L99 37" },
-	Cautious:   { icon: Cloud,        textColor: "text-cyan-600 dark:text-cyan-400",        cardBorder: "border-cyan-500/20",    cardBg: "bg-cyan-500/[0.07]",    circleColor: "cyan",   chartStroke: "#06b6d4", chartPath: "M2 18 L12 19 L22 18 L32 20 L42 21 L52 22 L62 22 L72 23 L82 24 L92 24 L99 25" },
-	Volatile:   { icon: Zap,          textColor: "text-yellow-600 dark:text-yellow-300",   cardBorder: "border-yellow-500/20",  cardBg: "bg-yellow-500/[0.07]",  circleColor: "yellow", chartStroke: "#eab308", chartPath: "M2 20 L8 8 L14 28 L20 10 L27 30 L34 8 L41 28 L48 12 L55 30 L62 10 L69 28 L76 12 L83 26 L90 8 L99 18" },
-	Calm:       { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]",   circleColor: "amber",  chartStroke: "#f59e0b", chartPath: "M2 25 L15 23 L28 21 L42 20 L55 18 L68 17 L82 15 L99 13"                  },
-	Mixed:      { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]",   circleColor: "slate",  chartStroke: "#94a3b8", chartPath: "M2 20 L12 18 L22 22 L32 20 L42 19 L52 21 L62 20 L72 19 L82 21 L92 20 L99 20" },
-	"Risk-On":  { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 30 L12 28 L22 26 L32 24 L42 20 L52 17 L62 14 L72 10 L82 7 L92 5 L99 4"  },
-	"Risk-Off": { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 10 L12 12 L22 14 L32 16 L42 20 L52 23 L62 26 L72 30 L82 33 L92 36 L99 37" },
+	Bullish:    { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 32 L8 28 L14 30 L20 24 L26 27 L32 20 L38 22 L44 17 L50 20 L56 14 L62 16 L68 11 L74 13 L80 8 L86 10 L92 6 L99 4"   },
+	Bearish:    { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 8 L8 12 L14 9 L20 16 L26 13 L32 20 L38 17 L44 23 L50 19 L56 26 L62 23 L68 29 L74 27 L80 33 L86 30 L92 35 L99 37"  },
+	Cautious:   { icon: Cloud,        textColor: "text-cyan-600 dark:text-cyan-400",        cardBorder: "border-cyan-500/20",    cardBg: "bg-cyan-500/[0.07]",    circleColor: "cyan",   chartStroke: "#06b6d4", chartPath: "M2 18 L8 16 L14 20 L20 18 L26 22 L32 20 L38 23 L44 21 L50 25 L56 23 L62 26 L68 24 L74 27 L80 26 L86 28 L92 27 L99 28" },
+	Volatile:   { icon: Zap,          textColor: "text-yellow-600 dark:text-yellow-300",   cardBorder: "border-yellow-500/20",  cardBg: "bg-yellow-500/[0.07]",  circleColor: "yellow", chartStroke: "#eab308", chartPath: "M2 20 L7 8 L12 30 L17 6 L22 28 L27 10 L32 26 L37 8 L43 30 L49 6 L55 28 L61 10 L67 30 L73 8 L79 26 L85 10 L92 24 L99 14" },
+	Calm:       { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]",   circleColor: "amber",  chartStroke: "#f59e0b", chartPath: "M2 28 L10 26 L18 27 L26 24 L34 25 L42 22 L50 23 L58 20 L66 21 L74 18 L82 17 L90 14 L99 12"                         },
+	Mixed:      { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]",   circleColor: "slate",  chartStroke: "#94a3b8", chartPath: "M2 20 L8 16 L14 24 L20 18 L26 23 L32 19 L38 22 L44 17 L50 23 L56 19 L62 22 L68 18 L74 23 L80 20 L86 22 L92 19 L99 21" },
+	"Risk-On":  { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 32 L8 28 L14 30 L20 24 L26 27 L32 20 L38 22 L44 17 L50 20 L56 14 L62 16 L68 11 L74 13 L80 8 L86 10 L92 6 L99 4"   },
+	"Risk-Off": { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 8 L8 12 L14 9 L20 16 L26 13 L32 20 L38 17 L44 23 L50 19 L56 26 L62 23 L68 29 L74 27 L80 33 L86 30 L92 35 L99 37"  },
 };
 
 function renderBold(text: string) {
@@ -60,8 +60,18 @@ function getGreeting() {
 }
 
 function LineChartMini({ stroke, path }: { stroke: string; path: string }) {
+	const gradId = `cg-${stroke.replace("#", "")}`;
+	// Build a closed fill path by dropping to bottom-right then bottom-left
+	const fillPath = `${path} L99 40 L2 40 Z`;
 	return (
 		<svg viewBox="0 0 100 40" className="h-[40px] w-full" fill="none">
+			<defs>
+				<linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
+					<stop offset="100%" stopColor={stroke} stopOpacity="0" />
+				</linearGradient>
+			</defs>
+			<path d={fillPath} fill={`url(#${gradId})`} />
 			<path d={path} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
 	);
