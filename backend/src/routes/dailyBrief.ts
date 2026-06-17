@@ -179,6 +179,51 @@ const SESSION_TONE: Record<Session, string> = {
 	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
+async function searchMarketDrivers(today: string, marketClosed: boolean): Promise<string | null> {
+	const cacheKey = `daily-brief:drivers:v1:${today}`;
+	const cached = await cacheGet<string>(cacheKey);
+	if (cached) return cached;
+
+	if (marketClosed) return null;
+
+	const prompt = `Search the web for what is driving US stock markets today (${today}). Look for:
+- Federal Reserve / FOMC rate decisions or statements
+- Economic data releases with actual numbers (CPI, PCE, jobs/nonfarm payrolls, GDP, PPI, retail sales, ISM, jobless claims)
+- Major earnings reports from large-cap companies with results vs estimates
+- Geopolitical events, tariffs, or trade news affecting markets
+- Oil, bond yields, or currency moves causing broad market shifts
+
+Return a factual 3-4 sentence paragraph summarising the 1-3 most significant things happening today. Include real numbers where available (e.g. "CPI came in at 3.1% vs 3.0% expected"). Plain text only, no markdown. If markets are closed or nothing significant is happening, return an empty string.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
+					}),
+					signal: AbortSignal.timeout(20000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim();
+			if (!text) continue;
+			await cacheSet(cacheKey, text, 6 * 60 * 60 * 1000);
+			return text;
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
 async function generateMarketText(
 	mood: Mood,
 	session: Session,
@@ -192,9 +237,10 @@ async function generateMarketText(
 	worstSector?: string | null,
 	marketClosed = false,
 	dayLabel = "Today's",
+	marketDrivers: string | null = null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v5:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:text:v6:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -218,21 +264,19 @@ async function generateMarketText(
 
 	const timeWord = marketClosed ? "on Friday" : "today";
 	const dayRef = marketClosed ? "Friday's" : dayLabel;
+	const driversSection = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}` : "";
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
 
 Market data: ${snapshot || "data unavailable"}
 Overall mood: ${mood}
-${timeContext}
+${timeContext}${driversSection}
 
 Return JSON with exactly two fields:
 
-"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Reference the actual numbers. Be specific — name sectors, mention the S&P/Nasdaq actual % move, VIX if notable. Do NOT say "today" if the market is closed — use "on Friday" instead. Max 140 chars.
+"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Use the live driver info above to name the real reason (e.g. Fed decision, CPI miss, earnings). Reference actual numbers. Max 140 chars.
 
-"plainEnglish": 2 short sentences. Sentence 1: what happened with specific context (move size, sector, why — e.g. yields, geopolitics, earnings). Sentence 2: what this means for someone watching their stocks heading into the next session. Do NOT say "today" if the market is closed. Max 180 chars total.
-
-Example moodExplanation (closed): "The S&P 500 fell ${spyDp != null ? Math.abs(spyDp) + "%" : "on Friday"} on Friday as ${worstSector ?? "growth"} stocks sold off, with the Nasdaq leading the decline."
-Example plainEnglish (closed): "${dayRef} drop was driven by ${worstSector ?? "rate-sensitive"} weakness and rising bond yields. Heading into next week, watch for follow-through selling in tech."
+"plainEnglish": 2 short sentences. Sentence 1: what happened and WHY — use the real driver from above if available (e.g. "CPI came in hotter than expected, pushing the S&P down 1.2%"). Sentence 2: what this means for someone watching their stocks heading into the next session. Max 180 chars total.
 
 No financial advice. No disclaimers. Just describe what happened clearly.`;
 
@@ -331,9 +375,10 @@ async function generatePersonalizedImpact(
 	market: MarketData,
 	uid: string,
 	marketClosed = false,
+	marketDrivers: string | null = null,
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v5:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const cacheKey = `daily-brief:impact:v6:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -394,23 +439,24 @@ async function generatePersonalizedImpact(
 
 	const timeWord = marketClosed ? "on Friday" : "today";
 	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
+	const driversLine = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}\n` : "";
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
 ${marketClosed ? "Friday's close" : `${etDayNameImpact}'s close`} market data:
 ${marketLines || "unavailable"}
-
+${driversLine}
 ${stockSection}
 Mood: ${mood}
 
 Write exactly 2 punchy sentences:
-1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what happened to it ${timeWord}. Do NOT use the word "today" if the market is closed.
-2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}) and leading/lagging sectors above.
+1. Pick the single most relevant stock from their list — mention it by name, connect it to the real driver above if available (e.g. "With the Fed holding rates, growth stocks like NVDA face continued pressure"), and reference the actual % move. Do NOT use the word "today" if the market is closed.
+2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}), the real driver above, and leading/lagging sectors.
 
 CRITICAL RULES:
-- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names (e.g. do NOT say "Apple" unless Apple is listed above).
+- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names.
 - If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
-- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total.
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
 - Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
 
 	const keys = getGeminiKeys();
@@ -442,111 +488,6 @@ CRITICAL RULES:
 	}
 
 	return buildPersonalizedImpact(tagScores, mood);
-}
-
-// ── Market Moment (macro event lesson) ───────────────────────────────────────
-
-interface MacroLesson {
-	eventType: string;
-	title: string;
-	subtitle: string;
-	emoji: string;
-	cards: Array<{ heading: string; body: string }>;
-	quiz: {
-		question: string;
-		options: Array<{ id: string; text: string }>;
-		correctId: string;
-		explanation: string;
-	};
-}
-
-async function generateMarketMomentLesson(spyDp: number | null, mood: string): Promise<MacroLesson | null> {
-	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:macro-lesson:v2:${today}:${mood}`;
-	const cached = await cacheGet<MacroLesson | { checked: true }>(cacheKey);
-	if (cached !== null) {
-		if ("checked" in (cached as object)) return null;
-		return cached as MacroLesson;
-	}
-
-	const prompt = `You are writing a Market Moment lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
-
-Search the web for what is moving US stock markets today. Look for ALL of these possible drivers:
-- Federal Reserve / FOMC decisions or statements
-- Economic data releases (CPI, inflation, PCE, jobs/nonfarm payrolls, GDP, PPI, retail sales, ISM, jobless claims)
-- Major earnings reports from large-cap companies
-- Geopolitical events, tariffs, or trade news affecting markets
-- Oil prices, bond yields, or currency moves causing broader market shifts
-- Any other high-impact market news from today
-
-Identify the top 1-3 most significant things happening. Then pick the single most educational one — the one that best teaches a beginner investor about cause-and-effect in markets.
-
-Context:
-- S&P 500 today: ${spyDp != null ? (spyDp >= 0 ? "+" : "") + spyDp + "%" : "unknown"}
-- Market mood: ${mood}
-
-Return ONLY a JSON object with this exact shape (no markdown, no code fences):
-{
-  "eventType": "jobs" | "inflation" | "fed" | "gdp" | "ppi" | "retail" | "pmi" | "earnings" | "geopolitical" | "other",
-  "title": "max 7 words describing today's event",
-  "subtitle": "one hook sentence, max 12 words",
-  "emoji": "single relevant emoji",
-  "cards": [
-    { "heading": "What Just Happened", "body": "2-3 sentences. State exactly what happened today with real numbers if available. Note the immediate market reaction." },
-    { "heading": "Why It Moves Markets", "body": "2-3 sentences. Explain the cause-and-effect mechanism in plain English. Use arrows to show the chain: e.g. higher rates → growth stocks worth less today." },
-    { "heading": "What to Watch Now", "body": "2-3 sentences. Name 1-2 sectors or assets most affected. Explain why in simple terms." }
-  ],
-  "quiz": {
-    "question": "test the cause-and-effect mechanism, not just the fact",
-    "options": [
-      { "id": "a", "text": "..." },
-      { "id": "b", "text": "..." },
-      { "id": "c", "text": "..." }
-    ],
-    "correctId": "a" | "b" | "c",
-    "explanation": "2 sentences explaining why the correct answer is right and why the others are wrong"
-  }
-}
-
-If there is genuinely nothing significant happening in markets today, return: { "empty": true }
-
-Tone: confident, plain English, no jargon without explanation. No financial advice. No disclaimers.`;
-
-	const keys = getGeminiKeys();
-	for (const key of keys) {
-		try {
-			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						tools: [{ google_search: {} }],
-						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
-					}),
-					signal: AbortSignal.timeout(30000),
-				},
-			);
-			if (!res.ok) continue;
-			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
-			if (!text) continue;
-			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
-			const parsed = JSON.parse(jsonStr) as MacroLesson & { empty?: boolean };
-			if (parsed.empty) {
-				await cacheSet(cacheKey, { checked: true }, 6 * 60 * 60 * 1000);
-				return null;
-			}
-			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
-				await cacheSet(cacheKey, parsed, 6 * 60 * 60 * 1000);
-				return parsed;
-			}
-		} catch {
-			continue;
-		}
-	}
-	return null;
 }
 
 // ── Deck definitions ──────────────────────────────────────────────────────────
@@ -685,10 +626,12 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
-		const [{ moodExplanation, plainEnglish }, personalizedImpact, macroLesson] = await Promise.all([
-			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed),
-			generateMarketMomentLesson(spyDp, mood),
+		const today = new Date().toISOString().split("T")[0];
+		const marketDrivers = await searchMarketDrivers(today, marketClosed);
+
+		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers),
 		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
@@ -703,7 +646,6 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			plainEnglish,
 			personalizedImpact,
 			decks,
-			...(macroLesson ? { macroLesson } : {}),
 			marketSnapshot: {
 				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
 				iwmChange: iwmDp, vixChange: vixDp,
