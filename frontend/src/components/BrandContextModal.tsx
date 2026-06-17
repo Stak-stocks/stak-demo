@@ -138,7 +138,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: stockData } = useQuery({
+	const { data: stockData, isLoading: stockLoading } = useQuery({
 		queryKey: ["stock", brand?.ticker],
 		queryFn: () => getStockData(brand!.ticker),
 		enabled: !!brand && open,
@@ -147,7 +147,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: newsData } = useQuery({
+	const { data: newsData, isLoading: newsLoading } = useQuery({
 		queryKey: ["news", brand?.ticker],
 		queryFn: () => getCompanyNews(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
@@ -156,7 +156,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: analystData } = useQuery({
+	const { data: analystData, isLoading: analystLoading } = useQuery({
 		queryKey: ["analyst", "v2", brand?.ticker],
 		queryFn: () => getAnalystData(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
@@ -263,7 +263,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		const bearishArticle = newsData.articles.find(a => a.sentiment === "bearish" && a.whyItMatters);
 		if (bearishArticle?.whyItMatters) riskSignals.push(bearishArticle.whyItMatters);
 	}
-	const riskLoading = earningsLoading && !analystData && !stockData;
+	const riskLoading = earningsLoading || stockLoading || analystLoading || newsLoading;
 	const riskContent = riskSignals.length > 0
 		? riskSignals.join(". ") + "."
 		: (brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
