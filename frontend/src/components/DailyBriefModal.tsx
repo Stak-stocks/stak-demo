@@ -34,13 +34,17 @@ const FALLBACK_BRIEF = {
 	] as DailyBriefDeck[],
 };
 
-const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; cardBorder: string; cardBg: string }> = {
-	Bullish:  { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]" },
-	Bearish:  { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]"    },
-	Cautious: { icon: Cloud,        textColor: "text-cyan-600 dark:text-cyan-400",        cardBorder: "border-cyan-500/20",    cardBg: "bg-cyan-500/[0.07]"    },
-	Volatile: { icon: Zap,          textColor: "text-yellow-600 dark:text-yellow-300",   cardBorder: "border-yellow-500/20",  cardBg: "bg-yellow-500/[0.07]"  },
-	Calm:     { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]"   },
-	Mixed:    { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]"   },
+type MoodCircleColor = "cyan" | "purple" | "green" | "blue" | "rose" | "yellow" | "amber" | "slate";
+
+const MOOD_CONFIG: Record<string, { icon: React.ElementType; textColor: string; cardBorder: string; cardBg: string; circleColor: MoodCircleColor; chartStroke: string; chartPath: string }> = {
+	Bullish:    { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 30 L12 28 L22 26 L32 24 L42 20 L52 17 L62 14 L72 10 L82 7 L92 5 L99 4"  },
+	Bearish:    { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 10 L12 12 L22 14 L32 16 L42 20 L52 23 L62 26 L72 30 L82 33 L92 36 L99 37" },
+	Cautious:   { icon: Cloud,        textColor: "text-cyan-600 dark:text-cyan-400",        cardBorder: "border-cyan-500/20",    cardBg: "bg-cyan-500/[0.07]",    circleColor: "cyan",   chartStroke: "#06b6d4", chartPath: "M2 18 L12 19 L22 18 L32 20 L42 21 L52 22 L62 22 L72 23 L82 24 L92 24 L99 25" },
+	Volatile:   { icon: Zap,          textColor: "text-yellow-600 dark:text-yellow-300",   cardBorder: "border-yellow-500/20",  cardBg: "bg-yellow-500/[0.07]",  circleColor: "yellow", chartStroke: "#eab308", chartPath: "M2 20 L8 8 L14 28 L20 10 L27 30 L34 8 L41 28 L48 12 L55 30 L62 10 L69 28 L76 12 L83 26 L90 8 L99 18" },
+	Calm:       { icon: Sun,          textColor: "text-amber-600 dark:text-amber-300",      cardBorder: "border-amber-500/20",   cardBg: "bg-amber-500/[0.07]",   circleColor: "amber",  chartStroke: "#f59e0b", chartPath: "M2 25 L15 23 L28 21 L42 20 L55 18 L68 17 L82 15 L99 13"                  },
+	Mixed:      { icon: Minus,        textColor: "dark:text-slate-300 text-slate-600",      cardBorder: "border-slate-400/18",   cardBg: "bg-slate-500/[0.05]",   circleColor: "slate",  chartStroke: "#94a3b8", chartPath: "M2 20 L12 18 L22 22 L32 20 L42 19 L52 21 L62 20 L72 19 L82 21 L92 20 L99 20" },
+	"Risk-On":  { icon: TrendingUp,   textColor: "text-emerald-500 dark:text-emerald-400", cardBorder: "border-emerald-500/20", cardBg: "bg-emerald-500/[0.07]", circleColor: "green",  chartStroke: "#22c55e", chartPath: "M2 30 L12 28 L22 26 L32 24 L42 20 L52 17 L62 14 L72 10 L82 7 L92 5 L99 4"  },
+	"Risk-Off": { icon: TrendingDown, textColor: "text-rose-500 dark:text-rose-400",       cardBorder: "border-rose-500/20",    cardBg: "bg-rose-500/[0.07]",    circleColor: "rose",   chartStroke: "#f43f5e", chartPath: "M2 10 L12 12 L22 14 L32 16 L42 20 L52 23 L62 26 L72 30 L82 33 L92 36 L99 37" },
 };
 
 function renderBold(text: string) {
@@ -55,22 +59,26 @@ function getGreeting() {
 	return "Good evening";
 }
 
-function LineChartMini() {
+function LineChartMini({ stroke, path }: { stroke: string; path: string }) {
 	return (
 		<svg viewBox="0 0 100 40" className="h-[40px] w-full" fill="none">
-			<path d="M2 28 L9 27 L15 21 L22 27 L30 12 L38 22 L46 14 L54 25 L62 12 L70 15 L78 9 L86 7 L94 2 L99 4" stroke="#4de6df" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+			<path d={path} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
 	);
 }
 
-type IconColor = "cyan" | "purple" | "green" | "blue";
+type IconColor = "cyan" | "purple" | "green" | "blue" | "rose" | "yellow" | "amber" | "slate";
 
 function IconCircle({ color, icon, large }: { color: IconColor; icon: React.ReactNode; large?: boolean }) {
 	const cls: Record<IconColor, string> = {
-		cyan:   "border-cyan-400/55   bg-cyan-500/10   text-cyan-300",
-		purple: "border-violet-400/50 bg-violet-500/10 text-violet-300",
+		cyan:   "border-cyan-400/55    bg-cyan-500/10    text-cyan-300",
+		purple: "border-violet-400/50  bg-violet-500/10  text-violet-300",
 		green:  "border-emerald-400/50 bg-emerald-500/10 text-emerald-300",
-		blue:   "border-blue-400/50   bg-blue-500/10   text-blue-300",
+		blue:   "border-blue-400/50    bg-blue-500/10    text-blue-300",
+		rose:   "border-rose-400/50    bg-rose-500/10    text-rose-300",
+		yellow: "border-yellow-400/50  bg-yellow-500/10  text-yellow-300",
+		amber:  "border-amber-400/50   bg-amber-500/10   text-amber-300",
+		slate:  "border-slate-400/40   bg-slate-500/10   text-slate-300",
 	};
 	return (
 		<div className={`grid shrink-0 place-items-center rounded-full border ${cls[color]} ${large ? "h-[63px] w-[63px]" : "h-[54px] w-[54px]"}`}>
@@ -324,7 +332,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 				{!isGenerating && <section className={`mt-[18px] rounded-[14px] border ${mood.cardBorder} ${mood.cardBg} p-[15px] shadow-[0_10px_30px_rgba(0,0,0,.12)]`}>
 
 					<div className="flex gap-[15px]">
-						<IconCircle color="cyan" icon={<MoodIcon size={31} strokeWidth={1.8} />} large />
+						<IconCircle color={mood.circleColor} icon={<MoodIcon size={31} strokeWidth={1.8} />} large />
 						<div className="min-w-0 flex-1 pt-[2px]">
 							<div className="flex items-start justify-between gap-2">
 								<div>
@@ -332,7 +340,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 									<h3 className={`mt-[2px] text-[31px] font-bold leading-none tracking-[-0.03em] ${mood.textColor}`}>{brief.mood}</h3>
 								</div>
 								<div className="mt-[8px] w-[90px] opacity-80">
-									<LineChartMini />
+									<LineChartMini stroke={mood.chartStroke} path={mood.chartPath} />
 								</div>
 							</div>
 							<p className="mt-[11px] text-[13px] leading-[18px] text-foreground/90">{brief.moodExplanation}</p>
