@@ -226,7 +226,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 }
 
 export function PlaygroundPage() {
-	const { account, accountLoading, completeWeeklyActivity, markPlaygroundOnboarded } = useAccount();
+	const { account, accountLoading, completeWeeklyActivity, markPlaygroundOnboarded, saveMarketLessonHistory } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
 	// Optimistic local completions — updates instantly before Firestore onSnapshot fires
@@ -355,11 +355,17 @@ export function PlaygroundPage() {
 		gcTime: 13 * 60 * 60 * 1000,
 		retry: 0,
 	});
+	const macroLessonMeta = useMemo(() => {
+		const ml = marketLessonData?.lesson;
+		if (!ml) return null;
+		return { eventType: ml.eventType, angle: ml.angle ?? ml.title };
+	}, [marketLessonData?.lesson]);
+
 	const macroLessonObj = useMemo(() => {
 		const ml = marketLessonData?.lesson;
 		if (!ml) return null;
 		// ID is event-type + ISO week so the same topic completed on any day this week
-		// stays completed — prevents seeing "Fed hawkshift" twice in the same week.
+		// stays completed — prevents seeing the same event twice in one week.
 		const isoWeek = (() => {
 			const d = new Date();
 			const jan4 = new Date(d.getFullYear(), 0, 4);
@@ -436,7 +442,16 @@ export function PlaygroundPage() {
 				totalLessons={totalLessons}
 				lessonsPool={[macroLessonObj]}
 				onBack={goHome}
-				onComplete={goHome}
+				onComplete={() => {
+					if (macroLessonMeta) {
+						saveMarketLessonHistory({
+							eventType: macroLessonMeta.eventType,
+							title: macroLessonObj.title,
+							angle: macroLessonMeta.angle,
+						}).catch(() => {});
+					}
+					goHome();
+				}}
 			/>
 		);
 	}

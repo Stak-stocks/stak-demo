@@ -348,6 +348,7 @@ export interface DailyBriefDeck {
 
 export interface MacroLesson {
 	eventType: string;
+	angle?: string;
 	title: string;
 	subtitle: string;
 	emoji: string;

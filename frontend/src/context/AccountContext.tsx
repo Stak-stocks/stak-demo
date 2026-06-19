@@ -105,6 +105,7 @@ export interface UserDoc {
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 	playgroundOnboarded?: boolean;         // true after user has completed playground onboarding
+	marketLessonHistory?: Array<{ eventType: string; title: string; angle: string; completedAt: number }>;
 }
 
 interface AccountContextType {
@@ -131,6 +132,7 @@ interface AccountContextType {
 	completeWeeklyActivity: (weekKey: string, activityId: string, xp: number) => Promise<void>;
 	addPracticeSkillXp: (skill: string, xp: number) => Promise<void>;
 	markPlaygroundOnboarded: () => Promise<void>;
+	saveMarketLessonHistory: (entry: { eventType: string; title: string; angle: string }) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -472,6 +474,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
 	}, [user]);
 
+	const saveMarketLessonHistory = useCallback(async (entry: { eventType: string; title: string; angle: string }) => {
+		if (!user) return;
+		const record = { ...entry, completedAt: Date.now() };
+		// arrayUnion appends atomically; the backend reads the array and slices to the last 20
+		await updateDoc(doc(db, "users", user.uid), {
+			marketLessonHistory: arrayUnion(record),
+		});
+	}, [user]);
+
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
 		if (!user || xp <= 0) return;
 		await updateDoc(doc(db, "users", user.uid), {
@@ -510,6 +521,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				completeWeeklyActivity,
 				addPracticeSkillXp,
 				markPlaygroundOnboarded,
+				saveMarketLessonHistory,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

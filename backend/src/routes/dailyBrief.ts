@@ -506,22 +506,9 @@ interface MarketLessonResponse {
 	};
 }
 
-interface LessonHistoryEntry { eventType: string; title: string; angle: string; date: string }
-const LESSON_HISTORY_KEY = "playground:lesson-history:v1";
-const LESSON_HISTORY_MAX = 10;
+interface LessonHistoryEntry { eventType: string; title: string; angle: string; completedAt?: number; date?: string }
 
-async function getLessonHistory(): Promise<LessonHistoryEntry[]> {
-	return (await cacheGet<LessonHistoryEntry[]>(LESSON_HISTORY_KEY)) ?? [];
-}
-
-async function pushLessonHistory(entry: LessonHistoryEntry): Promise<void> {
-	const history = await getLessonHistory();
-	const updated = [entry, ...history].slice(0, LESSON_HISTORY_MAX);
-	// Keep history for 90 days
-	await cacheSet(LESSON_HISTORY_KEY, updated, 90 * 24 * 60 * 60 * 1000);
-}
-
-async function generateMarketLesson(): Promise<MarketLessonResponse | null> {
+async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<MarketLessonResponse | null> {
 	const today = new Date().toISOString().split("T")[0];
 	const cacheKey = `playground:market-lesson:v1:${today}`;
 	const cached = await cacheGet<MarketLessonResponse | { empty: true }>(cacheKey);
@@ -530,9 +517,13 @@ async function generateMarketLesson(): Promise<MarketLessonResponse | null> {
 		return cached as MarketLessonResponse;
 	}
 
-	const history = await getLessonHistory();
+	// Take the 20 most recent entries by completedAt (most recent first)
+	const history = [...userHistory]
+		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+		.slice(0, 20);
+
 	const historyBlock = history.length > 0
-		? `\nLessons already taught (DO NOT repeat the same angle on any of these — go deeper, pick a related concept, or approach from a different angle):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
+		? `\nThis user's personal lesson history (DO NOT repeat the same angle — always teach something new):\n${history.map(h => `- "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
 	const prompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
@@ -612,12 +603,6 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 			}
 			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
 				await cacheSet(cacheKey, parsed, 12 * 60 * 60 * 1000);
-				await pushLessonHistory({
-					eventType: parsed.eventType,
-					title: parsed.title,
-					angle: parsed.angle ?? parsed.title,
-					date: today,
-				});
 				return parsed;
 			}
 		} catch {
@@ -627,10 +612,13 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 	return null;
 }
 
-// GET /api/daily-brief/market-lesson — no auth, playground fetches it directly
-dailyBriefRouter.get("/market-lesson", async (_req, res) => {
+// GET /api/daily-brief/market-lesson
+dailyBriefRouter.get("/market-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const lesson = await generateMarketLesson();
+		const uid = req.user!.uid;
+		const userSnap = await adminDb.collection("users").doc(uid).get();
+		const userHistory: LessonHistoryEntry[] = (userSnap.data()?.marketLessonHistory as LessonHistoryEntry[] | undefined) ?? [];
+		const lesson = await generateMarketLesson(userHistory);
 		if (!lesson) { res.json({ lesson: null }); return; }
 		res.json({ lesson });
 	} catch {
