@@ -506,6 +506,21 @@ interface MarketLessonResponse {
 	};
 }
 
+interface LessonHistoryEntry { eventType: string; title: string; angle: string; date: string }
+const LESSON_HISTORY_KEY = "playground:lesson-history:v1";
+const LESSON_HISTORY_MAX = 10;
+
+async function getLessonHistory(): Promise<LessonHistoryEntry[]> {
+	return (await cacheGet<LessonHistoryEntry[]>(LESSON_HISTORY_KEY)) ?? [];
+}
+
+async function pushLessonHistory(entry: LessonHistoryEntry): Promise<void> {
+	const history = await getLessonHistory();
+	const updated = [entry, ...history].slice(0, LESSON_HISTORY_MAX);
+	// Keep history for 90 days
+	await cacheSet(LESSON_HISTORY_KEY, updated, 90 * 24 * 60 * 60 * 1000);
+}
+
 async function generateMarketLesson(): Promise<MarketLessonResponse | null> {
 	const today = new Date().toISOString().split("T")[0];
 	const cacheKey = `playground:market-lesson:v1:${today}`;
@@ -515,19 +530,27 @@ async function generateMarketLesson(): Promise<MarketLessonResponse | null> {
 		return cached as MarketLessonResponse;
 	}
 
-	const prompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+	const history = await getLessonHistory();
+	const historyBlock = history.length > 0
+		? `\nLessons already taught (DO NOT repeat the same angle on any of these — go deeper, pick a related concept, or approach from a different angle):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
+		: "";
 
+	const prompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+${historyBlock}
 Search the web for the single most significant market-moving event from the past 2 days. Priority order:
 1. Federal Reserve / FOMC rate decisions or statements
 2. Major economic data releases with actual numbers (CPI, PCE, jobs, GDP)
 3. Major earnings that surprised the market
 4. Significant geopolitical or trade events affecting markets
 
-Build a 3-card educational lesson on that event that teaches a beginner WHY it matters for their stocks. Focus on cause-and-effect.
+If the event is the same type as a recently taught lesson above, cover a DIFFERENT angle — go one level deeper, zoom out to the broader mechanism, or explore a sector/stock-type implication not covered before. The lesson structure (3 cards + quiz) must always teach something new.
+
+Build a 3-card educational lesson that teaches a beginner WHY this matters for their stocks. Focus on cause-and-effect.
 
 Return ONLY a JSON object (no markdown, no code fences):
 {
   "eventType": "fed" | "inflation" | "jobs" | "gdp" | "ppi" | "retail" | "earnings" | "geopolitical" | "other",
+  "angle": "one short phrase describing the specific angle of this lesson — e.g. 'how rate expectations affect bond yields' or 'why tech valuations fall when rates stay high'",
   "title": "7 words max — e.g. 'What the Fed's Rate Hold Means'",
   "subtitle": "One hook sentence, max 12 words — e.g. 'Rates stayed put. Here's why that still moves your stocks.'",
   "emoji": "single relevant emoji",
@@ -546,7 +569,7 @@ Return ONLY a JSON object (no markdown, no code fences):
     }
   ],
   "quiz": {
-    "question": "Test the mechanism, not the headline fact",
+    "question": "Test the mechanism, not the headline fact — and not a question covered in previous lessons listed above",
     "options": [
       { "id": "a", "text": "..." },
       { "id": "b", "text": "..." },
@@ -582,13 +605,19 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
 			if (!text) continue;
 			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
-			const parsed = JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean };
+			const parsed = JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean; angle?: string };
 			if (parsed.empty) {
 				await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
 				return null;
 			}
 			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
 				await cacheSet(cacheKey, parsed, 12 * 60 * 60 * 1000);
+				await pushLessonHistory({
+					eventType: parsed.eventType,
+					title: parsed.title,
+					angle: parsed.angle ?? parsed.title,
+					date: today,
+				});
 				return parsed;
 			}
 		} catch {
