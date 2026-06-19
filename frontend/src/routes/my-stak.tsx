@@ -527,15 +527,6 @@ function MyStakPage() {
 	const liveMoveDirection = liveChangePct === undefined ? null
 		: liveChangePct > 0.15 ? "up" : liveChangePct < -0.15 ? "down" : "flat";
 
-	const { data: dailyMoveData, isLoading: dailyMoveLoading, isError: dailyMoveError } = useQuery({
-		// Include direction in key so a direction change (flat→down) fetches fresh content
-		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection, 4],
-		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name, 4),
-		enabled: !!selectedBrand,
-		staleTime: 30 * 60 * 1000,
-		refetchInterval: 30 * 60 * 1000,
-		retry: 1,
-	});
 
 	const { data: analystData, isLoading: analystLoading } = useQuery({
 		queryKey: ["analyst", "v2", selectedBrand?.ticker],
@@ -583,6 +574,16 @@ function MyStakPage() {
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		retry: 0,
+	});
+	const isMktClosed = !!(myDailyBrief as { marketClosed?: boolean } | undefined)?.marketClosed;
+	const { data: dailyMoveData, isLoading: dailyMoveLoading, isError: dailyMoveError } = useQuery({
+		// Include direction in key so a direction change (flat→down) fetches fresh content
+		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection, 4, isMktClosed],
+		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name, 4, isMktClosed),
+		enabled: !!selectedBrand,
+		staleTime: 30 * 60 * 1000,
+		refetchInterval: 30 * 60 * 1000,
+		retry: 1,
 	});
 
 	const stakBrandQueries = useQueries({
@@ -1025,10 +1026,10 @@ function MyStakPage() {
 									<div className="flex items-center gap-[6px] mb-[5px]">
 										{pct !== undefined ? (
 											<span className={`text-[12px] font-bold ${isFlat ? "dark:text-slate-400 text-slate-500" : isUp ? "text-emerald-400" : "text-rose-400"}`}>
-												{isFlat ? "—" : isUp ? "▲" : "▼"} {isUp && !isFlat ? "+" : ""}{pct.toFixed(2)}% today
+												{isFlat ? "—" : isUp ? "▲" : "▼"} {isUp && !isFlat ? "+" : ""}{pct.toFixed(2)}% {isMktClosed ? "at last close" : "today"}
 											</span>
 										) : (
-											<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">Today's driver</span>
+											<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">{isMktClosed ? "Last close driver" : "Today's driver"}</span>
 										)}
 									</div>
 									{dailyMoveLoading ? (

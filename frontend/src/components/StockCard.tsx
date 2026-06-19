@@ -246,8 +246,8 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 			{/* Content — top% keeps proportional; all internal spacing scales with card size */}
 			{/* Text is always white — it sits on top of the dark gradient overlay regardless of mode */}
 			<div
-				className="absolute inset-x-0 bottom-0 z-20 flex flex-col px-[22px] overflow-hidden"
-				style={{ top: "38%", paddingBottom: sp(10) }}
+				className="absolute inset-x-0 bottom-0 z-20 flex flex-col px-[22px]"
+				style={{ top: "38%", paddingBottom: sp(22) }}
 			>
 				<h1
 					className="font-bold leading-none tracking-[-0.03em] text-white"
@@ -272,7 +272,6 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 											{priceUp ? "+" : ""}{quote.changePercent.toFixed(1)}%
 										</p>
 									</div>
-									<p className="text-white/70" style={{ marginTop: sp(7), fontSize: sp(13) }}>Past 1 Year</p>
 								</>
 							) : quote === undefined ? (
 								<>
@@ -302,7 +301,7 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 
 				{/* Bio */}
 				<p
-					className="text-white/70 line-clamp-2"
+					className="text-white/70 line-clamp-2 shrink-0"
 					style={{ marginTop: sp(10), fontSize: sp(13), lineHeight: `${sp(19)}px` }}
 				>{brand.bio}</p>
 

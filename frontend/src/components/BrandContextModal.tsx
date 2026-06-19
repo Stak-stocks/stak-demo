@@ -6,8 +6,9 @@ import { useAccount } from "@/context/AccountContext";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
-	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk,
+	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk, getDailyBrief,
 } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
 } from "lucide-react";
@@ -174,12 +175,20 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
+	const { data: briefData } = useQuery({
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryFn: getDailyBrief,
+		staleTime: 30 * 60 * 1000,
+		retry: 0,
+	});
+	const isMktClosed = !!(briefData as { marketClosed?: boolean } | undefined)?.marketClosed;
+
 	const pctForMove = stockData?.quote?.changePercent;
 	// Use direction (up/down/flat) as cache key discriminator — stable within 30min TTL
 	const moveDirection = pctForMove == null ? null : pctForMove > 0.15 ? "up" : pctForMove < -0.15 ? "down" : "flat";
 	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
-		queryKey: ["daily-move", brand?.ticker, moveDirection],
-		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name),
+		queryKey: ["daily-move", brand?.ticker, moveDirection, isMktClosed],
+		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name, undefined, isMktClosed),
 		enabled: !!brand && open && pctForMove !== undefined,
 		staleTime: 30 * 60 * 1000,
 		gcTime:    60 * 60 * 1000,
@@ -374,7 +383,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 							color="green"
 						/>
 						<InfoRow
-							heading="Why it moved"
+							heading={isMktClosed ? "Why it moved at last close" : "Why it moved"}
 							content={whyContent}
 							loading={whyLoading}
 							icon={<TrendingUp size={23} />}

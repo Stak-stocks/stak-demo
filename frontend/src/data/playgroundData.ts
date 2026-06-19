@@ -1573,7 +1573,7 @@ const BATTLE_TIERS: Record<string, number> = {
 };
 
 // Tier XP multipliers
-const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
+export const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
 	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
 	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
 	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
@@ -1589,6 +1589,27 @@ function xpTier(totalXp: number): number {
 	return 1;                        // Beginner
 }
 
+function hashStr(str: string): number {
+	let h = 0;
+	for (let i = 0; i < str.length; i++) { h = (((h << 5) - h) + str.charCodeAt(i)) | 0; }
+	return Math.abs(h);
+}
+
+function daysSinceEpoch(dayKey: string): number {
+	return Math.floor((new Date(dayKey).getTime() - new Date("2024-01-01").getTime()) / 86400000);
+}
+
+// Shuffle pool once per user, then advance by one slice per day — no repeats until full cycle.
+function rotatingSlice<T>(pool: T[], uid: string, dayKey: string, count: number): T[] {
+	if (pool.length === 0) return [];
+	const shuffled = seededPick(pool, hashStr(uid), pool.length); // full per-user shuffle
+	const dayN = daysSinceEpoch(dayKey);
+	const start = (dayN * count) % shuffled.length;
+	const end = start + count;
+	if (end <= shuffled.length) return shuffled.slice(start, end);
+	return [...shuffled.slice(start), ...shuffled.slice(0, end - shuffled.length)];
+}
+
 function seededPick<T>(arr: T[], seed: number, count: number): T[] {
 	const result: T[] = [];
 	const copy = [...arr];
@@ -1602,7 +1623,7 @@ function seededPick<T>(arr: T[], seed: number, count: number): T[] {
 }
 
 // How many of each activity type per tier
-const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; }> = {
+export const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; }> = {
 	1: { lessons: 3, battles: 1, earnings: 1, risk: 2, mood: 1, },
 	2: { lessons: 4, battles: 2, earnings: 1, risk: 2, mood: 2, },
 	3: { lessons: 4, battles: 2, earnings: 2, risk: 3, mood: 2, },
@@ -1614,52 +1635,36 @@ const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: 
  * Returns the full weekly pack — this IS the content for the week.
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
-export function getWeeklyPack(totalXp: number, weekKey: string, seenIds: Set<string> = new Set()): WeeklyPack {
-	let seed = 0;
-	for (let i = 0; i < weekKey.length; i++) {
-		seed = ((seed << 5) - seed) + weekKey.charCodeAt(i);
-		seed |= 0;
-	}
-
+export function getWeeklyPack(totalXp: number, weekKey: string, _seenIds: Set<string> = new Set(), uid = ""): WeeklyPack {
 	const tier = xpTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
 	const counts = TIER_COUNTS[tier]!;
 
-	// Lessons — tier-appropriate only
-	const eligibleLessons = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
-	const pickedLessons = seededPick(eligibleLessons, seed, counts.lessons).map(l => ({
+	// Each section uses rotatingSlice: pool is shuffled once per user (uid seed),
+	// then a different slice is taken each day → no repeats until the full pool cycles.
+	const lessonPool = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
+	const pickedLessons = rotatingSlice(lessonPool, uid + "L", weekKey, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	// Battles — tier-appropriate, unseen first
-	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && !seenIds.has(b.id));
-	const fallbackBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && seenIds.has(b.id));
-	const pickedBattles = seededPick([...eligibleBattles, ...fallbackBattles], seed + 1, counts.battles).map(b => ({
+	const battlePool = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
+	const pickedBattles = rotatingSlice(battlePool, uid + "B", weekKey, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	// Earnings scenarios — unseen first
-	const eligibleEarnings = EARNINGS_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackEarnings = EARNINGS_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedEarnings = seededPick([...eligibleEarnings, ...fallbackEarnings], seed + 2, counts.earnings).map(s => ({
+	const pickedEarnings = rotatingSlice(EARNINGS_SCENARIOS, uid + "E", weekKey, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	// Risk comparisons — unseen first
-	const eligibleRisk = RISK_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackRisk = RISK_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedRisk = seededPick([...eligibleRisk, ...fallbackRisk], seed + 3, counts.risk).map(s => ({
+	const pickedRisk = rotatingSlice(RISK_SCENARIOS, uid + "R", weekKey, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	// Mood simulations — unseen first
-	const eligibleMood = MOOD_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackMood = MOOD_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedMood = seededPick([...eligibleMood, ...fallbackMood], seed + 4, counts.mood).map(s => ({
+	const pickedMood = rotatingSlice(MOOD_SCENARIOS, uid + "M", weekKey, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
