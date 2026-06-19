@@ -383,6 +383,10 @@ export function getDailyBrief() {
 	return apiRequest<DailyBriefResponse>("/api/daily-brief");
 }
 
+export function getMarketLesson() {
+	return apiRequest<{ lesson: MacroLesson | null }>("/api/daily-brief/market-lesson");
+}
+
 export interface RecommendationDebugStock {
 	ticker: string;
 	primaryCategory: string;

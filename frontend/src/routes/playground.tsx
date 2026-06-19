@@ -13,7 +13,7 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, type ChartRange } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getMarketLesson, type ChartRange } from "@/lib/api";
 import { marketSessionBucket } from "@/lib/utils";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useWeeklyContent } from "@/hooks/useWeeklyContent";
@@ -347,9 +347,16 @@ export function PlaygroundPage() {
 		// Fire streak update — any playground completion counts toward daily streak
 		trackEvent("playground_activity", { activityId: id }).catch(() => {});
 	}, [completeWeeklyActivity]);
-	// Build synthetic lesson object from today's macro event (if any)
+	// Standalone market lesson — Gemini Search finds the biggest event of the past 2 days
+	const { data: marketLessonData } = useQuery({
+		queryKey: ["market-lesson", new Date().toISOString().split("T")[0]],
+		queryFn: getMarketLesson,
+		staleTime: 12 * 60 * 60 * 1000,
+		gcTime: 13 * 60 * 60 * 1000,
+		retry: 0,
+	});
 	const macroLessonObj = useMemo(() => {
-		const ml = briefData?.macroLesson;
+		const ml = marketLessonData?.lesson;
 		if (!ml) return null;
 		const today = new Date().toISOString().split("T")[0];
 		return {
@@ -363,7 +370,7 @@ export function PlaygroundPage() {
 			cards: ml.cards,
 			quiz: ml.quiz,
 		};
-	}, [briefData?.macroLesson]);
+	}, [marketLessonData?.lesson]);
 
 	// Find next incomplete lesson from today's pack for "Continue Learning"
 	const nextLesson = useMemo(() => {

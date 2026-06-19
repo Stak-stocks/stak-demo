@@ -490,6 +490,125 @@ CRITICAL RULES:
 	return buildPersonalizedImpact(tagScores, mood);
 }
 
+// ── Market lesson (standalone, for Playground Featured) ──────────────────────
+
+interface MarketLessonResponse {
+	eventType: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+async function generateMarketLesson(): Promise<MarketLessonResponse | null> {
+	const today = new Date().toISOString().split("T")[0];
+	const cacheKey = `playground:market-lesson:v1:${today}`;
+	const cached = await cacheGet<MarketLessonResponse | { empty: true }>(cacheKey);
+	if (cached !== null) {
+		if ("empty" in (cached as object)) return null;
+		return cached as MarketLessonResponse;
+	}
+
+	const prompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+
+Search the web for the single most significant market-moving event from the past 2 days. Priority order:
+1. Federal Reserve / FOMC rate decisions or statements
+2. Major economic data releases with actual numbers (CPI, PCE, jobs, GDP)
+3. Major earnings that surprised the market
+4. Significant geopolitical or trade events affecting markets
+
+Build a 3-card educational lesson on that event that teaches a beginner WHY it matters for their stocks. Focus on cause-and-effect.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "eventType": "fed" | "inflation" | "jobs" | "gdp" | "ppi" | "retail" | "earnings" | "geopolitical" | "other",
+  "title": "7 words max — e.g. 'What the Fed's Rate Hold Means'",
+  "subtitle": "One hook sentence, max 12 words — e.g. 'Rates stayed put. Here's why that still moves your stocks.'",
+  "emoji": "single relevant emoji",
+  "cards": [
+    {
+      "heading": "What Happened",
+      "body": "2-3 sentences. State exactly what happened with real numbers. When did it happen? What was the decision/number vs what was expected?"
+    },
+    {
+      "heading": "Why It Moves Stocks",
+      "body": "2-3 sentences. Explain the cause-and-effect chain in plain English. Use arrows: e.g. 'Higher rates → borrowing costs rise → growth stocks get hit because future profits are worth less today.'"
+    },
+    {
+      "heading": "What to Watch",
+      "body": "2-3 sentences. Name 1-2 sectors or stock types most affected and explain why in simple terms. What should a young investor keep an eye on next?"
+    }
+  ],
+  "quiz": {
+    "question": "Test the mechanism, not the headline fact",
+    "options": [
+      { "id": "a", "text": "..." },
+      { "id": "b", "text": "..." },
+      { "id": "c", "text": "..." }
+    ],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right, and why the others miss the point"
+  }
+}
+
+If nothing significant happened in the past 2 days, return: { "empty": true }
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+					}),
+					signal: AbortSignal.timeout(30000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+			if (!text) continue;
+			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+			const parsed = JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean };
+			if (parsed.empty) {
+				await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
+				return null;
+			}
+			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+				await cacheSet(cacheKey, parsed, 12 * 60 * 60 * 1000);
+				return parsed;
+			}
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
+// GET /api/daily-brief/market-lesson — no auth, playground fetches it directly
+dailyBriefRouter.get("/market-lesson", async (_req, res) => {
+	try {
+		const lesson = await generateMarketLesson();
+		if (!lesson) { res.json({ lesson: null }); return; }
+		res.json({ lesson });
+	} catch {
+		res.json({ lesson: null });
+	}
+});
+
 // ── Deck definitions ──────────────────────────────────────────────────────────
 
 interface DeckDef {
