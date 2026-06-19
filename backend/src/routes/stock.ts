@@ -930,38 +930,41 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const companyName = (req.query.name as string | undefined)?.trim() || symbol;
 	const sentencesParam = parseInt(req.query.sentences as string);
 	const sentences = isFinite(sentencesParam) && sentencesParam > 1 ? sentencesParam : 1;
+	const marketClosed = req.query.marketClosed === "1";
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}`;
+	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
 	const sign = changePercent >= 0 ? "+" : "";
 	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
 	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
+	const timeRef = marketClosed ? "at its last close" : "today";
+	const searchRef = marketClosed ? "at the last market close" : "today";
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) {
-		const fallback = { explanation: `${subject} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
+		const fallback = { explanation: `${subject} was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.`, direction };
 		res.json(fallback);
 		return;
 	}
 
 	// Pure Gemini + Google Search — no Finnhub dependency.
 	const prompt = sentences > 1
-		? `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+		? `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
-Search the web right now for why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web right now for why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague.
+Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague. Do not say "today" if markets are closed — say "at last close" or "recently" instead.
 
 Return ONLY those ${sentences} sentences as plain text — no bullet points, no markdown, no JSON.`
-		: `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+		: `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
-Search the web right now for the specific reason why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.
+Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague. Do not say "today" if markets are closed.
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 

@@ -89,10 +89,9 @@ async function callGemini(prompt: string): Promise<string | null> {
 
 /**
  * POST /api/playground/generate
- * Body: { weekKey: string, tier: number, type: "battle"|"earnings"|"risk"|"mood", count: number }
- * Returns an array of generated questions for that week/tier combination.
- * Results are cached for 7 days per weekKey+tier+type so the same user always
- * gets identical questions within a week (deterministic).
+ * Body: { dayKey: string, tier: number, type: "battle"|"earnings"|"risk"|"mood", count: number }
+ * Returns an array of generated questions for that user+day combination.
+ * Results are cached 24h per uid+dayKey+type — each user gets their own content per day.
  */
 // Sanitize user-supplied strings before injecting into prompts or cache keys
 function sanitizeKey(value: string): string {
@@ -118,8 +117,9 @@ function parseQuestions(raw: string): unknown[] {
 	throw new Error("Response is not an array");
 }
 
-playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
-	const rawWeekKey = String(req.body?.weekKey ?? "");
+playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMiddleware.js").AuthenticatedRequest, res) => {
+	const uid = req.user!.uid;
+	const rawDayKey = String(req.body?.dayKey ?? new Date().toISOString().split("T")[0]);
 	const rawTier = Number(req.body?.tier ?? 0);
 	const rawType = String(req.body?.type ?? "");
 	const rawCount = Math.min(Math.max(Number(req.body?.count ?? 3), 1), 10);
@@ -127,18 +127,17 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 	const VALID_TYPES = ["battle", "earnings", "risk", "mood", "lesson", "drill_sentiment", "drill_nextstep"] as const;
 	type ValidType = typeof VALID_TYPES[number];
 
-	// Validate and sanitize inputs
-	const weekKey = sanitizeKey(rawWeekKey);
+	const dayKey = sanitizeKey(rawDayKey);
 	const tier = Math.min(Math.max(Math.floor(rawTier), 1), 5);
 	const type = VALID_TYPES.includes(rawType as ValidType) ? (rawType as ValidType) : null;
 
-	if (!weekKey || !tier || !type) {
-		res.status(400).json({ error: "weekKey, tier, type are required" });
+	if (!dayKey || !tier || !type) {
+		res.status(400).json({ error: "dayKey, tier, type are required" });
 		return;
 	}
 
-	// Cache key is shared per week+tier+type — same Gemini content for all users that week
-	const cacheKey = `playground:gen:v4:${weekKey}__t${tier}__${type}`;
+	// Per-user per-day cache — each user gets their own generated content
+	const cacheKey = `playground:gen:v5:${uid}:${dayKey}:${type}`;
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
@@ -163,13 +162,13 @@ playgroundRouter.post("/generate", authMiddleware, async (req, res) => {
 		prompt = `You are generating stock battle questions for a ${tierLabel}-level investing app.
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
 
-WEEK: ${weekKey} — use this as a seed for variety. Each week must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
+DAY: ${dayKey} — use this as a seed for variety. Each day must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
 
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
-  "id": "gen-battle-${weekKey}-1",
+  "id": "gen-battle-${dayKey}-1",
   "tickerA": "AAPL",
   "nameA": "Apple",
   "tickerB": "MSFT",
@@ -191,13 +190,13 @@ Rules:
 		prompt = `Generate ${rawCount} earnings lab scenarios for a ${tierLabel}-level investing education app.
 Each scenario tests the user on predicting how a company's stock would react after earnings.
 
-WEEK: ${weekKey} — use this as a seed for variety. Each week must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
+DAY: ${dayKey} — use this as a seed for variety. Each day must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
 
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-earn-${weekKey}-1",
+  "id": "gen-earn-${dayKey}-1",
   "company": "Nike",
   "ticker": "NKE",
   "context": "2-3 sentences describing the pre-earnings situation and analyst expectations.",
@@ -229,13 +228,13 @@ Rules:
 		prompt = `Generate ${rawCount} risk identification scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents two investment options and asks which is riskier.
 
-WEEK: ${weekKey} — use this as a seed for variety. Each week must produce DIFFERENT companies, industries, and risk types from any other week.
+DAY: ${dayKey} — use this as a seed for variety. Each day must produce DIFFERENT companies, industries, and risk types from any other week.
 
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-risk-${weekKey}-1",
+  "id": "gen-risk-${dayKey}-1",
   "prompt": "Which stock carries more risk?",
   "optionA": "Procter & Gamble (PG) — consumer staples giant",
   "optionB": "A small biotech with a single drug in Phase 2 trials",
@@ -252,13 +251,13 @@ Rules:
 		prompt = `Generate ${rawCount} market mood simulator scenarios for a ${tierLabel}-level investing education app.
 Each scenario presents a real-world macro event and asks how markets would react.
 
-WEEK: ${weekKey} — use this as a seed for variety. Each week must cover DIFFERENT macro events and economic topics from any other week.
+DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT macro events and economic topics from any other week.
 
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
-  "id": "gen-mood-${weekKey}-1",
+  "id": "gen-mood-${dayKey}-1",
   "event": "📈 The Fed signals it will pause rate hikes for the rest of the year",
   "question": "Which sector would most likely benefit from this news?",
   "options": [
@@ -272,7 +271,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
 }]
 Rules:
-- Each week cover DIFFERENT macro themes — rotate across: Fed policy, inflation, GDP/recession, geopolitics, commodity prices, earnings seasons, currency moves, sector rotations, trade policy, consumer sentiment
+- Each day cover DIFFERENT macro themes — rotate across: Fed policy, inflation, GDP/recession, geopolitics, commodity prices, earnings seasons, currency moves, sector rotations, trade policy, consumer sentiment
 - The correct answer must be grounded in real economic relationships
 - Only output the JSON array, nothing else`;
 	} else if (type === "lesson") {
@@ -287,7 +286,7 @@ Rules:
 		prompt = `You are generating investing education lessons for a ${tierLabel}-level student.
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
 
-WEEK: ${weekKey} — use this as a seed for variety. Each week must cover DIFFERENT concepts and topics from any other week. Do not repeat lesson titles or concepts that would have been covered in previous weeks.
+DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT concepts and topics from any other week. Do not repeat lesson titles or concepts covered in recent days.
 
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
@@ -295,7 +294,7 @@ Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.joi
 
 Return a JSON array of exactly ${rawCount} objects with this exact schema:
 [{
-  "id": "gen-lesson-${weekKey}-unique-slug",
+  "id": "gen-lesson-${dayKey}-unique-slug",
   "title": "What is Revenue Growth?",
   "subtitle": "How fast a company is growing its sales",
   "category": "Stock Basics",
