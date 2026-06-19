@@ -592,8 +592,8 @@ export function PlaygroundPage() {
 					</div>
 				)}
 
-				{/* Featured Lesson from Daily Brief */}
-				{featuredLesson && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (
+				{/* Featured Lesson from Daily Brief — only shown when no Market Moment is available */}
+				{featuredLesson && !macroLessonObj && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (
 					<div className="mb-[20px]">
 						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">
 							{(briefData as { marketClosed?: boolean } | undefined)?.marketClosed ? "Featured" : "Featured Today"} · {briefData?.mood} Market
