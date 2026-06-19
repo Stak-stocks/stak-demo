@@ -358,9 +358,16 @@ export function PlaygroundPage() {
 	const macroLessonObj = useMemo(() => {
 		const ml = marketLessonData?.lesson;
 		if (!ml) return null;
-		const today = new Date().toISOString().split("T")[0];
+		// ID is event-type + ISO week so the same topic completed on any day this week
+		// stays completed — prevents seeing "Fed hawkshift" twice in the same week.
+		const isoWeek = (() => {
+			const d = new Date();
+			const jan4 = new Date(d.getFullYear(), 0, 4);
+			const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
+			return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+		})();
 		return {
-			id: `macro-moment-${today}`,
+			id: `macro-moment-${ml.eventType}-${isoWeek}`,
 			title: ml.title,
 			subtitle: ml.subtitle,
 			category: "Market Basics" as LessonCategory,
