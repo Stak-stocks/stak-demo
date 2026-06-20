@@ -64,28 +64,171 @@ const SECTOR_NAMES: Record<string, string> = {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function getNextTradingDayLabel(fromDayNum: number): string {
-	let nextDayNum = (fromDayNum + 1) % 7;
-	let daysAhead = 1;
-	while (nextDayNum === 0 || nextDayNum === 6) {
-		nextDayNum = (nextDayNum + 1) % 7;
-		daysAhead++;
-	}
-	return daysAhead === 1 ? "tomorrow" : DAY_NAMES[nextDayNum];
+async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string | null }> {
+	const cacheKey = "market-status:us";
+	const cached = await cacheGet<{ isOpen: boolean; holiday: string | null }>(cacheKey);
+	if (cached) return cached;
+
+	try {
+		const keys = getFinnhubKeys();
+		for (const key of keys) {
+			const res = await fetch(`${FINNHUB_BASE}/stock/market-status?exchange=US&token=${key}`);
+			if (!res.ok) continue;
+			const data = await res.json() as { isOpen?: boolean; holiday?: string | null };
+			if (typeof data.isOpen === "boolean") {
+				const result = { isOpen: data.isOpen, holiday: data.holiday ?? null };
+				// Cache for 10 min — short enough to catch intraday open/close transitions
+				await cacheSet(cacheKey, result, 10 * 60 * 1000);
+				return result;
+			}
+		}
+	} catch { /* fall through to weekend check */ }
+
+	return { isOpen: false, holiday: null };
 }
 
-function getMarketStatus(): { session: Session; marketClosed: boolean; dayLabel: string; nextTradingDayLabel: string } {
+// Walks forward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysAhead = 1; daysAhead <= 10; daysAhead++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() + daysAhead);
+		const dayNum = d.getUTCDay();
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return daysAhead === 1 ? "tomorrow" : DAY_NAMES[dayNum];
+	}
+	return "tomorrow";
+}
+
+// Algorithmic fallback: computes NYSE holidays for any year from exchange rules.
+// Used when Gemini is unavailable (local dev without API keys).
+function computeNYSEHolidays(year: number): Set<string> {
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+	function observed(month: number, day: number): Date {
+		const d = new Date(Date.UTC(year, month - 1, day));
+		const dow = d.getUTCDay();
+		if (dow === 6) d.setUTCDate(d.getUTCDate() - 1); // Sat → Fri
+		if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
+		return d;
+	}
+	function nthWeekday(month: number, weekday: number, n: number): Date {
+		const d = new Date(Date.UTC(year, month - 1, 1));
+		d.setUTCDate(1 + ((weekday - d.getUTCDay() + 7) % 7) + (n - 1) * 7);
+		return d;
+	}
+	function lastWeekday(month: number, weekday: number): Date {
+		const d = new Date(Date.UTC(year, month, 0));
+		d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - weekday + 7) % 7));
+		return d;
+	}
+	function easterSunday(): Date {
+		const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+		const d2 = Math.floor(b / 4), e = b % 4;
+		const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+		const h = (19 * a + b - d2 - g + 15) % 30;
+		const i = Math.floor(c / 4), k = c % 4;
+		const l = (32 + 2 * e + 2 * i - h - k) % 7;
+		const m = Math.floor((a + 11 * h + 22 * l) / 451);
+		const mo = Math.floor((h + l - 7 * m + 114) / 31);
+		const dy = ((h + l - 7 * m + 114) % 31) + 1;
+		return new Date(Date.UTC(year, mo - 1, dy));
+	}
+	const easter = easterSunday();
+	const goodFriday = new Date(Date.UTC(easter.getUTCFullYear(), easter.getUTCMonth(), easter.getUTCDate() - 2));
+	return new Set([
+		observed(1, 1), nthWeekday(1, 1, 3), nthWeekday(2, 1, 3), goodFriday,
+		lastWeekday(5, 1), observed(6, 19), observed(7, 4),
+		nthWeekday(9, 1, 1), nthWeekday(11, 4, 4), observed(12, 25),
+	].map(fmt));
+}
+
+// Primary: Gemini+Search fetches the actual NYSE holiday list for the year,
+// catching any unexpected market closures. Falls back to algorithmic computation.
+async function fetchMarketHolidays(): Promise<Set<string>> {
+	const year = new Date().getFullYear();
+	const cacheKey = `market-holidays:gemini:${year}`;
+
+	const cached = await cacheGet<string[]>(cacheKey);
+	if (cached) return new Set(cached);
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text:
+							`List every official NYSE US stock market holiday in ${year} — including any unexpected closures — as a JSON array of date strings in YYYY-MM-DD format. Return ONLY the JSON array, no explanation, no markdown fences.`
+						}] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim() ?? "";
+			const match = text.match(/\[[\s\S]*?\]/);
+			if (!match) continue;
+			const parsed: unknown = JSON.parse(match[0]);
+			if (!Array.isArray(parsed)) continue;
+			const dates = (parsed as unknown[]).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
+			if (dates.length < 5) continue; // sanity check — a valid year has at least 9 holidays
+			await cacheSet(cacheKey, dates, 7 * 24 * 60 * 60 * 1000); // cache 7 days
+			return new Set(dates);
+		} catch { continue; }
+	}
+
+	// Fallback: compute from exchange rules (works without API keys)
+	return computeNYSEHolidays(year);
+}
+
+// Walks backward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getLastTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysBack = 1; daysBack <= 10; daysBack++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() - daysBack);
+		const dayNum = d.getUTCDay(); // 0=Sun … 6=Sat
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return DAY_NAMES[dayNum] + "'s";
+	}
+	// Fallback — should never be reached
+	return "Last trading day's";
+}
+
+async function getMarketStatus(): Promise<{ session: Session; marketClosed: boolean; holiday: string | null; dayLabel: string; nextTradingDayLabel: string }> {
 	const now = new Date();
+	const etDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD
 	const etDayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
-	const etDayNum  = DAY_NAMES.indexOf(etDayName); // 0=Sun, 6=Sat
+	const etDayNum  = DAY_NAMES.indexOf(etDayName);
 	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
-	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit",               timeZone: "America/New_York" }), 10);
+	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit", timeZone: "America/New_York" }), 10);
 	const total  = etHour * 60 + etMin;
-	const nextTradingDayLabel = getNextTradingDayLabel(etDayNum);
+	const nextTradingDayLabel = await getNextTradingDayLabel(etDateStr);
 
 	const isWeekend = etDayNum === 0 || etDayNum === 6;
+
+	// Fast path: skip Finnhub status API on weekends, but still need holiday list for dayLabel
 	if (isWeekend) {
-		return { session: "close", marketClosed: true, dayLabel: "Friday's", nextTradingDayLabel };
+		const dayLabel = await getLastTradingDayLabel(etDateStr);
+		return { session: "close", marketClosed: true, holiday: null, dayLabel, nextTradingDayLabel };
+	}
+
+	const { isOpen, holiday } = await fetchMarketStatus();
+
+	if (!isOpen) {
+		const dayLabel = await getLastTradingDayLabel(etDateStr);
+		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
 	let session: Session;
@@ -93,13 +236,9 @@ function getMarketStatus(): { session: Session; marketClosed: boolean; dayLabel:
 	else if (total < 15 * 60 + 30) session = "midday";
 	else                           session = "close";
 
-	return { session, marketClosed: false, dayLabel: "Today's", nextTradingDayLabel };
+	return { session, marketClosed: false, holiday: null, dayLabel: "Today's", nextTradingDayLabel };
 }
 
-// kept for backwards compat — internal callers that only need session
-function getMarketSession(): Session {
-	return getMarketStatus().session;
-}
 
 interface MarketData {
 	spyDp: number | null;
@@ -179,6 +318,51 @@ const SESSION_TONE: Record<Session, string> = {
 	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
+async function searchMarketDrivers(today: string, marketClosed: boolean): Promise<string | null> {
+	const cacheKey = `daily-brief:drivers:v1:${today}`;
+	const cached = await cacheGet<string>(cacheKey);
+	if (cached) return cached;
+
+	if (marketClosed) return null;
+
+	const prompt = `Search the web for what is driving US stock markets today (${today}). Look for:
+- Federal Reserve / FOMC rate decisions or statements
+- Economic data releases with actual numbers (CPI, PCE, jobs/nonfarm payrolls, GDP, PPI, retail sales, ISM, jobless claims)
+- Major earnings reports from large-cap companies with results vs estimates
+- Geopolitical events, tariffs, or trade news affecting markets
+- Oil, bond yields, or currency moves causing broad market shifts
+
+Return a factual 3-4 sentence paragraph summarising the 1-3 most significant things happening today. Include real numbers where available (e.g. "CPI came in at 3.1% vs 3.0% expected"). Plain text only, no markdown. If markets are closed or nothing significant is happening, return an empty string.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
+					}),
+					signal: AbortSignal.timeout(20000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim();
+			if (!text) continue;
+			await cacheSet(cacheKey, text, 6 * 60 * 60 * 1000);
+			return text;
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
 async function generateMarketText(
 	mood: Mood,
 	session: Session,
@@ -192,9 +376,12 @@ async function generateMarketText(
 	worstSector?: string | null,
 	marketClosed = false,
 	dayLabel = "Today's",
+	marketDrivers: string | null = null,
+	holiday: string | null = null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v5:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:text:v7:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -212,27 +399,29 @@ async function generateMarketText(
 	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
 	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
 
+	// lastDayName: the actual last trading day (e.g. "Thursday" when Friday was a holiday)
+	const lastDayName = dayLabel.replace(/'s$/, "");
+
 	const timeContext = marketClosed
-		? "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
+		? holiday
+			? `Today is ${etDateStr} — a US market holiday (${holiday}), so markets are closed. Acknowledge the holiday by name. This is a recap of ${lastDayName}'s session. Write in past tense.`
+			: `The market is closed (weekend). This is a recap of ${lastDayName}'s close. Use 'on ${lastDayName}' or 'at ${lastDayName}'s close' — never say 'today' or any other day name. Write in past tense.`
 		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
 
-	const timeWord = marketClosed ? "on Friday" : "today";
-	const dayRef = marketClosed ? "Friday's" : dayLabel;
+	const timeWord = marketClosed ? `on ${lastDayName}` : "today";
+	const driversSection = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}` : "";
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
 
 Market data: ${snapshot || "data unavailable"}
 Overall mood: ${mood}
-${timeContext}
+${timeContext}${driversSection}
 
 Return JSON with exactly two fields:
 
-"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Reference the actual numbers. Be specific — name sectors, mention the S&P/Nasdaq actual % move, VIX if notable. Do NOT say "today" if the market is closed — use "on Friday" instead. Max 140 chars.
+"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Use the live driver info above to name the real reason (e.g. Fed decision, CPI miss, earnings). Reference actual numbers. Max 140 chars.
 
-"plainEnglish": 2 short sentences. Sentence 1: what happened with specific context (move size, sector, why — e.g. yields, geopolitics, earnings). Sentence 2: what this means for someone watching their stocks heading into the next session. Do NOT say "today" if the market is closed. Max 180 chars total.
-
-Example moodExplanation (closed): "The S&P 500 fell ${spyDp != null ? Math.abs(spyDp) + "%" : "on Friday"} on Friday as ${worstSector ?? "growth"} stocks sold off, with the Nasdaq leading the decline."
-Example plainEnglish (closed): "${dayRef} drop was driven by ${worstSector ?? "rate-sensitive"} weakness and rising bond yields. Heading into next week, watch for follow-through selling in tech."
+"plainEnglish": 2 short sentences. Sentence 1: what happened and WHY — use the real driver from above if available (e.g. "CPI came in hotter than expected, pushing the S&P down 1.2%"). Sentence 2: what this means for someone watching their stocks heading into the next session. Max 180 chars total.
 
 No financial advice. No disclaimers. Just describe what happened clearly.`;
 
@@ -331,9 +520,13 @@ async function generatePersonalizedImpact(
 	market: MarketData,
 	uid: string,
 	marketClosed = false,
+	marketDrivers: string | null = null,
+	holiday: string | null = null,
+	dayLabel = "Today's",
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v5:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:impact:v7:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -385,32 +578,36 @@ async function generatePersonalizedImpact(
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
 	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const lastDayNameImpact = dayLabel.replace(/'s$/, ""); // e.g. "Thursday's" → "Thursday"
 
+	const lastSessionRef = marketClosed ? `${lastDayNameImpact}'s` : `${etDayNameImpact}'s`;
 	const stockSection = stockLines.length > 0
-		? `User's stocks ${marketClosed ? "at Friday's close" : `at ${etDayNameImpact}'s close`}: ${stockLines.join(", ")}`
+		? `User's stocks at ${lastSessionRef} close: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
-	const timeWord = marketClosed ? "on Friday" : "today";
+	const timeWord = marketClosed ? `on ${lastDayNameImpact}` : "today";
 	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
+	const holidayNote = holiday ? `Today is a US market holiday (${holiday}) — markets are closed.\n` : "";
+	const driversLine = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}\n` : "";
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
-${marketClosed ? "Friday's close" : `${etDayNameImpact}'s close`} market data:
+${holidayNote}${marketClosed ? `${lastSessionRef.charAt(0).toUpperCase() + lastSessionRef.slice(1)} close` : `${etDayNameImpact}'s close`} market data:
 ${marketLines || "unavailable"}
-
+${driversLine}
 ${stockSection}
 Mood: ${mood}
 
 Write exactly 2 punchy sentences:
-1. Pick the single most relevant stock from their list — mention it by name and reference the actual % move shown above (or its sector's move) to explain what happened to it ${timeWord}. Do NOT use the word "today" if the market is closed.
-2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}) and leading/lagging sectors above.
+1. If stocks are listed above, name the single most relevant one, connect it to the real driver above (e.g. "With the Fed holding rates, growth stocks like NVDA face continued pressure"), and include the actual % move. If no stocks are listed, reference the leading or lagging sector instead. Do NOT use the word "today" if the market is closed.
+2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}), the real driver above, and leading/lagging sectors.
 
 CRITICAL RULES:
-- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names (e.g. do NOT say "Apple" unless Apple is listed above).
-- If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
-- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 260 characters total.
+- ONLY use stock names that appear verbatim in the section above. NEVER guess, invent, or add stock names that are not listed.
+- Do NOT write phrases like "if [stock] is in your list" or any conditional about whether a stock is relevant — just use the names given or omit them.
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
 - Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
 
 	const keys = getGeminiKeys();
@@ -444,19 +641,9 @@ CRITICAL RULES:
 	return buildPersonalizedImpact(tagScores, mood);
 }
 
-// ── Market Moment (macro event lesson) ───────────────────────────────────────
+// ── Market lesson (standalone, for Playground Featured) ──────────────────────
 
-interface MacroCalendarEvent {
-	event: string;
-	actual: string | null;
-	estimate: string | null;
-	prev: string | null;
-	impact: string;
-	unit?: string;
-	country: string;
-}
-
-interface MacroLesson {
+interface MarketLessonResponse {
 	eventType: string;
 	title: string;
 	subtitle: string;
@@ -470,89 +657,326 @@ interface MacroLesson {
 	};
 }
 
-const HIGH_IMPACT_KEYWORDS = [
-	"nonfarm payrolls", "unemployment rate",
-	"consumer price index", "cpi",
-	"personal consumption expenditure", "pce",
-	"federal funds rate", "fomc",
-	"gross domestic product", "gdp",
-	"producer price index", "ppi",
-	"retail sales", "ism manufacturing", "ism services",
-	"initial jobless claims",
-];
+interface GlobalLessonHistoryEntry { date: string; eventType: string; title: string; angle: string; }
 
-async function getTodaysMacroEvent(): Promise<MacroCalendarEvent | null> {
-	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:macro-event:v1:${today}`;
-	const cached = await cacheGet<MacroCalendarEvent | null>(cacheKey);
-	if (cached !== undefined && cached !== null) return cached;
-	// null cached explicitly means "checked today, nothing found"
-	if (cached === null) return null;
-
-	try {
-		const raw = await finnhubGet(`/calendar/economic?from=${today}&to=${today}`) as { economicCalendar?: MacroCalendarEvent[] } | null;
-		const events = raw?.economicCalendar ?? [];
-		const match = events.find(e =>
-			e.country === "US" &&
-			e.impact === "high" &&
-			e.actual &&
-			HIGH_IMPACT_KEYWORDS.some(kw => e.event.toLowerCase().includes(kw)),
-		) ?? null;
-		await cacheSet(cacheKey, match, 6 * 60 * 60 * 1000);
-		return match;
-	} catch {
-		return null;
-	}
+async function isTradingDay(): Promise<boolean> {
+	const etDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+	const d = new Date(etDateStr + "T12:00:00Z");
+	const dayNum = d.getUTCDay();
+	if (dayNum === 0 || dayNum === 6) return false;
+	const holidays = await fetchMarketHolidays();
+	return !holidays.has(etDateStr);
 }
 
-async function generateMacroLesson(event: MacroCalendarEvent, spyDp: number | null, mood: string): Promise<MacroLesson | null> {
-	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:macro-lesson:v1:${today}:${event.event.replace(/\s+/g, "_")}`;
-	const cached = await cacheGet<MacroLesson>(cacheKey);
+async function getGlobalFeaturedLessonHistory(): Promise<GlobalLessonHistoryEntry[]> {
+	const cacheKey = `playground:featured-lesson-history:v1`;
+	const cached = await cacheGet<GlobalLessonHistoryEntry[]>(cacheKey);
 	if (cached) return cached;
+	try {
+		const snap = await adminDb.collection("config").doc("featured-lesson-history").get();
+		if (snap.exists) {
+			const entries = (snap.data()?.entries as GlobalLessonHistoryEntry[] | undefined) ?? [];
+			await cacheSet(cacheKey, entries, 60 * 60 * 1000);
+			return entries;
+		}
+	} catch { /* ignore */ }
+	return [];
+}
 
-	const unitStr = event.unit ? ` ${event.unit}` : "";
-	const beatStr = (event.estimate && event.actual)
-		? (parseFloat(event.actual) > parseFloat(event.estimate) ? "beat" : parseFloat(event.actual) < parseFloat(event.estimate) ? "missed" : "matched")
-		: null;
+async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry): Promise<void> {
+	try {
+		const existing = await getGlobalFeaturedLessonHistory();
+		const filtered = existing.filter(e => e.date !== entry.date);
+		const updated = [entry, ...filtered].slice(0, 30);
+		await adminDb.collection("config").doc("featured-lesson-history").set({ entries: updated });
+		await cacheSet(`playground:featured-lesson-history:v1`, updated, 60 * 60 * 1000);
+	} catch { /* non-fatal */ }
+}
 
-	const prompt = `You are writing a short market education lesson for STAK, a stock-learning app for Gen Z and millennials.
+async function generateFeaturedLesson(): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
+	const today = new Date().toISOString().split("T")[0];
+	const marketDay = await isTradingDay();
+	const cacheKey = `playground:featured-lesson:v1:${today}`;
 
-Today's major US economic release:
-- Event: ${event.event}
-- Actual: ${event.actual}${unitStr}
-- Estimate: ${event.estimate ?? "N/A"}${unitStr}
-- Previous: ${event.prev ?? "N/A"}${unitStr}
-${beatStr ? `- Result: ${beatStr} expectations` : ""}
-- S&P 500 today: ${spyDp != null ? (spyDp >= 0 ? "+" : "") + spyDp + "%" : "unknown"}
-- Market mood: ${mood}
+	// 1. Redis / in-memory cache (fast path)
+	const cached = await cacheGet<{ lesson: MarketLessonResponse; isMarketDay: boolean } | { empty: true }>(cacheKey);
+	if (cached !== null) {
+		if ("empty" in (cached as object)) return null;
+		return cached as { lesson: MarketLessonResponse; isMarketDay: boolean };
+	}
 
-Write a 3-card lesson that teaches a beginner WHY this economic data matters for stocks. Focus on cause-and-effect, not just the number.
+	// 2. Firestore fallback — survives server restarts in local dev
+	try {
+		const snap = await adminDb.collection("config").doc("featured-lesson").get();
+		if (snap.exists) {
+			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean };
+			if (d.date === today && d.lesson) {
+				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay };
+				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
+				return result;
+			}
+		}
+	} catch { /* Firestore unavailable — proceed to generate */ }
 
-Return JSON with this exact shape:
+	const history = (await getGlobalFeaturedLessonHistory()).slice(0, 20);
+
+	const historyBlock = history.length > 0
+		? `\nRecent lessons already taught in this app (DO NOT repeat the same angle — always teach something genuinely new):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
+		: "";
+
+	const marketMomentPrompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+${historyBlock}
+Search the web for the single most significant market-moving event from today (${today}) or yesterday only. Priority order:
+1. Federal Reserve / FOMC rate decisions or statements
+2. Major economic data releases with actual numbers (CPI, PCE, jobs, GDP)
+3. Major earnings that surprised the market
+4. Significant geopolitical or trade events affecting markets
+
+Only use events from today or yesterday — do NOT reach back further. If the event is the same type as a recently taught lesson above, cover a DIFFERENT angle — go one level deeper, zoom out to the broader mechanism, or explore a sector/stock-type implication not covered before. The lesson structure (3 cards + quiz) must always teach something new.
+
+Build a 3-card educational lesson that teaches a beginner WHY this matters for their stocks. Focus on cause-and-effect.
+
+Return ONLY a JSON object (no markdown, no code fences):
 {
-  "eventType": "jobs" | "inflation" | "fed" | "gdp" | "ppi" | "retail" | "pmi" | "other",
-  "title": "max 7 words, e.g. 'What Today's Jobs Report Means'",
-  "subtitle": "one hook sentence, max 12 words, e.g. 'Strong hiring just shifted market expectations — here's why'",
+  "eventType": "fed" | "inflation" | "jobs" | "gdp" | "ppi" | "retail" | "earnings" | "geopolitical" | "other",
+  "angle": "one short phrase describing the specific angle of this lesson — e.g. 'how rate expectations affect bond yields' or 'why tech valuations fall when rates stay high'",
+  "title": "7 words max — e.g. 'What the Fed's Rate Hold Means'",
+  "subtitle": "One hook sentence, max 12 words — e.g. 'Rates stayed put. Here's why that still moves your stocks.'",
   "emoji": "single relevant emoji",
   "cards": [
-    { "heading": "What Just Happened", "body": "2-3 sentences. State the actual number vs estimate and last period. Note the immediate market reaction." },
-    { "heading": "Why It Moves Markets", "body": "2-3 sentences. Explain the mechanism in plain English. E.g. for jobs: strong hiring → Fed worries about inflation → may keep rates high → growth stocks get hit because future earnings are worth less at higher discount rates." },
-    { "heading": "What to Watch Now", "body": "2-3 sentences. Name 1-2 sectors or asset types most affected by this specific release. Explain why in simple terms." }
+    { "heading": "What Happened", "body": "2-3 sentences. State exactly what happened with real numbers." },
+    { "heading": "Why It Moves Stocks", "body": "2-3 sentences. Explain the cause-and-effect chain. Use arrows: e.g. 'Higher rates → borrowing costs rise → growth stocks get hit.'" },
+    { "heading": "What to Watch", "body": "2-3 sentences. Name 1-2 sectors or stock types most affected." }
   ],
   "quiz": {
-    "question": "test the cause-and-effect mechanism, not the number itself",
+    "question": "Test the mechanism, not the headline fact",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right"
+  }
+}
+
+If nothing significant happened today or yesterday, return: { "empty": true }
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	const conceptPrompt = `You are writing a Featured Today lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+${historyBlock}
+Search the web for one timely concept that will help a young investor understand what's driving markets right now or prepare for the week ahead. Pick something relevant to current market themes, economic conditions, or a topic that came up in the news recently.
+
+Examples: how to read an earnings report before a big earnings week, what a yield curve means if rates are in focus, how sector rotation works if there's been market volatility, what market sentiment indicators tell us, etc.
+
+If the concept is the same type as a recently taught lesson above, cover a DIFFERENT angle.
+
+Build a 3-card educational lesson that teaches a beginner investor something genuinely useful.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "eventType": "concept",
+  "angle": "one short phrase describing the specific angle — e.g. 'how to interpret P/E ratios in a high-rate environment'",
+  "title": "7 words max — e.g. 'Why the Yield Curve Actually Matters'",
+  "subtitle": "One hook sentence, max 12 words",
+  "emoji": "single relevant emoji",
+  "cards": [
+    { "heading": "The Concept", "body": "2-3 sentences. Explain what this concept is in plain English." },
+    { "heading": "Why It Matters for Your Stocks", "body": "2-3 sentences. Connect it to real stock/portfolio impact." },
+    { "heading": "How to Use It", "body": "2-3 sentences. What should a young investor actually do or watch for?" }
+  ],
+  "quiz": {
+    "question": "Test the concept, not just a definition",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right"
+  }
+}
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	async function callGemini(prompt: string): Promise<(MarketLessonResponse & { empty?: boolean; angle?: string }) | null> {
+		const keys = getGeminiKeys();
+		for (const key of keys) {
+			try {
+				const res = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							tools: [{ google_search: {} }],
+							contents: [{ parts: [{ text: prompt }] }],
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+						}),
+						signal: AbortSignal.timeout(30000),
+					},
+				);
+				if (!res.ok) continue;
+				const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+				const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+				if (!text) continue;
+				const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+				return JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean; angle?: string };
+			} catch {
+				continue;
+			}
+		}
+		return null;
+	}
+
+	function saveLesson(parsed: MarketLessonResponse & { angle?: string }, isMarketDay: boolean) {
+		const result = { lesson: parsed, isMarketDay };
+		cacheSet(cacheKey, result, 12 * 60 * 60 * 1000).catch(() => {});
+		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay }).catch(() => {});
+		appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
+		return result;
+	}
+
+	// On trading days: try market event from today/yesterday first; fall back to concept if nothing significant
+	if (marketDay) {
+		const parsed = await callGemini(marketMomentPrompt);
+		if (parsed && !parsed.empty && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+			return saveLesson(parsed, true);
+		}
+		// Nothing significant today/yesterday — fall through to concept lesson
+	}
+
+	// Non-trading day or no significant market event: teach a timely concept instead
+	const parsed = await callGemini(conceptPrompt);
+	if (!parsed || parsed.empty) {
+		await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
+		return null;
+	}
+	if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+		return saveLesson(parsed, false);
+	}
+	return null;
+}
+
+// GET /api/daily-brief/featured-lesson
+dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: AuthenticatedRequest, res) => {
+	try {
+		const result = await generateFeaturedLesson();
+		if (!result) { res.json({ lesson: null }); return; }
+		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay });
+	} catch {
+		res.json({ lesson: null });
+	}
+});
+
+// ── Weekly generated lesson (per-user, per-ISO-week) ─────────────────────────
+
+const XP_TIER_LABELS: Record<number, string> = {
+	0: "Beginner",
+	1: "Learner",
+	2: "Investor",
+	3: "Analyst",
+	4: "Expert",
+};
+
+function xpToTier(xp: number): number {
+	if (xp >= 7500) return 4;
+	if (xp >= 3500) return 3;
+	if (xp >= 1500) return 2;
+	if (xp >= 500) return 1;
+	return 0;
+}
+
+interface GeneratedLessonResponse {
+	topic: string;
+	angle: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+interface GeneratedLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
+
+async function generateGeneratedLesson(uid: string, totalXp: number, userHistory: GeneratedLessonHistoryEntry[]): Promise<GeneratedLessonResponse | null> {
+	const d = new Date();
+	const jan4 = new Date(d.getFullYear(), 0, 4);
+	const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
+	const isoWeek = `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+
+	const cacheKey = `playground:generated-lesson:v1:${uid}:${isoWeek}`;
+	const cached = await cacheGet<GeneratedLessonResponse | { empty: true }>(cacheKey);
+	if (cached !== null) {
+		if ("empty" in (cached as object)) return null;
+		return cached as GeneratedLessonResponse;
+	}
+
+	const tier = xpToTier(totalXp);
+	const tierLabel = XP_TIER_LABELS[tier]!;
+
+	const history = [...userHistory]
+		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+		.slice(0, 15);
+
+	const historyBlock = history.length > 0
+		? `\nThis user's personal lesson history (DO NOT repeat these angles):\n${history.map(h => `- "${h.title}" [${h.topic}] — angle: ${h.angle}`).join("\n")}\n`
+		: "";
+
+	const tierGuidance: Record<number, string> = {
+		0: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
+		1: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
+		2: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
+		3: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
+		4: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
+	};
+
+	const prompt = `You are writing a personalized Weekly Deep Dive lesson for STAK, a stock-learning app for Gen Z and millennials.
+
+User level: ${tierLabel} (${totalXp} XP)
+Week: ${isoWeek}
+${historyBlock}
+Guidance for this level: ${tierGuidance[tier]}
+
+Pick a specific topic that:
+1. Is appropriate for the ${tierLabel} level
+2. Has NOT been covered in the history above (different topic OR different angle)
+3. Is highly practical — teaches something the user can directly apply when looking at their stocks
+
+Build a 3-card educational lesson. Keep the tone conversational, plain English, relatable to a 22-year-old investor.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "topic": "short slug for the topic — e.g. 'pe-ratio', 'dividend-yield', 'market-cycles', 'beta', 'etf-basics'",
+  "angle": "one short phrase describing the specific angle — e.g. 'why a high P/E doesn't always mean overvalued' or 'how beta predicts volatility during market crashes'",
+  "title": "7 words max — e.g. 'What P/E Ratio Actually Tells You'",
+  "subtitle": "One hook sentence, max 12 words",
+  "emoji": "single relevant emoji",
+  "cards": [
+    {
+      "heading": "What It Is",
+      "body": "2-3 sentences. Define the concept in plain English with a concrete example."
+    },
+    {
+      "heading": "Why It Matters",
+      "body": "2-3 sentences. Explain how this affects real stock prices or investing decisions. Use arrows or cause-effect chains."
+    },
+    {
+      "heading": "How to Use It",
+      "body": "2-3 sentences. Give one practical thing the user can do with this knowledge when looking at their own stocks."
+    }
+  ],
+  "quiz": {
+    "question": "Test understanding of the mechanism, not just the definition",
     "options": [
       { "id": "a", "text": "..." },
       { "id": "b", "text": "..." },
       { "id": "c", "text": "..." }
     ],
     "correctId": "a" | "b" | "c",
-    "explanation": "2 sentences — why correct answer is right, why the others are wrong"
+    "explanation": "2 sentences — why the correct answer is right and why the others miss the point"
   }
 }
 
-Tone: confident, plain English, no jargon without explanation. No financial advice. No disclaimers.`;
+Tone: confident, conversational, no financial advice, no disclaimers.`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -564,18 +988,24 @@ Tone: confident, plain English, no jargon without explanation. No financial advi
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+						generationConfig: {
+							responseMimeType: "application/json",
+							thinkingConfig: { thinkingBudget: 0 },
+							temperature: 0.4,
+						},
 					}),
-					signal: AbortSignal.timeout(15000),
+					signal: AbortSignal.timeout(25000),
 				},
 			);
 			if (!res.ok) continue;
 			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
 			if (!text) continue;
-			const parsed = JSON.parse(text) as MacroLesson;
-			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
-				await cacheSet(cacheKey, parsed, 24 * 60 * 60 * 1000);
+			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+			const parsed = JSON.parse(jsonStr) as GeneratedLessonResponse;
+			if (parsed.topic && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+				const ttl = 7 * 24 * 60 * 60 * 1000;
+				await cacheSet(cacheKey, parsed, ttl);
 				return parsed;
 			}
 		} catch {
@@ -584,6 +1014,22 @@ Tone: confident, plain English, no jargon without explanation. No financial advi
 	}
 	return null;
 }
+
+// GET /api/daily-brief/generated-lesson
+dailyBriefRouter.get("/generated-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const userSnap = await adminDb.collection("users").doc(uid).get();
+		const data = userSnap.data();
+		const totalXp: number = (data?.totalXp as number | undefined) ?? 0;
+		const userHistory: GeneratedLessonHistoryEntry[] = (data?.generatedLessonHistory as GeneratedLessonHistoryEntry[] | undefined) ?? [];
+		const lesson = await generateGeneratedLesson(uid, totalXp, userHistory);
+		if (!lesson) { res.json({ lesson: null }); return; }
+		res.json({ lesson });
+	} catch {
+		res.json({ lesson: null });
+	}
+});
 
 // ── Deck definitions ──────────────────────────────────────────────────────────
 
@@ -717,17 +1163,17 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
 		const mood = classifyMood(marketData);
-		const { session, marketClosed, dayLabel, nextTradingDayLabel } = getMarketStatus();
+		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = await getMarketStatus();
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
-		const [{ moodExplanation, plainEnglish }, personalizedImpact, macroEvent] = await Promise.all([
-			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed),
-			getTodaysMacroEvent(),
-		]);
+		const today = new Date().toISOString().split("T")[0];
+		const marketDrivers = await searchMarketDrivers(today, marketClosed);
 
-		const macroLesson = macroEvent ? await generateMacroLesson(macroEvent, spyDp, mood) : null;
+		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
+		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
 
@@ -741,7 +1187,6 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			plainEnglish,
 			personalizedImpact,
 			decks,
-			...(macroLesson ? { macroLesson } : {}),
 			marketSnapshot: {
 				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
 				iwmChange: iwmDp, vixChange: vixDp,

@@ -6,8 +6,9 @@ import { useAccount } from "@/context/AccountContext";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
-	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove,
+	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk, getDailyBrief,
 } from "@/lib/api";
+import { marketSessionBucket } from "@/lib/utils";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
 } from "lucide-react";
@@ -138,7 +139,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: stockData } = useQuery({
+	const { data: stockData, isLoading: stockLoading } = useQuery({
 		queryKey: ["stock", brand?.ticker],
 		queryFn: () => getStockData(brand!.ticker),
 		enabled: !!brand && open,
@@ -147,7 +148,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: newsData } = useQuery({
+	const { data: newsData, isLoading: newsLoading } = useQuery({
 		queryKey: ["news", brand?.ticker],
 		queryFn: () => getCompanyNews(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
@@ -156,7 +157,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
-	const { data: analystData } = useQuery({
+	const { data: analystData, isLoading: analystLoading } = useQuery({
 		queryKey: ["analyst", "v2", brand?.ticker],
 		queryFn: () => getAnalystData(brand!.ticker, brand!.name),
 		enabled: !!brand && open,
@@ -174,15 +175,37 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
+	const { data: briefData } = useQuery({
+		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryFn: getDailyBrief,
+		staleTime: 30 * 60 * 1000,
+		retry: 0,
+	});
+	const isMktClosed = !!(briefData as { marketClosed?: boolean } | undefined)?.marketClosed;
+
 	const pctForMove = stockData?.quote?.changePercent;
 	// Use direction (up/down/flat) as cache key discriminator — stable within 30min TTL
 	const moveDirection = pctForMove == null ? null : pctForMove > 0.15 ? "up" : pctForMove < -0.15 ? "down" : "flat";
 	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
-		queryKey: ["daily-move", brand?.ticker, moveDirection],
-		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name),
+		queryKey: ["daily-move", brand?.ticker, moveDirection, isMktClosed],
+		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name, undefined, isMktClosed),
 		enabled: !!brand && open && pctForMove !== undefined,
 		staleTime: 30 * 60 * 1000,
 		gcTime:    60 * 60 * 1000,
+		retry: 0,
+	});
+
+	const { data: keyRiskData, isLoading: keyRiskLoading } = useQuery({
+		queryKey: ["key-risk", brand?.ticker],
+		queryFn: () => getKeyRisk(
+			brand!.ticker,
+			brand!.name,
+			brand!.financials.beta.value,
+			brand!.financials.peRatio.value,
+		),
+		enabled: !!brand && open,
+		staleTime: 6 * 60 * 60 * 1000,
+		gcTime:    7 * 60 * 60 * 1000,
 		retry: 0,
 	});
 
@@ -231,43 +254,9 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	const priceUp = pct !== undefined ? pct >= 0 : true;
 	const whyContent = dailyMoveData?.explanation ?? null;
 
-	// 3. Key risks — real signals first, fallback to static culturalContext
-	const riskSignals: string[] = [];
-	// Earnings miss
-	if (earningsData && earningsData.beat === false) {
-		const missStr = earningsData.surprisePercent !== null
-			? ` by ${Math.abs(earningsData.surprisePercent).toFixed(1)}%`
-			: "";
-		riskSignals.push(`Missed ${quarterLabel(earningsData.quarter, earningsData.year)} earnings${missStr} (EPS ${fmtEps(earningsData.epsActual)} vs est. ${fmtEps(earningsData.epsEstimate)})`);
-	}
-	// Analyst sell pressure
-	if (analystData?.recommendation) {
-		const { strongBuy, buy, hold, sell, strongSell } = analystData.recommendation;
-		const total = strongBuy + buy + hold + sell + strongSell;
-		const bearish = sell + strongSell;
-		if (total >= 5 && bearish / total >= 0.25) {
-			riskSignals.push(`${Math.round((bearish / total) * 100)}% of analysts rate this a Sell or Strong Sell`);
-		}
-	}
-	// Price above analyst target
-	const targetAvgRisk = analystData?.priceTarget?.avg ?? null;
-	const currentPriceRisk = stockData?.quote?.price ?? null;
-	if (targetAvgRisk !== null && currentPriceRisk !== null && currentPriceRisk > 0) {
-		const upside = ((targetAvgRisk - currentPriceRisk) / currentPriceRisk) * 100;
-		if (upside < -10) {
-			riskSignals.push(`Trading ${Math.abs(upside).toFixed(0)}% above average analyst target of $${targetAvgRisk.toFixed(0)}`);
-		}
-	}
-	// Bearish news as a risk signal when no structural signals found
-	if (riskSignals.length === 0 && newsData) {
-		const bearishArticle = newsData.articles.find(a => a.sentiment === "bearish" && a.whyItMatters);
-		if (bearishArticle?.whyItMatters) riskSignals.push(bearishArticle.whyItMatters);
-	}
-	const riskLoading = earningsLoading && !analystData && !stockData;
-	const riskContent = riskSignals.length > 0
-		? riskSignals.join(". ") + "."
-		: (brand.culturalContext.sections.find(s => /risk|challenge|concern|threat|competit/i.test(s.heading))
-			?? brand.culturalContext.sections[brand.culturalContext.sections.length - 1])?.content ?? null;
+	// 3. Key risks — Gemini Search: financial + macro risk for this stock
+	const riskLoading = keyRiskLoading;
+	const riskContent = keyRiskData?.risk ?? null;
 
 	// 4. Recent earnings — EPS actual vs estimate
 	const earningsContent = (() => {
@@ -394,7 +383,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 							color="green"
 						/>
 						<InfoRow
-							heading="Why it moved"
+							heading={isMktClosed ? "Why it moved at last close" : "Why it moved"}
 							content={whyContent}
 							loading={whyLoading}
 							icon={<TrendingUp size={23} />}

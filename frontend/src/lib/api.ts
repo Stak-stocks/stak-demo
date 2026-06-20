@@ -310,13 +310,23 @@ export interface DailyMoveData {
 	direction: "up" | "down" | "flat";
 }
 
-export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number) {
+export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number, marketClosed?: boolean) {
 	const params = new URLSearchParams();
 	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
 	if (name) params.set("name", name);
 	if (sentences && sentences > 1) params.set("sentences", String(sentences));
+	if (marketClosed) params.set("marketClosed", "1");
 	const qs = params.toString() ? `?${params.toString()}` : "";
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
+}
+
+export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: string) {
+	const params = new URLSearchParams();
+	if (name) params.set("name", name);
+	if (beta) params.set("beta", beta);
+	if (pe) params.set("pe", pe);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<{ risk: string | null }>(`/api/stock/${encodeURIComponent(symbol)}/key-risk${qs}`);
 }
 
 export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
@@ -337,8 +347,9 @@ export interface DailyBriefDeck {
 	bars?: boolean;
 }
 
-export interface MacroLesson {
+export interface FeaturedLesson {
 	eventType: string;
+	angle?: string;
 	title: string;
 	subtitle: string;
 	emoji: string;
@@ -361,7 +372,7 @@ export interface DailyBriefResponse {
 	plainEnglish: string;
 	personalizedImpact: string;
 	decks: DailyBriefDeck[];
-	macroLesson?: MacroLesson;
+	featuredLesson?: FeaturedLesson;
 	marketSnapshot: {
 		spyChange: number | null;
 		qqqChange: number | null;
@@ -372,6 +383,29 @@ export interface DailyBriefResponse {
 
 export function getDailyBrief() {
 	return apiRequest<DailyBriefResponse>("/api/daily-brief");
+}
+
+export function getFeaturedLesson() {
+	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
+}
+
+export interface GeneratedLesson {
+	topic: string;
+	angle: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+export function getGeneratedLesson() {
+	return apiRequest<{ lesson: GeneratedLesson | null }>("/api/daily-brief/generated-lesson");
 }
 
 export interface RecommendationDebugStock {
@@ -419,14 +453,14 @@ let _dynamicStocksCache: import("@/data/brands").BrandProfile[] = [];
 let _dynamicStocksCachedAt = 0;
 
 export async function generatePlaygroundQuestions(
-	weekKey: string,
+	dayKey: string,
 	tier: number,
 	type: "battle" | "earnings" | "risk" | "mood" | "lesson" | "drill_sentiment" | "drill_nextstep",
 	count: number,
 ): Promise<unknown[]> {
 	return apiRequest<{ questions: unknown[] }>("/api/playground/generate", {
 		method: "POST",
-		body: JSON.stringify({ weekKey, tier, type, count }),
+		body: JSON.stringify({ dayKey, tier, type, count }),
 	}).then(r => r.questions ?? []);
 }
 

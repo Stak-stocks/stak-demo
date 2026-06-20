@@ -55,6 +55,16 @@ export interface LessonProgress {
 	xpEarned: number;
 }
 
+export interface EarningsProgress {
+	completed: boolean;
+	completedAt: number;
+}
+
+export interface ActivityProgress {
+	completed: boolean;
+	completedAt: number;
+}
+
 export interface DailyChallengeState {
 	date: string;
 	completedIds: string[];
@@ -95,16 +105,21 @@ export interface UserDoc {
 	// Playground
 	totalXp?: number;
 	lessonProgress?: Record<string, LessonProgress>;
+	earningsProgress?: Record<string, EarningsProgress>;
+	battlesProgress?: Record<string, ActivityProgress>;
+	riskProgress?: Record<string, ActivityProgress>;
+	moodProgress?: Record<string, ActivityProgress>;
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
 	sandboxTier?: number;
-	weeklyProgress?: { weekKey: string; completedIds: string[]; xpEarned: number };
+	dailyProgress?: { dayKey: string; completedIds: string[]; completedTypes?: string[]; xpEarned: number };
 	allTimeCompletedActivityIds?: string[];
 
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 	playgroundOnboarded?: boolean;         // true after user has completed playground onboarding
+	generatedLessonHistory?: Array<{ topic: string; title: string; angle: string; completedAt: number }>;
 }
 
 interface AccountContextType {
@@ -121,6 +136,10 @@ interface AccountContextType {
 	clearSearchHistory: () => Promise<void>;
 	updateLastBriefDate: (date: string) => Promise<void>;
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
+	completeEarningsScenario: (scenarioId: string) => Promise<void>;
+	completeBattle: (battleId: string) => Promise<void>;
+	completeRiskScenario: (scenarioId: string) => Promise<void>;
+	completeMoodScenario: (scenarioId: string) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
@@ -128,9 +147,10 @@ interface AccountContextType {
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
-	completeWeeklyActivity: (weekKey: string, activityId: string, xp: number) => Promise<void>;
+	completeDailyActivity: (dayKey: string, activityId: string, xp: number, activityType?: string) => Promise<void>;
 	addPracticeSkillXp: (skill: string, xp: number) => Promise<void>;
 	markPlaygroundOnboarded: () => Promise<void>;
+	saveGeneratedLessonHistory: (entry: { topic: string; title: string; angle: string }) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -306,6 +326,50 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user, account],
 	);
 
+	const completeEarningsScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.earningsProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeBattle = useCallback(
+		async (battleId: string) => {
+			if (!user) return;
+			if (account?.battlesProgress?.[battleId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`battlesProgress.${battleId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeRiskScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.riskProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`riskProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeMoodScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.moodProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`moodProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
 	const completeChallenge = useCallback(
 		async (challengeId: string, xp: number) => {
 			if (!user) return;
@@ -437,30 +501,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		}).catch(() => {});
 	}, [user, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
-	const completeWeeklyActivity = useCallback(async (weekKey: string, activityId: string, xp: number) => {
+	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
 		if (!user) return;
-		const current = account?.weeklyProgress;
-		const isSameWeek = current?.weekKey === weekKey;
-		const alreadyDone = isSameWeek && (current?.completedIds ?? []).includes(activityId);
+		const current = account?.dailyProgress;
+		const isSameDay = current?.dayKey === dayKey;
+		const alreadyDone = isSameDay && (current?.completedIds ?? []).includes(activityId);
 		if (alreadyDone) return;
 		const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
 		const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
-		if (isSameWeek) {
-			// Use arrayUnion + increment to avoid race condition when multiple activities
-			// complete before Firestore propagates the first write back to local state.
-			// Replacing the whole weeklyProgress object would cause the second write to
-			// overwrite completedIds from the first (stale snapshot).
+		const typeUpdate = activityType ? { "dailyProgress.completedTypes": arrayUnion(activityType) } : {};
+		if (isSameDay) {
 			await updateDoc(doc(db, "users", user.uid), {
-				"weeklyProgress.completedIds": arrayUnion(activityId),
-				"weeklyProgress.xpEarned": increment(xp),
-				"weeklyProgress.weekKey": weekKey,
+				"dailyProgress.completedIds": arrayUnion(activityId),
+				"dailyProgress.xpEarned": increment(xp),
+				"dailyProgress.dayKey": dayKey,
 				totalXp: increment(xp),
+				...typeUpdate,
 				...allTimeUpdate,
 			});
 		} else {
-			// New day: reset the whole weeklyProgress object
+			// New day: reset the whole dailyProgress object
 			await updateDoc(doc(db, "users", user.uid), {
-				weeklyProgress: { weekKey, completedIds: [activityId], xpEarned: xp },
+				dailyProgress: { dayKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
 				totalXp: increment(xp),
 				...allTimeUpdate,
 			});
@@ -470,6 +532,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const markPlaygroundOnboarded = useCallback(async () => {
 		if (!user) return;
 		await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
+	}, [user]);
+
+	const saveGeneratedLessonHistory = useCallback(async (entry: { topic: string; title: string; angle: string }) => {
+		if (!user) return;
+		const record = { ...entry, completedAt: Date.now() };
+		await updateDoc(doc(db, "users", user.uid), {
+			generatedLessonHistory: arrayUnion(record),
+		});
 	}, [user]);
 
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
@@ -500,6 +570,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	
 				updatePreferences,
 				completeLesson,
+				completeEarningsScenario,
+			completeBattle,
+			completeRiskScenario,
+			completeMoodScenario,
 				completeChallenge,
 				addXp,
 				addToSandbox,
@@ -507,9 +581,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				initSandboxCash,
 				resetSandbox,
 				markSandboxMilestone,
-				completeWeeklyActivity,
+				completeDailyActivity,
 				addPracticeSkillXp,
 				markPlaygroundOnboarded,
+				saveGeneratedLessonHistory,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

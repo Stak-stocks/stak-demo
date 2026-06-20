@@ -930,38 +930,41 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const companyName = (req.query.name as string | undefined)?.trim() || symbol;
 	const sentencesParam = parseInt(req.query.sentences as string);
 	const sentences = isFinite(sentencesParam) && sentencesParam > 1 ? sentencesParam : 1;
+	const marketClosed = req.query.marketClosed === "1";
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}`;
+	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}:${marketClosed ? "closed" : "open"}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
 	const sign = changePercent >= 0 ? "+" : "";
 	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
 	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
+	const timeRef = marketClosed ? "at its last close" : "today";
+	const searchRef = marketClosed ? "at the last market close" : "today";
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) {
-		const fallback = { explanation: `${subject} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
+		const fallback = { explanation: `${subject} was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.`, direction };
 		res.json(fallback);
 		return;
 	}
 
 	// Pure Gemini + Google Search — no Finnhub dependency.
 	const prompt = sentences > 1
-		? `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+		? `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
-Search the web right now for why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web right now for why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague.
+Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague. Do not say "today" if markets are closed — say "at last close" or "recently" instead.
 
 Return ONLY those ${sentences} sentences as plain text — no bullet points, no markdown, no JSON.`
-		: `${subject} stock (ticker: ${symbol}) is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.
+		: `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
-Search the web right now for the specific reason why ${symbol} is moving today. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.
+Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague. Do not say "today" if markets are closed.
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
@@ -1009,6 +1012,81 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
 	res.json(fallback);
+});
+
+// ── Key risk ──────────────────────────────────────────────────────────────────
+// GET /api/stock/:symbol/key-risk
+// Gemini + Google Search: 1-2 sentence financial/macro risk for this stock.
+// Cached 6 hours — risks don't change minute-to-minute.
+
+stockRouter.get("/:symbol/key-risk", async (req, res) => {
+	const symbol = resolveSymbol((req.params["symbol"] as string).toUpperCase());
+	const companyName = ((req.query.name as string | undefined) || symbol).trim();
+	const betaStr = req.query.beta as string | undefined;
+	const peStr = req.query.pe as string | undefined;
+
+	const today = new Date().toISOString().split("T")[0];
+	const cacheKey = `key-risk:v1:${symbol}:${today}`;
+	const cached = await cacheGet<{ risk: string }>(cacheKey);
+	if (cached) { res.json(cached); return; }
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) { res.json({ risk: null }); return; }
+
+	const financialLines = [
+		betaStr ? `Beta: ${betaStr} (${parseFloat(betaStr) >= 1.4 ? "high volatility" : parseFloat(betaStr) >= 0.85 ? "moderate volatility" : "low volatility"})` : null,
+		peStr ? `P/E ratio: ${peStr}` : null,
+	].filter(Boolean).join(", ");
+
+	const prompt = `You are writing a "Key Risk" for ${companyName} (${symbol}) in a stock-learning app for young investors.
+${financialLines ? `Static financial context: ${financialLines}.` : ""}
+
+Search the web for what the main risk facing ${companyName} is right now. Look for:
+- Macro risk relevant to this company (interest rate sensitivity, tariff/trade exposure, currency risk, sector headwinds)
+- Valuation risk (is it trading at a stretched multiple?)
+- Company-specific financial risk (high debt load, slowing revenue growth, margin pressure, competition)
+- Any significant recent news that introduces new risk
+
+Write exactly 1–2 sentences in plain English explaining the most important risk to a beginner investor. Name the actual risk factor and explain briefly why it matters. No disclaimers, no "it's important to note", no financial advice language.
+
+Return ONLY those 1–2 sentences as plain text — no markdown, no JSON, no bullets.`;
+
+	for (const key of keys) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 15000);
+		try {
+			const gemRes = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 200 },
+					}),
+					signal: controller.signal,
+				},
+			);
+			if (gemRes.status === 429) continue;
+			if (!gemRes.ok) break;
+			const data = await gemRes.json();
+			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
+			const risk = parts.map(p => p.text ?? "").join("").trim();
+			if (risk) {
+				const result = { risk };
+				await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000);
+				res.json(result);
+				return;
+			}
+		} catch {
+			// timeout or network error — try next key
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	res.json({ risk: null });
 });
 
 // ── Price chart ───────────────────────────────────────────────────────────────

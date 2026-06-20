@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
-import { getDailyChallenge } from "@/data/playgroundData";
+
 
 const NAV_ITEMS = [
 	{
@@ -51,10 +51,10 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 	const currentPath = router.location.pathname;
 	const { account } = useAccount();
 
-	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
-	const todayChallenge = getDailyChallenge(todayKey);
-	const challengeDone = account?.dailyChallengeState?.date === todayKey &&
-		(account.dailyChallengeState.completedIds ?? []).includes(todayChallenge.id);
+	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
+		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
+	);
 
 	const isActive = (path: string) => {
 		if (path === "/") return currentPath === "/";

@@ -1,4 +1,8 @@
 // ── STAK Playground static content ──────────────────────────────────────────
+import { TIER_XP as BASE_TIER_XP, xpToTier } from "@stak/shared";
+import type { ActivityType } from "@stak/shared";
+export { xpToTier, TIER_THRESHOLDS, ACTIVITY_TYPES } from "@stak/shared";
+export type { ActivityType } from "@stak/shared";
 // Lessons, daily challenges, stock battles, earnings lab, risk lab, market mood
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -115,7 +119,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Own a piece of a real company",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📈",
 		cards: [
 			{
@@ -152,7 +156,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The total value of a company",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🏢",
 		cards: [
 			{
@@ -189,7 +193,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The shorthand for every stock",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 15,
+		xp: 11,
 		emoji: "🔤",
 		cards: [
 			{
@@ -224,7 +228,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The Fed and your portfolio",
 		category: "Market Basics",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🏦",
 		cards: [
 			{
@@ -261,7 +265,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "What they mean and why it matters",
 		category: "Market Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🐂",
 		cards: [
 			{
@@ -298,7 +302,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "When and how stocks trade",
 		category: "Market Basics",
 		durationMin: 2,
-		xp: 15,
+		xp: 11,
 		emoji: "🕐",
 		cards: [
 			{
@@ -333,7 +337,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Is a stock cheap or expensive?",
 		category: "Valuation",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🔢",
 		cards: [
 			{
@@ -370,7 +374,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Is the business actually growing?",
 		category: "Valuation",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📊",
 		cards: [
 			{
@@ -407,7 +411,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Price alone tells you nothing",
 		category: "Valuation",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "💰",
 		cards: [
 			{
@@ -446,7 +450,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The quarterly report card",
 		category: "Earnings",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "📋",
 		cards: [
 			{
@@ -483,7 +487,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The paradox every investor needs to understand",
 		category: "Earnings",
 		durationMin: 3,
-		xp: 30,
+		xp: 22,
 		emoji: "🤯",
 		cards: [
 			{
@@ -520,7 +524,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The 5 numbers that actually matter",
 		category: "Earnings",
 		durationMin: 4,
-		xp: 30,
+		xp: 22,
 		emoji: "🔍",
 		cards: [
 			{
@@ -563,7 +567,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Not all risk is the same",
 		category: "Risk",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "⚠️",
 		cards: [
 			{
@@ -600,7 +604,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "How much does a stock swing?",
 		category: "Risk",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📉",
 		cards: [
 			{
@@ -639,7 +643,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Getting paid just for owning a stock",
 		category: "Dividends",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "💵",
 		cards: [
 			{
@@ -676,7 +680,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The yield competition effect",
 		category: "Dividends",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🔗",
 		cards: [
 			{
@@ -715,7 +719,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "How the market is organised",
 		category: "Sectors",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🗂️",
 		cards: [
 			{
@@ -752,7 +756,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The biggest and most discussed sector",
 		category: "Sectors",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "💻",
 		cards: [
 			{
@@ -1533,9 +1537,7 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 
 // ── Weekly Pack system ────────────────────────────────────────────────────────
 
-export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood";
-
-export interface WeeklyActivity {
+export interface DailyActivity {
 	id: string;
 	type: ActivityType;
 	title: string;
@@ -1544,12 +1546,12 @@ export interface WeeklyActivity {
 	xp: number;
 }
 
-export interface WeeklyPack {
-	weekKey: string;  // daily date key, e.g. "2026-06-02"
-	tier: number;       // 1–5
-	activities: WeeklyActivity[];
+export interface DailyPack {
+	dayKey: string;
+	tier: number;
+	activities: DailyActivity[];
 	totalXp: number;
-	label: string;      // e.g. "Beginner Pack"
+	label: string;
 	color: string;
 }
 
@@ -1572,21 +1574,36 @@ const BATTLE_TIERS: Record<string, number> = {
 	"sbux-vs-cmg": 1, "tsla-vs-rivn": 1, "cost-vs-wmt": 1,
 };
 
-// Tier XP multipliers
-const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
-	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { lesson: 45, battle: 8,  lab: 8,  label: "Analyst",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
-	5: { lesson: 60, battle: 10, lab: 10, label: "Expert",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+// Tier XP — numbers + labels from @stak/shared; color is frontend-only
+export const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
+	1: { ...BASE_TIER_XP[1], color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { ...BASE_TIER_XP[2], color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { ...BASE_TIER_XP[3], color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { ...BASE_TIER_XP[4], color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { ...BASE_TIER_XP[5], color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 
-function xpTier(totalXp: number): number {
-	if (totalXp >= 7500) return 5;  // Expert
-	if (totalXp >= 3500) return 4;  // Analyst
-	if (totalXp >= 1500) return 3;  // Investor
-	if (totalXp >= 500)  return 2;  // Learner
-	return 1;                        // Beginner
+// xpToTier is imported from @stak/shared — single source of truth
+
+function hashStr(str: string): number {
+	let h = 0;
+	for (let i = 0; i < str.length; i++) { h = (((h << 5) - h) + str.charCodeAt(i)) | 0; }
+	return Math.abs(h);
+}
+
+function daysSinceEpoch(dayKey: string): number {
+	return Math.floor((new Date(dayKey).getTime() - new Date("2024-01-01").getTime()) / 86400000);
+}
+
+// Shuffle pool once per user, then advance by one slice per day — no repeats until full cycle.
+function rotatingSlice<T>(pool: T[], uid: string, dayKey: string, count: number): T[] {
+	if (pool.length === 0) return [];
+	const shuffled = seededPick(pool, hashStr(uid), pool.length); // full per-user shuffle
+	const dayN = daysSinceEpoch(dayKey);
+	const start = (dayN * count) % shuffled.length;
+	const end = start + count;
+	if (end <= shuffled.length) return shuffled.slice(start, end);
+	return [...shuffled.slice(start), ...shuffled.slice(0, end - shuffled.length)];
 }
 
 function seededPick<T>(arr: T[], seed: number, count: number): T[] {
@@ -1602,7 +1619,7 @@ function seededPick<T>(arr: T[], seed: number, count: number): T[] {
 }
 
 // How many of each activity type per tier
-const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; }> = {
+export const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: number; risk: number; mood: number; }> = {
 	1: { lessons: 3, battles: 1, earnings: 1, risk: 2, mood: 1, },
 	2: { lessons: 4, battles: 2, earnings: 1, risk: 2, mood: 2, },
 	3: { lessons: 4, battles: 2, earnings: 2, risk: 3, mood: 2, },
@@ -1614,52 +1631,47 @@ const TIER_COUNTS: Record<number, { lessons: number; battles: number; earnings: 
  * Returns the full weekly pack — this IS the content for the week.
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
-export function getWeeklyPack(totalXp: number, weekKey: string, seenIds: Set<string> = new Set()): WeeklyPack {
-	let seed = 0;
-	for (let i = 0; i < weekKey.length; i++) {
-		seed = ((seed << 5) - seed) + weekKey.charCodeAt(i);
-		seed |= 0;
-	}
-
-	const tier = xpTier(totalXp);
+export function getDailyPack(totalXp: number, dayKey: string, completedIds: Set<string> = new Set(), uid = ""): DailyPack {
+	const tier = xpToTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
 	const counts = TIER_COUNTS[tier]!;
 
-	// Lessons — tier-appropriate only
-	const eligibleLessons = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
-	const pickedLessons = seededPick(eligibleLessons, seed, counts.lessons).map(l => ({
+	// Helper: filter by tier + all-time completions, fall back to full tier pool if exhausted.
+	function freshPool<T extends { id: string }>(pool: T[], tierFilter?: (item: T) => boolean): T[] {
+		const tierFiltered = tierFilter ? pool.filter(tierFilter) : pool;
+		const unseen = tierFiltered.filter(item => !completedIds.has(item.id));
+		return unseen.length >= (counts.lessons) ? unseen : tierFiltered; // fall back when nearly exhausted
+	}
+
+	// Each section uses rotatingSlice: pool is shuffled once per user (uid seed),
+	// then a different slice is taken each day → no repeats until the full pool cycles.
+	// Completed IDs are filtered out first so already-seen content doesn't resurface.
+	const lessonPool = freshPool(LESSONS, l => (LESSON_TIERS[l.id] ?? 1) <= tier);
+	const pickedLessons = rotatingSlice(lessonPool, uid + "L", dayKey, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	// Battles — tier-appropriate, unseen first
-	const eligibleBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && !seenIds.has(b.id));
-	const fallbackBattles = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier && seenIds.has(b.id));
-	const pickedBattles = seededPick([...eligibleBattles, ...fallbackBattles], seed + 1, counts.battles).map(b => ({
+	const battlePool = freshPool(STOCK_BATTLES, b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
+	const pickedBattles = rotatingSlice(battlePool, uid + "B", dayKey, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	// Earnings scenarios — unseen first
-	const eligibleEarnings = EARNINGS_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackEarnings = EARNINGS_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedEarnings = seededPick([...eligibleEarnings, ...fallbackEarnings], seed + 2, counts.earnings).map(s => ({
+	const earningsPool = freshPool(EARNINGS_SCENARIOS);
+	const pickedEarnings = rotatingSlice(earningsPool, uid + "E", dayKey, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	// Risk comparisons — unseen first
-	const eligibleRisk = RISK_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackRisk = RISK_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedRisk = seededPick([...eligibleRisk, ...fallbackRisk], seed + 3, counts.risk).map(s => ({
+	const riskPool = freshPool(RISK_SCENARIOS);
+	const pickedRisk = rotatingSlice(riskPool, uid + "R", dayKey, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	// Mood simulations — unseen first
-	const eligibleMood = MOOD_SCENARIOS.filter(s => !seenIds.has(s.id));
-	const fallbackMood = MOOD_SCENARIOS.filter(s => seenIds.has(s.id));
-	const pickedMood = seededPick([...eligibleMood, ...fallbackMood], seed + 4, counts.mood).map(s => ({
+	const moodPool = freshPool(MOOD_SCENARIOS);
+	const pickedMood = rotatingSlice(moodPool, uid + "M", dayKey, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
@@ -1668,7 +1680,7 @@ export function getWeeklyPack(totalXp: number, weekKey: string, seenIds: Set<str
 	const totalXpForPack = activities.reduce((sum, a) => sum + a.xp, 0);
 
 	return {
-		weekKey,
+		dayKey,
 		tier,
 		activities,
 		totalXp: totalXpForPack,
@@ -1677,13 +1689,8 @@ export function getWeeklyPack(totalXp: number, weekKey: string, seenIds: Set<str
 	};
 }
 
-/** Get the current ISO week key, e.g. "2026-W23" — changes every Monday */
-export function getCurrentWeekKey(): string {
+/** Get today's date key in local time, e.g. "2026-06-20" */
+export function getTodayKey(): string {
 	const d = new Date();
-	// ISO week: find Thursday of current week, then get its year and week number
-	const thursday = new Date(d);
-	thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
-	const jan1 = new Date(thursday.getFullYear(), 0, 1);
-	const week = Math.ceil(((thursday.getTime() - jan1.getTime()) / 86400000 + 1) / 7);
-	return `${thursday.getFullYear()}-W${String(week).padStart(2, "0")}`;
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
