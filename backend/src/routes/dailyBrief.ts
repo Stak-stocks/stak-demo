@@ -724,16 +724,15 @@ async function generateFeaturedLesson(): Promise<{ lesson: MarketLessonResponse;
 		? `\nRecent lessons already taught in this app (DO NOT repeat the same angle — always teach something genuinely new):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
-	const prompt = marketDay
-		? `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+	const marketMomentPrompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
 ${historyBlock}
-Search the web for the single most significant market-moving event from the past 2 days. Priority order:
+Search the web for the single most significant market-moving event from today (${today}) or yesterday only. Priority order:
 1. Federal Reserve / FOMC rate decisions or statements
 2. Major economic data releases with actual numbers (CPI, PCE, jobs, GDP)
 3. Major earnings that surprised the market
 4. Significant geopolitical or trade events affecting markets
 
-If the event is the same type as a recently taught lesson above, cover a DIFFERENT angle — go one level deeper, zoom out to the broader mechanism, or explore a sector/stock-type implication not covered before. The lesson structure (3 cards + quiz) must always teach something new.
+Only use events from today or yesterday — do NOT reach back further. If the event is the same type as a recently taught lesson above, cover a DIFFERENT angle — go one level deeper, zoom out to the broader mechanism, or explore a sector/stock-type implication not covered before. The lesson structure (3 cards + quiz) must always teach something new.
 
 Build a 3-card educational lesson that teaches a beginner WHY this matters for their stocks. Focus on cause-and-effect.
 
@@ -757,25 +756,26 @@ Return ONLY a JSON object (no markdown, no code fences):
   }
 }
 
-If nothing significant happened in the past 2 days, return: { "empty": true }
+If nothing significant happened today or yesterday, return: { "empty": true }
 
-Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`
-		: `You are writing a Featured Today lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today} — the market is closed (weekend or holiday).
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	const conceptPrompt = `You are writing a Featured Today lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
 ${historyBlock}
-Search the web for one timely concept that will help a young investor prepare for the upcoming trading week. Pick something relevant to current market themes, economic conditions, or a topic that came up in the news this week.
+Search the web for one timely concept that will help a young investor understand what's driving markets right now or prepare for the week ahead. Pick something relevant to current market themes, economic conditions, or a topic that came up in the news recently.
 
 Examples: how to read an earnings report before a big earnings week, what a yield curve means if rates are in focus, how sector rotation works if there's been market volatility, what market sentiment indicators tell us, etc.
 
 If the concept is the same type as a recently taught lesson above, cover a DIFFERENT angle.
 
-Build a 3-card educational lesson that teaches a beginner investor something genuinely useful for the week ahead.
+Build a 3-card educational lesson that teaches a beginner investor something genuinely useful.
 
 Return ONLY a JSON object (no markdown, no code fences):
 {
   "eventType": "concept",
   "angle": "one short phrase describing the specific angle — e.g. 'how to interpret P/E ratios in a high-rate environment'",
   "title": "7 words max — e.g. 'Why the Yield Curve Actually Matters'",
-  "subtitle": "One hook sentence, max 12 words — e.g. 'Markets are closed. Here's what to prep for Monday.'",
+  "subtitle": "One hook sentence, max 12 words",
   "emoji": "single relevant emoji",
   "cards": [
     { "heading": "The Concept", "body": "2-3 sentences. Explain what this concept is in plain English." },
@@ -792,42 +792,61 @@ Return ONLY a JSON object (no markdown, no code fences):
 
 Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
 
-	const keys = getGeminiKeys();
-	for (const key of keys) {
-		try {
-			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						tools: [{ google_search: {} }],
-						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
-					}),
-					signal: AbortSignal.timeout(30000),
-				},
-			);
-			if (!res.ok) continue;
-			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
-			if (!text) continue;
-			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
-			const parsed = JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean; angle?: string };
-			if (parsed.empty) {
-				await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
-				return null;
+	async function callGemini(prompt: string): Promise<(MarketLessonResponse & { empty?: boolean; angle?: string }) | null> {
+		const keys = getGeminiKeys();
+		for (const key of keys) {
+			try {
+				const res = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							tools: [{ google_search: {} }],
+							contents: [{ parts: [{ text: prompt }] }],
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+						}),
+						signal: AbortSignal.timeout(30000),
+					},
+				);
+				if (!res.ok) continue;
+				const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+				const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+				if (!text) continue;
+				const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+				return JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean; angle?: string };
+			} catch {
+				continue;
 			}
-			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
-				const result = { lesson: parsed, isMarketDay: marketDay };
-				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
-				adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay: marketDay }).catch(() => {});
-				appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
-				return result;
-			}
-		} catch {
-			continue;
 		}
+		return null;
+	}
+
+	function saveLesson(parsed: MarketLessonResponse & { angle?: string }, isMarketDay: boolean) {
+		const result = { lesson: parsed, isMarketDay };
+		cacheSet(cacheKey, result, 12 * 60 * 60 * 1000).catch(() => {});
+		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay }).catch(() => {});
+		appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
+		return result;
+	}
+
+	// On trading days: try market event from today/yesterday first; fall back to concept if nothing significant
+	if (marketDay) {
+		const parsed = await callGemini(marketMomentPrompt);
+		if (parsed && !parsed.empty && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+			return saveLesson(parsed, true);
+		}
+		// Nothing significant today/yesterday — fall through to concept lesson
+	}
+
+	// Non-trading day or no significant market event: teach a timely concept instead
+	const parsed = await callGemini(conceptPrompt);
+	if (!parsed || parsed.empty) {
+		await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
+		return null;
+	}
+	if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+		return saveLesson(parsed, false);
 	}
 	return null;
 }
