@@ -1635,14 +1635,22 @@ export const TIER_COUNTS: Record<number, { lessons: number; battles: number; ear
  * Returns the full weekly pack — this IS the content for the week.
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
-export function getWeeklyPack(totalXp: number, weekKey: string, _seenIds: Set<string> = new Set(), uid = ""): WeeklyPack {
+export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Set<string> = new Set(), uid = ""): WeeklyPack {
 	const tier = xpTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
 	const counts = TIER_COUNTS[tier]!;
 
+	// Helper: filter by tier + all-time completions, fall back to full tier pool if exhausted.
+	function freshPool<T extends { id: string }>(pool: T[], tierFilter?: (item: T) => boolean): T[] {
+		const tierFiltered = tierFilter ? pool.filter(tierFilter) : pool;
+		const unseen = tierFiltered.filter(item => !completedIds.has(item.id));
+		return unseen.length >= (counts.lessons) ? unseen : tierFiltered; // fall back when nearly exhausted
+	}
+
 	// Each section uses rotatingSlice: pool is shuffled once per user (uid seed),
 	// then a different slice is taken each day → no repeats until the full pool cycles.
-	const lessonPool = LESSONS.filter(l => (LESSON_TIERS[l.id] ?? 1) <= tier);
+	// Completed IDs are filtered out first so already-seen content doesn't resurface.
+	const lessonPool = freshPool(LESSONS, l => (LESSON_TIERS[l.id] ?? 1) <= tier);
 	const pickedLessons = rotatingSlice(lessonPool, uid + "L", weekKey, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
@@ -1654,7 +1662,8 @@ export function getWeeklyPack(totalXp: number, weekKey: string, _seenIds: Set<st
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	const pickedEarnings = rotatingSlice(EARNINGS_SCENARIOS, uid + "E", weekKey, counts.earnings).map(s => ({
+	const earningsPool = freshPool(EARNINGS_SCENARIOS);
+	const pickedEarnings = rotatingSlice(earningsPool, uid + "E", weekKey, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));

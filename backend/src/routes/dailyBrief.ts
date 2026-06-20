@@ -87,14 +87,19 @@ async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string |
 	return { isOpen: false, holiday: null };
 }
 
-function getNextTradingDayLabel(fromDayNum: number): string {
-	let nextDayNum = (fromDayNum + 1) % 7;
-	let daysAhead = 1;
-	while (nextDayNum === 0 || nextDayNum === 6) {
-		nextDayNum = (nextDayNum + 1) % 7;
-		daysAhead++;
+// Walks forward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysAhead = 1; daysAhead <= 10; daysAhead++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() + daysAhead);
+		const dayNum = d.getUTCDay();
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return daysAhead === 1 ? "tomorrow" : DAY_NAMES[dayNum];
 	}
-	return daysAhead === 1 ? "tomorrow" : DAY_NAMES[nextDayNum];
+	return "tomorrow";
 }
 
 // Algorithmic fallback: computes NYSE holidays for any year from exchange rules.
@@ -209,7 +214,7 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
 	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit", timeZone: "America/New_York" }), 10);
 	const total  = etHour * 60 + etMin;
-	const nextTradingDayLabel = getNextTradingDayLabel(etDayNum);
+	const nextTradingDayLabel = await getNextTradingDayLabel(etDateStr);
 
 	const isWeekend = etDayNum === 0 || etDayNum === 6;
 

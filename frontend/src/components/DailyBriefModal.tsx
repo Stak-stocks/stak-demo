@@ -127,7 +127,7 @@ function ThemeCard({ deck, session = "open", nextTradingDayLabel = "tomorrow" }:
 		? `Stocks to Watch ${nextTradingDayLabel === "tomorrow" ? "for Tomorrow" : `Ahead of ${nextTradingDayLabel}`}`
 		: "Today's Focus";
 	const feedLine = isForwardLooking
-		? `We're surfacing ${deck.title} picks in your Discover feed ahead of ${nextLabel}'s open.`
+		? `We're surfacing ${deck.title} picks in your Discover feed ahead of ${nextTradingDayLabel === "tomorrow" ? "tomorrow" : `${nextTradingDayLabel}'s`} open.`
 		: `We're surfacing ${deck.title} picks in your Discover feed today.`;
 	return (
 		<section

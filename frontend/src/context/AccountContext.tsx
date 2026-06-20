@@ -55,6 +55,11 @@ export interface LessonProgress {
 	xpEarned: number;
 }
 
+export interface EarningsProgress {
+	completed: boolean;
+	completedAt: number;
+}
+
 export interface DailyChallengeState {
 	date: string;
 	completedIds: string[];
@@ -95,6 +100,7 @@ export interface UserDoc {
 	// Playground
 	totalXp?: number;
 	lessonProgress?: Record<string, LessonProgress>;
+	earningsProgress?: Record<string, EarningsProgress>;
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
@@ -123,6 +129,7 @@ interface AccountContextType {
 	clearSearchHistory: () => Promise<void>;
 	updateLastBriefDate: (date: string) => Promise<void>;
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
+	completeEarningsScenario: (scenarioId: string) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
@@ -305,6 +312,17 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			await updateDoc(doc(db, "users", user.uid), {
 				[`lessonProgress.${lessonId}`]: entry,
 				totalXp: increment(xp),
+			});
+		},
+		[user, account],
+	);
+
+	const completeEarningsScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.earningsProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
 			});
 		},
 		[user, account],
@@ -522,6 +540,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	
 				updatePreferences,
 				completeLesson,
+				completeEarningsScenario,
 				completeChallenge,
 				addXp,
 				addToSandbox,

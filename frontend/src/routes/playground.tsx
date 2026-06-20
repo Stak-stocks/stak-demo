@@ -229,7 +229,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 }
 
 export function PlaygroundPage() {
-	const { account, accountLoading, completeWeeklyActivity, markPlaygroundOnboarded, saveMarketLessonHistory } = useAccount();
+	const { account, accountLoading, completeWeeklyActivity, completeEarningsScenario, markPlaygroundOnboarded, saveMarketLessonHistory } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
 	// Optimistic local completions — updates instantly before Firestore onSnapshot fires
@@ -322,9 +322,17 @@ export function PlaygroundPage() {
 	const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
 	const totalLessons = LESSONS.length;
 
+	// All-time completed IDs — used to filter lesson/earnings pools so finished content doesn't resurface.
+	const allTimeCompletedIds = useMemo(() => {
+		const ids = new Set<string>();
+		for (const [id, p] of Object.entries(account?.lessonProgress ?? {})) if (p.completed) ids.add(id);
+		for (const [id, p] of Object.entries(account?.earningsProgress ?? {})) if (p.completed) ids.add(id);
+		return ids;
+	}, [account?.lessonProgress, account?.earningsProgress]);
+
 	// Weekly Pack — purely seed-based (weekKey + uid), never changes mid-session or on reload.
 	// dailyCompleted (from Firestore) filters completed items out of each section view.
-	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey, new Set(), account?.uid ?? ""), [totalXp, dayKey, account?.uid]);
+	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey, allTimeCompletedIds, account?.uid ?? ""), [totalXp, dayKey, allTimeCompletedIds, account?.uid]);
 	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticDailyPack, account?.uid ?? "", dayKey);
 	const dailyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;
@@ -479,7 +487,8 @@ export function PlaygroundPage() {
 	if (activeView === "earnings-lab") {
 		return <EarningsLabView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			weeklyEarningsIds={dailyPack.activities.filter(a => a.type === "earnings").map(a => a.id)}
-			dayLabel={dailyPack.label} earningsPool={mergedEarnings} />;
+			dayLabel={dailyPack.label} earningsPool={mergedEarnings}
+			onEarningsScenarioCorrect={completeEarningsScenario} />;
 	}
 	if (activeView === "risk-lab") {
 		return <RiskLabView onBack={goHome}
@@ -1462,7 +1471,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, weeklyB
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, weeklyEarningsIds, dayLabel, earningsPool }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number, type?: string) => void; weeklyEarningsIds?: string[]; dayLabel?: string; earningsPool?: typeof EARNINGS_SCENARIOS }) {
+function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, weeklyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onWeeklyComplete?: (wk: string, id: string, xp: number, type?: string) => void; weeklyEarningsIds?: string[]; dayLabel?: string; earningsPool?: typeof EARNINGS_SCENARIOS; onEarningsScenarioCorrect?: (id: string) => void }) {
 	const pool = earningsPool ?? EARNINGS_SCENARIOS;
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -1578,7 +1587,10 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onWeeklyComplete, wee
 												// Always mark as attempted (0 XP if wrong) so it never reappears on re-entry
 												const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
 												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (correct) showXp(scenario.xp);
+												if (correct) {
+													showXp(scenario.xp);
+													onEarningsScenarioCorrect?.(scenario.id);
+												}
 												if (dayKey && !alreadyAttempted && onWeeklyComplete)
 													onWeeklyComplete(dayKey, scenario.id, correct ? scenario.xp : 0, "earnings");
 											}
