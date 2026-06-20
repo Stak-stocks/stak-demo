@@ -197,7 +197,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 					category: r.category as LessonCategory,
 					emoji: String(r.emoji ?? "📚"),
 					durationMin: Number(r.durationMin ?? 3),
-					xp: Number(r.xp ?? 20),
+					xp: Number(r.xp ?? 15),
 					cards: cards.map((c: Record<string, unknown>) => ({ heading: String(c.heading), body: String(c.body) })),
 					quiz: {
 						question: String(quiz.question),

@@ -115,7 +115,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Own a piece of a real company",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📈",
 		cards: [
 			{
@@ -152,7 +152,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The total value of a company",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🏢",
 		cards: [
 			{
@@ -189,7 +189,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The shorthand for every stock",
 		category: "Stock Basics",
 		durationMin: 2,
-		xp: 15,
+		xp: 11,
 		emoji: "🔤",
 		cards: [
 			{
@@ -224,7 +224,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The Fed and your portfolio",
 		category: "Market Basics",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🏦",
 		cards: [
 			{
@@ -261,7 +261,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "What they mean and why it matters",
 		category: "Market Basics",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🐂",
 		cards: [
 			{
@@ -298,7 +298,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "When and how stocks trade",
 		category: "Market Basics",
 		durationMin: 2,
-		xp: 15,
+		xp: 11,
 		emoji: "🕐",
 		cards: [
 			{
@@ -333,7 +333,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Is a stock cheap or expensive?",
 		category: "Valuation",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🔢",
 		cards: [
 			{
@@ -370,7 +370,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Is the business actually growing?",
 		category: "Valuation",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📊",
 		cards: [
 			{
@@ -407,7 +407,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Price alone tells you nothing",
 		category: "Valuation",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "💰",
 		cards: [
 			{
@@ -446,7 +446,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The quarterly report card",
 		category: "Earnings",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "📋",
 		cards: [
 			{
@@ -483,7 +483,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The paradox every investor needs to understand",
 		category: "Earnings",
 		durationMin: 3,
-		xp: 30,
+		xp: 22,
 		emoji: "🤯",
 		cards: [
 			{
@@ -520,7 +520,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The 5 numbers that actually matter",
 		category: "Earnings",
 		durationMin: 4,
-		xp: 30,
+		xp: 22,
 		emoji: "🔍",
 		cards: [
 			{
@@ -563,7 +563,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Not all risk is the same",
 		category: "Risk",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "⚠️",
 		cards: [
 			{
@@ -600,7 +600,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "How much does a stock swing?",
 		category: "Risk",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "📉",
 		cards: [
 			{
@@ -639,7 +639,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "Getting paid just for owning a stock",
 		category: "Dividends",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "💵",
 		cards: [
 			{
@@ -676,7 +676,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The yield competition effect",
 		category: "Dividends",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "🔗",
 		cards: [
 			{
@@ -715,7 +715,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "How the market is organised",
 		category: "Sectors",
 		durationMin: 2,
-		xp: 20,
+		xp: 15,
 		emoji: "🗂️",
 		cards: [
 			{
@@ -752,7 +752,7 @@ export const LESSONS: Lesson[] = [
 		subtitle: "The biggest and most discussed sector",
 		category: "Sectors",
 		durationMin: 3,
-		xp: 25,
+		xp: 19,
 		emoji: "💻",
 		cards: [
 			{
@@ -1574,11 +1574,11 @@ const BATTLE_TIERS: Record<string, number> = {
 
 // Tier XP multipliers
 export const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
-	1: { lesson: 20, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { lesson: 28, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { lesson: 35, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { lesson: 45, battle: 8,  lab: 8,  label: "Analyst",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
-	5: { lesson: 60, battle: 10, lab: 10, label: "Expert",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+	1: { lesson: 15, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { lesson: 21, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { lesson: 26, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { lesson: 34, battle: 8,  lab: 8,  label: "Analyst",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { lesson: 45, battle: 10, lab: 10, label: "Expert",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 
 function xpTier(totalXp: number): number {
