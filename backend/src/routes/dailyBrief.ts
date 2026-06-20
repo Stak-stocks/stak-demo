@@ -668,10 +668,10 @@ async function isTradingDay(): Promise<boolean> {
 	return !holidays.has(etDateStr);
 }
 
-async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
+async function generateFeaturedLesson(userHistory: LessonHistoryEntry[]): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
 	const today = new Date().toISOString().split("T")[0];
 	const marketDay = await isTradingDay();
-	const cacheKey = `playground:market-lesson:v2:${today}`;
+	const cacheKey = `playground:featured-lesson:v1:${today}`;
 
 	// 1. Redis / in-memory cache (fast path)
 	const cached = await cacheGet<{ lesson: MarketLessonResponse; isMarketDay: boolean } | { empty: true }>(cacheKey);
@@ -682,7 +682,7 @@ async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<
 
 	// 2. Firestore fallback — survives server restarts in local dev
 	try {
-		const snap = await adminDb.collection("config").doc("market-lesson").get();
+		const snap = await adminDb.collection("config").doc("featured-lesson").get();
 		if (snap.exists) {
 			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean };
 			if (d.date === today && d.lesson) {
@@ -799,7 +799,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
 				const result = { lesson: parsed, isMarketDay: marketDay };
 				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
-				adminDb.collection("config").doc("market-lesson").set({ date: today, lesson: parsed, isMarketDay: marketDay }).catch(() => {});
+				adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay: marketDay }).catch(() => {});
 				return result;
 			}
 		} catch {
@@ -809,13 +809,13 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 	return null;
 }
 
-// GET /api/daily-brief/market-lesson
-dailyBriefRouter.get("/market-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
+// GET /api/daily-brief/featured-lesson
+dailyBriefRouter.get("/featured-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const userSnap = await adminDb.collection("users").doc(uid).get();
-		const userHistory: LessonHistoryEntry[] = (userSnap.data()?.marketLessonHistory as LessonHistoryEntry[] | undefined) ?? [];
-		const result = await generateMarketLesson(userHistory);
+		const userHistory: LessonHistoryEntry[] = (userSnap.data()?.featuredLessonHistory as LessonHistoryEntry[] | undefined) ?? [];
+		const result = await generateFeaturedLesson(userHistory);
 		if (!result) { res.json({ lesson: null }); return; }
 		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay });
 	} catch {

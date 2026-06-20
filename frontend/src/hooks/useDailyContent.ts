@@ -1,7 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { generatePlaygroundQuestions } from "@/lib/api";
-import type { WeeklyPack, WeeklyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
+import type { DailyPack, DailyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
 import type {
 	BattleMatchup,
 	EarningsScenario,
@@ -30,7 +30,7 @@ const GEN_STALE_MS = 24 * 60 * 60 * 1000;
 // Request a couple extra so validation failures don't leave us short
 const GEN_COUNT_BUFFER = 2;
 
-export function useWeeklyContent(staticPack: WeeklyPack, uid: string, dayKey: string) {
+export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: string) {
 	const { tier } = staticPack;
 	const counts = TIER_COUNTS[tier] ?? TIER_COUNTS[1]!;
 
@@ -208,11 +208,11 @@ export function useWeeklyContent(staticPack: WeeklyPack, uid: string, dayKey: st
 
 	// Build pack that uses generated IDs when available, static IDs as fallback.
 	// Each section switches to generated content as soon as Gemini finishes loading.
-	const augmentedPack = useMemo((): WeeklyPack => {
+	const augmentedPack = useMemo((): DailyPack => {
 		const { extraBattles, extraEarnings, extraRisk, extraMood, extraLessons } = augmented;
 		const xpRates = TIER_XP[tier] ?? TIER_XP[1]!;
 
-		let activities: WeeklyActivity[] = [...staticPack.activities];
+		let activities: DailyActivity[] = [...staticPack.activities];
 
 		if (extraBattles.length > 0) {
 			activities = activities.filter(a => a.type !== "battle");

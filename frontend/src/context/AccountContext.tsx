@@ -113,13 +113,13 @@ export interface UserDoc {
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
 	sandboxTier?: number;
-	weeklyProgress?: { weekKey: string; completedIds: string[]; completedTypes?: string[]; xpEarned: number };
+	dailyProgress?: { dayKey: string; completedIds: string[]; completedTypes?: string[]; xpEarned: number };
 	allTimeCompletedActivityIds?: string[];
 
 	sandboxMilestones?: number[];          // portfolio values already celebrated (e.g. [11000, 12000])
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 	playgroundOnboarded?: boolean;         // true after user has completed playground onboarding
-	marketLessonHistory?: Array<{ eventType: string; title: string; angle: string; completedAt: number }>;
+	featuredLessonHistory?: Array<{ eventType: string; title: string; angle: string; completedAt: number }>;
 	weeklyLessonHistory?: Array<{ topic: string; title: string; angle: string; completedAt: number }>;
 }
 
@@ -148,10 +148,10 @@ interface AccountContextType {
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
-	completeWeeklyActivity: (weekKey: string, activityId: string, xp: number, activityType?: string) => Promise<void>;
+	completeDailyActivity: (dayKey: string, activityId: string, xp: number, activityType?: string) => Promise<void>;
 	addPracticeSkillXp: (skill: string, xp: number) => Promise<void>;
 	markPlaygroundOnboarded: () => Promise<void>;
-	saveMarketLessonHistory: (entry: { eventType: string; title: string; angle: string }) => Promise<void>;
+	saveFeaturedLessonHistory: (entry: { eventType: string; title: string; angle: string }) => Promise<void>;
 	saveWeeklyLessonHistory: (entry: { topic: string; title: string; angle: string }) => Promise<void>;
 }
 
@@ -503,32 +503,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		}).catch(() => {});
 	}, [user, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
-	const completeWeeklyActivity = useCallback(async (weekKey: string, activityId: string, xp: number, activityType?: string) => {
+	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
 		if (!user) return;
-		const current = account?.weeklyProgress;
-		const isSameWeek = current?.weekKey === weekKey;
-		const alreadyDone = isSameWeek && (current?.completedIds ?? []).includes(activityId);
+		const current = account?.dailyProgress;
+		const isSameDay = current?.dayKey === dayKey;
+		const alreadyDone = isSameDay && (current?.completedIds ?? []).includes(activityId);
 		if (alreadyDone) return;
 		const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
 		const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
-		const typeUpdate = activityType ? { "weeklyProgress.completedTypes": arrayUnion(activityType) } : {};
-		if (isSameWeek) {
-			// Use arrayUnion + increment to avoid race condition when multiple activities
-			// complete before Firestore propagates the first write back to local state.
-			// Replacing the whole weeklyProgress object would cause the second write to
-			// overwrite completedIds from the first (stale snapshot).
+		const typeUpdate = activityType ? { "dailyProgress.completedTypes": arrayUnion(activityType) } : {};
+		if (isSameDay) {
 			await updateDoc(doc(db, "users", user.uid), {
-				"weeklyProgress.completedIds": arrayUnion(activityId),
-				"weeklyProgress.xpEarned": increment(xp),
-				"weeklyProgress.weekKey": weekKey,
+				"dailyProgress.completedIds": arrayUnion(activityId),
+				"dailyProgress.xpEarned": increment(xp),
+				"dailyProgress.dayKey": dayKey,
 				totalXp: increment(xp),
 				...typeUpdate,
 				...allTimeUpdate,
 			});
 		} else {
-			// New day: reset the whole weeklyProgress object
+			// New day: reset the whole dailyProgress object
 			await updateDoc(doc(db, "users", user.uid), {
-				weeklyProgress: { weekKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
+				dailyProgress: { dayKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
 				totalXp: increment(xp),
 				...allTimeUpdate,
 			});
@@ -540,11 +536,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
 	}, [user]);
 
-	const saveMarketLessonHistory = useCallback(async (entry: { eventType: string; title: string; angle: string }) => {
+	const saveFeaturedLessonHistory = useCallback(async (entry: { eventType: string; title: string; angle: string }) => {
 		if (!user) return;
 		const record = { ...entry, completedAt: Date.now() };
 		await updateDoc(doc(db, "users", user.uid), {
-			marketLessonHistory: arrayUnion(record),
+			featuredLessonHistory: arrayUnion(record),
 		});
 	}, [user]);
 
@@ -595,10 +591,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				initSandboxCash,
 				resetSandbox,
 				markSandboxMilestone,
-				completeWeeklyActivity,
+				completeDailyActivity,
 				addPracticeSkillXp,
 				markPlaygroundOnboarded,
-				saveMarketLessonHistory,
+				saveFeaturedLessonHistory,
 				saveWeeklyLessonHistory,
 				addSearchHistory,
 				removeSearchHistoryEntry,

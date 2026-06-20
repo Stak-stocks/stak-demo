@@ -1535,7 +1535,7 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 
 export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood";
 
-export interface WeeklyActivity {
+export interface DailyActivity {
 	id: string;
 	type: ActivityType;
 	title: string;
@@ -1544,12 +1544,12 @@ export interface WeeklyActivity {
 	xp: number;
 }
 
-export interface WeeklyPack {
-	weekKey: string;  // daily date key, e.g. "2026-06-02"
-	tier: number;       // 1–5
-	activities: WeeklyActivity[];
+export interface DailyPack {
+	dayKey: string;
+	tier: number;
+	activities: DailyActivity[];
 	totalXp: number;
-	label: string;      // e.g. "Beginner Pack"
+	label: string;
 	color: string;
 }
 
@@ -1635,7 +1635,7 @@ export const TIER_COUNTS: Record<number, { lessons: number; battles: number; ear
  * Returns the full weekly pack — this IS the content for the week.
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
-export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Set<string> = new Set(), uid = ""): WeeklyPack {
+export function getDailyPack(totalXp: number, dayKey: string, completedIds: Set<string> = new Set(), uid = ""): DailyPack {
 	const tier = xpTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
 	const counts = TIER_COUNTS[tier]!;
@@ -1651,31 +1651,31 @@ export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Se
 	// then a different slice is taken each day → no repeats until the full pool cycles.
 	// Completed IDs are filtered out first so already-seen content doesn't resurface.
 	const lessonPool = freshPool(LESSONS, l => (LESSON_TIERS[l.id] ?? 1) <= tier);
-	const pickedLessons = rotatingSlice(lessonPool, uid + "L", weekKey, counts.lessons).map(l => ({
+	const pickedLessons = rotatingSlice(lessonPool, uid + "L", dayKey, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
 	const battlePool = freshPool(STOCK_BATTLES, b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
-	const pickedBattles = rotatingSlice(battlePool, uid + "B", weekKey, counts.battles).map(b => ({
+	const pickedBattles = rotatingSlice(battlePool, uid + "B", dayKey, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
 	const earningsPool = freshPool(EARNINGS_SCENARIOS);
-	const pickedEarnings = rotatingSlice(earningsPool, uid + "E", weekKey, counts.earnings).map(s => ({
+	const pickedEarnings = rotatingSlice(earningsPool, uid + "E", dayKey, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
 	const riskPool = freshPool(RISK_SCENARIOS);
-	const pickedRisk = rotatingSlice(riskPool, uid + "R", weekKey, counts.risk).map(s => ({
+	const pickedRisk = rotatingSlice(riskPool, uid + "R", dayKey, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
 	const moodPool = freshPool(MOOD_SCENARIOS);
-	const pickedMood = rotatingSlice(moodPool, uid + "M", weekKey, counts.mood).map(s => ({
+	const pickedMood = rotatingSlice(moodPool, uid + "M", dayKey, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
@@ -1684,7 +1684,7 @@ export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Se
 	const totalXpForPack = activities.reduce((sum, a) => sum + a.xp, 0);
 
 	return {
-		weekKey,
+		dayKey,
 		tier,
 		activities,
 		totalXp: totalXpForPack,
@@ -1693,13 +1693,8 @@ export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Se
 	};
 }
 
-/** Get the current ISO week key, e.g. "2026-W23" — changes every Monday */
-export function getCurrentWeekKey(): string {
+/** Get today's date key in local time, e.g. "2026-06-20" */
+export function getTodayKey(): string {
 	const d = new Date();
-	// ISO week: find Thursday of current week, then get its year and week number
-	const thursday = new Date(d);
-	thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
-	const jan1 = new Date(thursday.getFullYear(), 0, 1);
-	const week = Math.ceil(((thursday.getTime() - jan1.getTime()) / 86400000 + 1) / 7);
-	return `${thursday.getFullYear()}-W${String(week).padStart(2, "0")}`;
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
