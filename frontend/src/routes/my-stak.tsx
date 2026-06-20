@@ -210,27 +210,25 @@ function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 	const Wrapper = onClick ? "button" : "div";
 	return (
 		<Wrapper type={onClick ? "button" : undefined} onClick={onClick}
-			className={`flex flex-col min-h-[100px] rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[12px] py-[12px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl w-full text-left overflow-hidden ${onClick ? "active:opacity-75 transition-opacity" : ""}`}>
-			<div className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
+			className={`flex flex-col rounded-[20px] border border-foreground/[0.04] bg-surface-1 px-[10px] py-[10px] dark:shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl w-full text-left overflow-hidden ${onClick ? "active:opacity-75 transition-opacity" : ""}`}>
+			<div className={`grid h-[32px] w-[32px] shrink-0 place-items-center rounded-[10px] border ${STAT_COLORS[iconColor]}`}>
 				{icon}
 			</div>
-			<div className="mt-auto pt-[10px]">
+			<div className="mt-[8px]">
 				{number ? (
-					<div className="flex items-end gap-[6px]">
-						<p className="text-[26px] font-bold leading-none tracking-[-0.04em] text-foreground">{number}</p>
-						<div className="pb-[2px]">
-							<p className="text-[12px] leading-[14px] text-foreground/95">{title}</p>
-							{subtitle && <p className="text-[11px] leading-[13px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
-						</div>
+					<div>
+						<p className="text-[22px] font-bold leading-none tracking-[-0.04em] text-foreground">{number}</p>
+						<p className="text-[10px] leading-[13px] text-foreground/95 mt-[2px]">{title}</p>
+						{subtitle && <p className="text-[9px] leading-[12px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
 					</div>
 				) : (
 					<div>
-						<p className="text-[10px] font-semibold leading-[13px] text-foreground/95 whitespace-nowrap">{title}</p>
-						{subtitle && <p className="mt-[1px] text-[10px] leading-[13px] dark:text-slate-400 text-slate-500 whitespace-nowrap">{subtitle}</p>}
+						<p className="text-[10px] font-semibold leading-[13px] text-foreground/95">{title}</p>
+						{subtitle && <p className="mt-[1px] text-[10px] leading-[13px] dark:text-slate-400 text-slate-500">{subtitle}</p>}
 					</div>
 				)}
 			</div>
-			{onClick && <p className="text-[10px] text-blue-400/70 mt-[4px] self-end">Tap to view →</p>}
+			{onClick && <p className="text-[10px] text-blue-400/70 mt-[3px]">Tap to view →</p>}
 		</Wrapper>
 	);
 }
