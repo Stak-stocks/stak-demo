@@ -333,9 +333,22 @@ export function PlaygroundPage() {
 		return ids;
 	}, [account?.lessonProgress, account?.earningsProgress, account?.battlesProgress, account?.riskProgress, account?.moodProgress]);
 
-	// Weekly Pack — purely seed-based (weekKey + uid), never changes mid-session or on reload.
-	// dailyCompleted (from Firestore) filters completed items out of each section view.
-	const staticDailyPack = useMemo(() => getWeeklyPack(totalXp, dayKey, allTimeCompletedIds, account?.uid ?? ""), [totalXp, dayKey, allTimeCompletedIds, account?.uid]);
+	// Daily pack — generated once per day per user and locked in localStorage.
+	// allTimeCompletedIds is used only on first generation (cache miss); completing activities
+	// mid-day never reshuffles the pack because the deps exclude allTimeCompletedIds.
+	const staticDailyPack = useMemo(() => {
+		const uid = account?.uid;
+		if (!uid || accountLoading) return getWeeklyPack(totalXp, dayKey, new Set(), "");
+		const cacheKey = `stak:dailyPack:v1:${uid}:${dayKey}`;
+		try {
+			const hit = localStorage.getItem(cacheKey);
+			if (hit) return JSON.parse(hit) as ReturnType<typeof getWeeklyPack>;
+		} catch { /* ignore */ }
+		const pack = getWeeklyPack(totalXp, dayKey, allTimeCompletedIds, uid);
+		try { localStorage.setItem(cacheKey, JSON.stringify(pack)); } catch { /* ignore */ }
+		return pack;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [dayKey, account?.uid, accountLoading]); // allTimeCompletedIds intentionally excluded — pack is locked once per day
 	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useWeeklyContent(staticDailyPack, account?.uid ?? "", dayKey);
 	const dailyCompleted = useMemo(() => {
 		const wp = account?.weeklyProgress;
@@ -583,33 +596,41 @@ export function PlaygroundPage() {
 					</div>
 				</div>
 
-				{/* Market Moment — Gemini lesson on major economic event days */}
-				{macroLessonObj && (
-					<div className="mb-[20px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">
-							Market Moment · Today's Big Release
-						</p>
-						<button
-							type="button"
-							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveView("macro-lesson"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
-							className="w-full rounded-[14px] border border-violet-500/30 bg-violet-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
-						>
-							<div className="flex items-center gap-[12px]">
-								<span className="text-[30px]">{macroLessonObj.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<p className="text-[14px] font-bold text-foreground">{macroLessonObj.title}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{macroLessonObj.subtitle}</p>
-									<p className="text-[11px] text-violet-400 mt-[3px]">
-										{account?.lessonProgress?.[macroLessonObj.id]?.completed ? "Completed ✓" : `3 min · +25 XP · Major event today`}
-									</p>
+				{/* Market Moment (trading days) / Featured Today (weekends & holidays) — Gemini powered */}
+				{macroLessonObj && (() => {
+					const isMarketDay = marketLessonData?.isMarketDay !== false;
+					const accent = isMarketDay ? "violet" : "amber";
+					const borderCls = isMarketDay ? "border-violet-500/30" : "border-amber-500/30";
+					const bgCls = isMarketDay ? "bg-violet-500/[0.07]" : "bg-amber-500/[0.07]";
+					const textCls = isMarketDay ? "text-violet-400" : "text-amber-400";
+					const iconBgCls = isMarketDay ? "bg-violet-500/15 text-violet-400" : "bg-amber-500/15 text-amber-400";
+					const label = isMarketDay ? "Market Moment · Today's Big Release" : "Featured Today · Weekend Prep";
+					const meta = account?.lessonProgress?.[macroLessonObj.id]?.completed
+						? "Completed ✓"
+						: isMarketDay ? "3 min · +25 XP · Major event today" : "3 min · +25 XP · Prep for the week ahead";
+					return (
+						<div className="mb-[20px]">
+							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">{label}</p>
+							<button
+								type="button"
+								onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveView("macro-lesson"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
+								className={`w-full rounded-[14px] border ${borderCls} ${bgCls} px-[16px] py-[14px] text-left active:opacity-80 transition-opacity`}
+							>
+								<div className="flex items-center gap-[12px]">
+									<span className="text-[30px]">{macroLessonObj.emoji}</span>
+									<div className="flex-1 min-w-0">
+										<p className="text-[14px] font-bold text-foreground">{macroLessonObj.title}</p>
+										<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{macroLessonObj.subtitle}</p>
+										<p className={`text-[11px] ${textCls} mt-[3px]`}>{meta}</p>
+									</div>
+									<div className={`shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full ${iconBgCls}`}>
+										<ChevronRight size={16} />
+									</div>
 								</div>
-								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-violet-500/15 text-violet-400">
-									<ChevronRight size={16} />
-								</div>
-							</div>
-						</button>
-					</div>
-				)}
+							</button>
+						</div>
+					);
+				})()}
 
 				{/* Featured Lesson from Daily Brief — only shown when no Market Moment is available */}
 				{featuredLesson && !macroLessonObj && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (

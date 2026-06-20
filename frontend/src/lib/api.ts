@@ -386,7 +386,7 @@ export function getDailyBrief() {
 }
 
 export function getMarketLesson() {
-	return apiRequest<{ lesson: MacroLesson | null }>("/api/daily-brief/market-lesson");
+	return apiRequest<{ lesson: MacroLesson | null; isMarketDay?: boolean }>("/api/daily-brief/market-lesson");
 }
 
 export interface WeeklyLesson {

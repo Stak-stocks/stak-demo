@@ -659,26 +659,36 @@ interface MarketLessonResponse {
 
 interface LessonHistoryEntry { eventType: string; title: string; angle: string; completedAt?: number; date?: string }
 
-async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<MarketLessonResponse | null> {
+async function isTradingDay(): Promise<boolean> {
+	const etDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+	const d = new Date(etDateStr + "T12:00:00Z");
+	const dayNum = d.getUTCDay();
+	if (dayNum === 0 || dayNum === 6) return false;
+	const holidays = await fetchMarketHolidays();
+	return !holidays.has(etDateStr);
+}
+
+async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `playground:market-lesson:v1:${today}`;
+	const marketDay = await isTradingDay();
+	const cacheKey = `playground:market-lesson:v2:${today}`;
 
 	// 1. Redis / in-memory cache (fast path)
-	const cached = await cacheGet<MarketLessonResponse | { empty: true }>(cacheKey);
+	const cached = await cacheGet<{ lesson: MarketLessonResponse; isMarketDay: boolean } | { empty: true }>(cacheKey);
 	if (cached !== null) {
 		if ("empty" in (cached as object)) return null;
-		return cached as MarketLessonResponse;
+		return cached as { lesson: MarketLessonResponse; isMarketDay: boolean };
 	}
 
 	// 2. Firestore fallback — survives server restarts in local dev
 	try {
 		const snap = await adminDb.collection("config").doc("market-lesson").get();
 		if (snap.exists) {
-			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse };
+			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean };
 			if (d.date === today && d.lesson) {
-				// Repopulate in-process cache so subsequent requests skip Firestore
-				await cacheSet(cacheKey, d.lesson, 12 * 60 * 60 * 1000);
-				return d.lesson;
+				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay };
+				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
+				return result;
 			}
 		}
 	} catch { /* Firestore unavailable — proceed to generate */ }
@@ -692,7 +702,8 @@ async function generateMarketLesson(userHistory: LessonHistoryEntry[]): Promise<
 		? `\nThis user's personal lesson history (DO NOT repeat the same angle — always teach something new):\n${history.map(h => `- "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
-	const prompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+	const prompt = marketDay
+		? `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
 ${historyBlock}
 Search the web for the single most significant market-moving event from the past 2 days. Priority order:
 1. Federal Reserve / FOMC rate decisions or statements
@@ -712,32 +723,50 @@ Return ONLY a JSON object (no markdown, no code fences):
   "subtitle": "One hook sentence, max 12 words — e.g. 'Rates stayed put. Here's why that still moves your stocks.'",
   "emoji": "single relevant emoji",
   "cards": [
-    {
-      "heading": "What Happened",
-      "body": "2-3 sentences. State exactly what happened with real numbers. When did it happen? What was the decision/number vs what was expected?"
-    },
-    {
-      "heading": "Why It Moves Stocks",
-      "body": "2-3 sentences. Explain the cause-and-effect chain in plain English. Use arrows: e.g. 'Higher rates → borrowing costs rise → growth stocks get hit because future profits are worth less today.'"
-    },
-    {
-      "heading": "What to Watch",
-      "body": "2-3 sentences. Name 1-2 sectors or stock types most affected and explain why in simple terms. What should a young investor keep an eye on next?"
-    }
+    { "heading": "What Happened", "body": "2-3 sentences. State exactly what happened with real numbers." },
+    { "heading": "Why It Moves Stocks", "body": "2-3 sentences. Explain the cause-and-effect chain. Use arrows: e.g. 'Higher rates → borrowing costs rise → growth stocks get hit.'" },
+    { "heading": "What to Watch", "body": "2-3 sentences. Name 1-2 sectors or stock types most affected." }
   ],
   "quiz": {
-    "question": "Test the mechanism, not the headline fact — and not a question covered in previous lessons listed above",
-    "options": [
-      { "id": "a", "text": "..." },
-      { "id": "b", "text": "..." },
-      { "id": "c", "text": "..." }
-    ],
+    "question": "Test the mechanism, not the headline fact",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
     "correctId": "a" | "b" | "c",
-    "explanation": "2 sentences — why the correct answer is right, and why the others miss the point"
+    "explanation": "2 sentences — why the correct answer is right"
   }
 }
 
 If nothing significant happened in the past 2 days, return: { "empty": true }
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`
+		: `You are writing a Featured Today lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today} — the market is closed (weekend or holiday).
+${historyBlock}
+Search the web for one timely concept that will help a young investor prepare for the upcoming trading week. Pick something relevant to current market themes, economic conditions, or a topic that came up in the news this week.
+
+Examples: how to read an earnings report before a big earnings week, what a yield curve means if rates are in focus, how sector rotation works if there's been market volatility, what market sentiment indicators tell us, etc.
+
+If the concept is the same type as a recently taught lesson above, cover a DIFFERENT angle.
+
+Build a 3-card educational lesson that teaches a beginner investor something genuinely useful for the week ahead.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "eventType": "concept",
+  "angle": "one short phrase describing the specific angle — e.g. 'how to interpret P/E ratios in a high-rate environment'",
+  "title": "7 words max — e.g. 'Why the Yield Curve Actually Matters'",
+  "subtitle": "One hook sentence, max 12 words — e.g. 'Markets are closed. Here's what to prep for Monday.'",
+  "emoji": "single relevant emoji",
+  "cards": [
+    { "heading": "The Concept", "body": "2-3 sentences. Explain what this concept is in plain English." },
+    { "heading": "Why It Matters for Your Stocks", "body": "2-3 sentences. Connect it to real stock/portfolio impact." },
+    { "heading": "How to Use It", "body": "2-3 sentences. What should a young investor actually do or watch for?" }
+  ],
+  "quiz": {
+    "question": "Test the concept, not just a definition",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right"
+  }
+}
 
 Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
 
@@ -768,10 +797,10 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 				return null;
 			}
 			if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
-				await cacheSet(cacheKey, parsed, 12 * 60 * 60 * 1000);
-				// Persist to Firestore so server restarts don't regenerate
-				adminDb.collection("config").doc("market-lesson").set({ date: today, lesson: parsed }).catch(() => {});
-				return parsed;
+				const result = { lesson: parsed, isMarketDay: marketDay };
+				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
+				adminDb.collection("config").doc("market-lesson").set({ date: today, lesson: parsed, isMarketDay: marketDay }).catch(() => {});
+				return result;
 			}
 		} catch {
 			continue;
@@ -786,9 +815,9 @@ dailyBriefRouter.get("/market-lesson", authMiddleware, async (req: Authenticated
 		const uid = req.user!.uid;
 		const userSnap = await adminDb.collection("users").doc(uid).get();
 		const userHistory: LessonHistoryEntry[] = (userSnap.data()?.marketLessonHistory as LessonHistoryEntry[] | undefined) ?? [];
-		const lesson = await generateMarketLesson(userHistory);
-		if (!lesson) { res.json({ lesson: null }); return; }
-		res.json({ lesson });
+		const result = await generateMarketLesson(userHistory);
+		if (!result) { res.json({ lesson: null }); return; }
+		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay });
 	} catch {
 		res.json({ lesson: null });
 	}
