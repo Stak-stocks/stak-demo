@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
-	LESSONS, LESSON_CATEGORIES, getDailyChallenge, getWeeklyPack, getCurrentWeekKey,
+	LESSONS, LESSON_CATEGORIES, getWeeklyPack, getCurrentWeekKey,
 	STOCK_BATTLES, EARNINGS_SCENARIOS, RISK_SCENARIOS, MOOD_SCENARIOS,
 	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
 	type WatchlistSlotType, type WeeklyActivity,
@@ -196,7 +196,6 @@ type ActiveView =
 	| "lessons"
 	| "lesson-player"
 	| "macro-lesson"
-	| "daily-challenge"
 	| "battles"
 	| "earnings-lab"
 	| "risk-lab"
@@ -276,7 +275,6 @@ export function PlaygroundPage() {
 
 	// Use local time to match dayKey (getCurrentWeekKey also uses local time)
 	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
-	const dailyChallenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
 
 	// Weekly Pack — computed after totalXp is available (see line ~310)
 	// Use daily key for completion tracking so each day brings fresh scenarios
@@ -315,8 +313,6 @@ export function PlaygroundPage() {
 		if (!lessonId) return null;
 		return LESSONS.find(l => l.id === lessonId) ?? null;
 	}, [briefData]);
-	const challengeCompleted = account?.dailyChallengeState?.date === todayKey &&
-		(account.dailyChallengeState.completedIds ?? []).includes(dailyChallenge.id);
 
 	const totalXp = account?.totalXp ?? 0;
 	const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
@@ -485,16 +481,6 @@ export function PlaygroundPage() {
 			/>
 		);
 	}
-	if (activeView === "daily-challenge") {
-		return (
-			<DailyChallengeView
-				challenge={dailyChallenge}
-				alreadyCompleted={challengeCompleted}
-				account={account}
-				onBack={goHome}
-			/>
-		);
-	}
 	if (activeView === "battles") {
 		return <BattlesView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onWeeklyComplete={markActivityComplete}
 			weeklyBattleIds={dailyPack.activities.filter(a => a.type === "battle").map(a => a.id)}
@@ -657,40 +643,6 @@ export function PlaygroundPage() {
 						</button>
 					</div>
 				)}
-
-				{/* Daily Challenge — hero card */}
-				<div className="mb-[20px]">
-					<button
-						type="button"
-						onClick={() => goToView("daily-challenge")}
-						className={`w-full rounded-[18px] border overflow-hidden text-left active:opacity-80 transition-opacity ${challengeCompleted ? "border-emerald-500/30" : "border-amber-500/30"}`}
-					>
-						{/* Gradient header strip */}
-						<div className={`px-[18px] py-[14px] ${challengeCompleted ? "bg-gradient-to-br from-emerald-500/15 to-teal-500/10" : "bg-gradient-to-br from-amber-500/15 to-orange-500/10"}`}>
-							<div className="flex items-center justify-between mb-[8px]">
-								<div className="flex items-center gap-[6px]">
-									<span className="text-[18px]">{challengeCompleted ? "✅" : "⚡"}</span>
-									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-300 text-slate-600">Daily Challenge</p>
-								</div>
-								{challengeCompleted
-									? <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/20 px-[8px] py-[2px] rounded-full border border-emerald-500/25">Done ✓</span>
-									: <span className="text-[11px] font-bold text-amber-400 bg-amber-500/15 px-[8px] py-[2px] rounded-full border border-amber-500/25">+{dailyChallenge.xp} XP</span>
-								}
-							</div>
-							<p className="text-[15px] font-bold text-foreground leading-snug">{dailyChallenge.prompt}</p>
-						</div>
-						{/* Footer strip */}
-						{!challengeCompleted && (
-							<div className={`flex items-center justify-between px-[18px] py-[10px] bg-surface-1`}>
-								<p className="text-[12px] dark:text-slate-400 text-slate-500">Answer to earn {dailyChallenge.xp} XP</p>
-								<div className="flex items-center gap-[4px] text-amber-400">
-									<p className="text-[12px] font-semibold">Start</p>
-									<ChevronRight size={14} />
-								</div>
-							</div>
-						)}
-					</button>
-				</div>
 
 				{/* Weekly Pack */}
 				{/* All Sections — 2-column grid */}
@@ -1151,95 +1103,6 @@ function LessonPlayer({
 							</div>
 						)}
 					</div>
-				)}
-			</div>
-		</div>
-	);
-}
-
-// ── Daily Challenge View ───────────────────────────────────────────────────
-
-function DailyChallengeView({
-	challenge,
-	alreadyCompleted,
-	account,
-	onBack,
-}: {
-	challenge: ReturnType<typeof getDailyChallenge>;
-	alreadyCompleted: boolean;
-	account: ReturnType<typeof useAccount>["account"];
-	onBack: () => void;
-}) {
-	const { completeChallenge } = useAccount();
-	const { showXp, XPFloat } = useXpFloat();
-	const [selected, setSelected] = useState<string | null>(null);
-	const [showResult, setShowResult] = useState(alreadyCompleted);
-	const isCorrect = selected?.toLowerCase() === challenge.correctId?.toLowerCase();
-
-	const handleAnswer = async (id: string) => {
-		if (showResult) return;
-		setSelected(id);
-		setShowResult(true);
-		const correct = id.toLowerCase() === challenge.correctId?.toLowerCase();
-		if (correct) showXp(challenge.xp);
-		// Only award XP and count toward streak for correct answers
-		if (!alreadyCompleted && correct) {
-			await completeChallenge(challenge.id, challenge.xp);
-			trackEvent("brand_tap").catch(() => {});
-		}
-	};
-
-	return (
-		<div className="min-h-full bg-background text-foreground">
-			{XPFloat}
-			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={onBack} />
-				<div className="flex items-center gap-[10px] mb-[20px]">
-					<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-amber-500/15 text-amber-400">
-						<Zap size={20} />
-					</div>
-					<div>
-						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Daily Challenge</p>
-						<h2 className="text-[18px] font-extrabold leading-tight">Today's Question</h2>
-					</div>
-				</div>
-
-				<div className="rounded-[16px] border border-foreground/10 bg-surface-1 p-[20px] mb-[16px]">
-					<p className="text-[16px] font-bold text-foreground leading-snug">{challenge.prompt}</p>
-					<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[6px]">+{challenge.xp} XP on completion</p>
-				</div>
-
-				<div className="space-y-[8px] mb-[16px]">
-					{challenge.options.map((opt, i) => (
-						<OptionBtn
-							key={opt.id}
-							letter={LETTERS[i] ?? String(i + 1)}
-							text={opt.text}
-							state={optionState(opt.id, challenge.correctId, selected, showResult)}
-							onClick={() => handleAnswer(opt.id)}
-							disabled={showResult}
-						/>
-					))}
-				</div>
-
-				{showResult && (
-					<>
-						<div className={`rounded-[12px] p-[14px] mb-[12px] ${(isCorrect || alreadyCompleted) ? "bg-emerald-500/10 border border-emerald-500/25" : "bg-amber-500/10 border border-amber-500/25"}`}>
-							<p className="text-[13px] font-bold mb-[4px]">{alreadyCompleted ? "Already completed ✓" : isCorrect ? "Correct! 🎉" : "Not quite."}</p>
-							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{challenge.explanation}</p>
-							{!alreadyCompleted && isCorrect && <p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{challenge.xp} XP earned!</p>}
-						</div>
-						<div className="space-y-[8px]">
-							{(isCorrect || alreadyCompleted) ? (
-								<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>Done</button>
-							) : (
-								<>
-									<button type="button" onClick={() => { setSelected(null); setShowResult(false); }} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f97316,#ef4444)" }}>Try Again</button>
-									<button type="button" onClick={onBack} className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">Back</button>
-								</>
-							)}
-						</div>
-					</>
 				)}
 			</div>
 		</div>
@@ -4366,7 +4229,6 @@ const ONBOARDING_SLIDES = [
 
 const START_OPTIONS: { label: string; emoji: string; view: ActiveView; desc: string }[] = [
 	{ label: "Lessons",         emoji: "📖", view: "lessons",         desc: "Start with the basics" },
-	{ label: "Daily Challenge", emoji: "⚡", view: "daily-challenge", desc: "Quick 1-question warm-up" },
 	{ label: "Stock Battles",   emoji: "⚔️", view: "battles",         desc: "Pick the winning stock" },
 	{ label: "Just browse",     emoji: "🗺️", view: null,              desc: "See everything first" },
 ];
