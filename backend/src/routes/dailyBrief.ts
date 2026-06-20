@@ -97,16 +97,48 @@ function getNextTradingDayLabel(fromDayNum: number): string {
 	return daysAhead === 1 ? "tomorrow" : DAY_NAMES[nextDayNum];
 }
 
-function getLastTradingDayLabel(fromDayNum: number): string {
-	let prevDayNum = (fromDayNum + 6) % 7;
-	while (prevDayNum === 0 || prevDayNum === 6) {
-		prevDayNum = (prevDayNum + 6) % 7;
+async function fetchMarketHolidays(): Promise<Set<string>> {
+	const year = new Date().getFullYear();
+	const cacheKey = `market-holidays:us:${year}`;
+	const cached = await cacheGet<string[]>(cacheKey);
+	if (cached) return new Set(cached);
+
+	try {
+		const keys = getFinnhubKeys();
+		for (const key of keys) {
+			const res = await fetch(`${FINNHUB_BASE}/stock/market-holidays?exchange=US&token=${key}`);
+			if (!res.ok) continue;
+			const data = await res.json() as { data?: { atDate: string }[] };
+			const dates = (data.data ?? []).map(h => h.atDate).filter(Boolean);
+			if (dates.length > 0) {
+				await cacheSet(cacheKey, dates, 24 * 60 * 60 * 1000);
+				return new Set(dates);
+			}
+		}
+	} catch { /* fall through */ }
+
+	return new Set();
+}
+
+// Walks backward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getLastTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysBack = 1; daysBack <= 10; daysBack++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() - daysBack);
+		const dayNum = d.getUTCDay(); // 0=Sun … 6=Sat
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return DAY_NAMES[dayNum] + "'s";
 	}
-	return DAY_NAMES[prevDayNum] + "'s";
+	// Fallback — should never be reached
+	return "Last trading day's";
 }
 
 async function getMarketStatus(): Promise<{ session: Session; marketClosed: boolean; holiday: string | null; dayLabel: string; nextTradingDayLabel: string }> {
 	const now = new Date();
+	const etDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD
 	const etDayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
 	const etDayNum  = DAY_NAMES.indexOf(etDayName);
 	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
@@ -116,16 +148,16 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 
 	const isWeekend = etDayNum === 0 || etDayNum === 6;
 
-	// Fast path: skip API call on weekends
+	// Fast path: skip Finnhub status API on weekends, but still need holiday list for dayLabel
 	if (isWeekend) {
-		const dayLabel = getLastTradingDayLabel(etDayNum);
+		const dayLabel = await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday: null, dayLabel, nextTradingDayLabel };
 	}
 
 	const { isOpen, holiday } = await fetchMarketStatus();
 
 	if (!isOpen) {
-		const dayLabel = getLastTradingDayLabel(etDayNum);
+		const dayLabel = await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
