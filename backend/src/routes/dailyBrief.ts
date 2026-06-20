@@ -657,7 +657,7 @@ interface MarketLessonResponse {
 	};
 }
 
-interface LessonHistoryEntry { eventType: string; title: string; angle: string; completedAt?: number; date?: string }
+interface GlobalLessonHistoryEntry { date: string; eventType: string; title: string; angle: string; }
 
 async function isTradingDay(): Promise<boolean> {
 	const etDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -668,7 +668,32 @@ async function isTradingDay(): Promise<boolean> {
 	return !holidays.has(etDateStr);
 }
 
-async function generateFeaturedLesson(userHistory: LessonHistoryEntry[]): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
+async function getGlobalFeaturedLessonHistory(): Promise<GlobalLessonHistoryEntry[]> {
+	const cacheKey = `playground:featured-lesson-history:v1`;
+	const cached = await cacheGet<GlobalLessonHistoryEntry[]>(cacheKey);
+	if (cached) return cached;
+	try {
+		const snap = await adminDb.collection("config").doc("featured-lesson-history").get();
+		if (snap.exists) {
+			const entries = (snap.data()?.entries as GlobalLessonHistoryEntry[] | undefined) ?? [];
+			await cacheSet(cacheKey, entries, 60 * 60 * 1000);
+			return entries;
+		}
+	} catch { /* ignore */ }
+	return [];
+}
+
+async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry): Promise<void> {
+	try {
+		const existing = await getGlobalFeaturedLessonHistory();
+		const filtered = existing.filter(e => e.date !== entry.date);
+		const updated = [entry, ...filtered].slice(0, 30);
+		await adminDb.collection("config").doc("featured-lesson-history").set({ entries: updated });
+		await cacheSet(`playground:featured-lesson-history:v1`, updated, 60 * 60 * 1000);
+	} catch { /* non-fatal */ }
+}
+
+async function generateFeaturedLesson(): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
 	const today = new Date().toISOString().split("T")[0];
 	const marketDay = await isTradingDay();
 	const cacheKey = `playground:featured-lesson:v1:${today}`;
@@ -693,13 +718,10 @@ async function generateFeaturedLesson(userHistory: LessonHistoryEntry[]): Promis
 		}
 	} catch { /* Firestore unavailable — proceed to generate */ }
 
-	// Take the 20 most recent entries by completedAt (most recent first)
-	const history = [...userHistory]
-		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
-		.slice(0, 20);
+	const history = (await getGlobalFeaturedLessonHistory()).slice(0, 20);
 
 	const historyBlock = history.length > 0
-		? `\nThis user's personal lesson history (DO NOT repeat the same angle — always teach something new):\n${history.map(h => `- "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
+		? `\nRecent lessons already taught in this app (DO NOT repeat the same angle — always teach something genuinely new):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
 	const prompt = marketDay
@@ -800,6 +822,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 				const result = { lesson: parsed, isMarketDay: marketDay };
 				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
 				adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay: marketDay }).catch(() => {});
+				appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
 				return result;
 			}
 		} catch {
@@ -810,12 +833,9 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 }
 
 // GET /api/daily-brief/featured-lesson
-dailyBriefRouter.get("/featured-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
+dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: AuthenticatedRequest, res) => {
 	try {
-		const uid = req.user!.uid;
-		const userSnap = await adminDb.collection("users").doc(uid).get();
-		const userHistory: LessonHistoryEntry[] = (userSnap.data()?.featuredLessonHistory as LessonHistoryEntry[] | undefined) ?? [];
-		const result = await generateFeaturedLesson(userHistory);
+		const result = await generateFeaturedLesson();
 		if (!result) { res.json({ lesson: null }); return; }
 		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay });
 	} catch {

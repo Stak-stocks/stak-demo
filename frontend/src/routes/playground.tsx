@@ -228,7 +228,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 }
 
 export function PlaygroundPage() {
-	const { account, accountLoading, completeDailyActivity, completeEarningsScenario, completeBattle, completeRiskScenario, completeMoodScenario, markPlaygroundOnboarded, saveFeaturedLessonHistory } = useAccount();
+	const { account, accountLoading, completeDailyActivity, completeEarningsScenario, completeBattle, completeRiskScenario, completeMoodScenario, markPlaygroundOnboarded } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
 	// Optimistic local completions — updates instantly before Firestore onSnapshot fires
@@ -460,16 +460,7 @@ export function PlaygroundPage() {
 				totalLessons={totalLessons}
 				lessonsPool={[featuredTodayLesson]}
 				onBack={goHome}
-				onComplete={() => {
-					if (featuredTodayMeta) {
-						saveFeaturedLessonHistory({
-							eventType: featuredTodayMeta.eventType,
-							title: featuredTodayLesson.title,
-							angle: featuredTodayMeta.angle,
-						}).catch(() => {});
-					}
-					goHome();
-				}}
+				onComplete={goHome}
 			/>
 		);
 	}
