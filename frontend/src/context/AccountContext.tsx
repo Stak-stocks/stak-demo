@@ -120,7 +120,7 @@ export interface UserDoc {
 	practiceSkills?: Record<string, number>; // skill slug → cumulative XP, e.g. { valuation: 250, growth: 180 }
 	playgroundOnboarded?: boolean;         // true after user has completed playground onboarding
 	featuredLessonHistory?: Array<{ eventType: string; title: string; angle: string; completedAt: number }>;
-	weeklyLessonHistory?: Array<{ topic: string; title: string; angle: string; completedAt: number }>;
+	generatedLessonHistory?: Array<{ topic: string; title: string; angle: string; completedAt: number }>;
 }
 
 interface AccountContextType {
@@ -152,7 +152,7 @@ interface AccountContextType {
 	addPracticeSkillXp: (skill: string, xp: number) => Promise<void>;
 	markPlaygroundOnboarded: () => Promise<void>;
 	saveFeaturedLessonHistory: (entry: { eventType: string; title: string; angle: string }) => Promise<void>;
-	saveWeeklyLessonHistory: (entry: { topic: string; title: string; angle: string }) => Promise<void>;
+	saveGeneratedLessonHistory: (entry: { topic: string; title: string; angle: string }) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | null>(null);
@@ -544,11 +544,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		});
 	}, [user]);
 
-	const saveWeeklyLessonHistory = useCallback(async (entry: { topic: string; title: string; angle: string }) => {
+	const saveGeneratedLessonHistory = useCallback(async (entry: { topic: string; title: string; angle: string }) => {
 		if (!user) return;
 		const record = { ...entry, completedAt: Date.now() };
 		await updateDoc(doc(db, "users", user.uid), {
-			weeklyLessonHistory: arrayUnion(record),
+			generatedLessonHistory: arrayUnion(record),
 		});
 	}, [user]);
 
@@ -595,7 +595,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				addPracticeSkillXp,
 				markPlaygroundOnboarded,
 				saveFeaturedLessonHistory,
-				saveWeeklyLessonHistory,
+				saveGeneratedLessonHistory,
 				addSearchHistory,
 				removeSearchHistoryEntry,
 				clearSearchHistory,

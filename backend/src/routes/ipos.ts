@@ -2,7 +2,7 @@ import { Router } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { syncNewIPOs, seedAllStocks, getSeedStatus } from "../services/ipoService.js";
 
-export const iposRouter = Router();
+export const stocksRouter = Router();
 
 /** Delete Firebase Auth users who signed up with email/password but never verified
  *  their email and whose account is older than `maxAgeHours` (default 24).
@@ -48,7 +48,7 @@ export async function deleteUnverifiedAccounts(maxAgeHours = 24): Promise<{ dele
 }
 
 // GET /api/stocks — public, returns all auto-detected stocks from Firestore
-iposRouter.get("/", async (_req, res) => {
+stocksRouter.get("/", async (_req, res) => {
 	try {
 		const snapshot = await adminDb.collection("stocks").get();
 		const stocks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -60,7 +60,7 @@ iposRouter.get("/", async (_req, res) => {
 });
 
 // POST /api/admin/sync — protected by X-Admin-Secret header, triggers IPO sync manually
-iposRouter.post("/sync", async (req, res) => {
+stocksRouter.post("/sync", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });
@@ -79,7 +79,7 @@ iposRouter.post("/sync", async (req, res) => {
 });
 
 // POST /api/admin/seed — start background seeding of all US-listed stocks (non-blocking)
-iposRouter.post("/seed", async (req, res) => {
+stocksRouter.post("/seed", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });
@@ -94,7 +94,7 @@ iposRouter.post("/seed", async (req, res) => {
 });
 
 // POST /api/admin/seed-stop — cancel a running seed job
-iposRouter.post("/seed-stop", async (req, res) => {
+stocksRouter.post("/seed-stop", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });
@@ -112,7 +112,7 @@ iposRouter.post("/seed-stop", async (req, res) => {
 });
 
 // GET /api/admin/seed-status — check seeding progress
-iposRouter.get("/seed-status", async (req, res) => {
+stocksRouter.get("/seed-status", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });
@@ -129,7 +129,7 @@ iposRouter.get("/seed-status", async (req, res) => {
 
 // POST /api/admin/cleanup-orphaned-docs — delete Firestore user docs with no Firebase Auth account
 // Useful after manually deleting users from Firebase Console during testing
-iposRouter.post("/cleanup-orphaned-docs", async (req, res) => {
+stocksRouter.post("/cleanup-orphaned-docs", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });
@@ -164,7 +164,7 @@ iposRouter.post("/cleanup-orphaned-docs", async (req, res) => {
 });
 
 // POST /api/admin/cleanup-unverified — delete unverified email/password accounts older than 24h
-iposRouter.post("/cleanup-unverified", async (req, res) => {
+stocksRouter.post("/cleanup-unverified", async (req, res) => {
 	const secret = req.headers["x-admin-secret"];
 	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
 		res.status(403).json({ error: "Forbidden" });

@@ -347,7 +347,7 @@ export interface DailyBriefDeck {
 	bars?: boolean;
 }
 
-export interface MacroLesson {
+export interface FeaturedLesson {
 	eventType: string;
 	angle?: string;
 	title: string;
@@ -372,7 +372,7 @@ export interface DailyBriefResponse {
 	plainEnglish: string;
 	personalizedImpact: string;
 	decks: DailyBriefDeck[];
-	macroLesson?: MacroLesson;
+	featuredLesson?: FeaturedLesson;
 	marketSnapshot: {
 		spyChange: number | null;
 		qqqChange: number | null;
@@ -386,10 +386,10 @@ export function getDailyBrief() {
 }
 
 export function getFeaturedLesson() {
-	return apiRequest<{ lesson: MacroLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
+	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
 }
 
-export interface WeeklyLesson {
+export interface GeneratedLesson {
 	topic: string;
 	angle: string;
 	title: string;
@@ -404,8 +404,8 @@ export interface WeeklyLesson {
 	};
 }
 
-export function getWeeklyLesson() {
-	return apiRequest<{ lesson: WeeklyLesson | null }>("/api/daily-brief/weekly-lesson");
+export function getGeneratedLesson() {
+	return apiRequest<{ lesson: GeneratedLesson | null }>("/api/daily-brief/generated-lesson");
 }
 
 export interface RecommendationDebugStock {

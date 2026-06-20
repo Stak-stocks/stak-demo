@@ -53,7 +53,7 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 
 	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
 	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("macro-moment-") && p.completed && p.completedAt >= todayMidnight,
+		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
 	);
 
 	const isActive = (path: string) => {

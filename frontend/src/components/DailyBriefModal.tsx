@@ -8,7 +8,7 @@ import {
 	TrendingDown, Play, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getDailyBrief, type DailyBriefDeck, type MacroLesson } from "@/lib/api";
+import { getDailyBrief, type DailyBriefDeck, type FeaturedLesson } from "@/lib/api";
 import { marketSessionBucket } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
@@ -158,7 +158,7 @@ const MACRO_COLORS: Record<string, { border: string; bg: string; text: string; i
 	other:     { border: "border-amber-500/20",   bg: "bg-amber-500/[0.07]",   text: "text-amber-600 dark:text-amber-400",  iconBg: "bg-amber-500/15"   },
 };
 
-function MacroLessonCard({ lesson }: { lesson: MacroLesson }) {
+function FeaturedLessonCard({ lesson }: { lesson: FeaturedLesson }) {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const isAnswered = selectedId !== null;
 	const c = MACRO_COLORS[lesson.eventType] ?? MACRO_COLORS.other;
@@ -366,8 +366,8 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 				<InfoCard color="cyan" icon={<UserRound size={26} strokeWidth={1.8} />} title="Why this matters to you" text={brief.personalizedImpact} />
 
 				{/* Market Moment — only on major economic event days */}
-				{(brief as { macroLesson?: MacroLesson }).macroLesson && (
-					<MacroLessonCard lesson={(brief as { macroLesson: MacroLesson }).macroLesson} />
+				{(brief as { featuredLesson?: FeaturedLesson }).featuredLesson && (
+					<FeaturedLessonCard lesson={(brief as { featuredLesson: FeaturedLesson }).featuredLesson} />
 				)}
 
 				{/* Today's Focus / Stocks to Watch */}

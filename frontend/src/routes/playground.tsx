@@ -388,7 +388,7 @@ export function PlaygroundPage() {
 		const ml = featuredLessonData?.lesson;
 		if (!ml) return null;
 		return {
-			id: `macro-moment-${dayKey}`,
+			id: `featured-today-${dayKey}`,
 			title: ml.title,
 			subtitle: ml.subtitle,
 			category: "Market Basics" as LessonCategory,

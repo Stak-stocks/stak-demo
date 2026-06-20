@@ -841,7 +841,7 @@ function xpToTier(xp: number): number {
 	return 0;
 }
 
-interface WeeklyLessonResponse {
+interface GeneratedLessonResponse {
 	topic: string;
 	angle: string;
 	title: string;
@@ -856,19 +856,19 @@ interface WeeklyLessonResponse {
 	};
 }
 
-interface WeeklyLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
+interface GeneratedLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
 
-async function generateWeeklyLesson(uid: string, totalXp: number, userHistory: WeeklyLessonHistoryEntry[]): Promise<WeeklyLessonResponse | null> {
+async function generateGeneratedLesson(uid: string, totalXp: number, userHistory: GeneratedLessonHistoryEntry[]): Promise<GeneratedLessonResponse | null> {
 	const d = new Date();
 	const jan4 = new Date(d.getFullYear(), 0, 4);
 	const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
 	const isoWeek = `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 
-	const cacheKey = `playground:weekly-lesson:v1:${uid}:${isoWeek}`;
-	const cached = await cacheGet<WeeklyLessonResponse | { empty: true }>(cacheKey);
+	const cacheKey = `playground:generated-lesson:v1:${uid}:${isoWeek}`;
+	const cached = await cacheGet<GeneratedLessonResponse | { empty: true }>(cacheKey);
 	if (cached !== null) {
 		if ("empty" in (cached as object)) return null;
-		return cached as WeeklyLessonResponse;
+		return cached as GeneratedLessonResponse;
 	}
 
 	const tier = xpToTier(totalXp);
@@ -963,7 +963,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
 			if (!text) continue;
 			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
-			const parsed = JSON.parse(jsonStr) as WeeklyLessonResponse;
+			const parsed = JSON.parse(jsonStr) as GeneratedLessonResponse;
 			if (parsed.topic && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
 				const ttl = 7 * 24 * 60 * 60 * 1000;
 				await cacheSet(cacheKey, parsed, ttl);
@@ -976,15 +976,15 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 	return null;
 }
 
-// GET /api/daily-brief/weekly-lesson
-dailyBriefRouter.get("/weekly-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
+// GET /api/daily-brief/generated-lesson
+dailyBriefRouter.get("/generated-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const userSnap = await adminDb.collection("users").doc(uid).get();
 		const data = userSnap.data();
 		const totalXp: number = (data?.totalXp as number | undefined) ?? 0;
-		const userHistory: WeeklyLessonHistoryEntry[] = (data?.weeklyLessonHistory as WeeklyLessonHistoryEntry[] | undefined) ?? [];
-		const lesson = await generateWeeklyLesson(uid, totalXp, userHistory);
+		const userHistory: GeneratedLessonHistoryEntry[] = (data?.generatedLessonHistory as GeneratedLessonHistoryEntry[] | undefined) ?? [];
+		const lesson = await generateGeneratedLesson(uid, totalXp, userHistory);
 		if (!lesson) { res.json({ lesson: null }); return; }
 		res.json({ lesson });
 	} catch {
