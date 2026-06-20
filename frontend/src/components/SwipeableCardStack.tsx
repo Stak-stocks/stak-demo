@@ -559,7 +559,7 @@ export function SwipeableCardStack({
 				<div
 					key={deck[currentIndex]?.id ?? currentIndex}
 					ref={cardRef}
-					className="absolute cursor-grab active:cursor-grabbing select-none"
+					className="absolute overflow-hidden rounded-[24px] cursor-grab active:cursor-grabbing select-none"
 					style={{
 						width: cardW,
 						height: cardH,
