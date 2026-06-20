@@ -3,11 +3,13 @@ import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys } from "../services/geminiService.js";
 import { adminDb } from "../firebaseAdmin.js";
+import { TIER_XP, ACTIVITY_TYPES } from "@stak/shared";
 
 export const playgroundRouter = Router();
 
 const GEN_MODEL = "gemini-2.5-flash";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — fresh content each day
+
 
 interface GeneratedBattle {
 	id: string;
@@ -125,7 +127,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	const rawType = String(req.body?.type ?? "");
 	const rawCount = Math.min(Math.max(Number(req.body?.count ?? 3), 1), 10);
 
-	const VALID_TYPES = ["battle", "earnings", "risk", "mood", "lesson", "drill_sentiment", "drill_nextstep"] as const;
+	const VALID_TYPES = [...ACTIVITY_TYPES, "drill_sentiment", "drill_nextstep"] as const;
 	type ValidType = typeof VALID_TYPES[number];
 
 	const dayKey = sanitizeKey(rawDayKey);
@@ -194,7 +196,7 @@ Return a JSON array of exactly ${rawCount} objects with this schema:
   "metricLabel": "Revenue Growth",
   "higherWins": true,
   "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins.",
-  "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
+  "xp": ${TIER_XP[tier]?.battle ?? 5}
 }]
 Rules:
 - Use companies that are genuinely comparable (same sector/industry)
@@ -232,7 +234,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "correctId": "c",
   "outcome": "Brief description of what happened and how the stock reacted.",
   "explanation": "2-3 sentences explaining why the market reacted this way.",
-  "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
+  "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
 - Use real companies and plausible earnings scenarios
@@ -257,7 +259,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "optionB": "A small biotech with a single drug in Phase 2 trials",
   "riskierOption": "B",
   "explanation": "2-3 sentences explaining why one option is riskier, citing specific risk factors.",
-  "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
+  "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
 - Each week use DIFFERENT companies and industries — rotate across tech, healthcare, energy, retail, finance, industrials
@@ -285,7 +287,7 @@ Return a JSON array of exactly ${rawCount} objects:
   ],
   "correctId": "b",
   "explanation": "2-3 sentences explaining the macro relationship being tested.",
-  "xp": ${tier <= 2 ? 5 : tier <= 3 ? 7 : tier <= 4 ? 8 : 10}
+  "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
 - Each day cover DIFFERENT macro themes — rotate across: Fed policy, inflation, GDP/recession, geopolitics, commodity prices, earnings seasons, currency moves, sector rotations, trade policy, consumer sentiment
@@ -317,7 +319,7 @@ Return a JSON array of exactly ${rawCount} objects with this exact schema:
   "category": "Stock Basics",
   "emoji": "📈",
   "durationMin": 3,
-  "xp": ${tier <= 2 ? 20 : tier <= 3 ? 28 : tier <= 4 ? 35 : 45},
+  "xp": ${TIER_XP[tier]?.lesson ?? 15},
   "cards": [
     { "heading": "The concept", "body": "2-3 sentence plain-English explanation." },
     { "heading": "Why it matters", "body": "Why investors care about this. Real example." },

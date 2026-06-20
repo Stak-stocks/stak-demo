@@ -1,5 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { ACTIVITY_TYPES } from "@stak/shared";
+import type { ActivityType } from "@stak/shared";
 import { generatePlaygroundQuestions } from "@/lib/api";
 import type { DailyPack, DailyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
 import type {
@@ -22,8 +24,6 @@ const VALID_CATEGORIES = new Set<LessonCategory>([
 	"Stock Basics", "Market Basics", "Valuation", "Earnings", "Risk", "Dividends", "Sectors",
 ]);
 
-type GenerableType = "battle" | "earnings" | "risk" | "mood" | "lesson";
-const GENERABLE_TYPES: GenerableType[] = ["battle", "earnings", "risk", "mood", "lesson"];
 
 const GEN_STALE_MS = 24 * 60 * 60 * 1000;
 
@@ -35,7 +35,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 	const counts = TIER_COUNTS[tier] ?? TIER_COUNTS[1]!;
 
 	const queries = useQueries({
-		queries: GENERABLE_TYPES.map(type => ({
+		queries: ACTIVITY_TYPES.map(type => ({
 			queryKey: ["playground-gen", uid, dayKey, type],
 			queryFn: async () => {
 				// Check localStorage first — ensures same content on page refresh and survives server restarts

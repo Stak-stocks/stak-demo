@@ -227,7 +227,7 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 	}
 }
 
-export function PlaygroundPage() {
+function PlaygroundPage() {
 	const { account, accountLoading, completeDailyActivity, completeEarningsScenario, completeBattle, completeRiskScenario, completeMoodScenario, markPlaygroundOnboarded } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
 	const [activeView, setActiveView] = useState<ActiveView>(restored.view);
@@ -353,19 +353,9 @@ export function PlaygroundPage() {
 		return new Set([...fromFirestore, ...localCompleted]);
 	}, [account?.dailyProgress, dayKey, localCompleted]);
 
-	// localCompletedTypes mirrors localCompleted but stores the activity type for instant home card updates
-	const [localCompletedTypes, setLocalCompletedTypes] = useState<Set<string>>(new Set());
-	// dailyCompletedTypes: used by home card done-counts — type-based so ID changes don't break completion state
-	const dailyCompletedTypes = useMemo(() => {
-		const wp = account?.dailyProgress;
-		const fromFirestore = wp?.dayKey === dayKey ? new Set(wp.completedTypes ?? []) : new Set<string>();
-		return new Set([...fromFirestore, ...localCompletedTypes]);
-	}, [account?.dailyProgress, dayKey, localCompletedTypes]);
-
 	// Wrapper that also updates local state immediately for instant UI feedback
 	const markActivityComplete = useCallback((wk: string, id: string, xp: number, type?: string) => {
 		setLocalCompleted(prev => new Set([...prev, id]));
-		if (type) setLocalCompletedTypes(prev => new Set([...prev, type]));
 		completeDailyActivity(wk, id, xp, type).catch(() => {});
 		// Fire streak update — any playground completion counts toward daily streak
 		trackEvent("playground_activity", { activityId: id }).catch(() => {});
@@ -635,31 +625,31 @@ export function PlaygroundPage() {
 						{
 							colorKey: "lessons", icon: <BookOpen size={20} />, title: "Lessons",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "lesson").length} today`, view: "lessons" as const,
-							done: (() => { const t = dailyPack.activities.filter(a => a.type === "lesson").length; return dailyCompletedTypes.has("lesson") ? t : dailyCompleted ? dailyPack.activities.filter(a => a.type === "lesson" && dailyCompleted.has(a.id)).length : 0; })(),
+							done: dailyPack.activities.filter(a => a.type === "lesson" && (dailyCompleted?.has(a.id) || allTimeCompletedIds.has(a.id))).length,
 							total: dailyPack.activities.filter(a => a.type === "lesson").length,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "battle").length} today`, view: "battles" as const,
-							done: (() => { const t = dailyPack.activities.filter(a => a.type === "battle").length; return dailyCompletedTypes.has("battle") ? t : dailyCompleted ? dailyPack.activities.filter(a => a.type === "battle" && dailyCompleted.has(a.id)).length : 0; })(),
+							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "battle" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "battle").length,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "earnings").length} today`, view: "earnings-lab" as const,
-							done: (() => { const t = dailyPack.activities.filter(a => a.type === "earnings").length; return dailyCompletedTypes.has("earnings") ? t : dailyCompleted ? dailyPack.activities.filter(a => a.type === "earnings" && dailyCompleted.has(a.id)).length : 0; })(),
+							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "earnings" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "earnings").length,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "risk").length} today`, view: "risk-lab" as const,
-							done: (() => { const t = dailyPack.activities.filter(a => a.type === "risk").length; return dailyCompletedTypes.has("risk") ? t : dailyCompleted ? dailyPack.activities.filter(a => a.type === "risk" && dailyCompleted.has(a.id)).length : 0; })(),
+							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "risk" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "risk").length,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "mood").length} today`, view: "mood-simulator" as const,
-							done: (() => { const t = dailyPack.activities.filter(a => a.type === "mood").length; return dailyCompletedTypes.has("mood") ? t : dailyCompleted ? dailyPack.activities.filter(a => a.type === "mood" && dailyCompleted.has(a.id)).length : 0; })(),
+							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "mood" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "mood").length,
 						},
 						{
@@ -807,7 +797,8 @@ function LessonLibrary({
 										<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{lesson.subtitle}</p>
 										<div className="flex items-center gap-[8px] mt-[5px]">
 											<span className={`text-[10px] font-semibold px-[6px] py-[2px] rounded-full border ${CATEGORY_COLORS[lesson.category]}`}>{lesson.category}</span>
-											<span className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.durationMin} min · {lesson.xp} XP</span>
+											<span className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.durationMin} min</span>
+											<span className="text-[10px] font-bold text-amber-400">+{lesson.xp} XP</span>
 										</div>
 									</div>
 									{done
@@ -1561,10 +1552,11 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const [done, setDone] = useState(false);
-	const [correct, setCorrect] = useState(0);
+	const dailyIds = dailyRiskIds ? pool.filter(r => dailyRiskIds.includes(r.id)) : pool;
+	// Seed from already-completed so re-entry after a retry shows the full cumulative score.
+	const [correct, setCorrect] = useState(() => dailyIds.filter(r => dailyCompleted?.has(r.id)).length);
 	// sessionCorrect tracks IDs completed correctly THIS session so Try Again can replay them
 	const [sessionCorrect, setSessionCorrect] = useState<Set<string>>(new Set());
-	const dailyIds = dailyRiskIds ? pool.filter(r => dailyRiskIds.includes(r.id)) : pool;
 	// Exclude already-completed (correct) scenarios EXCEPT ones just done correctly this session.
 	// Wrong answers are intentionally NOT flushed — users can retry them on re-entry.
 	const visibleRisk = dailyIds.filter(r => !dailyCompleted?.has(r.id) || sessionCorrect.has(r.id));
@@ -1741,9 +1733,10 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
-	const [correct, setCorrect] = useState(0);
-	const [sessionCorrectMood, setSessionCorrectMood] = useState<Set<string>>(new Set());
 	const dailyIdsMood = dailyMoodIds ? pool.filter(m => dailyMoodIds.includes(m.id)) : pool;
+	// Seed from already-completed so re-entry after a retry shows the full cumulative score.
+	const [correct, setCorrect] = useState(() => dailyIdsMood.filter(m => dailyCompleted?.has(m.id)).length);
+	const [sessionCorrectMood, setSessionCorrectMood] = useState<Set<string>>(new Set());
 	const visibleMood = dailyIdsMood.filter(m => !dailyCompleted?.has(m.id) || sessionCorrectMood.has(m.id));
 	const scenario = visibleMood[index];
 

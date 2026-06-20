@@ -2968,7 +2968,7 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, scrollToPixel
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
-export function LandingPage() {
+function LandingPage() {
 	const { user, loading, onboardingCompleted } = useAuth();
 	const navigate = useNavigate();
 	const scrollRef = useRef<HTMLDivElement>(null);

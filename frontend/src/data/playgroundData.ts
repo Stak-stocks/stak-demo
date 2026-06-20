@@ -1,4 +1,8 @@
 // ── STAK Playground static content ──────────────────────────────────────────
+import { TIER_XP as BASE_TIER_XP, xpToTier } from "@stak/shared";
+import type { ActivityType } from "@stak/shared";
+export { xpToTier, TIER_THRESHOLDS, ACTIVITY_TYPES } from "@stak/shared";
+export type { ActivityType } from "@stak/shared";
 // Lessons, daily challenges, stock battles, earnings lab, risk lab, market mood
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -1533,8 +1537,6 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 
 // ── Weekly Pack system ────────────────────────────────────────────────────────
 
-export type ActivityType = "lesson" | "battle" | "earnings" | "risk" | "mood";
-
 export interface DailyActivity {
 	id: string;
 	type: ActivityType;
@@ -1572,22 +1574,16 @@ const BATTLE_TIERS: Record<string, number> = {
 	"sbux-vs-cmg": 1, "tsla-vs-rivn": 1, "cost-vs-wmt": 1,
 };
 
-// Tier XP multipliers
+// Tier XP — numbers + labels from @stak/shared; color is frontend-only
 export const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
-	1: { lesson: 15, battle: 5,  lab: 5,  label: "Beginner",  color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { lesson: 21, battle: 6,  lab: 6,  label: "Learner",   color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { lesson: 26, battle: 7,  lab: 7,  label: "Investor",  color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { lesson: 34, battle: 8,  lab: 8,  label: "Analyst",   color: "border-violet-500/30 bg-violet-500/[0.07]" },
-	5: { lesson: 45, battle: 10, lab: 10, label: "Expert",    color: "border-amber-500/30 bg-amber-500/[0.07]"   },
+	1: { ...BASE_TIER_XP[1], color: "border-slate-500/30 bg-slate-500/[0.07]"   },
+	2: { ...BASE_TIER_XP[2], color: "border-blue-500/30 bg-blue-500/[0.07]"     },
+	3: { ...BASE_TIER_XP[3], color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
+	4: { ...BASE_TIER_XP[4], color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	5: { ...BASE_TIER_XP[5], color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 
-function xpTier(totalXp: number): number {
-	if (totalXp >= 7500) return 5;  // Expert
-	if (totalXp >= 3500) return 4;  // Analyst
-	if (totalXp >= 1500) return 3;  // Investor
-	if (totalXp >= 500)  return 2;  // Learner
-	return 1;                        // Beginner
-}
+// xpToTier is imported from @stak/shared — single source of truth
 
 function hashStr(str: string): number {
 	let h = 0;
@@ -1636,7 +1632,7 @@ export const TIER_COUNTS: Record<number, { lessons: number; battles: number; ear
  * Lesson Library, Battles, Labs etc. only show content from this pack.
  */
 export function getDailyPack(totalXp: number, dayKey: string, completedIds: Set<string> = new Set(), uid = ""): DailyPack {
-	const tier = xpTier(totalXp);
+	const tier = xpToTier(totalXp);
 	const xpRates = TIER_XP[tier]!;
 	const counts = TIER_COUNTS[tier]!;
 
