@@ -60,6 +60,11 @@ export interface EarningsProgress {
 	completedAt: number;
 }
 
+export interface ActivityProgress {
+	completed: boolean;
+	completedAt: number;
+}
+
 export interface DailyChallengeState {
 	date: string;
 	completedIds: string[];
@@ -101,6 +106,9 @@ export interface UserDoc {
 	totalXp?: number;
 	lessonProgress?: Record<string, LessonProgress>;
 	earningsProgress?: Record<string, EarningsProgress>;
+	battlesProgress?: Record<string, ActivityProgress>;
+	riskProgress?: Record<string, ActivityProgress>;
+	moodProgress?: Record<string, ActivityProgress>;
 	dailyChallengeState?: DailyChallengeState;
 	sandboxPortfolio?: Record<string, SandboxEntry>;
 	sandboxCash?: number;
@@ -130,6 +138,9 @@ interface AccountContextType {
 	updateLastBriefDate: (date: string) => Promise<void>;
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
 	completeEarningsScenario: (scenarioId: string) => Promise<void>;
+	completeBattle: (battleId: string) => Promise<void>;
+	completeRiskScenario: (scenarioId: string) => Promise<void>;
+	completeMoodScenario: (scenarioId: string) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
@@ -323,6 +334,39 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			if (account?.earningsProgress?.[scenarioId]?.completed) return;
 			await updateDoc(doc(db, "users", user.uid), {
 				[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeBattle = useCallback(
+		async (battleId: string) => {
+			if (!user) return;
+			if (account?.battlesProgress?.[battleId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`battlesProgress.${battleId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeRiskScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.riskProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`riskProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+			});
+		},
+		[user, account],
+	);
+
+	const completeMoodScenario = useCallback(
+		async (scenarioId: string) => {
+			if (!user) return;
+			if (account?.moodProgress?.[scenarioId]?.completed) return;
+			await updateDoc(doc(db, "users", user.uid), {
+				[`moodProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
 			});
 		},
 		[user, account],
@@ -541,6 +585,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updatePreferences,
 				completeLesson,
 				completeEarningsScenario,
+			completeBattle,
+			completeRiskScenario,
+			completeMoodScenario,
 				completeChallenge,
 				addXp,
 				addToSandbox,

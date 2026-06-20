@@ -1656,7 +1656,7 @@ export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Se
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	const battlePool = STOCK_BATTLES.filter(b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
+	const battlePool = freshPool(STOCK_BATTLES, b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
 	const pickedBattles = rotatingSlice(battlePool, uid + "B", weekKey, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
@@ -1668,12 +1668,14 @@ export function getWeeklyPack(totalXp: number, weekKey: string, completedIds: Se
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	const pickedRisk = rotatingSlice(RISK_SCENARIOS, uid + "R", weekKey, counts.risk).map(s => ({
+	const riskPool = freshPool(RISK_SCENARIOS);
+	const pickedRisk = rotatingSlice(riskPool, uid + "R", weekKey, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	const pickedMood = rotatingSlice(MOOD_SCENARIOS, uid + "M", weekKey, counts.mood).map(s => ({
+	const moodPool = freshPool(MOOD_SCENARIOS);
+	const pickedMood = rotatingSlice(moodPool, uid + "M", weekKey, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,
 	}));
