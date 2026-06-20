@@ -555,11 +555,11 @@ export function SwipeableCardStack({
 					</div>
 				)}
 
-				{/* Main card (draggable) */}
+				{/* Main card (draggable) — transform and overflow-hidden must be on separate divs for iOS Safari */}
 				<div
 					key={deck[currentIndex]?.id ?? currentIndex}
 					ref={cardRef}
-					className="absolute overflow-hidden rounded-[24px] cursor-grab active:cursor-grabbing select-none"
+					className="absolute cursor-grab active:cursor-grabbing select-none"
 					style={{
 						width: cardW,
 						height: cardH,
@@ -579,19 +579,21 @@ export function SwipeableCardStack({
 					onTouchMove={handleTouchMove}
 					onTouchEnd={handleTouchEnd}
 				>
-					{/* Swipe tint */}
-					{Math.abs(dragOffset.x) > 15 && (
-						<div
-							className="absolute inset-0 rounded-[24px] pointer-events-none z-10"
-							style={{
-								backgroundColor: dragOffset.x > 0
-									? `rgba(34, 197, 94, ${tintOpacity})`
-									: `rgba(239, 68, 68, ${tintOpacity})`,
-							}}
-						/>
-					)}
-					<div style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', height: '100%' }}>
-						{deck[currentIndex] && <StockCard brand={deck[currentIndex]} quote={stockData?.quote} isTopCard scale={scale} isPopular={popularSet.has(deck[currentIndex]?.id)} />}
+					<div className="relative w-full h-full overflow-hidden rounded-[24px]">
+						{/* Swipe tint */}
+						{Math.abs(dragOffset.x) > 15 && (
+							<div
+								className="absolute inset-0 pointer-events-none z-10"
+								style={{
+									backgroundColor: dragOffset.x > 0
+										? `rgba(34, 197, 94, ${tintOpacity})`
+										: `rgba(239, 68, 68, ${tintOpacity})`,
+								}}
+							/>
+						)}
+						<div style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', height: '100%' }}>
+							{deck[currentIndex] && <StockCard brand={deck[currentIndex]} quote={stockData?.quote} isTopCard scale={scale} isPopular={popularSet.has(deck[currentIndex]?.id)} />}
+						</div>
 					</div>
 				</div>
 
