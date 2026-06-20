@@ -37,12 +37,18 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 	const queries = useQueries({
 		queries: GENERABLE_TYPES.map(type => ({
 			queryKey: ["playground-gen", uid, dayKey, type],
-			queryFn: () => generatePlaygroundQuestions(
-				dayKey,
-				tier,
-				type,
-				Math.min((counts[type as keyof typeof counts] ?? 3) + GEN_COUNT_BUFFER, 10),
-			),
+			queryFn: async () => {
+				// Check localStorage first — ensures same content on page refresh and survives server restarts
+				const lsKey = `stak:gen:v1:${uid}:${dayKey}:${type}`;
+				try {
+					const hit = localStorage.getItem(lsKey);
+					if (hit) return JSON.parse(hit) as unknown[];
+				} catch { /* ignore */ }
+				const count = Math.min((counts[type as keyof typeof counts] ?? 3) + GEN_COUNT_BUFFER, 10);
+				const result = await generatePlaygroundQuestions(dayKey, tier, type, count);
+				try { localStorage.setItem(lsKey, JSON.stringify(result)); } catch { /* ignore */ }
+				return result;
+			},
 			staleTime: GEN_STALE_MS,
 			gcTime: GEN_STALE_MS,
 			enabled: !!uid,
