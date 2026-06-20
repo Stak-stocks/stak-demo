@@ -51,14 +51,9 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 	const currentPath = router.location.pathname;
 	const { account } = useAccount();
 
-	const isoWeek = (() => {
-		const d = new Date();
-		const jan4 = new Date(d.getFullYear(), 0, 4);
-		const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-		return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
-	})();
-	const challengeDone = Object.keys(account?.lessonProgress ?? {}).some(
-		key => key.startsWith("macro-moment-") && key.endsWith(isoWeek) && account?.lessonProgress?.[key]?.completed,
+	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
+		([key, p]) => key.startsWith("macro-moment-") && p.completed && p.completedAt >= todayMidnight,
 	);
 
 	const isActive = (path: string) => {
