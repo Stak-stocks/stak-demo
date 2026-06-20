@@ -601,12 +601,12 @@ ${stockSection}
 Mood: ${mood}
 
 Write exactly 2 punchy sentences:
-1. Pick the single most relevant stock from their list — mention it by name, connect it to the real driver above if available (e.g. "With the Fed holding rates, growth stocks like NVDA face continued pressure"), and reference the actual % move. Do NOT use the word "today" if the market is closed.
+1. If stocks are listed above, name the single most relevant one, connect it to the real driver above (e.g. "With the Fed holding rates, growth stocks like NVDA face continued pressure"), and include the actual % move. If no stocks are listed, reference the leading or lagging sector instead. Do NOT use the word "today" if the market is closed.
 2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}), the real driver above, and leading/lagging sectors.
 
 CRITICAL RULES:
-- ONLY mention stocks explicitly listed in the "${stockSection.startsWith("User's stocks") ? "User's stocks" : "User's top interests"}" section above. NEVER invent, hallucinate, or substitute other stock names.
-- If the user has no stocks listed, only reference broad market or sector moves — no individual stock names.
+- ONLY use stock names that appear verbatim in the section above. NEVER guess, invent, or add stock names that are not listed.
+- Do NOT write phrases like "if [stock] is in your list" or any conditional about whether a stock is relevant — just use the names given or omit them.
 - Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
 - Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
 
