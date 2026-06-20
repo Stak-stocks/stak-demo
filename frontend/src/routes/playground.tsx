@@ -740,10 +740,6 @@ function LessonLibrary({
 	);
 	// Only show today's lessons
 	const thisWeekLessons = pool.filter(l => dailyLessonIds.includes(l.id));
-	// Past archive: lessons not in today's pack that were completed on previous days — cap at 5 most recent
-	const pastLessons = pool
-		.filter(l => !dailyLessonIds.includes(l.id) && allTimeDoneIds.has(l.id))
-		.slice(0, 5);
 	const visibleLessons = selectedCategory
 		? thisWeekLessons.filter(l => l.category === selectedCategory)
 		: thisWeekLessons;
@@ -824,25 +820,6 @@ function LessonLibrary({
 					})}
 				</div>
 
-				{/* Past lessons — completed in previous weeks */}
-				{pastLessons.length > 0 && !selectedCategory && (
-					<div className="mt-[24px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Previously Completed</p>
-						<div className="space-y-[6px]">
-							{pastLessons.map(lesson => (
-								<button key={lesson.id} type="button" onClick={() => onSelectLesson(lesson.id)}
-									className="w-full flex items-center gap-[12px] rounded-[12px] border border-foreground/[0.06] bg-foreground/[0.02] px-[14px] py-[10px] text-left active:opacity-70 opacity-60">
-									<span className="text-[20px]">{lesson.emoji}</span>
-									<div className="flex-1 min-w-0">
-										<p className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">{lesson.title}</p>
-										<p className="text-[10px] dark:text-slate-500 text-slate-400">{lesson.category}</p>
-									</div>
-									<div className="text-[11px] text-emerald-400/60 font-bold">✓</div>
-								</button>
-							))}
-						</div>
-					</div>
-				)}
 			</div>
 		</div>
 	);
