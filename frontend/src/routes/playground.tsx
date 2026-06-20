@@ -387,16 +387,8 @@ export function PlaygroundPage() {
 	const macroLessonObj = useMemo(() => {
 		const ml = marketLessonData?.lesson;
 		if (!ml) return null;
-		// ID is event-type + ISO week so the same topic completed on any day this week
-		// stays completed — prevents seeing the same event twice in one week.
-		const isoWeek = (() => {
-			const d = new Date();
-			const jan4 = new Date(d.getFullYear(), 0, 4);
-			const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-			return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
-		})();
 		return {
-			id: `macro-moment-${ml.eventType}-${isoWeek}`,
+			id: `macro-moment-${dayKey}`,
 			title: ml.title,
 			subtitle: ml.subtitle,
 			category: "Market Basics" as LessonCategory,
