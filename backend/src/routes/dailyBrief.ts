@@ -97,27 +97,92 @@ function getNextTradingDayLabel(fromDayNum: number): string {
 	return daysAhead === 1 ? "tomorrow" : DAY_NAMES[nextDayNum];
 }
 
+// Algorithmic fallback: computes NYSE holidays for any year from exchange rules.
+// Used when Gemini is unavailable (local dev without API keys).
+function computeNYSEHolidays(year: number): Set<string> {
+	const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+	function observed(month: number, day: number): Date {
+		const d = new Date(Date.UTC(year, month - 1, day));
+		const dow = d.getUTCDay();
+		if (dow === 6) d.setUTCDate(d.getUTCDate() - 1); // Sat → Fri
+		if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
+		return d;
+	}
+	function nthWeekday(month: number, weekday: number, n: number): Date {
+		const d = new Date(Date.UTC(year, month - 1, 1));
+		d.setUTCDate(1 + ((weekday - d.getUTCDay() + 7) % 7) + (n - 1) * 7);
+		return d;
+	}
+	function lastWeekday(month: number, weekday: number): Date {
+		const d = new Date(Date.UTC(year, month, 0));
+		d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - weekday + 7) % 7));
+		return d;
+	}
+	function easterSunday(): Date {
+		const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+		const d2 = Math.floor(b / 4), e = b % 4;
+		const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+		const h = (19 * a + b - d2 - g + 15) % 30;
+		const i = Math.floor(c / 4), k = c % 4;
+		const l = (32 + 2 * e + 2 * i - h - k) % 7;
+		const m = Math.floor((a + 11 * h + 22 * l) / 451);
+		const mo = Math.floor((h + l - 7 * m + 114) / 31);
+		const dy = ((h + l - 7 * m + 114) % 31) + 1;
+		return new Date(Date.UTC(year, mo - 1, dy));
+	}
+	const easter = easterSunday();
+	const goodFriday = new Date(Date.UTC(easter.getUTCFullYear(), easter.getUTCMonth(), easter.getUTCDate() - 2));
+	return new Set([
+		observed(1, 1), nthWeekday(1, 1, 3), nthWeekday(2, 1, 3), goodFriday,
+		lastWeekday(5, 1), observed(6, 19), observed(7, 4),
+		nthWeekday(9, 1, 1), nthWeekday(11, 4, 4), observed(12, 25),
+	].map(fmt));
+}
+
+// Primary: Gemini+Search fetches the actual NYSE holiday list for the year,
+// catching any unexpected market closures. Falls back to algorithmic computation.
 async function fetchMarketHolidays(): Promise<Set<string>> {
 	const year = new Date().getFullYear();
-	const cacheKey = `market-holidays:us:${year}`;
+	const cacheKey = `market-holidays:gemini:${year}`;
+
 	const cached = await cacheGet<string[]>(cacheKey);
 	if (cached) return new Set(cached);
 
-	try {
-		const keys = getFinnhubKeys();
-		for (const key of keys) {
-			const res = await fetch(`${FINNHUB_BASE}/stock/market-holidays?exchange=US&token=${key}`);
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text:
+							`List every official NYSE US stock market holiday in ${year} — including any unexpected closures — as a JSON array of date strings in YYYY-MM-DD format. Return ONLY the JSON array, no explanation, no markdown fences.`
+						}] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
 			if (!res.ok) continue;
-			const data = await res.json() as { data?: { atDate: string }[] };
-			const dates = (data.data ?? []).map(h => h.atDate).filter(Boolean);
-			if (dates.length > 0) {
-				await cacheSet(cacheKey, dates, 24 * 60 * 60 * 1000);
-				return new Set(dates);
-			}
-		}
-	} catch { /* fall through */ }
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim() ?? "";
+			const match = text.match(/\[[\s\S]*?\]/);
+			if (!match) continue;
+			const parsed: unknown = JSON.parse(match[0]);
+			if (!Array.isArray(parsed)) continue;
+			const dates = (parsed as unknown[]).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
+			if (dates.length < 5) continue; // sanity check — a valid year has at least 9 holidays
+			await cacheSet(cacheKey, dates, 7 * 24 * 60 * 60 * 1000); // cache 7 days
+			return new Set(dates);
+		} catch { continue; }
+	}
 
-	return new Set();
+	// Fallback: compute from exchange rules (works without API keys)
+	return computeNYSEHolidays(year);
 }
 
 // Walks backward from etDateStr until it finds a day that is not a weekend or holiday.
@@ -310,7 +375,8 @@ async function generateMarketText(
 	holiday: string | null = null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:text:v6:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:text:v7:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -328,14 +394,16 @@ async function generateMarketText(
 	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
 	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
 
+	// lastDayName: the actual last trading day (e.g. "Thursday" when Friday was a holiday)
+	const lastDayName = dayLabel.replace(/'s$/, "");
+
 	const timeContext = marketClosed
 		? holiday
-			? `Today is ${etDateStr} — a US market holiday (${holiday}), so markets are closed. Acknowledge the holiday by name. This is a recap of the most recent trading session. Write in past tense.`
-			: "The market is closed today (weekend). This is a recap of Friday's close. Use 'on Friday' or 'at Friday's close' instead of 'today'. Write in past tense."
+			? `Today is ${etDateStr} — a US market holiday (${holiday}), so markets are closed. Acknowledge the holiday by name. This is a recap of ${lastDayName}'s session. Write in past tense.`
+			: `The market is closed (weekend). This is a recap of ${lastDayName}'s close. Use 'on ${lastDayName}' or 'at ${lastDayName}'s close' — never say 'today' or any other day name. Write in past tense.`
 		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
 
-	const timeWord = marketClosed ? (holiday ? "at the last close" : "on Friday") : "today";
-	const dayRef = marketClosed ? (holiday ? "Last session's" : "Friday's") : dayLabel;
+	const timeWord = marketClosed ? `on ${lastDayName}` : "today";
 	const driversSection = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}` : "";
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
@@ -449,9 +517,11 @@ async function generatePersonalizedImpact(
 	marketClosed = false,
 	marketDrivers: string | null = null,
 	holiday: string | null = null,
+	dayLabel = "Today's",
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `daily-brief:impact:v6:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}`;
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:impact:v7:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -503,15 +573,16 @@ async function generatePersonalizedImpact(
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
 	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const lastDayNameImpact = dayLabel.replace(/'s$/, ""); // e.g. "Thursday's" → "Thursday"
 
-	const lastSessionRef = marketClosed ? (holiday ? "last session's" : "Friday's") : `${etDayNameImpact}'s`;
+	const lastSessionRef = marketClosed ? `${lastDayNameImpact}'s` : `${etDayNameImpact}'s`;
 	const stockSection = stockLines.length > 0
 		? `User's stocks at ${lastSessionRef} close: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
-	const timeWord = marketClosed ? (holiday ? "at the last close" : "on Friday") : "today";
+	const timeWord = marketClosed ? `on ${lastDayNameImpact}` : "today";
 	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
 	const holidayNote = holiday ? `Today is a US market holiday (${holiday}) — markets are closed.\n` : "";
 	const driversLine = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}\n` : "";
@@ -1028,7 +1099,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
 		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
