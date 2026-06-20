@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys } from "../services/geminiService.js";
+import { adminDb } from "../firebaseAdmin.js";
 
 export const playgroundRouter = Router();
 
@@ -138,11 +139,27 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 
 	// Per-user per-day cache — each user gets their own generated content
 	const cacheKey = `playground:gen:v5:${uid}:${dayKey}:${type}`;
+	const fsDocId = `${uid}_${dayKey}`;
+
+	// 1. Redis fast path
 	const cached = await cacheGet<unknown[]>(cacheKey);
 	if (cached) {
 		res.json({ questions: cached });
 		return;
 	}
+
+	// 2. Firestore fallback — cross-device consistency, survives server restarts
+	try {
+		const snap = await adminDb.collection("playgroundCache").doc(fsDocId).get();
+		if (snap.exists) {
+			const fsData = snap.data()?.[type] as unknown[] | undefined;
+			if (Array.isArray(fsData) && fsData.length > 0) {
+				await cacheSet(cacheKey, fsData, CACHE_TTL_MS);
+				res.json({ questions: fsData });
+				return;
+			}
+		}
+	} catch { /* Firestore unavailable — proceed to generate */ }
 
 	const tierLabel = ["", "Beginner", "Learner", "Investor", "Analyst", "Expert"][tier] ?? "Intermediate";
 
@@ -391,6 +408,8 @@ Rules:
 		});
 		if (valid.length === 0) throw new Error("No valid items in response");
 		await cacheSet(cacheKey, valid, CACHE_TTL_MS);
+		// Persist to Firestore for cross-device consistency
+		adminDb.collection("playgroundCache").doc(fsDocId).set({ [type]: valid }, { merge: true }).catch(() => {});
 		res.json({ questions: valid });
 	} catch {
 		res.status(500).json({ error: "Failed to parse generated content" });
