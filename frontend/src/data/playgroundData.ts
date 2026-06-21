@@ -1637,40 +1637,40 @@ export function getDailyPack(totalXp: number, dayKey: string, completedIds: Set<
 	const counts = TIER_COUNTS[tier]!;
 
 	// Helper: filter by tier + all-time completions, fall back to full tier pool if exhausted.
-	function freshPool<T extends { id: string }>(pool: T[], tierFilter?: (item: T) => boolean): T[] {
+	function freshPool<T extends { id: string }>(pool: T[], minCount: number, tierFilter?: (item: T) => boolean): T[] {
 		const tierFiltered = tierFilter ? pool.filter(tierFilter) : pool;
 		const unseen = tierFiltered.filter(item => !completedIds.has(item.id));
-		return unseen.length >= (counts.lessons) ? unseen : tierFiltered; // fall back when nearly exhausted
+		return unseen.length >= minCount ? unseen : tierFiltered; // fall back when nearly exhausted
 	}
 
 	// Each section uses rotatingSlice: pool is shuffled once per user (uid seed),
 	// then a different slice is taken each day → no repeats until the full pool cycles.
 	// Completed IDs are filtered out first so already-seen content doesn't resurface.
-	const lessonPool = freshPool(LESSONS, l => (LESSON_TIERS[l.id] ?? 1) <= tier);
+	const lessonPool = freshPool(LESSONS, counts.lessons, l => (LESSON_TIERS[l.id] ?? 1) <= tier);
 	const pickedLessons = rotatingSlice(lessonPool, uid + "L", dayKey, counts.lessons).map(l => ({
 		id: l.id, type: "lesson" as ActivityType,
 		title: l.title, subtitle: l.category, emoji: l.emoji, xp: xpRates.lesson,
 	}));
 
-	const battlePool = freshPool(STOCK_BATTLES, b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
+	const battlePool = freshPool(STOCK_BATTLES, counts.battles, b => (BATTLE_TIERS[b.id] ?? 2) <= tier);
 	const pickedBattles = rotatingSlice(battlePool, uid + "B", dayKey, counts.battles).map(b => ({
 		id: b.id, type: "battle" as ActivityType,
 		title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: xpRates.battle,
 	}));
 
-	const earningsPool = freshPool(EARNINGS_SCENARIOS);
+	const earningsPool = freshPool(EARNINGS_SCENARIOS, counts.earnings);
 	const pickedEarnings = rotatingSlice(earningsPool, uid + "E", dayKey, counts.earnings).map(s => ({
 		id: s.id, type: "earnings" as ActivityType,
 		title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: xpRates.lab,
 	}));
 
-	const riskPool = freshPool(RISK_SCENARIOS);
+	const riskPool = freshPool(RISK_SCENARIOS, counts.risk);
 	const pickedRisk = rotatingSlice(riskPool, uid + "R", dayKey, counts.risk).map(s => ({
 		id: s.id, type: "risk" as ActivityType,
 		title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: xpRates.lab - 5,
 	}));
 
-	const moodPool = freshPool(MOOD_SCENARIOS);
+	const moodPool = freshPool(MOOD_SCENARIOS, counts.mood);
 	const pickedMood = rotatingSlice(moodPool, uid + "M", dayKey, counts.mood).map(s => ({
 		id: s.id, type: "mood" as ActivityType,
 		title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: xpRates.lab,

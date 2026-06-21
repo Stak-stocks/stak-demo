@@ -319,15 +319,17 @@ function PlaygroundPage() {
 	const totalLessons = LESSONS.length;
 
 	// All-time completed IDs — used to filter lesson/earnings pools so finished content doesn't resurface.
+	// Includes allTimeCompletedActivityIds so activities completed via the daily pack (not just the
+	// full detail view) are also excluded from future days' pools.
 	const allTimeCompletedIds = useMemo(() => {
-		const ids = new Set<string>();
+		const ids = new Set<string>(account?.allTimeCompletedActivityIds ?? []);
 		for (const [id, p] of Object.entries(account?.lessonProgress ?? {})) if (p.completed) ids.add(id);
 		for (const [id, p] of Object.entries(account?.earningsProgress ?? {})) if (p.completed) ids.add(id);
 		for (const [id, p] of Object.entries(account?.battlesProgress ?? {})) if (p.completed) ids.add(id);
 		for (const [id, p] of Object.entries(account?.riskProgress ?? {})) if (p.completed) ids.add(id);
 		for (const [id, p] of Object.entries(account?.moodProgress ?? {})) if (p.completed) ids.add(id);
 		return ids;
-	}, [account?.lessonProgress, account?.earningsProgress, account?.battlesProgress, account?.riskProgress, account?.moodProgress]);
+	}, [account?.allTimeCompletedActivityIds, account?.lessonProgress, account?.earningsProgress, account?.battlesProgress, account?.riskProgress, account?.moodProgress]);
 
 	// Daily pack — generated once per day per user and locked in localStorage.
 	// allTimeCompletedIds is used only on first generation (cache miss); completing activities
@@ -335,7 +337,7 @@ function PlaygroundPage() {
 	const staticDailyPack = useMemo(() => {
 		const uid = account?.uid;
 		if (!uid || accountLoading) return getDailyPack(totalXp, dayKey, new Set(), "");
-		const cacheKey = `stak:dailyPack:v1:${uid}:${dayKey}`;
+		const cacheKey = `stak:dailyPack:v2:${uid}:${dayKey}`;
 		try {
 			const hit = localStorage.getItem(cacheKey);
 			if (hit) return JSON.parse(hit) as ReturnType<typeof getDailyPack>;
