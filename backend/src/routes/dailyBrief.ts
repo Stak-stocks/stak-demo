@@ -145,14 +145,15 @@ function computeNYSEHolidays(year: number): Set<string> {
 	].map(fmt));
 }
 
-// Primary: Gemini+Search fetches the actual NYSE holiday list for the year,
-// catching any unexpected market closures. Falls back to algorithmic computation.
+// Algorithmic set is always the base — Gemini only adds unexpected closures on top.
+// This prevents a Gemini miss (e.g. omitting Juneteenth) from causing wrong "last close" labels.
 async function fetchMarketHolidays(): Promise<Set<string>> {
 	const year = new Date().getFullYear();
-	const cacheKey = `market-holidays:gemini:${year}`;
+	const cacheKey = `market-holidays:gemini:v2:${year}`;
+	const algorithmic = computeNYSEHolidays(year);
 
 	const cached = await cacheGet<string[]>(cacheKey);
-	if (cached) return new Set(cached);
+	if (cached) return new Set([...algorithmic, ...cached]);
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -182,12 +183,11 @@ async function fetchMarketHolidays(): Promise<Set<string>> {
 			const dates = (parsed as unknown[]).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
 			if (dates.length < 5) continue; // sanity check — a valid year has at least 9 holidays
 			await cacheSet(cacheKey, dates, 7 * 24 * 60 * 60 * 1000); // cache 7 days
-			return new Set(dates);
+			return new Set([...algorithmic, ...dates]);
 		} catch { continue; }
 	}
 
-	// Fallback: compute from exchange rules (works without API keys)
-	return computeNYSEHolidays(year);
+	return algorithmic;
 }
 
 // Walks backward from etDateStr until it finds a day that is not a weekend or holiday.
