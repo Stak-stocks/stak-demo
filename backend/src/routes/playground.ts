@@ -4,6 +4,7 @@ import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys } from "../services/geminiService.js";
 import { adminDb } from "../firebaseAdmin.js";
 import { TIER_XP, ACTIVITY_TYPES } from "@stak/shared";
+import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
 
@@ -131,7 +132,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	type ValidType = typeof VALID_TYPES[number];
 
 	const dayKey = sanitizeKey(rawDayKey);
-	const tier = Math.min(Math.max(Math.floor(rawTier), 1), 5);
+	const tier = Math.min(Math.max(Math.floor(rawTier), 1), 5) as TierNumber;
 	const type = VALID_TYPES.includes(rawType as ValidType) ? (rawType as ValidType) : null;
 
 	if (!dayKey || !tier || !type) {
@@ -163,6 +164,37 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 		}
 	} catch { /* Firestore unavailable — proceed to generate */ }
 
+	// Fetch last 14 days of generated content for this user to build topic exclusion list
+	let avoidLine = "";
+	try {
+		const today = new Date();
+		const recentRefs = Array.from({ length: 14 }, (_, i) => {
+			const d = new Date(today);
+			d.setDate(d.getDate() - (i + 1));
+			const dk = sanitizeKey(d.toISOString().split("T")[0]!);
+			return adminDb.collection("playgroundCache").doc(`${uid}_${dk}`);
+		});
+		const snaps = await adminDb.getAll(...recentRefs);
+		const recent: string[] = [];
+		for (const snap of snaps) {
+			if (!snap.exists) continue;
+			const items = snap.data()?.[type] as unknown[] | undefined;
+			if (!Array.isArray(items)) continue;
+			for (const item of items) {
+				if (!item || typeof item !== "object") continue;
+				const r = item as Record<string, unknown>;
+				if (type === "lesson" && typeof r.title === "string") recent.push(r.title);
+				else if (type === "battle" && typeof r.nameA === "string" && typeof r.nameB === "string")
+					recent.push(`${r.nameA} vs ${r.nameB}`);
+				else if (type === "earnings" && typeof r.company === "string") recent.push(r.company);
+				else if (type === "risk" && typeof r.optionA === "string") recent.push(String(r.optionA).slice(0, 50));
+				else if (type === "mood" && typeof r.event === "string") recent.push(String(r.event).replace(/^[^\w]*/, "").slice(0, 60));
+			}
+		}
+		if (recent.length > 0)
+			avoidLine = `\nAVOID REPEATING THESE RECENTLY COVERED TOPICS: ${recent.slice(0, 30).join(" | ")}\n`;
+	} catch { /* history unavailable — proceed without exclusions */ }
+
 	const tierLabel = ["", "Beginner", "Learner", "Investor", "Analyst", "Expert"][tier] ?? "Intermediate";
 
 	// Explicit difficulty guidance per tier — used across all prompt types
@@ -182,7 +214,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
-
+${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects with this schema:
@@ -210,7 +242,7 @@ Rules:
 Each scenario tests the user on predicting how a company's stock would react after earnings.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
-
+${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
@@ -248,7 +280,7 @@ Rules:
 Each scenario presents two investment options and asks which is riskier.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must produce DIFFERENT companies, industries, and risk types from any other week.
-
+${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
@@ -271,7 +303,7 @@ Rules:
 Each scenario presents a real-world macro event and asks how markets would react.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT macro events and economic topics from any other week.
-
+${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Return a JSON array of exactly ${rawCount} objects:
@@ -305,8 +337,8 @@ Rules:
 		prompt = `You are generating investing education lessons for a ${tierLabel}-level student.
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
 
-DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT concepts and topics from any other week. Do not repeat lesson titles or concepts covered in recent days.
-
+DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT concepts and topics from any other week.
+${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 
 Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
