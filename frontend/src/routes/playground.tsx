@@ -5,11 +5,11 @@ import {
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
-	LESSONS, LESSON_CATEGORIES, getDailyPack, getTodayKey,
-	STOCK_BATTLES, EARNINGS_SCENARIOS, RISK_SCENARIOS, MOOD_SCENARIOS,
+	LESSON_CATEGORIES, getDailyPack, getTodayKey,
 	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
 	type WatchlistSlotType, type DailyActivity,
 	type Lesson, type LessonCategory,
+	type BattleMatchup, type EarningsScenario, type RiskScenario, type MoodScenario,
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
@@ -280,7 +280,7 @@ function PlaygroundPage() {
 	// Use daily key for completion tracking so each day brings fresh scenarios
 	const dayKey = todayKey;
 
-	// Daily Brief → Featured Lesson mapping
+	// Daily Brief data (for mood context in the home view)
 	const { data: briefData } = useQuery({
 		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
 		queryFn: getDailyBrief,
@@ -288,39 +288,11 @@ function PlaygroundPage() {
 		gcTime: 60 * 60 * 1000,
 		retry: 0,
 	});
-	const featuredLesson = useMemo(() => {
-		if (!briefData) return null;
-		const mood = briefData.mood;
-		const deckId = briefData.decks?.[0]?.id ?? "";
-		// Map mood/deck to a relevant lesson
-		const MOOD_LESSON_MAP: Record<string, string> = {
-			Bearish:  "what-is-a-bull-bear-market",
-			Volatile: "what-is-beta",
-			Bullish:  "what-is-revenue-growth",
-			Cautious: "why-rates-matter",
-			Calm:     "what-is-a-dividend",
-			Mixed:    "what-is-a-sector",
-		};
-		const DECK_LESSON_MAP: Record<string, string> = {
-			defensive: "what-is-risk",
-			"high-growth": "what-is-revenue-growth",
-			earnings: "what-are-earnings",
-			rates: "why-rates-matter",
-			dividends: "what-is-a-dividend",
-			tech: "tech-sector-deep-dive",
-		};
-		const lessonId = DECK_LESSON_MAP[deckId] ?? MOOD_LESSON_MAP[mood] ?? null;
-		if (!lessonId) return null;
-		return LESSONS.find(l => l.id === lessonId) ?? null;
-	}, [briefData]);
 
 	const totalXp = account?.totalXp ?? 0;
 	const completedLessons = Object.values(account?.lessonProgress ?? {}).filter(p => p.completed).length;
-	const totalLessons = LESSONS.length;
 
-	// All-time completed IDs — used to filter lesson/earnings pools so finished content doesn't resurface.
-	// Includes allTimeCompletedActivityIds so activities completed via the daily pack (not just the
-	// full detail view) are also excluded from future days' pools.
+	// All-time completed IDs — used for section card done counts
 	const allTimeCompletedIds = useMemo(() => {
 		const ids = new Set<string>(account?.allTimeCompletedActivityIds ?? []);
 		for (const [id, p] of Object.entries(account?.lessonProgress ?? {})) if (p.completed) ids.add(id);
@@ -331,23 +303,10 @@ function PlaygroundPage() {
 		return ids;
 	}, [account?.allTimeCompletedActivityIds, account?.lessonProgress, account?.earningsProgress, account?.battlesProgress, account?.riskProgress, account?.moodProgress]);
 
-	// Daily pack — generated once per day per user and locked in localStorage.
-	// allTimeCompletedIds is used only on first generation (cache miss); completing activities
-	// mid-day never reshuffles the pack because the deps exclude allTimeCompletedIds.
-	const staticDailyPack = useMemo(() => {
-		const uid = account?.uid;
-		if (!uid || accountLoading) return getDailyPack(totalXp, dayKey, new Set(), "");
-		const cacheKey = `stak:dailyPack:v2:${uid}:${dayKey}`;
-		try {
-			const hit = localStorage.getItem(cacheKey);
-			if (hit) return JSON.parse(hit) as ReturnType<typeof getDailyPack>;
-		} catch { /* ignore */ }
-		const pack = getDailyPack(totalXp, dayKey, allTimeCompletedIds, uid);
-		try { localStorage.setItem(cacheKey, JSON.stringify(pack)); } catch { /* ignore */ }
-		return pack;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [dayKey, account?.uid, accountLoading]); // allTimeCompletedIds intentionally excluded — pack is locked once per day
-	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons } = useDailyContent(staticDailyPack, account?.uid ?? "", dayKey);
+	// Shell pack — just tier/dayKey; Gemini fills content via useDailyContent
+	const shellPack = useMemo(() => getDailyPack(totalXp, dayKey), [totalXp, dayKey]);
+	const { pack: dailyPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons, isGenerating } = useDailyContent(shellPack, account?.uid ?? "", dayKey);
+	const totalLessons = mergedLessons.length;
 	const dailyCompleted = useMemo(() => {
 		const wp = account?.dailyProgress;
 		const fromFirestore = wp?.dayKey === dayKey ? new Set(wp.completedIds ?? []) : new Set<string>();
@@ -593,32 +552,6 @@ function PlaygroundPage() {
 					);
 				})()}
 
-				{/* Featured Lesson from Daily Brief — only shown when no Market Moment is available */}
-				{featuredLesson && !featuredTodayLesson && !account?.lessonProgress?.[featuredLesson.id]?.completed && featuredLesson.id !== nextLesson?.id && (
-					<div className="mb-[20px]">
-						<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">
-							{(briefData as { marketClosed?: boolean } | undefined)?.marketClosed ? "Featured" : "Featured Today"} · {briefData?.mood} Market
-						</p>
-						<button
-							type="button"
-							onClick={() => { homeScrollY.current = scrollEl()?.scrollTop ?? 0; setActiveLessonId(featuredLesson.id); setActiveView("lesson-player"); scrollEl()?.scrollTo({ top: 0, behavior: "instant" }); }}
-							className="w-full rounded-[14px] border border-amber-500/30 bg-amber-500/[0.07] px-[16px] py-[14px] text-left active:opacity-80 transition-opacity"
-						>
-							<div className="flex items-center gap-[12px]">
-								<span className="text-[30px]">{featuredLesson.emoji}</span>
-								<div className="flex-1 min-w-0">
-									<p className="text-[14px] font-bold text-foreground">{featuredLesson.title}</p>
-									<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">{featuredLesson.subtitle}</p>
-									<p className="text-[11px] text-amber-400 mt-[3px]">{featuredLesson.durationMin} min · +{featuredLesson.xp} XP · Relevant to the {briefData?.mood?.toLowerCase()} market</p>
-								</div>
-								<div className="shrink-0 grid h-[34px] w-[34px] place-items-center rounded-full bg-amber-500/15 text-amber-400">
-									<ChevronRight size={16} />
-								</div>
-							</div>
-						</button>
-					</div>
-				)}
-
 				{/* Weekly Pack */}
 				{/* All Sections — 2-column grid */}
 				<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">Explore</p>
@@ -720,10 +653,10 @@ function LessonLibrary({
 	onBack: () => void;
 	dailyLessonIds: string[];
 	dayLabel: string;
-	lessonsPool?: typeof LESSONS;
+	lessonsPool?: Lesson[];
 	dailyCompleted?: Set<string>;
 }) {
-	const pool = lessonsPool ?? LESSONS;
+	const pool = lessonsPool ?? [];
 	// todayDoneIds: what's been completed in TODAY's session (daily key) — used for checkmarks in today's list
 	const todayDoneIds = dailyCompleted ?? new Set<string>();
 	// allTimeDoneIds: all-time lesson completions — used only for the past-lessons archive
@@ -841,11 +774,11 @@ function LessonPlayer({
 	onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void;
 	onBack: () => void;
 	onComplete: () => void;
-	lessonsPool?: typeof LESSONS;
+	lessonsPool?: Lesson[];
 }) {
 	const { completeLesson } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
-	const lesson = (lessonsPool ?? LESSONS).find(l => l.id === lessonId);
+	const lesson = (lessonsPool ?? []).find(l => l.id === lessonId);
 	const [cardIndex, setCardIndex] = useState(0);
 	const [phase, setPhase] = useState<"cards" | "quiz" | "done">("cards");
 	const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -1064,8 +997,8 @@ function LessonPlayer({
 
 // ── Stock Battles ─────────────────────────────────────────────────────────
 
-function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: { battleId: string; onBack: () => void; onResult?: (won: boolean) => void; battlesPool?: typeof STOCK_BATTLES; alreadyWon?: boolean }) {
-	const pool = battlesPool ?? STOCK_BATTLES;
+function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: { battleId: string; onBack: () => void; onResult?: (won: boolean) => void; battlesPool?: BattleMatchup[]; alreadyWon?: boolean }) {
+	const pool = battlesPool ?? [];
 	const battle = pool.find(b => b.id === battleId)!;
 	// If already won, pre-select so the reveal is shown immediately (read-only, no XP)
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
@@ -1236,8 +1169,8 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	);
 }
 
-function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: typeof STOCK_BATTLES; onBattleWon?: (id: string) => void }) {
-	const pool = battlesPool ?? STOCK_BATTLES;
+function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string) => void }) {
+	const pool = battlesPool ?? [];
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 	// Seed local results from Firestore dailyCompleted so state survives navigation
 	const [results, setResults] = useState<Record<string, "win" | "loss">>(() => {
@@ -1313,8 +1246,8 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: typeof EARNINGS_SCENARIOS; onEarningsScenarioCorrect?: (id: string) => void }) {
-	const pool = earningsPool ?? EARNINGS_SCENARIOS;
+function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string) => void }) {
+	const pool = earningsPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
@@ -1548,8 +1481,8 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
-function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: typeof RISK_SCENARIOS; onRiskCorrect?: (id: string) => void }) {
-	const pool = riskPool ?? RISK_SCENARIOS;
+function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string) => void }) {
+	const pool = riskPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
@@ -1729,8 +1662,8 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: typeof MOOD_SCENARIOS; onMoodCorrect?: (id: string) => void }) {
-	const pool = moodPool ?? MOOD_SCENARIOS;
+function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string) => void }) {
+	const pool = moodPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
 	const [selected, setSelected] = useState<string | null>(null);

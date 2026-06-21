@@ -4,41 +4,27 @@ import { ACTIVITY_TYPES } from "@stak/shared";
 import type { ActivityType } from "@stak/shared";
 import { generatePlaygroundQuestions } from "@/lib/api";
 import type { DailyPack, DailyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
-import type {
-	BattleMatchup,
-	EarningsScenario,
-	RiskScenario,
-	MoodScenario,
-} from "@/data/playgroundData";
-import {
-	STOCK_BATTLES,
-	EARNINGS_SCENARIOS,
-	RISK_SCENARIOS,
-	MOOD_SCENARIOS,
-	LESSONS,
-	TIER_COUNTS,
-	TIER_XP,
-} from "@/data/playgroundData";
+import type { BattleMatchup, EarningsScenario, RiskScenario, MoodScenario } from "@/data/playgroundData";
+import { TIER_COUNTS, TIER_XP } from "@/data/playgroundData";
 
 const VALID_CATEGORIES = new Set<LessonCategory>([
 	"Stock Basics", "Market Basics", "Valuation", "Earnings", "Risk", "Dividends", "Sectors",
 ]);
-
 
 const GEN_STALE_MS = 24 * 60 * 60 * 1000;
 
 // Request a couple extra so validation failures don't leave us short
 const GEN_COUNT_BUFFER = 2;
 
-export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: string) {
-	const { tier } = staticPack;
+export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: string) {
+	const { tier } = shellPack;
 	const counts = TIER_COUNTS[tier] ?? TIER_COUNTS[1]!;
 
 	const queries = useQueries({
 		queries: ACTIVITY_TYPES.map(type => ({
 			queryKey: ["playground-gen", uid, dayKey, type],
 			queryFn: async () => {
-				// Check localStorage first — ensures same content on page refresh and survives server restarts
+				// localStorage cache — same content across page refreshes within the day
 				const lsKey = `stak:gen:v1:${uid}:${dayKey}:${type}`;
 				try {
 					const hit = localStorage.getItem(lsKey);
@@ -62,19 +48,19 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 	const moodData = queries[3]?.data;
 	const lessonData = queries[4]?.data;
 
-	// Validate and collect generated items
-	const augmented = useMemo(() => {
-		const extraBattles: BattleMatchup[] = [];
-		const extraEarnings: EarningsScenario[] = [];
-		const extraRisk: RiskScenario[] = [];
-		const extraMood: MoodScenario[] = [];
-		const extraLessons: Lesson[] = [];
+	// Validate and collect generated items — Gemini is the sole source
+	const generated = useMemo(() => {
+		const battles: BattleMatchup[] = [];
+		const earnings: EarningsScenario[] = [];
+		const risk: RiskScenario[] = [];
+		const mood: MoodScenario[] = [];
+		const lessons: Lesson[] = [];
 
-		const seenBattle = new Set(STOCK_BATTLES.map(b => b.id));
-		const seenEarnings = new Set(EARNINGS_SCENARIOS.map(s => s.id));
-		const seenLesson = new Set(LESSONS.map(l => l.id));
-		const seenRisk = new Set(RISK_SCENARIOS.map(s => s.id));
-		const seenMood = new Set(MOOD_SCENARIOS.map(s => s.id));
+		const seenBattle = new Set<string>();
+		const seenEarnings = new Set<string>();
+		const seenLesson = new Set<string>();
+		const seenRisk = new Set<string>();
+		const seenMood = new Set<string>();
 
 		if (Array.isArray(battleData)) {
 			for (const item of battleData) {
@@ -90,7 +76,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 					: metricLabel.includes("p/e") || metricLabel.includes("pe ratio") ? "peRatio"
 					: metricLabel.includes("market cap") ? "marketCap"
 					: "revenueGrowth";
-				extraBattles.push({
+				battles.push({
 					id: r.id, tickerA: r.tickerA, nameA: r.nameA,
 					tickerB: r.tickerB, nameB: r.nameB,
 					category: String(r.category ?? "Market"),
@@ -111,7 +97,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 				if (typeof r.company !== "string" || typeof r.ticker !== "string") continue;
 				seenEarnings.add(r.id);
 				const opts = Array.isArray(r.options) ? r.options : [];
-				extraEarnings.push({
+				earnings.push({
 					id: r.id, company: r.company, ticker: r.ticker,
 					context: String(r.context ?? ""),
 					revenueExpected: String(r.revenueExpected ?? "N/A"),
@@ -136,7 +122,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 				if (typeof r.id !== "string" || seenRisk.has(r.id)) continue;
 				if (typeof r.optionA !== "string" || typeof r.optionB !== "string") continue;
 				seenRisk.add(r.id);
-				extraRisk.push({
+				risk.push({
 					id: r.id, prompt: String(r.prompt ?? "Which is riskier?"),
 					optionA: r.optionA, optionB: r.optionB,
 					riskierOption: r.riskierOption === "A" ? "A" : "B",
@@ -154,7 +140,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 				if (typeof r.event !== "string") continue;
 				seenMood.add(r.id);
 				const opts = Array.isArray(r.options) ? r.options : [];
-				extraMood.push({
+				mood.push({
 					id: r.id, event: r.event,
 					question: String(r.question ?? "How would markets react?"),
 					options: opts.map((o: Record<string, unknown>) => ({ id: String(o.id ?? "a"), text: String(o.text ?? "") })),
@@ -191,7 +177,7 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 				const optIds = new Set(opts.map((o: Record<string, unknown>) => o.id as string));
 				if (!optIds.has(String(quiz.correctId ?? ""))) continue;
 				seenLesson.add(r.id);
-				extraLessons.push({
+				lessons.push({
 					id: r.id, title: r.title,
 					subtitle: String(r.subtitle ?? ""),
 					category: r.category as LessonCategory,
@@ -209,67 +195,51 @@ export function useDailyContent(staticPack: DailyPack, uid: string, dayKey: stri
 			}
 		}
 
-		return { extraBattles, extraEarnings, extraRisk, extraMood, extraLessons };
+		return { battles, earnings, risk, mood, lessons };
 	}, [battleData, earningsData, riskData, moodData, lessonData]);
 
-	// Build pack that uses generated IDs when available, static IDs as fallback.
-	// Each section switches to generated content as soon as Gemini finishes loading.
-	const augmentedPack = useMemo((): DailyPack => {
-		const { extraBattles, extraEarnings, extraRisk, extraMood, extraLessons } = augmented;
+	// Build the pack entirely from Gemini content
+	const pack = useMemo((): DailyPack => {
+		const { battles, earnings, risk, mood, lessons } = generated;
 		const xpRates = TIER_XP[tier] ?? TIER_XP[1]!;
 
-		let activities: DailyActivity[] = [...staticPack.activities];
-
-		if (extraBattles.length > 0) {
-			activities = activities.filter(a => a.type !== "battle");
-			activities.push(...extraBattles.slice(0, counts.battles).map(b => ({
-				id: b.id, type: "battle" as const,
+		const activities: DailyActivity[] = [
+			...battles.slice(0, counts.battles).map(b => ({
+				id: b.id, type: "battle" as ActivityType,
 				title: `${b.nameA} vs ${b.nameB}`, subtitle: b.category, emoji: "⚔️", xp: b.xp,
-			})));
-		}
-		if (extraEarnings.length > 0) {
-			activities = activities.filter(a => a.type !== "earnings");
-			activities.push(...extraEarnings.slice(0, counts.earnings).map(s => ({
-				id: s.id, type: "earnings" as const,
+			})),
+			...earnings.slice(0, counts.earnings).map(s => ({
+				id: s.id, type: "earnings" as ActivityType,
 				title: `${s.company} Earnings`, subtitle: "Earnings Lab", emoji: "📋", xp: s.xp,
-			})));
-		}
-		if (extraRisk.length > 0) {
-			activities = activities.filter(a => a.type !== "risk");
-			activities.push(...extraRisk.slice(0, counts.risk).map(s => ({
-				id: s.id, type: "risk" as const,
+			})),
+			...risk.slice(0, counts.risk).map(s => ({
+				id: s.id, type: "risk" as ActivityType,
 				title: `${s.optionA.split(" ")[0]} vs ${s.optionB.split(" ")[0]}`, subtitle: "Risk Lab", emoji: "⚠️", xp: s.xp,
-			})));
-		}
-		if (extraMood.length > 0) {
-			activities = activities.filter(a => a.type !== "mood");
-			activities.push(...extraMood.slice(0, counts.mood).map(s => ({
-				id: s.id, type: "mood" as const,
+			})),
+			...mood.slice(0, counts.mood).map(s => ({
+				id: s.id, type: "mood" as ActivityType,
 				title: s.event.replace(/^[^\w]*/, "").slice(0, 35), subtitle: "Market Mood", emoji: "🌍", xp: s.xp,
-			})));
-		}
-		if (extraLessons.length > 0) {
-			activities = activities.filter(a => a.type !== "lesson");
-			activities.push(...extraLessons.slice(0, counts.lessons).map(l => ({
-				id: l.id, type: "lesson" as const,
+			})),
+			...lessons.slice(0, counts.lessons).map(l => ({
+				id: l.id, type: "lesson" as ActivityType,
 				title: l.title, subtitle: l.category, emoji: l.emoji, xp: l.xp,
-			})));
-		}
+			})),
+		];
 
-		// Recalculate XP from whichever source won
-		void xpRates; // used indirectly via activity xp fields
+		void xpRates;
 		const totalXp = activities.reduce((sum, a) => sum + a.xp, 0);
-		return { ...staticPack, activities, totalXp };
-	}, [staticPack, augmented, counts, tier]);
-
-	// Merged pools: static + generated (for section views to look up full objects by ID)
-	const mergedBattles = useMemo(() => [...STOCK_BATTLES, ...augmented.extraBattles], [augmented.extraBattles]);
-	const mergedEarnings = useMemo(() => [...EARNINGS_SCENARIOS, ...augmented.extraEarnings], [augmented.extraEarnings]);
-	const mergedRisk = useMemo(() => [...RISK_SCENARIOS, ...augmented.extraRisk], [augmented.extraRisk]);
-	const mergedMood = useMemo(() => [...MOOD_SCENARIOS, ...augmented.extraMood], [augmented.extraMood]);
-	const mergedLessons = useMemo(() => [...LESSONS, ...augmented.extraLessons], [augmented.extraLessons]);
+		return { ...shellPack, activities, totalXp };
+	}, [shellPack, generated, counts, tier]);
 
 	const isGenerating = queries.some(q => q.isLoading);
 
-	return { pack: augmentedPack, mergedBattles, mergedEarnings, mergedRisk, mergedMood, mergedLessons, isGenerating };
+	return {
+		pack,
+		mergedBattles: generated.battles,
+		mergedEarnings: generated.earnings,
+		mergedRisk: generated.risk,
+		mergedMood: generated.mood,
+		mergedLessons: generated.lessons,
+		isGenerating,
+	};
 }
