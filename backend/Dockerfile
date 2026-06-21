@@ -2,12 +2,22 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev
+# Copy workspace root config
+COPY package.json package-lock.json ./
 
-COPY src/ ./src/
-COPY tsconfig.json ./
-COPY public/ ./public/
+# Copy shared package source (resolved as @stak/shared via workspaces)
+COPY shared/ ./shared/
+
+# Copy backend source
+COPY backend/package.json ./backend/
+COPY backend/src/ ./backend/src/
+COPY backend/tsconfig.json ./backend/
+COPY backend/public/ ./backend/public/
+
+# Install backend deps (workspace link to shared is set up automatically)
+RUN npm install --workspace=backend --omit=dev
+
+WORKDIR /app/backend
 
 ENV NODE_ENV=production
 EXPOSE 8080
