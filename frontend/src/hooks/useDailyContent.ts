@@ -25,7 +25,7 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 			queryKey: ["playground-gen", uid, dayKey, type],
 			queryFn: async () => {
 				// localStorage cache — same content across page refreshes within the day
-				const lsKey = `stak:gen:v1:${uid}:${dayKey}:${type}`;
+				const lsKey = `stak:gen:v2:${uid}:${dayKey}:${type}`;
 				try {
 					const hit = localStorage.getItem(lsKey);
 					if (hit) return JSON.parse(hit) as unknown[];
@@ -42,11 +42,12 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 		})),
 	});
 
-	const battleData = queries[0]?.data;
-	const earningsData = queries[1]?.data;
-	const riskData = queries[2]?.data;
-	const moodData = queries[3]?.data;
-	const lessonData = queries[4]?.data;
+	// ACTIVITY_TYPES order: ["lesson", "battle", "earnings", "risk", "mood"]
+	const lessonData = queries[0]?.data;
+	const battleData = queries[1]?.data;
+	const earningsData = queries[2]?.data;
+	const riskData = queries[3]?.data;
+	const moodData = queries[4]?.data;
 
 	// Validate and collect generated items — Gemini is the sole source
 	const generated = useMemo(() => {
