@@ -227,7 +227,8 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 	const { isOpen, holiday } = await fetchMarketStatus();
 
 	if (!isOpen) {
-		const dayLabel = await getLastTradingDayLabel(etDateStr);
+		// No holiday = market opened and closed normally today — last session is today's, not a past day
+		const dayLabel = holiday == null ? "Today's" : await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
@@ -381,7 +382,7 @@ async function generateMarketText(
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:text:v8:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cacheKey = `daily-brief:text:v9:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -526,7 +527,7 @@ async function generatePersonalizedImpact(
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:impact:v8:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cacheKey = `daily-brief:impact:v9:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
