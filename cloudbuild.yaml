@@ -1,11 +1,13 @@
 steps:
-  # Build the Docker image
+  # Build the Docker image (context is repo root so shared/ workspace is included)
   - name: "gcr.io/cloud-builders/docker"
     args:
       - build
       - -t
       - gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
-      - ./backend
+      - -f
+      - ./backend/Dockerfile
+      - .
 
   # Push to Container Registry
   - name: "gcr.io/cloud-builders/docker"
