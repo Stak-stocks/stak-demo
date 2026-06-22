@@ -562,30 +562,35 @@ function PlaygroundPage() {
 							subtitle: `${dailyPack.activities.filter(a => a.type === "lesson").length} today`, view: "lessons" as const,
 							done: dailyPack.activities.filter(a => a.type === "lesson" && (dailyCompleted?.has(a.id) || allTimeCompletedIds.has(a.id))).length,
 							total: dailyPack.activities.filter(a => a.type === "lesson").length,
+							loading: isGenerating && dailyPack.activities.filter(a => a.type === "lesson").length === 0,
 						},
 						{
 							colorKey: "battles", icon: <Swords size={20} />, title: "Stock Battles",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "battle").length} today`, view: "battles" as const,
 							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "battle" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "battle").length,
+							loading: isGenerating && dailyPack.activities.filter(a => a.type === "battle").length === 0,
 						},
 						{
 							colorKey: "earnings", icon: <FlaskConical size={20} />, title: "Earnings Lab",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "earnings").length} today`, view: "earnings-lab" as const,
 							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "earnings" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "earnings").length,
+							loading: isGenerating && dailyPack.activities.filter(a => a.type === "earnings").length === 0,
 						},
 						{
 							colorKey: "risk", icon: <ShieldAlert size={20} />, title: "Risk Lab",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "risk").length} today`, view: "risk-lab" as const,
 							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "risk" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "risk").length,
+							loading: isGenerating && dailyPack.activities.filter(a => a.type === "risk").length === 0,
 						},
 						{
 							colorKey: "mood", icon: <Brain size={20} />, title: "Market Mood",
 							subtitle: `${dailyPack.activities.filter(a => a.type === "mood").length} today`, view: "mood-simulator" as const,
 							done: dailyCompleted ? dailyPack.activities.filter(a => a.type === "mood" && dailyCompleted.has(a.id)).length : 0,
 							total: dailyPack.activities.filter(a => a.type === "mood").length,
+							loading: isGenerating && dailyPack.activities.filter(a => a.type === "mood").length === 0,
 						},
 						{
 							colorKey: "practice", icon: <TrendingUp size={20} />, title: "Skill Drills",
@@ -603,7 +608,6 @@ function PlaygroundPage() {
 								onClick={() => goToView(s.view)}
 								className={`rounded-[14px] border ${c.border} ${c.bg} px-[14px] py-[14px] text-left active:opacity-80 transition-opacity relative overflow-hidden`}
 							>
-								{/* Completion shimmer overlay */}
 								{allDone && <div className="absolute inset-0 bg-emerald-500/[0.06] pointer-events-none" />}
 								<div className="flex items-start justify-between mb-[10px]">
 									<div className={`grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-background/60 ${c.icon}`}>
@@ -612,12 +616,22 @@ function PlaygroundPage() {
 									{allDone && <span className="text-[10px] font-bold text-emerald-400">✓</span>}
 								</div>
 								<p className="text-[13px] font-bold text-foreground leading-none mb-[4px]">{s.title}</p>
-								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[8px]">{s.subtitle}</p>
-								{/* Progress bar */}
-								{pct !== null && (
-									<div className="h-[3px] rounded-full bg-foreground/10">
-										<div className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-400" : c.icon.replace("text-", "bg-").split(" ")[0]}`} style={{ width: `${pct}%` }} />
-									</div>
+								{s.loading ? (
+									<>
+										<div className="h-[10px] w-[70%] rounded-full bg-foreground/10 animate-pulse mb-[8px]" />
+										<div className="h-[3px] rounded-full bg-foreground/10 overflow-hidden">
+											<div className={`h-full w-full rounded-full animate-pulse ${c.icon.replace("text-", "bg-").split(" ")[0]} opacity-40`} />
+										</div>
+									</>
+								) : (
+									<>
+										<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[8px]">{s.subtitle}</p>
+										{pct !== null && (
+											<div className="h-[3px] rounded-full bg-foreground/10">
+												<div className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-400" : c.icon.replace("text-", "bg-").split(" ")[0]}`} style={{ width: `${pct}%` }} />
+											</div>
+										)}
+									</>
 								)}
 							</button>
 						);
