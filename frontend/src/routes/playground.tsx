@@ -58,6 +58,22 @@ const CATEGORY_BAR: Record<LessonCategory, string> = {
 	"Sectors":       "from-pink-500 to-fuchsia-400",
 };
 
+// ── Generating skeleton ───────────────────────────────────────────────────────
+
+function GeneratingSkeleton({ label }: { label: string }) {
+	return (
+		<div className="space-y-[10px] py-[4px]">
+			<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[12px]">Generating your {label}…</p>
+			{[78, 60, 72].map((w, i) => (
+				<div key={i} className="rounded-[13px] border border-foreground/10 bg-surface-1 p-[14px] animate-pulse">
+					<div className="h-[13px] rounded-full bg-foreground/10 mb-[8px]" style={{ width: `${w}%` }} />
+					<div className="h-[10px] rounded-full bg-foreground/8" style={{ width: `${w - 18}%` }} />
+				</div>
+			))}
+		</div>
+	);
+}
+
 // ── Section Card component ────────────────────────────────────────────────────
 
 function SectionCard({
@@ -383,6 +399,7 @@ function PlaygroundPage() {
 				dayLabel={dailyPack.label}
 				lessonsPool={mergedLessons}
 				dailyCompleted={dailyCompleted}
+				isGenerating={isGenerating}
 			/>
 		);
 	}
@@ -419,24 +436,24 @@ function PlaygroundPage() {
 		return <BattlesView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onDailyComplete={markActivityComplete}
 			dailyBattleIds={dailyPack.activities.filter(a => a.type === "battle").map(a => a.id)}
 			dayLabel={dailyPack.label} battlesPool={mergedBattles}
-			onBattleWon={completeBattle} />;
+			onBattleWon={completeBattle} isGenerating={isGenerating} />;
 	}
 	if (activeView === "earnings-lab") {
 		return <EarningsLabView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onDailyComplete={markActivityComplete}
 			dailyEarningsIds={dailyPack.activities.filter(a => a.type === "earnings").map(a => a.id)}
 			dayLabel={dailyPack.label} earningsPool={mergedEarnings}
-			onEarningsScenarioCorrect={completeEarningsScenario} />;
+			onEarningsScenarioCorrect={completeEarningsScenario} isGenerating={isGenerating} />;
 	}
 	if (activeView === "risk-lab") {
 		return <RiskLabView onBack={goHome}
 			dailyRiskIds={dailyPack.activities.filter(a => a.type === "risk").map(a => a.id)}
 			dayLabel={dailyPack.label} dayKey={dayKey} dailyCompleted={dailyCompleted} onDailyComplete={markActivityComplete}
-			riskPool={mergedRisk} onRiskCorrect={completeRiskScenario} />;
+			riskPool={mergedRisk} onRiskCorrect={completeRiskScenario} isGenerating={isGenerating} />;
 	}
 	if (activeView === "mood-simulator") {
 		return <MoodSimulatorView onBack={goHome} dayKey={dayKey} dailyCompleted={dailyCompleted} onDailyComplete={markActivityComplete}
 			dailyMoodIds={dailyPack.activities.filter(a => a.type === "mood").map(a => a.id)}
-			dayLabel={dailyPack.label} moodPool={mergedMood} onMoodCorrect={completeMoodScenario} />;
+			dayLabel={dailyPack.label} moodPool={mergedMood} onMoodCorrect={completeMoodScenario} isGenerating={isGenerating} />;
 	}
 	if (activeView === "practice") {
 		return <PracticeModeView onBack={goHome} />;
@@ -659,6 +676,7 @@ function LessonLibrary({
 	dayLabel,
 	lessonsPool,
 	dailyCompleted,
+	isGenerating,
 }: {
 	account: ReturnType<typeof useAccount>["account"];
 	selectedCategory: LessonCategory | null;
@@ -669,6 +687,7 @@ function LessonLibrary({
 	dayLabel: string;
 	lessonsPool?: Lesson[];
 	dailyCompleted?: Set<string>;
+	isGenerating?: boolean;
 }) {
 	const pool = lessonsPool ?? [];
 	// todayDoneIds: what's been completed in TODAY's session (daily key) — used for checkmarks in today's list
@@ -724,7 +743,9 @@ function LessonLibrary({
 				{/* Lessons */}
 				<div className="space-y-[8px]">
 					{visibleLessons.length === 0 && (
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons today.</p>
+						isGenerating
+							? <GeneratingSkeleton label="lessons" />
+							: <p className="text-[13px] dark:text-slate-400 text-slate-500 py-[8px] text-center">No {selectedCategory ?? ""} lessons today.</p>
 					)}
 					{visibleLessons.map(lesson => {
 						// Done if completed today OR ever (all-time) — XP guard prevents re-earning
@@ -1183,7 +1204,7 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	);
 }
 
-function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string) => void }) {
+function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string) => void; isGenerating?: boolean }) {
 	const pool = battlesPool ?? [];
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 	// Seed local results from Firestore dailyCompleted so state survives navigation
@@ -1232,6 +1253,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 
 				<div className="space-y-[8px]">
+					{isGenerating && pool.length === 0 && <GeneratingSkeleton label="battles" />}
 					{(dailyBattleIds ? pool.filter(b => dailyBattleIds.includes(b.id)) : pool).map(b => {
 						const result = results[b.id];
 						return (
@@ -1260,7 +1282,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string) => void }) {
+function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string) => void; isGenerating?: boolean }) {
 	const pool = earningsPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -1467,6 +1489,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 
 				<div className="space-y-[8px]">
+					{isGenerating && visibleScenarios.length === 0 && <GeneratingSkeleton label="earnings scenarios" />}
 					{visibleScenarios.map(s => {
 						const done = completedIds.has(s.id);
 						return (
@@ -1495,7 +1518,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
-function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string) => void }) {
+function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect, isGenerating }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string) => void; isGenerating?: boolean }) {
 	const pool = riskPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1588,7 +1611,9 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<h2 className="text-[22px] font-extrabold mb-[8px]">Risk Lab</h2>
-					<p className="text-[14px] dark:text-slate-400 text-slate-500">No risk scenarios today. Check back tomorrow — they unlock as you level up.</p>
+					{isGenerating
+						? <GeneratingSkeleton label="risk scenarios" />
+						: <p className="text-[14px] dark:text-slate-400 text-slate-500">No risk scenarios today. Check back tomorrow — they unlock as you level up.</p>}
 				</div>
 			</div>
 		);
@@ -1676,7 +1701,7 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string) => void }) {
+function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string) => void; isGenerating?: boolean }) {
 	const pool = moodPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1765,7 +1790,9 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
 					<BackBtn onClick={onBack} />
 					<h2 className="text-[22px] font-extrabold mb-[8px]">Market Mood</h2>
-					<p className="text-[14px] dark:text-slate-400 text-slate-500">No scenarios today. Check back tomorrow!</p>
+					{isGenerating
+						? <GeneratingSkeleton label="mood scenarios" />
+						: <p className="text-[14px] dark:text-slate-400 text-slate-500">No scenarios today. Check back tomorrow!</p>}
 				</div>
 			</div>
 		);
