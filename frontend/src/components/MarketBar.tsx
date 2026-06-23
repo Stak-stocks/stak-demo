@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getStockData } from "@/lib/api";
+import { getNYSEHolidays } from "@stak/shared";
 
 // ── Market hours helpers (all times in US/Eastern) ────────────────────────────
 
@@ -31,42 +32,11 @@ function nthWeekday(year: number, month: number, weekday: number, n: number): Da
 	return d;
 }
 
-function lastWeekday(year: number, month: number, weekday: number): Date {
-	const d = new Date(year, month, 0); // last day of month
-	while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
-	return d;
-}
-
-function observed(d: Date): string {
-	const c = new Date(d);
-	if (c.getDay() === 6) c.setDate(c.getDate() - 1); // Sat → Fri
-	if (c.getDay() === 0) c.setDate(c.getDate() + 1); // Sun → Mon
-	return `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}-${String(c.getDate()).padStart(2, "0")}`;
-}
-
-function fmt(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function getUSHolidays(year: number): Set<string> {
-	const h = new Set<string>();
-	h.add(observed(new Date(year, 0, 1)));              // New Year's Day
-	h.add(fmt(nthWeekday(year, 1, 1, 3)));              // MLK Jr. Day — 3rd Mon Jan
-	h.add(fmt(nthWeekday(year, 2, 1, 3)));              // Presidents' Day — 3rd Mon Feb
-	h.add(fmt(lastWeekday(year, 5, 1)));                // Memorial Day — last Mon May
-	h.add(observed(new Date(year, 5, 19)));             // Juneteenth — Jun 19
-	h.add(observed(new Date(year, 6, 4)));              // Independence Day — Jul 4
-	h.add(fmt(nthWeekday(year, 9, 1, 1)));              // Labor Day — 1st Mon Sep
-	h.add(fmt(nthWeekday(year, 11, 4, 4)));             // Thanksgiving — 4th Thu Nov
-	h.add(observed(new Date(year, 11, 25)));            // Christmas — Dec 25
-	return h;
-}
-
 function isMarketOpen(): boolean {
 	const { weekday, hour, minute, year, month, day, dateStr } = getNYCNow();
 
 	if (weekday === 0 || weekday === 6) return false;           // weekend
-	if (getUSHolidays(year).has(dateStr)) return false;         // federal holiday
+	if (getNYSEHolidays(year).has(dateStr)) return false;        // federal holiday
 
 	const t = hour * 60 + minute;
 	const OPEN = 9 * 60 + 30;  // 9:30 AM ET
