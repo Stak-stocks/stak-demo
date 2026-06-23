@@ -1075,7 +1075,7 @@ stockRouter.get("/:symbol/key-risk", async (req, res) => {
 	const peStr = req.query.pe as string | undefined;
 
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `key-risk:v3:${symbol}:${today}`;
+	const cacheKey = `key-risk:v4:${symbol}:${today}`;
 	const cached = await cacheGet<{ risk: string }>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -1121,8 +1121,12 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 			if (!gemRes.ok) break;
 			const data = await gemRes.json();
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
-			const risk = parts.map(p => p.text ?? "").join("").trim();
-			if (risk) {
+			const rawRisk = parts.map(p => p.text ?? "").join("").trim();
+			if (rawRisk) {
+				// Gemini doesn't reliably honor the word-count instruction (especially with
+				// search grounding on) — enforce the cap server-side as a safety net.
+				const words = rawRisk.split(/\s+/);
+				const risk = words.length > 35 ? `${words.slice(0, 35).join(" ").replace(/[,;:]+$/, "")}...` : rawRisk;
 				const result = { risk };
 				await cacheSet(cacheKey, result, 6 * 60 * 60 * 1000);
 				res.json(result);
