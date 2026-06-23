@@ -931,18 +931,21 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const sentencesParam = parseInt(req.query.sentences as string);
 	const sentences = isFinite(sentencesParam) && sentencesParam > 1 ? sentencesParam : 1;
 	const marketClosed = req.query.marketClosed === "1";
+	// closeRef: "today", "yesterday", "Friday", etc. — tells us exactly when last close was
+	const closeRef = ((req.query.closeRef as string | undefined)?.trim()) || (marketClosed ? "recently" : "today");
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v7:${symbol}:${direction}:s${sentences}:${marketClosed ? "closed" : "open"}`;
-	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat" }>(cacheKey);
+	const cacheKey = `daily-move:v10:${symbol}:${direction}:s${sentences}:${closeRef}`;
+	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat"; bullets?: Array<{text: string; tone: string}> }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
 	const sign = changePercent >= 0 ? "+" : "";
 	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
 	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
-	const timeRef = marketClosed ? "at its last close" : "today";
-	const searchRef = marketClosed ? "at the last market close" : "today";
+	// "today" = live market | "close" = finalized same-day close | "yesterday"/"Friday" = prior session
+	const timeRef = closeRef === "today" ? "today" : closeRef === "close" ? "at today's close" : `at ${closeRef}'s close`;
+	const searchRef = (closeRef === "today" || closeRef === "close") ? "today" : closeRef;
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) {
@@ -955,16 +958,26 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const prompt = sentences > 1
 		? `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
-Search the web right now for why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
+Search the web for the latest news on why ${symbol} moved ${searchRef}.
 
-Write exactly ${sentences} sentences explaining this to a young investor. Sentence 1: the specific catalyst (name the actual event). Sentences 2-${sentences}: add context — what it means for the company, how investors are reacting, and any broader market angle. Be specific and conversational, not vague. Do not say "today" if markets are closed — say "at last close" or "recently" instead.
+Figure out the full story — then distill it into exactly 3 short bullet points a young investor can instantly understand. Think of it like turning a paragraph explanation into the 3 most important takeaways.
 
-Return ONLY those ${sentences} sentences as plain text — no bullet points, no markdown, no JSON.`
+Return ONLY a valid JSON array of exactly 3 objects. No markdown, no extra text before or after:
+[{"text":"...","tone":"bearish"},{"text":"...","tone":"neutral"},{"text":"...","tone":"bullish"}]
+
+Rules:
+- Each bullet is a key point from the story — no fixed structure, just what matters most
+- Max 12 words per bullet. Think headline, not sentence.
+- Do NOT restate that the stock went up or down — the user already sees the price move. Jump straight to the reason why.
+- Use real numbers and data when available. Use → for changes (e.g. "odds dropped 25% → 15%")
+- tone must be exactly "bullish", "bearish", or "neutral" — pick whichever fits that point
+- Plain everyday language — no jargon, no "it is worth noting", no filler
+- When referencing when the move happened, use "${timeRef}" — do not substitute a different time reference`
 		: `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
 Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague. Do not say "today" if markets are closed.
+Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague. Use "${timeRef}" when referencing when the move happened.
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
@@ -991,15 +1004,51 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 			// With Google Search grounding, text may be in a different part index
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
 			const raw = parts.map((p) => p.text ?? "").join("").trim();
-			// For 1-sentence mode enforce the limit; for multi-sentence pass through as-is
-			const explanation = sentences > 1
-				? raw
-				: (raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw);
-			if (explanation) {
-				const result = { explanation, direction };
-				await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
-				res.json(result);
-				return;
+			if (sentences > 1) {
+				// Expect JSON array of bullets
+				try {
+					const match = raw.match(/\[[\s\S]*\]/);
+					if (match) {
+						// Repair common LLM JSON mistakes before parsing:
+						// 1. Missing comma between adjacent quoted tokens: `"value" "key"` → `"value", "key"`
+						// 2. Trailing commas before ] or }: `[{...},]` → `[{...}]`
+						const repaired = match[0]
+							.replace(/"(\s+)"/g, '", "')
+							.replace(/,(\s*[}\]])/g, "$1");
+						const parsed = JSON.parse(repaired) as Array<{ text?: string; tone?: string }>;
+						const TONE_MAP: Record<string, string> = {
+							bullish: "bullish", positive: "bullish", up: "bullish",
+							bearish: "bearish", negative: "bearish", down: "bearish",
+						};
+						const bullets = parsed
+							.filter((b) => typeof b.text === "string" && b.text.trim().length > 0)
+							.map((b) => ({
+								text: b.text!.trim(),
+								tone: TONE_MAP[b.tone?.toLowerCase() ?? ""] ?? "neutral",
+							}));
+						if (bullets.length > 0) {
+							const explanation = bullets.map((b) => b.text).join(" ");
+							const result = { explanation, bullets, direction };
+							await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+							res.json(result);
+							return;
+						}
+					}
+				} catch { /* fall through to plain text fallback */ }
+				if (raw) {
+					const result = { explanation: raw, direction };
+					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+					res.json(result);
+					return;
+				}
+			} else {
+				const explanation = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
+				if (explanation) {
+					const result = { explanation, direction };
+					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+					res.json(result);
+					return;
+				}
 			}
 		} catch {
 			// timeout or network error — try next key
@@ -1026,7 +1075,7 @@ stockRouter.get("/:symbol/key-risk", async (req, res) => {
 	const peStr = req.query.pe as string | undefined;
 
 	const today = new Date().toISOString().split("T")[0];
-	const cacheKey = `key-risk:v1:${symbol}:${today}`;
+	const cacheKey = `key-risk:v3:${symbol}:${today}`;
 	const cached = await cacheGet<{ risk: string }>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -1047,9 +1096,9 @@ Search the web for what the main risk facing ${companyName} is right now. Look f
 - Company-specific financial risk (high debt load, slowing revenue growth, margin pressure, competition)
 - Any significant recent news that introduces new risk
 
-Write exactly 1–2 sentences in plain English explaining the most important risk to a beginner investor. Name the actual risk factor and explain briefly why it matters. No disclaimers, no "it's important to note", no financial advice language.
+Write a single sentence (35 words max) in plain English naming the most important risk and why it matters to a beginner investor. No disclaimers, no "it's important to note", no financial advice language.
 
-Return ONLY those 1–2 sentences as plain text — no markdown, no JSON, no bullets.`;
+Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 
 	for (const key of keys) {
 		const controller = new AbortController();
@@ -1063,7 +1112,7 @@ Return ONLY those 1–2 sentences as plain text — no markdown, no JSON, no bul
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 200 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 80 },
 					}),
 					signal: controller.signal,
 				},

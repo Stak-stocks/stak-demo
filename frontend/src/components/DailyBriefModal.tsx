@@ -12,8 +12,6 @@ import { getDailyBrief, type DailyBriefDeck, type FeaturedLesson } from "@/lib/a
 import { marketSessionBucket } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-const SWIPE_EDGE_PX = 24;
 
 const DECK_ICON_MAP: Record<string, React.ElementType> = {
 	trending_up: TrendingUp,
@@ -251,28 +249,10 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 		: (SESSION_LABELS[brief.session] ?? "Morning Brief");
 	const MoodIcon = mood.icon;
 
-	// Swipe-right to dismiss
-	const swipeStartX = useRef<number | null>(null);
-	const [swipeX, setSwipeX] = useState(0);
 	const isDismissing = useRef(false);
 
-	const handlePointerDown = (e: React.PointerEvent) => {
-		if (!IS_IOS || e.clientX > SWIPE_EDGE_PX) return;
-		swipeStartX.current = e.clientX;
-	};
-	const handlePointerMove = (e: React.PointerEvent) => {
-		if (swipeStartX.current === null) return;
-		setSwipeX(Math.max(0, e.clientX - swipeStartX.current));
-	};
-	const handlePointerUp = () => {
-		if (isDismissing.current) return;
-		if (swipeX > 100) { isDismissing.current = true; onClose(); }
-		swipeStartX.current = null;
-		setSwipeX(0);
-	};
-
 	useEffect(() => {
-		isDismissing.current = false; // reset on each open so swipe-to-dismiss works again
+		isDismissing.current = false;
 		document.body.style.overflow = "hidden";
 		return () => { document.body.style.overflow = ""; };
 	}, []);
@@ -283,16 +263,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	return createPortal(
 		<div
 			className="fixed inset-0 z-[100] flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden touch-pan-y bg-background"
-			style={{
-				scrollbarWidth: "none",
-				transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined,
-				opacity: swipeX > 0 ? Math.max(0.5, 1 - swipeX / 300) : 1,
-				transition: swipeX === 0 ? "transform 0.25s ease, opacity 0.25s ease" : "none",
-			}}
-			onPointerDown={handlePointerDown}
-			onPointerMove={handlePointerMove}
-			onPointerUp={handlePointerUp}
-			onPointerCancel={handlePointerUp}
+			style={{ scrollbarWidth: "none" }}
 		>
 			<div className="flex-1 px-[15px] pt-[max(11px,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-lg mx-auto text-foreground">
 
