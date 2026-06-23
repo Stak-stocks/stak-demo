@@ -21,3 +21,5 @@ export {
 	computeTopDisplayCategory,
 } from "./displayCategories";
 export type { DisplayCategoryKey } from "./displayCategories";
+
+export { getNYSEHolidays } from "./nyseHolidays";
