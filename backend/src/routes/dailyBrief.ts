@@ -88,6 +88,20 @@ async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string |
 	return { isOpen: false, holiday: null };
 }
 
+// GET /api/daily-brief/market-status — public, no auth required (used by guests too).
+// Lightweight live status check backed by Finnhub's real exchange status, not just
+// the algorithmic holiday calendar — catches unscheduled closures (weather, days of
+// mourning) and any NYSE holiday-schedule change that the hardcoded list doesn't
+// know about yet. Reuses fetchMarketStatus()'s existing 10-min cache.
+dailyBriefRouter.get("/market-status", async (_req, res) => {
+	try {
+		const { isOpen, holiday } = await fetchMarketStatus();
+		res.json({ isOpen, holiday });
+	} catch {
+		res.status(500).json({ error: "Failed to fetch market status" });
+	}
+});
+
 // Walks forward from etDateStr until it finds a day that is not a weekend or holiday.
 async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
 	const holidays = await fetchMarketHolidays();

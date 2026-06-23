@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getStockData } from "@/lib/api";
+import { getStockData, getMarketStatusLive } from "@/lib/api";
 import { getNYSEHolidays } from "@stak/shared";
 
 // ── Market hours helpers (all times in US/Eastern) ────────────────────────────
@@ -32,6 +32,9 @@ function nthWeekday(year: number, month: number, weekday: number, n: number): Da
 	return d;
 }
 
+/** Instant, client-side guess — used only while the live /market-status fetch is
+ *  loading or if it fails. Doesn't know about unscheduled closures or any future
+ *  NYSE holiday-schedule change; the live fetch in MarketBar() below does. */
 function isMarketOpen(): boolean {
 	const { weekday, hour, minute, year, month, day, dateStr } = getNYCNow();
 
@@ -58,7 +61,19 @@ function isMarketOpen(): boolean {
 
 export function MarketBar() {
 	const [expanded, setExpanded] = useState(false);
-	const marketOpen = isMarketOpen();
+
+	// Live status (Finnhub-backed) wins once it loads — catches unscheduled
+	// closures and any NYSE holiday change the algorithmic guess doesn't know
+	// about. Falls back to the instant algorithmic guess while loading or on
+	// a failed fetch, so the UI never flashes a blank/wrong state.
+	const { data: liveStatus } = useQuery({
+		queryKey: ["market-status-live"],
+		queryFn: getMarketStatusLive,
+		staleTime: 5 * 60 * 1000,
+		refetchInterval: 5 * 60 * 1000,
+		retry: 1,
+	});
+	const marketOpen = liveStatus?.isOpen ?? isMarketOpen();
 
 	const { data } = useQuery({
 		queryKey: ["stock", "SPY"],
