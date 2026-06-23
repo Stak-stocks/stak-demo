@@ -2,6 +2,11 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays } from "@stak/shared";
+import {
+	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
+	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
+} from "../services/marketMood.js";
 
 export const dailyBriefRouter = Router();
 
@@ -51,16 +56,7 @@ async function getQuoteChange(symbol: string): Promise<number | null> {
 	return pct;
 }
 
-type Mood = "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed" | "Risk-On" | "Risk-Off";
 type Session = "open" | "midday" | "close";
-
-// 11 sector ETFs — count green/red for breadth
-const SECTOR_ETFS = ["XLK","XLF","XLC","XLY","XLP","XLV","XLE","XLI","XLB","XLRE","XLU"];
-const SECTOR_NAMES: Record<string, string> = {
-	XLK: "Technology", XLF: "Financials", XLC: "Communication", XLY: "Consumer Discretionary",
-	XLP: "Consumer Staples", XLV: "Healthcare", XLE: "Energy", XLI: "Industrials",
-	XLB: "Materials", XLRE: "Real Estate", XLU: "Utilities",
-};
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -87,6 +83,20 @@ async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string |
 	return { isOpen: false, holiday: null };
 }
 
+// GET /api/daily-brief/market-status — public, no auth required (used by guests too).
+// Lightweight live status check backed by Finnhub's real exchange status, not just
+// the algorithmic holiday calendar — catches unscheduled closures (weather, days of
+// mourning) and any NYSE holiday-schedule change that the hardcoded list doesn't
+// know about yet. Reuses fetchMarketStatus()'s existing 10-min cache.
+dailyBriefRouter.get("/market-status", async (_req, res) => {
+	try {
+		const { isOpen, holiday } = await fetchMarketStatus();
+		res.json({ isOpen, holiday });
+	} catch {
+		res.status(500).json({ error: "Failed to fetch market status" });
+	}
+});
+
 // Walks forward from etDateStr until it finds a day that is not a weekend or holiday.
 async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
 	const holidays = await fetchMarketHolidays();
@@ -102,55 +112,12 @@ async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
 	return "tomorrow";
 }
 
-// Algorithmic fallback: computes NYSE holidays for any year from exchange rules.
-// Used when Gemini is unavailable (local dev without API keys).
-function computeNYSEHolidays(year: number): Set<string> {
-	const fmt = (d: Date) => d.toISOString().split("T")[0];
-
-	function observed(month: number, day: number): Date {
-		const d = new Date(Date.UTC(year, month - 1, day));
-		const dow = d.getUTCDay();
-		if (dow === 6) d.setUTCDate(d.getUTCDate() - 1); // Sat → Fri
-		if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
-		return d;
-	}
-	function nthWeekday(month: number, weekday: number, n: number): Date {
-		const d = new Date(Date.UTC(year, month - 1, 1));
-		d.setUTCDate(1 + ((weekday - d.getUTCDay() + 7) % 7) + (n - 1) * 7);
-		return d;
-	}
-	function lastWeekday(month: number, weekday: number): Date {
-		const d = new Date(Date.UTC(year, month, 0));
-		d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - weekday + 7) % 7));
-		return d;
-	}
-	function easterSunday(): Date {
-		const a = year % 19, b = Math.floor(year / 100), c = year % 100;
-		const d2 = Math.floor(b / 4), e = b % 4;
-		const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
-		const h = (19 * a + b - d2 - g + 15) % 30;
-		const i = Math.floor(c / 4), k = c % 4;
-		const l = (32 + 2 * e + 2 * i - h - k) % 7;
-		const m = Math.floor((a + 11 * h + 22 * l) / 451);
-		const mo = Math.floor((h + l - 7 * m + 114) / 31);
-		const dy = ((h + l - 7 * m + 114) % 31) + 1;
-		return new Date(Date.UTC(year, mo - 1, dy));
-	}
-	const easter = easterSunday();
-	const goodFriday = new Date(Date.UTC(easter.getUTCFullYear(), easter.getUTCMonth(), easter.getUTCDate() - 2));
-	return new Set([
-		observed(1, 1), nthWeekday(1, 1, 3), nthWeekday(2, 1, 3), goodFriday,
-		lastWeekday(5, 1), observed(6, 19), observed(7, 4),
-		nthWeekday(9, 1, 1), nthWeekday(11, 4, 4), observed(12, 25),
-	].map(fmt));
-}
-
 // Algorithmic set is always the base — Gemini only adds unexpected closures on top.
 // This prevents a Gemini miss (e.g. omitting Juneteenth) from causing wrong "last close" labels.
 async function fetchMarketHolidays(): Promise<Set<string>> {
 	const year = new Date().getFullYear();
 	const cacheKey = `market-holidays:gemini:v2:${year}`;
-	const algorithmic = computeNYSEHolidays(year);
+	const algorithmic = getNYSEHolidays(year);
 
 	const cached = await cacheGet<string[]>(cacheKey);
 	if (cached) return new Set([...algorithmic, ...cached]);
@@ -242,64 +209,6 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 	return { session, marketClosed: false, holiday: null, dayLabel: "Today's", nextTradingDayLabel };
 }
 
-
-interface MarketData {
-	spyDp: number | null;
-	qqqDp: number | null;
-	diaDp: number | null;
-	iwmDp: number | null;  // Russell 2000
-	vixDp: number | null;  // VIX % change
-	sectorsGreen: number;  // 0-11
-	sectorsRed: number;
-	topSector: string | null;
-	worstSector: string | null;
-}
-
-function classifyMood(d: MarketData): Mood {
-	const { spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed } = d;
-
-	// --- Calm: very small moves, stable VIX, no major catalyst ---
-	const spyCalm = spyDp !== null && Math.abs(spyDp) <= 0.3;
-	const qqqCalm = qqqDp !== null && Math.abs(qqqDp) <= 0.4;
-	const vixCalm = vixDp !== null && Math.abs(vixDp) <= 3;
-	if (spyCalm && qqqCalm && vixCalm) return "Calm";
-
-	// --- Volatile: big moves or big VIX spike ---
-	const bigMove = (spyDp !== null && Math.abs(spyDp) > 1.5) || (qqqDp !== null && Math.abs(qqqDp) > 1.5);
-	const vixSpike = vixDp !== null && vixDp > 7;
-	if (bigMove || vixSpike) {
-		// Even in volatile day, if all green it's Bullish
-		if (spyDp !== null && spyDp > 1.5 && qqqDp !== null && qqqDp > 1.5 && (vixDp === null || vixDp <= 0)) return "Bullish";
-		if (spyDp !== null && spyDp < -1.5 && qqqDp !== null && qqqDp < -1.5) return "Bearish";
-		return "Volatile";
-	}
-
-	// --- Bullish: S&P > +0.5%, Nasdaq > +0.7%, VIX flat/down, 6+ sectors green ---
-	if (spyDp !== null && spyDp > 0.5 && qqqDp !== null && qqqDp > 0.7 && (vixDp === null || vixDp <= 0) && sectorsGreen >= 6) return "Bullish";
-
-	// --- Bearish: S&P < -0.5%, Nasdaq < -0.7%, VIX up, 6+ sectors red ---
-	if (spyDp !== null && spyDp < -0.5 && qqqDp !== null && qqqDp < -0.7 && (vixDp === null || vixDp > 0) && sectorsRed >= 6) return "Bearish";
-
-	// --- Risk-On: Nasdaq significantly outperforms S&P, growth leads ---
-	if (spyDp !== null && qqqDp !== null && qqqDp - spyDp >= 0.5 && qqqDp > 0 && (vixDp === null || vixDp <= 0)) return "Risk-On";
-
-	// --- Risk-Off: Nasdaq significantly underperforms S&P, defensive leads ---
-	if (spyDp !== null && qqqDp !== null && spyDp - qqqDp >= 0.5 && (vixDp === null || vixDp > 0)) return "Risk-Off";
-
-	// --- Mixed: S&P and Nasdaq disagree, split sectors ---
-	if (spyDp !== null && qqqDp !== null && ((spyDp > 0.2 && qqqDp < -0.2) || (qqqDp > 0.2 && spyDp < -0.2))) return "Mixed";
-	if (sectorsGreen >= 4 && sectorsRed >= 4) return "Mixed";
-
-	// --- Cautious: flat with slight down tilt or upcoming catalyst uncertainty ---
-	if (spyDp !== null && spyDp < 0) return "Cautious";
-
-	return "Mixed";
-}
-
-// Legacy wrapper for backward compat — used when we don't have full data
-function deriveMood(spyDp: number | null, qqqDp: number | null, diaDp: number | null): Mood {
-	return classifyMood({ spyDp, qqqDp, diaDp, iwmDp: null, vixDp: null, sectorsGreen: 5, sectorsRed: 5, topSector: null, worstSector: null });
-}
 
 function getFallbackText(mood: Mood): { moodExplanation: string; plainEnglish: string } {
 	const map: Record<Mood, { moodExplanation: string; plainEnglish: string }> = {
@@ -873,22 +782,6 @@ dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: Authentica
 
 // ── Weekly generated lesson (per-user, per-ISO-week) ─────────────────────────
 
-const XP_TIER_LABELS: Record<number, string> = {
-	0: "Beginner",
-	1: "Learner",
-	2: "Investor",
-	3: "Analyst",
-	4: "Expert",
-};
-
-function xpToTier(xp: number): number {
-	if (xp >= 7500) return 4;
-	if (xp >= 3500) return 3;
-	if (xp >= 1500) return 2;
-	if (xp >= 500) return 1;
-	return 0;
-}
-
 interface GeneratedLessonResponse {
 	topic: string;
 	angle: string;
@@ -920,7 +813,7 @@ async function generateGeneratedLesson(uid: string, totalXp: number, userHistory
 	}
 
 	const tier = xpToTier(totalXp);
-	const tierLabel = XP_TIER_LABELS[tier]!;
+	const tierLabel = TIER_XP[tier].label;
 
 	const history = [...userHistory]
 		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
@@ -930,12 +823,12 @@ async function generateGeneratedLesson(uid: string, totalXp: number, userHistory
 		? `\nThis user's personal lesson history (DO NOT repeat these angles):\n${history.map(h => `- "${h.title}" [${h.topic}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
-	const tierGuidance: Record<number, string> = {
-		0: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
-		1: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
-		2: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
-		3: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
-		4: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
+	const tierGuidance: Record<TierNumber, string> = {
+		1: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
+		2: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
+		3: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
+		4: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
+		5: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
 	};
 
 	const prompt = `You are writing a personalized Weekly Deep Dive lesson for STAK, a stock-learning app for Gen Z and millennials.
@@ -1042,15 +935,6 @@ dailyBriefRouter.get("/generated-lesson", authMiddleware, async (req: Authentica
 
 // ── Deck definitions ──────────────────────────────────────────────────────────
 
-interface DeckDef {
-	id: string;
-	title: string;
-	subtitle: string;
-	icon: string;
-	color: "green" | "purple" | "blue";
-	bars?: boolean;
-}
-
 // Primary deck shown in "Today's Focus" — varies by mood AND session window.
 // decks[1] and decks[2] stay from MOOD_DECKS for any future multi-deck use.
 const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
@@ -1094,49 +978,6 @@ const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
 		midday: { id: "quality",     title: "Defensive Hold",      subtitle: "What's holding up in a risk-off day",   icon: "book",        color: "blue",  bars: true },
 		close:  { id: "dividend",    title: "Safety First",        subtitle: "Steadier picks after a risk-off session", icon: "sun",        color: "blue"   },
 	},
-};
-
-const MOOD_DECKS: Record<Mood, DeckDef[]> = {
-	Bullish: [
-		{ id: "high_growth",   title: "High Growth",      subtitle: "Riding the momentum",          icon: "trending_up", color: "green"  },
-		{ id: "consumer_tech", title: "Consumer Tech",    subtitle: "Where spending is going",       icon: "zap",         color: "blue"   },
-		{ id: "explore",       title: "Explore the Rally",subtitle: "See what's leading today",      icon: "book",        color: "purple", bars: true },
-	],
-	Bearish: [
-		{ id: "defensive",     title: "Defensive Picks",  subtitle: "Stability when it matters",    icon: "shield",      color: "purple" },
-		{ id: "dividend",      title: "Dividend Stocks",  subtitle: "Earn while you wait",           icon: "sun",         color: "blue",   bars: true },
-		{ id: "value",         title: "Buying the Dip",   subtitle: "Quality at a discount",         icon: "trending_up", color: "green"  },
-	],
-	Cautious: [
-		{ id: "defensive",     title: "Defensive Picks",  subtitle: "Stability in uncertain times",  icon: "shield",      color: "purple" },
-		{ id: "quality",       title: "Quality Stocks",   subtitle: "Strong fundamentals only",      icon: "book",        color: "blue",   bars: true },
-		{ id: "dividend",      title: "Income Plays",     subtitle: "Steady cash, less drama",       icon: "sun",         color: "green"  },
-	],
-	Volatile: [
-		{ id: "high_growth",   title: "High Conviction",  subtitle: "Worth the volatility",          icon: "zap",         color: "blue"   },
-		{ id: "defensive",     title: "Lower Your Risk",  subtitle: "Defensive names today",         icon: "shield",      color: "purple" },
-		{ id: "explore",       title: "Understand Swings",subtitle: "Why markets move like this",    icon: "book",        color: "green",  bars: true },
-	],
-	Calm: [
-		{ id: "explore",       title: "Discover New Picks",subtitle: "Explore what you haven't tried",icon: "sun",        color: "blue"   },
-		{ id: "dividend",      title: "Income Stocks",    subtitle: "Steady growers for calm days",  icon: "book",        color: "green",  bars: true },
-		{ id: "defensive",     title: "Blue Chips",       subtitle: "Reliable names, quiet day",     icon: "shield",      color: "purple" },
-	],
-	Mixed: [
-		{ id: "diversified",   title: "Diversified Picks",subtitle: "Spread across sectors",         icon: "book",        color: "blue",   bars: true },
-		{ id: "high_growth",   title: "Growth Watch",     subtitle: "Who's still climbing",          icon: "trending_up", color: "green"  },
-		{ id: "defensive",     title: "Defensive Blend",  subtitle: "Balance for mixed signals",     icon: "shield",      color: "purple" },
-	],
-	"Risk-On": [
-		{ id: "high_growth",   title: "High Growth",      subtitle: "Riding the risk-on momentum",   icon: "zap",         color: "blue"   },
-		{ id: "consumer_tech", title: "Consumer Tech",    subtitle: "Where risk appetite is going",  icon: "trending_up", color: "green"  },
-		{ id: "explore",       title: "Explore Growth",   subtitle: "See what's leading the charge", icon: "book",        color: "purple", bars: true },
-	],
-	"Risk-Off": [
-		{ id: "defensive",     title: "Defensive Picks",  subtitle: "Stability when risk is off",    icon: "shield",      color: "purple" },
-		{ id: "dividend",      title: "Dividend Stocks",  subtitle: "Earn while playing defense",    icon: "sun",         color: "blue",   bars: true },
-		{ id: "quality",       title: "Quality Names",    subtitle: "Strong fundamentals in focus",  icon: "book",        color: "green"  },
-	],
 };
 
 // GET /api/daily-brief

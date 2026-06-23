@@ -20,40 +20,7 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
-
-const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
-	adtech: ["techCurious"], ai_supply_chain: ["techCurious"], chip_equipment: ["techCurious"],
-	cybersecurity: ["techCurious"], digital_media: ["techCurious"], enterprise_software: ["techCurious"],
-	hardware: ["techCurious"], services: ["techCurious"], software: ["techCurious"], technology: ["techCurious"],
-	ai: ["techCurious", "highGrowth"], analytics: ["techCurious", "highGrowth"],
-	automation: ["techCurious", "highGrowth"], cloud: ["techCurious", "highGrowth"],
-	data_center: ["techCurious", "highGrowth"], data_cloud: ["techCurious", "highGrowth"],
-	innovation: ["techCurious", "highGrowth"], network_effects: ["techCurious", "highGrowth"],
-	semiconductor: ["techCurious", "highGrowth"],
-	apparel_beauty: ["consumerBrands"], beverage: ["consumerBrands"], consumer_brand: ["consumerBrands"],
-	consumer_platform: ["consumerBrands"], consumer_service: ["consumerBrands"],
-	consumer_spending: ["consumerBrands"], entertainment: ["consumerBrands"],
-	everyday_spending: ["consumerBrands"], familiar_brand: ["consumerBrands"],
-	home_retail: ["consumerBrands"], marketplace: ["consumerBrands"], media: ["consumerBrands"],
-	restaurant: ["consumerBrands"], retail: ["consumerBrands"], streaming: ["consumerBrands"],
-	subscription: ["consumerBrands"], travel: ["consumerBrands"],
-	ecommerce: ["consumerBrands", "highGrowth"], electric_vehicles: ["consumerBrands", "highGrowth", "speculativePlays"],
-	consumer_staples: ["consumerBrands", "incomeDividends"], auto: ["consumerBrands"],
-	gaming: ["consumerBrands", "speculativePlays"],
-	high_growth: ["highGrowth"], saas: ["highGrowth"], fintech: ["highGrowth"],
-	air_mobility: ["highGrowth", "speculativePlays"], crypto: ["highGrowth", "speculativePlays"],
-	meme_stock: ["highGrowth", "speculativePlays"], space: ["highGrowth", "speculativePlays"],
-	speculative: ["highGrowth", "speculativePlays"], clean_energy: ["highGrowth", "speculativePlays"],
-	solar: ["highGrowth", "speculativePlays"], biotech: ["highGrowth", "speculativePlays"],
-	digital_health: ["highGrowth", "speculativePlays"],
-	dividend_income: ["incomeDividends"], telecom: ["incomeDividends"], utilities: ["incomeDividends"],
-	energy: ["incomeDividends"], oil_gas: ["incomeDividends"], asset_management: ["incomeDividends"],
-	banking: ["incomeDividends"], capital_markets: ["incomeDividends"], financials: ["incomeDividends"],
-	insurance: ["incomeDividends"], defensive: ["incomeDividends"], income: ["incomeDividends"],
-	real_estate: ["incomeDividends"], reit: ["incomeDividends"],
-	casino_gaming: ["speculativePlays"], trading_platform: ["speculativePlays"], volatile: ["speculativePlays"],
-	commodity_sensitive: ["speculativePlays"], policy_linked: ["speculativePlays"],
-};
+import { computeDisplayCategoryPercentages } from "@stak/shared";
 
 const DISPLAY_CATEGORIES = [
 	{ key: "techCurious",     label: "Tech Curious",       color: "from-blue-500 to-cyan-500",    bg: "bg-blue-500/10",    text: "text-blue-300"    },
@@ -62,24 +29,6 @@ const DISPLAY_CATEGORIES = [
 	{ key: "incomeDividends", label: "Income & Dividends", color: "from-amber-500 to-yellow-400", bg: "bg-amber-500/10",   text: "text-amber-300"   },
 	{ key: "speculativePlays",label: "Speculative Plays",  color: "from-orange-500 to-red-500",   bg: "bg-orange-500/10",  text: "text-orange-300"  },
 ] as const;
-
-function computeDisplayCategories(tagScores: Record<string, number>): Record<string, number> {
-	const raw: Record<string, number> = {
-		techCurious: 0, consumerBrands: 0, highGrowth: 0, incomeDividends: 0, speculativePlays: 0,
-	};
-	for (const [tag, score] of Object.entries(tagScores)) {
-		// Only count positive signal per tag — negative scores suppress recommendations
-		// but shouldn't erase display credit for categories the user has actually saved
-		const positiveScore = Math.max(0, score);
-		for (const bucket of TAG_TO_DISPLAY_BUCKETS[tag] ?? []) {
-			if (bucket in raw) raw[bucket] += positiveScore;
-		}
-	}
-	const maxScore = Math.max(1, ...Object.values(raw));
-	return Object.fromEntries(
-		Object.entries(raw).map(([k, v]) => [k, Math.round((v / maxScore) * 100)]),
-	);
-}
 
 export const Route = createFileRoute("/profile")({
 	component: ProfilePage,
@@ -137,7 +86,7 @@ function ProfilePage() {
 
 	// STAK Taste — derived from weighted tagScores (set by backend on every swipe)
 	const tagScores = account?.tagScores ?? {};
-	const displayCategories = computeDisplayCategories(tagScores);
+	const displayCategories = computeDisplayCategoryPercentages(tagScores);
 	const hasTagScores = Object.keys(tagScores).length > 0;
 
 	// Badges — all badges with progress tracking

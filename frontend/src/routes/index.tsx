@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { brands, type BrandProfile } from "@/data/brands";
 import { STAK_WEIGHTED_STOCK_TAGS } from "@/data/stockTags";
+import { computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import React from "react";
@@ -67,70 +68,18 @@ function shuffleArray<T>(array: T[]): T[] {
 	return shuffled;
 }
 
-// Maps Daily Brief deck theme IDs → stock tags / primaryCategories that qualify for the boost
-const THEME_TAG_MAP: Record<string, { tags: string[]; categories: string[] }> = {
-	high_growth:  { tags: ["high_growth", "innovation", "cloud", "saas", "ai", "ai_supply_chain", "semiconductor"], categories: ["mega_cap_tech", "consumer_tech", "enterprise_software", "semiconductor", "semiconductor_equipment", "automation_ai", "database_data"] },
-	consumer_tech:{ tags: ["technology", "consumer_brand", "consumer_platform", "hardware", "software", "gaming", "streaming"], categories: ["consumer_tech", "mega_cap_tech", "streaming_media", "social_media", "gaming"] },
-	defensive:    { tags: ["defensive", "consumer_staples", "dividend_income", "everyday_spending", "familiar_brand", "utilities"], categories: ["consumer_staples", "utilities", "health_insurance", "insurance", "telecom"] },
-	dividend:     { tags: ["dividend_income", "income", "reit"], categories: ["reit", "utilities", "telecom", "insurance"] },
-	value:        { tags: ["familiar_brand", "consumer_staples", "financials", "banking"], categories: ["bank", "insurance", "retail", "consumer_staples", "industrial"] },
-	quality:      { tags: ["mega_cap", "recurring_revenue", "network_effects", "high_growth", "saas"], categories: ["mega_cap_tech", "payment_network", "enterprise_software", "consumer_tech"] },
-	momentum:     { tags: ["high_growth", "speculative", "meme_stock"], categories: ["meme_stock", "space_airmobility"] },
-	explore:      { tags: [], categories: [] },
-	diversified:  { tags: [], categories: [] },
-};
-
-interface FreshnessContext {
-	earningsTickers: Set<string>;
-	majorNewsTickers: Set<string>;
-	unusualMovers: Set<string>;
-	analystUpdatedTickers: Set<string>;
-}
-
-// ── Recommendation scoring ────────────────────────────────────────────────────
-// finalScore = tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment
-// clamped to [0, 1]
+// Recommendation-scoring formula itself lives in @stak/shared so the live Discover
+// deck (here) and the backend's /api/recommendations/debug endpoint can't drift apart.
 function computeRecommendationScore(
 	brand: BrandProfile,
 	tagScores: Record<string, number>,
-	freshness: FreshnessContext,
+	freshness: RecommendationFreshness,
 	recentlyShownCats: string[],
 	todayThemes: string[],
 ): number {
-	const stock = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "");
 	const ticker = brand.ticker?.toUpperCase() ?? "";
-
-	// 1. tasteMatchScore (0–1): weighted sum of user's tag scores for this stock's learning tags
-	const weightedSum = stock
-		? stock.learningTags.reduce((sum, lt) => sum + (tagScores[lt.tag] ?? 0) * lt.weight, 0)
-		: 0;
-	const tasteMatchScore = Math.min(1, weightedSum / 10);
-
-	// 2. freshnessBoost (0–0.20): boost stocks with imminent activity
-	const earningsBoost    = freshness.earningsTickers.has(ticker)       ? 0.08 : 0;
-	const newsBoost        = freshness.majorNewsTickers.has(ticker)      ? 0.06 : 0;
-	const unusualMoveBoost = freshness.unusualMovers.has(ticker)         ? 0.06 : 0;
-	const analystBoost     = freshness.analystUpdatedTickers.has(ticker) ? 0.04 : 0;
-	const freshnessBoost = Math.min(0.20, earningsBoost + newsBoost + unusualMoveBoost + analystBoost);
-
-	// 3. dailyBriefThemeBoost: +0.03 per Daily Brief theme the stock matches (max 0.12)
-	const stockTags = new Set(stock?.learningTags.map((lt) => lt.tag) ?? []);
-	const stockCat = stock?.primaryCategory ?? "";
-	const themeMatchCount = todayThemes.reduce((sum, themeId) => {
-		const mapping = THEME_TAG_MAP[themeId];
-		if (!mapping) return sum;
-		return sum + (mapping.tags.some((t) => stockTags.has(t)) || mapping.categories.includes(stockCat) ? 1 : 0);
-	}, 0);
-	const dailyBriefThemeBoost = Math.min(0.12, themeMatchCount * 0.03);
-
-	// 4. diversityAdjustment: penalise if same primaryCategory appears 3+ times in last 5 shown
-	const primaryCat = stockCat;
-	const catCountInRecent = recentlyShownCats.slice(0, 5).filter((c) => c === primaryCat).length;
-	const diversityAdjustment = primaryCat && catCountInRecent >= 3 ? -0.10 : 0;
-
-	// No Math.max(0) floor — negative scores are intentional: stocks in a category the user
-	// has repeatedly passed should sink below neutral stocks, not tie with them at 0.
-	return Math.min(1, tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment);
+	const stock = TICKER_TAG_MAP.get(ticker);
+	return computeRecScore(ticker, stock, tagScores, freshness, todayThemes, recentlyShownCats).finalScore;
 }
 
 export const Route = createFileRoute("/")({
@@ -238,7 +187,7 @@ function App() {
 	const orderInitialized = useRef(false);
 
 	// Refs used inside re-sort effects to avoid stale closures
-	const freshnessRef = useRef<FreshnessContext>({
+	const freshnessRef = useRef<RecommendationFreshness>({
 		earningsTickers: earningsTickerSet,
 		majorNewsTickers: new Set(),
 		unusualMovers: new Set(),

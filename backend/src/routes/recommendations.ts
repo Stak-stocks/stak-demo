@@ -3,6 +3,8 @@ import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "../data/stockTags.js";
+import { computeRecommendationScore, type RecommendationFreshness } from "@stak/shared";
+import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();
 
@@ -66,56 +68,37 @@ async function getUpcomingEarningsTickers(): Promise<Set<string>> {
 	return new Set(tickers);
 }
 
-// Maps Daily Brief deck theme IDs → stock tags / primaryCategories that qualify for the boost
-const THEME_TAG_MAP: Record<string, { tags: string[]; categories: string[] }> = {
-	high_growth:  { tags: ["high_growth", "innovation", "cloud", "saas", "ai", "ai_supply_chain", "semiconductor"], categories: ["mega_cap_tech", "consumer_tech", "enterprise_software", "semiconductor", "semiconductor_equipment", "automation_ai", "database_data"] },
-	consumer_tech:{ tags: ["technology", "consumer_brand", "consumer_platform", "hardware", "software", "gaming", "streaming"], categories: ["consumer_tech", "mega_cap_tech", "streaming_media", "social_media", "gaming"] },
-	defensive:    { tags: ["defensive", "consumer_staples", "dividend_income", "everyday_spending", "familiar_brand", "utilities"], categories: ["consumer_staples", "utilities", "health_insurance", "insurance", "telecom"] },
-	dividend:     { tags: ["dividend_income", "income", "reit"], categories: ["reit", "utilities", "telecom", "insurance"] },
-	value:        { tags: ["familiar_brand", "consumer_staples", "financials", "banking"], categories: ["bank", "insurance", "retail", "consumer_staples", "industrial"] },
-	quality:      { tags: ["mega_cap", "recurring_revenue", "network_effects", "high_growth", "saas"], categories: ["mega_cap_tech", "payment_network", "enterprise_software", "consumer_tech"] },
-	momentum:     { tags: ["high_growth", "speculative", "meme_stock"], categories: ["meme_stock", "space_airmobility"] },
-	explore:      { tags: [], categories: [] },
-	diversified:  { tags: [], categories: [] },
-};
-
-type Mood = "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
-
-function deriveMood(spyDp: number | null, qqqDp: number | null): Mood {
-	if (spyDp === null && qqqDp === null) return "Mixed";
-	const avg = spyDp !== null && qqqDp !== null ? (spyDp + qqqDp) / 2 : (spyDp ?? qqqDp)!;
-	const divergence = spyDp !== null && qqqDp !== null ? Math.abs(spyDp - qqqDp) : 0;
-	if (Math.abs(avg) >= 2.5 || divergence >= 3) return "Volatile";
-	if (avg >= 1.5) return "Bullish";
-	if (avg <= -1.5) return "Bearish";
-	if (avg <= -0.5) return "Cautious";
-	if (Math.abs(avg) <= 0.5) return "Calm";
-	return "Mixed";
-}
-
-const MOOD_DECK_IDS: Record<Mood, string[]> = {
-	Bullish:  ["high_growth", "consumer_tech", "explore"],
-	Bearish:  ["defensive", "dividend", "value"],
-	Cautious: ["defensive", "quality", "dividend"],
-	Volatile: ["high_growth", "defensive", "explore"],
-	Calm:     ["explore", "dividend", "defensive"],
-	Mixed:    ["diversified", "high_growth", "defensive"],
-};
-
-/** Returns today's Daily Brief theme IDs derived from market mood. Caches 30 min. */
+/** Returns today's Daily Brief theme IDs derived from market mood. Caches 30 min.
+ *  Reads cache-only (never calls Finnhub directly) — relies on dailyBrief.ts's live
+ *  route having already populated these via getQuoteChange (5-min TTL). Missing
+ *  values degrade gracefully: classifyMood treats nulls/zero sector counts as
+ *  neutral, resolving to "Mixed" on a fully cold cache — same fallback the old
+ *  crude mood model gave for all-null inputs. */
 async function getTodayThemes(): Promise<string[]> {
 	const cacheKey = "recommendations:today-themes:v1";
 	const cached = await cacheGet<string[]>(cacheKey);
 	if (cached) return cached;
 
-	// Reuse SPY/QQQ quotes already cached by dailyBrief.ts (same cache keys, 5-min TTL)
-	const [spyDp, qqqDp] = await Promise.all([
+	const [spyDp, qqqDp, vixDp, ...sectorChanges] = await Promise.all([
 		cacheGet<number>("daily-brief:quote:SPY"),
 		cacheGet<number>("daily-brief:quote:QQQ"),
+		cacheGet<number>("daily-brief:quote:VIX"),
+		...SECTOR_ETFS.map((s) => cacheGet<number>(`daily-brief:quote:${s}`)),
 	]);
 
-	const mood = deriveMood(spyDp, qqqDp);
-	const themes = MOOD_DECK_IDS[mood];
+	let sectorsGreen = 0, sectorsRed = 0;
+	for (const pct of sectorChanges) {
+		if (pct === null || pct === undefined) continue;
+		if (pct > 0) sectorsGreen++;
+		else if (pct < 0) sectorsRed++;
+	}
+
+	const marketData: MarketData = {
+		spyDp: spyDp ?? null, qqqDp: qqqDp ?? null, diaDp: null, iwmDp: null, vixDp: vixDp ?? null,
+		sectorsGreen, sectorsRed, topSector: null, worstSector: null,
+	};
+	const mood = classifyMood(marketData);
+	const themes = MOOD_DECKS[mood].map((d) => d.id);
 	await cacheSet(cacheKey, themes, 30 * 60 * 1000);
 	return themes;
 }
@@ -212,75 +195,28 @@ async function getFreshnessSignals(): Promise<FreshnessSignals> {
 	return { majorNewsLast48h, unusualMovers, analystUpdatesLast7d };
 }
 
-interface ScoreBreakdown {
-	tasteMatchScore: number;
-	freshnessBoost: number;
-	freshnessDetail: { earnings: number; majorNews: number; unusualMove: number; analystUpdate: number };
-	dailyBriefThemeBoost: number;
-	diversityAdjustment: number;
-}
-
-interface ScoredStock {
-	ticker: string;
-	primaryCategory: string;
-	displayTags: string[];
-	finalScore: number;
-	scoreBreakdown: ScoreBreakdown;
-	matchedUserTags: string[];
-}
-
 function computeScore(
 	stock: StakStockTagConfig,
 	tagScores: Record<string, number>,
 	earningsTickers: Set<string>,
 	freshness: FreshnessSignals,
 	todayThemes: string[],
-): ScoredStock {
-	// 1. tasteMatchScore (0–1)
-	const matchedUserTags: string[] = [];
-	const weightedSum = stock.learningTags.reduce((sum, lt) => {
-		const score = tagScores[lt.tag] ?? 0;
-		if (score > 0) matchedUserTags.push(lt.tag);
-		return sum + score * lt.weight;
-	}, 0);
-	const tasteMatchScore = Math.min(1, weightedSum / 10);
-
-	// 2. freshnessBoost (0–0.20)
-	const ticker = stock.ticker.toUpperCase();
-	const earningsBoost    = earningsTickers.has(ticker)                 ? 0.08 : 0;
-	const newsBoost        = freshness.majorNewsLast48h.has(ticker)      ? 0.06 : 0;
-	const unusualMoveBoost = freshness.unusualMovers.has(ticker)         ? 0.06 : 0;
-	const analystBoost     = freshness.analystUpdatesLast7d.has(ticker)  ? 0.04 : 0;
-	const freshnessBoost = Math.min(0.20, earningsBoost + newsBoost + unusualMoveBoost + analystBoost);
-
-	// 3. dailyBriefThemeBoost: +0.03 per matched Daily Brief theme (max 0.12)
-	const stockTags = new Set(stock.learningTags.map((lt) => lt.tag));
-	const themeMatchCount = todayThemes.reduce((sum, themeId) => {
-		const mapping = THEME_TAG_MAP[themeId];
-		if (!mapping) return sum;
-		return sum + (mapping.tags.some((t) => stockTags.has(t)) || mapping.categories.includes(stock.primaryCategory) ? 1 : 0);
-	}, 0);
-	const dailyBriefThemeBoost = Math.min(0.12, themeMatchCount * 0.03);
-
-	// 4. diversityAdjustment — always 0 server-side (no session context)
-	const diversityAdjustment = 0;
-
-	const finalScore = Math.max(0, Math.min(1,
-		tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment,
-	));
+) {
+	const recFreshness: RecommendationFreshness = {
+		earningsTickers,
+		majorNewsTickers: freshness.majorNewsLast48h,
+		unusualMovers: freshness.unusualMovers,
+		analystUpdatedTickers: freshness.analystUpdatesLast7d,
+	};
+	const { finalScore, scoreBreakdown, matchedUserTags } =
+		computeRecommendationScore(stock.ticker, stock, tagScores, recFreshness, todayThemes);
 
 	return {
 		ticker: stock.ticker,
 		primaryCategory: stock.primaryCategory,
 		displayTags: stock.displayTags,
-		finalScore: Math.round(finalScore * 1000) / 1000,
-		scoreBreakdown: {
-			tasteMatchScore: Math.round(tasteMatchScore * 1000) / 1000,
-			freshnessBoost: Math.round(freshnessBoost * 1000) / 1000,
-			freshnessDetail: { earnings: earningsBoost, majorNews: newsBoost, unusualMove: unusualMoveBoost, analystUpdate: analystBoost },
-			dailyBriefThemeBoost: Math.round(dailyBriefThemeBoost * 1000) / 1000,
-			diversityAdjustment,
-		},
+		finalScore,
+		scoreBreakdown,
 		matchedUserTags,
 	};
 }

@@ -391,6 +391,13 @@ export function getDailyBrief() {
 	return apiRequest<DailyBriefResponse>("/api/daily-brief");
 }
 
+/** Live market-open status backed by Finnhub's real exchange status (catches
+ *  unscheduled closures and any NYSE holiday-schedule change) — not just the
+ *  client-side algorithmic holiday calendar. Public, no auth required. */
+export function getMarketStatusLive() {
+	return apiRequest<{ isOpen: boolean; holiday: string | null }>("/api/daily-brief/market-status");
+}
+
 export function getFeaturedLesson() {
 	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
 }
