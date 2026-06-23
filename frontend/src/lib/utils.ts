@@ -41,3 +41,28 @@ export function marketSessionBucket(): string {
 		return "close";                      // 4:00 PM ET+
 	} catch { return "x"; }
 }
+
+/**
+ * Returns a token describing the last market close, used for price labels and AI prompts.
+ * - Market open (live price) → "today"
+ * - After-hours weekday (finalized close, same day) → "close"
+ * - Pre-market Monday (last close was Friday) → "Friday"
+ * - Pre-market Tue–Fri (last close was yesterday) → "yesterday"
+ * - Weekend → "Friday"
+ */
+export function getLastCloseRef(): "today" | "close" | "yesterday" | "Friday" {
+	try {
+		const bucket = marketSessionBucket();
+		if (bucket === "open") return "today";
+		if (bucket === "close") return "close";
+		const dayStr = new Date().toLocaleDateString("en-US", {
+			timeZone: "America/New_York",
+			weekday: "long",
+		});
+		if (bucket === "pre") {
+			return dayStr === "Monday" ? "Friday" : "yesterday";
+		}
+		// Saturday or Sunday
+		return "Friday";
+	} catch { return "today"; }
+}

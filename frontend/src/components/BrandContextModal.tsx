@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk, getDailyBrief,
 } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
+import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
 } from "lucide-react";
@@ -182,13 +182,14 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 	const isMktClosed = !!(briefData as { marketClosed?: boolean } | undefined)?.marketClosed;
+	const lastCloseRef = getLastCloseRef();
 
 	const pctForMove = stockData?.quote?.changePercent;
 	// Use direction (up/down/flat) as cache key discriminator — stable within 30min TTL
 	const moveDirection = pctForMove == null ? null : pctForMove > 0.15 ? "up" : pctForMove < -0.15 ? "down" : "flat";
 	const { data: dailyMoveData, isLoading: dailyMoveLoading } = useQuery({
-		queryKey: ["daily-move", brand?.ticker, moveDirection, isMktClosed],
-		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name, undefined, isMktClosed),
+		queryKey: ["daily-move", brand?.ticker, moveDirection, isMktClosed, lastCloseRef],
+		queryFn: () => getDailyMove(brand!.ticker, pctForMove, brand!.name, undefined, isMktClosed, lastCloseRef),
 		enabled: !!brand && open && pctForMove !== undefined,
 		staleTime: 30 * 60 * 1000,
 		gcTime:    60 * 60 * 1000,
@@ -383,7 +384,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 							color="green"
 						/>
 						<InfoRow
-							heading={isMktClosed ? "Why it moved at last close" : "Why it moved"}
+							heading={lastCloseRef === "today" || lastCloseRef === "close" ? "Why it moved today" : `Why it moved ${lastCloseRef}`}
 							content={whyContent}
 							loading={whyLoading}
 							icon={<TrendingUp size={23} />}

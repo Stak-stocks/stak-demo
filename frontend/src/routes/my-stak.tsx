@@ -10,7 +10,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
+import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
@@ -298,36 +298,26 @@ function NtmColumn({ label, value }: { label: string; value: string }) {
 	);
 }
 
-function NtmRow({ icon, color, title, value, sector, peer, sectorLabel = "Peer 1", peerLabel = "Peer 2", badge, badgeColor, desc }: {
+function NtmRow({ icon, color, title, subtitle, value, badge, badgeColor }: {
 	icon: React.ReactNode;
 	color: DetailColor;
 	title: string;
+	subtitle: string;
 	value: string;
-	sector: string;
-	peer: string;
-	sectorLabel?: string;
-	peerLabel?: string;
 	badge: string;
 	badgeColor: NtmBadgeColor;
-	desc: string;
 }) {
 	return (
-		<div className="rounded-[10px] px-[10px] py-[10px] hover:bg-foreground/[0.03] transition-colors">
-			<div className="flex items-center gap-[10px]">
-				<div className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[9px] ${DETAIL_ICON_COLORS[color]}`}>
-					{icon}
-				</div>
-				<div className="min-w-0 flex-1">
-					<p className="text-[11px] dark:text-slate-400 text-slate-500 leading-none mb-[3px]">{title}</p>
-					<p className="text-[18px] font-bold leading-none tracking-[-0.02em]">{value}</p>
-				</div>
-				<div className="flex shrink-0 items-center gap-[6px]">
-					<NtmColumn label={sectorLabel} value={sector} />
-					<NtmColumn label={peerLabel} value={peer} />
-					<NtmBadge color={badgeColor}>{badge}</NtmBadge>
-				</div>
+		<div className="flex items-center gap-[12px] py-[14px] border-b border-foreground/[0.06] last:border-0">
+			<div className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] ${DETAIL_ICON_COLORS[color]}`}>
+				{icon}
 			</div>
-			<p className="ml-[48px] mt-[5px] text-[11px] leading-[15px] dark:text-slate-400 text-slate-500">{desc}</p>
+			<div className="flex-1 min-w-0">
+				<p className="text-[14px] font-semibold text-foreground leading-[17px]">{title}</p>
+				<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[2px]">{subtitle}</p>
+			</div>
+			<p className="text-[22px] font-bold tracking-[-0.03em] text-foreground shrink-0">{value}</p>
+			<NtmBadge color={badgeColor}>{badge}</NtmBadge>
 		</div>
 	);
 }
@@ -471,9 +461,12 @@ function MyStakPage() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [comparePeers, setComparePeers] = useState<[BrandProfile | null, BrandProfile | null]>([null, null]);
 	const [pickingSlot, setPickingSlot] = useState<0 | 1 | null>(null);
-	const [swipeX, setSwipeX] = useState(0);
-	const swipeStartX = useRef<number | null>(null);
+	const [numbersOpen, setNumbersOpen] = useState(false);
+	const [analystOpen, setAnalystOpen] = useState(false);
+	const [newsOpen, setNewsOpen] = useState(false);
+	const [compareOpen, setCompareOpen] = useState(false);
 	const startTime = useRef(0);
+	const newsScrollRef = useRef<HTMLDivElement>(null);
 	const hasRestoredBrand = useRef(false);
 
 	// Derive stak from Firestore account (real-time, cross-device)
@@ -484,24 +477,6 @@ function MyStakPage() {
 			.filter(Boolean) as BrandProfile[];
 	}, [account?.stakBrandIds]);
 
-	const handlePointerDown = useCallback((e: React.PointerEvent) => {
-		swipeStartX.current = e.clientX;
-		startTime.current = Date.now();
-	}, []);
-
-	const handlePointerMove = useCallback((e: React.PointerEvent) => {
-		if (swipeStartX.current === null) return;
-		setSwipeX(Math.max(0, e.clientX - swipeStartX.current));
-	}, []);
-
-	const handlePointerUp = useCallback(() => {
-		if (swipeX > 100) {
-			sessionStorage.removeItem("selectedBrandId");
-			setSelectedBrand(null);
-		}
-		swipeStartX.current = null;
-		setSwipeX(0);
-	}, [swipeX]);
 	const { data: stockData } = useQuery({
 		queryKey: ["stock", selectedBrand?.ticker],
 		queryFn: () => getStockData(selectedBrand!.ticker),
@@ -574,10 +549,11 @@ function MyStakPage() {
 		retry: 0,
 	});
 	const isMktClosed = !!(myDailyBrief as { marketClosed?: boolean } | undefined)?.marketClosed;
+	const lastCloseRef = getLastCloseRef();
 	const { data: dailyMoveData, isLoading: dailyMoveLoading, isError: dailyMoveError } = useQuery({
-		// Include direction in key so a direction change (flat→down) fetches fresh content
-		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection, 4, isMktClosed],
-		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name, 4, isMktClosed),
+		// Include direction and closeRef in key so session changes refetch fresh content
+		queryKey: ["daily-move", selectedBrand?.ticker, liveMoveDirection, 4, isMktClosed, lastCloseRef],
+		queryFn: () => getDailyMove(selectedBrand!.ticker, liveChangePct, selectedBrand!.name, 4, isMktClosed, lastCloseRef),
 		enabled: !!selectedBrand,
 		staleTime: 30 * 60 * 1000,
 		refetchInterval: 30 * 60 * 1000,
@@ -624,6 +600,14 @@ function MyStakPage() {
 		}
 		return () => { document.body.style.overflow = ""; };
 	}, [selectedBrand]);
+
+	// Reset accordion sections whenever the selected brand changes
+	useEffect(() => {
+		setNumbersOpen(false);
+		setAnalystOpen(false);
+		setNewsOpen(false);
+		setCompareOpen(false);
+	}, [selectedBrand?.id]);
 
 	const handleBrandClick = (brand: BrandProfile) => {
 		sessionStorage.setItem("selectedBrandId", brand.id);
@@ -703,7 +687,6 @@ function MyStakPage() {
 		{ key: "peRatio",       icon: <span className="text-[13px] font-bold">P/E</span>, color: "purple", sector: sectorAvg.peRatio,       peer: fmtPeerMetric("peRatio",       peerMetricsData) },
 		{ key: "revenueGrowth", icon: <TrendingUp size={20} />,  color: "green",  sector: sectorAvg.revenueGrowth, peer: fmtPeerMetric("revenueGrowth", peerMetricsData) },
 		{ key: "profitMargin",  icon: <DollarSign size={20} />,  color: "pink",   sector: sectorAvg.profitMargin,  peer: fmtPeerMetric("profitMargin",  peerMetricsData) },
-		{ key: "marketCap",     icon: <Building2 size={19} />,   color: "blue",   sector: sectorAvg.marketCap,     peer: "—" },
 	];
 		const priceUp = (stockData?.quote?.changePercent ?? 0) >= 0;
 
@@ -748,19 +731,7 @@ function MyStakPage() {
 	})();
 
 	const brandDetailOverlay = selectedBrand && createPortal(
-		<div
-			className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-background"
-			style={{
-				transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined,
-				transition: swipeX === 0 ? "transform 0.25s ease, opacity 0.25s ease" : "none",
-				opacity: swipeX > 0 ? Math.max(0.4, 1 - swipeX / 300) : 1,
-				touchAction: "pan-y",
-			}}
-			onPointerDown={handlePointerDown}
-			onPointerMove={handlePointerMove}
-			onPointerUp={handlePointerUp}
-			onPointerCancel={handlePointerUp}
-		>
+		<div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-background">
 			{/* Scrollable body */}
 			<div className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom,20px)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
@@ -817,48 +788,81 @@ function MyStakPage() {
 				<div className="px-[16px] space-y-[12px] pb-[36px]">
 
 					{/* Numbers That Matter */}
-					<section className="rounded-[12px] border border-blue-400/35 bg-surface-1 p-[16px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-[12px]">
-								<div className="grid h-[36px] w-[36px] place-items-center rounded-full bg-blue-500/15 text-blue-400">
-									<BarChart3 size={18} />
-								</div>
-								<h2 className="text-[16px] font-bold">Numbers That Matter</h2>
+					<section className="rounded-[14px] border border-foreground/[0.07] bg-surface-1 shadow-[0_20px_60px_rgba(0,0,0,.3)] overflow-hidden">
+					<button type="button" onClick={() => setNumbersOpen(v => !v)} className="flex w-full items-center justify-between px-[16px] py-[14px] text-left">
+						<div className="flex items-center gap-[12px] min-w-0">
+							<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
+								<BarChart3 size={18} />
+							</div>
+							<div className="min-w-0">
+								<h2 className="text-[16px] font-bold">Numbers that matter</h2>
+								{!numbersOpen && <p className="text-[12px] dark:text-slate-500 text-slate-400 mt-[2px] truncate">
+									{(() => {
+										const parts = DETAIL_METRICS.map(({ key }) => {
+											const m = selectedBrand.financials[key];
+											const val = liveMetrics?.[key] != null ? String(liveMetrics[key]) : (m?.value ?? "—");
+											const badge = deriveMetricBadge(key, val);
+											return badge.label;
+										});
+										return parts.join(" · ");
+									})()}
+								</p>}
 							</div>
 						</div>
-						<div className="mt-[16px] divide-y divide-white/10">
-							{DETAIL_METRICS.map(({ key, icon, color, sector, peer }) => {
-								const m = selectedBrand.financials[key];
-								const val = liveMetrics?.[key] != null ? String(liveMetrics[key]) : (m?.value ?? "—");
-								const badge = deriveMetricBadge(key, val);
-								return (
-									<NtmRow
-										key={key}
-										icon={icon}
-										color={color}
-										title={m?.label ?? key}
-										value={val}
-										sector={sector}
-										peer={peer}
-										sectorLabel="Sector Avg"
-										peerLabel="Peer Avg"
-										badge={badge.label}
-										badgeColor={badge.color}
-										desc={m?.explanation ?? ""}
-									/>
-								);
-							})}
-						</div>
+						<ChevronRight size={18} className={`shrink-0 transition-transform text-foreground/40 ${numbersOpen ? "rotate-90" : ""}`} />
+					</button>
+					{numbersOpen && <div className="px-[16px] pb-[4px]">
+						{DETAIL_METRICS.map(({ key, icon, color, sector, peer }) => {
+							const m = selectedBrand.financials[key];
+							const val = liveMetrics?.[key] != null ? String(liveMetrics[key]) : (m?.value ?? "—");
+							const badge = deriveMetricBadge(key, val);
+							return (
+								<NtmRow
+									key={key}
+									icon={icon}
+									color={color}
+									title={m?.label ?? key}
+									subtitle={`Sector ${sector} · Peers ${peer}`}
+									value={val}
+									badge={badge.label}
+									badgeColor={badge.color}
+								/>
+							);
+						})}
+					</div>}
 					</section>
 
 	{/* Analyst View */}
-	<section className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] shadow-[0_20px_60px_rgba(0,0,0,.3)]">
-	<div className="flex items-center gap-[10px] mb-[20px]">
-	<div className="grid h-[34px] w-[34px] place-items-center rounded-[8px] bg-blue-500/15 text-blue-400">
+	<section className="rounded-[14px] border border-foreground/10 bg-surface-1 shadow-[0_20px_60px_rgba(0,0,0,.55)] overflow-hidden">
+	<button type="button" onClick={() => setAnalystOpen(v => !v)} className="flex w-full items-center justify-between px-[16px] py-[14px] text-left">
+	<div className="flex items-center gap-[12px] min-w-0">
+	<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
 		<Target size={18} />
 	</div>
-	<h2 className="text-[16px] font-bold">Analyst View</h2>
+	<div className="min-w-0">
+	<h2 className="text-[16px] font-bold">Analyst view</h2>
+	{!analystOpen && <p className="text-[12px] dark:text-slate-500 text-slate-400 mt-[2px] truncate">
+		{analystLoading ? "Loading…" : (() => {
+			const r = analystData?.recommendation;
+			const total = r ? r.strongBuy + r.buy + r.hold + r.sell + r.strongSell : 0;
+			const avg = analystData?.priceTarget?.avg;
+			const price = stockData?.quote?.price;
+			const upside = avg != null && price ? ((avg - price) / price) * 100 : null;
+			if (!total) return "No analyst coverage yet.";
+			let s = `${total} analysts.`;
+			if (avg != null) {
+				s += ` Avg target $${avg.toFixed(0)}`;
+				if (upside != null) s += `, ${Math.abs(upside).toFixed(0)}% ${upside >= 0 ? "above" : "below"} today.`;
+				else s += ".";
+			}
+			return s;
+		})()}
+	</p>}
 	</div>
+	</div>
+	<ChevronRight size={18} className={`shrink-0 transition-transform text-foreground/40 ${analystOpen ? "rotate-90" : ""}`} />
+	</button>
+	{analystOpen && <div className="px-[16px] pb-[16px]">
 
 	{analystLoading ? (
 	<div className="space-y-[20px]">
@@ -1001,49 +1005,89 @@ function MyStakPage() {
 	) : (
 	<p className="text-[13px] dark:text-slate-500 text-slate-400 text-center py-[20px]">No analyst data available.</p>
 	)}
+	</div>}
 	</section>
 					{/* News Signal */}
-					<GlassCard>
-						<div className="flex items-center gap-[10px] mb-[12px]">
-							<DetailIconBox color="blue" small><Sparkles size={19} /></DetailIconBox>
-							<h2 className="text-[16px] font-bold">News Signal</h2>
+					<section className="rounded-[14px] border border-foreground/10 bg-surface-1 shadow-[0_20px_60px_rgba(0,0,0,.55)] overflow-hidden">
+					<button type="button" onClick={() => setNewsOpen(v => !v)} className="flex w-full items-center justify-between px-[16px] py-[14px] text-left">
+						<div className="flex items-center gap-[12px] min-w-0">
+							<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[8px] bg-blue-500/20 text-blue-400"><Sparkles size={18} /></div>
+							<div className="min-w-0">
+							<h2 className="text-[16px] font-bold">News signal</h2>
+							{!newsOpen && <p className="text-[12px] dark:text-slate-500 text-slate-400 mt-[2px] truncate">
+								{newsLoading ? "Loading…" : (() => {
+									const articles = newsData?.articles ?? [];
+									if (!articles.length) return "No recent news.";
+									const bullish = articles.filter(a => a.sentiment === "bullish").length;
+									const bearish = articles.filter(a => a.sentiment === "bearish").length;
+									const tone = bullish > bearish + 1 ? "mostly bullish" : bearish > bullish + 1 ? "mostly cautious" : "mixed signals";
+									return `${articles.length} ${articles.length === 1 ? "story" : "stories"} today, ${tone}.`;
+								})()}
+							</p>}
+							</div>
 						</div>
+						<ChevronRight size={18} className={`shrink-0 transition-transform text-foreground/40 ${newsOpen ? "rotate-90" : ""}`} />
+					</button>
+					{newsOpen && <div className="px-[12px] pb-[12px]">
 
-						{/* Why it's moving today */}
+						{/* Price badge + bullet drivers */}
 						{(() => {
 							const pct = stockData?.quote?.changePercent;
 							const isUp = pct !== undefined ? pct >= 0 : null;
 							const isFlat = pct !== undefined ? Math.abs(pct) < 0.15 : false;
-							const colorClass = isFlat || pct === undefined
-								? "border-foreground/10 bg-foreground/[0.03]"
-								: isUp === true
-								? "border-emerald-500/20 bg-emerald-500/[0.07]"
-								: "border-rose-500/20 bg-rose-500/[0.07]";
 							return (
-								<div className={`mb-[12px] rounded-[11px] border px-[13px] py-[11px] ${colorClass}`}>
-									<div className="flex items-center gap-[6px] mb-[5px]">
-										{pct !== undefined ? (
-											<span className={`text-[12px] font-bold ${isFlat ? "dark:text-slate-400 text-slate-500" : isUp ? "text-emerald-400" : "text-rose-400"}`}>
-												{isFlat ? "—" : isUp ? "▲" : "▼"} {isUp && !isFlat ? "+" : ""}{pct.toFixed(2)}% {isMktClosed ? "at last close" : "today"}
-											</span>
-										) : (
-											<span className="text-[12px] font-semibold dark:text-slate-400 text-slate-500">{isMktClosed ? "Last close driver" : "Today's driver"}</span>
-										)}
-									</div>
+								<div className="mb-[14px]">
+									{pct !== undefined && (
+										<span className={`inline-flex items-center rounded-full px-[10px] py-[3px] text-[12px] font-semibold mb-[12px] ${isFlat ? "bg-foreground/[0.07] dark:text-slate-400 text-slate-500" : isUp ? "bg-emerald-500/15 text-emerald-500" : "bg-rose-500/15 text-rose-400"}`}>
+											{isUp && !isFlat ? "+" : ""}{pct.toFixed(1)}% {lastCloseRef === "today" ? "today" : lastCloseRef === "close" ? "at close" : `at ${lastCloseRef}'s close`}
+										</span>
+									)}
 									{dailyMoveLoading ? (
-										<div className="h-[13px] w-3/4 rounded bg-foreground/10 animate-pulse" />
+										<div className="space-y-[10px]">
+											{[0, 1, 2].map((i) => (
+												<div key={i} className="flex items-start gap-[10px]">
+													<span className="mt-[6px] h-[7px] w-[7px] shrink-0 rounded-full bg-foreground/15 animate-pulse" />
+													<div className={`h-[13px] rounded bg-foreground/10 animate-pulse ${i === 0 ? "w-full" : i === 1 ? "w-4/5" : "w-3/5"}`} />
+												</div>
+											))}
+										</div>
+									) : dailyMoveData?.bullets?.length ? (
+										<ul className="space-y-[10px]">
+											{dailyMoveData.bullets.map((b, i) => {
+												const dot = b.tone === "bullish" ? "bg-emerald-400" : b.tone === "bearish" ? "bg-rose-400" : "bg-foreground/25";
+												return (
+													<li key={i} className="flex items-start gap-[10px]">
+														<span className={`mt-[6px] h-[7px] w-[7px] shrink-0 rounded-full ${dot}`} />
+														<p className="text-[13px] leading-[19px] dark:text-slate-300 text-slate-700">{b.text}</p>
+													</li>
+												);
+											})}
+										</ul>
 									) : dailyMoveData?.explanation ? (
-										<p className="text-[12px] leading-[17px] dark:text-slate-300 text-slate-600">{dailyMoveData.explanation}</p>
+										<ul className="space-y-[10px]">
+											{dailyMoveData.explanation.split(/(?<=[.!?])\s+/).filter(Boolean).map((s, i) => (
+												<li key={i} className="flex items-start gap-[10px]">
+													<span className="mt-[6px] h-[7px] w-[7px] shrink-0 rounded-full bg-foreground/25" />
+													<p className="text-[13px] leading-[19px] dark:text-slate-300 text-slate-700">{s}</p>
+												</li>
+											))}
+										</ul>
 									) : dailyMoveError ? (
 										<p className="text-[12px] dark:text-slate-500 text-slate-400">Analysis unavailable right now.</p>
-									) : (
-										<div className="h-[13px] w-3/4 rounded bg-foreground/10 animate-pulse" />
-									)}
+									) : null}
 								</div>
 							);
 						})()}
 
-						<div className="flex gap-[10px] overflow-x-auto pb-[2px]" style={{ scrollbarWidth: "none" }}>
+						<div className="relative">
+							<button
+								type="button"
+								onClick={() => newsScrollRef.current?.scrollBy({ left: -230, behavior: "smooth" })}
+								className="absolute left-0 top-1/2 -translate-y-1/2 z-10 grid h-[28px] w-[28px] place-items-center rounded-full bg-surface-1 border border-foreground/10 shadow-sm text-foreground/50 active:bg-foreground/5 -translate-x-1/2"
+							>
+								<ChevronLeft size={14} />
+							</button>
+							<div ref={newsScrollRef} className="flex gap-[10px] overflow-x-auto pb-[2px]" style={{ scrollbarWidth: "none" }}>
 							{newsLoading ? (
 								[...Array(3)].map((_, i) => (
 									<div key={i} className="flex w-[240px] shrink-0 flex-col gap-[8px] rounded-[10px] border border-foreground/10 bg-surface-1/80 p-[12px]">
@@ -1086,18 +1130,41 @@ function MyStakPage() {
 										<p className="text-[13px] dark:text-slate-400 text-slate-500">No recent news for this stock.</p>
 									</div>
 							)}
+							</div>
+							<button
+								type="button"
+								onClick={() => newsScrollRef.current?.scrollBy({ left: 230, behavior: "smooth" })}
+								className="absolute right-0 top-1/2 -translate-y-1/2 z-10 grid h-[28px] w-[28px] place-items-center rounded-full bg-surface-1 border border-foreground/10 shadow-sm text-foreground/50 active:bg-foreground/5 translate-x-1/2"
+							>
+								<ChevronRight size={14} />
+							</button>
 						</div>
-					</GlassCard>
+					</div>}
+					</section>
 
 					{/* Compare & Learn */}
-					<section className="rounded-[14px] border border-blue-500/35 bg-surface-1 p-[10px] shadow-[0_20px_60px_rgba(0,0,0,.55)]">
-						<div className="mb-[10px] flex items-center gap-[12px]">
+					<section className="rounded-[14px] border border-blue-500/35 bg-surface-1 shadow-[0_20px_60px_rgba(0,0,0,.55)] overflow-hidden">
+					<button type="button" onClick={() => setCompareOpen(v => !v)} className="flex w-full items-center justify-between px-[16px] py-[14px] text-left">
+						<div className="flex items-center gap-[12px] min-w-0">
 							<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[8px] bg-blue-500/20 text-blue-400">
 								<GitCompare size={20} />
 							</div>
-							<h2 className="text-[16px] font-bold leading-none">Compare & Learn</h2>
+							<div className="min-w-0">
+							<h2 className="text-[16px] font-bold">Compare and learn</h2>
+							{!compareOpen && <p className="text-[12px] dark:text-slate-500 text-slate-400 mt-[2px] truncate">
+								{(() => {
+									const p1 = comparePeers[0];
+									const p2 = comparePeers[1];
+									const peerNames = [p1?.name, p2?.name].filter(Boolean);
+									if (!peerNames.length) return `See ${selectedBrand?.name} next to peers.`;
+									return `See ${selectedBrand?.name} next to ${peerNames.join(" and ")}.`;
+								})()}
+							</p>}
+							</div>
 						</div>
-
+						<ChevronRight size={18} className={`shrink-0 transition-transform text-foreground/40 ${compareOpen ? "rotate-90" : ""}`} />
+					</button>
+					{compareOpen && <div className="px-[16px] pb-[14px]">
 						<div className="overflow-hidden rounded-[9px] border border-foreground/10 bg-surface-1/70">
 							{/* Company header row */}
 							<div className="grid border-b border-foreground/10" style={{ gridTemplateColumns: "1.15fr 0.85fr 0.85fr 0.85fr" }}>
@@ -1165,6 +1232,7 @@ function MyStakPage() {
 								</div>
 							))}
 						</div>
+					</div>}
 					</section>
 
 					<p className="pb-[6px] text-center text-[10px] text-slate-600">
