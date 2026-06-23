@@ -11,6 +11,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
+import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { logEvent } from "@/lib/firebase";
@@ -125,59 +126,6 @@ function StakWatchList({ brands, onRemove, onClick }: {
 			)}
 		</div>
 	);
-}
-
-const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
-	adtech: ["techCurious"], ai_supply_chain: ["techCurious"], chip_equipment: ["techCurious"],
-	cybersecurity: ["techCurious"], digital_media: ["techCurious"], enterprise_software: ["techCurious"],
-	hardware: ["techCurious"], services: ["techCurious"], software: ["techCurious"], technology: ["techCurious"],
-	ai: ["techCurious", "highGrowth"], analytics: ["techCurious", "highGrowth"],
-	automation: ["techCurious", "highGrowth"], cloud: ["techCurious", "highGrowth"],
-	data_center: ["techCurious", "highGrowth"], data_cloud: ["techCurious", "highGrowth"],
-	innovation: ["techCurious", "highGrowth"], network_effects: ["techCurious", "highGrowth"],
-	semiconductor: ["techCurious", "highGrowth"],
-	apparel_beauty: ["consumerBrands"], beverage: ["consumerBrands"], consumer_brand: ["consumerBrands"],
-	consumer_platform: ["consumerBrands"], consumer_service: ["consumerBrands"],
-	consumer_spending: ["consumerBrands"], entertainment: ["consumerBrands"],
-	everyday_spending: ["consumerBrands"], familiar_brand: ["consumerBrands"],
-	home_retail: ["consumerBrands"], marketplace: ["consumerBrands"], media: ["consumerBrands"],
-	restaurant: ["consumerBrands"], retail: ["consumerBrands"], streaming: ["consumerBrands"],
-	subscription: ["consumerBrands"], travel: ["consumerBrands"],
-	ecommerce: ["consumerBrands", "highGrowth"], electric_vehicles: ["consumerBrands", "highGrowth", "speculativePlays"],
-	consumer_staples: ["consumerBrands", "incomeDividends"], auto: ["consumerBrands"],
-	gaming: ["consumerBrands", "speculativePlays"],
-	high_growth: ["highGrowth"], saas: ["highGrowth"], fintech: ["highGrowth"],
-	air_mobility: ["highGrowth", "speculativePlays"], crypto: ["highGrowth", "speculativePlays"],
-	meme_stock: ["highGrowth", "speculativePlays"], space: ["highGrowth", "speculativePlays"],
-	speculative: ["highGrowth", "speculativePlays"], clean_energy: ["highGrowth", "speculativePlays"],
-	solar: ["highGrowth", "speculativePlays"], biotech: ["highGrowth", "speculativePlays"],
-	digital_health: ["highGrowth", "speculativePlays"],
-	dividend_income: ["incomeDividends"], telecom: ["incomeDividends"], utilities: ["incomeDividends"],
-	energy: ["incomeDividends"], oil_gas: ["incomeDividends"], asset_management: ["incomeDividends"],
-	banking: ["incomeDividends"], capital_markets: ["incomeDividends"], financials: ["incomeDividends"],
-	insurance: ["incomeDividends"], defensive: ["incomeDividends"], income: ["incomeDividends"],
-	real_estate: ["incomeDividends"], reit: ["incomeDividends"],
-	casino_gaming: ["speculativePlays"], trading_platform: ["speculativePlays"], volatile: ["speculativePlays"],
-	commodity_sensitive: ["speculativePlays"], policy_linked: ["speculativePlays"],
-};
-
-const DISPLAY_CATEGORY_TOP_LABELS: Record<string, { title: string; subtitle: string }> = {
-	techCurious:      { title: "Tech",        subtitle: "Stocks"  },
-	consumerBrands:   { title: "Consumer",    subtitle: "Brands"  },
-	highGrowth:       { title: "High",        subtitle: "Growth"  },
-	incomeDividends:  { title: "Income",      subtitle: "Stocks"  },
-	speculativePlays: { title: "Speculative", subtitle: "Plays"   },
-};
-
-function computeTopDisplayCategory(tagScores: Record<string, number>): { title: string; subtitle: string } {
-	const buckets: Record<string, number> = {};
-	for (const [tag, score] of Object.entries(tagScores)) {
-		for (const bucket of (TAG_TO_DISPLAY_BUCKETS[tag] ?? [])) {
-			buckets[bucket] = (buckets[bucket] ?? 0) + score;
-		}
-	}
-	const top = Object.entries(buckets).sort(([, a], [, b]) => b - a)[0];
-	return top ? (DISPLAY_CATEGORY_TOP_LABELS[top[0]] ?? { title: "Consumer", subtitle: "Brands" }) : { title: "Consumer", subtitle: "Brands" };
 }
 
 function deriveRiskLabel(stakBrands: BrandProfile[]): { title: string; subtitle: string } {
