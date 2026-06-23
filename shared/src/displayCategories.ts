@@ -4,11 +4,27 @@
 // own copy of this map plus three different aggregation formulas — keep this the
 // only place it's implemented.
 
-// 4 tags are deliberately left unmapped: etf, index, diversified, broad_market.
-// They're only ever used on index funds (SPY, QQQ) — forcing a fund into a
-// "personality" bucket built for individual companies would be actively
-// misleading (an index fund isn't "Tech Curious" or "Speculative"), so those
-// tags earn no display-category credit by design, not by oversight.
+// 6 tags are deliberately left unmapped, in two groups:
+// - etf, index, diversified, broad_market: only ever used on index funds (SPY,
+//   QQQ) — forcing a fund into a "personality" bucket built for individual
+//   companies would be actively misleading (an index fund isn't "Tech Curious"
+//   or "Speculative").
+// - cyclical, healthcare: applied so broadly (cyclical spans semiconductor
+//   equipment, industrials, autos, transport, and airlines; healthcare spans
+//   stable dividend-paying insurers through volatile pre-revenue biotech) that
+//   no single bucket fits. Verified every stock carrying either tag also has a
+//   more specific co-tag that's already mapped correctly below (e.g. MRNA has
+//   healthcare+biotech+speculative — biotech/speculative already cover it
+//   correctly; mapping healthcare too would wrongly nudge a biotech-heavy
+//   profile toward "Income & Dividends"). Leaving these two unmapped means the
+//   more specific co-tags do the precise work instead.
+//
+// Two more tags are mapped but imperfectly (kept — directionally right for the
+// large majority of tickers, not worth a bucket of their own):
+// - consumer_finance includes 2 B2B fintech infra names (WEX, NCNO) alongside
+//   8 genuinely consumer-facing apps; mapped as consumerBrands+highGrowth.
+// - digital_ads includes 2 B2B adtech platforms (TTD, APP) alongside 6
+//   consumer social apps; mapped as techCurious+consumerBrands.
 export const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
 	// techCurious
 	adtech: ["techCurious"],
@@ -98,14 +114,12 @@ export const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
 	payments: ["techCurious", "highGrowth"],                    // PYPL, V, MA, SQ
 	financial_data: ["techCurious", "incomeDividends"],         // ADP, SPGI, MCO, MSCI
 	medical_devices: ["techCurious", "highGrowth"],             // ISRG, MDT, SYK, BSX
-	cyclical: ["techCurious", "speculativePlays"],              // ASML, AMAT, LRCX, HON
 	mobility: ["consumerBrands"],                               // UBER, ABNB, LYFT, MAR
 	gig_economy: ["consumerBrands"],                            // UBER, ABNB, LYFT, MAR
 	housing: ["consumerBrands"],                                // HD, LOW
 	industrial: ["consumerBrands"],                             // F, GM, TM
 	consumer_finance: ["consumerBrands", "highGrowth"],         // PYPL, SQ, HOOD, SOFI
 	drug_pipeline: ["highGrowth", "speculativePlays"],          // PFE, MRNA, BMY, LLY
-	healthcare: ["incomeDividends"],                            // UNH, PFE, BMY (dividend payers)
 	pharma: ["incomeDividends"],                                // PFE, BMY, LLY, ABBV
 	managed_care: ["incomeDividends"],                          // UNH, CVS, CI, HUM
 	markets: ["incomeDividends"],                               // GS, MS, BLK, AXP
