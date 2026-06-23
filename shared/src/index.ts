@@ -11,3 +11,13 @@ export type {
 } from "./recommendationScoring";
 
 export { marketSessionBucket } from "./marketSession";
+
+export {
+	TAG_TO_DISPLAY_BUCKETS,
+	DISPLAY_CATEGORY_LABELS,
+	DISPLAY_CATEGORY_TOP_LABELS,
+	computeDisplayCategoryScores,
+	computeDisplayCategoryPercentages,
+	computeTopDisplayCategory,
+} from "./displayCategories";
+export type { DisplayCategoryKey } from "./displayCategories";
