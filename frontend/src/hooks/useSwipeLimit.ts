@@ -10,20 +10,14 @@
 
 import { useState, useCallback } from "react";
 import { useAccount } from "@/context/AccountContext";
+// Re-exported, not a local copy — see @/lib/utils for the 9 AM-reset implementation.
+// NOTE: if a `vi.mock("@/hooks/useSwipeLimit", ...)` factory is ever added elsewhere
+// without including getTodayKey, any code importing it from this path would get
+// `undefined` at test time with no compile-time signal — stub it in the mock too.
+import { getTodayKey } from "@/lib/utils";
 
+export { getTodayKey };
 export const DAILY_SWIPE_LIMIT = 20;
-const RESET_HOUR = 9; // 9 AM local time
-
-// ── Date key (resets at 9 AM) ─────────────────────────────────────────────────
-
-export function getTodayKey(): string {
-	const now = new Date();
-	const target = now.getHours() < RESET_HOUR ? new Date(now.setDate(now.getDate() - 1)) : now;
-	const y = target.getFullYear();
-	const m = String(target.getMonth() + 1).padStart(2, "0");
-	const d = String(target.getDate()).padStart(2, "0");
-	return `${y}-${m}-${d}`;
-}
 
 // ── localStorage helpers (guest path only) ────────────────────────────────────
 

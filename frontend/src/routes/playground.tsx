@@ -289,8 +289,7 @@ function PlaygroundPage() {
 		if (showOnboarding) scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	}, [showOnboarding]);
 
-	// Use local time to match dayKey (getTodayKey also uses local time)
-	const todayKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+	const todayKey = getTodayKey();
 
 	// Weekly Pack — computed after totalXp is available (see line ~310)
 	// Use daily key for completion tracking so each day brings fresh scenarios
