@@ -4,11 +4,11 @@
 // own copy of this map plus three different aggregation formulas — keep this the
 // only place it's implemented.
 
-// KNOWN GAP: ~37 of the ~109 learningTags used in stockTags.ts (about a third —
-// including high-volume tags like healthcare, industrials, payments, pharma,
-// social_media) have no entry below, so engagement with those stocks earns zero
-// display-category credit today. Inherited as-is from the pre-existing per-file
-// copies; not fixed here — flagged for a follow-up decision, not silently absorbed.
+// 4 tags are deliberately left unmapped: etf, index, diversified, broad_market.
+// They're only ever used on index funds (SPY, QQQ) — forcing a fund into a
+// "personality" bucket built for individual companies would be actively
+// misleading (an index fund isn't "Tech Curious" or "Speculative"), so those
+// tags earn no display-category credit by design, not by oversight.
 export const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
 	// techCurious
 	adtech: ["techCurious"],
@@ -87,6 +87,43 @@ export const TAG_TO_DISPLAY_BUCKETS: Record<string, string[]> = {
 	volatile: ["speculativePlays"],
 	commodity_sensitive: ["speculativePlays"],
 	policy_linked: ["speculativePlays"],
+
+	// Added below: 33 of the 37 tags that had no mapping at all (see git history —
+	// inherited gap from the original per-file copies). Grounded in the actual
+	// tickers each tag is applied to in stockTags.ts, not just the tag name.
+	mega_cap: ["techCurious", "highGrowth"],                    // MSFT, GOOGL
+	recurring_revenue: ["techCurious", "highGrowth"],           // CRM, ADBE, NOW, INTU
+	digital_ads: ["techCurious", "consumerBrands"],             // META, SNAP, PINS, RDDT
+	social_media: ["techCurious", "consumerBrands", "highGrowth"], // META, SNAP, PINS, RDDT
+	payments: ["techCurious", "highGrowth"],                    // PYPL, V, MA, SQ
+	financial_data: ["techCurious", "incomeDividends"],         // ADP, SPGI, MCO, MSCI
+	medical_devices: ["techCurious", "highGrowth"],             // ISRG, MDT, SYK, BSX
+	cyclical: ["techCurious", "speculativePlays"],              // ASML, AMAT, LRCX, HON
+	mobility: ["consumerBrands"],                               // UBER, ABNB, LYFT, MAR
+	gig_economy: ["consumerBrands"],                            // UBER, ABNB, LYFT, MAR
+	housing: ["consumerBrands"],                                // HD, LOW
+	industrial: ["consumerBrands"],                             // F, GM, TM
+	consumer_finance: ["consumerBrands", "highGrowth"],         // PYPL, SQ, HOOD, SOFI
+	drug_pipeline: ["highGrowth", "speculativePlays"],          // PFE, MRNA, BMY, LLY
+	healthcare: ["incomeDividends"],                            // UNH, PFE, BMY (dividend payers)
+	pharma: ["incomeDividends"],                                // PFE, BMY, LLY, ABBV
+	managed_care: ["incomeDividends"],                          // UNH, CVS, CI, HUM
+	markets: ["incomeDividends"],                               // GS, MS, BLK, AXP
+	asset_light: ["incomeDividends"],                           // GS, MS, NDAQ, ICE
+	private_equity: ["incomeDividends"],                        // BX, KKR, APO
+	alternative_assets: ["incomeDividends"],                    // BX, KKR, APO
+	interest_rates: ["incomeDividends"],                        // JPM, C, BAC, WFC
+	interest_rate_sensitive: ["incomeDividends"],               // DUK, SO, D, AEP
+	industrials: ["incomeDividends"],                           // LMT, BA, HON, CAT
+	infrastructure: ["incomeDividends"],                        // HON, CAT, DE, ETN
+	aerospace_defense: ["incomeDividends"],                     // LMT, BA, RTX, NOC
+	government_contracts: ["incomeDividends"],                  // LMT, BA, RTX, NOC
+	transportation: ["incomeDividends"],                        // UNP, CSX, UPS, FDX
+	logistics: ["incomeDividends"],                             // UNP, CSX, UPS, FDX
+	materials: ["speculativePlays"],                            // NEM, FCX, ALB, APD
+	metals_mining: ["speculativePlays"],                        // NEM, FCX, ALB, APD
+	inflation_hedge: ["speculativePlays"],                      // NEM, FCX, ALB, APD
+	airline: ["speculativePlays"],                              // DAL, UAL, LUV, AAL
 };
 
 export type DisplayCategoryKey =
