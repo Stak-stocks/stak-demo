@@ -5,6 +5,7 @@ import { getConsensusEarningsResult } from "../services/earningsResultConsensus.
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { PEER_GROUPS } from "../data/peerGroups.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
+import { marketSessionBucket } from "@stak/shared";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -397,11 +398,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 // ── Market session helper ─────────────────────────────────────────────────────
 // Returns true when US markets are outside regular hours (pre or after-hours)
 function isExtendedHours(): boolean {
-	const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-	const day = et.getDay();
-	if (day === 0 || day === 6) return true; // weekend
-	const mins = et.getHours() * 60 + et.getMinutes();
-	return mins < 570 || mins >= 960; // before 9:30 AM or after 4:00 PM ET
+	return marketSessionBucket() !== "open";
 }
 
 // ── Yahoo Finance extended-hours quote ────────────────────────────────────────
