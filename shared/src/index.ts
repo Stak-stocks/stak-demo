@@ -9,3 +9,5 @@ export type {
 	ScoreBreakdown,
 	RecommendationScoreResult,
 } from "./recommendationScoring";
+
+export { marketSessionBucket } from "./marketSession";
