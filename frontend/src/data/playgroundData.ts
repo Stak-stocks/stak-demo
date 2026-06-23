@@ -3,6 +3,7 @@
 // This file contains only types, XP/tier config, and non-activity static data.
 import { TIER_XP as BASE_TIER_XP, xpToTier } from "@stak/shared";
 import type { ActivityType } from "@stak/shared";
+import { getLocalDateKey } from "@/lib/utils";
 export { xpToTier, TIER_THRESHOLDS, ACTIVITY_TYPES } from "@stak/shared";
 export type { ActivityType } from "@stak/shared";
 
@@ -472,7 +473,4 @@ export function getDailyPack(totalXp: number, dayKey: string): DailyPack {
 }
 
 /** Get today's date key in local time, e.g. "2026-06-20" */
-export function getTodayKey(): string {
-	const d = new Date();
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+export const getTodayKey = getLocalDateKey;

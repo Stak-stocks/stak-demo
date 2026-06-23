@@ -2,6 +2,7 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { xpToTier, TIER_XP, type TierNumber } from "@stak/shared";
 
 export const dailyBriefRouter = Router();
 
@@ -873,22 +874,6 @@ dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: Authentica
 
 // ── Weekly generated lesson (per-user, per-ISO-week) ─────────────────────────
 
-const XP_TIER_LABELS: Record<number, string> = {
-	0: "Beginner",
-	1: "Learner",
-	2: "Investor",
-	3: "Analyst",
-	4: "Expert",
-};
-
-function xpToTier(xp: number): number {
-	if (xp >= 7500) return 4;
-	if (xp >= 3500) return 3;
-	if (xp >= 1500) return 2;
-	if (xp >= 500) return 1;
-	return 0;
-}
-
 interface GeneratedLessonResponse {
 	topic: string;
 	angle: string;
@@ -920,7 +905,7 @@ async function generateGeneratedLesson(uid: string, totalXp: number, userHistory
 	}
 
 	const tier = xpToTier(totalXp);
-	const tierLabel = XP_TIER_LABELS[tier]!;
+	const tierLabel = TIER_XP[tier].label;
 
 	const history = [...userHistory]
 		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
@@ -930,12 +915,12 @@ async function generateGeneratedLesson(uid: string, totalXp: number, userHistory
 		? `\nThis user's personal lesson history (DO NOT repeat these angles):\n${history.map(h => `- "${h.title}" [${h.topic}] — angle: ${h.angle}`).join("\n")}\n`
 		: "";
 
-	const tierGuidance: Record<number, string> = {
-		0: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
-		1: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
-		2: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
-		3: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
-		4: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
+	const tierGuidance: Record<TierNumber, string> = {
+		1: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
+		2: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
+		3: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
+		4: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
+		5: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
 	};
 
 	const prompt = `You are writing a personalized Weekly Deep Dive lesson for STAK, a stock-learning app for Gen Z and millennials.
