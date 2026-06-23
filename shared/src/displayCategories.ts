@@ -147,15 +147,17 @@ export function computeDisplayCategoryPercentages(tagScores: Record<string, numb
 }
 
 /** Picks the single highest-scoring bucket (positive-only) for a one-line badge.
- *  Falls back to a default when the user hasn't engaged with any bucketed tag yet
- *  (brand-new user, or engagement limited to tags with no bucket mapping — see the
- *  known-gap note above) — computeDisplayCategoryScores always returns all 5 keys,
- *  so checking for "any bucketed tag" explicitly avoids a phantom top pick at a
- *  five-way tie of 0. */
+ *  Falls back to a default whenever there's no real positive signal anywhere — a
+ *  brand-new user, engagement limited to tags with no bucket mapping (see the
+ *  known-gap note above), or a user who has only ever disliked things in every
+ *  bucket they've touched. Checking the top score itself (not just "did they touch
+ *  any bucketed tag") matters: computeDisplayCategoryScores floors every bucket at
+ *  0, so an all-negative profile ties 5-way at zero — without this check the tie
+ *  would resolve to whichever key happens to be first in object order (techCurious),
+ *  showing a confident-looking but meaningless pick instead of the default. */
 export function computeTopDisplayCategory(tagScores: Record<string, number>): { title: string; subtitle: string } {
-	const hasAnyBucketedTag = Object.keys(tagScores).some((tag) => (TAG_TO_DISPLAY_BUCKETS[tag]?.length ?? 0) > 0);
-	if (!hasAnyBucketedTag) return { title: "Consumer", subtitle: "Brands" };
 	const raw = computeDisplayCategoryScores(tagScores);
 	const top = (Object.entries(raw) as [DisplayCategoryKey, number][]).sort(([, a], [, b]) => b - a)[0]!;
+	if (top[1] <= 0) return { title: "Consumer", subtitle: "Brands" };
 	return DISPLAY_CATEGORY_TOP_LABELS[top[0]];
 }
