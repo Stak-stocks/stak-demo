@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, type MouseEve
 import { useQuery } from "@tanstack/react-query";
 import type { BrandProfile } from "@/data/brands";
 import { StockCard } from "@/components/StockCard";
-import { Clock, Sparkles, X, Bookmark, BookOpen, ChevronDown, Brain, CheckCircle2, XCircle, Eye, Layers } from "lucide-react";
+import { Clock, Sparkles, X, Bookmark, BookOpen, ChevronUp, Brain, CheckCircle2, XCircle, Eye, Layers } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { recordSwipe, getStockData, getPopularBrands } from "@/lib/api";
 import { PICKS_RESET_HOUR } from "@/lib/constants";
@@ -54,23 +54,26 @@ interface SwipeableCardStackProps {
 
 const ACTION_COLORS = {
 	red:   "border-2 border-red-500 text-red-400 bg-surface-1 shadow-[0_0_22px_rgba(239,68,68,.22)]",
-	cyan:  "border-2 border-green-500 text-green-400 bg-green-500/10 shadow-[0_0_22px_rgba(34,197,94,.2)]",
-	dark:  "border-2 border-blue-500/60 text-blue-400 bg-surface-1",
+	cyan:  "border-2 border-green-500 text-green-400 bg-surface-1 shadow-[0_0_22px_rgba(34,197,94,.22)]",
+	dark:  "border-2 border-blue-500/60 text-blue-400 bg-surface-1 shadow-[0_0_22px_rgba(59,130,246,.22)]",
 	gray:  "border-2 border-zinc-600 dark:text-zinc-400 text-zinc-600 bg-surface-1",
+	amber: "border-2 border-amber-400 text-amber-300 bg-surface-1 shadow-[0_0_22px_rgba(251,191,36,.22)]",
 };
 
 const GLOW_COLOR = {
-	red:  "rgba(239,68,68,",
-	cyan: "rgba(34,197,94,",
-	dark: "rgba(59,130,246,",
-	gray: "rgba(113,113,122,",
+	red:   "rgba(239,68,68,",
+	cyan:  "rgba(34,197,94,",
+	dark:  "rgba(59,130,246,",
+	gray:  "rgba(113,113,122,",
+	amber: "rgba(251,191,36,",
 };
 
 const DEEP_BG: Record<keyof typeof ACTION_COLORS, (h: number) => string | undefined> = {
-	red:  (h) => h > 0 ? `rgba(239,68,68,${(h * 0.35).toFixed(2)})` : undefined,
-	cyan: (h) => h > 0 ? `rgba(34,197,94,${(0.04 + h * 0.30).toFixed(2)})` : undefined,
-	dark: ()  => undefined,
-	gray: ()  => undefined,
+	red:   (h) => h > 0 ? `rgba(239,68,68,${(h * 0.35).toFixed(2)})` : undefined,
+	cyan:  (h) => h > 0 ? `rgba(34,197,94,${(0.04 + h * 0.30).toFixed(2)})` : undefined,
+	dark:  ()  => undefined,
+	gray:  ()  => undefined,
+	amber: (h) => h > 0 ? `rgba(251,191,36,${(h * 0.25).toFixed(2)})` : undefined,
 };
 
 function ActionBtn({ icon, label, sub, color, onClick, highlight = 0, isDragging = false }: {
@@ -158,7 +161,8 @@ export function SwipeableCardStack({
 
 	const dragStartPos = useRef({ x: 0, y: 0 });
 	const dragStartTime = useRef(0);
-	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
+	const velocityHistory = useRef<{ x: number; y: number; t: number }[]>([]);
+	const dragAxis = useRef<"x" | "y" | null>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const isProcessingSwipe = useRef(false);
 	const isDraggingRef = useRef(false);
@@ -283,7 +287,7 @@ export function SwipeableCardStack({
 	}, [deck, currentIndex, onIncrement, onSwipe, onSwipeRight, onSwipeLeft]);
 
 	/* ── Skip (shuffle current card to bottom, no recording) ── */
-	const executeSkip = useCallback(() => {
+	const executeSkip = useCallback((direction: "up" | "down" = "up") => {
 		if (isProcessingSwipe.current) return;
 		isProcessingSwipe.current = true;
 		const current = deck[currentIndex];
@@ -292,7 +296,7 @@ export function SwipeableCardStack({
 		isDraggingRef.current = false;
 		setIsDragging(false);
 		setIsExiting(true);
-		setDragOffset({ x: 0, y: 4000 }); // slide card down off screen
+		setDragOffset({ x: 0, y: direction === "up" ? -2200 : 4000 });
 
 		setTimeout(() => {
 			setSkipSet((prev) => new Set([...prev, current.id]));
@@ -306,21 +310,29 @@ export function SwipeableCardStack({
 	const handleDragStart = (clientX: number, clientY: number) => {
 		if (isProcessingSwipe.current) return;
 		isDraggingRef.current = true;
+		dragAxis.current = null;
 		setIsDragging(true);
 		dragStartPos.current = { x: clientX, y: clientY };
 		dragStartTime.current = Date.now();
-		velocityHistory.current = [{ x: clientX, t: Date.now() }];
+		velocityHistory.current = [{ x: clientX, y: clientY, t: Date.now() }];
 	};
 
 	const handleDragMove = (clientX: number, clientY: number) => {
 		if (!isDraggingRef.current) return;
 		const deltaX = clientX - dragStartPos.current.x;
 		const deltaY = clientY - dragStartPos.current.y;
-		setDragOffset({ x: deltaX, y: deltaY });
+
+		// Lock to one axis once the drag exceeds 8px — prevents diagonal conflicts
+		if (dragAxis.current === null && (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8)) {
+			dragAxis.current = Math.abs(deltaX) >= Math.abs(deltaY) ? "x" : "y";
+		}
+		const lockedX = dragAxis.current === "y" ? 0 : deltaX;
+		const lockedY = dragAxis.current === "x" ? 0 : deltaY;
+		setDragOffset({ x: lockedX, y: lockedY });
 
 		// Keep last 5 positions for velocity calc
 		const now = Date.now();
-		velocityHistory.current.push({ x: clientX, t: now });
+		velocityHistory.current.push({ x: clientX, y: clientY, t: now });
 		if (velocityHistory.current.length > 5) velocityHistory.current.shift();
 	};
 
@@ -328,22 +340,37 @@ export function SwipeableCardStack({
 		if (!isDraggingRef.current || isProcessingSwipe.current) return;
 		isDraggingRef.current = false;
 
-		// Calculate velocity from recent history
+		// Calculate X and Y velocity from recent history
 		const history = velocityHistory.current;
 		let velocity = 0;
+		let velocityY = 0;
 		if (history.length >= 2) {
 			const first = history[0];
 			const last = history[history.length - 1];
 			const dt = last.t - first.t;
-			if (dt > 0) velocity = (last.x - first.x) / dt; // px/ms
+			if (dt > 0) {
+				velocity  = (last.x - first.x) / dt;
+				velocityY = (last.y - first.y) / dt;
+			}
 		}
 
-		const absDistance = Math.abs(dragOffset.x);
-		const absVelocity = Math.abs(velocity);
+		const absDistanceX = Math.abs(dragOffset.x);
+		const absDistanceY = Math.abs(dragOffset.y);
+		const absVelocity  = Math.abs(velocity);
+		const absVelocityY = Math.abs(velocityY);
 
-		// Trigger swipe on: quick flick OR sufficient distance
-		const isFlick = absVelocity > FLICK_VELOCITY && absDistance > 20;
-		const isDrag = absDistance > DISTANCE_THRESHOLD;
+		// Upward swipe → skip (only when Y motion dominates)
+		const isFlickUp = absVelocityY > FLICK_VELOCITY && dragOffset.y < -20 && velocityY < 0 && absDistanceY > absDistanceX;
+		const isDragUp  = absDistanceY > DISTANCE_THRESHOLD && dragOffset.y < 0 && absDistanceY > absDistanceX * 1.2;
+
+		if (isFlickUp || isDragUp) {
+			executeSkip("up");
+			return;
+		}
+
+		// Left / right swipe
+		const isFlick = absVelocity > FLICK_VELOCITY && absDistanceX > 20;
+		const isDrag  = absDistanceX > DISTANCE_THRESHOLD;
 
 		if (isFlick || isDrag) {
 			const direction = (velocity !== 0 ? velocity : dragOffset.x) > 0 ? "right" : "left";
@@ -486,12 +513,15 @@ export function SwipeableCardStack({
 	}
 
 	const translateX = dragOffset.x;
-	const translateY = dragOffset.y * 0.15;
+	// Upward drag: 55% — visible skip gesture; downward: 8% — barely follows (no accidental skip)
+	const translateY = dragOffset.y < 0 ? dragOffset.y * 0.55 : dragOffset.y * 0.08;
 	const rotation = dragOffset.x * 0.06;
 	const tintOpacity = Math.min(Math.abs(dragOffset.x) / 120, 0.45);
 	const swipeProgress = Math.min(Math.abs(dragOffset.x) / 100, 1);
 	const passHighlight  = dragOffset.x < -5  ? swipeProgress : 0;
 	const saveHighlight  = dragOffset.x > 5   ? swipeProgress : 0;
+	const skipProgress   = dragOffset.y < -5  ? Math.min(Math.abs(dragOffset.y) / 100, 1) : 0;
+	const skipHighlight  = skipProgress;
 
 	// Derived dimensions — all scale proportionally from the base 355×550 design
 	const cW  = Math.round(355 * scale);
@@ -598,7 +628,7 @@ export function SwipeableCardStack({
 				</div>
 
 				{/* STAK / PASS label */}
-				{Math.abs(dragOffset.x) > 30 && (
+				{Math.abs(dragOffset.x) > 30 && dragOffset.y > -30 && (
 					<div
 						className="absolute pointer-events-none z-50"
 						style={{ left: stakLeft, top: '35%', transform: 'translate(-50%, -50%)', opacity: Math.min(Math.abs(dragOffset.x) / 80, 1) }}
@@ -609,6 +639,18 @@ export function SwipeableCardStack({
 								: "text-red-500 border-red-500 bg-red-500/20 -rotate-12"
 						}`}>
 							{dragOffset.x > 0 ? "STAK" : "PASS"}
+						</div>
+					</div>
+				)}
+
+				{/* SKIP label — shown when dragging upward */}
+				{dragOffset.y < -30 && (
+					<div
+						className="absolute pointer-events-none z-50"
+						style={{ left: '50%', top: '40%', transform: 'translate(-50%, -50%)', opacity: Math.min(Math.abs(dragOffset.y) / 80, 1) }}
+					>
+						<div className="text-4xl font-black px-5 py-3 rounded-2xl border-4 shadow-2xl text-amber-400 border-amber-400 bg-amber-400/15">
+							SKIP
 						</div>
 					</div>
 				)}
@@ -650,11 +692,13 @@ export function SwipeableCardStack({
 					onClick={() => topBrand && onLearnMore(topBrand)}
 				/>
 				<ActionBtn
-					icon={<ChevronDown className="w-[24px] h-[24px]" />}
+					icon={<ChevronUp className="w-[24px] h-[24px]" />}
 					label="Skip"
 					sub="See it later"
-					color="gray"
-					onClick={executeSkip}
+					color="amber"
+					onClick={() => executeSkip("up")}
+					highlight={skipHighlight}
+					isDragging={isDragging}
 				/>
 			</section>
 		</div>

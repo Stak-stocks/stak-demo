@@ -305,17 +305,23 @@ export function getEarningsQuick(symbol: string) {
 	return apiRequest<EarningsQuick | null>(`/api/stock/${encodeURIComponent(symbol)}/earnings-quick`);
 }
 
+export interface DailyMoveBullet {
+	text: string;
+	tone: "bullish" | "bearish" | "neutral";
+}
 export interface DailyMoveData {
 	explanation: string;
 	direction: "up" | "down" | "flat";
+	bullets?: DailyMoveBullet[];
 }
 
-export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number, marketClosed?: boolean) {
+export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number, marketClosed?: boolean, closeRef?: string) {
 	const params = new URLSearchParams();
 	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
 	if (name) params.set("name", name);
 	if (sentences && sentences > 1) params.set("sentences", String(sentences));
 	if (marketClosed) params.set("marketClosed", "1");
+	if (closeRef) params.set("closeRef", closeRef);
 	const qs = params.toString() ? `?${params.toString()}` : "";
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }

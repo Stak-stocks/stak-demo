@@ -227,8 +227,10 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 	const { isOpen, holiday } = await fetchMarketStatus();
 
 	if (!isOpen) {
-		// No holiday = market opened and closed normally today — last session is today's, not a past day
-		const dayLabel = holiday == null ? "Today's" : await getLastTradingDayLabel(etDateStr);
+		// Before 9:30am = pre-market — today's session hasn't started, use last trading day
+		// After 4pm with no holiday = today's session finished normally
+		const isPreMarket = total < 9 * 60 + 30;
+		const dayLabel = (holiday == null && !isPreMarket) ? "Today's" : await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
@@ -319,12 +321,13 @@ const SESSION_TONE: Record<Session, string> = {
 	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
-async function searchMarketDrivers(today: string, marketClosed: boolean): Promise<string | null> {
+async function searchMarketDrivers(today: string, skipSearch: boolean): Promise<string | null> {
 	const cacheKey = `daily-brief:drivers:v1:${today}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
-	if (marketClosed) return null;
+	// Skip on weekends/holidays (no session happened) — but still run after normal weekday close
+	if (skipSearch) return null;
 
 	const prompt = `Search the web for what is driving US stock markets today (${today}). Look for:
 - Federal Reserve / FOMC rate decisions or statements
@@ -382,7 +385,7 @@ async function generateMarketText(
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = new Date().toISOString().split("T")[0];
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:text:v9:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cacheKey = `daily-brief:text:v11:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -400,16 +403,19 @@ async function generateMarketText(
 	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
 	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
 
-	// lastDayName: the actual last trading day (e.g. "Thursday" when Friday was a holiday)
-	const lastDayName = dayLabel.replace(/'s$/, "");
+	// lastDayName: "today" when dayLabel is "Today's" (after-hours on a normal weekday), else the actual day name
+	const isToday = dayLabel === "Today's";
+	const lastDayName = isToday ? "today" : dayLabel.replace(/'s$/, "");
 
 	const timeContext = marketClosed
 		? holiday
 			? `Today is ${etDateStr} — a US market holiday (${holiday}), so markets are closed. Acknowledge the holiday by name. This is a recap of ${lastDayName}'s session. Write in past tense.`
-			: `The market is closed (weekend). This is a recap of ${lastDayName}'s close. Use 'on ${lastDayName}' or 'at ${lastDayName}'s close' — never say 'today' or any other day name. Write in past tense.`
+			: isToday
+				? `The market closed earlier today. This is a recap of today's session. Use 'today' — do NOT say the day name. Write in past tense.`
+				: `The market is closed (weekend). This is a recap of ${lastDayName}'s close. Use 'on ${lastDayName}' or 'at ${lastDayName}'s close' — never say 'today' or any other day name. Write in past tense.`
 		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
 
-	const timeWord = marketClosed ? `on ${lastDayName}` : "today";
+	const timeWord = marketClosed && !isToday ? `on ${lastDayName}` : "today";
 	const driversSection = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}` : "";
 
 	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
@@ -483,7 +489,7 @@ const TAG_LABELS: Record<string, string> = {
 	travel:          "travel",
 };
 
-function buildPersonalizedImpact(tagScores: Record<string, number>, mood: Mood): string {
+function buildPersonalizedImpact(tagScores: Record<string, number>, mood: Mood, marketClosed = false): string {
 	const top = Object.entries(tagScores)
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, 3)
@@ -499,15 +505,16 @@ function buildPersonalizedImpact(tagScores: Record<string, number>, mood: Mood):
 			? `${top[0]} and ${top[1]}`
 			: `${top[0]}, ${top[1]}, and ${top[2]}`;
 
+	const t = marketClosed ? "at last close" : "today";
 	const context: Record<Mood, string> = {
-		Bullish:    `tend to benefit most when markets rally — a good day to explore them.`,
-		Bearish:    `may see pressure today. Watch for dips that could be buying opportunities.`,
-		Cautious:   `could see choppier moves than usual with today's uncertainty.`,
-		Volatile:   `may swing sharply today — big moves in either direction are possible.`,
-		Calm:       `fundamentals can shine through on quiet days like today.`,
-		Mixed:      `results today will depend on individual catalysts, not the broad market.`,
-		"Risk-On":  `are in focus today as investors lean into growth and higher-upside names.`,
-		"Risk-Off": `may face headwinds today as investors rotate toward safer, more defensive positions.`,
+		Bullish:    `tend to benefit most when markets rally — worth exploring ${t}.`,
+		Bearish:    `may have seen pressure ${t}. Watch for dips that could be buying opportunities.`,
+		Cautious:   `could see choppier moves than usual with recent uncertainty.`,
+		Volatile:   `may swing sharply — big moves in either direction are possible.`,
+		Calm:       `fundamentals can shine through on quiet sessions like this.`,
+		Mixed:      `results ${t} will depend on individual catalysts, not the broad market.`,
+		"Risk-On":  `are in focus as investors lean into growth and higher-upside names.`,
+		"Risk-Off": `may face headwinds as investors rotate toward safer, more defensive positions.`,
 	};
 
 	return `Your feed leans toward ${topStr} — those ${context[mood]}`;
@@ -527,7 +534,7 @@ async function generatePersonalizedImpact(
 ): Promise<string> {
 	const today = new Date().toISOString().split("T")[0];
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:impact:v9:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cacheKey = `daily-brief:impact:v11:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -579,23 +586,24 @@ async function generatePersonalizedImpact(
 		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
 
 	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
-	const lastDayNameImpact = dayLabel.replace(/'s$/, ""); // e.g. "Thursday's" → "Thursday"
+	const isTodayImpact = dayLabel === "Today's";
+	const lastDayNameImpact = isTodayImpact ? "today" : dayLabel.replace(/'s$/, "");
 
-	const lastSessionRef = marketClosed ? `${lastDayNameImpact}'s` : `${etDayNameImpact}'s`;
+	const lastSessionRef = marketClosed && !isTodayImpact ? `${lastDayNameImpact}'s` : "today's";
 	const stockSection = stockLines.length > 0
 		? `User's stocks at ${lastSessionRef} close: ${stockLines.join(", ")}`
 		: topTags.length > 0
 			? `User's top interests: ${topTags.join(", ")}`
 			: "User hasn't saved stocks yet";
 
-	const timeWord = marketClosed ? `on ${lastDayNameImpact}` : "today";
+	const timeWord = marketClosed && !isTodayImpact ? `on ${lastDayNameImpact}` : "today";
 	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
 	const holidayNote = holiday ? `Today is a US market holiday (${holiday}) — markets are closed.\n` : "";
 	const driversLine = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}\n` : "";
 
 	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
 
-${holidayNote}${marketClosed ? `${lastSessionRef.charAt(0).toUpperCase() + lastSessionRef.slice(1)} close` : `${etDayNameImpact}'s close`} market data:
+${holidayNote}${marketClosed ? `${lastSessionRef.charAt(0).toUpperCase() + lastSessionRef.slice(1)} close` : "Today's live"} market data:
 ${marketLines || "unavailable"}
 ${driversLine}
 ${stockSection}
@@ -639,7 +647,7 @@ CRITICAL RULES:
 		}
 	}
 
-	return buildPersonalizedImpact(tagScores, mood);
+	return buildPersonalizedImpact(tagScores, mood, marketClosed);
 }
 
 // ── Market lesson (standalone, for Playground Featured) ──────────────────────
@@ -1169,7 +1177,8 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
 		const today = new Date().toISOString().split("T")[0];
-		const marketDrivers = await searchMarketDrivers(today, marketClosed);
+		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
+		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's");
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),

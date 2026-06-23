@@ -555,14 +555,8 @@ function App() {
 					<img src={stakLogoColor} alt="STAK" className="h-[28px] w-[28px] block dark:hidden" />
 					<h1 className="text-[22px] font-semibold tracking-[0.13em] text-foreground">STAK</h1>
 				</div>
-				{/* Right side actions */}
-				<div className="absolute right-[18px] flex items-center gap-2">
-					{/* Streak */}
-					<div className={`flex h-[28px] items-center gap-[5px] rounded-full px-[10px] text-[12px] font-bold ring-1 ${streakCount > 0 ? "bg-orange-500/10 ring-orange-400/30 text-orange-500 dark:text-orange-400" : "bg-foreground/[0.06] ring-foreground/10 text-foreground/50"}`}>
-						<Flame className={`w-[13px] h-[13px] ${streakCount > 0 ? "text-orange-400" : "text-foreground/30"}`} />
-						<span>{streakCount > 0 ? streakCount : "—"}</span>
-					</div>
-					{/* Avatar */}
+				{/* Left side: search */}
+				<div className="absolute left-[18px]">
 					<button
 						type="button"
 						onClick={() => {
@@ -571,10 +565,17 @@ function App() {
 							trackEvent("search_open").catch(() => {});
 						}}
 						aria-label="Search"
-						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-700/80 ring-1 ring-white/20 dark:text-slate-300 text-slate-600 hover:text-foreground transition-colors"
+						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-200 dark:bg-slate-700/80 ring-1 ring-slate-300 dark:ring-white/20 text-slate-700 dark:text-slate-300 hover:text-foreground transition-colors"
 					>
 						<Search className="w-[17px] h-[17px]" />
 					</button>
+				</div>
+				{/* Right side: streak */}
+				<div className="absolute right-[18px]">
+					<div className={`flex h-[28px] items-center gap-[5px] rounded-full px-[10px] text-[12px] font-bold ring-1 ${streakCount > 0 ? "bg-orange-500/10 ring-orange-400/30 text-orange-500 dark:text-orange-400" : "bg-foreground/[0.06] ring-foreground/10 text-foreground/50"}`}>
+						<Flame className={`w-[13px] h-[13px] ${streakCount > 0 ? "text-orange-400" : "text-foreground/30"}`} />
+						<span>{streakCount > 0 ? streakCount : "—"}</span>
+					</div>
 				</div>
 			</div>
 
