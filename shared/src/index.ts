@@ -12,7 +12,7 @@ export type {
 
 export { marketSessionBucket } from "./marketSession";
 
-export { getMarketDayKey, isBeforeMarketDayBoundary } from "./marketDayKey";
+export { getMarketDayKey } from "./marketDayKey";
 
 export {
 	TAG_TO_DISPLAY_BUCKETS,

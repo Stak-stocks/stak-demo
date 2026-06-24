@@ -14,8 +14,8 @@ import {
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
-import { getMarketDayKey, isBeforeMarketDayBoundary } from "@stak/shared";
+import { marketSessionBucket, getLocalDateKey } from "@/lib/utils";
+import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
 import { brands as allBrands } from "@/data/brands";
@@ -541,10 +541,12 @@ function PlaygroundPage() {
 					const bgCls = isMarketDay ? "bg-violet-500/[0.07]" : "bg-amber-500/[0.07]";
 					const textCls = isMarketDay ? "text-violet-400" : "text-amber-400";
 					const iconBgCls = isMarketDay ? "bg-violet-500/15 text-violet-400" : "bg-amber-500/15 text-amber-400";
-					// Calendar date may have already flipped past midnight CT even though this is
-					// still "yesterday's" lesson by the 9am reset boundary — phrase it in the past
-					// tense rather than implying brand-new content (see isBeforeMarketDayBoundary).
-					const isStaleWindow = isMarketDay && isBeforeMarketDayBoundary();
+					// Compare the viewer's own local calendar date (not a fixed timezone) against
+					// the CT-anchored day this lesson was generated for. Using the viewer's own
+					// date — rather than a fixed "before 9am CT" check — means someone on, say,
+					// Pacific time doesn't see "Yesterday's" two hours before their own midnight
+					// just because Chicago's calendar already flipped.
+					const isStaleWindow = isMarketDay && getLocalDateKey() !== getMarketDayKey();
 					const label = isMarketDay
 						? (isStaleWindow ? "Market Moment · Yesterday's Big Release" : "Market Moment · Today's Big Release")
 						: "Featured Today · Weekend Prep";
