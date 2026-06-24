@@ -96,7 +96,7 @@ function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
-	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe } = useSwipeLimit(uid, !!user);
+	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe, bumpOptimistic, reportSwipeResult } = useSwipeLimit(uid, !!user);
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({
@@ -551,7 +551,8 @@ function App() {
 							onSwipeLeft={handleSwipeLeft}
 							onSwipe={handleSwipe}
 							hasReachedLimit={hasReachedLimit}
-							onIncrement={incrementSwipe}
+							onIncrement={bumpOptimistic}
+							onSwipeRecorded={reportSwipeResult}
 							stakSize={account?.stakBrandIds?.length ?? 0}
 							loading={recommendedOrder.length === 0 && !hasReachedLimit}
 							onStreakUpdate={handleStreakUpdate}

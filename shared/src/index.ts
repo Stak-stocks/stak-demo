@@ -23,3 +23,5 @@ export {
 export type { DisplayCategoryKey } from "./displayCategories";
 
 export { getNYSEHolidays } from "./nyseHolidays";
+
+export { DAILY_SWIPE_LIMIT } from "./swipeLimit";
