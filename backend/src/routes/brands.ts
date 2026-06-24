@@ -1,22 +1,66 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { brands, type BrandProfile } from "@stak/shared";
 
 export const brandsRouter = Router();
 
-// GET /api/brands — return all brands
-brandsRouter.get("/", async (_req, res) => {
-	try {
-		const snapshot = await adminDb.collection("brands").get();
-		const brands = snapshot.docs.map((doc) => ({
-			id: doc.id,
-			...doc.data(),
-		}));
-		res.json({ brands });
-	} catch (error) {
-		console.error("Error fetching brands:", error);
-		res.status(500).json({ error: "Failed to fetch brands" });
-	}
+// Fields needed for list/card-style views (Discover deck, search results, watchlist
+// rows) -- deliberately excludes the heaviest text fields (culturalContext.sections,
+// personalityDescription, and each financial metric's label/explanation/
+// culturalTranslation) since those are only needed when viewing one brand's full
+// detail sheet, fetched separately via GET /:id. This is what keeps this list
+// response small and roughly flat as the catalog grows toward 2000 entries, instead
+// of scaling with the full per-brand payload size.
+interface BrandSummary {
+	id: string;
+	ticker: string;
+	name: string;
+	bio: string;
+	heroImage: string;
+	logo?: string;
+	domain?: string;
+	interestCategories?: string[];
+	vibes: BrandProfile["vibes"];
+	financials: {
+		peRatio: { value: string };
+		marketCap: { value: string };
+		revenueGrowth: { value: string };
+		profitMargin: { value: string };
+		beta: { value: string };
+		dividendYield: { value: string };
+	};
+	peerTickers?: string[];
+}
+
+function toSummary(b: BrandProfile): BrandSummary {
+	return {
+		id: b.id,
+		ticker: b.ticker,
+		name: b.name,
+		bio: b.bio,
+		heroImage: b.heroImage,
+		logo: b.logo,
+		domain: b.domain,
+		interestCategories: b.interestCategories,
+		vibes: b.vibes,
+		financials: {
+			peRatio: { value: b.financials.peRatio.value },
+			marketCap: { value: b.financials.marketCap.value },
+			revenueGrowth: { value: b.financials.revenueGrowth.value },
+			profitMargin: { value: b.financials.profitMargin.value },
+			beta: { value: b.financials.beta.value },
+			dividendYield: { value: b.financials.dividendYield.value },
+		},
+		peerTickers: b.peerTickers,
+	};
+}
+
+// GET /api/brands — lightweight summary of every brand in the catalog.
+// Was reading a Firestore "brands" collection that nothing in the backend ever
+// wrote to (always empty) -- the real catalog lives in @stak/shared.
+brandsRouter.get("/", (_req, res) => {
+	res.json({ brands: brands.map(toSummary) });
 });
 
 // GET /api/brands/popular — brand IDs saved by 50+ users (4h cache)
@@ -54,17 +98,14 @@ brandsRouter.get("/popular", async (_req, res) => {
 	}
 });
 
-// GET /api/brands/:id — return single brand
-brandsRouter.get("/:id", async (req, res) => {
-	try {
-		const doc = await adminDb.collection("brands").doc(req.params.id).get();
-		if (!doc.exists) {
-			res.status(404).json({ error: "Brand not found" });
-			return;
-		}
-		res.json({ id: doc.id, ...doc.data() });
-	} catch (error) {
-		console.error("Error fetching brand:", error);
-		res.status(500).json({ error: "Failed to fetch brand" });
+// GET /api/brands/:id — one brand's full profile (everything -- the heavy text
+// fields summary list above omits). Fetched on demand when actually viewing a
+// brand's detail sheet, not bundled wholesale with the list.
+brandsRouter.get("/:id", (req, res) => {
+	const brand = brands.find((b) => b.id === req.params.id);
+	if (!brand) {
+		res.status(404).json({ error: "Brand not found" });
+		return;
 	}
+	res.json(brand);
 });
