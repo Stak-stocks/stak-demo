@@ -28,7 +28,6 @@ import { Route as ProfileHelpSupportRouteImport } from './routes/profile_.help-s
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
-import { Route as BrandBrandIdRouteImport } from './routes/brand.$brandId'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -125,11 +124,6 @@ const LeagueLineupRoute = LeagueLineupRouteImport.update({
   path: '/league/lineup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BrandBrandIdRoute = BrandBrandIdRouteImport.update({
-  id: '/brand/$brandId',
-  path: '/brand/$brandId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -145,7 +139,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -167,7 +160,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -190,7 +182,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
   '/league_/results': typeof LeagueResultsRoute
@@ -214,7 +205,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -236,7 +226,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -258,7 +247,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league_/lineup'
     | '/league_/performance'
     | '/league_/results'
@@ -281,7 +269,6 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   WelcomeRoute: typeof WelcomeRoute
-  BrandBrandIdRoute: typeof BrandBrandIdRoute
   LeagueLineupRoute: typeof LeagueLineupRoute
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
   LeagueResultsRoute: typeof LeagueResultsRoute
@@ -425,13 +412,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeagueLineupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/brand/$brandId': {
-      id: '/brand/$brandId'
-      path: '/brand/$brandId'
-      fullPath: '/brand/$brandId'
-      preLoaderRoute: typeof BrandBrandIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -449,7 +429,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   WelcomeRoute: WelcomeRoute,
-  BrandBrandIdRoute: BrandBrandIdRoute,
   LeagueLineupRoute: LeagueLineupRoute,
   LeaguePerformanceRoute: LeaguePerformanceRoute,
   LeagueResultsRoute: LeagueResultsRoute,

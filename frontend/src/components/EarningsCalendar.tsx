@@ -124,14 +124,27 @@ function EarningsRow({ entry, onNavigate }: { entry: MarketEarningsEntry; onNavi
 
 // ── Main modal widget ─────────────────────────────────────────────────────────
 
-export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {}) {
+export function MarketEarningsWidget({ onClose, onSelectBrand }: { onClose?: () => void; onSelectBrand?: (brand: BrandProfile) => void } = {}) {
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [showAll, setShowAll] = useState(false);
 	const navigate = useNavigate();
 
 	const handleRowNavigate = (brand: BrandProfile) => {
 		onClose?.();
-		navigate({ to: "/brand/$brandId", params: { brandId: brand.id } });
+		// When opened from within my-stak.tsx itself, onSelectBrand updates its
+		// selectedBrand state directly -- navigating to /my-stak while already
+		// there is a no-op and wouldn't open the sheet. Everywhere else, every
+		// entry here is already filtered to the viewer's own Stak (see
+		// stakTickersSet below), so it's always present in my-stak.tsx's
+		// swipedBrands -- go there and let its existing "restore selected brand"
+		// effect open the redesigned detail sheet (Numbers/Analyst/News/Compare),
+		// instead of the old /brand/$brandId route page.
+		if (onSelectBrand) {
+			onSelectBrand(brand);
+			return;
+		}
+		sessionStorage.setItem("selectedBrandId", brand.id);
+		navigate({ to: "/my-stak" });
 	};
 
 	const stakTickersArray = useStakTickers();
@@ -213,8 +226,10 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 				</div>
 			)}
 
-			{/* List */}
-			<div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden bg-surface-1 border-t border-foreground/[0.05]">
+			{/* List -- sized to content (not flex-1) so 1-2 entries don't leave a big empty
+			    gap below them; min-h-0 lets it still shrink and scroll internally once the
+			    modal's maxHeight cap is reached with many entries. */}
+			<div className="min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden bg-surface-1 border-t border-foreground/[0.05]">
 				{isLoading ? (
 					<div className="space-y-[1px] py-[8px]">
 						{[...Array(4)].map((_, i) => (
@@ -256,10 +271,11 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 
 // ── Button + portal wrapper ───────────────────────────────────────────────────
 
-export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }: {
+export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose, onSelectBrand }: {
 	onOpen?: () => void;
 	externalOpen?: boolean;
 	onExternalClose?: () => void;
+	onSelectBrand?: (brand: BrandProfile) => void;
 } = {}) {
 	const [open, setOpen] = useState(false);
 	const { account } = useAccount();
@@ -368,7 +384,7 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }
 						style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))" }}
 						onClick={e => e.stopPropagation()}
 					>
-						<MarketEarningsWidget onClose={close} />
+						<MarketEarningsWidget onClose={close} onSelectBrand={onSelectBrand} />
 					</div>
 				</div>,
 				document.body,

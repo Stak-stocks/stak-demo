@@ -93,8 +93,8 @@ describe("swipeRouter POST /", () => {
 		expect(updateUserTasteProfileMock).not.toHaveBeenCalled();
 	});
 
-	it("respects bonus swipes when computing the effective limit", async () => {
-		withDailyState(today, 20, 5); // base limit alone would reject; +5 bonus shouldn't
+	it("ignores bonus swipes when computing the effective limit (temporarily disabled)", async () => {
+		withDailyState(today, 19, 5); // bonus would have mattered if applied; base limit alone still accepts
 		const app = await buildApp();
 
 		const res = await request(app)
@@ -102,11 +102,11 @@ describe("swipeRouter POST /", () => {
 			.send({ brandId: "aapl", direction: "right", todayKey: today });
 
 		expect(res.status).toBe(200);
-		expect(res.body).toMatchObject({ success: true, dailySwipeCount: 21, dailySwipeLimit: 25 });
+		expect(res.body).toMatchObject({ success: true, dailySwipeCount: 20, dailySwipeLimit: 20 });
 	});
 
-	it("rejects once bonus-inclusive limit is reached too", async () => {
-		withDailyState(today, 25, 5);
+	it("rejects at the flat base limit even with bonus swipes accumulated", async () => {
+		withDailyState(today, 20, 5);
 		const app = await buildApp();
 
 		const res = await request(app)
@@ -114,7 +114,7 @@ describe("swipeRouter POST /", () => {
 			.send({ brandId: "aapl", direction: "right", todayKey: today });
 
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ success: false, limitReached: true, dailySwipeCount: 25, dailySwipeLimit: 25 });
+		expect(res.body).toEqual({ success: false, limitReached: true, dailySwipeCount: 20, dailySwipeLimit: 20 });
 	});
 
 	it("clamps a wildly out-of-range todayKey to the server's own date instead of trusting it", async () => {

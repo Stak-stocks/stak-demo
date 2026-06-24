@@ -127,6 +127,13 @@ function Root() {
 		if (ctHour < 9) return; // too early — will re-check when user re-opens app
 		// Open immediately (next tick) so Discover never flashes before the brief
 		const t = setTimeout(() => {
+			// Force "auto" -- briefSource is page-lifetime state, not reset on sign-out/
+			// sign-in, so without this an account that previously opened the brief from
+			// My Stak (source: "mystak") would leave that value stuck, making the next
+			// auto-popup (this account's tomorrow, or a different account signing in on
+			// the same device) wrongly show the My Stak back-button view and hide the
+			// "Start Today's Deck" CTA.
+			setBriefSource("auto");
 			setBriefOpen(true);
 			updateLastBriefDate(today).catch(() => {});
 		}, 0);

@@ -469,20 +469,12 @@ function App() {
 			), { duration: 5000 });
 		});
 
-		// Bonus swipe toast
-		if (result.bonusSwipesAdded > 0) {
-			const newTotal = DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0) + result.bonusSwipesAdded;
-			toast.custom(() => (
-				<div className="flex items-center gap-[12px] rounded-[14px] border border-cyan-500/30 bg-cyan-500/[0.1] px-[14px] py-[12px] shadow-lg">
-					<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] bg-cyan-500/20 text-[22px]">⚡</div>
-					<div className="min-w-0">
-						<p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-400 mb-[1px]">Bonus Swipes</p>
-						<p className="text-[14px] font-extrabold text-foreground">+{result.bonusSwipesAdded} extra swipes unlocked!</p>
-						<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Daily limit is now {newTotal} swipes</p>
-					</div>
-				</div>
-			), { duration: 5000 });
-		}
+		// Bonus swipe toast -- suppressed while streak bonus swipes are temporarily
+		// disabled (see useSwipeLimit.ts/swipeLimitService.ts): account.bonusSwipes
+		// still accumulates and result.bonusSwipesAdded still fires (badges above
+		// still show), but this toast's "daily limit is now X" claim would be wrong
+		// since that bonus no longer actually raises the limit. Re-enable by
+		// restoring this block once bonus swipes are turned back on.
 	}, [account?.bonusSwipes]);
 
 	// Backend streak writes UTC dates — must compare in UTC to match
@@ -533,8 +525,18 @@ function App() {
 					const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 					const todayMs = todayStart.getTime();
 					const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
-					const todaySwipes = account?.dailySwipeState?.date === `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}` ? (account.dailySwipeState.count ?? 0) : 0;
-					const todaySaved = Math.max(0, todaySwipes - todayPassed);
+					// Was `todaySwipes - todayPassed`, which silently counted skips (upward
+					// swipe -- onSkip just increments the swipe count, no save/pass outcome)
+					// as "Saved" since they're neither a tracked save nor a tracked pass.
+					// Count genuine saves directly instead.
+					const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
+					// Skips have no per-action persisted record (unlike saves/passes above) --
+					// only their contribution to the swipe-limit count is tracked. Recover the
+					// count as the remainder: total swipes minus the two categories that ARE
+					// tracked directly.
+					const todayDateKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}`;
+					const todaySwipes = account?.dailySwipeState?.date === todayDateKey ? (account.dailySwipeState.count ?? 0) : 0;
+					const todaySkipped = Math.max(0, todaySwipes - todayPassed - todaySaved);
 					return (
 						<SwipeableCardStack
 							brands={[
@@ -557,6 +559,7 @@ function App() {
 							onStreakUpdate={handleStreakUpdate}
 							initialSavedCount={todaySaved}
 							initialPassedCount={todayPassed}
+							initialSkippedCount={todaySkipped}
 						/>
 					);
 				})()}
