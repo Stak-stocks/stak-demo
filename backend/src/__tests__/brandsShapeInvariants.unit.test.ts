@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { brands } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 
 // Snapshot of every distinct interestCategories value in use today (43/333 brands
 // populate this optional, organically-grown field -- see shared/src/stockTags.ts's

@@ -4,7 +4,8 @@ import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, brands, getPeerTickers } from "@stak/shared";
+import { marketSessionBucket, getPeerTickers } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 

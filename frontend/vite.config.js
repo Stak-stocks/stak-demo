@@ -42,12 +42,5 @@ export default defineConfig({
 	},
 	build: {
 		chunkSizeWarningLimit: 1500,
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					"brands-data": ["../shared/src/brands/index.ts"],
-				},
-			},
-		},
 	},
 });

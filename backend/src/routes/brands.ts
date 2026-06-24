@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { brands, type BrandProfile, type BrandSummary } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
+import type { BrandProfile, BrandSummary } from "@stak/shared";
 
 export const brandsRouter = Router();
 

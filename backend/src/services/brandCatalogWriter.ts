@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, readdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { brands, type BrandProfile } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
+import type { BrandProfile } from "@stak/shared";
 import type { BrandDraft } from "./brandGenerationService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { BrandProfile } from "@stak/shared";
+import type { BrandSummary } from "@stak/shared";
 import { StockCard } from "@/components/StockCard";
 import { Clock, Sparkles, X, Bookmark, BookOpen, ChevronUp, Brain, CheckCircle2, XCircle, Eye, Layers } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -31,10 +31,10 @@ export interface StreakUpdate {
 }
 
 interface SwipeableCardStackProps {
-	brands: BrandProfile[];
-	onLearnMore: (brand: BrandProfile) => void;
-	onSwipeRight?: (brand: BrandProfile) => void;
-	onSwipeLeft?: (brand: BrandProfile) => void;
+	brands: BrandSummary[];
+	onLearnMore: (brand: BrandSummary) => void;
+	onSwipeRight?: (brand: BrandSummary) => void;
+	onSwipeLeft?: (brand: BrandSummary) => void;
 	onSwipe?: () => void;
 	/** From useSwipeLimit — controls the daily limit screen */
 	hasReachedLimit: boolean;

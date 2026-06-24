@@ -466,13 +466,6 @@ export function getRecommendationDebug(limit = 50) {
 	}>(`/api/recommendations/debug?limit=${limit}`);
 }
 
-// Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
-
-// Module-level cache — populated on first fetch, refreshed every 2 hours
-const DYNAMIC_STOCKS_TTL_MS = 2 * 60 * 60 * 1000;
-let _dynamicStocksCache: import("@stak/shared").BrandProfile[] = [];
-let _dynamicStocksCachedAt = 0;
-
 export async function generatePlaygroundQuestions(
 	dayKey: string,
 	tier: number,
@@ -483,38 +476,4 @@ export async function generatePlaygroundQuestions(
 		method: "POST",
 		body: JSON.stringify({ dayKey, tier, type, count }),
 	}).then(r => r.questions ?? []);
-}
-
-export function getCachedDynamicStocks(): import("@stak/shared").BrandProfile[] {
-	return _dynamicStocksCache;
-}
-
-export async function fetchDynamicStocks(): Promise<import("@stak/shared").BrandProfile[]> {
-	// Return cache if still fresh
-	if (_dynamicStocksCache.length > 0 && Date.now() - _dynamicStocksCachedAt < DYNAMIC_STOCKS_TTL_MS) {
-		return _dynamicStocksCache;
-	}
-
-	try {
-		const { brands: staticBrands } = await import("@stak/shared");
-		const staticTickers = new Set(staticBrands.map((b) => b.ticker.toUpperCase()));
-
-		const res = await fetch(`${API_BASE_URL}/api/stocks`);
-		if (!res.ok) return [];
-		const { stocks } = await res.json();
-
-		// Filter out class-share duplicates (e.g. GOOG when GOOGL is a static brand)
-		const filtered = (stocks ?? []).filter((s: import("@stak/shared").BrandProfile) => {
-			const t = s.ticker?.toUpperCase() ?? "";
-			return ![...staticTickers].some(
-				(st) => st !== t && st.startsWith(t) && st.length === t.length + 1,
-			);
-		}) as import("@stak/shared").BrandProfile[];
-
-		_dynamicStocksCache = filtered;
-		_dynamicStocksCachedAt = Date.now();
-		return _dynamicStocksCache;
-	} catch {
-		return [];
-	}
 }

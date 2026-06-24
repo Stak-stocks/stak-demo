@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { brands, type BrandProfile, STAK_WEIGHTED_STOCK_TAGS, computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
+import { type BrandSummary, STAK_WEIGHTED_STOCK_TAGS, computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import React from "react";
@@ -69,7 +70,7 @@ function shuffleArray<T>(array: T[]): T[] {
 // Recommendation-scoring formula itself lives in @stak/shared so the live Discover
 // deck (here) and the backend's /api/recommendations/debug endpoint can't drift apart.
 function computeRecommendationScore(
-	brand: BrandProfile,
+	brand: BrandSummary,
 	tagScores: Record<string, number>,
 	freshness: RecommendationFreshness,
 	recentlyShownCats: string[],
@@ -91,7 +92,10 @@ function App() {
 	const queryClient = useQueryClient();
 	const uid = user?.uid ?? "guest";
 
-	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = allBrandsList ?? [];
+
+	const [selectedBrand, setSelectedBrand] = useState<BrandSummary | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
 	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe, bumpOptimistic, reportSwipeResult } = useSwipeLimit(uid, !!user);
@@ -147,14 +151,23 @@ function App() {
 	);
 
 	// ── Stak — initialised from Firestore account ──────────────────────────────
-	const [swipedBrands, setSwipedBrands] = useState<BrandProfile[]>(() => {
-		const brandMap = new Map(brands.map((b) => [b.id, b]));
-		return (account?.stakBrandIds ?? [])
-			.map((id) => brandMap.get(id))
-			.filter(Boolean) as BrandProfile[];
-	});
+	// Must use useEffect (not lazy useState) so we wait for both account (Firestore)
+	// and the brand catalog (useBrandsList, a real network fetch with no local-cache
+	// guarantee) to be ready -- same race condition fix as recommendedOrder below.
+	const [swipedBrands, setSwipedBrands] = useState<BrandSummary[]>([]);
+	const swipedBrandsInitialized = useRef(false);
+	useEffect(() => {
+		if (swipedBrandsInitialized.current || !account || allBrands.length === 0) return;
+		swipedBrandsInitialized.current = true;
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		setSwipedBrands(
+			(account.stakBrandIds ?? [])
+				.map((id) => brandMap.get(id))
+				.filter(Boolean) as BrandSummary[],
+		);
+	}, [account, allBrands]);
 	const [swapPickerOpen, setSwapPickerOpen] = useState(false);
-	const [pendingBrand, setPendingBrand] = useState<BrandProfile | null>(null);
+	const [pendingBrand, setPendingBrand] = useState<BrandSummary | null>(null);
 
 	// ── Passed brands — initialised from Firestore account ────────────────────
 	// Must use useEffect (not lazy useState) so we wait for account to load from
@@ -180,8 +193,9 @@ function App() {
 	// ── Deck order — reactive init so it always reads correct Firestore state ──
 	// Lazy useState would capture account at mount time; if preferences arrive
 	// slightly after (e.g. right after onboarding) the order would be random.
-	// Using useEffect + ref lets us wait until account is definitively ready.
-	const [recommendedOrder, setRecommendedOrder] = useState<BrandProfile[]>([]);
+	// Using useEffect + ref lets us wait until account (and the brand catalog) are
+	// definitively ready.
+	const [recommendedOrder, setRecommendedOrder] = useState<BrandSummary[]>([]);
 	const orderInitialized = useRef(false);
 
 	// Refs used inside re-sort effects to avoid stale closures
@@ -195,7 +209,7 @@ function App() {
 		freshnessRef.current = { earningsTickers: earningsTickerSet, majorNewsTickers, unusualMovers: unusualMoverSet, analystUpdatedTickers };
 	}, [earningsTickerSet, majorNewsTickers, unusualMoverSet, analystUpdatedTickers]);
 	const recentlyShownCatsRef = useRef<string[]>([]); // last 5 primaryCategories shown (for diversity)
-	const recommendedOrderRef = useRef<BrandProfile[]>([]);
+	const recommendedOrderRef = useRef<BrandSummary[]>([]);
 	useEffect(() => { recommendedOrderRef.current = recommendedOrder; }, [recommendedOrder]);
 	const swipedBrandsRef = useRef(swipedBrands);
 	useEffect(() => { swipedBrandsRef.current = swipedBrands; }, [swipedBrands]);
@@ -205,12 +219,12 @@ function App() {
 	useEffect(() => { todayThemesRef.current = todayThemes; }, [todayThemes]);
 
 	useEffect(() => {
-		if (orderInitialized.current || !account) return;
+		if (orderInitialized.current || !account || allBrands.length === 0) return;
 		orderInitialized.current = true;
 
 		const totalSwipes = account.totalSwipeCount ?? 0;
 		const deckOrder = account.deckOrder;
-		let order: BrandProfile[];
+		let order: BrandSummary[];
 
 		// ── Phase A: Users with 20+ swipes → always use live recommendation score ──
 		if (totalSwipes >= 20) {
@@ -219,7 +233,7 @@ function App() {
 				updateDeckOrder([]).catch(() => {});
 			}
 			const tagScores = account.tagScores ?? {};
-			order = [...brands]
+			order = [...allBrands]
 				.map((b) => ({
 					brand: b,
 					score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
@@ -232,11 +246,11 @@ function App() {
 
 		// ── Phase B: New users (<20 swipes) → restore or build fixed onboarding deck ──
 		if (deckOrder?.length) {
-			const brandMap = new Map(brands.map((b) => [b.id, b]));
-			const restored = deckOrder.map((id) => brandMap.get(id)).filter(Boolean) as BrandProfile[];
+			const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+			const restored = deckOrder.map((id) => brandMap.get(id)).filter(Boolean) as BrandSummary[];
 			if (restored.length > 0) {
 				const restoredIdSet = new Set(deckOrder);
-				const newBrands = brands.filter((b) => !restoredIdSet.has(b.id));
+				const newBrands = allBrands.filter((b) => !restoredIdSet.has(b.id));
 				order = newBrands.length > 0 ? [...restored, ...shuffleArray(newBrands)] : restored;
 
 				// Re-queued (expired passed) cards go to the bottom
@@ -262,7 +276,7 @@ function App() {
 		const onboardingSwipes = new Set<string>(account.preferences?.onboardingSwipes ?? []);
 
 		if (interests.length === 0 && onboardingSwipes.size === 0) {
-			order = shuffleArray(brands);
+			order = shuffleArray(allBrands);
 		} else {
 			const interestBrandIds = new Set(interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []));
 			const expandedCats = new Set<string>();
@@ -277,17 +291,17 @@ function App() {
 			}
 
 			// Shuffle independently within each tier — no behavioural scoring yet
-			const tier0 = shuffleArray(brands.filter((b) => onboardingSwipes.has(b.id)));
-			const tier1 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && interestBrandIds.has(b.id)));
-			const tier2 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && adjacentBrandIds.has(b.id)));
-			const tier3 = shuffleArray(brands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id)));
+			const tier0 = shuffleArray(allBrands.filter((b) => onboardingSwipes.has(b.id)));
+			const tier1 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && interestBrandIds.has(b.id)));
+			const tier2 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && adjacentBrandIds.has(b.id)));
+			const tier3 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id)));
 			order = [...tier0, ...tier1, ...tier2, ...tier3];
 		}
 
 		setRecommendedOrder(order);
 		updateDeckOrder(order.map((b) => b.id)).catch((e) => console.error("Failed to save deck order:", e));
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [account]);
+	}, [account, allBrands]);
 
 	// When the daily swipe limit is hit, clear deckOrder so the next session
 	// recomputes a fresh scored deck rather than restoring today's exhausted order.
@@ -320,7 +334,7 @@ function App() {
 		const lockedInOrder = [filtered[0], filtered[1], filtered[2]].filter(Boolean);
 
 		// Score and sort all remaining brands (including ones not yet in recommendedOrder)
-		const sortedRest = brands
+		const sortedRest = allBrands
 			.filter((b) => !lockedIds.has(b.id))
 			.map((b) => ({
 				brand: b,
@@ -339,14 +353,14 @@ function App() {
 		// no-op — intel card interruptions removed
 	}, []);
 
-	const handleLearnMore = (brand: BrandProfile) => {
+	const handleLearnMore = (brand: BrandSummary) => {
 		setSelectedBrand(brand);
 		setModalOpen(true);
 		logEvent("learn_more", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	};
 
-	const handleSwipeRight = (brand: BrandProfile) => {
+	const handleSwipeRight = (brand: BrandSummary) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
 		logEvent("swipe_right", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
@@ -371,7 +385,7 @@ function App() {
 	};
 
 	// Search adds: enforce limit cross-device via AccountContext
-	const handleAddFromSearch = (brand: BrandProfile) => {
+	const handleAddFromSearch = (brand: BrandSummary) => {
 		const alreadyInStak = swipedBrands.find((b) => b.id === brand.id);
 		if (!alreadyInStak && hasReachedLimit) {
 			toast.error("Daily limit reached", {
@@ -384,7 +398,7 @@ function App() {
 		handleSwipeRight(brand);
 	};
 
-	const handleSwapStock = (brandToRemove: BrandProfile) => {
+	const handleSwapStock = (brandToRemove: BrandSummary) => {
 		if (!pendingBrand) return;
 		const updated = [
 			...swipedBrands.filter((b) => b.id !== brandToRemove.id),
@@ -407,7 +421,7 @@ function App() {
 		setSwapPickerOpen(false);
 	};
 
-	const handleSwipeLeft = useCallback((brand: BrandProfile) => {
+	const handleSwipeLeft = useCallback((brand: BrandSummary) => {
 		logEvent("swipe_left", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
 		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);

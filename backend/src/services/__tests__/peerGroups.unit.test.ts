@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES, brands, type BrandProfile } from "@stak/shared";
+import { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES, type BrandProfile } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 
 function makeBrand(overrides: Partial<BrandProfile> & { ticker: string }): BrandProfile {
 	return {

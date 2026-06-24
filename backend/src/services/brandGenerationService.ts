@@ -1,6 +1,7 @@
 import { getGeminiKeys } from "./geminiService.js";
 import { getHeroImage } from "./ipoService.js";
-import { brands, getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, type BrandProfile, type VibeMetric } from "@stak/shared";
+import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, type BrandProfile, type VibeMetric } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 
 // ── Draft shape ───────────────────────────────────────────────────────────────
 // Everything needed to append one new entry to shared/src/brands/<chunk>.ts and
