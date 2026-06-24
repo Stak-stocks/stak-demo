@@ -1392,6 +1392,7 @@ function MyStakPage() {
 				<EarningsCalendarButton
 					externalOpen={earningsCalendarOpen}
 					onExternalClose={() => setEarningsCalendarOpen(false)}
+					onSelectBrand={handleBrandClick}
 				/>
 			</div>
 		</div>
