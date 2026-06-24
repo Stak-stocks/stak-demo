@@ -2,14 +2,16 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SearchView } from "../SearchView";
 
-// Mock dependencies. Partial mock of @stak/shared -- only override brands, in case
-// SearchView ever picks up another import from this module.
-vi.mock("@stak/shared", async (importOriginal) => ({
-	...(await importOriginal<typeof import("@stak/shared")>()),
-	brands: [
-		{ id: "1", name: "Apple Inc", ticker: "AAPL", logo: "", coverImage: "", description: "", clout: 80, drama: 20, hype: 60, genZBuzz: "", whyCare: "" },
-		{ id: "2", name: "Tesla Inc", ticker: "TSLA", logo: "", coverImage: "", description: "", clout: 90, drama: 50, hype: 95, genZBuzz: "", whyCare: "" },
-	],
+// Stable reference across renders -- matches real useQuery behavior (same data
+// object until a refetch actually completes). A fresh literal per call would
+// make SearchView's searchIndex useMemo recompute every render and loop forever.
+const mockBrands = [
+	{ id: "1", name: "Apple Inc", ticker: "AAPL", bio: "", heroImage: "", vibes: [], financials: {} },
+	{ id: "2", name: "Tesla Inc", ticker: "TSLA", bio: "", heroImage: "", vibes: [], financials: {} },
+];
+
+vi.mock("@/hooks/useBrandsList", () => ({
+	useBrandsList: () => ({ data: mockBrands }),
 }));
 
 vi.mock("@/context/AuthContext", () => ({

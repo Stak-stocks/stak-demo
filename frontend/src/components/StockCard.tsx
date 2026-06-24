@@ -1,4 +1,4 @@
-import type { BrandProfile } from "@stak/shared";
+import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LiveQuote } from "@/lib/api";
 import { getAnalystData } from "@/lib/api";
@@ -85,7 +85,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 // Always returns exactly 3 tags (growth, risk, margin) with fallbacks for missing data
-function derivedTags(brand: BrandProfile): { label: string; key: string }[] {
+function derivedTags(brand: BrandSummary): { label: string; key: string }[] {
 	const tags: { label: string; key: string }[] = [];
 
 	const growth = parseFloat(brand.financials?.revenueGrowth?.value ?? "");
@@ -173,7 +173,7 @@ function MiniChart({ positive = true, id, s }: { positive?: boolean; id: string;
 }
 
 interface StockCardProps {
-	brand: BrandProfile;
+	brand: BrandSummary;
 	quote?: LiveQuote | null;
 	isTopCard?: boolean;
 	scale?: number;
