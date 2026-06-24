@@ -61,4 +61,13 @@ describe("getPeerTickers", () => {
 
 		expect(peers.indexOf("SNPS")).toBeLessThan(peers.indexOf("WDAY"));
 	});
+
+	it("uses categoryOverride for a ticker that has no STAK_WEIGHTED_STOCK_TAGS entry yet (e.g. an uncommitted draft)", () => {
+		// A fictional ticker not in STAK_WEIGHTED_STOCK_TAGS at all -- without
+		// categoryOverride this would return [] (no category to look up), even
+		// though the caller (e.g. brandGenerationService, mid-draft) already knows
+		// it belongs in "enterprise_software".
+		const peers = getPeerTickers("NOT_YET_COMMITTED_XYZ", brands, 5, "enterprise_software");
+		expect(peers.length).toBeGreaterThan(0);
+	});
 });

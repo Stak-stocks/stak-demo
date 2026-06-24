@@ -449,13 +449,18 @@ function parseMarketCap(value: string | undefined): number | null {
  * (shared/src/stockTags.ts), ranked by closest market cap, alphabetical among
  * unparseable ones. Does not pad to `count` -- a short or empty list for a thin
  * category beats nonsensical filler.
+ *
+ * `categoryOverride` is for a ticker that isn't in STAK_WEIGHTED_STOCK_TAGS yet
+ * (e.g. a brand-generation draft not yet committed) -- without it, the category
+ * lookup for `ticker` itself would fail and silently return [] even though the
+ * caller already knows what category it belongs to.
  */
-export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5): string[] {
+export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5, categoryOverride?: string): string[] {
 	const upper = ticker.toUpperCase();
 	const override = MANUAL_PEER_OVERRIDES[upper];
 	if (override) return override;
 
-	const category = TICKER_TO_PRIMARY_CATEGORY.get(upper);
+	const category = categoryOverride ?? TICKER_TO_PRIMARY_CATEGORY.get(upper);
 	if (!category) return [];
 
 	const target = allBrands.find((b) => b.ticker.toUpperCase() === upper);
