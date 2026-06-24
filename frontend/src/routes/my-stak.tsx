@@ -3,8 +3,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { BrandProfile } from "@/data/brands";
-import { brands } from "@/data/brands";
+import type { BrandProfile } from "@stak/shared";
+import { brands } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmark, ShoppingBag, Shield, CalendarDays, FileText, BarChart3, DollarSign, Building2, Target, Plus, ArrowLeftRight } from "lucide-react";
 

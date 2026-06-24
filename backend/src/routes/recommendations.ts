@@ -2,8 +2,7 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "../data/stockTags.js";
-import { computeRecommendationScore, type RecommendationFreshness } from "@stak/shared";
+import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();

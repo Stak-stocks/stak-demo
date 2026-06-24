@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { VibeMetric } from "@/data/brands";
+import type { VibeMetric } from "@stak/shared";
 
 interface VibeSlidersProps {
 	vibes: VibeMetric[];

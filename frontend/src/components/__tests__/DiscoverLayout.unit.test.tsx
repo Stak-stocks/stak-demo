@@ -27,7 +27,10 @@ vi.mock("@tanstack/react-query", () => ({
 	}),
 }));
 
-vi.mock("@/data/brands", () => ({
+// Partial mock -- @stak/shared also exports computeRecommendationScore and other
+// logic index.tsx relies on; only override brands, don't replace the whole module.
+vi.mock("@stak/shared", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@stak/shared")>()),
 	brands: [],
 }));
 

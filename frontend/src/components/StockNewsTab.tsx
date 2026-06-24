@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { NewsArticle } from "@/data/brands";
+import type { NewsArticle } from "@stak/shared";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 import { getCompanyNews } from "@/lib/api";
 

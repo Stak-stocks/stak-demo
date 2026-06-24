@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarDays, X } from "lucide-react";
-import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
+import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@stak/shared";
 import { useAccount } from "@/context/AccountContext";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";

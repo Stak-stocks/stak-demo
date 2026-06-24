@@ -2,8 +2,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SearchView } from "../SearchView";
 
-// Mock dependencies
-vi.mock("@/data/brands", () => ({
+// Mock dependencies. Partial mock of @stak/shared -- only override brands, in case
+// SearchView ever picks up another import from this module.
+vi.mock("@stak/shared", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@stak/shared")>()),
 	brands: [
 		{ id: "1", name: "Apple Inc", ticker: "AAPL", logo: "", coverImage: "", description: "", clout: 80, drama: 20, hype: 60, genZBuzz: "", whyCare: "" },
 		{ id: "2", name: "Tesla Inc", ticker: "TSLA", logo: "", coverImage: "", description: "", clout: 90, drama: 50, hype: 95, genZBuzz: "", whyCare: "" },

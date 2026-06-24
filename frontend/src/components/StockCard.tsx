@@ -1,4 +1,4 @@
-import type { BrandProfile } from "@/data/brands";
+import type { BrandProfile } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LiveQuote } from "@/lib/api";
 import { getAnalystData } from "@/lib/api";

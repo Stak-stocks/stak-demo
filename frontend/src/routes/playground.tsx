@@ -18,7 +18,7 @@ import { marketSessionBucket, getLocalDateKey } from "@/lib/utils";
 import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
-import { brands as allBrands } from "@/data/brands";
+import { brands as allBrands } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import { StakLogo } from "@/components/StakLogo";
 

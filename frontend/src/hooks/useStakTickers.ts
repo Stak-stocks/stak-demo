@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useAccount } from "@/context/AccountContext";
-import { brands as allBrands } from "@/data/brands";
+import { brands as allBrands } from "@stak/shared";
 
 /**
  * Returns a stable, sorted array of uppercase ticker symbols for the user's Stak.

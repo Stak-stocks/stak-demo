@@ -12,8 +12,8 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { brands as allBrands } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import { brands as allBrands } from "@stak/shared";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,

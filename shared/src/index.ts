@@ -27,3 +27,9 @@ export type { DisplayCategoryKey } from "./displayCategories";
 export { getNYSEHolidays } from "./nyseHolidays";
 
 export { DAILY_SWIPE_LIMIT } from "./swipeLimit";
+
+export { brands, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl, getBrandHeroUrl } from "./brands/index";
+export type { BrandProfile, VibeMetric, FinancialMetric, NewsArticle, TrendCard } from "./brands/index";
+
+export { STAK_WEIGHTED_STOCK_TAGS, ACTION_POINTS } from "./stockTags";
+export type { StakStockTagConfig, WeightedLearningTag } from "./stockTags";

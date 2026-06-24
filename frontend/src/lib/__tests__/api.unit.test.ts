@@ -45,7 +45,8 @@ describe("api client", () => {
 	it("fetchDynamicStocks filters class-share duplicates (GOOG when GOOGL exists)", async () => {
 		vi.resetModules();
 
-		vi.doMock("@/data/brands", () => ({
+		vi.doMock("@stak/shared", async (importOriginal) => ({
+			...(await importOriginal<typeof import("@stak/shared")>()),
 			brands: [{ id: "googl", ticker: "GOOGL", name: "Alphabet" }],
 		}));
 
@@ -69,7 +70,8 @@ describe("api client", () => {
 	it("fetchDynamicStocks returns module cache on second call", async () => {
 		vi.resetModules();
 
-		vi.doMock("@/data/brands", () => ({
+		vi.doMock("@stak/shared", async (importOriginal) => ({
+			...(await importOriginal<typeof import("@stak/shared")>()),
 			brands: [{ id: "aapl", ticker: "AAPL", name: "Apple" }],
 		}));
 

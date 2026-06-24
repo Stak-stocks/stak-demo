@@ -45,7 +45,7 @@ export default defineConfig({
 		rollupOptions: {
 			output: {
 				manualChunks: {
-					"brands-data": ["./src/data/brands.ts"],
+					"brands-data": ["../shared/src/brands/index.ts"],
 				},
 			},
 		},

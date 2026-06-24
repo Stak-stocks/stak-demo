@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import { brands as allBrands, type BrandProfile } from "@stak/shared";
 import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
 import { ArrowLeft, Check } from "lucide-react";

@@ -1,4 +1,4 @@
-import type { BrandProfile } from "./brands";
+import type { BrandProfile } from "@stak/shared";
 
 export interface LeagueLineup {
 	starters: BrandProfile[];

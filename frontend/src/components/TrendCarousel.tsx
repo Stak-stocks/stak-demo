@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { TrendCard } from "@/data/brands";
+import type { TrendCard } from "@stak/shared";
 
 /* ── colour system ── */
 const COLOR_MAP: Record<

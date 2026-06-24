@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue, memo } from "react";
 import { Search, X, Clock } from "lucide-react";
-import { brands, type BrandProfile } from "@/data/brands";
+import { brands, type BrandProfile } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 
 const RECENT_KEY = "search-recent";

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
-import { brands, type BrandProfile } from "@/data/brands";
+import { brands, type BrandProfile } from "@stak/shared";
 
 const MAX_RESULTS = 20;
 

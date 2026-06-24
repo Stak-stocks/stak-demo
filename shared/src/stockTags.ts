@@ -1,3 +1,21 @@
+// Single source of truth for per-ticker recommendation tags. Previously duplicated
+// byte-for-byte between frontend/src/data/stockTags.ts and backend/src/data/stockTags.ts;
+// both deleted once every consumer here was repointed to this file.
+//
+// CLOSED-VOCABULARY CONTRACT for anything that adds a new entry (by hand or via the
+// brand-generation tool): `learningTags[].tag` should be chosen from the existing keys
+// of `TAG_TO_DISPLAY_BUCKETS` (shared/src/displayCategories.ts) wherever the company
+// genuinely fits one. A tag NOT in that map doesn't break anything -- it just silently
+// gets zero credit toward any of the 5 profile-page display buckets, a soft miss, not a
+// hard error. Six tags are deliberately left out of that map on purpose (etf/index/
+// diversified/broad_market for index funds; cyclical/healthcare because they're too broad
+// to bucket precisely) -- see that file's header comment before assuming an unmapped tag
+// is a bug. `primaryCategory` similarly doesn't need to match a fixed list to function
+// (recommendationScoring.ts's diversity-penalty logic just compares it for equality), but
+// matching one of THEME_TAG_MAP's existing `categories` entries (shared/src/
+// recommendationScoring.ts) is what makes a stock eligible for daily-brief theme-boost
+// correlation -- also a soft miss if it doesn't, not a hard requirement.
+//
 // savePoints/learnMorePoints/passPoints/removePoints used to be stored here too,
 // but they're 100% derived from weight via ACTION_POINTS below (weight * ACTION_POINTS.save,
 // etc) and nothing ever read the pre-computed versions -- compute at point of use instead.

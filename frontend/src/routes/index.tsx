@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { brands, type BrandProfile } from "@/data/brands";
-import { STAK_WEIGHTED_STOCK_TAGS } from "@/data/stockTags";
-import { computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
+import { brands, type BrandProfile, STAK_WEIGHTED_STOCK_TAGS, computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
 import { SwipeableCardStack } from "@/components/SwipeableCardStack";
 import { BrandContextModal } from "@/components/BrandContextModal";
 import React from "react";

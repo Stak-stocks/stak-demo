@@ -1,4 +1,4 @@
-import { type BrandProfile, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import { type BrandProfile, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
 
 interface BrandLogoProps {
 	brand: BrandProfile;

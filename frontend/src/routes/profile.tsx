@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import { brands as allBrands, type BrandProfile } from "@stak/shared";
 import { TAG_SCORE_MAX } from "@/lib/constants";
 import {
 	ChevronRight,

@@ -1,5 +1,5 @@
 import { adminDb } from "../firebaseAdmin.js";
-import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "../data/stockTags.js";
+import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 
 type ActionType =
 	| "save"

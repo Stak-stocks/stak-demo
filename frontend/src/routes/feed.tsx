@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { getMarketNews, searchNews, trackEvent } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
-import type { NewsArticle } from "@/data/brands";
+import type { NewsArticle } from "@stak/shared";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
 
