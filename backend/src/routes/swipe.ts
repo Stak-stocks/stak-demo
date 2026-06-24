@@ -3,13 +3,14 @@ import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { recordActivity } from "../services/streakService.js";
 import { updateUserTasteProfile } from "../services/tasteProfileService.js";
+import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 
 export const swipeRouter = Router();
 
 // POST /api/swipe — record a swipe action (requires auth)
 swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { brandId, direction, ticker, categories, stakSize, timeOnCardMs, swipeVelocity } = req.body;
+		const { brandId, direction, ticker, categories, stakSize, timeOnCardMs, swipeVelocity, todayKey } = req.body;
 		const uid = req.user!.uid;
 
 		if (!brandId || !direction) {
@@ -42,6 +43,23 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			return;
 		}
 
+		// Server-authoritative daily limit check — must run before recordActivity()
+		// below, so the limit for THIS swipe is evaluated against the bonus-swipes
+		// balance as it stood before any bonus this same swipe might grant for later.
+		// A rejected swipe is treated as if it never happened: no swipe doc, no
+		// streak credit, no taste-profile update. Always 200 — "limit reached" is an
+		// expected business outcome the client needs in the body, not a thrown error.
+		const limitResult = await checkAndIncrementSwipeLimit(uid, todayKey);
+		if (!limitResult.accepted) {
+			res.json({
+				success: false,
+				limitReached: true,
+				dailySwipeCount: limitResult.count,
+				dailySwipeLimit: limitResult.limit,
+			});
+			return;
+		}
+
 		await adminDb.collection("swipes").add({
 			uid,
 			brandId,
@@ -62,7 +80,12 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			updateUserTasteProfile(uid, ticker, tasteAction).catch(() => {});
 		}
 
-		res.json({ success: true, ...(streakResult != null && { streakUpdate: streakResult }) });
+		res.json({
+			success: true,
+			dailySwipeCount: limitResult.count,
+			dailySwipeLimit: limitResult.limit,
+			...(streakResult != null && { streakUpdate: streakResult }),
+		});
 	} catch (error) {
 		console.error("Error recording swipe:", error);
 		res.status(500).json({ error: "Failed to record swipe" });

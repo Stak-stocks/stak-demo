@@ -12,11 +12,10 @@ import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
 import type { BrandProfile } from "@/data/brands";
-import { getTodayKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
-import { DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
+import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 
 export const Route = createRootRoute({
@@ -29,7 +28,8 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 
 function Root() {
 	const { user, loading } = useAuth();
-	const { account, accountLoading, saveToStak, incrementSwipeCount, updateLastBriefDate } = useAccount();
+	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
+	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(user?.uid ?? "guest", !!user);
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -90,10 +90,7 @@ function Root() {
 			toast.error("Your Stak is full!", { description: "Remove a stock first (max 30)", duration: 2000 });
 			return;
 		}
-		const today = getTodayKey();
-		const swipeState = account?.dailySwipeState;
-		const swipeCount = swipeState?.date === today ? (swipeState.count ?? 0) : 0;
-		if (swipeCount >= DAILY_SWIPE_LIMIT) {
+		if (stakLimitReached) {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
@@ -101,12 +98,12 @@ function Root() {
 			?? queryClient.getQueryData<{ quote: { price: number } | null }>(["stock-price", brand.ticker]);
 		const priceAtSave = cachedStock?.quote?.price ?? null;
 		saveToStak(brand.id, priceAtSave).catch(() => {});
-		incrementSwipeCount().catch(() => {});
+		incrementStakSwipe().catch(() => {});
 		// Invalidate daily brief so personalization reflects the new Stak brand
 		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
-		
-	}, [account, saveToStak, incrementSwipeCount, queryClient]);
+
+	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
 	useEffect(() => {
 		if (!loading && !accountLoading && !user && !isAuthPage) {
