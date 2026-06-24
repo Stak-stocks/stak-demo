@@ -913,7 +913,12 @@ stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 	const ticker = (req.params["ticker"] as string).toUpperCase();
 	const peerTickers = getPeerTickers(ticker, brands);
 
-	const cacheKey = `peer-metrics:${ticker}`;
+	// Bumped to v2 -- peerTickers now comes from getPeerTickers() (category +
+	// market-cap fallback) instead of the old static PEER_GROUPS map, so some
+	// tickers' peer lists changed (e.g. MTCH went from [] to a real list after
+	// fixing a ticker-key typo) -- a stale v1 cache entry would keep serving
+	// the old, sometimes-empty list for up to its full TTL after deploy.
+	const cacheKey = `peer-metrics:v2:${ticker}`;
 	const cached = await cacheGet<unknown>(cacheKey);
 	if (cached !== null) return res.json(cached);
 

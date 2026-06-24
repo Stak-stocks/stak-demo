@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPeerTickers, MANUAL_PEER_OVERRIDES, brands, type BrandProfile } from "@stak/shared";
+import { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES, brands, type BrandProfile } from "@stak/shared";
 
 function makeBrand(overrides: Partial<BrandProfile> & { ticker: string }): BrandProfile {
 	return {
@@ -69,5 +69,22 @@ describe("getPeerTickers", () => {
 		// it belongs in "enterprise_software".
 		const peers = getPeerTickers("NOT_YET_COMMITTED_XYZ", brands, 5, "enterprise_software");
 		expect(peers.length).toBeGreaterThan(0);
+	});
+
+	it("with a prebuilt index, returns the exact same result as scanning allBrands directly -- the O(n) optimization must not change behavior", () => {
+		const index = buildPeerLookupIndex(brands);
+		// Spot-check a manual-override ticker, a category-fallback ticker, and one
+		// with no peers at all -- all 3 paths inside getPeerTickers.
+		for (const ticker of ["AAPL", "CDNS", "LRLCY"]) {
+			expect(getPeerTickers(ticker, brands, 5, undefined, index)).toEqual(getPeerTickers(ticker, brands));
+		}
+	});
+
+	it("buildPeerLookupIndex groups every brand under its real primaryCategory and indexes it by uppercase ticker", () => {
+		const index = buildPeerLookupIndex(brands);
+		const aapl = brands.find((b) => b.ticker.toUpperCase() === "AAPL")!;
+		expect(index.byTicker.get("AAPL")).toBe(aapl);
+		const enterpriseSoftware = index.byCategory.get("enterprise_software") ?? [];
+		expect(enterpriseSoftware.some((b) => b.ticker.toUpperCase() === "CDNS")).toBe(true);
 	});
 });

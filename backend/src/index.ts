@@ -83,7 +83,9 @@ app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, stocksRouter);
 app.use("/api/vibes", publicLimiter, vibesRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
-app.use("/api/admin/brands", publicLimiter, brandAdminRouter);
+// No outer limiter here -- brandAdminRouter applies its own secret check
+// before its own (much stricter) rate limit, see routes/brandAdmin.ts.
+app.use("/api/admin/brands", brandAdminRouter);
 app.use("/api/recommendations", authLimiter, recommendationsRouter);
 app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 app.use("/api/playground", authLimiter, playgroundRouter);

@@ -443,6 +443,35 @@ function parseMarketCap(value: string | undefined): number | null {
 	return num * multiplier;
 }
 
+export interface PeerLookupIndex {
+	byTicker: Map<string, BrandProfile>;
+	byCategory: Map<string, BrandProfile[]>;
+}
+
+/**
+ * Precomputes the ticker/category groupings getPeerTickers() would otherwise
+ * scan `allBrands` for on every call. Build this ONCE and pass it to repeated
+ * getPeerTickers() calls over the same array (e.g. computing peerTickers for
+ * every brand in the catalog) to avoid O(n^2) total work -- without it,
+ * getPeerTickers() still works correctly, just falls back to scanning
+ * `allBrands` directly each call, which is fine for a single one-off lookup
+ * (e.g. one /peer-metrics/:ticker request).
+ */
+export function buildPeerLookupIndex(allBrands: BrandProfile[]): PeerLookupIndex {
+	const byTicker = new Map<string, BrandProfile>();
+	const byCategory = new Map<string, BrandProfile[]>();
+	for (const b of allBrands) {
+		const upper = b.ticker.toUpperCase();
+		byTicker.set(upper, b);
+		const category = TICKER_TO_PRIMARY_CATEGORY.get(upper);
+		if (!category) continue;
+		const bucket = byCategory.get(category);
+		if (bucket) bucket.push(b);
+		else byCategory.set(category, [b]);
+	}
+	return { byTicker, byCategory };
+}
+
 /**
  * Returns peer tickers for `ticker`. Manual overrides win outright (see above);
  * otherwise falls back to other brands sharing the same primaryCategory
@@ -454,8 +483,12 @@ function parseMarketCap(value: string | undefined): number | null {
  * (e.g. a brand-generation draft not yet committed) -- without it, the category
  * lookup for `ticker` itself would fail and silently return [] even though the
  * caller already knows what category it belongs to.
+ *
+ * `index` is an optional buildPeerLookupIndex(allBrands) result -- pass it when
+ * calling this repeatedly over the same `allBrands` (e.g. once per brand while
+ * building the whole catalog) to avoid re-scanning `allBrands` on every call.
  */
-export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5, categoryOverride?: string): string[] {
+export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5, categoryOverride?: string, index?: PeerLookupIndex): string[] {
 	const upper = ticker.toUpperCase();
 	const override = MANUAL_PEER_OVERRIDES[upper];
 	if (override) return override;
@@ -463,11 +496,15 @@ export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count 
 	const category = categoryOverride ?? TICKER_TO_PRIMARY_CATEGORY.get(upper);
 	if (!category) return [];
 
-	const target = allBrands.find((b) => b.ticker.toUpperCase() === upper);
+	const target = index ? index.byTicker.get(upper) : allBrands.find((b) => b.ticker.toUpperCase() === upper);
 	const targetCap = parseMarketCap(target?.financials.marketCap.value);
 
-	const candidates = allBrands
-		.filter((b) => b.ticker.toUpperCase() !== upper && TICKER_TO_PRIMARY_CATEGORY.get(b.ticker.toUpperCase()) === category)
+	const candidatePool = index
+		? (index.byCategory.get(category) ?? [])
+		: allBrands.filter((b) => TICKER_TO_PRIMARY_CATEGORY.get(b.ticker.toUpperCase()) === category);
+
+	const candidates = candidatePool
+		.filter((b) => b.ticker.toUpperCase() !== upper)
 		.map((b) => ({ ticker: b.ticker.toUpperCase(), cap: parseMarketCap(b.financials.marketCap.value) }));
 
 	candidates.sort((a, b) => {
