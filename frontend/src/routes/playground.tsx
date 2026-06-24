@@ -18,7 +18,7 @@ import { marketSessionBucket, getLocalDateKey } from "@/lib/utils";
 import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
-import { brands as allBrands } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import { BrandLogo } from "@/components/BrandLogo";
 import { StakLogo } from "@/components/StakLogo";
 
@@ -2043,6 +2043,8 @@ function buildQuestion(
 function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const { account, addPracticeSkillXp } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = allBrandsList ?? [];
 
 	// ── Types ────────────────────────────────────────────────────────────────────
 	type RoundType = "sentiment" | "nextstep";
@@ -2203,7 +2205,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const stakTickers = new Set(stakStocks.map(s => s.ticker));
 		const fallback = PRACTICE_TICKERS.filter(p => !stakTickers.has(p.ticker));
 		return [...stakStocks, ...fallback];
-	}, [account?.stakBrandIds]);
+	}, [account?.stakBrandIds, allBrands]);
 
 	const [stocks] = useState(() => [...pool].sort(() => Math.random() - 0.5));
 	const stockList = stocks.length > 0 ? stocks : pool;
@@ -2648,6 +2650,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 // ── Build Your First Watchlist ────────────────────────────────
 
 function WatchlistGameView({ onBack }: { onBack: () => void }) {
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = allBrandsList ?? [];
 	// ── Phase state ──────────────────────────────────────────────────────────────
 	const [phase, setPhase] = useState<"goal" | "building" | "diagnosis">("goal");
 	const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
@@ -2872,7 +2876,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 			personality, strengths: strengths.slice(0, 2), watchouts: watchouts.slice(0, 2),
 			nextMove, exposures: Array.from(cats), pickedBrands,
 		};
-	}, [phase, slotPicks]);
+	}, [phase, slotPicks, allBrands]);
 
 	// ── Phase 1: Goal selection ───────────────────────────────────────────────────
 	if (phase === "goal") {
@@ -3212,6 +3216,8 @@ const SANDBOX_CAT_CONFIG: Record<string, { label: string; color: string; bar: st
 function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, sellFromSandbox, initSandboxCash, resetSandbox, markSandboxMilestone } = useAccount();
 	const queryClient = useQueryClient();
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = allBrandsList ?? [];
 
 	// Screen state: null = portfolio list, string = stock detail ticker
 	const [activeStock, setActiveStock] = useState<string | null>(null);
@@ -3232,7 +3238,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const tickers = Object.keys(sandbox);
 
 	// Brand lookup map
-	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), []);
+	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), [allBrands]);
 
 	// Initialise cash on first open
 	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
