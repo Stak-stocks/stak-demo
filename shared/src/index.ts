@@ -33,3 +33,5 @@ export type { BrandProfile, VibeMetric, FinancialMetric, NewsArticle, TrendCard 
 
 export { STAK_WEIGHTED_STOCK_TAGS, ACTION_POINTS } from "./stockTags";
 export type { StakStockTagConfig, WeightedLearningTag } from "./stockTags";
+
+export { getPeerTickers, MANUAL_PEER_OVERRIDES } from "./peerGroups";

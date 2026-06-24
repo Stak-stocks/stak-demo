@@ -85,14 +85,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the worldwide franchise machine",
 			},
 		},
-		"peerTickers": [
-			"MCD",
-			"CMG",
-			"SBUX",
-			"BROS",
-			"JACK",
-			"DPZ",
-		],
 	},
 	{
 		"id": "dpz",
@@ -176,13 +168,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest but growing dividend",
 			},
 		},
-		"peerTickers": [
-			"MCD",
-			"YUM",
-			"CMG",
-			"SBUX",
-			"JACK",
-		],
 	},
 	{
 		"id": "f",
@@ -266,13 +251,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield — they pay generously to keep income investors patient",
 			},
 		},
-		"peerTickers": [
-			"GM",
-			"TSLA",
-			"RIVN",
-			"TM",
-			"NIO",
-		],
 	},
 	{
 		"id": "gm",
@@ -356,13 +334,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield while conserving cash for the EV investment wave",
 			},
 		},
-		"peerTickers": [
-			"F",
-			"TSLA",
-			"RIVN",
-			"TM",
-			"NIO",
-		],
 	},
 	{
 		"id": "rivn",
@@ -446,13 +417,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — needs every dollar to survive",
 			},
 		},
-		"peerTickers": [
-			"TSLA",
-			"LCID",
-			"NIO",
-			"F",
-			"GM",
-		],
 	},
 	{
 		"id": "lulu",
@@ -536,13 +500,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — investing in global expansion",
 			},
 		},
-		"peerTickers": [
-			"NKE",
-			"PTON",
-			"TPR",
-			"ULTA",
-			"ELF",
-		],
 	},
 	{
 		"id": "tjx",
@@ -626,13 +583,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest but reliable dividend",
 			},
 		},
-		"peerTickers": [
-			"ROST",
-			"BURL",
-			"DLTR",
-			"DG",
-			"TGT",
-		],
 	},
 	{
 		"id": "rost",
@@ -716,13 +666,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest but growing dividend",
 			},
 		},
-		"peerTickers": [
-			"TJX",
-			"BURL",
-			"DLTR",
-			"DG",
-			"TGT",
-		],
 	},
 	{
 		"id": "orly",
@@ -806,12 +749,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — they prefer aggressive buybacks",
 			},
 		},
-		"peerTickers": [
-			"AZO",
-			"TSCO",
-			"HD",
-			"LOW",
-		],
 	},
 	{
 		"id": "azo",
@@ -895,12 +832,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — every dollar goes to buybacks instead",
 			},
 		},
-		"peerTickers": [
-			"ORLY",
-			"TSCO",
-			"HD",
-			"LOW",
-		],
 	},
 	{
 		"id": "tsco",
@@ -984,13 +915,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "reliable dividend growing every year",
 			},
 		},
-		"peerTickers": [
-			"AZO",
-			"ORLY",
-			"HD",
-			"LOW",
-			"WMT",
-		],
 	},
 	{
 		"id": "dltr",
@@ -1074,14 +998,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest dividend from the value retail machine",
 			},
 		},
-		"peerTickers": [
-			"DG",
-			"WMT",
-			"TGT",
-			"BURL",
-			"ROST",
-			"TJX",
-		],
 	},
 	{
 		"id": "dg",
@@ -1165,13 +1081,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest and growing dividend",
 			},
 		},
-		"peerTickers": [
-			"DLTR",
-			"WMT",
-			"TGT",
-			"BURL",
-			"ROST",
-		],
 	},
 	{
 		"id": "burl",
@@ -1255,13 +1164,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — investing in store expansion",
 			},
 		},
-		"peerTickers": [
-			"TJX",
-			"ROST",
-			"DLTR",
-			"DG",
-			"TGT",
-		],
 	},
 	{
 		"id": "mar",
@@ -1345,13 +1247,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield — they prefer share buybacks and growth",
 			},
 		},
-		"peerTickers": [
-			"HLT",
-			"RCL",
-			"ABNB",
-			"WYNN",
-			"LVS",
-		],
 	},
 	{
 		"id": "hlt",
@@ -1435,14 +1330,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield — they prefer growth and buybacks",
 			},
 		},
-		"peerTickers": [
-			"MAR",
-			"RCL",
-			"ABNB",
-			"WYNN",
-			"LVS",
-			"MGM",
-		],
 	},
 	{
 		"id": "rcl",
@@ -1526,13 +1413,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "reinstated dividend as recovery solidifies",
 			},
 		},
-		"peerTickers": [
-			"MAR",
-			"HLT",
-			"ABNB",
-			"WYNN",
-			"LVS",
-		],
 	},
 	{
 		"id": "etsy",
@@ -1616,13 +1496,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — growth phase",
 			},
 		},
-		"peerTickers": [
-			"SHOP",
-			"EBAY",
-			"AMZN",
-			"PINS",
-			"CART",
-		],
 	},
 	{
 		"id": "eog",
@@ -1706,13 +1579,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "pays regular plus generous special dividends in good years",
 			},
 		},
-		"peerTickers": [
-			"XOM",
-			"CVX",
-			"OXY",
-			"DVN",
-			"HES",
-		],
 	},
 	{
 		"id": "oxy",
@@ -1796,14 +1662,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "growing dividend supported by strong cash generation",
 			},
 		},
-		"peerTickers": [
-			"XOM",
-			"CVX",
-			"EOG",
-			"DVN",
-			"HES",
-			"HAL",
-		],
 	},
 	{
 		"id": "hal",
@@ -1887,13 +1745,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield for an energy services company",
 			},
 		},
-		"peerTickers": [
-			"SLB",
-			"BKR",
-			"XOM",
-			"CVX",
-			"EOG",
-		],
 	},
 	{
 		"id": "slb",
@@ -1977,12 +1828,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "decent yield from the global services scale",
 			},
 		},
-		"peerTickers": [
-			"HAL",
-			"BKR",
-			"XOM",
-			"CVX",
-		],
 	},
 	{
 		"id": "psx",
@@ -2066,12 +1911,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the combined refining and midstream mix",
 			},
 		},
-		"peerTickers": [
-			"VLO",
-			"XOM",
-			"CVX",
-			"EOG",
-		],
 	},
 	{
 		"id": "vlo",
@@ -2155,12 +1994,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield from the cyclical refiner",
 			},
 		},
-		"peerTickers": [
-			"PSX",
-			"XOM",
-			"CVX",
-			"EOG",
-		],
 	},
 	{
 		"id": "kmi",
@@ -2244,13 +2077,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield from the rebuilt and growing dividend",
 			},
 		},
-		"peerTickers": [
-			"XOM",
-			"CVX",
-			"EOG",
-			"PSX",
-			"VLO",
-		],
 	},
 	{
 		"id": "dvn",
@@ -2334,13 +2160,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "very high yield from the fixed-plus-variable dividend structure",
 			},
 		},
-		"peerTickers": [
-			"XOM",
-			"CVX",
-			"EOG",
-			"OXY",
-			"HES",
-		],
 	},
 	{
 		"id": "hes",
@@ -2424,13 +2243,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield — Chevron acquisition pending resolution",
 			},
 		},
-		"peerTickers": [
-			"XOM",
-			"CVX",
-			"EOG",
-			"OXY",
-			"DVN",
-		],
 	},
 	{
 		"id": "bkr",
@@ -2514,12 +2326,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the diversified energy machine",
 			},
 		},
-		"peerTickers": [
-			"HAL",
-			"SLB",
-			"XOM",
-			"CVX",
-		],
 	},
 	{
 		"id": "cat",
@@ -2603,14 +2409,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid dividend grower for decades",
 			},
 		},
-		"peerTickers": [
-			"DE",
-			"ETN",
-			"EMR",
-			"ITW",
-			"IR",
-			"HON",
-		],
 	},
 	{
 		"id": "de",
@@ -2694,14 +2492,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "steady dividend from the agricultural equipment giant",
 			},
 		},
-		"peerTickers": [
-			"CAT",
-			"ETN",
-			"EMR",
-			"ITW",
-			"IR",
-			"HON",
-		],
 	},
 	{
 		"id": "etn",
@@ -2785,14 +2575,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest but growing dividend",
 			},
 		},
-		"peerTickers": [
-			"CAT",
-			"DE",
-			"EMR",
-			"ITW",
-			"IR",
-			"HON",
-		],
 	},
 	{
 		"id": "emr",
@@ -2876,14 +2658,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "one of the longest consecutive dividend growth records in history",
 			},
 		},
-		"peerTickers": [
-			"CAT",
-			"DE",
-			"ETN",
-			"ITW",
-			"IR",
-			"HON",
-		],
 	},
 	{
 		"id": "itw",
@@ -2967,14 +2741,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid dividend from a decades-long grower",
 			},
 		},
-		"peerTickers": [
-			"CAT",
-			"DE",
-			"ETN",
-			"EMR",
-			"IR",
-			"HON",
-		],
 	},
 	{
 		"id": "ir",
@@ -3058,14 +2824,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield — growth-focused capital allocation",
 			},
 		},
-		"peerTickers": [
-			"CAT",
-			"DE",
-			"ETN",
-			"EMR",
-			"ITW",
-			"HON",
-		],
 	},
 	{
 		"id": "rtx",
@@ -3149,14 +2907,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid dividend from the aerospace and defense giant",
 			},
 		},
-		"peerTickers": [
-			"LMT",
-			"NOC",
-			"LHX",
-			"BA",
-			"GE",
-			"HON",
-		],
 	},
 	{
 		"id": "noc",
@@ -3240,13 +2990,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid dividend from the defense cash machine",
 			},
 		},
-		"peerTickers": [
-			"LMT",
-			"RTX",
-			"LHX",
-			"BA",
-			"GE",
-		],
 	},
 	{
 		"id": "lhx",
@@ -3330,13 +3073,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "decent dividend from a defense compounder",
 			},
 		},
-		"peerTickers": [
-			"LMT",
-			"RTX",
-			"NOC",
-			"BA",
-			"GE",
-		],
 	},
 	{
 		"id": "ge",
@@ -3420,14 +3156,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield — focused on growth and buybacks",
 			},
 		},
-		"peerTickers": [
-			"LMT",
-			"RTX",
-			"NOC",
-			"BA",
-			"HON",
-			"ETN",
-		],
 	},
 	{
 		"id": "mmm",
@@ -3511,13 +3239,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield — partly a signal of the cheap valuation",
 			},
 		},
-		"peerTickers": [
-			"HON",
-			"EMR",
-			"ETN",
-			"CAT",
-			"DE",
-		],
 	},
 	{
 		"id": "unp",
@@ -3601,12 +3322,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid dividend from the railroad compounder",
 			},
 		},
-		"peerTickers": [
-			"CSX",
-			"UPS",
-			"FDX",
-			"CAT",
-		],
 	},
 	{
 		"id": "csx",
@@ -3690,12 +3405,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the eastern rail franchise",
 			},
 		},
-		"peerTickers": [
-			"UNP",
-			"UPS",
-			"FDX",
-			"CAT",
-		],
 	},
 	{
 		"id": "ups",
@@ -3779,13 +3488,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield from the global delivery machine",
 			},
 		},
-		"peerTickers": [
-			"FDX",
-			"DAL",
-			"UAL",
-			"AMZN",
-			"WMT",
-		],
 	},
 	{
 		"id": "fdx",
@@ -3869,13 +3571,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield while they restructure",
 			},
 		},
-		"peerTickers": [
-			"UPS",
-			"DAL",
-			"UAL",
-			"AMZN",
-			"WMT",
-		],
 	},
 	{
 		"id": "dal",
@@ -3959,13 +3654,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "reinstated dividend as profitability recovers",
 			},
 		},
-		"peerTickers": [
-			"UAL",
-			"LUV",
-			"AAL",
-			"FDX",
-			"UPS",
-		],
 	},
 	{
 		"id": "ual",
@@ -4049,13 +3737,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — conserving cash post-COVID",
 			},
 		},
-		"peerTickers": [
-			"DAL",
-			"LUV",
-			"AAL",
-			"FDX",
-			"UPS",
-		],
 	},
 	{
 		"id": "luv",
@@ -4139,13 +3820,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "reinstated dividend as profitability recovers",
 			},
 		},
-		"peerTickers": [
-			"DAL",
-			"UAL",
-			"AAL",
-			"FDX",
-			"UPS",
-		],
 	},
 	{
 		"id": "aal",
@@ -4229,13 +3903,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — every dollar goes toward debt reduction",
 			},
 		},
-		"peerTickers": [
-			"DAL",
-			"UAL",
-			"LUV",
-			"FDX",
-			"UPS",
-		],
 	},
 	{
 		"id": "t",
@@ -4319,11 +3986,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield compensates for the slow growth story",
 			},
 		},
-		"peerTickers": [
-			"VZ",
-			"TMUS",
-			"NFLX",
-		],
 	},
 	{
 		"id": "vz",
@@ -4407,11 +4069,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "very high yield — the core reason to own Verizon",
 			},
 		},
-		"peerTickers": [
-			"T",
-			"TMUS",
-			"NFLX",
-		],
 	},
 	{
 		"id": "tmus",
@@ -4495,11 +4152,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small but growing dividend as free cash flow expands",
 			},
 		},
-		"peerTickers": [
-			"T",
-			"VZ",
-			"NFLX",
-		],
 	},
 	{
 		"id": "duk",
@@ -4583,13 +4235,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield from the regulated rate base",
 			},
 		},
-		"peerTickers": [
-			"NEE",
-			"SO",
-			"D",
-			"AEP",
-			"EXC",
-		],
 	},
 	{
 		"id": "so",
@@ -4673,13 +4318,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield from the regulated utility model",
 			},
 		},
-		"peerTickers": [
-			"NEE",
-			"DUK",
-			"D",
-			"AEP",
-			"EXC",
-		],
 	},
 	{
 		"id": "d",
@@ -4763,13 +4401,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield reflects the cheap valuation of the simplified utility",
 			},
 		},
-		"peerTickers": [
-			"NEE",
-			"DUK",
-			"SO",
-			"AEP",
-			"EXC",
-		],
 	},
 	{
 		"id": "aep",
@@ -4853,13 +4484,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield from the regulated transmission and generation mix",
 			},
 		},
-		"peerTickers": [
-			"NEE",
-			"DUK",
-			"SO",
-			"D",
-			"EXC",
-		],
 	},
 	{
 		"id": "exc",
@@ -4943,13 +4567,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the regulated distribution business",
 			},
 		},
-		"peerTickers": [
-			"NEE",
-			"DUK",
-			"SO",
-			"D",
-			"AEP",
-		],
 	},
 	{
 		"id": "o",
@@ -5033,13 +4650,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "high yield with the most reliable dividend record in REITs",
 			},
 		},
-		"peerTickers": [
-			"AMT",
-			"PLD",
-			"SPG",
-			"DLR",
-			"NEE",
-		],
 	},
 	{
 		"id": "amt",
@@ -5123,12 +4733,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield that grows with tenant additions",
 			},
 		},
-		"peerTickers": [
-			"DLR",
-			"EQIX",
-			"PLD",
-			"O",
-		],
 	},
 	{
 		"id": "eqix",
@@ -5212,13 +4816,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest yield — they invest aggressively in new data centers",
 			},
 		},
-		"peerTickers": [
-			"AMT",
-			"DLR",
-			"PLD",
-			"NET",
-			"O",
-		],
 	},
 	{
 		"id": "spg",
@@ -5302,13 +4899,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "very high yield reflecting the value and the narrative discount",
 			},
 		},
-		"peerTickers": [
-			"O",
-			"PLD",
-			"AMT",
-			"DLR",
-			"EQIX",
-		],
 	},
 	{
 		"id": "pld",
@@ -5392,13 +4982,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the logistics real estate franchise",
 			},
 		},
-		"peerTickers": [
-			"AMT",
-			"DLR",
-			"EQIX",
-			"O",
-			"SPG",
-		],
 	},
 	{
 		"id": "dlr",
@@ -5482,12 +5065,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the digital infrastructure platform",
 			},
 		},
-		"peerTickers": [
-			"AMT",
-			"EQIX",
-			"PLD",
-			"O",
-		],
 	},
 	{
 		"id": "wbd",
@@ -5571,13 +5148,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — every dollar goes to debt reduction",
 			},
 		},
-		"peerTickers": [
-			"DIS",
-			"NFLX",
-			"AMZN",
-			"ROKU",
-			"LYV",
-		],
 	},
 	{
 		"id": "mgm",
@@ -5661,14 +5231,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — investing in BetMGM and international",
 			},
 		},
-		"peerTickers": [
-			"CZR",
-			"DKNG",
-			"LVS",
-			"WYNN",
-			"PENN",
-			"MLCO",
-		],
 	},
 	{
 		"id": "czr",
@@ -5752,14 +5314,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — focused on deleveraging",
 			},
 		},
-		"peerTickers": [
-			"MGM",
-			"DKNG",
-			"LVS",
-			"WYNN",
-			"PENN",
-			"MLCO",
-		],
 	},
 	{
 		"id": "ea",
@@ -5843,13 +5397,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield — they prefer buybacks",
 			},
 		},
-		"peerTickers": [
-			"TTWO",
-			"RBLX",
-			"MSFT",
-			"SONY",
-			"U",
-		],
 	},
 	{
 		"id": "ttwo",
@@ -5933,13 +5480,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — investing in the GTA VI release",
 			},
 		},
-		"peerTickers": [
-			"EA",
-			"RBLX",
-			"MSFT",
-			"SONY",
-			"U",
-		],
 	},
 	{
 		"id": "ttd",
@@ -6023,13 +5563,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — growth phase",
 			},
 		},
-		"peerTickers": [
-			"APP",
-			"META",
-			"SNAP",
-			"GOOGL",
-			"PINS",
-		],
 	},
 	{
 		"id": "roku",
@@ -6113,13 +5646,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — growth phase",
 			},
 		},
-		"peerTickers": [
-			"NFLX",
-			"DIS",
-			"AMZN",
-			"TTD",
-			"SNAP",
-		],
 	},
 	{
 		"id": "mstr",
@@ -6203,13 +5729,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — buying Bitcoin with any available capital",
 			},
 		},
-		"peerTickers": [
-			"MARA",
-			"RIOT",
-			"CLSK",
-			"COIN",
-			"HOOD",
-		],
 	},
 	{
 		"id": "mara",
@@ -6293,13 +5812,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — reinvesting in mining capacity",
 			},
 		},
-		"peerTickers": [
-			"MSTR",
-			"RIOT",
-			"CLSK",
-			"COIN",
-			"HOOD",
-		],
 	},
 	{
 		"id": "riot",
@@ -6383,13 +5895,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — reinvesting in hash rate",
 			},
 		},
-		"peerTickers": [
-			"MARA",
-			"MSTR",
-			"CLSK",
-			"COIN",
-			"HOOD",
-		],
 	},
 	{
 		"id": "clsk",
@@ -6473,13 +5978,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — all capital to growth",
 			},
 		},
-		"peerTickers": [
-			"MARA",
-			"RIOT",
-			"MSTR",
-			"COIN",
-			"HOOD",
-		],
 	},
 	{
 		"id": "mdlz",
@@ -6563,13 +6061,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the global snack machine",
 			},
 		},
-		"peerTickers": [
-			"KO",
-			"PEP",
-			"HSY",
-			"GIS",
-			"KMB",
-		],
 	},
 	{
 		"id": "hsy",
@@ -6653,14 +6144,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield for a consumer staples brand",
 			},
 		},
-		"peerTickers": [
-			"KO",
-			"MDLZ",
-			"GIS",
-			"STZ",
-			"KDP",
-			"MNST",
-		],
 	},
 	{
 		"id": "gis",
@@ -6744,13 +6227,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield from the pantry staples machine",
 			},
 		},
-		"peerTickers": [
-			"KO",
-			"MDLZ",
-			"HSY",
-			"STZ",
-			"KDP",
-		],
 	},
 	{
 		"id": "kr",
@@ -6834,12 +6310,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the grocery cash machine",
 			},
 		},
-		"peerTickers": [
-			"WMT",
-			"COST",
-			"TGT",
-			"MDLZ",
-		],
 	},
 	{
 		"id": "stz",
@@ -6923,14 +6393,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest yield from the beverage brand portfolio",
 			},
 		},
-		"peerTickers": [
-			"KO",
-			"PEP",
-			"SAM",
-			"MNST",
-			"CELH",
-			"KDP",
-		],
 	},
 	{
 		"id": "cl",
@@ -7014,12 +6476,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the global hygiene brand machine",
 			},
 		},
-		"peerTickers": [
-			"KMB",
-			"PG",
-			"KO",
-			"PEP",
-		],
 	},
 	{
 		"id": "kmb",
@@ -7103,12 +6559,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "above-average yield from the staples machine",
 			},
 		},
-		"peerTickers": [
-			"CL",
-			"PG",
-			"KO",
-			"PEP",
-		],
 	},
 	{
 		"id": "mnst",
@@ -7192,14 +6642,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield — they prefer buybacks",
 			},
 		},
-		"peerTickers": [
-			"CELH",
-			"KO",
-			"PEP",
-			"STZ",
-			"KDP",
-			"SAM",
-		],
 	},
 	{
 		"id": "nem",
@@ -7283,12 +6725,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the gold mining machine",
 			},
 		},
-		"peerTickers": [
-			"FCX",
-			"ALB",
-			"APD",
-			"LIN",
-		],
 	},
 	{
 		"id": "fcx",
@@ -7372,12 +6808,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest yield from the copper mining machine",
 			},
 		},
-		"peerTickers": [
-			"NEM",
-			"ALB",
-			"APD",
-			"LIN",
-		],
 	},
 	{
 		"id": "alb",
@@ -7461,12 +6891,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "modest yield while waiting for the lithium price recovery",
 			},
 		},
-		"peerTickers": [
-			"NEM",
-			"FCX",
-			"APD",
-			"LIN",
-		],
 	},
 	{
 		"id": "apd",
@@ -7550,12 +6974,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "solid yield from the industrial gas compounder",
 			},
 		},
-		"peerTickers": [
-			"LIN",
-			"ALB",
-			"NEM",
-			"FCX",
-		],
 	},
 	{
 		"id": "lin",
@@ -7639,12 +7057,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "small yield from a premium quality compounder",
 			},
 		},
-		"peerTickers": [
-			"APD",
-			"ALB",
-			"NEM",
-			"FCX",
-		],
 	},
 	{
 		"id": "wday",
@@ -7728,13 +7140,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — growing through product expansion and M&A",
 			},
 		},
-		"peerTickers": [
-			"NOW",
-			"CRM",
-			"SAP",
-			"ORCL",
-			"ADBE",
-		],
 	},
 	{
 		"id": "veev",
@@ -7818,13 +7223,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield — growth-focused capital allocation",
 			},
 		},
-		"peerTickers": [
-			"CRM",
-			"ORCL",
-			"NOW",
-			"WDAY",
-			"ADBE",
-		],
 	},
 	{
 		"id": "docu",
@@ -7908,13 +7306,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "no dividend — investing in the intelligent agreement platform",
 			},
 		},
-		"peerTickers": [
-			"CRM",
-			"NOW",
-			"ADBE",
-			"WDAY",
-			"SAP",
-		],
 	},
 	{
 		"id": "cdns",
@@ -7998,7 +7389,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield — they prefer buybacks and R&D",
 			},
 		},
-		"peerTickers": [],
 	},
 	{
 		"id": "snps",
@@ -8082,7 +7472,6 @@ export const brandsChunk03: BrandProfile[] = [
 				"culturalTranslation": "minimal yield — investing aggressively in growth",
 			},
 		},
-		"peerTickers": [],
 	},
 	{
 		"id": "ebay",
@@ -8170,13 +7559,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"shopping",
 			"tech",
 			"fashion",
-		],
-		"peerTickers": [
-			"AMZN",
-			"SHOP",
-			"ETSY",
-			"WMT",
-			"TGT",
 		],
 	},
 	{
@@ -8266,13 +7648,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"education",
 			"gaming",
 		],
-		"peerTickers": [
-			"RBLX",
-			"U",
-			"APP",
-			"GOOGL",
-			"MSFT",
-		],
 	},
 	{
 		"id": "app",
@@ -8360,13 +7735,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"tech",
 			"gaming",
 			"media",
-		],
-		"peerTickers": [
-			"TTD",
-			"META",
-			"SNAP",
-			"GOOGL",
-			"PINS",
 		],
 	},
 	{
@@ -8456,13 +7824,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"automotive",
 			"shopping",
 		],
-		"peerTickers": [
-			"EBAY",
-			"AMZN",
-			"F",
-			"GM",
-			"ORLY",
-		],
 	},
 	{
 		"id": "bmbl",
@@ -8550,13 +7911,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"tech",
 			"social",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"MATCH",
-			"META",
-			"SNAP",
-			"RDDT",
-			"HOOD",
 		],
 	},
 	{
@@ -8646,14 +8000,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"lifestyle",
 			"shopping",
 		],
-		"peerTickers": [
-			"MCD",
-			"CMG",
-			"SBUX",
-			"YUM",
-			"WING",
-			"SHAK",
-		],
 	},
 	{
 		"id": "wing",
@@ -8740,14 +8086,6 @@ export const brandsChunk03: BrandProfile[] = [
 		"interestCategories": [
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"CMG",
-			"MCD",
-			"SBUX",
-			"BROS",
-			"SHAK",
-			"TXRH",
 		],
 	},
 	{
@@ -8837,13 +8175,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"lifestyle",
 			"travel",
 		],
-		"peerTickers": [
-			"CMG",
-			"BROS",
-			"WING",
-			"MCD",
-			"TXRH",
-		],
 	},
 	{
 		"id": "cart",
@@ -8932,13 +8263,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"food",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"AMZN",
-			"WMT",
-			"TGT",
-			"SHOP",
-			"ETSY",
-		],
 	},
 	{
 		"id": "tm",
@@ -9026,13 +8350,6 @@ export const brandsChunk03: BrandProfile[] = [
 			"automotive",
 			"travel",
 			"sustainability",
-		],
-		"peerTickers": [
-			"F",
-			"GM",
-			"TSLA",
-			"RIVN",
-			"NIO",
 		],
 	},
 ];

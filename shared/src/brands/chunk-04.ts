@@ -91,13 +91,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"tech",
 			"media",
 		],
-		"peerTickers": [
-			"EA",
-			"TTWO",
-			"MSFT",
-			"GOOGL",
-			"AAPL",
-		],
 	},
 	{
 		"id": "bynd",
@@ -185,13 +178,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"sustainability",
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"GIS",
-			"MDLZ",
-			"KO",
-			"PEP",
-			"HSY",
 		],
 	},
 	{
@@ -281,13 +267,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"lifestyle",
 			"shopping",
 		],
-		"peerTickers": [
-			"ULTA",
-			"ELF",
-			"LULU",
-			"TPR",
-			"ETSY",
-		],
 	},
 	{
 		"id": "gme",
@@ -375,13 +354,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"gaming",
 			"tech",
 			"investing",
-		],
-		"peerTickers": [
-			"AMC",
-			"MSTR",
-			"MARA",
-			"RIOT",
-			"RBLX",
 		],
 	},
 	{
@@ -471,13 +443,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"entertainment",
 			"investing",
 		],
-		"peerTickers": [
-			"NFLX",
-			"DIS",
-			"WBD",
-			"GME",
-			"LYV",
-		],
 	},
 	{
 		"id": "nio",
@@ -565,13 +530,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"automotive",
 			"tech",
 			"sustainability",
-		],
-		"peerTickers": [
-			"TSLA",
-			"LCID",
-			"RIVN",
-			"F",
-			"GM",
 		],
 	},
 	{
@@ -661,13 +619,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"shopping",
 			"pets",
 		],
-		"peerTickers": [
-			"AMZN",
-			"EBAY",
-			"TGT",
-			"COST",
-			"WMT",
-		],
 	},
 	{
 		"id": "lcid",
@@ -755,13 +706,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"automotive",
 			"tech",
 			"sustainability",
-		],
-		"peerTickers": [
-			"TSLA",
-			"RIVN",
-			"NIO",
-			"F",
-			"GM",
 		],
 	},
 	{
@@ -851,13 +795,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"entertainment",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"WBD",
-			"DIS",
-			"NFLX",
-			"AMC",
-			"WYNN",
-		],
 	},
 	{
 		"id": "cake",
@@ -944,13 +881,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"BLMN",
-			"EAT",
-			"TXRH",
-			"MCD",
-			"CMG",
 		],
 	},
 	{
@@ -1039,13 +969,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"food",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"CMG",
-			"MCD",
-			"BLMN",
-			"EAT",
-			"CAKE",
-		],
 	},
 	{
 		"id": "denn",
@@ -1132,13 +1055,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"MCD",
-			"YUM",
-			"DPZ",
-			"JACK",
-			"SBUX",
 		],
 	},
 	{
@@ -1227,13 +1143,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"food",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"MCD",
-			"YUM",
-			"DPZ",
-			"SBUX",
-			"DENN",
-		],
 	},
 	{
 		"id": "pzza",
@@ -1320,13 +1229,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"MCD",
-			"YUM",
-			"DPZ",
-			"JACK",
-			"CMG",
 		],
 	},
 	{
@@ -1415,13 +1317,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"food",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"TXRH",
-			"EAT",
-			"MCD",
-			"YUM",
-			"CMG",
-		],
 	},
 	{
 		"id": "eat",
@@ -1508,13 +1403,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food",
 			"lifestyle",
-		],
-		"peerTickers": [
-			"BLMN",
-			"TXRH",
-			"MCD",
-			"YUM",
-			"CMG",
 		],
 	},
 	{
@@ -1603,14 +1491,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"tech",
 			"science",
 		],
-		"peerTickers": [
-			"JOBY",
-			"ACHR",
-			"ASTS",
-			"LUNR",
-			"BA",
-			"LMT",
-		],
 	},
 	{
 		"id": "asts",
@@ -1697,13 +1577,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"tech",
 			"science",
-		],
-		"peerTickers": [
-			"RKLB",
-			"JOBY",
-			"ACHR",
-			"LUNR",
-			"BA",
 		],
 	},
 	{
@@ -1793,14 +1666,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"food",
 			"lifestyle",
 		],
-		"peerTickers": [
-			"MNST",
-			"KO",
-			"PEP",
-			"STZ",
-			"SAM",
-			"KDP",
-		],
 	},
 	{
 		"id": "wynn",
@@ -1889,14 +1754,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"lifestyle",
 			"entertainment",
 		],
-		"peerTickers": [
-			"MGM",
-			"CZR",
-			"LVS",
-			"PENN",
-			"MLCO",
-			"DKNG",
-		],
 	},
 	{
 		"id": "acmr",
@@ -1982,13 +1839,6 @@ export const brandsChunk04: BrandProfile[] = [
 		},
 		"interestCategories": [
 			"tech",
-		],
-		"peerTickers": [
-			"AMAT",
-			"LRCX",
-			"ASML",
-			"TSM",
-			"NVDA",
 		],
 	},
 	{
@@ -2077,13 +1927,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"tech",
 			"science",
 		],
-		"peerTickers": [
-			"RKLB",
-			"ASTS",
-			"JOBY",
-			"ACHR",
-			"BA",
-		],
 	},
 	{
 		"id": "joby",
@@ -2170,13 +2013,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"tech",
 			"travel",
-		],
-		"peerTickers": [
-			"ACHR",
-			"RKLB",
-			"ASTS",
-			"LUNR",
-			"BA",
 		],
 	},
 	{
@@ -2265,13 +2101,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"tech",
 			"travel",
 		],
-		"peerTickers": [
-			"JOBY",
-			"RKLB",
-			"ASTS",
-			"LUNR",
-			"BA",
-		],
 	},
 	{
 		"id": "spce",
@@ -2359,7 +2188,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"tech",
 			"travel",
 		],
-		"peerTickers": [],
 	},
 	{
 		"id": "gsat",
@@ -2445,13 +2273,6 @@ export const brandsChunk04: BrandProfile[] = [
 		},
 		"interestCategories": [
 			"tech",
-		],
-		"peerTickers": [
-			"RKLB",
-			"ASTS",
-			"T",
-			"VZ",
-			"TMUS",
 		],
 	},
 	{
@@ -2540,14 +2361,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"travel",
 			"entertainment",
 		],
-		"peerTickers": [
-			"MGM",
-			"CZR",
-			"WYNN",
-			"PENN",
-			"MLCO",
-			"DKNG",
-		],
 	},
 	{
 		"id": "penn",
@@ -2634,14 +2447,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"gaming",
 			"entertainment",
-		],
-		"peerTickers": [
-			"DKNG",
-			"MGM",
-			"CZR",
-			"LVS",
-			"WYNN",
-			"MLCO",
 		],
 	},
 	{
@@ -2730,14 +2535,6 @@ export const brandsChunk04: BrandProfile[] = [
 			"travel",
 			"entertainment",
 		],
-		"peerTickers": [
-			"MGM",
-			"CZR",
-			"LVS",
-			"WYNN",
-			"PENN",
-			"DKNG",
-		],
 	},
 	{
 		"id": "sam",
@@ -2823,14 +2620,6 @@ export const brandsChunk04: BrandProfile[] = [
 		},
 		"interestCategories": [
 			"food_drink",
-		],
-		"peerTickers": [
-			"CELH",
-			"MNST",
-			"KO",
-			"PEP",
-			"STZ",
-			"KDP",
 		],
 	},
 	{
@@ -2918,14 +2707,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food_drink",
 		],
-		"peerTickers": [
-			"KO",
-			"PEP",
-			"MNST",
-			"CELH",
-			"KDP",
-			"SAM",
-		],
 	},
 	{
 		"id": "kdp",
@@ -3012,14 +2793,6 @@ export const brandsChunk04: BrandProfile[] = [
 		"interestCategories": [
 			"food_drink",
 		],
-		"peerTickers": [
-			"KO",
-			"PEP",
-			"MNST",
-			"STZ",
-			"GIS",
-			"HSY",
-		],
 	},
 	{
 		"id": "soun",
@@ -3105,13 +2878,6 @@ export const brandsChunk04: BrandProfile[] = [
 		},
 		"interestCategories": [
 			"tech",
-		],
-		"peerTickers": [
-			"APP",
-			"PLTR",
-			"NVDA",
-			"IBM",
-			"MSFT",
 		],
 	},
 ];

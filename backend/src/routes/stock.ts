@@ -3,9 +3,8 @@ import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiSer
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { PEER_GROUPS } from "../data/peerGroups.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket } from "@stak/shared";
+import { marketSessionBucket, brands, getPeerTickers } from "@stak/shared";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -930,7 +929,7 @@ function numericMedian(values: number[]): number | null {
 
 stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 	const ticker = (req.params["ticker"] as string).toUpperCase();
-	const peerTickers = PEER_GROUPS[ticker] ?? [];
+	const peerTickers = getPeerTickers(ticker, brands);
 
 	const cacheKey = `peer-metrics:${ticker}`;
 	const cached = await cacheGet<unknown>(cacheKey);

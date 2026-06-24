@@ -1,17 +1,23 @@
+import { STAK_WEIGHTED_STOCK_TAGS } from "./stockTags";
+import type { BrandProfile } from "./brands/index";
+
 /**
- * Peer ticker groups for every brand in the database.
- * Keyed by uppercase ticker symbol (Finnhub format).
- * Curated for the top ~100 high-traffic stocks; auto-grouped by sector for the rest.
- * Backend uses this map to compute peer-median metrics (P/E, growth, margin, beta).
+ * Hand-curated peer ticker lists for the original ~230 tickers, carried over
+ * verbatim from the old frontend/backend peerGroups.ts files. This encodes real
+ * competitive-set judgment getPeerTickers() can't recover from primaryCategory
+ * alone -- e.g. ETFs grouped as context peers (not fundamental comps), or
+ * crypto-miners grouped because they trade as a basket despite different
+ * underlying businesses. Checked first; getPeerTickers() below is the fallback
+ * for any ticker (new or old) that isn't a key here.
  */
-export const PEER_GROUPS: Record<string, string[]> = {
+export const MANUAL_PEER_OVERRIDES: Record<string, string[]> = {
 
   // ── MEGA-CAP TECH ──────────────────────────────────────────────────────────
   "AAPL":  ["MSFT", "GOOGL", "META", "AMZN", "NVDA"],
   "MSFT":  ["AAPL", "GOOGL", "CRM", "ORCL", "SAP", "IBM"],
   "NVDA":  ["AMD", "AVGO", "QCOM", "MRVL", "TSM", "ASML"],
   "GOOGL": ["META", "MSFT", "AMZN", "SNAP", "RDDT"],
-  "META":  ["GOOGL", "SNAP", "PINS", "RDDT", "MATCH"],
+  "META":  ["GOOGL", "SNAP", "PINS", "RDDT", "MTCH"],
   "AMZN":  ["MSFT", "GOOGL", "SHOP", "WMT", "COST"],
 
   // ── EV / AUTOMOTIVE ────────────────────────────────────────────────────────
@@ -40,11 +46,11 @@ export const PEER_GROUPS: Record<string, string[]> = {
   "GME":   ["AMC", "MSTR", "MARA", "RIOT", "RBLX"],
 
   // ── SOCIAL / CONSUMER INTERNET ─────────────────────────────────────────────
-  "SNAP":  ["META", "PINS", "RDDT", "GOOGL", "MATCH"],
-  "PINS":  ["SNAP", "META", "RDDT", "ETSY", "MATCH"],
-  "RDDT":  ["SNAP", "META", "PINS", "MATCH", "TWLO"],
-  "MATCH": ["SNAP", "META", "RDDT", "BMBL", "GOOGL"],
-  "BMBL":  ["MATCH", "META", "SNAP", "RDDT", "HOOD"],
+  "SNAP":  ["META", "PINS", "RDDT", "GOOGL", "MTCH"],
+  "PINS":  ["SNAP", "META", "RDDT", "ETSY", "MTCH"],
+  "RDDT":  ["SNAP", "META", "PINS", "MTCH", "TWLO"],
+  "MTCH": ["SNAP", "META", "RDDT", "BMBL", "GOOGL"],
+  "BMBL":  ["MTCH", "META", "SNAP", "RDDT", "HOOD"],
 
   // ── GAMING ─────────────────────────────────────────────────────────────────
   "RBLX":  ["EA", "TTWO", "MSFT", "SONY", "U"],
@@ -421,3 +427,51 @@ export const PEER_GROUPS: Record<string, string[]> = {
   "SPY":   ["QQQ", "NVDA", "AAPL", "MSFT", "AMZN"],
   "QQQ":   ["SPY", "NVDA", "AAPL", "MSFT", "META"],
 };
+
+const TICKER_TO_PRIMARY_CATEGORY = new Map(
+	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s.primaryCategory]),
+);
+
+/** Parses display strings like "$1.38T", "1.38T", "$500B AUM", "$2B" into a dollar amount. */
+function parseMarketCap(value: string | undefined): number | null {
+	if (!value) return null;
+	const match = value.match(/\$?([\d.]+)\s*([TBM])/);
+	if (!match) return null;
+	const num = parseFloat(match[1]!);
+	if (!isFinite(num)) return null;
+	const multiplier = match[2] === "T" ? 1e12 : match[2] === "B" ? 1e9 : 1e6;
+	return num * multiplier;
+}
+
+/**
+ * Returns peer tickers for `ticker`. Manual overrides win outright (see above);
+ * otherwise falls back to other brands sharing the same primaryCategory
+ * (shared/src/stockTags.ts), ranked by closest market cap, alphabetical among
+ * unparseable ones. Does not pad to `count` -- a short or empty list for a thin
+ * category beats nonsensical filler.
+ */
+export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5): string[] {
+	const upper = ticker.toUpperCase();
+	const override = MANUAL_PEER_OVERRIDES[upper];
+	if (override) return override;
+
+	const category = TICKER_TO_PRIMARY_CATEGORY.get(upper);
+	if (!category) return [];
+
+	const target = allBrands.find((b) => b.ticker.toUpperCase() === upper);
+	const targetCap = parseMarketCap(target?.financials.marketCap.value);
+
+	const candidates = allBrands
+		.filter((b) => b.ticker.toUpperCase() !== upper && TICKER_TO_PRIMARY_CATEGORY.get(b.ticker.toUpperCase()) === category)
+		.map((b) => ({ ticker: b.ticker.toUpperCase(), cap: parseMarketCap(b.financials.marketCap.value) }));
+
+	candidates.sort((a, b) => {
+		const aRankable = targetCap !== null && a.cap !== null;
+		const bRankable = targetCap !== null && b.cap !== null;
+		if (aRankable && bRankable) return Math.abs(a.cap! - targetCap!) - Math.abs(b.cap! - targetCap!);
+		if (aRankable !== bRankable) return aRankable ? -1 : 1;
+		return a.ticker.localeCompare(b.ticker);
+	});
+
+	return candidates.slice(0, count).map((c) => c.ticker);
+}
