@@ -6,6 +6,24 @@ import type { BrandDraft } from "../services/brandGenerationService.js";
 
 export const brandAdminRouter = Router();
 
+// commitBrandDrafts() writes to local files (shared/src/brands/<chunk>.ts,
+// shared/src/stockTags.ts) -- that only does something meaningful when those
+// files are a real git working directory. backend/Dockerfile sets
+// NODE_ENV=production for the deployed Cloud Run image, whose container
+// filesystem is ephemeral (not shared across instances, wiped on every
+// restart/redeploy) -- a write there would silently vanish without ever
+// reaching the actual repo, instead of failing loudly. This tool is meant to
+// be run against a local backend (`npm run dev`/`npm start`, no NODE_ENV set)
+// where "the file" really is your working directory.
+function blockInProduction(_req: Request, res: Response, next: NextFunction): void {
+	if (process.env.NODE_ENV === "production") {
+		res.status(403).json({ error: "This endpoint only runs against a local backend -- it writes to local files that don't persist on the deployed instance." });
+		return;
+	}
+	next();
+}
+brandAdminRouter.use(blockInProduction);
+
 function checkAdminSecret(req: Request): boolean {
 	const secret = req.headers["x-admin-secret"];
 	return !!process.env.ADMIN_SECRET && secret === process.env.ADMIN_SECRET;
