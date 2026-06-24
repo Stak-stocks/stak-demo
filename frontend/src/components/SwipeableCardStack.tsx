@@ -186,7 +186,7 @@ export function SwipeableCardStack({
 	const nextBrand2 = deck[currentIndex + 2];
 
 	const { data: stockData } = useQuery({
-		queryKey: ["stock-price", topBrand?.ticker],
+		queryKey: ["stock", topBrand?.ticker],
 		queryFn: () => getStockData(topBrand!.ticker),
 		enabled: !!topBrand,
 		staleTime: 2 * 60 * 1000,
@@ -195,7 +195,7 @@ export function SwipeableCardStack({
 	});
 
 	const { data: stockData1 } = useQuery({
-		queryKey: ["stock-price", nextBrand1?.ticker],
+		queryKey: ["stock", nextBrand1?.ticker],
 		queryFn: () => getStockData(nextBrand1!.ticker),
 		enabled: !!nextBrand1,
 		staleTime: 2 * 60 * 1000,
@@ -204,7 +204,7 @@ export function SwipeableCardStack({
 	});
 
 	const { data: stockData2 } = useQuery({
-		queryKey: ["stock-price", nextBrand2?.ticker],
+		queryKey: ["stock", nextBrand2?.ticker],
 		queryFn: () => getStockData(nextBrand2!.ticker),
 		enabled: !!nextBrand2,
 		staleTime: 2 * 60 * 1000,
