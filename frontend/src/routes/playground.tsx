@@ -355,7 +355,16 @@ function PlaygroundPage() {
 		const ml = featuredLessonData?.lesson;
 		if (!ml) return null;
 		return {
-			id: `featured-today-${dayKey}`,
+			// Keyed by the CT-anchored market day (matching how the content itself is
+			// fetched, see the featuredLessonData query above), not the local-time
+			// `dayKey` -- lessonProgress is a permanent, id-keyed map with no
+			// day-reset logic, so a local-time id would drift out of sync with the
+			// content for any viewer outside Central time. West of CT, the content
+			// refreshes before local 9am while the id wouldn't, colliding with
+			// yesterday's completed id and showing a brand-new lesson as already
+			// done. East of CT, the id would flip before the content does, making an
+			// already-completed lesson look incomplete again and double-award XP.
+			id: `featured-today-${getMarketDayKey()}`,
 			title: ml.title,
 			subtitle: ml.subtitle,
 			category: "Market Basics" as LessonCategory,

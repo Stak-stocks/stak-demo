@@ -123,13 +123,6 @@ export function trackEvent(
 	});
 }
 
-// Live Trends (Gemini-generated, cached 3 days in Firestore)
-export function getLiveTrends(brandId: string, ticker: string, name: string) {
-	return apiRequest<{ cards: import("@/data/brands").TrendCard[]; brandId: string }>(
-		`/api/trends/${brandId}?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`,
-	);
-}
-
 // News
 export interface EarningsSignal {
 	status: "upcoming" | "beat" | "miss" | "none";
@@ -152,17 +145,6 @@ export function searchNews(query: string) {
 	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(
 		`/api/news/search?q=${encodeURIComponent(query)}`,
 	);
-}
-
-export interface DynamicVibes {
-	ticker: string;
-	internetHype: number | null;
-	dramaLevel: number | null;
-	clout: number | null;
-}
-
-export function getVibes(ticker: string) {
-	return apiRequest<DynamicVibes>(`/api/vibes/${encodeURIComponent(ticker)}`);
 }
 
 export function getIntelCards() {
