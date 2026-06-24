@@ -611,25 +611,32 @@ async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry
 	} catch { /* non-fatal */ }
 }
 
-async function generateFeaturedLesson(): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
+// isMarketDay: true only when the lesson is about a specific real market event (vs a
+// general concept lesson). isTradingDay: whether today is an actual trading day — kept
+// separate because isMarketDay is also false on ordinary trading days when nothing
+// significant was found and we fell back to a concept lesson; conflating the two used
+// to make the frontend show "Weekend Prep" on a perfectly normal Tuesday.
+interface FeaturedLessonResult { lesson: MarketLessonResponse; isMarketDay: boolean; isTradingDay: boolean }
+
+async function generateFeaturedLesson(): Promise<FeaturedLessonResult | null> {
 	const today = getMarketDayKey();
 	const marketDay = await isTradingDay();
 	const cacheKey = `playground:featured-lesson:v1:${today}`;
 
 	// 1. Redis / in-memory cache (fast path)
-	const cached = await cacheGet<{ lesson: MarketLessonResponse; isMarketDay: boolean } | { empty: true }>(cacheKey);
+	const cached = await cacheGet<FeaturedLessonResult | { empty: true }>(cacheKey);
 	if (cached !== null) {
 		if ("empty" in (cached as object)) return null;
-		return cached as { lesson: MarketLessonResponse; isMarketDay: boolean };
+		return cached as FeaturedLessonResult;
 	}
 
 	// 2. Firestore fallback — survives server restarts in local dev
 	try {
 		const snap = await adminDb.collection("config").doc("featured-lesson").get();
 		if (snap.exists) {
-			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean };
+			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean; isTradingDay?: boolean };
 			if (d.date === today && d.lesson) {
-				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay };
+				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay, isTradingDay: d.isTradingDay ?? marketDay };
 				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
 				return result;
 			}
@@ -741,9 +748,9 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 	}
 
 	function saveLesson(parsed: MarketLessonResponse & { angle?: string }, isMarketDay: boolean) {
-		const result = { lesson: parsed, isMarketDay };
+		const result = { lesson: parsed, isMarketDay, isTradingDay: marketDay };
 		cacheSet(cacheKey, result, 12 * 60 * 60 * 1000).catch(() => {});
-		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay }).catch(() => {});
+		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay, isTradingDay: marketDay }).catch(() => {});
 		appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
 		return result;
 	}
@@ -774,7 +781,7 @@ dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: Authentica
 	try {
 		const result = await generateFeaturedLesson();
 		if (!result) { res.json({ lesson: null }); return; }
-		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay });
+		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay, isTradingDay: result.isTradingDay });
 	} catch {
 		res.json({ lesson: null });
 	}

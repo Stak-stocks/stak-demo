@@ -416,7 +416,7 @@ export function getMarketStatusLive() {
 }
 
 export function getFeaturedLesson() {
-	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
+	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean; isTradingDay?: boolean }>("/api/daily-brief/featured-lesson");
 }
 
 export interface GeneratedLesson {

@@ -535,7 +535,14 @@ function PlaygroundPage() {
 
 				{/* Market Moment (trading days) / Featured Today (weekends & holidays) — Gemini powered */}
 				{featuredTodayLesson && (() => {
+					// isMarketDay: this lesson is about a specific real market event (vs a general
+					// concept lesson) — drives styling. isTradingDay: today is an actual trading
+					// day — separate signal, because isMarketDay is also false on an ordinary
+					// weekday when nothing significant was found and we fell back to teaching a
+					// concept instead; using isMarketDay alone for the "Weekend Prep" copy used to
+					// show that on any plain Tuesday with no major news.
 					const isMarketDay = featuredLessonData?.isMarketDay !== false;
+					const isTradingDay = featuredLessonData?.isTradingDay !== false;
 					const accent = isMarketDay ? "violet" : "amber";
 					const borderCls = isMarketDay ? "border-violet-500/30" : "border-amber-500/30";
 					const bgCls = isMarketDay ? "bg-violet-500/[0.07]" : "bg-amber-500/[0.07]";
@@ -549,12 +556,12 @@ function PlaygroundPage() {
 					const isStaleWindow = isMarketDay && getLocalDateKey() !== getMarketDayKey();
 					const label = isMarketDay
 						? (isStaleWindow ? "Market Moment · Yesterday's Big Release" : "Market Moment · Today's Big Release")
-						: "Featured Today · Weekend Prep";
+						: isTradingDay ? "Featured Today · Quick Concept" : "Featured Today · Weekend Prep";
 					const meta = account?.lessonProgress?.[featuredTodayLesson.id]?.completed
 						? "Completed ✓"
 						: isMarketDay
 							? (isStaleWindow ? "3 min · +25 XP · Major event yesterday" : "3 min · +25 XP · Major event today")
-							: "3 min · +25 XP · Prep for the week ahead";
+							: isTradingDay ? "3 min · +25 XP · Today's quick concept" : "3 min · +25 XP · Prep for the week ahead";
 					return (
 						<div className="mb-[20px]">
 							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">{label}</p>
