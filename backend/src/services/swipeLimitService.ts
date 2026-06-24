@@ -26,9 +26,14 @@ function sanitizeTodayKey(clientTodayKey: unknown): string {
 
 /**
  * Atomically checks and increments a user's daily swipe count against
- * DAILY_SWIPE_LIMIT + bonusSwipes. Returns accepted:false (no write) once the
- * limit's reached — the only server-side authority for this limit; never trust a
+ * DAILY_SWIPE_LIMIT. Returns accepted:false (no write) once the limit's
+ * reached — the only server-side authority for this limit; never trust a
  * client-reported count.
+ *
+ * Streak bonus swipes are temporarily disabled (not applied to the limit) --
+ * streakService.ts still awards/accumulates bonusSwipes and the streak_bonus_*
+ * badges as before, this just stops adding that value on top of the flat
+ * daily cap. Re-enable by restoring `DAILY_SWIPE_LIMIT + bonusSwipes` below.
  */
 export async function checkAndIncrementSwipeLimit(uid: string, clientTodayKey: unknown): Promise<SwipeLimitResult> {
 	const todayKey = sanitizeTodayKey(clientTodayKey);
@@ -39,8 +44,7 @@ export async function checkAndIncrementSwipeLimit(uid: string, clientTodayKey: u
 		const data = snap.data() ?? {};
 		const saved = data.dailySwipeState as { date?: string; count?: number } | undefined;
 		const currentCount = saved?.date === todayKey ? (saved.count ?? 0) : 0;
-		const bonusSwipes = (data.bonusSwipes as number | undefined) ?? 0;
-		const limit = DAILY_SWIPE_LIMIT + bonusSwipes;
+		const limit = DAILY_SWIPE_LIMIT;
 
 		if (currentCount >= limit) {
 			return { accepted: false, count: currentCount, limit };
