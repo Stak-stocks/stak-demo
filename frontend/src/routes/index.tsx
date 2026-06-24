@@ -553,6 +553,7 @@ function App() {
 							hasReachedLimit={hasReachedLimit}
 							onIncrement={bumpOptimistic}
 							onSwipeRecorded={reportSwipeResult}
+							onSkip={incrementSwipe}
 							stakSize={account?.stakBrandIds?.length ?? 0}
 							loading={recommendedOrder.length === 0 && !hasReachedLimit}
 							onStreakUpdate={handleStreakUpdate}

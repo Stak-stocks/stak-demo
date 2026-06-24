@@ -46,6 +46,10 @@ interface SwipeableCardStackProps {
 	/** From useSwipeLimit's reportSwipeResult — reconciles the optimistic count once
 	 *  recordSwipe()'s response arrives (handles the rare rejection / multi-tab case). */
 	onSwipeRecorded?: (accepted: boolean, count: number, limit: number) => void;
+	/** From useSwipeLimit's network-calling increment — skip now counts toward the
+	 *  daily limit too (server-enforced, same as a real swipe), unlike onIncrement
+	 *  above which is just the instant local bump for the real-swipe path. */
+	onSkip?: () => Promise<boolean>;
 	/** Number of brands currently in the user's Stak — logged for ML training */
 	stakSize?: number;
 	/** Show skeleton loading state while deck is being prepared */
@@ -131,6 +135,7 @@ export function SwipeableCardStack({
 	hasReachedLimit,
 	onIncrement,
 	onSwipeRecorded,
+	onSkip,
 	stakSize,
 	loading,
 	onStreakUpdate,
@@ -294,7 +299,8 @@ export function SwipeableCardStack({
 		}, 280);
 	}, [deck, currentIndex, onIncrement, onSwipe, onSwipeRight, onSwipeLeft]);
 
-	/* ── Skip (shuffle current card to bottom, no recording) ── */
+	/* ── Skip (shuffle current card to bottom) — counts toward the daily swipe
+	 * limit the same as a real swipe, server-enforced via onSkip. */
 	const executeSkip = useCallback((direction: "up" | "down" = "up") => {
 		if (isProcessingSwipe.current) return;
 		isProcessingSwipe.current = true;
@@ -305,6 +311,7 @@ export function SwipeableCardStack({
 		setIsDragging(false);
 		setIsExiting(true);
 		setDragOffset({ x: 0, y: direction === "up" ? -2200 : 4000 });
+		onSkip?.().catch(() => {});
 
 		setTimeout(() => {
 			setSkipSet((prev) => new Set([...prev, current.id]));
@@ -312,7 +319,7 @@ export function SwipeableCardStack({
 			setIsExiting(false);
 			isProcessingSwipe.current = false;
 		}, 280);
-	}, [deck, currentIndex]);
+	}, [deck, currentIndex, onSkip]);
 
 	/* ── Drag handlers ── */
 	const handleDragStart = (clientX: number, clientY: number) => {

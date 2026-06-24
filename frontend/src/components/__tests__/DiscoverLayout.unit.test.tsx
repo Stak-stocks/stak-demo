@@ -49,7 +49,13 @@ vi.mock("@/lib/api", () => ({
 }));
 
 vi.mock("@/hooks/useSwipeLimit", () => ({
-	useSwipeLimit: () => ({ count: 0, hasReachedLimit: false, increment: vi.fn() }),
+	useSwipeLimit: () => ({
+		count: 0,
+		hasReachedLimit: false,
+		increment: vi.fn().mockResolvedValue(true),
+		bumpOptimistic: vi.fn(),
+		reportSwipeResult: vi.fn(),
+	}),
 	DAILY_SWIPE_LIMIT: 20,
 }));
 
