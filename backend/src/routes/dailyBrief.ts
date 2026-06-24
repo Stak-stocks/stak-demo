@@ -2,7 +2,7 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays } from "@stak/shared";
+import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey } from "@stak/shared";
 import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
 	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
@@ -612,7 +612,7 @@ async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry
 }
 
 async function generateFeaturedLesson(): Promise<{ lesson: MarketLessonResponse; isMarketDay: boolean } | null> {
-	const today = new Date().toISOString().split("T")[0];
+	const today = getMarketDayKey();
 	const marketDay = await isTradingDay();
 	const cacheKey = `playground:featured-lesson:v1:${today}`;
 

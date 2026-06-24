@@ -15,6 +15,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
 import { marketSessionBucket } from "@/lib/utils";
+import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
 import { brands as allBrands } from "@/data/brands";
@@ -338,7 +339,7 @@ function PlaygroundPage() {
 	}, [completeDailyActivity]);
 	// Standalone market lesson — Gemini Search finds the biggest event of the past 2 days
 	const { data: featuredLessonData } = useQuery({
-		queryKey: ["market-lesson", new Date().toISOString().split("T")[0]],
+		queryKey: ["market-lesson", getMarketDayKey()],
 		queryFn: getFeaturedLesson,
 		staleTime: 12 * 60 * 60 * 1000,
 		gcTime: 13 * 60 * 60 * 1000,
