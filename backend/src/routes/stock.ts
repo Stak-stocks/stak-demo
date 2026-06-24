@@ -186,33 +186,14 @@ stockRouter.get("/calendar", async (_req, res) => {
 	res.json(result);
 });
 
-// ── Popular tickers shown in the market-wide earnings calendar ──────────────
-const MARKET_TICKERS: Record<string, string> = {
-	AAPL: "Apple", MSFT: "Microsoft", GOOGL: "Alphabet", AMZN: "Amazon",
-	META: "Meta", NVDA: "NVIDIA", TSLA: "Tesla", NFLX: "Netflix",
-	AVGO: "Broadcom", AMD: "AMD", INTC: "Intel", QCOM: "Qualcomm",
-	ORCL: "Oracle", ADBE: "Adobe", CRM: "Salesforce", CSCO: "Cisco",
-	IBM: "IBM", TXN: "Texas Instruments", INTU: "Intuit", NOW: "ServiceNow",
-	UBER: "Uber", ABNB: "Airbnb", DASH: "DoorDash", LYFT: "Lyft",
-	SPOT: "Spotify", SNAP: "Snap", PINS: "Pinterest", RDDT: "Reddit",
-	COIN: "Coinbase", HOOD: "Robinhood", RBLX: "Roblox", U: "Unity",
-	PLTR: "Palantir", SOUN: "SoundHound AI", DUOL: "Duolingo", AI: "C3.ai",
-	HIMS: "Hims & Hers", ROKU: "Roku", CRWD: "CrowdStrike", SNOW: "Snowflake",
-	DDOG: "Datadog", NET: "Cloudflare", PATH: "UiPath", GTLB: "GitLab",
-	SMCI: "Super Micro", ARM: "Arm Holdings", ANET: "Arista Networks",
-	SHOP: "Shopify", PYPL: "PayPal", SQ: "Block", V: "Visa", MA: "Mastercard",
-	JPM: "JPMorgan", GS: "Goldman Sachs", BAC: "Bank of America", MS: "Morgan Stanley",
-	WFC: "Wells Fargo", C: "Citigroup",
-	WMT: "Walmart", COST: "Costco", TGT: "Target", HD: "Home Depot",
-	MCD: "McDonald's", SBUX: "Starbucks", NKE: "Nike", LULU: "Lululemon",
-	DIS: "Disney", CMCSA: "Comcast", T: "AT&T", VZ: "Verizon", TMUS: "T-Mobile",
-	DELL: "Dell", HPQ: "HP Inc", HPE: "HP Enterprise",
-	RIVN: "Rivian", F: "Ford", GM: "General Motors", NIO: "NIO",
-	BA: "Boeing", GE: "GE", CAT: "Caterpillar", HON: "Honeywell",
-	JNJ: "Johnson & Johnson", PFE: "Pfizer", MRNA: "Moderna", LLY: "Eli Lilly",
-	ABBV: "AbbVie", AMGN: "Amgen", XOM: "ExxonMobil", CVX: "Chevron",
-	BABA: "Alibaba", JD: "JD.com", PDD: "PDD Holdings",
-};
+// ── Tickers tracked by the market-wide earnings calendar ────────────────────
+// Derived from the full shared brand catalog instead of a hand-maintained list --
+// every brand is tracked, but EarningsCalendar.tsx's MarketEarningsWidget already
+// client-side filters to the viewer's own Stak before rendering, so this only
+// changes what's trackable, not what any given viewer actually sees.
+const MARKET_TICKERS: Record<string, string> = Object.fromEntries(
+	brands.map((b) => [b.ticker.toUpperCase(), b.name]),
+);
 
 /** Market-wide earnings calendar for popular stocks — MUST be before /:symbol */
 stockRouter.get("/market-earnings", async (req, res) => {
@@ -245,9 +226,10 @@ stockRouter.get("/market-earnings", async (req, res) => {
 
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v5 -- now shares resolveEarningsStatus with /:symbol/earnings instead of
-		// its own separate (and separately buggy) logic.
-		const cacheKey = `market-earnings:v5:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		// Bumped to v6 -- MARKET_TICKERS now derives from the full shared brand catalog
+		// (333 tickers) instead of a hardcoded ~80-ticker list; a stale cache entry from
+		// before this change would keep returning the narrower set.
+		const cacheKey = `market-earnings:v6:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
