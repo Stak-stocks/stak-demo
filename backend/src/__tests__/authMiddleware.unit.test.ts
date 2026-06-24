@@ -46,7 +46,7 @@ describe("authMiddleware", () => {
 		await authMiddleware(req as any, res as any, next as NextFunction);
 
 		expect(verifyIdTokenMock).toHaveBeenCalledWith("valid-token");
-		expect((req as any).user).toEqual({ uid: "user-123", email: "test@example.com" });
+		expect((req as any).user).toEqual({ uid: "user-123", email: "test@example.com", onboardingCompleted: false });
 		expect(next).toHaveBeenCalledTimes(1);
 		expect(res.status).not.toHaveBeenCalled();
 	});

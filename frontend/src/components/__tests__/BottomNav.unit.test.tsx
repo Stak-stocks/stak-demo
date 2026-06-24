@@ -14,6 +14,10 @@ vi.mock("@tanstack/react-router", () => ({
 	})),
 }));
 
+vi.mock("@/context/AccountContext", () => ({
+	useAccount: () => ({ account: null }),
+}));
+
 import { useRouterState } from "@tanstack/react-router";
 
 const mockedUseRouterState = vi.mocked(useRouterState);
@@ -26,18 +30,18 @@ describe("BottomNav", () => {
 		} as any);
 	});
 
-	it("renders all five nav items: Discover, My Stak, News, League, Profile", () => {
+	it("renders all five nav items: Discover, My STAK, News, Playground, Profile", () => {
 		render(<BottomNav />);
 		expect(screen.getByText("Discover")).toBeInTheDocument();
-		expect(screen.getByText("My Stak")).toBeInTheDocument();
+		expect(screen.getByText("My STAK")).toBeInTheDocument();
 		expect(screen.getByText("News")).toBeInTheDocument();
-		expect(screen.getByText("League")).toBeInTheDocument();
+		expect(screen.getByText("Playground")).toBeInTheDocument();
 		expect(screen.getByText("Profile")).toBeInTheDocument();
 	});
 
-	it("renders My Stak as a Link to /my-stak", () => {
+	it("renders My STAK as a Link to /my-stak", () => {
 		render(<BottomNav />);
-		const stakLink = screen.getByText("My Stak").closest("a");
+		const stakLink = screen.getByText("My STAK").closest("a");
 		expect(stakLink).toBeInTheDocument();
 		expect(stakLink?.getAttribute("href")).toBe("/my-stak");
 	});
@@ -56,15 +60,15 @@ describe("BottomNav", () => {
 		expect(discoverLink.className).toContain("text-cyan-500");
 	});
 
-	it("shows My Stak as active with glow when on /my-stak path", () => {
+	it("shows My STAK as active with a tinted icon background when on /my-stak path", () => {
 		mockedUseRouterState.mockReturnValue({
 			location: { pathname: "/my-stak" },
 		} as any);
 		render(<BottomNav />);
-		const stakLink = screen.getByText("My Stak").closest("a")!;
+		const stakLink = screen.getByText("My STAK").closest("a")!;
 		expect(stakLink.className).toContain("text-violet-500");
-		const glowDiv = stakLink.querySelector("div");
-		expect(glowDiv?.className).toContain("from-violet-400/30");
+		const iconBg = stakLink.querySelector("div");
+		expect(iconBg?.className).toContain("bg-violet-500/10");
 	});
 
 	it("calls onSearchClose when a nav item is clicked while search is active", () => {

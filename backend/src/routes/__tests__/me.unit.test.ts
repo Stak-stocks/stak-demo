@@ -5,8 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getMock = vi.fn();
 const setMock = vi.fn();
 const docMock = vi.fn(() => ({ get: getMock, set: setMock }));
+// GET / fire-and-forget logs a login session per day (sessions/{uid}_{date}) — separate
+// collection from "users", needs its own doc/set so it doesn't fall through to the
+// catch-all throw below (which previously caused every GET / test to fail before ever
+// reaching the users-doc mock).
+const sessionSetMock = vi.fn().mockResolvedValue(undefined);
 const collectionMock = vi.fn((name: string) => {
 	if (name === "users") return { doc: docMock };
+	if (name === "sessions") return { doc: vi.fn(() => ({ set: sessionSetMock })) };
 	throw new Error(`Unexpected collection ${name}`);
 });
 
