@@ -184,7 +184,9 @@ export async function getEarningsBeatMissFromWeb(
 	symbol: string,
 	companyName?: string,
 ): Promise<{ result: EarningsOutcome; date: string | null }> {
-	const cacheKey = `web:v2:${symbol}`;
+	// Bumped to v3 to invalidate stale/hallucinated results cached during the earnings
+	// status investigation, before the date-plausibility check existed.
+	const cacheKey = `web:v3:${symbol}`;
 	const cached = await cacheGet<{ result: EarningsOutcome; date: string | null }>(cacheKey);
 	if (cached) return { result: cached.result, date: cached.date };
 
