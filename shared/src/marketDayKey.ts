@@ -30,3 +30,17 @@ export function getMarketDayKey(now: Date = new Date()): string {
 	const dd = String(d.getUTCDate()).padStart(2, "0");
 	return `${y}-${m}-${dd}`;
 }
+
+// True between midnight and 9 AM America/Chicago — the calendar date has already
+// flipped, but getMarketDayKey() is still returning the *previous* day's key (the
+// new day's content isn't generated yet). Display code can use this to phrase
+// labels in the past tense ("Yesterday's...") instead of implying the content is
+// brand new, without having to hide/lock the content during that window.
+export function isBeforeMarketDayBoundary(now: Date = new Date()): boolean {
+	const hourStr = new Intl.DateTimeFormat("en-US", {
+		timeZone: "America/Chicago",
+		hour: "2-digit",
+		hour12: false,
+	}).format(now);
+	return (parseInt(hourStr, 10) % 24) < 9;
+}
