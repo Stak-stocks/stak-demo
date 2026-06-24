@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { brands as allBrands, type BrandProfile } from "@stak/shared";
+import type { BrandSummary } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
 import { ArrowLeft, Check } from "lucide-react";
@@ -14,22 +15,23 @@ export const Route = createFileRoute("/league_/lineup")({
 function LineupBuilderPage() {
 	const navigate = useNavigate();
 	const { account } = useAccount();
+	const { data: allBrands } = useBrandsList();
 	const [leagueState, setLeagueState] = useState<LeagueState>(INITIAL_LEAGUE_STATE);
 
-	const swipedBrands = useMemo<BrandProfile[]>(() => {
-		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+	const swipedBrands = useMemo<BrandSummary[]>(() => {
+		const brandMap = new Map((allBrands ?? []).map((b) => [b.id, b]));
 		return (account?.stakBrandIds ?? [])
 			.map((id) => brandMap.get(id))
-			.filter(Boolean) as BrandProfile[];
-	}, [account?.stakBrandIds]);
+			.filter(Boolean) as BrandSummary[];
+	}, [account?.stakBrandIds, allBrands]);
 
-	const [selectedStarters, setSelectedStarters] = useState<BrandProfile[]>(
+	const [selectedStarters, setSelectedStarters] = useState<BrandSummary[]>(
 		leagueState.currentLineup?.starters || [],
 	)
 
 
 	// Add card to next available slot
-	const handleAddStarter = (brand: BrandProfile) => {
+	const handleAddStarter = (brand: BrandSummary) => {
 		setSelectedStarters((prev) => {
 			// Don't add if already selected
 			if (prev.find((b) => b.id === brand.id)) {
