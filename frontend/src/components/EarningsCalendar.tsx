@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { CalendarDays, X } from "lucide-react";
 import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
 import { useAccount } from "@/context/AccountContext";
@@ -68,13 +69,19 @@ function TickerLogo({ symbol, size = 36 }: { symbol: string; size?: number }) {
 
 // ── Single earnings row ───────────────────────────────────────────────────────
 
-function EarningsRow({ entry }: { entry: MarketEarningsEntry }) {
+function EarningsRow({ entry, onNavigate }: { entry: MarketEarningsEntry; onNavigate?: (brand: BrandProfile) => void }) {
 	const beat = entry.status === "beat";
 	const miss = entry.status === "miss";
 	const upcoming = entry.status === "upcoming";
+	const brand = allBrands.find(b => b.ticker.toUpperCase() === entry.symbol.toUpperCase());
+	const Wrapper = brand && onNavigate ? "button" : "div";
 
 	return (
-		<div className="flex items-center gap-[12px] px-[16px] py-[12px] border-b border-foreground/[0.05] last:border-0">
+		<Wrapper
+			type={brand && onNavigate ? "button" : undefined}
+			onClick={brand && onNavigate ? () => onNavigate(brand) : undefined}
+			className={`flex w-full items-center gap-[12px] px-[16px] py-[12px] border-b border-foreground/[0.05] last:border-0 text-left ${brand && onNavigate ? "hover:bg-foreground/[0.03] active:bg-foreground/[0.05] transition-colors" : ""}`}
+		>
 			<TickerLogo symbol={entry.symbol} />
 
 			{/* Name + timing */}
@@ -111,7 +118,7 @@ function EarningsRow({ entry }: { entry: MarketEarningsEntry }) {
 					</>
 				)}
 			</div>
-		</div>
+		</Wrapper>
 	);
 }
 
@@ -120,6 +127,12 @@ function EarningsRow({ entry }: { entry: MarketEarningsEntry }) {
 export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {}) {
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [showAll, setShowAll] = useState(false);
+	const navigate = useNavigate();
+
+	const handleRowNavigate = (brand: BrandProfile) => {
+		onClose?.();
+		navigate({ to: "/brand/$brandId", params: { brandId: brand.id } });
+	};
 
 	const stakTickersArray = useStakTickers();
 	const stakTickersSet = useMemo(() => new Set(stakTickersArray), [stakTickersArray]);
@@ -140,7 +153,13 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 	const tabLabel = { today: "Today", tomorrow: "Tomorrow", week: "This Week" }[tab];
 
 	return (
-		<div className="flex flex-col max-h-[85vh] bg-background rounded-t-[24px] border-t border-foreground/10">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-label="Earnings Calendar"
+			className="flex flex-col bg-background rounded-t-[24px] border-t border-foreground/10"
+			style={{ maxHeight: "min(85vh, calc(100vh - 4rem - env(safe-area-inset-bottom) - env(safe-area-inset-top) - 16px))" }}
+		>
 			{/* Drag handle */}
 			<div className="w-[40px] h-[4px] rounded-full bg-foreground/15 mx-auto mt-[12px] mb-[4px] shrink-0" />
 
@@ -154,9 +173,9 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					</span>
 				</div>
 				{onClose && (
-					<button type="button" onClick={onClose}
-						className="w-[30px] h-[30px] rounded-full bg-foreground/[0.07] flex items-center justify-center dark:text-slate-400 text-slate-500 active:opacity-70">
-						<X size={15} />
+					<button type="button" onClick={onClose} aria-label="Close"
+						className="w-[40px] h-[40px] rounded-full bg-foreground/[0.07] flex items-center justify-center dark:text-slate-400 text-slate-500 hover:bg-foreground/[0.12] active:opacity-70 transition-colors">
+						<X size={16} />
 					</button>
 				)}
 			</div>
@@ -166,7 +185,7 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 				<div className="flex rounded-[12px] border border-foreground/10 p-[3px] bg-foreground/[0.02]">
 					{(["today", "tomorrow", "week"] as const).map(t => (
 						<button key={t} type="button" onClick={() => { setTab(t); setShowAll(false); }}
-							className={`flex-1 text-[12px] font-semibold py-[7px] rounded-[9px] transition-colors ${tab === t ? "bg-foreground text-background shadow-sm" : "dark:text-slate-400 text-slate-500"}`}>
+							className={`flex-1 text-[12px] font-semibold py-[11px] rounded-[9px] transition-colors ${tab === t ? "bg-foreground text-background shadow-sm" : "dark:text-slate-400 text-slate-500 hover:text-foreground/80"}`}>
 							{t === "today" ? "Today" : t === "tomorrow" ? "Tomorrow" : "This Week"}
 						</button>
 					))}
@@ -221,10 +240,10 @@ export function MarketEarningsWidget({ onClose }: { onClose?: () => void } = {})
 					</div>
 				) : (
 					<>
-						{visibleEntries.map(e => <EarningsRow key={e.symbol} entry={e} />)}
+						{visibleEntries.map(e => <EarningsRow key={e.symbol} entry={e} onNavigate={handleRowNavigate} />)}
 						{entries.length > 10 && (
 							<button type="button" onClick={() => setShowAll(s => !s)}
-								className="w-full py-[14px] text-[12px] font-semibold text-blue-400 active:opacity-70 border-t border-foreground/[0.05]">
+								className="w-full py-[14px] text-[12px] font-semibold text-blue-400 hover:text-blue-300 active:opacity-70 border-t border-foreground/[0.05] transition-colors">
 								{showAll ? "Show less" : `Show ${entries.length - 10} more`}
 							</button>
 						)}
@@ -244,6 +263,7 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }
 } = {}) {
 	const [open, setOpen] = useState(false);
 	const { account } = useAccount();
+	const modalRef = useRef<HTMLDivElement>(null);
 
 	// Allow parent to open programmatically
 	useEffect(() => {
@@ -257,6 +277,38 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }
 		const prev = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
 		return () => { document.body.style.overflow = prev; };
+	}, [open]);
+
+	// Escape-to-close + a focus trap so keyboard/screen-reader users on desktop
+	// can't tab out to the page behind the modal. Re-queries focusable elements
+	// on every Tab press rather than caching them once, since the row list
+	// changes shape as data loads in (skeleton -> rows -> "show more").
+	useEffect(() => {
+		if (!open) return;
+		const getFocusable = () => Array.from(
+			modalRef.current?.querySelectorAll<HTMLElement>(
+				'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+			) ?? [],
+		);
+		getFocusable()[0]?.focus();
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") { close(); return; }
+			if (e.key !== "Tab") return;
+			const focusable = getFocusable();
+			if (focusable.length === 0) return;
+			const first = focusable[0]!;
+			const last = focusable[focusable.length - 1]!;
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [open]);
 
 	// Count today's entries for badge
@@ -296,7 +348,7 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }
 			<button
 				type="button"
 				onClick={() => { setOpen(true); onOpen?.(); }}
-				className="relative w-[40px] h-[40px] flex items-center justify-center rounded-full bg-surface-2 border border-foreground/10 dark:text-slate-300 text-slate-700 active:opacity-70 transition-opacity"
+				className="relative w-[40px] h-[40px] flex items-center justify-center rounded-full bg-surface-2 border border-foreground/10 dark:text-slate-300 text-slate-700 hover:bg-foreground/[0.06] active:opacity-70 transition-colors"
 				title="Earnings Calendar"
 			>
 				<CalendarDays size={18} className="text-blue-400" />
@@ -311,6 +363,7 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose }
 				<div className="fixed inset-0 z-[70]" onClick={close}>
 					<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 					<div
+						ref={modalRef}
 						className="absolute left-0 right-0 max-w-lg mx-auto"
 						style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))" }}
 						onClick={e => e.stopPropagation()}
