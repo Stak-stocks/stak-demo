@@ -111,6 +111,33 @@ describe("GET /:symbol/earnings", () => {
 		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
 	});
 
+	it("reports earnings scheduled for today as still upcoming when the latest Finnhub entry is exactly one normal inter-quarter gap old (~85 days)", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));
+		const symbol = "BUGTEST1C";
+		// This is the exact live MU bug, reproduced precisely: last quarter's period is
+		// ~85 days old -- the *normal* ~91-day gap between quarters, not staleness. A
+		// threshold wide enough to reject genuinely old data (BUGTEST1B's ~120 days) was
+		// still loose enough to accept this as "recent", wrongly treating it as confirmation
+		// that today's report had already landed. Finnhub's calendar also has a real gap
+		// here -- it skips straight to next quarter (Sept) -- so this also exercises the
+		// 4-source date consensus correctly overriding Finnhub's wrong/missing date.
+		const lastQuarterEpsHistory = [{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }];
+		mockFetchSequence(lastQuarterEpsHistory, { earningsCalendar: [{ symbol, date: "2026-09-21", hour: "amc", epsActual: null, epsEstimate: 25.27, revenueActual: null, revenueEstimate: 42863476069 }] });
+		getConsensusEarningsDateMock.mockResolvedValue({
+			date: TODAY,
+			sources: { finnhub: "2026-09-21", yahoo: TODAY, fmp: "2026-06-30", gemini: TODAY },
+			confidence: "medium",
+		});
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "upcoming", date: TODAY, hour: "amc" });
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
 	it("reports beat/miss directly from Finnhub once today's report actually lands", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));

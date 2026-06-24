@@ -597,29 +597,36 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 	return Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0]! : null;
 }
 
-// A reported-earnings date this old can't be "the report we're checking for" — wider
-// than any single quarter, so it only catches genuine staleness, e.g. an established
-// company's Finnhub history always has a non-null actual for its LAST completed quarter
-// (never null, even moments before a brand new report drops), and the AI web-search
-// fallback finding a same-month report from a prior year instead of the current one.
+// A web-search-derived report date this old can't be "the report we're checking for" —
+// wider than any single quarter, so it only catches genuine staleness/hallucination, e.g.
+// the AI fallback finding a same-month report from a prior year instead of the current one.
 const MAX_PLAUSIBLE_REPORT_AGE_DAYS = 100;
+
+// SEC rules require quarterly filings within ~40-45 days of quarter-end, so any real
+// company's reporting lag is bounded by that — a freshly reported quarter is always
+// "young" by this measure. The *previous* quarter's period, sitting unchanged in
+// Finnhub's history right before a new report drops, is naturally ~85-90 days old (the
+// ~91-day gap between quarters). 60 days sits safely between those two cases: comfortably
+// above any real lag, comfortably below "this is actually last quarter's leftover data."
+const EPS_PERIOD_FRESHNESS_DAYS = 60;
 
 // True only if this EPS entry's fiscal period is recent enough to plausibly BE the report
 // currently being checked for — not just that *some* actual value exists. Without this,
 // "alreadyReported" would be true for literally any company with reporting history, since
-// Finnhub's "latest" entry is always last quarter's real result until the new one posts.
+// Finnhub's "latest" entry is always last quarter's real result until the new one posts,
+// and last quarter's period is *always* going to look "recent-ish" right before that —
+// it's only ~91 days old, not stale by any wide margin, just not THIS report.
 function isRecentEpsEntry(entry: { period: string } | null, now: Date): boolean {
 	if (!entry?.period) return false;
 	const ageDays = (now.getTime() - new Date(entry.period + "T12:00:00Z").getTime()) / 86400000;
-	return ageDays >= 0 && ageDays <= MAX_PLAUSIBLE_REPORT_AGE_DAYS;
+	return ageDays >= 0 && ageDays <= EPS_PERIOD_FRESHNESS_DAYS;
 }
 
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v6 to invalidate any bad results already cached for 24h by the previous
-	// (buggy) deploy — e.g. MU was cached as {status: "beat", date: "<future date>"}.
-	const cacheKey = `earnings:v6:${symbol}`;
+	// Bumped to v7 to invalidate bad results cached by the previous (still buggy) deploys.
+	const cacheKey = `earnings:v7:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
