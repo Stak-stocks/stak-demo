@@ -97,8 +97,10 @@ export function useSwipeLimit(uid: string, isLoggedIn: boolean): SwipeLimitResul
 
 	const count = isLoggedIn ? Math.max(serverCount, optimisticValue) : serverCount;
 
-	const bonusSwipes = (isLoggedIn ? account?.bonusSwipes : 0) ?? 0;
-	const effectiveLimit = DAILY_SWIPE_LIMIT + bonusSwipes;
+	// Streak bonus swipes temporarily disabled -- see swipeLimitService.ts for the
+	// matching server-side change. account.bonusSwipes still accumulates as before,
+	// just not applied here; re-enable with `DAILY_SWIPE_LIMIT + bonusSwipes`.
+	const effectiveLimit = DAILY_SWIPE_LIMIT;
 
 	const loaded = isLoggedIn ? !accountLoading : true;
 

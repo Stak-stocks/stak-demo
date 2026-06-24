@@ -471,20 +471,12 @@ function App() {
 			), { duration: 5000 });
 		});
 
-		// Bonus swipe toast
-		if (result.bonusSwipesAdded > 0) {
-			const newTotal = DAILY_SWIPE_LIMIT + (account?.bonusSwipes ?? 0) + result.bonusSwipesAdded;
-			toast.custom(() => (
-				<div className="flex items-center gap-[12px] rounded-[14px] border border-cyan-500/30 bg-cyan-500/[0.1] px-[14px] py-[12px] shadow-lg">
-					<div className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[11px] bg-cyan-500/20 text-[22px]">⚡</div>
-					<div className="min-w-0">
-						<p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-400 mb-[1px]">Bonus Swipes</p>
-						<p className="text-[14px] font-extrabold text-foreground">+{result.bonusSwipesAdded} extra swipes unlocked!</p>
-						<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Daily limit is now {newTotal} swipes</p>
-					</div>
-				</div>
-			), { duration: 5000 });
-		}
+		// Bonus swipe toast -- suppressed while streak bonus swipes are temporarily
+		// disabled (see useSwipeLimit.ts/swipeLimitService.ts): account.bonusSwipes
+		// still accumulates and result.bonusSwipesAdded still fires (badges above
+		// still show), but this toast's "daily limit is now X" claim would be wrong
+		// since that bonus no longer actually raises the limit. Re-enable by
+		// restoring this block once bonus swipes are turned back on.
 	}, [account?.bonusSwipes]);
 
 	// Backend streak writes UTC dates — must compare in UTC to match
