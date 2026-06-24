@@ -78,8 +78,8 @@ describe("GET /:symbol/earnings", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));
 		const symbol = "BUGTEST1";
-		// 1st fetch: EPS history (not yet reported), 2nd fetch: calendar (today)
-		mockFetchSequence(epsHistoryResponse(null, 1.5), calendarResponse(symbol, TODAY));
+		// 1st fetch: calendar (today), 2nd fetch: EPS history (not yet reported)
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(null, 1.5));
 		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
 
 		const app = await buildApp();
@@ -100,7 +100,7 @@ describe("GET /:symbol/earnings", () => {
 		// established reporter -- it's always last quarter's real result until the new one
 		// posts. A stale period (~120 days old) must not be mistaken for today's report.
 		const staleEpsHistory = [{ actual: 2.1, estimate: 2.0, period: "2026-02-28", quarter: 2, year: 2026, surprise: null, surprisePercent: null }];
-		mockFetchSequence(staleEpsHistory, calendarResponse(symbol, TODAY));
+		mockFetchSequence(calendarResponse(symbol, TODAY), staleEpsHistory);
 		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
 
 		const app = await buildApp();
@@ -123,7 +123,7 @@ describe("GET /:symbol/earnings", () => {
 		// here -- it skips straight to next quarter (Sept) -- so this also exercises the
 		// 4-source date consensus correctly overriding Finnhub's wrong/missing date.
 		const lastQuarterEpsHistory = [{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }];
-		mockFetchSequence(lastQuarterEpsHistory, { earningsCalendar: [{ symbol, date: "2026-09-21", hour: "amc", epsActual: null, epsEstimate: 25.27, revenueActual: null, revenueEstimate: 42863476069 }] });
+		mockFetchSequence({ earningsCalendar: [{ symbol, date: "2026-09-21", hour: "amc", epsActual: null, epsEstimate: 25.27, revenueActual: null, revenueEstimate: 42863476069 }] }, lastQuarterEpsHistory);
 		getConsensusEarningsDateMock.mockResolvedValue({
 			date: TODAY,
 			sources: { finnhub: "2026-09-21", yahoo: TODAY, fmp: "2026-06-30", gemini: TODAY },
@@ -142,14 +142,16 @@ describe("GET /:symbol/earnings", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
 		const symbol = "BUGTEST2";
-		mockFetchSequence(epsHistoryResponse(2.5, 2.0), calendarResponse(symbol, TODAY));
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(2.5, 2.0));
 		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
 
 		const app = await buildApp();
 		const res = await request(app).get(`/${symbol}/earnings`);
 
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ status: "beat", date: TODAY });
+		// hour is now included for beat/miss too (previously dropped) — it's available from
+		// the calendar entry the shared resolver already has, so there's no reason not to.
+		expect(res.body).toEqual({ status: "beat", date: TODAY, hour: "amc" });
 		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
 	});
 
@@ -157,14 +159,14 @@ describe("GET /:symbol/earnings", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
 		const symbol = "BUGTEST3";
-		mockFetchSequence(epsHistoryResponse(1.0, 2.0), calendarResponse(symbol, TODAY));
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(1.0, 2.0));
 		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
 
 		const app = await buildApp();
 		const res = await request(app).get(`/${symbol}/earnings`);
 
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ status: "miss", date: TODAY });
+		expect(res.body).toEqual({ status: "miss", date: TODAY, hour: "amc" });
 	});
 
 	it("reports a clearly future calendar date as upcoming (unaffected regression check)", async () => {
@@ -172,7 +174,7 @@ describe("GET /:symbol/earnings", () => {
 		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));
 		const symbol = "BUGTEST4";
 		const futureDate = "2026-07-30";
-		mockFetchSequence(epsHistoryResponse(null, null), calendarResponse(symbol, futureDate, "bmo"));
+		mockFetchSequence(calendarResponse(symbol, futureDate, "bmo"), epsHistoryResponse(null, null));
 		getConsensusEarningsDateMock.mockResolvedValue({ date: futureDate, sources: {}, confidence: "high" });
 
 		const app = await buildApp();
@@ -186,8 +188,8 @@ describe("GET /:symbol/earnings", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));
 		const symbol = "BUGTEST5";
-		// 1st fetch: EPS history (already reported), 2nd fetch: calendar (no entry for this symbol)
-		mockFetchSequence(epsHistoryResponse(3.0, 2.5), { earningsCalendar: [] });
+		// 1st fetch: calendar (no entry for this symbol), 2nd fetch: EPS history (already reported)
+		mockFetchSequence({ earningsCalendar: [] }, epsHistoryResponse(3.0, 2.5));
 		getConsensusEarningsDateMock.mockResolvedValue({ date: null, sources: {}, confidence: "low" });
 
 		const app = await buildApp();

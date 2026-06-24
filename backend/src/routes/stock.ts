@@ -222,177 +222,129 @@ stockRouter.get("/market-earnings", async (req, res) => {
 	const fmt = (d: Date) => d.toISOString().split("T")[0];
 	const todayStr = fmt(now);
 
-	let fromStr: string, toStr: string;
-	if (period === "tomorrow") {
-		const d = new Date(now.getTime() + 86400000);
-		fromStr = toStr = fmt(d);
-	} else if (period === "week") {
-		// Full calendar week: Sunday → Saturday
-		const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-		const weekSunday = new Date(now.getTime() - dayOfWeek * 86400000);
-		const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
-		fromStr = fmt(weekSunday);
-		toStr = fmt(weekSaturday);
-	} else {
-		fromStr = toStr = todayStr;
-	}
+	try {
+		let fromStr: string, toStr: string;
+		if (period === "tomorrow") {
+			const d = new Date(now.getTime() + 86400000);
+			fromStr = toStr = fmt(d);
+		} else if (period === "week") {
+			// Full calendar week: Sunday → Saturday
+			const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+			const weekSunday = new Date(now.getTime() - dayOfWeek * 86400000);
+			const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
+			fromStr = fmt(weekSunday);
+			toStr = fmt(weekSaturday);
+		} else {
+			fromStr = toStr = todayStr;
+		}
 
-	const extraTickersParam = (req.query.tickers as string) ?? "";
-	const extraTickers = extraTickersParam
-		? extraTickersParam.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean)
-		: [];
-	const extraTickersKey = [...extraTickers].sort().join(",");
+		const extraTickersParam = (req.query.tickers as string) ?? "";
+		const extraTickers = extraTickersParam
+			? extraTickersParam.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean)
+			: [];
+		const extraTickersKey = [...extraTickers].sort().join(",");
 
-	// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
-	const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-	const cacheKey = `market-earnings:v4:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
-	const cached = await cacheGet(cacheKey);
-	if (cached) { res.json(cached); return; }
+		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
+		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
+		// Bumped to v5 -- now shares resolveEarningsStatus with /:symbol/earnings instead of
+		// its own separate (and separately buggy) logic.
+		const cacheKey = `market-earnings:v5:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cached = await cacheGet(cacheKey);
+		if (cached) { res.json(cached); return; }
 
-	const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
-		{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
+		const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 
-	const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
-	const calEntries = (data?.earningsCalendar ?? []).filter((e) => tickerSet.has(e.symbol));
+		const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
+		const calEntries = (data?.earningsCalendar ?? []).filter((e) => tickerSet.has(e.symbol));
 
-	// Same logic as /:symbol/earnings in My Stak:
-	// - future date → "upcoming" (no Gemini call needed)
-	// - today or past date → Gemini web search for beat/miss (parallel, 24h cached internally)
-	const entries = await Promise.all(
-		calEntries.map(async (e) => {
-			const revChangePct = e.revenueActual != null && e.revenueEstimate != null && e.revenueEstimate !== 0
-				? Math.round(((e.revenueActual - e.revenueEstimate) / Math.abs(e.revenueEstimate)) * 1000) / 10
-				: null;
+		const entries = await Promise.all(
+			calEntries.map(async (e) => {
+				const name = MARKET_TICKERS[e.symbol] ?? e.symbol;
 
-			if (e.date > todayStr) {
-				// Upcoming — don't call Gemini yet
-				return {
-					symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
-					date: e.date, hour: e.hour || null,
-					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
-					epsSurprisePct: null, priceChangePct: null,
-					revChangePct, status: "upcoming" as const,
-				};
-			}
-
-			// Date is today or past — but if epsActual is null, Finnhub may have the wrong date.
-			// Run consensus across Yahoo, FMP, and Gemini to verify.
-			if (e.epsActual === null) {
-				const consensus = await getConsensusEarningsDate(
-					e.symbol,
-					MARKET_TICKERS[e.symbol] ?? e.symbol,
-					e.date,
-				);
-				if (consensus.date && consensus.date > todayStr) {
-					// Consensus says it hasn't reported yet — but if the corrected date falls outside
-					// the requested period window, exclude it entirely rather than leaking into the wrong tab.
-					if (consensus.date > toStr) return null;
+				if (e.date > todayStr) {
+					// Comfortably in the future — trust Finnhub's calendar directly, no need for
+					// the full resolver's consensus/Gemini calls. This endpoint processes many
+					// tickers per request; running the full pipeline on dates that aren't even
+					// close yet would be needlessly expensive. The risky window (same-day-not-
+					// yet-reported, or Finnhub disagreeing with reality) is today-or-earlier,
+					// handled by the shared resolver below.
+					const revChangePct = e.revenueActual != null && e.revenueEstimate != null && e.revenueEstimate !== 0
+						? Math.round(((e.revenueActual - e.revenueEstimate) / Math.abs(e.revenueEstimate)) * 1000) / 10
+						: null;
 					return {
-						symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
-						date: consensus.date, hour: e.hour || null,
-						epsActual: null, epsEstimate: e.epsEstimate,
+						symbol: e.symbol, name, date: e.date, hour: e.hour || null,
+						epsActual: e.epsActual, epsEstimate: e.epsEstimate,
 						epsSurprisePct: null, priceChangePct: null,
-						revChangePct: null, status: "upcoming" as const,
+						revChangePct, status: "upcoming" as const,
 					};
 				}
-			}
 
-			// Already reported — cross-check beat/miss, EPS, and revenue across 4 sources
-			const [consensusResult, priceChangePct] = await Promise.all([
-				getConsensusEarningsResult(
-					e.symbol,
-					MARKET_TICKERS[e.symbol] ?? e.symbol,
-					e.date,
-					{
-						epsActual: e.epsActual,
-						epsEstimate: e.epsEstimate,
-						revenueActual: e.revenueActual,
-						revenueEstimate: e.revenueEstimate,
-					},
-				),
-				getPriceChangePct(e.symbol, e.date, e.hour),
-			]);
-			return {
-				symbol: e.symbol, name: MARKET_TICKERS[e.symbol] ?? e.symbol,
-				date: e.date, hour: e.hour || null,
-				epsActual: consensusResult.epsActual,
-				epsEstimate: consensusResult.epsEstimate,
-				epsSurprisePct: consensusResult.epsSurprisePct,
-				priceChangePct,
-				revChangePct: consensusResult.revChangePct,
-				status: consensusResult.status,
-			};
-		}),
-	);
-
-	// Filter out nulls (entries excluded by period-window guard after consensus date correction)
-	const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
-
-	// ── Gemini fallback for Stak tickers Finnhub missed entirely ────────────────
-	// extraTickers = all tickers from the user's Stak (sent by the frontend).
-	// If Finnhub had no calendar entry for a Stak ticker, ask Gemini whether
-	// they reported in this period. Results are cached 24h so this is cheap.
-	if (extraTickers.length > 0) {
-		const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
-		const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
-
-		const supplements = await Promise.all(
-			missingStakTickers.map(async (ticker) => {
-				const name = MARKET_TICKERS[ticker] ?? ticker;
-				const geminiResult = await getEarningsBeatMissFromWeb(ticker, name);
-				if (geminiResult.result === "none" || !geminiResult.date) return null;
-				// Only include if the reported date is within the requested window
-				if (geminiResult.date < fromStr || geminiResult.date > toStr) return null;
-
-				// Fetch historical EPS from Finnhub to populate actual/estimate columns
-				type FinnhubEpsEntry = { actual: number | null; estimate: number | null; period: string };
-				const epsKey = `eps-history:${ticker}`;
-				let epsHistory = await cacheGet<FinnhubEpsEntry[]>(epsKey);
-				if (!epsHistory) {
-					epsHistory = await finnhubGet(`/stock/earnings?symbol=${ticker}&limit=2`) as FinnhubEpsEntry[] | null;
-					if (epsHistory) await cacheSet(epsKey, epsHistory, 6 * 60 * 60 * 1000);
-				}
-				const latestEps = Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0] : null;
-
-				// Cross-check beat/miss and EPS across all 4 sources
-				const [consensusResult, priceChangePct] = await Promise.all([
-					getConsensusEarningsResult(ticker, name, geminiResult.date, {
-						epsActual: latestEps?.actual ?? null,
-						epsEstimate: latestEps?.estimate ?? null,
-					}),
-					getPriceChangePct(ticker, geminiResult.date, null),
-				]);
+				const resolved = await resolveEarningsStatus(e.symbol, name, todayStr, e);
+				// Consensus may have corrected the date — if that lands outside the requested
+				// period window, exclude it rather than leaking into the wrong tab.
+				if (resolved.date && (resolved.date < fromStr || resolved.date > toStr)) return null;
+				const priceChangePct = (resolved.status === "beat" || resolved.status === "miss")
+					? await getPriceChangePct(e.symbol, resolved.date ?? e.date, resolved.hour ?? e.hour)
+					: null;
 				return {
-					symbol: ticker,
-					name,
-					date: geminiResult.date,
-					hour: null as string | null,
-					epsActual: consensusResult.epsActual,
-					epsEstimate: consensusResult.epsEstimate,
-					epsSurprisePct: consensusResult.epsSurprisePct,
-					priceChangePct,
-					revChangePct: consensusResult.revChangePct,
-					status: consensusResult.status,
+					symbol: e.symbol, name, date: resolved.date ?? e.date, hour: resolved.hour ?? (e.hour || null),
+					epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
+					priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
 				};
 			}),
 		);
 
-		for (const s of supplements) {
-			if (s) filteredEntries.push(s);
+		// Filter out nulls (entries excluded by period-window guard after consensus date correction)
+		const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
+
+		// ── Fallback for Stak tickers Finnhub's calendar missed entirely ────────────
+		// extraTickers = all tickers from the user's Stak (sent by the frontend). Finnhub
+		// having no calendar entry doesn't necessarily mean nothing happened — same shared
+		// resolver, just with no calendar entry to anchor on (it'll fall back to date
+		// consensus, then Finnhub's own EPS-history freshness, then Gemini as a last resort).
+		if (extraTickers.length > 0) {
+			const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
+			const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
+
+			const supplements = await Promise.all(
+				missingStakTickers.map(async (ticker) => {
+					const name = MARKET_TICKERS[ticker] ?? ticker;
+					const resolved = await resolveEarningsStatus(ticker, name, todayStr, null);
+					// This section exists specifically to catch reports Finnhub's calendar
+					// missed -- an "upcoming"/"none" result has no calendar entry to anchor a
+					// useful date/hour against, so only confirmed reports are worth surfacing here.
+					if (resolved.status !== "beat" && resolved.status !== "miss") return null;
+					if (!resolved.date || resolved.date < fromStr || resolved.date > toStr) return null;
+					const priceChangePct = await getPriceChangePct(ticker, resolved.date, resolved.hour);
+					return {
+						symbol: ticker, name, date: resolved.date, hour: resolved.hour,
+						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
+						priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
+					};
+				}),
+			);
+
+			for (const s of supplements) {
+				if (s) filteredEntries.push(s);
+			}
 		}
+
+		filteredEntries.sort((a, b) => {
+			if (a.status !== "upcoming" && b.status === "upcoming") return -1;
+			if (a.status === "upcoming" && b.status !== "upcoming") return 1;
+			return a.date.localeCompare(b.date);
+		});
+
+		const result = { entries: filteredEntries, from: fromStr, to: toStr };
+		// today: 1h (earnings reported once); week/tomorrow: 6h (dates don't shift mid-period)
+		const cacheTtl = period === "today" ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
+		await cacheSet(cacheKey, result, cacheTtl);
+		res.json(result);
+	} catch (error) {
+		console.error("Error fetching market earnings:", error);
+		res.status(500).json({ error: "Failed to fetch market earnings" });
 	}
-
-	filteredEntries.sort((a, b) => {
-		if (a.status !== "upcoming" && b.status === "upcoming") return -1;
-		if (a.status === "upcoming" && b.status !== "upcoming") return 1;
-		return a.date.localeCompare(b.date);
-	});
-
-	const result = { entries: filteredEntries, from: fromStr, to: toStr };
-	// today: 1h (earnings reported once); week/tomorrow: 6h (dates don't shift mid-period)
-	const cacheTtl = period === "today" ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
-	await cacheSet(cacheKey, result, cacheTtl);
-	res.json(result);
 });
 
 // ── Market session helper ─────────────────────────────────────────────────────
@@ -622,11 +574,121 @@ function isRecentEpsEntry(entry: { period: string } | null, now: Date): boolean 
 	return ageDays >= 0 && ageDays <= EPS_PERIOD_FRESHNESS_DAYS;
 }
 
+interface ResolvedEarnings {
+	status: "upcoming" | "beat" | "miss" | "none";
+	date: string | null;
+	hour: string | null;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	epsSurprisePct: number | null;
+	revChangePct: number | null;
+}
+
+/**
+ * Single source of truth for "is this stock's earnings actually in, and was it a beat or
+ * miss" — shared by /:symbol/earnings and /market-earnings so this logic only ever needs
+ * fixing in one place. Previously each endpoint had its own copy; one got hardened against
+ * Finnhub calendar gaps and AI hallucination, the other didn't, and kept showing wrong
+ * results independently.
+ *
+ * calendarEntry: the caller's own Finnhub calendar entry for this symbol, if it has one —
+ * null means no calendar entry was found (which can mean either Finnhub genuinely has
+ * nothing, or a gap in Finnhub's calendar data for this specific ticker).
+ */
+async function resolveEarningsStatus(
+	symbol: string,
+	companyName: string | undefined,
+	todayStr: string,
+	calendarEntry: FinnhubCalendarEntry | null,
+): Promise<ResolvedEarnings> {
+	const now = new Date(todayStr + "T12:00:00Z");
+	const empty: Omit<ResolvedEarnings, "status" | "date"> = {
+		hour: null, epsActual: null, epsEstimate: null, epsSurprisePct: null, revChangePct: null,
+	};
+
+	// Ground truth for "has the company actually reported yet" — checked up front so every
+	// branch below can defer to it instead of guessing from dates alone (a report scheduled
+	// for *today* hasn't happened yet the moment markets open, even though date === todayStr).
+	const latestEps = await getLatestEpsEntry(symbol);
+	const alreadyReported = latestEps?.actual != null && isRecentEpsEntry(latestEps, now);
+
+	// ── 1. Trust the calendar entry, verified against the 4-source consensus ──
+	if (calendarEntry) {
+		const consensus = await getConsensusEarningsDate(symbol, companyName, calendarEntry.date);
+		const confirmedDate = consensus.date ?? calendarEntry.date;
+		// Still upcoming if the date is in the future, OR it's today but Finnhub doesn't
+		// have actual results yet (>= not > — a same-day report isn't "past" until it lands).
+		if (confirmedDate > todayStr || (confirmedDate === todayStr && !alreadyReported)) {
+			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
+		}
+	}
+
+	// ── 2. No calendar entry — run consensus to check for an upcoming date anyway ──
+	if (!calendarEntry) {
+		const consensus = await getConsensusEarningsDate(symbol, companyName, null);
+		if (consensus.date && (consensus.date > todayStr || (consensus.date === todayStr && !alreadyReported))) {
+			return { ...empty, status: "upcoming", date: consensus.date };
+		}
+	}
+
+	// ── 3. Finnhub itself confirms a report is in: compute beat/miss from its structured
+	// actual-vs-estimate directly. No AI guessing needed — this is the common case for any
+	// stock Finnhub covers, which is also exactly why steps 1–2 falling through is *not* on
+	// its own evidence the company never had an upcoming date; it just means we now have
+	// better evidence (the report itself) than a calendar lookup.
+	if (alreadyReported && latestEps) {
+		const reportDateAnchor = calendarEntry?.date ?? todayStr;
+		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
+			epsActual: latestEps.actual,
+			epsEstimate: latestEps.estimate,
+			revenueActual: calendarEntry?.revenueActual ?? null,
+			revenueEstimate: calendarEntry?.revenueEstimate ?? null,
+		});
+		const finnhubDirectStatus: "beat" | "miss" | null =
+			latestEps.actual != null && latestEps.estimate != null
+				? (latestEps.actual >= latestEps.estimate ? "beat" : "miss")
+				: null;
+		// Finnhub's own actual-vs-estimate wins when available — most direct, least
+		// ambiguous. Fall back to the cross-source vote only if Finnhub lacks an estimate.
+		return {
+			status: finnhubDirectStatus ?? consensusResult.status, date: reportDateAnchor,
+			hour: calendarEntry?.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+			epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
+		};
+	}
+
+	// ── 4. No confirmed date anywhere AND Finnhub has no actual data — last resort: ask
+	// Gemini to search the web. Only reached for tickers Finnhub's calendar/EPS history
+	// doesn't cover at all. Sanity-checked so a stale/hallucinated date can't be presented
+	// as current.
+	const { result: geminiSignal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
+	const reportAgeDays = reportDate
+		? (new Date(todayStr + "T12:00:00Z").getTime() - new Date(reportDate + "T12:00:00Z").getTime()) / 86400000
+		: null;
+	const dateIsPlausible = reportAgeDays != null && reportAgeDays >= 0 && reportAgeDays <= MAX_PLAUSIBLE_REPORT_AGE_DAYS;
+	if (geminiSignal === "none" || !reportDate || !dateIsPlausible) {
+		return { ...empty, status: "none", date: null };
+	}
+
+	const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDate, {
+		epsActual: null,
+		epsEstimate: null,
+	});
+
+	// Use consensus status; fall back to geminiSignal if consensus found nothing
+	const finalStatus = consensusResult.status !== "none" ? consensusResult.status : geminiSignal as "beat" | "miss";
+	return {
+		status: finalStatus, date: reportDate, hour: null,
+		epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+		epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
+	};
+}
+
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v7 to invalidate bad results cached by the previous (still buggy) deploys.
-	const cacheKey = `earnings:v7:${symbol}`;
+	// Bumped to v8 to invalidate bad results cached by the previous (still buggy) deploys.
+	const cacheKey = `earnings:v8:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
@@ -636,93 +698,21 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		const fmt = (d: Date) => d.toISOString().split("T")[0];
 		const todayStr = fmt(now);
 
-		// Ground truth for "has the company actually reported yet" — checked up front so every
-		// branch below can defer to it instead of guessing from dates alone (a report scheduled
-		// for *today* hasn't happened yet the moment markets open, even though date === todayStr).
-		const latestEps = await getLatestEpsEntry(symbol);
-		const alreadyReported = latestEps?.actual != null && isRecentEpsEntry(latestEps, now);
-
-		// ── 1. Check Finnhub calendar for upcoming earnings (next 90 days) ──
 		const in90Days = fmt(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
 		const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
 			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-		const upcoming = calData?.earningsCalendar?.find((e) => e.symbol === symbol);
-		if (upcoming) {
-			// Verify with consensus before trusting Finnhub date
-			const consensus = await getConsensusEarningsDate(symbol, companyName, upcoming.date);
-			const confirmedDate = consensus.date ?? upcoming.date;
-			// Still upcoming if the date is in the future, OR it's today but Finnhub doesn't
-			// have actual results yet (>= not > — a same-day report isn't "past" until it lands).
-			if (confirmedDate > todayStr || (confirmedDate === todayStr && !alreadyReported)) {
-				const result: EarningsStatus = { status: "upcoming", date: confirmedDate, hour: upcoming.hour };
-				// Short TTL on the day of the report so the UI flips to beat/miss promptly once it lands.
-				await cacheSet(cacheKey, result, confirmedDate === todayStr ? 15 * 60 * 1000 : 60 * 60 * 1000);
-				res.json(result);
-				return;
-			}
-		}
+		const calendarEntry = calData?.earningsCalendar?.find((e) => e.symbol === symbol) ?? null;
 
-		// ── 2. Finnhub missed it — run consensus to check for upcoming date ──
-		if (!upcoming) {
-			const consensus = await getConsensusEarningsDate(symbol, companyName, null);
-			if (consensus.date && (consensus.date > todayStr || (consensus.date === todayStr && !alreadyReported))) {
-				const result: EarningsStatus = { status: "upcoming", date: consensus.date };
-				await cacheSet(cacheKey, result, consensus.date === todayStr ? 15 * 60 * 1000 : 6 * 60 * 60 * 1000);
-				res.json(result);
-				return;
-			}
-		}
+		const resolved = await resolveEarningsStatus(symbol, companyName, todayStr, calendarEntry);
+		const result: EarningsStatus = {
+			status: resolved.status, date: resolved.date,
+			...(resolved.hour ? { hour: resolved.hour } : {}),
+		};
 
-		// ── 3. Finnhub itself confirms a report is in: compute beat/miss from its structured
-		// actual-vs-estimate directly. No AI guessing needed — this is the common case for any
-		// stock Finnhub covers, which is also exactly why steps 1–2 falling through is *not* on
-		// its own evidence the company never had an upcoming date; it just means we now have
-		// better evidence (the report itself) than a calendar lookup.
-		if (alreadyReported && latestEps) {
-			const reportDateAnchor = upcoming?.date ?? todayStr;
-			const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
-				epsActual: latestEps.actual,
-				epsEstimate: latestEps.estimate,
-			});
-			const finnhubDirectStatus: "beat" | "miss" | null =
-				latestEps.actual != null && latestEps.estimate != null
-					? (latestEps.actual >= latestEps.estimate ? "beat" : "miss")
-					: null;
-			// Finnhub's own actual-vs-estimate wins when available — most direct, least
-			// ambiguous. Fall back to the cross-source vote only if Finnhub lacks an estimate.
-			const finalStatus = finnhubDirectStatus ?? consensusResult.status;
-			const result: EarningsStatus = { status: finalStatus, date: reportDateAnchor };
-			await cacheSet(cacheKey, result, 24 * 60 * 60 * 1000);
-			res.json(result);
-			return;
-		}
-
-		// ── 4. No confirmed date anywhere AND Finnhub has no actual data — last resort: ask
-		// Gemini to search the web. Only reached for tickers Finnhub's calendar/EPS history
-		// doesn't cover at all. Sanity-checked so a stale/hallucinated date can't be presented
-		// as current.
-		const { result: geminiSignal, date: reportDate } = await getEarningsBeatMissFromWeb(symbol, companyName);
-		const reportAgeDays = reportDate
-			? (new Date(todayStr + "T12:00:00Z").getTime() - new Date(reportDate + "T12:00:00Z").getTime()) / 86400000
-			: null;
-		const dateIsPlausible = reportAgeDays != null && reportAgeDays >= 0 && reportAgeDays <= MAX_PLAUSIBLE_REPORT_AGE_DAYS;
-		if (geminiSignal === "none" || !reportDate || !dateIsPlausible) {
-			const noneResult: EarningsStatus = { status: "none", date: null };
-			await cacheSet(cacheKey, noneResult, 60 * 60 * 1000); // 1h — retry sooner
-			res.json(noneResult);
-			return;
-		}
-
-		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDate, {
-			epsActual: null,
-			epsEstimate: null,
-		});
-
-		// Use consensus status; fall back to geminiSignal if consensus found nothing
-		const finalStatus = consensusResult.status !== "none" ? consensusResult.status : geminiSignal as "beat" | "miss";
-		const result: EarningsStatus = { status: finalStatus, date: reportDate };
-
-		await cacheSet(cacheKey, result, 24 * 60 * 60 * 1000);
+		const ttl = result.status === "upcoming"
+			? (result.date === todayStr ? 15 * 60 * 1000 : 60 * 60 * 1000)
+			: result.status === "none" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+		await cacheSet(cacheKey, result, ttl);
 		res.json(result);
 	} catch (error) {
 		console.error("Error fetching earnings status:", error);
