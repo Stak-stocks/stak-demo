@@ -49,8 +49,17 @@ export function updateProfile(data: { displayName?: string; phone?: string; pref
 }
 
 // Brands
-export function getBrands() {
-	return apiRequest<{ brands: unknown[] }>("/api/brands");
+// Lightweight summary of every brand -- excludes culturalContext,
+// personalityDescription, and each financial metric's label/explanation/
+// culturalTranslation, so this stays small as the catalog grows (~225KB for
+// 333 entries vs ~850KB for the fully-bundled equivalent). Use getBrandDetail
+// for one brand's full profile when actually viewing its detail sheet.
+export function getBrandsList() {
+	return apiRequest<{ brands: import("@stak/shared").BrandSummary[] }>("/api/brands");
+}
+
+export function getBrandDetail(id: string) {
+	return apiRequest<import("@stak/shared").BrandProfile>(`/api/brands/${encodeURIComponent(id)}`);
 }
 
 export function getPopularBrands() {

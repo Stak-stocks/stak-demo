@@ -1,4 +1,4 @@
-import type { BrandProfile } from "./types";
+import type { BrandIdentity } from "./types";
 
 const BRAND_DOMAINS: Record<string, string> = {
 	tsla: "tesla.com", aapl: "apple.com", nvda: "nvidia.com", rblx: "roblox.com",
@@ -123,17 +123,17 @@ const BRAND_DOMAINS: Record<string, string> = {
 	kdp: "keurigdrpepper.com", soun: "soundhound.com",
 };
 
-function getBrandDomain(brand: BrandProfile): string {
+function getBrandDomain(brand: BrandIdentity): string {
 	return brand.domain || BRAND_DOMAINS[brand.id] || `${brand.name.toLowerCase().replace(/\s+/g, "")}.com`;
 }
 
-export function getBrandLogoUrl(brand: BrandProfile): string {
+export function getBrandLogoUrl(brand: BrandIdentity): string {
 	// Brandfetch CDN: consistent, high-quality logos by domain — no API key needed
 	return `https://cdn.brandfetch.io/${getBrandDomain(brand)}/w/400/h/400`;
 }
 
 /** First fallback (used in onError) */
-export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
+export function getBrandFallbackLogoUrl(brand: BrandIdentity): string {
 	// Finnhub-provided logo for dynamic stocks
 	if (brand.logo) return brand.logo;
 	// TradingView slug when available
@@ -144,7 +144,7 @@ export function getBrandFallbackLogoUrl(brand: BrandProfile): string {
 }
 
 /** Final fallback (used in second onError): Google favicon */
-export function getBrandUltimateFallbackUrl(brand: BrandProfile): string {
+export function getBrandUltimateFallbackUrl(brand: BrandIdentity): string {
 	return `https://www.google.com/s2/favicons?domain=${getBrandDomain(brand)}&sz=128`;
 }
 

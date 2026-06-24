@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { brands, type BrandProfile } from "@stak/shared";
+import { brands, type BrandProfile, type BrandSummary } from "@stak/shared";
 
 export const brandsRouter = Router();
 
@@ -11,28 +11,8 @@ export const brandsRouter = Router();
 // culturalTranslation) since those are only needed when viewing one brand's full
 // detail sheet, fetched separately via GET /:id. This is what keeps this list
 // response small and roughly flat as the catalog grows toward 2000 entries, instead
-// of scaling with the full per-brand payload size.
-interface BrandSummary {
-	id: string;
-	ticker: string;
-	name: string;
-	bio: string;
-	heroImage: string;
-	logo?: string;
-	domain?: string;
-	interestCategories?: string[];
-	vibes: BrandProfile["vibes"];
-	financials: {
-		peRatio: { value: string };
-		marketCap: { value: string };
-		revenueGrowth: { value: string };
-		profitMargin: { value: string };
-		beta: { value: string };
-		dividendYield: { value: string };
-	};
-	peerTickers?: string[];
-}
-
+// of scaling with the full per-brand payload size. Shape is BrandSummary, defined
+// in @stak/shared so the frontend's expectation of this response can't drift from it.
 function toSummary(b: BrandProfile): BrandSummary {
 	return {
 		id: b.id,

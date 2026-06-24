@@ -23,7 +23,7 @@ describe("api client", () => {
 		};
 
 		const api = await import("../api");
-		await api.getBrands();
+		await api.getBrandsList();
 
 		const [, options] = fetchMock.mock.calls[0];
 		expect(options.headers.Authorization).toBe("Bearer token-123");
@@ -39,7 +39,7 @@ describe("api client", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		const api = await import("../api");
-		await expect(api.getBrands()).rejects.toThrow("API error: 500 Internal Server Error");
+		await expect(api.getBrandsList()).rejects.toThrow("API error: 500 Internal Server Error");
 	});
 
 	it("fetchDynamicStocks filters class-share duplicates (GOOG when GOOGL exists)", async () => {
