@@ -5,13 +5,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getMock = vi.fn();
 const setMock = vi.fn();
 const docMock = vi.fn(() => ({ get: getMock, set: setMock }));
+// GET / fire-and-forget logs a login session per day (sessions/{uid}_{date}) — separate
+// collection from "users", needs its own doc/set so it doesn't fall through to the
+// catch-all throw below (which previously caused every GET / test to fail before ever
+// reaching the users-doc mock).
+const sessionSetMock = vi.fn().mockResolvedValue(undefined);
 const collectionMock = vi.fn((name: string) => {
 	if (name === "users") return { doc: docMock };
+	if (name === "sessions") return { doc: vi.fn(() => ({ set: sessionSetMock })) };
 	throw new Error(`Unexpected collection ${name}`);
 });
 
+// Transaction mock for checkAndIncrementSwipeLimit (services/swipeLimitService.ts) —
+// runs the real update function against the same get/set mocks used elsewhere here.
+const txGetMock = vi.fn();
+const txSetMock = vi.fn();
+const runTransactionMock = vi.fn(async (updateFn: (tx: { get: typeof txGetMock; set: typeof txSetMock }) => Promise<unknown>) =>
+	updateFn({ get: txGetMock, set: txSetMock }),
+);
+
 vi.mock("../../firebaseAdmin.js", () => ({
-	adminDb: { collection: collectionMock },
+	adminDb: { collection: collectionMock, runTransaction: runTransactionMock },
 }));
 
 vi.mock("../../authMiddleware.js", () => ({
@@ -162,29 +176,42 @@ describe("meRouter", () => {
 		expect(res.body).toEqual({ lastDate: "2026-03-01", queue: ["c1"], readIds: ["c2"] });
 	});
 
-	// ── PUT /daily-swipes ────────────────────────────────────────────────────────
+	// ── POST /swipes/increment ──────────────────────────────────────────────────
+	// Server-authoritative limit check (services/swipeLimitService.ts), exercised
+	// here through the route exactly as a real client would hit it. More thorough
+	// coverage (bonus swipes, todayKey sanitization) lives in swipe.unit.test.ts —
+	// this just checks the route wires accept/reject correctly.
 
-	it("PUT /daily-swipes returns 400 when types are wrong", async () => {
+	it("POST /swipes/increment accepts and increments when under the limit", async () => {
+		const today = new Date().toISOString().split("T")[0];
+		txGetMock.mockResolvedValueOnce({ data: () => ({ dailySwipeState: { date: today, count: 3 } }) });
 		const app = await buildApp();
 
 		const res = await request(app)
-			.put("/daily-swipes")
-			.send({ date: "2026-03-01", count: "five" }); // count not a number
-
-		expect(res.status).toBe(400);
-		expect(res.body.error).toMatch(/invalid daily swipe state/i);
-	});
-
-	it("PUT /daily-swipes saves and echoes date + count", async () => {
-		setMock.mockResolvedValueOnce(undefined);
-		const app = await buildApp();
-
-		const res = await request(app)
-			.put("/daily-swipes")
-			.send({ date: "2026-03-02", count: 7 });
+			.post("/swipes/increment")
+			.send({ todayKey: today });
 
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ date: "2026-03-02", count: 7 });
+		expect(res.body).toEqual({ accepted: true, count: 4, limit: 20 });
+		expect(txSetMock).toHaveBeenCalledWith(
+			expect.anything(),
+			{ dailySwipeState: { date: today, count: 4 } },
+			{ merge: true },
+		);
+	});
+
+	it("POST /swipes/increment rejects without writing once the limit is reached", async () => {
+		const today = new Date().toISOString().split("T")[0];
+		txGetMock.mockResolvedValueOnce({ data: () => ({ dailySwipeState: { date: today, count: 20 } }) });
+		const app = await buildApp();
+
+		const res = await request(app)
+			.post("/swipes/increment")
+			.send({ todayKey: today });
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ accepted: false, count: 20, limit: 20 });
+		expect(txSetMock).not.toHaveBeenCalled();
 	});
 
 	// ── PUT /deck-order ──────────────────────────────────────────────────────────

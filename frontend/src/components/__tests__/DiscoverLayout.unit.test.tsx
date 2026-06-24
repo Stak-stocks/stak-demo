@@ -21,6 +21,10 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("@tanstack/react-query", () => ({
 	useQuery: () => ({ data: undefined, isLoading: false }),
+	useQueryClient: () => ({
+		getQueryData: () => undefined,
+		invalidateQueries: vi.fn(),
+	}),
 }));
 
 vi.mock("@/data/brands", () => ({
@@ -46,10 +50,20 @@ vi.mock("@/components/IntelCardModal", () => ({
 vi.mock("@/lib/api", () => ({
 	getIntelCards: vi.fn(),
 	recordEngagement: vi.fn(),
+	trackEvent: vi.fn(),
+	getMarketEarnings: vi.fn(),
+	getDailyBrief: vi.fn(),
+	getRecommendationFreshness: vi.fn(),
 }));
 
 vi.mock("@/hooks/useSwipeLimit", () => ({
-	useSwipeLimit: () => ({ count: 0, hasReachedLimit: false, increment: vi.fn() }),
+	useSwipeLimit: () => ({
+		count: 0,
+		hasReachedLimit: false,
+		increment: vi.fn().mockResolvedValue(true),
+		bumpOptimistic: vi.fn(),
+		reportSwipeResult: vi.fn(),
+	}),
 	DAILY_SWIPE_LIMIT: 20,
 }));
 
@@ -106,16 +120,18 @@ describe("Discover Page Layout", () => {
 		expect(searchBtn).toBeInTheDocument();
 		expect(searchBtn.tagName).toBe("BUTTON");
 
-		// Should be in a flex justify-start container (top-left)
+		// Pinned to the top-left via absolute positioning (header uses a centered
+		// title with the search button absolutely positioned to the left, not a
+		// flex justify-start layout).
 		const container = searchBtn.closest("div");
-		expect(container?.className).toContain("justify-start");
+		expect(container?.className).toContain("absolute");
+		expect(container?.className).toContain("left-");
 	});
 
-	it("renders STAK title and subtitle", () => {
+	it("renders STAK title", () => {
 		expect(capturedComponent).toBeDefined();
 		render(createElement(capturedComponent));
 
 		expect(screen.getByText("STAK")).toBeInTheDocument();
-		expect(screen.getByText(/swipe right to vibe/i)).toBeInTheDocument();
 	});
 });

@@ -16,9 +16,8 @@ import {
 } from "react";
 import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { getProfile } from "../lib/api";
+import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
 import { useAuth } from "./AuthContext";
-import { getTodayKey } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -128,7 +127,7 @@ interface AccountContextType {
 	updateStak: (brandIds: string[]) => Promise<void>;
 	saveToStak: (brandId: string, priceAtSave?: number | null) => Promise<void>;
 	updatePassedBrands: (entries: PassedEntry[]) => Promise<void>;
-	incrementSwipeCount: () => Promise<void>;
+	incrementSwipeCount: () => Promise<SwipeLimitIncrementResponse>;
 	updateDeckOrder: (order: string[]) => Promise<void>;
 	updatePreferences: (prefs: UserDoc["preferences"]) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
@@ -238,16 +237,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		[user],
 	);
 
-	const incrementSwipeCount = useCallback(async () => {
-		if (!user) return;
-		const today = getTodayKey();
-		const userRef = doc(db, "users", user.uid);
-		await runTransaction(db, async (tx) => {
-			const snap = await tx.get(userRef);
-			const cur = snap.data()?.dailySwipeState;
-			const currentCount = cur?.date === today ? (cur.count ?? 0) : 0;
-			tx.update(userRef, { dailySwipeState: { date: today, count: currentCount + 1 } });
-		});
+	// Server-authoritative — the daily limit can't be enforced by trusting a direct
+	// client→Firestore write (that's the bug this replaced: nothing capped the count).
+	const incrementSwipeCount = useCallback(async (): Promise<SwipeLimitIncrementResponse> => {
+		if (!user) return { accepted: false, count: 0, limit: 0 };
+		return incrementSwipeCountServer();
 	}, [user]);
 
 	const updateDeckOrder = useCallback(

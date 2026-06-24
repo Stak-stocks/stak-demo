@@ -14,7 +14,8 @@ import {
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
+import { marketSessionBucket, getLocalDateKey } from "@/lib/utils";
+import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
 import { brands as allBrands } from "@/data/brands";
@@ -338,7 +339,7 @@ function PlaygroundPage() {
 	}, [completeDailyActivity]);
 	// Standalone market lesson — Gemini Search finds the biggest event of the past 2 days
 	const { data: featuredLessonData } = useQuery({
-		queryKey: ["market-lesson", new Date().toISOString().split("T")[0]],
+		queryKey: ["market-lesson", getMarketDayKey()],
 		queryFn: getFeaturedLesson,
 		staleTime: 12 * 60 * 60 * 1000,
 		gcTime: 13 * 60 * 60 * 1000,
@@ -534,16 +535,33 @@ function PlaygroundPage() {
 
 				{/* Market Moment (trading days) / Featured Today (weekends & holidays) — Gemini powered */}
 				{featuredTodayLesson && (() => {
+					// isMarketDay: this lesson is about a specific real market event (vs a general
+					// concept lesson) — drives styling. isTradingDay: today is an actual trading
+					// day — separate signal, because isMarketDay is also false on an ordinary
+					// weekday when nothing significant was found and we fell back to teaching a
+					// concept instead; using isMarketDay alone for the "Weekend Prep" copy used to
+					// show that on any plain Tuesday with no major news.
 					const isMarketDay = featuredLessonData?.isMarketDay !== false;
+					const isTradingDay = featuredLessonData?.isTradingDay !== false;
 					const accent = isMarketDay ? "violet" : "amber";
 					const borderCls = isMarketDay ? "border-violet-500/30" : "border-amber-500/30";
 					const bgCls = isMarketDay ? "bg-violet-500/[0.07]" : "bg-amber-500/[0.07]";
 					const textCls = isMarketDay ? "text-violet-400" : "text-amber-400";
 					const iconBgCls = isMarketDay ? "bg-violet-500/15 text-violet-400" : "bg-amber-500/15 text-amber-400";
-					const label = isMarketDay ? "Market Moment · Today's Big Release" : "Featured Today · Weekend Prep";
+					// Compare the viewer's own local calendar date (not a fixed timezone) against
+					// the CT-anchored day this lesson was generated for. Using the viewer's own
+					// date — rather than a fixed "before 9am CT" check — means someone on, say,
+					// Pacific time doesn't see "Yesterday's" two hours before their own midnight
+					// just because Chicago's calendar already flipped.
+					const isStaleWindow = isMarketDay && getLocalDateKey() !== getMarketDayKey();
+					const label = isMarketDay
+						? (isStaleWindow ? "Market Moment · Yesterday's Big Release" : "Market Moment · Today's Big Release")
+						: isTradingDay ? "Featured Today · Quick Concept" : "Featured Today · Weekend Prep";
 					const meta = account?.lessonProgress?.[featuredTodayLesson.id]?.completed
 						? "Completed ✓"
-						: isMarketDay ? "3 min · +25 XP · Major event today" : "3 min · +25 XP · Prep for the week ahead";
+						: isMarketDay
+							? (isStaleWindow ? "3 min · +25 XP · Major event yesterday" : "3 min · +25 XP · Major event today")
+							: isTradingDay ? "3 min · +25 XP · Today's quick concept" : "3 min · +25 XP · Prep for the week ahead";
 					return (
 						<div className="mb-[20px]">
 							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">{label}</p>

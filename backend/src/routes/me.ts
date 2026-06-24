@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
+import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 
 export const meRouter = Router();
 
@@ -229,26 +230,22 @@ meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, 
 	}
 });
 
-// PUT /api/me/daily-swipes — save today's swipe count
-meRouter.put("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
+// POST /api/me/swipes/increment — atomically increment today's swipe count, server-
+// authoritative. Used by the search-add and global add-to-stak paths, which don't
+// otherwise hit the backend per "swipe" (see backend/src/routes/swipe.ts for the main
+// swipe-gesture path, which merges the same check into its own per-swipe request
+// instead of calling this — avoids a second concurrent transaction on the same doc).
+// Replaces a previous PUT here that let the client set an arbitrary count directly.
+meRouter.post("/swipes/increment", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { date, count } = req.body;
-
-		if (typeof date !== "string" || typeof count !== "number") {
-			res.status(400).json({ error: "Invalid daily swipe state" });
-			return;
-		}
-
-		await adminDb.collection("users").doc(uid).set(
-			{ dailySwipeState: { date, count }, updatedAt: new Date().toISOString() },
-			{ merge: true },
-		);
-
-		res.json({ date, count });
+		const result = await checkAndIncrementSwipeLimit(uid, req.body?.todayKey);
+		// Always 200 — "limit reached" is an expected outcome the client needs in the
+		// body (accepted:false), not a thrown error.
+		res.json(result);
 	} catch (error) {
-		console.error("Error saving daily swipes:", error);
-		res.status(500).json({ error: "Failed to save daily swipes" });
+		console.error("Error incrementing daily swipes:", error);
+		res.status(500).json({ error: "Failed to increment daily swipes" });
 	}
 });
 

@@ -1,4 +1,5 @@
 import { auth } from "./firebase";
+import { getTodayKey } from "./utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -81,14 +82,22 @@ export function savePassedBrands(entries: { id: string; at: number }[]) {
 }
 
 // Swipe
+export interface RecordSwipeResponse {
+	success: boolean;
+	limitReached?: boolean;
+	dailySwipeCount: number;
+	dailySwipeLimit: number;
+	streakUpdate?: unknown;
+}
+
 export function recordSwipe(
 	brandId: string,
 	direction: "left" | "right",
 	meta?: { ticker?: string; categories?: string[]; stakSize?: number; timeOnCardMs?: number; swipeVelocity?: number },
 ) {
-	return apiRequest("/api/swipe", {
+	return apiRequest<RecordSwipeResponse>("/api/swipe", {
 		method: "POST",
-		body: JSON.stringify({ brandId, direction, ...meta }),
+		body: JSON.stringify({ brandId, direction, todayKey: getTodayKey(), ...meta }),
 	});
 }
 
@@ -186,10 +195,18 @@ export function getDailySwipeCount() {
 	return apiRequest<{ date: string; count: number }>("/api/me/daily-swipes");
 }
 
-export function saveDailySwipeCount(date: string, count: number) {
-	return apiRequest("/api/me/daily-swipes", {
-		method: "PUT",
-		body: JSON.stringify({ date, count }),
+export interface SwipeLimitIncrementResponse {
+	accepted: boolean;
+	count: number;
+	limit: number;
+}
+
+/** Server-authoritative increment for the search-add / global add-to-stak paths,
+ *  which don't go through recordSwipe(). Never trust a client-side count. */
+export function incrementSwipeCountServer() {
+	return apiRequest<SwipeLimitIncrementResponse>("/api/me/swipes/increment", {
+		method: "POST",
+		body: JSON.stringify({ todayKey: getTodayKey() }),
 	});
 }
 
@@ -399,7 +416,7 @@ export function getMarketStatusLive() {
 }
 
 export function getFeaturedLesson() {
-	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean }>("/api/daily-brief/featured-lesson");
+	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean; isTradingDay?: boolean }>("/api/daily-brief/featured-lesson");
 }
 
 export interface GeneratedLesson {
