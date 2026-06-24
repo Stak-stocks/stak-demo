@@ -617,7 +617,9 @@ function isRecentEpsEntry(entry: { period: string } | null, now: Date): boolean 
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	const cacheKey = `earnings:v5:${symbol}`;
+	// Bumped to v6 to invalidate any bad results already cached for 24h by the previous
+	// (buggy) deploy — e.g. MU was cached as {status: "beat", date: "<future date>"}.
+	const cacheKey = `earnings:v6:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
