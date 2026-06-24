@@ -267,7 +267,9 @@ export async function getConsensusEarningsResult(
 	reportDate: string,
 	finnhubData: FinnhubEarningsData,
 ): Promise<ConsensusEarningsResult> {
-	const cacheKey = `result-consensus:v1:${symbol}:${reportDate}`;
+	// Bumped to v2 to invalidate stale results cached during the earnings status
+	// investigation, before any of the related fixes were deployed.
+	const cacheKey = `result-consensus:v2:${symbol}:${reportDate}`;
 	const cached = await cacheGet<ConsensusEarningsResult>(cacheKey);
 	if (cached) return cached;
 
