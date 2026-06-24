@@ -10,7 +10,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmark, ShoppingBag, Shield, CalendarDays, FileText, BarChart3, DollarSign, Building2, Target, Plus, ArrowLeftRight } from "lucide-react";
 
 import { toast } from "sonner";
-import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
 import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
@@ -433,6 +433,21 @@ function MyStakPage() {
 			.map((id) => brandMap.get(id))
 			.filter(Boolean) as BrandSummary[];
 	}, [account?.stakBrandIds, allBrands]);
+
+	// Warm useBrandDetail's cache for every staked brand in the background, so
+	// tapping one is instant instead of waiting on a fetch. prefetchQuery skips
+	// brands already cached and fresh, so this is a no-op for repeat visits --
+	// only genuinely new-to-this-session brands actually hit the network. Stak
+	// is capped at STAK_CAPACITY (30), so this is always a bounded batch.
+	useEffect(() => {
+		swipedBrands.forEach((b) => {
+			queryClient.prefetchQuery({
+				queryKey: ["brand-detail", b.id],
+				queryFn: () => getBrandDetail(b.id),
+				staleTime: 24 * 60 * 60 * 1000,
+			});
+		});
+	}, [swipedBrands, queryClient]);
 
 	const { data: stockData } = useQuery({
 		queryKey: ["stock", selectedBrand?.ticker],
