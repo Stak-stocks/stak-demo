@@ -59,6 +59,7 @@ interface SwipeableCardStackProps {
 	/** Today's counts — persists across tab switches */
 	initialSavedCount?: number;
 	initialPassedCount?: number;
+	initialSkippedCount?: number;
 }
 
 
@@ -141,6 +142,7 @@ export function SwipeableCardStack({
 	onStreakUpdate,
 	initialSavedCount = 0,
 	initialPassedCount = 0,
+	initialSkippedCount = 0,
 }: SwipeableCardStackProps) {
 	const navigate = useNavigate();
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -151,6 +153,7 @@ export function SwipeableCardStack({
 	const [scale, setScale] = useState(1);
 	const [savedCount, setSavedCount] = useState(initialSavedCount);
 	const [passedCount, setPassedCount] = useState(initialPassedCount);
+	const [skippedCount, setSkippedCount] = useState(initialSkippedCount);
 	const [skipSet, setSkipSet] = useState<Set<string>>(new Set());
 
 	// Deck with skipped cards shuffled to the end
@@ -311,6 +314,7 @@ export function SwipeableCardStack({
 		setIsDragging(false);
 		setIsExiting(true);
 		setDragOffset({ x: 0, y: direction === "up" ? -2200 : 4000 });
+		setSkippedCount((n) => n + 1);
 		onSkip?.().catch(() => {});
 
 		setTimeout(() => {
@@ -469,7 +473,7 @@ export function SwipeableCardStack({
 
 	// Shared recap/limit screen
 	if (hasReachedLimit || currentIndex >= deck.length) {
-		const total = savedCount + passedCount;
+		const total = savedCount + passedCount + skippedCount;
 		const isLimit = hasReachedLimit;
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[350px] pb-16 px-[18px] w-full">
@@ -505,6 +509,13 @@ export function SwipeableCardStack({
 							<p className="text-[22px] font-bold text-red-400 leading-none">{passedCount}</p>
 							<p className="text-[10px] text-slate-500">Passed</p>
 						</div>
+						{skippedCount > 0 && (
+							<div className="flex-1 rounded-[14px] border border-blue-500/20 bg-blue-500/[0.07] py-[14px] flex flex-col items-center gap-[5px]">
+								<ChevronUp className="w-[16px] h-[16px] text-blue-400" />
+								<p className="text-[22px] font-bold text-blue-400 leading-none">{skippedCount}</p>
+								<p className="text-[10px] text-slate-500">Skipped</p>
+							</div>
+						)}
 					</div>
 				)}
 
