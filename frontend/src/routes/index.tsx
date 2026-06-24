@@ -527,8 +527,18 @@ function App() {
 					const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 					const todayMs = todayStart.getTime();
 					const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
-					const todaySwipes = account?.dailySwipeState?.date === `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}` ? (account.dailySwipeState.count ?? 0) : 0;
-					const todaySaved = Math.max(0, todaySwipes - todayPassed);
+					// Was `todaySwipes - todayPassed`, which silently counted skips (upward
+					// swipe -- onSkip just increments the swipe count, no save/pass outcome)
+					// as "Saved" since they're neither a tracked save nor a tracked pass.
+					// Count genuine saves directly instead.
+					const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
+					// Skips have no per-action persisted record (unlike saves/passes above) --
+					// only their contribution to the swipe-limit count is tracked. Recover the
+					// count as the remainder: total swipes minus the two categories that ARE
+					// tracked directly.
+					const todayDateKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}`;
+					const todaySwipes = account?.dailySwipeState?.date === todayDateKey ? (account.dailySwipeState.count ?? 0) : 0;
+					const todaySkipped = Math.max(0, todaySwipes - todayPassed - todaySaved);
 					return (
 						<SwipeableCardStack
 							brands={[
@@ -551,6 +561,7 @@ function App() {
 							onStreakUpdate={handleStreakUpdate}
 							initialSavedCount={todaySaved}
 							initialPassedCount={todayPassed}
+							initialSkippedCount={todaySkipped}
 						/>
 					);
 				})()}
