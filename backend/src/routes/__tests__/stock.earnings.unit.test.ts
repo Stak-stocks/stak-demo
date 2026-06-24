@@ -92,6 +92,25 @@ describe("GET /:symbol/earnings", () => {
 		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
 	});
 
+	it("reports earnings scheduled for today as still upcoming for an established reporter whose latest Finnhub entry is last quarter's (non-null) data", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));
+		const symbol = "BUGTEST1B";
+		// This reproduces the live MU bug: Finnhub's "latest" EPS entry is never null for an
+		// established reporter -- it's always last quarter's real result until the new one
+		// posts. A stale period (~120 days old) must not be mistaken for today's report.
+		const staleEpsHistory = [{ actual: 2.1, estimate: 2.0, period: "2026-02-28", quarter: 2, year: 2026, surprise: null, surprisePercent: null }];
+		mockFetchSequence(staleEpsHistory, calendarResponse(symbol, TODAY));
+		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "upcoming", date: TODAY, hour: "amc" });
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
 	it("reports beat/miss directly from Finnhub once today's report actually lands", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));

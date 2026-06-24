@@ -597,10 +597,22 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 	return Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0]! : null;
 }
 
-// A web-search-derived report date this old can't be "the most recent report" — wider
-// than any single quarter, so it only catches genuine staleness/hallucination, e.g. the
-// AI fallback finding a same-month report from a prior year instead of the current one.
+// A reported-earnings date this old can't be "the report we're checking for" — wider
+// than any single quarter, so it only catches genuine staleness, e.g. an established
+// company's Finnhub history always has a non-null actual for its LAST completed quarter
+// (never null, even moments before a brand new report drops), and the AI web-search
+// fallback finding a same-month report from a prior year instead of the current one.
 const MAX_PLAUSIBLE_REPORT_AGE_DAYS = 100;
+
+// True only if this EPS entry's fiscal period is recent enough to plausibly BE the report
+// currently being checked for — not just that *some* actual value exists. Without this,
+// "alreadyReported" would be true for literally any company with reporting history, since
+// Finnhub's "latest" entry is always last quarter's real result until the new one posts.
+function isRecentEpsEntry(entry: { period: string } | null, now: Date): boolean {
+	if (!entry?.period) return false;
+	const ageDays = (now.getTime() - new Date(entry.period + "T12:00:00Z").getTime()) / 86400000;
+	return ageDays >= 0 && ageDays <= MAX_PLAUSIBLE_REPORT_AGE_DAYS;
+}
 
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
@@ -619,7 +631,7 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		// branch below can defer to it instead of guessing from dates alone (a report scheduled
 		// for *today* hasn't happened yet the moment markets open, even though date === todayStr).
 		const latestEps = await getLatestEpsEntry(symbol);
-		const alreadyReported = latestEps?.actual != null;
+		const alreadyReported = latestEps?.actual != null && isRecentEpsEntry(latestEps, now);
 
 		// ── 1. Check Finnhub calendar for upcoming earnings (next 90 days) ──
 		const in90Days = fmt(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
