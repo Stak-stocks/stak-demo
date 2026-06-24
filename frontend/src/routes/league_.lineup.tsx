@@ -156,7 +156,23 @@ function LineupBuilderPage() {
 							</p>
 						</div>
 
-						{swipedBrands.length === 0 ? (
+						{allBrands === undefined ? (
+							/* Loading skeleton -- distinct from the "no stocks saved" empty state
+							   below, since the catalog hasn't resolved yet at this point */
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								{[...Array(2)].map((_, i) => (
+									<div key={i} className="rounded-xl border-2 border-gray-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1/50 p-6">
+										<div className="flex items-start gap-4">
+											<div className="h-12 w-12 shrink-0 rounded-xl dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+											<div className="flex-1 space-y-2">
+												<div className="h-4 w-24 rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+												<div className="h-3 w-16 rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						) : swipedBrands.length === 0 ? (
 							<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-12 text-center">
 								<p className="text-gray-500 dark:dark:text-zinc-400 text-zinc-600 mb-2">
 									You haven't saved any stocks yet.

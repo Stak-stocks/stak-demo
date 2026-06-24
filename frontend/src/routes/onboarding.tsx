@@ -326,7 +326,8 @@ function SwipeStep({
 	onNext: () => void;
 }) {
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const brandsLoading = allBrandsList === undefined;
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	const SWIPE_BRANDS = useMemo(
 		() => ONBOARDING_SWIPE_BRAND_IDS
@@ -376,7 +377,10 @@ function SwipeStep({
 	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const isProcessingSwipe = useRef(false);
 
-	const done = currentIndex >= swipeBrands.length;
+	// brandsLoading guards against showing the "done" screen before the catalog
+	// has even loaded -- swipeBrands is empty during that window, which would
+	// otherwise make this true immediately, before a single card is shown.
+	const done = !brandsLoading && currentIndex >= swipeBrands.length;
 
 	const FLICK_VELOCITY = 0.4;      // px/ms
 	const DISTANCE_THRESHOLD = 60;   // px
@@ -470,7 +474,11 @@ function SwipeStep({
 			</div>
 
 			<div className="relative w-full h-[320px]">
-				{done ? (
+				{brandsLoading ? (
+					<div className="flex items-center justify-center h-full">
+						<div className="w-64 h-72 rounded-2xl bg-foreground/5 animate-pulse" />
+					</div>
+				) : done ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="text-center space-y-3">
 							<p className="text-xl font-bold text-foreground">Nice picks!</p>
@@ -573,7 +581,7 @@ function SwipeStep({
 
 
 			{/* Card counter */}
-			{!done && (
+			{!brandsLoading && !done && (
 				<div className="text-center text-sm text-slate-500">
 					{currentIndex + 1} / {swipeBrands.length}
 				</div>
@@ -697,7 +705,7 @@ function BuildingStep({
 	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { refreshClaims } = useAuth();
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);

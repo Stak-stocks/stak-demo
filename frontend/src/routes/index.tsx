@@ -93,7 +93,7 @@ function App() {
 	const uid = user?.uid ?? "guest";
 
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	const [selectedBrand, setSelectedBrand] = useState<BrandSummary | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);

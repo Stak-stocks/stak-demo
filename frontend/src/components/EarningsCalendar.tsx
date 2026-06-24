@@ -331,11 +331,11 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose, 
 	}, [open]);
 
 	// Count today's entries for badge
-	const { data: allBrandsList } = useBrandsList();
+	const { data: allBrands } = useBrandsList();
 	const stakBrands = useMemo<BrandSummary[]>(() => {
-		const brandMap = new Map((allBrandsList ?? []).map(b => [b.id, b]));
+		const brandMap = new Map((allBrands ?? []).map(b => [b.id, b]));
 		return (account?.stakBrandIds ?? []).map(id => brandMap.get(id)).filter(Boolean) as BrandSummary[];
-	}, [account?.stakBrandIds, allBrandsList]);
+	}, [account?.stakBrandIds, allBrands]);
 
 	const earningsResults = useQueries({
 		queries: stakBrands.map(brand => ({

@@ -2044,7 +2044,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const { account, addPracticeSkillXp } = useAccount();
 	const { showXp, XPFloat } = useXpFloat();
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	// ── Types ────────────────────────────────────────────────────────────────────
 	type RoundType = "sentiment" | "nextstep";
@@ -2207,7 +2207,18 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		return [...stakStocks, ...fallback];
 	}, [account?.stakBrandIds, allBrands]);
 
-	const [stocks] = useState(() => [...pool].sort(() => Math.random() - 0.5));
+	// Shuffled once and then held stable so questions don't reorder mid-session --
+	// but must wait for the catalog to actually resolve first. Locking in
+	// immediately (lazy useState) would permanently capture the generic
+	// PRACTICE_TICKERS fallback for the whole session if allBrands was still
+	// loading at mount, even for a user with a real Stak.
+	const [stocks, setStocks] = useState<typeof pool>([]);
+	const stocksInitialized = useRef(false);
+	useEffect(() => {
+		if (stocksInitialized.current || allBrandsList === undefined) return;
+		stocksInitialized.current = true;
+		setStocks([...pool].sort(() => Math.random() - 0.5));
+	}, [allBrandsList, pool]);
 	const stockList = stocks.length > 0 ? stocks : pool;
 
 	// ── Round sequence ───────────────────────────────────────────────────────────
@@ -2651,7 +2662,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// ── Phase state ──────────────────────────────────────────────────────────────
 	const [phase, setPhase] = useState<"goal" | "building" | "diagnosis">("goal");
 	const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
@@ -3217,7 +3228,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const { account, addToSandbox, sellFromSandbox, initSandboxCash, resetSandbox, markSandboxMilestone } = useAccount();
 	const queryClient = useQueryClient();
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	// Screen state: null = portfolio list, string = stock detail ticker
 	const [activeStock, setActiveStock] = useState<string | null>(null);

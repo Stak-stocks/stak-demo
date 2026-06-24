@@ -412,10 +412,10 @@ function MyStakPage() {
 	// interestCategories) except the one selected/detail-sheet brand, which fetches
 	// its own full profile separately below.
 	const { data: allBrandsList } = useBrandsList();
-	const allBrands = allBrandsList ?? [];
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-	const { data: selectedBrand } = useBrandDetail(selectedBrandId);
+	const { data: selectedBrand, isError: selectedBrandError } = useBrandDetail(selectedBrandId);
 	const [comparePeers, setComparePeers] = useState<[BrandSummary | null, BrandSummary | null]>([null, null]);
 	const [pickingSlot, setPickingSlot] = useState<0 | 1 | null>(null);
 	const [numbersOpen, setNumbersOpen] = useState(false);
@@ -1241,6 +1241,39 @@ function MyStakPage() {
 		document.body,
 	);
 
+	// Shown while selectedBrandId is set but useBrandDetail's full-profile fetch
+	// hasn't resolved yet (or has failed) -- without this, tapping a brand looks
+	// like the tap did nothing until the fetch completes, with no way to recover
+	// if it 404s (e.g. a staked brand removed from the catalog).
+	const selectedBrandSummary = swipedBrands.find((b) => b.id === selectedBrandId) ?? null;
+	const brandDetailLoadingOverlay = selectedBrandId && !selectedBrand && createPortal(
+		<div className="fixed inset-0 z-[60] flex flex-col bg-background">
+			<header className="flex items-center px-[20px] pt-[8px] pb-[14px]">
+				<button
+					type="button"
+					onClick={handleCloseDetail}
+					className="grid h-[36px] w-[36px] place-items-center rounded-full bg-foreground/[0.07] text-foreground/80 active:bg-foreground/[0.12] transition-colors"
+				>
+					<ChevronLeft size={22} />
+				</button>
+			</header>
+			<div className="flex flex-1 flex-col items-center justify-center gap-[16px] px-[24px] pb-[80px] text-center">
+				{selectedBrandError ? (
+					<>
+						<p className="text-[16px] font-bold text-foreground">Couldn't load {selectedBrandSummary?.name ?? "this stock"}</p>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">Check your connection and try again.</p>
+					</>
+				) : (
+					<>
+						{selectedBrandSummary && <BrandLogo brand={selectedBrandSummary} className="w-[56px] h-[56px] rounded-full" />}
+						<div className="h-[14px] w-[140px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+					</>
+				)}
+			</div>
+		</div>,
+		document.body,
+	);
+
 	const topCategory = computeTopDisplayCategory(account?.tagScores ?? {});
 	const riskLabel = deriveRiskLabel(swipedBrands);
 
@@ -1352,8 +1385,9 @@ function MyStakPage() {
 				</div>
 			</button>
 
-			{accountLoading ? (
-				/* Loading skeleton */
+			{accountLoading || allBrandsList === undefined ? (
+				/* Loading skeleton -- also covers the catalog still loading, so a user
+				   with a real Stak doesn't briefly see the "empty" state below */
 				<div className="px-[18px] pt-[18px] pb-6 space-y-[8px]">
 					{[...Array(4)].map((_, i) => (
 						<div key={i} className="flex items-center gap-[12px] rounded-[9px] px-[5px] py-[8px]">
@@ -1396,6 +1430,7 @@ function MyStakPage() {
 			)}
 
 			{brandDetailOverlay}
+			{brandDetailLoadingOverlay}
 
 			{/* Hidden earnings calendar — opened by the earnings stat card */}
 			<div className="hidden">
