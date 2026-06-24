@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
 import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
+import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
@@ -100,22 +101,9 @@ function capByTopicDiversity(articles: FinnhubArticle[], maxPerCluster = 2): Fin
 }
 
 // ── Earnings signal extraction from article headlines ────────────────────────
-const EARNINGS_CORE = [
-	// Direct mentions
-	"earnings", "eps",
-	// Results announcements (the most common phrasing in press releases)
-	"financial results", "quarterly results", "quarterly earnings",
-	"annual results", "full year results", "fourth quarter results",
-	"third quarter results", "second quarter results", "first quarter results",
-	"q1 results", "q2 results", "q3 results", "q4 results",
-	"results for the quarter", "results for the year",
-	// Report/announce patterns
-	"reports results", "reports revenue", "reports earnings",
-	"announces results", "announces earnings", "announces revenue",
-	"fiscal quarter", "revenue and earnings",
-	// Revenue + period patterns
-	"quarterly revenue", "q4 revenue", "q3 revenue", "q2 revenue", "q1 revenue",
-];
+// EARNINGS_CORE lives in earningsResultConsensus.ts -- shared with stock.ts's
+// resolveEarningsStatus, which uses it to decide when to check for a confirmed
+// result sooner instead of waiting on Finnhub's calendar/EPS-history alone.
 const UPCOMING_WORDS = [
 	"upcoming earnings", "reports earnings on", "will report earnings",
 	"scheduled to report", "earnings date", "earnings call scheduled",

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getConsensusEarningsDateMock = vi.fn();
 const getConsensusEarningsResultMock = vi.fn();
 const getEarningsBeatMissFromWebMock = vi.fn();
+const hasSameDayEarningsArticleMock = vi.fn();
 
 vi.mock("../../services/earningsConsensus.js", () => ({
 	getConsensusEarningsDate: getConsensusEarningsDateMock,
@@ -12,6 +13,7 @@ vi.mock("../../services/earningsConsensus.js", () => ({
 
 vi.mock("../../services/earningsResultConsensus.js", () => ({
 	getConsensusEarningsResult: getConsensusEarningsResultMock,
+	hasSameDayEarningsArticle: hasSameDayEarningsArticleMock,
 }));
 
 vi.mock("../../services/geminiService.js", () => ({
@@ -47,6 +49,7 @@ describe("GET /market-earnings", () => {
 			sources: { finnhub: null, fmp: null, yahoo: null, gemini: null },
 		});
 		getEarningsBeatMissFromWebMock.mockResolvedValue({ result: "none", date: null });
+		hasSameDayEarningsArticleMock.mockResolvedValue(false);
 	});
 
 	afterEach(() => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getConsensusEarningsDateMock = vi.fn();
 const getConsensusEarningsResultMock = vi.fn();
 const getEarningsBeatMissFromWebMock = vi.fn();
+const hasSameDayEarningsArticleMock = vi.fn();
 
 vi.mock("../../services/earningsConsensus.js", () => ({
 	getConsensusEarningsDate: getConsensusEarningsDateMock,
@@ -12,6 +13,7 @@ vi.mock("../../services/earningsConsensus.js", () => ({
 
 vi.mock("../../services/earningsResultConsensus.js", () => ({
 	getConsensusEarningsResult: getConsensusEarningsResultMock,
+	hasSameDayEarningsArticle: hasSameDayEarningsArticleMock,
 }));
 
 vi.mock("../../services/geminiService.js", () => ({
@@ -54,6 +56,7 @@ describe("GET /:symbol/earnings", () => {
 			sources: { finnhub: null, fmp: null, yahoo: null, gemini: null },
 		});
 		getEarningsBeatMissFromWebMock.mockResolvedValue({ result: "none", date: null });
+		hasSameDayEarningsArticleMock.mockResolvedValue(false);
 	});
 
 	afterEach(() => {
@@ -138,6 +141,48 @@ describe("GET /:symbol/earnings", () => {
 		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
 	});
 
+	it("uses the consensus result when a same-day earnings article exists but /stock/earnings hasn't caught up yet", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
+		const symbol = "BUGTEST2A";
+		// Finnhub's structured endpoints still say "not yet" (calendar epsActual null,
+		// EPS history null) -- but a same-day earnings article already exists, so the
+		// resolver should ask the cross-source consensus instead of settling for "upcoming".
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(null, 2.0));
+		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
+		hasSameDayEarningsArticleMock.mockResolvedValue(true);
+		getConsensusEarningsResultMock.mockResolvedValue({
+			status: "beat", epsActual: 2.5, epsEstimate: 2.0, epsSurprisePct: 25,
+			revenueActual: null, revenueEstimate: null, revChangePct: null, confidence: "medium",
+			sources: { finnhub: null, fmp: "beat", yahoo: "beat", gemini: null },
+		});
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "beat", date: TODAY, hour: "amc" });
+	});
+
+	it("falls back to upcoming when a same-day article exists but consensus still finds nothing -- never a wrong verdict", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
+		const symbol = "BUGTEST2B";
+		// A false-positive keyword match (e.g. an article generically discussing "earnings"
+		// without this being the actual new report) should never escalate past "upcoming"
+		// if none of the independent consensus sources confirm it either.
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(null, 2.0));
+		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
+		hasSameDayEarningsArticleMock.mockResolvedValue(true);
+		// getConsensusEarningsResultMock already defaults to status: "none" in beforeEach
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "upcoming", date: TODAY, hour: "amc" });
+	});
+
 	it("reports beat/miss directly from Finnhub once today's report actually lands", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
@@ -152,6 +197,30 @@ describe("GET /:symbol/earnings", () => {
 		// hour is now included for beat/miss too (previously dropped) — it's available from
 		// the calendar entry the shared resolver already has, so there's no reason not to.
 		expect(res.body).toEqual({ status: "beat", date: TODAY, hour: "amc" });
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
+	it("falls back to the calendar entry's own epsActual when /stock/earnings hasn't caught up yet", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(`${TODAY}T22:00:00.000Z`));
+		const symbol = "BUGTEST2B";
+		// Finnhub's /stock/earnings history and its /calendar/earnings feed are separate
+		// endpoints that can update on different schedules -- a report that's landed can
+		// show up in the calendar's epsActual before the EPS-history endpoint catches up.
+		// Reproduces the live MU bug from the other direction: without this fallback, the
+		// resolver would still call it "upcoming" purely because the *other* endpoint lags.
+		const calendarWithActual = {
+			earningsCalendar: [{ symbol, date: TODAY, hour: "amc", epsActual: 2.5, epsEstimate: 2.0, revenueActual: null, revenueEstimate: null }],
+		};
+		mockFetchSequence(calendarWithActual, epsHistoryResponse(null, 2.0));
+		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "beat", date: TODAY, hour: "amc" });
+		// Confirmed via Finnhub's own calendar field -- no need to ask Gemini.
 		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
 	});
 

@@ -14,9 +14,60 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb } from "../lib/yahooAuth.js";
 import { getEarningsBeatMissFromWeb } from "./geminiService.js";
+import { getCompanyNews } from "./finnhubService.js";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
+
+// Shared with news.ts's extractEarningsSignal (same keyword list, same purpose: spotting
+// a results-announcement article by headline/summary text).
+export const EARNINGS_CORE = [
+	// Direct mentions
+	"earnings", "eps",
+	// Results announcements (the most common phrasing in press releases)
+	"financial results", "quarterly results", "quarterly earnings",
+	"annual results", "full year results", "fourth quarter results",
+	"third quarter results", "second quarter results", "first quarter results",
+	"q1 results", "q2 results", "q3 results", "q4 results",
+	"results for the quarter", "results for the year",
+	// Report/announce patterns
+	"reports results", "reports revenue", "reports earnings",
+	"announces results", "announces earnings", "announces revenue",
+	"fiscal quarter", "revenue and earnings",
+	// Revenue + period patterns
+	"quarterly revenue", "q4 revenue", "q3 revenue", "q2 revenue", "q1 revenue",
+];
+
+/**
+ * Does a same-day, on-topic earnings article already exist in Finnhub's company-news
+ * feed? Used by stock.ts's resolveEarningsStatus purely as a TRIGGER, not a verdict --
+ * if true, it's worth running the full getConsensusEarningsResult check (FMP/Yahoo/Gemini,
+ * each independently date-validated) right away instead of waiting on Finnhub's calendar/
+ * EPS-history endpoints alone. A false-positive keyword match just costs one extra
+ * consensus check that comes back "none" -- it can never produce a wrong beat/miss, since
+ * the verdict always still comes from the already-cross-validated consensus function.
+ */
+export async function hasSameDayEarningsArticle(
+	symbol: string,
+	companyName: string | undefined,
+	todayStr: string,
+): Promise<boolean> {
+	// Just a trigger for an extra consensus check, not a verdict -- on any failure
+	// (rate limit, network error), fall back to false and let the caller proceed
+	// exactly as if this check didn't exist, rather than failing the whole request.
+	let articles: Awaited<ReturnType<typeof getCompanyNews>>;
+	try {
+		articles = await getCompanyNews(symbol, 24, companyName);
+	} catch {
+		return false;
+	}
+	return articles.some((a) => {
+		const text = `${a.headline} ${a.summary}`.toLowerCase();
+		if (!EARNINGS_CORE.some((k) => text.includes(k))) return false;
+		const dateStr = new Date(a.datetime * 1000).toISOString().split("T")[0];
+		return dateStr === todayStr;
+	});
+}
 
 type BeatMiss = "beat" | "miss" | null;
 
