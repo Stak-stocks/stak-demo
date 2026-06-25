@@ -1030,7 +1030,7 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v10:${symbol}:${direction}:s${sentences}:${closeRef}`;
+	const cacheKey = `daily-move:v11:${symbol}:${direction}:s${sentences}:${closeRef}`;
 	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat"; bullets?: Array<{text: string; tone: string}> }>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
@@ -1049,17 +1049,25 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	}
 
 	// Pure Gemini + Google Search — no Finnhub dependency.
+	// Up/down moves need the explanation to actually justify that direction, not just
+	// report nearby news -- without this, a stock can fall on broad weakness while
+	// Gemini still surfaces a same-week analyst upgrade and calls it a day, leaving a
+	// set of bullish-sounding bullets next to a red price badge.
+	const directionNote = direction !== "flat"
+		? ` The explanation must justify why it moved ${direction} specifically -- don't just report any recent news about the company. If the most prominent headline (an upgrade, a price-target raise, a positive-sounding announcement) doesn't obviously match that direction, explain the market's actual read on it instead (e.g. a price increase seen as a demand risk, profit-taking after a run-up, a beat that still missed whisper numbers, broad sector/market weakness) rather than presenting it as good news that contradicts the move.`
+		: "";
 	const prompt = sentences > 1
 		? `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
 Search the web for the latest news on why ${symbol} moved ${searchRef}.
 
-Figure out the full story — then distill it into exactly 3 short bullet points a young investor can instantly understand. Think of it like turning a paragraph explanation into the 3 most important takeaways.
+Figure out the full story — then distill it into exactly 3 short bullet points a young investor can instantly understand. Think of it like turning a paragraph explanation into the 3 most important takeaways.${directionNote}
 
 Return ONLY a valid JSON array of exactly 3 objects. No markdown, no extra text before or after:
 [{"text":"...","tone":"bearish"},{"text":"...","tone":"neutral"},{"text":"...","tone":"bullish"}]
 
 Rules:
+- The 3 bullets, taken together, must add up to a coherent explanation for the move's actual direction — not 3 disconnected headlines
 - Each bullet is a key point from the story — no fixed structure, just what matters most
 - Max 12 words per bullet. Think headline, not sentence.
 - Do NOT restate that the stock went up or down — the user already sees the price move. Jump straight to the reason why.
@@ -1071,7 +1079,7 @@ Rules:
 
 Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
-Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague. Use "${timeRef}" when referencing when the move happened.
+Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.${directionNote} Use "${timeRef}" when referencing when the move happened.
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
