@@ -12,6 +12,7 @@ import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
 import type { BrandProfile } from "@stak/shared";
+import { getEasternDateKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
@@ -114,17 +115,20 @@ function Root() {
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
 
-	// Show Daily Brief once per day — only from 9am CT onwards.
-	// Before 9am CT markets haven't opened yet so the brief has no real market data.
+	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
+	// the 9:30am ET open (not before): the brief is sourced from real trading
+	// activity and news coverage of the session, which doesn't exist yet right at
+	// open. "today" is ET too (getEasternDateKey), matching the brief content's own
+	// day boundary -- comparing against the browser's local date here instead would
+	// let this gate disagree with when the content itself actually refreshes.
 	// Stored in Firestore so it's cross-device.
 	useEffect(() => {
 		if (!user || !account?.onboardingCompleted || isAuthPage) return;
 		const d = new Date();
-		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+		const today = getEasternDateKey(d);
 		if (account.lastBriefDate === today) return;
-		// Check if it's 9am CT or later (CT = America/Chicago)
-		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
-		if (ctHour < 9) return; // too early — will re-check when user re-opens app
+		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
+		if (etHour < 10) return; // too early — will re-check when user re-opens app
 		// Open immediately (next tick) so Discover never flashes before the brief
 		const t = setTimeout(() => {
 			// Force "auto" -- briefSource is page-lifetime state, not reset on sign-out/
@@ -199,9 +203,9 @@ function Root() {
 	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes
 	if (!briefOpen && !isAuthPage && user && account?.onboardingCompleted) {
 		const d = new Date();
-		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-		const ctHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/Chicago" }), 10);
-		if (account.lastBriefDate !== today && ctHour >= 9) {
+		const today = getEasternDateKey(d);
+		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
+		if (account.lastBriefDate !== today && etHour >= 10) {
 			return (
 				<div className="flex items-center justify-center h-full bg-background">
 					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
