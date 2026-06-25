@@ -1,6 +1,10 @@
 // Calendar-day key for shared, backend-generated daily content (Featured
-// Lesson / Market Moment) — resets at 9 AM America/Chicago, same hour the
-// Daily Brief already waits for ("before 9am CT markets haven't opened yet").
+// Lesson / Market Moment) — resets at 9 AM America/Eastern, shortly before the
+// real 9:30am ET market open (and the same timezone every other "what day is
+// it on the market's calendar" computation in this app uses -- see
+// getEasternDateKey in marketSession.ts). Was previously America/Chicago,
+// which put the reset at 10am ET -- 30 minutes *after* the open, the opposite
+// of the "before markets open" intent the original comment described.
 // Fixed to one timezone (not device-local) because this content is generated
 // once and shared by every user, unlike per-user state such as the daily
 // swipe limit (frontend/src/lib/utils.ts's getTodayKey, which intentionally
@@ -8,7 +12,7 @@
 
 export function getMarketDayKey(now: Date = new Date()): string {
 	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone: "America/Chicago",
+		timeZone: "America/New_York",
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit",
