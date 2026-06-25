@@ -1014,6 +1014,16 @@ stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 
 const DAILY_MOVE_TTL_MS = 30 * 60 * 1000;
 
+type DailyMoveResult = { explanation: string; direction: "up" | "down" | "flat"; bullets?: Array<{ text: string; tone: string }> };
+
+// In-flight de-dup: when the cache is cold and two requests for the exact same key
+// land concurrently (e.g. two people opening the same stock seconds apart), the
+// second one awaits the first's already-running Gemini call instead of starting its
+// own -- without this, both compete for the same small pool of Gemini keys at once,
+// making a 429 on one of them more likely right when it matters most. Per-instance
+// only (not shared across Cloud Run instances via Redis), but covers the common case.
+const dailyMoveInFlight = new Map<string, Promise<DailyMoveResult>>();
+
 stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const raw = (req.params["symbol"] as string).toUpperCase();
 	const symbol = resolveSymbol(raw);
@@ -1031,9 +1041,26 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
 	const cacheKey = `daily-move:v11:${symbol}:${direction}:s${sentences}:${closeRef}`;
-	const cached = await cacheGet<{ explanation: string; direction: "up" | "down" | "flat"; bullets?: Array<{text: string; tone: string}> }>(cacheKey);
+	const cached = await cacheGet<DailyMoveResult>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
+	const existing = dailyMoveInFlight.get(cacheKey);
+	if (existing) { res.json(await existing); return; }
+
+	const compute = computeDailyMove({ symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey });
+	dailyMoveInFlight.set(cacheKey, compute);
+	try {
+		res.json(await compute);
+	} finally {
+		dailyMoveInFlight.delete(cacheKey);
+	}
+});
+
+async function computeDailyMove(params: {
+	symbol: string; changePercent: number; companyName: string; sentences: number;
+	marketClosed: boolean; closeRef: string; direction: "up" | "down" | "flat"; cacheKey: string;
+}): Promise<DailyMoveResult> {
+	const { symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey } = params;
 	const sign = changePercent >= 0 ? "+" : "";
 	const moveSummary = `${sign}${changePercent.toFixed(2)}%`;
 	const subject = companyName !== symbol ? `${companyName} (${symbol})` : symbol;
@@ -1043,9 +1070,7 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) {
-		const fallback = { explanation: `${subject} was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.`, direction };
-		res.json(fallback);
-		return;
+		return { explanation: `${subject} was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.`, direction };
 	}
 
 	// Pure Gemini + Google Search — no Finnhub dependency.
@@ -1085,7 +1110,11 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 
 	for (const key of keys) {
 		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 15000);
+		// Shortened from 15s -- with up to 3 keys tried sequentially, a 15s-per-key worst
+		// case (~45s total) risked outliving some intermediate timeout between browser and
+		// backend, killing the connection well before the fallback at the end of this loop
+		// ever got a chance to run.
+		const timeout = setTimeout(() => controller.abort(), 8000);
 		try {
 			const gemRes = await fetch(
 				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
@@ -1132,24 +1161,21 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 							const explanation = bullets.map((b) => b.text).join(" ");
 							const result = { explanation, bullets, direction };
 							await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
-							res.json(result);
-							return;
+							return result;
 						}
 					}
 				} catch { /* fall through to plain text fallback */ }
 				if (raw) {
 					const result = { explanation: raw, direction };
 					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
-					res.json(result);
-					return;
+					return result;
 				}
 			} else {
 				const explanation = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
 				if (explanation) {
 					const result = { explanation, direction };
 					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
-					res.json(result);
-					return;
+					return result;
 				}
 			}
 		} catch {
@@ -1162,8 +1188,8 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 	// All keys exhausted or errored — return simple fallback
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
-	res.json(fallback);
-});
+	return fallback;
+}
 
 // ── Key risk ──────────────────────────────────────────────────────────────────
 // GET /api/stock/:symbol/key-risk
