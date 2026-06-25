@@ -1,8 +1,8 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { marketSessionBucket } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey } from "@stak/shared";
 
-export { marketSessionBucket };
+export { marketSessionBucket, getEasternDateKey };
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -23,6 +23,16 @@ export function getTodayKey(): string {
 export function getLocalDateKey(): string {
 	const d = new Date();
 	return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/** Returns the calendar day immediately before getTodayKey()'s result. Pure date-only
+ *  arithmetic (no timezone involved) so it's safe regardless of device timezone --
+ *  getTodayKey()'s string already encodes the user's local day, this just steps it
+ *  back by one. Used wherever the backend's streak date (also a getTodayKey-shaped
+ *  value, see streakService.ts) needs to be compared against "today or yesterday". */
+export function getYesterdayKey(): string {
+	const today = getTodayKey();
+	return new Date(new Date(today + "T00:00:00Z").getTime() - 86400000).toISOString().split("T")[0]!;
 }
 
 /**

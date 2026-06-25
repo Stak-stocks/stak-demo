@@ -11,7 +11,7 @@ import stakLogo from "@/assets/stak-logo-icon.svg";
 import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
 import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
+import { marketSessionBucket, getTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
 import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
@@ -102,7 +102,7 @@ function App() {
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
@@ -491,9 +491,10 @@ function App() {
 		// restoring this block once bonus swipes are turned back on.
 	}, [account?.bonusSwipes]);
 
-	// Backend streak writes UTC dates — must compare in UTC to match
-	const todayKey = new Date().toISOString().split("T")[0]!;
-	const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split("T")[0]!;
+	// Backend streak now stores the user's own local-day key (getTodayKey, sent as
+	// todayKey on each swipe/event) -- compare against the same local-day keys, not UTC.
+	const todayKey = getTodayKey();
+	const yesterdayKey = getYesterdayKey();
 	// Show streak if active today OR yesterday (still within grace window — swipe today to extend)
 	const streakCount = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
 		? (account?.streakCount ?? 0) : 0;

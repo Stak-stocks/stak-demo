@@ -1,5 +1,6 @@
 import { adminDb } from "../firebaseAdmin.js";
-import { DAILY_SWIPE_LIMIT } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, getEasternDateKey } from "@stak/shared";
+import { sanitizeClientDateKey } from "../lib/clientDateKey.js";
 
 export interface SwipeLimitResult {
 	accepted: boolean;
@@ -7,21 +8,13 @@ export interface SwipeLimitResult {
 	limit: number;
 }
 
-/** Clamps a client-supplied "today" date string to within 1 day of the server's own
- *  UTC date — wide enough to cover any legitimate timezone plus the frontend's 9am
- *  local-reset boundary, narrow enough that a client can't repeatedly claim a new day
- *  to reset their count back to 0. */
+/** Trusts the client's local-time todayKey (frontend/src/lib/utils.ts's getTodayKey)
+ *  when present and plausible, since the daily swipe limit is a per-user concept that
+ *  should follow the user's own day, not the market's. Falls back to ET (a reasonable
+ *  single default for this US-focused app, far better than raw UTC, which rolls over
+ *  hours before any US user's day actually ends) only if the client didn't send one. */
 function sanitizeTodayKey(clientTodayKey: unknown): string {
-	const now = new Date();
-	const candidates = [-1, 0, 1].map((offsetDays) => {
-		const d = new Date(now);
-		d.setUTCDate(d.getUTCDate() + offsetDays);
-		return d.toISOString().split("T")[0];
-	});
-	if (typeof clientTodayKey === "string" && candidates.includes(clientTodayKey)) {
-		return clientTodayKey;
-	}
-	return candidates[1]!; // server's actual UTC today
+	return sanitizeClientDateKey(clientTodayKey, getEasternDateKey());
 }
 
 /**

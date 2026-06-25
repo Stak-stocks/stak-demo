@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk, getDailyBrief,
 } from "@/lib/api";
-import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
+import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
 } from "lucide-react";
@@ -177,7 +177,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	});
 
 	const { data: briefData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		retry: 0,

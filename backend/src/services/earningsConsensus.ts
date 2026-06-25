@@ -7,6 +7,7 @@
 
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb, type YahooCrumbCache } from "../lib/yahooAuth.js";
+import { getEasternDateKey } from "@stak/shared";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
@@ -19,12 +20,10 @@ function getGeminiKeys(): string[] {
 	].filter((k): k is string => !!k);
 }
 
-function fmt(d: Date): string {
-	return d.toISOString().split("T")[0];
-}
-
+// Earnings dates are anchored to the US trading calendar, not raw UTC -- a midnight-UTC
+// rollover happens hours before the US trading day or evening is actually over.
 function todayStr(): string {
-	return fmt(new Date());
+	return getEasternDateKey();
 }
 
 /** Normalise any date string to YYYY-MM-DD, stripping any time component. */
@@ -75,7 +74,7 @@ async function getYahooEarningsDate(symbol: string): Promise<string | null> {
 		const timestamps = dates.map((d) => d.raw * 1000);
 		const last = timestamps[timestamps.length - 1] ?? timestamps[0]!;
 		const mid = new Date((timestamps[0]! + last) / 2);
-		return fmt(mid);
+		return getEasternDateKey(mid);
 	} catch {
 		return null;
 	}
@@ -87,7 +86,7 @@ async function getFMPEarningsDate(symbol: string): Promise<string | null> {
 	if (!FMP_KEY) return null;
 	try {
 		const today = todayStr();
-		const sixMonthsOut = fmt(new Date(Date.now() + 180 * 86400000));
+		const sixMonthsOut = getEasternDateKey(new Date(Date.now() + 180 * 86400000));
 		const url = `${FMP_BASE}/earnings-calendar?symbol=${encodeURIComponent(symbol)}&from=${today}&to=${sixMonthsOut}&apikey=${FMP_KEY}`;
 		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 		if (!res.ok) return null;

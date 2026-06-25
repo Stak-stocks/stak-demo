@@ -121,14 +121,17 @@ export function recordEngagement(
 	});
 }
 
-/** Track any named event to Firestore (shows up in the analytics dashboard). */
+/** Track any named event to Firestore (shows up in the analytics dashboard).
+ *  Sends todayKey so the backend can credit streak-affecting event types
+ *  (brand_tap, playground_activity) to the user's own local day, same as
+ *  recordSwipe -- a streak is a personal daily habit, not a market concept. */
 export function trackEvent(
 	type: string,
 	params?: Record<string, unknown>,
 ) {
 	return apiRequest("/api/swipe/event", {
 		method: "POST",
-		body: JSON.stringify({ type, params }),
+		body: JSON.stringify({ type, params, todayKey: getTodayKey() }),
 	});
 }
 

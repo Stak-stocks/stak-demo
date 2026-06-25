@@ -2,7 +2,7 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey } from "@stak/shared";
+import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
@@ -293,7 +293,7 @@ async function generateMarketText(
 	marketDrivers: string | null = null,
 	holiday: string | null = null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
-	const today = new Date().toISOString().split("T")[0];
+	const today = getEasternDateKey();
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
 	const cacheKey = `daily-brief:text:v11:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
@@ -442,7 +442,7 @@ async function generatePersonalizedImpact(
 	holiday: string | null = null,
 	dayLabel = "Today's",
 ): Promise<string> {
-	const today = new Date().toISOString().split("T")[0];
+	const today = getEasternDateKey();
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
 	const cacheKey = `daily-brief:impact:v11:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
@@ -1028,7 +1028,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
 		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
-		const today = new Date().toISOString().split("T")[0];
+		const today = getEasternDateKey();
 		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
 		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's");
 

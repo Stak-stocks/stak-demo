@@ -4,7 +4,7 @@ import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getPeerTickers } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
@@ -33,8 +33,12 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 // If reaction day is today, uses Finnhub live quote (dp field) since candle won't have it yet.
 // Otherwise uses Yahoo Finance historical daily closes.
 async function getPriceChangePct(symbol: string, earningsDate: string, hour: string | null): Promise<number | null> {
+	// fmt itself stays UTC -- safe here because it only ever derives reactionDate from an
+	// already-ET-anchored `base` below (noon UTC of a known date, +/- whole days never
+	// crosses into a different calendar day). todayStr is the one call that actually needs
+	// to know "what day is it right now", so it alone uses the ET-aware helper.
 	const fmt = (d: Date) => d.toISOString().split("T")[0];
-	const todayStr = fmt(new Date());
+	const todayStr = getEasternDateKey();
 	const isAmc = !hour || hour === "amc" || hour === "after_trading_hours";
 
 	// Reaction date: AMC = next calendar day (skip weekend handled by Yahoo), BMO = same day
@@ -156,10 +160,9 @@ stockRouter.get("/calendar", async (_req, res) => {
 	if (cached) { res.json(cached); return; }
 
 	const now = new Date();
-	const fmt = (d: Date) => d.toISOString().split("T")[0];
-	const todayStr = fmt(now);
-	const tomorrowStr = fmt(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-	const in7Days = fmt(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+	const todayStr = getEasternDateKey(now);
+	const tomorrowStr = getEasternDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+	const in7Days = getEasternDateKey(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
 
 	const data = await finnhubGet(
 		`/calendar/earnings?from=${todayStr}&to=${in7Days}`,
@@ -200,21 +203,24 @@ const MARKET_TICKERS: Record<string, string> = Object.fromEntries(
 stockRouter.get("/market-earnings", async (req, res) => {
 	const period = (req.query.period as string) ?? "today";
 	const now = new Date();
-	const fmt = (d: Date) => d.toISOString().split("T")[0];
-	const todayStr = fmt(now);
+	const todayStr = getEasternDateKey(now);
 
 	try {
 		let fromStr: string, toStr: string;
 		if (period === "tomorrow") {
-			const d = new Date(now.getTime() + 86400000);
-			fromStr = toStr = fmt(d);
+			fromStr = toStr = getEasternDateKey(new Date(now.getTime() + 86400000));
 		} else if (period === "week") {
-			// Full calendar week: Sunday → Saturday
-			const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-			const weekSunday = new Date(now.getTime() - dayOfWeek * 86400000);
+			// Full calendar week: Sunday → Saturday, anchored to ET "today" (not raw
+			// now.getDay(), which is the server process's own local/UTC weekday and can
+			// already be tomorrow's weekday in the US evening) -- todayStr is already
+			// ET-correct, and noon-UTC whole-day arithmetic on it never crosses into a
+			// different calendar day, same safe anchoring pattern used in dailyBrief.ts.
+			const todayAnchor = new Date(todayStr + "T12:00:00Z");
+			const dayOfWeek = todayAnchor.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+			const weekSunday = new Date(todayAnchor.getTime() - dayOfWeek * 86400000);
 			const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
-			fromStr = fmt(weekSunday);
-			toStr = fmt(weekSaturday);
+			fromStr = weekSunday.toISOString().split("T")[0];
+			toStr = weekSaturday.toISOString().split("T")[0];
 		} else {
 			fromStr = toStr = todayStr;
 		}
@@ -718,10 +724,9 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		if (cached) { res.json(cached); return; }
 
 		const now = new Date();
-		const fmt = (d: Date) => d.toISOString().split("T")[0];
-		const todayStr = fmt(now);
+		const todayStr = getEasternDateKey(now);
 
-		const in90Days = fmt(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
+		const in90Days = getEasternDateKey(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
 		const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
 			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 		const calendarEntry = calData?.earningsCalendar?.find((e) => e.symbol === symbol) ?? null;
@@ -1163,7 +1168,7 @@ stockRouter.get("/:symbol/key-risk", async (req, res) => {
 	const betaStr = req.query.beta as string | undefined;
 	const peStr = req.query.pe as string | undefined;
 
-	const today = new Date().toISOString().split("T")[0];
+	const today = getEasternDateKey();
 	const cacheKey = `key-risk:v4:${symbol}:${today}`;
 	const cached = await cacheGet<{ risk: string }>(cacheKey);
 	if (cached) { res.json(cached); return; }

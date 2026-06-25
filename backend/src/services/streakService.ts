@@ -1,5 +1,7 @@
 import { adminDb } from "../firebaseAdmin.js";
 import { FieldValue } from "firebase-admin/firestore";
+import { getEasternDateKey } from "@stak/shared";
+import { sanitizeClientDateKey } from "../lib/clientDateKey.js";
 
 // ── Badge definitions ─────────────────────────────────────────────────────────
 export interface BadgeInfo {
@@ -20,8 +22,12 @@ export const BADGES: Record<string, BadgeInfo> = {
 };
 
 // ── ISO week helper (for grace day weekly reset) ──────────────────────────────
+// UTC-explicit throughout (not getFullYear()/getMonth()/getDate(), which read the
+// server PROCESS's own local timezone -- fine on Cloud Run, which defaults to UTC,
+// but not guaranteed in local dev on a non-UTC machine). Callers anchor `date` at
+// noon UTC of the calendar day they mean, so this just needs to not reinterpret it.
 function getISOWeek(date: Date): string {
-	const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+	const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 	const dayNum = d.getUTCDay() || 7;
 	d.setUTCDate(d.getUTCDate() + 4 - dayNum);
 	const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -50,11 +56,17 @@ export interface StreakResult {
 export async function recordActivity(
 	uid: string,
 	activityType: "swipe" | "intel_view" | "brand_tap",
+	clientTodayKey?: unknown,
 ): Promise<StreakResult | null> {
 	try {
 		const userRef = adminDb.collection("users").doc(uid);
-		const today = new Date().toISOString().split("T")[0];
-		const currentWeek = getISOWeek(new Date());
+		// A streak is the user's own daily habit, not a market concept -- trust their
+		// local-time todayKey (frontend/src/lib/utils.ts's getTodayKey) when present and
+		// plausible, same validation swipeLimitService.ts already uses. Falls back to ET
+		// otherwise. Raw UTC previously rolled over hours before any US user's evening
+		// was actually over, which could double-count or skip a streak day.
+		const today = sanitizeClientDateKey(clientTodayKey, getEasternDateKey());
+		const currentWeek = getISOWeek(new Date(today + "T12:00:00Z"));
 
 		return await adminDb.runTransaction(async (tx) => {
 			const snap = await tx.get(userRef);

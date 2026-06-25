@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useBrandsList } from "@/hooks/useBrandsList";
 import { TAG_SCORE_MAX } from "@/lib/constants";
+import { getTodayKey, getYesterdayKey } from "@/lib/utils";
 import {
 	ChevronRight,
 	User,
@@ -65,9 +66,10 @@ function ProfilePage() {
 	const [activeBadge, setActiveBadge] = useState<{ emoji: string; label: string; desc: string; progress: number; progressLabel?: string } | null>(null);
 
 	// Streak — from backend's authoritative tracker
-	// Backend streak writes UTC dates — must compare in UTC to match
-	const todayKey = new Date().toISOString().split("T")[0]!;
-	const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split("T")[0]!;
+	// Backend now stores the user's own local-day key (getTodayKey, sent as todayKey
+	// on each swipe/event) -- compare against the same local-day keys, not UTC.
+	const todayKey = getTodayKey();
+	const yesterdayKey = getYesterdayKey();
 	const streak = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
 		? (account?.streakCount ?? 0) : 0;
 	const totalSwipeCount = account?.totalSwipeCount ?? 0;

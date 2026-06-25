@@ -11,7 +11,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
-import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
+import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
 import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
@@ -515,7 +515,7 @@ function MyStakPage() {
 	});
 
 	const { data: myDailyBrief } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		retry: 0,

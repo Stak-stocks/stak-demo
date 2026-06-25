@@ -1,5 +1,6 @@
 import { adminDb } from "../firebaseAdmin.js";
 import { FieldValue } from "firebase-admin/firestore";
+import { getEasternDateKey } from "@stak/shared";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ function getGeminiKeys(): string[] {
 }
 
 function formatDate(date: Date): string {
-	return date.toISOString().split("T")[0];
+	return getEasternDateKey(date);
 }
 
 async function fetchRecentIPOs(daysBack = 3): Promise<FinnhubIPOEntry[]> {

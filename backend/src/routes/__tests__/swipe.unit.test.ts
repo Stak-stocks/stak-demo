@@ -1,6 +1,6 @@
 import express from "express";
 import request from "supertest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Firestore mocks ──────────────────────────────────────────────────────────
 
@@ -54,14 +54,24 @@ function withDailyState(date: string, count: number, bonusSwipes = 0) {
 }
 
 describe("swipeRouter POST /", () => {
+	// Fixed system time so "today" is deterministic regardless of when the test actually
+	// runs -- the route now resolves its own fallback "today" via getEasternDateKey, not
+	// raw new Date(), so a test relying on the real current moment could itself drift
+	// across the ET/UTC boundary near midnight UTC (early evening US time).
 	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-06-24T18:00:00.000Z")); // 2pm ET
 		vi.clearAllMocks();
 		recordActivityMock.mockResolvedValue(null);
 		updateUserTasteProfileMock.mockResolvedValue(undefined);
 		addMock.mockResolvedValue({ id: "swipe1" });
 	});
 
-	const today = new Date().toISOString().split("T")[0];
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	const today = "2026-06-24";
 
 	it("accepts and records a swipe when under the limit", async () => {
 		withDailyState(today, 3);
@@ -74,7 +84,7 @@ describe("swipeRouter POST /", () => {
 		expect(res.status).toBe(200);
 		expect(res.body).toMatchObject({ success: true, dailySwipeCount: 4, dailySwipeLimit: 20 });
 		expect(addMock).toHaveBeenCalledTimes(1);
-		expect(recordActivityMock).toHaveBeenCalledWith("u1", "swipe");
+		expect(recordActivityMock).toHaveBeenCalledWith("u1", "swipe", today);
 		expect(updateUserTasteProfileMock).toHaveBeenCalledWith("u1", "AAPL", "right_swipe");
 	});
 
@@ -107,6 +117,24 @@ describe("swipeRouter POST /", () => {
 
 	it("rejects at the flat base limit even with bonus swipes accumulated", async () => {
 		withDailyState(today, 20, 5);
+		const app = await buildApp();
+
+		const res = await request(app)
+			.post("/")
+			.send({ brandId: "aapl", direction: "right", todayKey: today });
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ success: false, limitReached: true, dailySwipeCount: 20, dailySwipeLimit: 20 });
+	});
+
+	it("trusts the client's todayKey even once server UTC has already rolled to tomorrow", async () => {
+		// 00:30 UTC the morning after `today` -- already "tomorrow" in UTC, but still
+		// ~8:30pm ET on `today` itself. The client's todayKey (the user's own local day)
+		// is still "today" and should be honored -- this is exactly the scenario that
+		// would have wrongly started a fresh count (and a broken streak) if the server's
+		// own fallback/validation still ran on raw UTC.
+		vi.setSystemTime(new Date("2026-06-25T00:30:00.000Z"));
+		withDailyState(today, 20);
 		const app = await buildApp();
 
 		const res = await request(app)
