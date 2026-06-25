@@ -499,12 +499,14 @@ function MyStakPage() {
 		retry: 1,
 	});
 
-	const upcomingEarningsCount = useMemo(() => {
+	// Counts every entry this week regardless of status (upcoming, beat, miss) -- matches
+	// what EarningsCalendar.tsx's "This Week" tab actually shows (ticker-filtered only,
+	// not status-filtered). Counting "upcoming" only here caused the card to show "0"
+	// once a stock had already reported, while tapping into the calendar still showed it.
+	const earningsThisWeekCount = useMemo(() => {
 		if (!earningsData?.entries) return null;
 		const stakSet = new Set(stakTickers.map((t) => t.toUpperCase()));
-		return earningsData.entries.filter(
-			(e) => e.status === "upcoming" && stakSet.has(e.symbol.toUpperCase()),
-		).length;
+		return earningsData.entries.filter((e) => stakSet.has(e.symbol.toUpperCase())).length;
 	}, [earningsData, stakTickers]);
 
 	const { data: spyData } = useQuery({
@@ -1329,7 +1331,7 @@ function MyStakPage() {
 						<StatCard
 							icon={<CalendarDays size={20} />}
 							iconColor="blue"
-							number={upcomingEarningsCount != null ? String(upcomingEarningsCount) : undefined}
+							number={earningsThisWeekCount != null ? String(earningsThisWeekCount) : undefined}
 							title="earnings"
 							subtitle="this week"
 							onClick={() => setEarningsCalendarOpen(true)}
