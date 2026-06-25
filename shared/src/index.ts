@@ -10,7 +10,7 @@ export type {
 	RecommendationScoreResult,
 } from "./recommendationScoring";
 
-export { marketSessionBucket } from "./marketSession";
+export { marketSessionBucket, getEasternDateKey } from "./marketSession";
 
 export { getMarketDayKey } from "./marketDayKey";
 

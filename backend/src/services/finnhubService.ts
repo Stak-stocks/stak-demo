@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { getEasternDateKey } from "@stak/shared";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -227,7 +228,7 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	const apiKey = process.env.NEWSAPI_KEY;
 	if (!apiKey) return [];
 
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 	const quotedName = encodeURIComponent('"' + companyName + '"');
 	const url = `https://newsapi.org/v2/everything?q=${quotedName}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
@@ -270,7 +271,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 	const apiKey = process.env.NEWSAPI_KEY;
 	if (!apiKey) return [];
 
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 	const q = encodeURIComponent('Iran war oil OR Iran oil sanctions OR Middle East conflict oil OR OPEC crude');
 	const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=10&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
@@ -307,8 +308,8 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	if (cached) return cached;
 
 	const newsSymbol = resolveNewsSymbol(symbol);
-	const today = new Date().toISOString().split("T")[0];
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const today = getEasternDateKey();
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 
 	const res = await finnhubFetch(
 		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,

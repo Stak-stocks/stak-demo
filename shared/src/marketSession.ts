@@ -22,3 +22,16 @@ export function marketSessionBucket(): string {
 		return "close";                      // 4:00 PM ET+
 	} catch { return "x"; }
 }
+
+/**
+ * Returns YYYY-MM-DD for "today" in US Eastern time -- the market's own timezone.
+ * Use this (or frontend/src/lib/utils.ts's getTodayKey for per-user local-day
+ * concepts like streaks/swipe limits) instead of `new Date().toISOString().split("T")[0]`
+ * anywhere a "today" string crosses US market hours: raw UTC rolls over at 7-8pm
+ * US time (more during DST), hours before any US trading day or evening actually
+ * ends, which silently breaks same-day comparisons (earnings status, market
+ * commentary, etc.) for the rest of the US evening.
+ */
+export function getEasternDateKey(now: Date = new Date()): string {
+	return now.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}

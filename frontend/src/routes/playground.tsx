@@ -14,7 +14,10 @@ import {
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
-import { marketSessionBucket, getLocalDateKey } from "@/lib/utils";
+// getTodayKey here is aliased -- @/data/playgroundData also exports a (different,
+// no-9am-offset) getTodayKey already imported above for daily-content resets; this
+// one is specifically the 9am-local-reset version used for streak display.
+import { marketSessionBucket, getLocalDateKey, getTodayKey as getStreakTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
 import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
@@ -298,7 +301,7 @@ function PlaygroundPage() {
 
 	// Daily Brief data (for mood context in the home view)
 	const { data: briefData } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,
@@ -488,9 +491,10 @@ function PlaygroundPage() {
 		? Math.round(((totalXp - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
 		: 100;
 
-	// Backend streak writes UTC — compare in UTC
-	const todayKey2 = new Date().toISOString().split("T")[0]!;
-	const yesterdayKey2 = new Date(Date.now() - 86400000).toISOString().split("T")[0]!;
+	// Backend now stores the user's own local-day key (getTodayKey, sent as todayKey
+	// on each swipe/event) -- compare against the same local-day keys, not UTC.
+	const todayKey2 = getStreakTodayKey();
+	const yesterdayKey2 = getYesterdayKey();
 	const streakCount = (account?.lastStreakDate === todayKey2 || account?.lastStreakDate === yesterdayKey2)
 		? (account?.streakCount ?? 0) : 0;
 

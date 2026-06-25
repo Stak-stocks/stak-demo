@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
+import { getEasternDateKey } from "@stak/shared";
 
 export const analyticsRouter = Router();
 
@@ -65,20 +66,22 @@ analyticsRouter.get("/", async (req: Request, res: Response) => {
 	try {
 		const [excluded, now] = [await getExcludedUids(), new Date()];
 
-		const todayStart = new Date(now);
-		todayStart.setHours(0, 0, 0, 0);
+		// Anchored to ET (not setHours(0,0,0,0), which reads the server process's own
+		// local timezone -- fine on Cloud Run's UTC default, not guaranteed in local dev)
+		// so this lines up with the sessions collection, written via the same ET
+		// convention in me.ts.
+		const todayDate = getEasternDateKey(now);
+		const todayStart = new Date(todayDate + "T00:00:00Z");
 
-		const weekStart = new Date(now);
-		weekStart.setDate(weekStart.getDate() - 7);
-		weekStart.setHours(0, 0, 0, 0);
+		const weekStartRaw = new Date(now);
+		weekStartRaw.setDate(weekStartRaw.getDate() - 7);
+		const weekStartDate = getEasternDateKey(weekStartRaw);
+		const weekStart = new Date(weekStartDate + "T00:00:00Z");
 
-		const monthStart = new Date(now);
-		monthStart.setDate(monthStart.getDate() - 30);
-		monthStart.setHours(0, 0, 0, 0);
-
-		const todayDate = now.toISOString().split("T")[0];
-		const weekStartDate = weekStart.toISOString().split("T")[0];
-		const monthStartDate = monthStart.toISOString().split("T")[0];
+		const monthStartRaw = new Date(now);
+		monthStartRaw.setDate(monthStartRaw.getDate() - 30);
+		const monthStartDate = getEasternDateKey(monthStartRaw);
+		const monthStart = new Date(monthStartDate + "T00:00:00Z");
 
 		// Fetch all data in parallel
 		const [monthSwipeSnap, allSwipeSnap, monthSessionSnap, allSessionSnap] = await Promise.all([

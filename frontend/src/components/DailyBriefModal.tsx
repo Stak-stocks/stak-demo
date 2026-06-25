@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyBrief, type DailyBriefDeck, type FeaturedLesson } from "@/lib/api";
-import { marketSessionBucket } from "@/lib/utils";
+import { marketSessionBucket, getEasternDateKey } from "@/lib/utils";
 import { StakLogo } from "@/components/StakLogo";
 
 
@@ -223,7 +223,7 @@ export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => v
 	const firstName = user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
 
 	const { data: liveData, isLoading: briefLoading } = useQuery({
-		queryKey: ["daily-brief", new Date().toISOString().split("T")[0], marketSessionBucket()],
+		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
 		queryFn: getDailyBrief,
 		staleTime: 30 * 60 * 1000,
 		gcTime: 60 * 60 * 1000,

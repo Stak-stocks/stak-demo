@@ -35,9 +35,9 @@ function formatDate(dateStr: string): string {
 }
 
 function formatHour(hour: string | null | undefined): string {
-	if (hour === "bmo") return "Pre-market";
-	if (hour === "amc") return "After close";
-	return "Market hours";
+	if (hour === "bmo") return "Pre-market ET";
+	if (hour === "amc") return "After close ET";
+	return "Market hours ET";
 }
 
 function formatEps(val: number | null): string {

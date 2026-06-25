@@ -72,7 +72,7 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			...(swipeVelocity != null && { swipeVelocity }),
 		});
 
-		const streakResult = await recordActivity(uid, "swipe");
+		const streakResult = await recordActivity(uid, "swipe", todayKey);
 
 		// Update weighted taste profile (fire-and-forget, never blocks response)
 		if (ticker) {
@@ -97,7 +97,7 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 // non-brand events (tab_view, earnings_calendar_open, news_search, intel_card_view, etc.)
 swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { type, brandId, ticker, categories, params } = req.body;
+		const { type, brandId, ticker, categories, params, todayKey } = req.body;
 		const uid = req.user!.uid;
 
 		if (!type) {
@@ -128,12 +128,12 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 		});
 
 		if (type === "intel_card_view") {
-			recordActivity(uid, "intel_view").catch(() => {});
+			recordActivity(uid, "intel_view", todayKey).catch(() => {});
 		} else if (type === "brand_tap") {
-			recordActivity(uid, "brand_tap").catch(() => {});
+			recordActivity(uid, "brand_tap", todayKey).catch(() => {});
 		} else if (type === "playground_activity") {
 			// Completing any playground activity (lesson, battle, etc.) counts toward streak
-			recordActivity(uid, "swipe").catch(() => {});
+			recordActivity(uid, "swipe", todayKey).catch(() => {});
 		}
 
 		// Update weighted taste profile for brand-specific engagement events

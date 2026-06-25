@@ -2,7 +2,7 @@ import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, getEasternDateKey } from "@stak/shared";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();
@@ -51,14 +51,13 @@ async function getUpcomingEarningsTickers(): Promise<Set<string>> {
 	if (cached) return new Set(cached);
 
 	const now = new Date();
-	const fmt = (d: Date) => d.toISOString().split("T")[0];
-	const fromStr = fmt(now);
-	const toStr = fmt(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+	const todayStr = getEasternDateKey(now);
+	const fromStr = todayStr;
+	const toStr = getEasternDateKey(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
 
 	const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
 		{ earningsCalendar?: { symbol: string; date: string }[] } | null;
 
-	const todayStr = fmt(now);
 	const tickers = (data?.earningsCalendar ?? [])
 		.filter((e) => e.date > todayStr)
 		.map((e) => e.symbol.toUpperCase());

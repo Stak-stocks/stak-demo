@@ -2,6 +2,7 @@ import { Router } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
+import { getEasternDateKey } from "@stak/shared";
 
 export const meRouter = Router();
 
@@ -16,7 +17,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 		const userEmail = (req.user!.email ?? "").toLowerCase();
 		if (userEmail && !excludedEmails.includes(userEmail)) {
-			const today = new Date().toISOString().split("T")[0];
+			const today = getEasternDateKey();
 			adminDb.collection("sessions").doc(`${uid}_${today}`)
 				.set({ uid, date: today })
 				.catch(() => {});

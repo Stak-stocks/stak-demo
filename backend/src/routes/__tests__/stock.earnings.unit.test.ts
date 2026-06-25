@@ -77,6 +77,24 @@ describe("GET /:symbol/earnings", () => {
 		});
 	}
 
+	it("still resolves to today's ET date in the US evening, after UTC has already rolled to tomorrow", async () => {
+		vi.useFakeTimers();
+		// 00:30 UTC the day after TODAY -- already "tomorrow" in UTC, but still ~8:30pm ET
+		// on TODAY itself (EDT is UTC-4 in June). A raw `new Date().toISOString()` based
+		// "today" would wrongly compute TOMORROW here, which is exactly what made a same-day
+		// earnings entry vanish from the calendar hours before the US evening was even over.
+		vi.setSystemTime(new Date("2026-06-25T00:30:00.000Z"));
+		const symbol = "BUGTEST1D";
+		mockFetchSequence(calendarResponse(symbol, TODAY), epsHistoryResponse(2.5, 2.0));
+		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
+
+		const app = await buildApp();
+		const res = await request(app).get(`/${symbol}/earnings`);
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ status: "beat", date: TODAY, hour: "amc" });
+	});
+
 	it("reports earnings scheduled for today as still upcoming when Finnhub has no actual data yet", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date(`${TODAY}T14:00:00.000Z`));

@@ -3,7 +3,7 @@ import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys } from "../services/geminiService.js";
 import { adminDb } from "../firebaseAdmin.js";
-import { TIER_XP, ACTIVITY_TYPES } from "@stak/shared";
+import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
@@ -123,7 +123,7 @@ function parseQuestions(raw: string): unknown[] {
 
 playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMiddleware.js").AuthenticatedRequest, res) => {
 	const uid = req.user!.uid;
-	const rawDayKey = String(req.body?.dayKey ?? new Date().toISOString().split("T")[0]);
+	const rawDayKey = String(req.body?.dayKey ?? getEasternDateKey());
 	const rawTier = Number(req.body?.tier ?? 0);
 	const rawType = String(req.body?.type ?? "");
 	const rawCount = Math.min(Math.max(Number(req.body?.count ?? 3), 1), 10);
