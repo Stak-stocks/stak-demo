@@ -12,19 +12,19 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { brands as allBrands } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import type { BrandIdentity } from "@stak/shared";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
 });
 
-const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) => {
-	const brand = allBrands.find((b) => b.id === id);
-	return brand
-		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
-		: null;
-}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
+type SwipeCard = { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string };
+
+function toSwipeCard(brand: BrandIdentity): SwipeCard {
+	return { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker };
+}
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
@@ -325,6 +325,18 @@ function SwipeStep({
 	onSwipeRight: (id: string) => void;
 	onNext: () => void;
 }) {
+	const { data: allBrandsList } = useBrandsList();
+	const brandsLoading = allBrandsList === undefined;
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
+
+	const SWIPE_BRANDS = useMemo(
+		() => ONBOARDING_SWIPE_BRAND_IDS
+			.map((id) => allBrands.find((b) => b.id === id))
+			.filter(Boolean)
+			.map((b) => toSwipeCard(b!)),
+		[allBrands],
+	);
+
 	// Derive swipe brands from user's interest selections
 	// Round-robin across categories so each interest gets equal representation
 	const swipeBrands = useMemo(() => {
@@ -350,14 +362,12 @@ function SwipeStep({
 
 		const mapped = [...picked].map((id) => {
 			const brand = allBrands.find((b) => b.id === id);
-			return brand
-				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
-				: null;
-		}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
+			return brand ? toSwipeCard(brand) : null;
+		}).filter(Boolean) as SwipeCard[];
 
 		// Pad with defaults if fewer than 4 brands
 		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
-	}, [selectedInterests]);
+	}, [selectedInterests, allBrands, SWIPE_BRANDS]);
 
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -367,7 +377,10 @@ function SwipeStep({
 	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const isProcessingSwipe = useRef(false);
 
-	const done = currentIndex >= swipeBrands.length;
+	// brandsLoading guards against showing the "done" screen before the catalog
+	// has even loaded -- swipeBrands is empty during that window, which would
+	// otherwise make this true immediately, before a single card is shown.
+	const done = !brandsLoading && currentIndex >= swipeBrands.length;
 
 	const FLICK_VELOCITY = 0.4;      // px/ms
 	const DISTANCE_THRESHOLD = 60;   // px
@@ -461,7 +474,11 @@ function SwipeStep({
 			</div>
 
 			<div className="relative w-full h-[320px]">
-				{done ? (
+				{brandsLoading ? (
+					<div className="flex items-center justify-center h-full">
+						<div className="w-64 h-72 rounded-2xl bg-foreground/5 animate-pulse" />
+					</div>
+				) : done ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="text-center space-y-3">
 							<p className="text-xl font-bold text-foreground">Nice picks!</p>
@@ -564,7 +581,7 @@ function SwipeStep({
 
 
 			{/* Card counter */}
-			{!done && (
+			{!brandsLoading && !done && (
 				<div className="text-center text-sm text-slate-500">
 					{currentIndex + 1} / {swipeBrands.length}
 				</div>
@@ -687,6 +704,8 @@ function BuildingStep({
 }) {
 	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { refreshClaims } = useAuth();
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -695,18 +714,31 @@ function BuildingStep({
 		const unique = [...new Set(combined)];
 		// Only keep brands that exist in our data
 		return unique.filter((id) => allBrands.some((b) => b.id === id)).slice(0, 4);
-	}, [selectedInterests, swipedBrandIds]);
+	}, [selectedInterests, swipedBrandIds, allBrands]);
 
 	// Fallback if user somehow has no selections
-	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).flatMap((id) => {
-		const brand = allBrands.find((b) => b.id === id);
-		if (!brand) return [];
-		return [{ id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) }];
-	});
+	const SHUFFLE_BRANDS = useMemo(
+		() => (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).flatMap((id) => {
+			const brand = allBrands.find((b) => b.id === id);
+			if (!brand) return [];
+			return [{ id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) }];
+		}),
+		[userBrandIds, allBrands],
+	);
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
+
+	// SwipeStep (earlier in the flow) already fetches the same catalog, so this is
+	// normally already cached by the time BuildingStep mounts -- this just guards
+	// against the rare case where it's still in flight when order's lazy
+	// initializer above ran with an empty SHUFFLE_BRANDS.
+	useEffect(() => {
+		if (order.length === 0 && SHUFFLE_BRANDS.length > 0) {
+			setOrder(SHUFFLE_BRANDS.map((_, i) => i));
+		}
+	}, [SHUFFLE_BRANDS, order.length]);
 
 	useEffect(() => {
 		// Clear any cached deck order and passed brands so Discover starts fresh

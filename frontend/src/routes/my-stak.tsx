@@ -3,13 +3,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { BrandProfile } from "@/data/brands";
-import { brands } from "@/data/brands";
+import type { BrandProfile, BrandSummary } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
+import { useBrandDetail } from "@/hooks/useBrandDetail";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmark, ShoppingBag, Shield, CalendarDays, FileText, BarChart3, DollarSign, Building2, Target, Plus, ArrowLeftRight } from "lucide-react";
 
 import { toast } from "sonner";
-import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef } from "@/lib/utils";
 import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
@@ -31,7 +32,7 @@ const CATEGORY_META: Record<string, string> = {
 };
 
 function WatchRow({ brand, onRemove, onClick }: {
-	brand: BrandProfile;
+	brand: BrandSummary;
 	onRemove: (e: React.MouseEvent) => void;
 	onClick: () => void;
 }) {
@@ -95,9 +96,9 @@ function WatchRow({ brand, onRemove, onClick }: {
 }
 
 function StakWatchList({ brands, onRemove, onClick }: {
-	brands: BrandProfile[];
-	onRemove: (e: React.MouseEvent, brand: BrandProfile) => void;
-	onClick: (brand: BrandProfile) => void;
+	brands: BrandSummary[];
+	onRemove: (e: React.MouseEvent, brand: BrandSummary) => void;
+	onClick: (brand: BrandSummary) => void;
 }) {
 	const [showAll, setShowAll] = useState(false);
 	const visible = showAll ? brands : brands.slice(0, WATCH_LIST_LIMIT);
@@ -128,7 +129,7 @@ function StakWatchList({ brands, onRemove, onClick }: {
 	);
 }
 
-function deriveRiskLabel(stakBrands: BrandProfile[]): { title: string; subtitle: string } {
+function deriveRiskLabel(stakBrands: BrandSummary[]): { title: string; subtitle: string } {
 	const betas = stakBrands
 		.map((b) => parseFloat(b.financials?.beta?.value ?? ""))
 		.filter((v) => !isNaN(v));
@@ -383,7 +384,7 @@ function fmtMetric(key: MetricKey, val: number): string {
 	return `$${(val / 1e6).toFixed(0)}M`;
 }
 
-function computeMedianMetric(peers: BrandProfile[], key: MetricKey): string {
+function computeMedianMetric(peers: BrandSummary[], key: MetricKey): string {
 	const nums = peers
 		.map((b) => parseFinancialRaw(b.financials[key]?.value))
 		.filter((v): v is number => v !== null);
@@ -406,8 +407,16 @@ function MyStakPage() {
 	const [earningsCalendarOpen, setEarningsCalendarOpen] = useState(false);
 	// Reset on unmount so navigating away and back doesn't re-open the calendar
 	useEffect(() => () => setEarningsCalendarOpen(false), []);
-	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
-	const [comparePeers, setComparePeers] = useState<[BrandProfile | null, BrandProfile | null]>([null, null]);
+	// Lightweight summary of the whole catalog (GET /api/brands) -- everything here
+	// needs only summary-level fields (ticker, name, financials.*.value,
+	// interestCategories) except the one selected/detail-sheet brand, which fetches
+	// its own full profile separately below.
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
+
+	const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+	const { data: selectedBrand, isError: selectedBrandError } = useBrandDetail(selectedBrandId);
+	const [comparePeers, setComparePeers] = useState<[BrandSummary | null, BrandSummary | null]>([null, null]);
 	const [pickingSlot, setPickingSlot] = useState<0 | 1 | null>(null);
 	const [numbersOpen, setNumbersOpen] = useState(false);
 	const [analystOpen, setAnalystOpen] = useState(false);
@@ -419,11 +428,26 @@ function MyStakPage() {
 
 	// Derive stak from Firestore account (real-time, cross-device)
 	const swipedBrands = useMemo(() => {
-		const brandMap = new Map(brands.map((b) => [b.id, b]));
+		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
 		return (account?.stakBrandIds ?? [])
 			.map((id) => brandMap.get(id))
-			.filter(Boolean) as BrandProfile[];
-	}, [account?.stakBrandIds]);
+			.filter(Boolean) as BrandSummary[];
+	}, [account?.stakBrandIds, allBrands]);
+
+	// Warm useBrandDetail's cache for every staked brand in the background, so
+	// tapping one is instant instead of waiting on a fetch. prefetchQuery skips
+	// brands already cached and fresh, so this is a no-op for repeat visits --
+	// only genuinely new-to-this-session brands actually hit the network. Stak
+	// is capped at STAK_CAPACITY (30), so this is always a bounded batch.
+	useEffect(() => {
+		swipedBrands.forEach((b) => {
+			queryClient.prefetchQuery({
+				queryKey: ["brand-detail", b.id],
+				queryFn: () => getBrandDetail(b.id),
+				staleTime: 24 * 60 * 60 * 1000,
+			});
+		});
+	}, [swipedBrands, queryClient]);
 
 	const { data: stockData } = useQuery({
 		queryKey: ["stock", selectedBrand?.ticker],
@@ -529,14 +553,15 @@ function MyStakPage() {
 		return best as { ticker: string; changePercent: number } | null;
 	}, [swipedBrands, stakBrandQueries]);
 
-	// Restore selected brand overlay after page reload
+	// Restore selected brand overlay after page reload -- just needs the id to be a
+	// real one of the user's own staked brands; useBrandDetail fetches its full
+	// profile once selectedBrandId is set.
 	useEffect(() => {
 		if (hasRestoredBrand.current || swipedBrands.length === 0) return;
 		hasRestoredBrand.current = true;
 		const savedId = sessionStorage.getItem("selectedBrandId");
 		if (!savedId) return;
-		const brand = swipedBrands.find((b) => b.id === savedId);
-		if (brand) setSelectedBrand(brand);
+		if (swipedBrands.some((b) => b.id === savedId)) setSelectedBrandId(savedId);
 	}, [swipedBrands]);
 
 	// Lock background scroll when overlay is open
@@ -557,32 +582,32 @@ function MyStakPage() {
 		setCompareOpen(false);
 	}, [selectedBrand?.id]);
 
-	const handleBrandClick = (brand: BrandProfile) => {
+	const handleBrandClick = (brand: BrandSummary) => {
 		sessionStorage.setItem("selectedBrandId", brand.id);
-		setSelectedBrand(brand);
+		setSelectedBrandId(brand.id);
 		logEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		trackEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker }).catch(() => {});
 	};
 
 	const handleCloseDetail = () => {
 		sessionStorage.removeItem("selectedBrandId");
-		setSelectedBrand(null);
+		setSelectedBrandId(null);
 	};
 
 	// Seed comparison peers from same-category brands whenever the overlay opens
 	useEffect(() => {
 		if (!selectedBrand) return;
-		const defaults = brands
+		const defaults = allBrands
 			.filter((b) => b.interestCategories?.[0] === selectedBrand.interestCategories?.[0] && b.id !== selectedBrand.id)
 			.slice(0, 2);
 		setComparePeers([defaults[0] ?? null, defaults[1] ?? null]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedBrand?.id]);
 
-	const handlePickPeer = (brand: BrandProfile) => {
+	const handlePickPeer = (brand: BrandSummary) => {
 		if (pickingSlot === null) return;
 		setComparePeers((prev) => {
-			const next: [BrandProfile | null, BrandProfile | null] = [prev[0], prev[1]];
+			const next: [BrandSummary | null, BrandSummary | null] = [prev[0], prev[1]];
 			next[pickingSlot] = brand;
 			return next;
 		});
@@ -596,7 +621,7 @@ function MyStakPage() {
 		});
 	};
 
-	const handleRemoveFromStak = (e: React.MouseEvent, brand: BrandProfile) => {
+	const handleRemoveFromStak = (e: React.MouseEvent, brand: BrandSummary) => {
 		e.stopPropagation();
 		const updatedIds = (account?.stakBrandIds ?? []).filter((id) => id !== brand.id);
 		updateStak(updatedIds).catch(() => {});
@@ -620,14 +645,14 @@ function MyStakPage() {
 	const sectorAvg = useMemo(() => {
 		if (!selectedBrand) return { peRatio: "—", revenueGrowth: "—", profitMargin: "—", marketCap: "—" } as Record<MetricKey, string>;
 		const category = selectedBrand.interestCategories?.[0];
-		const peers = brands.filter((b) => b.id !== selectedBrand.id && b.interestCategories?.[0] === category);
+		const peers = allBrands.filter((b) => b.id !== selectedBrand.id && b.interestCategories?.[0] === category);
 		return {
 			peRatio: computeMedianMetric(peers, "peRatio"),
 			revenueGrowth: computeMedianMetric(peers, "revenueGrowth"),
 			profitMargin: computeMedianMetric(peers, "profitMargin"),
 			marketCap: computeMedianMetric(peers, "marketCap"),
 		} as Record<MetricKey, string>;
-	}, [selectedBrand?.id]);
+	}, [selectedBrand?.id, allBrands]);
 
 	// Brand Detail Overlay – full-screen Phase 6 design
 	const liveMetrics = stockData?.metrics as Record<string, string> | undefined;
@@ -1203,7 +1228,7 @@ function MyStakPage() {
 						<h2 className="text-[17px] font-bold">Choose Brand</h2>
 					</div>
 					<div className="flex-1 overflow-y-auto px-[12px] py-[6px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-						{brands
+						{allBrands
 							.filter((b) => b.id !== selectedBrand.id && b.id !== comparePeers[pickingSlot === 0 ? 1 : 0]?.id)
 							.map((b) => (
 								<button
@@ -1227,6 +1252,39 @@ function MyStakPage() {
 						</div>
 				</div>
 			)}
+		</div>,
+		document.body,
+	);
+
+	// Shown while selectedBrandId is set but useBrandDetail's full-profile fetch
+	// hasn't resolved yet (or has failed) -- without this, tapping a brand looks
+	// like the tap did nothing until the fetch completes, with no way to recover
+	// if it 404s (e.g. a staked brand removed from the catalog).
+	const selectedBrandSummary = swipedBrands.find((b) => b.id === selectedBrandId) ?? null;
+	const brandDetailLoadingOverlay = selectedBrandId && !selectedBrand && createPortal(
+		<div className="fixed inset-0 z-[60] flex flex-col bg-background">
+			<header className="flex items-center px-[20px] pt-[8px] pb-[14px]">
+				<button
+					type="button"
+					onClick={handleCloseDetail}
+					className="grid h-[36px] w-[36px] place-items-center rounded-full bg-foreground/[0.07] text-foreground/80 active:bg-foreground/[0.12] transition-colors"
+				>
+					<ChevronLeft size={22} />
+				</button>
+			</header>
+			<div className="flex flex-1 flex-col items-center justify-center gap-[16px] px-[24px] pb-[80px] text-center">
+				{selectedBrandError ? (
+					<>
+						<p className="text-[16px] font-bold text-foreground">Couldn't load {selectedBrandSummary?.name ?? "this stock"}</p>
+						<p className="text-[13px] dark:text-slate-400 text-slate-500">Check your connection and try again.</p>
+					</>
+				) : (
+					<>
+						{selectedBrandSummary && <BrandLogo brand={selectedBrandSummary} className="w-[56px] h-[56px] rounded-full" />}
+						<div className="h-[14px] w-[140px] rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+					</>
+				)}
+			</div>
 		</div>,
 		document.body,
 	);
@@ -1342,8 +1400,9 @@ function MyStakPage() {
 				</div>
 			</button>
 
-			{accountLoading ? (
-				/* Loading skeleton */
+			{accountLoading || allBrandsList === undefined ? (
+				/* Loading skeleton -- also covers the catalog still loading, so a user
+				   with a real Stak doesn't briefly see the "empty" state below */
 				<div className="px-[18px] pt-[18px] pb-6 space-y-[8px]">
 					{[...Array(4)].map((_, i) => (
 						<div key={i} className="flex items-center gap-[12px] rounded-[9px] px-[5px] py-[8px]">
@@ -1386,6 +1445,7 @@ function MyStakPage() {
 			)}
 
 			{brandDetailOverlay}
+			{brandDetailLoadingOverlay}
 
 			{/* Hidden earnings calendar — opened by the earnings stat card */}
 			<div className="hidden">

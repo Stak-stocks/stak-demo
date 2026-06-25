@@ -1,4 +1,25 @@
-export type WeightedLearningTag = { tag: string; weight: number; savePoints: number; learnMorePoints: number; passPoints: number; removePoints: number };
+// Single source of truth for per-ticker recommendation tags. Previously duplicated
+// byte-for-byte between frontend/src/data/stockTags.ts and backend/src/data/stockTags.ts;
+// both deleted once every consumer here was repointed to this file.
+//
+// CLOSED-VOCABULARY CONTRACT for anything that adds a new entry (by hand or via the
+// brand-generation tool): `learningTags[].tag` should be chosen from the existing keys
+// of `TAG_TO_DISPLAY_BUCKETS` (shared/src/displayCategories.ts) wherever the company
+// genuinely fits one. A tag NOT in that map doesn't break anything -- it just silently
+// gets zero credit toward any of the 5 profile-page display buckets, a soft miss, not a
+// hard error. Six tags are deliberately left out of that map on purpose (etf/index/
+// diversified/broad_market for index funds; cyclical/healthcare because they're too broad
+// to bucket precisely) -- see that file's header comment before assuming an unmapped tag
+// is a bug. `primaryCategory` similarly doesn't need to match a fixed list to function
+// (recommendationScoring.ts's diversity-penalty logic just compares it for equality), but
+// matching one of THEME_TAG_MAP's existing `categories` entries (shared/src/
+// recommendationScoring.ts) is what makes a stock eligible for daily-brief theme-boost
+// correlation -- also a soft miss if it doesn't, not a hard requirement.
+//
+// savePoints/learnMorePoints/passPoints/removePoints used to be stored here too,
+// but they're 100% derived from weight via ACTION_POINTS below (weight * ACTION_POINTS.save,
+// etc) and nothing ever read the pre-computed versions -- compute at point of use instead.
+export type WeightedLearningTag = { tag: string; weight: number };
 
 export type StakStockTagConfig = { ticker: string; sourceSection: string; primaryCategory: string; displayTags: string[]; learningTags: WeightedLearningTag[] };
 
@@ -17,42 +38,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "electric_vehicles",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -70,42 +71,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "hardware",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "services",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -123,42 +104,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -176,34 +137,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "digital_media",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -221,42 +166,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -274,34 +199,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -319,34 +228,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -364,42 +257,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -417,34 +290,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -462,42 +319,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -515,42 +352,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "crypto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "trading_platform",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -568,42 +385,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "mega_cap",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -621,42 +418,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "mega_cap",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -674,42 +451,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -727,42 +484,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -780,34 +517,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -825,42 +546,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -878,34 +579,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "etf",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "index",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "diversified",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "broad_market",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -923,34 +608,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "etf",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "index",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "diversified",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "broad_market",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -968,34 +637,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1013,42 +666,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1066,42 +699,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1119,42 +732,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1172,42 +765,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1225,42 +798,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1278,42 +831,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1331,42 +864,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "chip_equipment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai_supply_chain",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -1384,42 +897,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "clean_energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "solar",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "policy_linked",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -1437,42 +930,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "clean_energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "solar",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "policy_linked",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -1490,42 +963,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "clean_energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "solar",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "policy_linked",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -1543,42 +996,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "clean_energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "solar",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "policy_linked",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -1596,34 +1029,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1641,34 +1058,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1686,34 +1087,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_spending",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "network_effects",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1731,34 +1116,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_spending",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "network_effects",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1776,34 +1145,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1821,34 +1174,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1866,34 +1203,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1911,34 +1232,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -1956,42 +1261,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2009,42 +1294,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2062,42 +1327,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2115,34 +1360,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2160,34 +1389,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2205,34 +1418,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2250,42 +1447,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "home_retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "housing",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2303,42 +1480,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "home_retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "housing",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2356,34 +1513,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2401,42 +1542,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2454,42 +1575,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2507,42 +1608,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2560,34 +1641,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2605,34 +1670,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2650,34 +1699,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2695,34 +1728,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "managed_care",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -2740,50 +1757,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2801,50 +1794,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2862,50 +1831,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2923,50 +1868,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -2984,42 +1905,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "chip_equipment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai_supply_chain",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -3037,42 +1938,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3090,42 +1971,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3143,50 +2004,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "data_cloud",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "analytics",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3204,50 +2041,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "data_cloud",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "analytics",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3265,50 +2078,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "data_cloud",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "analytics",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3326,50 +2115,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3387,50 +2152,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3448,50 +2189,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3509,50 +2226,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "automation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3570,34 +2263,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3615,34 +2292,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3660,34 +2321,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3705,34 +2350,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3750,34 +2379,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3795,34 +2408,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3840,34 +2437,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -3885,34 +2466,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -3930,34 +2495,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -3975,34 +2524,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4020,34 +2553,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4065,34 +2582,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4110,34 +2611,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4155,34 +2640,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -4200,34 +2669,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4245,34 +2698,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4290,34 +2727,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "private_equity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "alternative_assets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4335,34 +2756,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "private_equity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "alternative_assets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4380,34 +2785,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "private_equity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "alternative_assets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4425,34 +2814,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4470,34 +2843,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4515,34 +2872,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4560,34 +2901,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4605,34 +2930,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4650,34 +2959,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4695,34 +2988,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4740,34 +3017,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4785,34 +3046,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_spending",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "network_effects",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4830,34 +3075,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_spending",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "network_effects",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4875,34 +3104,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_spending",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "network_effects",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -4920,34 +3133,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -4965,34 +3162,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -5010,34 +3191,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -5055,34 +3220,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -5100,34 +3249,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -5145,34 +3278,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -5190,34 +3307,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -5235,34 +3336,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5280,34 +3365,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5325,34 +3394,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5370,34 +3423,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5415,34 +3452,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5460,34 +3481,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5505,34 +3510,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5550,34 +3539,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5595,34 +3568,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5640,34 +3597,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5685,34 +3626,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5730,34 +3655,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5775,34 +3684,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -5820,34 +3713,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -5865,34 +3742,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5910,34 +3771,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -5955,34 +3800,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "asset_management",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6000,34 +3829,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -6045,34 +3858,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -6090,34 +3887,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -6135,34 +3916,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "financial_data",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -6180,34 +3945,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "private_equity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "alternative_assets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6225,34 +3974,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6270,34 +4003,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "capital_markets",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "markets",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "asset_light",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -6315,34 +4032,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6360,34 +4061,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6405,34 +4090,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6450,34 +4119,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6495,34 +4148,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "financials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "banking",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "interest_rates",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6540,50 +4177,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6601,50 +4214,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6662,34 +4251,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6707,34 +4280,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6752,50 +4309,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6813,50 +4346,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6874,50 +4383,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6935,50 +4420,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -6996,50 +4457,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7057,50 +4494,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7118,50 +4531,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7179,50 +4568,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7240,50 +4605,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cybersecurity",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7301,50 +4642,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7362,50 +4679,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "automation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7423,50 +4716,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7484,42 +4753,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7537,42 +4786,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7590,42 +4819,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7643,42 +4852,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7696,34 +4885,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7741,42 +4914,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "hardware",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "services",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7794,34 +4947,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7839,34 +4976,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7884,34 +5005,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7929,34 +5034,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "digital_media",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -7974,42 +5063,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8027,42 +5096,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8080,42 +5129,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8133,42 +5162,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8186,42 +5195,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8239,42 +5228,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8292,34 +5261,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8337,34 +5290,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8382,34 +5319,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8427,34 +5348,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8472,34 +5377,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "digital_media",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8517,34 +5406,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8562,34 +5435,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8607,34 +5464,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "payments",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_finance",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8652,42 +5493,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "data_center",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8705,42 +5526,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "chip_equipment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai_supply_chain",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -8758,34 +5559,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8803,34 +5588,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "biotech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8848,34 +5617,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8893,34 +5646,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8938,34 +5675,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -8983,34 +5704,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9028,34 +5733,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9073,34 +5762,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9118,34 +5791,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "biotech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9163,34 +5820,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "biotech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9208,34 +5849,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "biotech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9253,34 +5878,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9298,34 +5907,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9343,34 +5936,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9388,34 +5965,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9433,34 +5994,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "managed_care",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9478,34 +6023,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "managed_care",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9523,34 +6052,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "insurance",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "managed_care",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9568,42 +6081,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_health",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9621,34 +6114,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9666,34 +6143,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "medical_devices",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -9711,34 +6172,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "healthcare",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "pharma",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "drug_pipeline",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9756,34 +6201,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9801,34 +6230,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9846,34 +6259,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9891,42 +6288,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "industrial",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9944,42 +6321,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "industrial",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -9997,42 +6354,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "electric_vehicles",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10050,34 +6387,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10095,34 +6416,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "apparel_beauty",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10140,34 +6445,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10185,34 +6474,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10230,34 +6503,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10275,34 +6532,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10320,34 +6561,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10365,34 +6590,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10410,34 +6619,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10455,34 +6648,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10500,42 +6677,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10553,42 +6710,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10606,42 +6743,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "mobility",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "gig_economy",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10659,34 +6776,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10704,34 +6805,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10749,34 +6834,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10794,34 +6863,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10839,34 +6892,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10884,34 +6921,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10929,34 +6950,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -10974,34 +6979,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11019,34 +7008,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11064,34 +7037,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11109,34 +7066,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "energy",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "oil_gas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11154,34 +7095,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11199,34 +7124,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11244,34 +7153,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11289,34 +7182,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11334,34 +7211,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11379,34 +7240,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11424,34 +7269,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11469,34 +7298,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11514,34 +7327,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11559,34 +7356,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "aerospace_defense",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "government_contracts",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11604,34 +7385,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "infrastructure",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -11649,34 +7414,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "transportation",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "logistics",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11694,34 +7443,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "transportation",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "logistics",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11739,34 +7472,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "transportation",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "logistics",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11784,34 +7501,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "transportation",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "logistics",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "industrials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11829,34 +7530,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "airline",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11874,34 +7559,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "airline",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11919,34 +7588,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "airline",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -11964,34 +7617,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "airline",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -12009,34 +7646,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "telecom",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_service",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -12054,34 +7675,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "telecom",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_service",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -12099,34 +7704,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "telecom",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_service",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -12144,34 +7733,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "utilities",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12189,34 +7762,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "utilities",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12234,34 +7791,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "utilities",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12279,34 +7820,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "utilities",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12324,34 +7849,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "utilities",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12369,42 +7878,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12422,42 +7911,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12475,42 +7944,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12528,42 +7977,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12581,42 +8010,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12634,42 +8043,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "real_estate",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "reit",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "interest_rate_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12687,42 +8076,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -12740,34 +8109,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -12785,34 +8138,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -12830,34 +8167,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "digital_media",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12875,34 +8196,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "digital_media",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12920,42 +8225,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "adtech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -12973,42 +8258,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -13026,42 +8291,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "crypto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "trading_platform",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13079,42 +8324,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "crypto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "trading_platform",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13132,42 +8357,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "crypto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "trading_platform",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13185,42 +8390,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "crypto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "fintech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "trading_platform",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13238,42 +8423,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13291,42 +8456,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13344,42 +8489,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13397,42 +8522,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13450,42 +8555,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13503,42 +8588,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13556,42 +8621,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13609,42 +8654,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13662,34 +8687,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "materials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "metals_mining",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "inflation_hedge",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -13707,34 +8716,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "materials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "metals_mining",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "inflation_hedge",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -13752,34 +8745,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "materials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "metals_mining",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "inflation_hedge",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -13797,34 +8774,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "materials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "metals_mining",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "inflation_hedge",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -13842,34 +8803,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "materials",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "metals_mining",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "commodity_sensitive",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "inflation_hedge",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -13887,50 +8832,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -13948,50 +8869,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14009,50 +8906,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14070,50 +8943,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14131,50 +8980,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "cloud",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "saas",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "recurring_revenue",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14192,34 +9017,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14237,42 +9046,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "hardware",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "services",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14290,42 +9079,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "adtech",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14343,34 +9112,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14388,42 +9141,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_platform",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "social_media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "digital_ads",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14441,34 +9174,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14486,34 +9203,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14531,34 +9232,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14576,34 +9261,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "ecommerce",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "marketplace",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14621,42 +9290,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "industrial",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14674,42 +9323,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -14727,42 +9356,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "defensive",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "dividend_income",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14780,34 +9389,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14825,34 +9418,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "meme_stock",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "volatile",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14870,34 +9447,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "meme_stock",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "volatile",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14915,42 +9476,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "electric_vehicles",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -14968,34 +9509,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "retail",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15013,42 +9538,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -15066,42 +9571,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "electric_vehicles",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "auto",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15119,42 +9604,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "streaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "subscription",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "media",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -15172,34 +9637,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15217,34 +9666,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15262,34 +9695,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15307,34 +9724,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15352,34 +9753,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15397,34 +9782,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15442,34 +9811,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "restaurant",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15487,42 +9840,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15540,42 +9873,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15593,34 +9906,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15638,34 +9935,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -15683,42 +9964,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "semiconductor",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "chip_equipment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai_supply_chain",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "cyclical",
         "weight": 0.5,
-        "savePoints": 2.5,
-        "learnMorePoints": 1.5,
-        "passPoints": -0.5,
-        "removePoints": -2.5
       }
     ]
   },
@@ -15736,42 +9997,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15789,42 +10030,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15842,42 +10063,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15895,42 +10096,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "space",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "air_mobility",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "speculative",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "innovation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -15948,34 +10129,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -15993,34 +10158,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -16038,34 +10187,18 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "casino_gaming",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "travel",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "entertainment",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       }
     ]
   },
@@ -16083,42 +10216,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -16136,42 +10249,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -16189,42 +10282,22 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "consumer_brand",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "beverage",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "consumer_staples",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "everyday_spending",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "familiar_brand",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   },
@@ -16242,50 +10315,26 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
       {
         "tag": "technology",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "automation",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       },
       {
         "tag": "ai",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "enterprise_software",
         "weight": 1.0,
-        "savePoints": 5.0,
-        "learnMorePoints": 3.0,
-        "passPoints": -1.0,
-        "removePoints": -5.0
       },
       {
         "tag": "high_growth",
         "weight": 0.75,
-        "savePoints": 3.75,
-        "learnMorePoints": 2.25,
-        "passPoints": -0.75,
-        "removePoints": -3.75
       }
     ]
   }

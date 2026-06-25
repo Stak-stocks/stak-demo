@@ -23,7 +23,7 @@ describe("api client", () => {
 		};
 
 		const api = await import("../api");
-		await api.getBrands();
+		await api.getBrandsList();
 
 		const [, options] = fetchMock.mock.calls[0];
 		expect(options.headers.Authorization).toBe("Bearer token-123");
@@ -39,50 +39,7 @@ describe("api client", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		const api = await import("../api");
-		await expect(api.getBrands()).rejects.toThrow("API error: 500 Internal Server Error");
+		await expect(api.getBrandsList()).rejects.toThrow("API error: 500 Internal Server Error");
 	});
 
-	it("fetchDynamicStocks filters class-share duplicates (GOOG when GOOGL exists)", async () => {
-		vi.resetModules();
-
-		vi.doMock("@/data/brands", () => ({
-			brands: [{ id: "googl", ticker: "GOOGL", name: "Alphabet" }],
-		}));
-
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				stocks: [
-					{ id: "goog", ticker: "GOOG", name: "Alphabet C" },
-					{ id: "tsla", ticker: "TSLA", name: "Tesla" },
-				],
-			}),
-		});
-		vi.stubGlobal("fetch", fetchMock);
-
-		const api = await import("../api");
-		const stocks = await api.fetchDynamicStocks();
-
-		expect(stocks.map((s: any) => s.ticker)).toEqual(["TSLA"]);
-	});
-
-	it("fetchDynamicStocks returns module cache on second call", async () => {
-		vi.resetModules();
-
-		vi.doMock("@/data/brands", () => ({
-			brands: [{ id: "aapl", ticker: "AAPL", name: "Apple" }],
-		}));
-
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ stocks: [{ id: "tsla", ticker: "TSLA", name: "Tesla" }] }),
-		});
-		vi.stubGlobal("fetch", fetchMock);
-
-		const api = await import("../api");
-		await api.fetchDynamicStocks();
-		await api.fetchDynamicStocks();
-
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-	});
 });

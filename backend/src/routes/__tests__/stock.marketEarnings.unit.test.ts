@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getConsensusEarningsDateMock = vi.fn();
 const getConsensusEarningsResultMock = vi.fn();
 const getEarningsBeatMissFromWebMock = vi.fn();
+const hasSameDayEarningsArticleMock = vi.fn();
 
 vi.mock("../../services/earningsConsensus.js", () => ({
 	getConsensusEarningsDate: getConsensusEarningsDateMock,
@@ -12,6 +13,7 @@ vi.mock("../../services/earningsConsensus.js", () => ({
 
 vi.mock("../../services/earningsResultConsensus.js", () => ({
 	getConsensusEarningsResult: getConsensusEarningsResultMock,
+	hasSameDayEarningsArticle: hasSameDayEarningsArticleMock,
 }));
 
 vi.mock("../../services/geminiService.js", () => ({
@@ -47,6 +49,7 @@ describe("GET /market-earnings", () => {
 			sources: { finnhub: null, fmp: null, yahoo: null, gemini: null },
 		});
 		getEarningsBeatMissFromWebMock.mockResolvedValue({ result: "none", date: null });
+		hasSameDayEarningsArticleMock.mockResolvedValue(false);
 	});
 
 	afterEach(() => {
@@ -62,6 +65,24 @@ describe("GET /market-earnings", () => {
 			return { ok: true, status: 200, json: async () => body };
 		});
 	}
+
+	it("tracks a ticker outside the old hardcoded ~80-ticker list now that MARKET_TICKERS derives from the full shared brand catalog", async () => {
+		// ELF (e.l.f. Beauty) was never in the old hand-maintained MARKET_TICKERS map,
+		// but it is a real brand in the shared catalog -- confirms the bulk calendar now
+		// tracks everything in @stak/shared, not just the old curated ~80.
+		const futureDate = "2026-07-30";
+		mockFetchSequence({
+			earningsCalendar: [{ symbol: "ELF", date: futureDate, hour: "amc", epsActual: null, epsEstimate: 0.5, revenueActual: null, revenueEstimate: null }],
+		});
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries).toEqual([
+			expect.objectContaining({ symbol: "ELF", date: futureDate, status: "upcoming" }),
+		]);
+	});
 
 	it("reports a clearly future calendar entry as upcoming without calling the resolver's consensus/Gemini checks", async () => {
 		const futureDate = "2026-07-30";

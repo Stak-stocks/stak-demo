@@ -1,14 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { X, Search, Clock, Trash2 } from "lucide-react";
-import { brands, type BrandProfile } from "@/data/brands";
+import type { BrandSummary } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 
 const MAX_RESULTS = 20;
 
-const searchIndex = brands.map((b) => ({
-	brand: b,
-	nameLower: b.name.toLowerCase(),
-	tickerLower: b.ticker.toLowerCase(),
-}));
 import { StockCard } from "./StockCard";
 import { BrandContextModal } from "./BrandContextModal";
 import { useAuth } from "@/context/AuthContext";
@@ -17,18 +13,31 @@ import { useAccount } from "@/context/AccountContext";
 interface SearchViewProps {
 	open: boolean;
 	onClose: () => void;
-	onSwipeRight?: (brand: BrandProfile) => void;
+	onSwipeRight?: (brand: BrandSummary) => void;
 }
 
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	const { user } = useAuth();
 	const { account, addSearchHistory, removeSearchHistoryEntry, clearSearchHistory } = useAccount();
+	const { data: allBrands } = useBrandsList();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [debouncedQuery, setDebouncedQuery] = useState("");
-	const [results, setResults] = useState<BrandProfile[]>([]);
-	const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
+	const [results, setResults] = useState<BrandSummary[]>([]);
+	const [selectedBrand, setSelectedBrand] = useState<BrandSummary | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+
+	// Pre-built search index -- recomputed only when the catalog itself changes
+	// (effectively once per session, since useBrandsList has a 24h staleTime),
+	// not on every keystroke.
+	const searchIndex = useMemo(
+		() => (allBrands ?? []).map((b) => ({
+			brand: b,
+			nameLower: b.name.toLowerCase(),
+			tickerLower: b.ticker.toLowerCase(),
+		})),
+		[allBrands],
+	);
 
 	// Recent searches from Firestore (account-based, cross-device)
 	const recentSearches = (account?.searchHistory ?? []).map((e) => e.query);
@@ -64,10 +73,10 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 			.slice(0, MAX_RESULTS);
 
 		setResults(filtered);
-	}, [debouncedQuery]);
+	}, [debouncedQuery, searchIndex]);
 
 	// Save clicked brand name to search history (Firestore via AccountContext)
-	const handleLearnMore = useCallback((brand: BrandProfile) => {
+	const handleLearnMore = useCallback((brand: BrandSummary) => {
 		if (user) {
 			addSearchHistory(brand.name).catch(() => {});
 		}

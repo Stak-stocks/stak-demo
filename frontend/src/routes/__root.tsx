@@ -11,7 +11,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
-import type { BrandProfile } from "@/data/brands";
+import type { BrandProfile } from "@stak/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";

@@ -17,6 +17,7 @@ import { analyticsRouter } from "./routes/analytics.js";
 import { recommendationsRouter } from "./routes/recommendations.js";
 import { dailyBriefRouter } from "./routes/dailyBrief.js";
 import { playgroundRouter } from "./routes/playground.js";
+import { brandAdminRouter } from "./routes/brandAdmin.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 dotenv.config();
@@ -78,6 +79,9 @@ app.use("/api/stock", publicLimiter, stockRouter);
 app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, stocksRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
+// No outer limiter here -- brandAdminRouter applies its own secret check
+// before its own (much stricter) rate limit, see routes/brandAdmin.ts.
+app.use("/api/admin/brands", brandAdminRouter);
 app.use("/api/recommendations", authLimiter, recommendationsRouter);
 app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 app.use("/api/playground", authLimiter, playgroundRouter);

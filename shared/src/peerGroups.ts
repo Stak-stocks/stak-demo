@@ -1,17 +1,23 @@
+import { STAK_WEIGHTED_STOCK_TAGS } from "./stockTags";
+import type { BrandProfile } from "./brands/index";
+
 /**
- * Peer ticker groups for every brand in the database.
- * Keyed by uppercase ticker symbol (Finnhub format).
- * Curated for the top ~100 high-traffic stocks; auto-grouped by sector for the rest.
- * Backend uses this map to compute peer-median metrics (P/E, growth, margin, beta).
+ * Hand-curated peer ticker lists for the original ~230 tickers, carried over
+ * verbatim from the old frontend/backend peerGroups.ts files. This encodes real
+ * competitive-set judgment getPeerTickers() can't recover from primaryCategory
+ * alone -- e.g. ETFs grouped as context peers (not fundamental comps), or
+ * crypto-miners grouped because they trade as a basket despite different
+ * underlying businesses. Checked first; getPeerTickers() below is the fallback
+ * for any ticker (new or old) that isn't a key here.
  */
-export const PEER_GROUPS: Record<string, string[]> = {
+export const MANUAL_PEER_OVERRIDES: Record<string, string[]> = {
 
   // ── MEGA-CAP TECH ──────────────────────────────────────────────────────────
   "AAPL":  ["MSFT", "GOOGL", "META", "AMZN", "NVDA"],
   "MSFT":  ["AAPL", "GOOGL", "CRM", "ORCL", "SAP", "IBM"],
   "NVDA":  ["AMD", "AVGO", "QCOM", "MRVL", "TSM", "ASML"],
   "GOOGL": ["META", "MSFT", "AMZN", "SNAP", "RDDT"],
-  "META":  ["GOOGL", "SNAP", "PINS", "RDDT", "MATCH"],
+  "META":  ["GOOGL", "SNAP", "PINS", "RDDT", "MTCH"],
   "AMZN":  ["MSFT", "GOOGL", "SHOP", "WMT", "COST"],
 
   // ── EV / AUTOMOTIVE ────────────────────────────────────────────────────────
@@ -40,11 +46,11 @@ export const PEER_GROUPS: Record<string, string[]> = {
   "GME":   ["AMC", "MSTR", "MARA", "RIOT", "RBLX"],
 
   // ── SOCIAL / CONSUMER INTERNET ─────────────────────────────────────────────
-  "SNAP":  ["META", "PINS", "RDDT", "GOOGL", "MATCH"],
-  "PINS":  ["SNAP", "META", "RDDT", "ETSY", "MATCH"],
-  "RDDT":  ["SNAP", "META", "PINS", "MATCH", "TWLO"],
-  "MATCH": ["SNAP", "META", "RDDT", "BMBL", "GOOGL"],
-  "BMBL":  ["MATCH", "META", "SNAP", "RDDT", "HOOD"],
+  "SNAP":  ["META", "PINS", "RDDT", "GOOGL", "MTCH"],
+  "PINS":  ["SNAP", "META", "RDDT", "ETSY", "MTCH"],
+  "RDDT":  ["SNAP", "META", "PINS", "MTCH", "TWLO"],
+  "MTCH": ["SNAP", "META", "RDDT", "BMBL", "GOOGL"],
+  "BMBL":  ["MTCH", "META", "SNAP", "RDDT", "HOOD"],
 
   // ── GAMING ─────────────────────────────────────────────────────────────────
   "RBLX":  ["EA", "TTWO", "MSFT", "SONY", "U"],
@@ -421,3 +427,93 @@ export const PEER_GROUPS: Record<string, string[]> = {
   "SPY":   ["QQQ", "NVDA", "AAPL", "MSFT", "AMZN"],
   "QQQ":   ["SPY", "NVDA", "AAPL", "MSFT", "META"],
 };
+
+const TICKER_TO_PRIMARY_CATEGORY = new Map(
+	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s.primaryCategory]),
+);
+
+/** Parses display strings like "$1.38T", "1.38T", "$500B AUM", "$2B" into a dollar amount. */
+function parseMarketCap(value: string | undefined): number | null {
+	if (!value) return null;
+	const match = value.match(/\$?([\d.]+)\s*([TBM])/);
+	if (!match) return null;
+	const num = parseFloat(match[1]!);
+	if (!isFinite(num)) return null;
+	const multiplier = match[2] === "T" ? 1e12 : match[2] === "B" ? 1e9 : 1e6;
+	return num * multiplier;
+}
+
+export interface PeerLookupIndex {
+	byTicker: Map<string, BrandProfile>;
+	byCategory: Map<string, BrandProfile[]>;
+}
+
+/**
+ * Precomputes the ticker/category groupings getPeerTickers() would otherwise
+ * scan `allBrands` for on every call. Build this ONCE and pass it to repeated
+ * getPeerTickers() calls over the same array (e.g. computing peerTickers for
+ * every brand in the catalog) to avoid O(n^2) total work -- without it,
+ * getPeerTickers() still works correctly, just falls back to scanning
+ * `allBrands` directly each call, which is fine for a single one-off lookup
+ * (e.g. one /peer-metrics/:ticker request).
+ */
+export function buildPeerLookupIndex(allBrands: BrandProfile[]): PeerLookupIndex {
+	const byTicker = new Map<string, BrandProfile>();
+	const byCategory = new Map<string, BrandProfile[]>();
+	for (const b of allBrands) {
+		const upper = b.ticker.toUpperCase();
+		byTicker.set(upper, b);
+		const category = TICKER_TO_PRIMARY_CATEGORY.get(upper);
+		if (!category) continue;
+		const bucket = byCategory.get(category);
+		if (bucket) bucket.push(b);
+		else byCategory.set(category, [b]);
+	}
+	return { byTicker, byCategory };
+}
+
+/**
+ * Returns peer tickers for `ticker`. Manual overrides win outright (see above);
+ * otherwise falls back to other brands sharing the same primaryCategory
+ * (shared/src/stockTags.ts), ranked by closest market cap, alphabetical among
+ * unparseable ones. Does not pad to `count` -- a short or empty list for a thin
+ * category beats nonsensical filler.
+ *
+ * `categoryOverride` is for a ticker that isn't in STAK_WEIGHTED_STOCK_TAGS yet
+ * (e.g. a brand-generation draft not yet committed) -- without it, the category
+ * lookup for `ticker` itself would fail and silently return [] even though the
+ * caller already knows what category it belongs to.
+ *
+ * `index` is an optional buildPeerLookupIndex(allBrands) result -- pass it when
+ * calling this repeatedly over the same `allBrands` (e.g. once per brand while
+ * building the whole catalog) to avoid re-scanning `allBrands` on every call.
+ */
+export function getPeerTickers(ticker: string, allBrands: BrandProfile[], count = 5, categoryOverride?: string, index?: PeerLookupIndex): string[] {
+	const upper = ticker.toUpperCase();
+	const override = MANUAL_PEER_OVERRIDES[upper];
+	if (override) return override;
+
+	const category = categoryOverride ?? TICKER_TO_PRIMARY_CATEGORY.get(upper);
+	if (!category) return [];
+
+	const target = index ? index.byTicker.get(upper) : allBrands.find((b) => b.ticker.toUpperCase() === upper);
+	const targetCap = parseMarketCap(target?.financials.marketCap.value);
+
+	const candidatePool = index
+		? (index.byCategory.get(category) ?? [])
+		: allBrands.filter((b) => TICKER_TO_PRIMARY_CATEGORY.get(b.ticker.toUpperCase()) === category);
+
+	const candidates = candidatePool
+		.filter((b) => b.ticker.toUpperCase() !== upper)
+		.map((b) => ({ ticker: b.ticker.toUpperCase(), cap: parseMarketCap(b.financials.marketCap.value) }));
+
+	candidates.sort((a, b) => {
+		const aRankable = targetCap !== null && a.cap !== null;
+		const bRankable = targetCap !== null && b.cap !== null;
+		if (aRankable && bRankable) return Math.abs(a.cap! - targetCap!) - Math.abs(b.cap! - targetCap!);
+		if (aRankable !== bRankable) return aRankable ? -1 : 1;
+		return a.ticker.localeCompare(b.ticker);
+	});
+
+	return candidates.slice(0, count).map((c) => c.ticker);
+}

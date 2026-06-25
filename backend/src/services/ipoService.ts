@@ -73,7 +73,7 @@ const SECTOR_HERO: Record<string, string> = {
 	default: "photo-1535303311272-63661ad60b4b",
 };
 
-function getHeroImage(sector: string): string {
+export function getHeroImage(sector: string): string {
 	const id = SECTOR_HERO[sector] ?? SECTOR_HERO.default;
 	return `https://images.unsplash.com/${id}?w=800&auto=format&q=80`;
 }

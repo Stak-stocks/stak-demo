@@ -1,7 +1,7 @@
-import { type BrandProfile, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import { type BrandIdentity, getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
 
 interface BrandLogoProps {
-	brand: BrandProfile;
+	brand: BrandIdentity;
 	className?: string; // sizing, rounding, bg, animation — applied to the outer div
 	alt?: string;
 }

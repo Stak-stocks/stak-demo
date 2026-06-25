@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarDays, X } from "lucide-react";
-import { brands as allBrands, type BrandProfile, getBrandLogoUrl } from "@/data/brands";
+import { type BrandSummary, getBrandLogoUrl } from "@stak/shared";
 import { useAccount } from "@/context/AccountContext";
 import { useStakTickers } from "@/hooks/useStakTickers";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntry } from "@/lib/api";
 
 type MarketTab = "today" | "tomorrow" | "week";
@@ -47,7 +48,8 @@ function formatEps(val: number | null): string {
 // ── Logo ─────────────────────────────────────────────────────────────────────
 
 function TickerLogo({ symbol, size = 36 }: { symbol: string; size?: number }) {
-	const brand = allBrands.find(b => b.ticker.toUpperCase() === symbol.toUpperCase());
+	const { data: allBrands } = useBrandsList();
+	const brand = allBrands?.find(b => b.ticker.toUpperCase() === symbol.toUpperCase());
 	const [err, setErr] = useState(false);
 	const cls = `rounded-full bg-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center`;
 	const style = { width: size, height: size };
@@ -69,11 +71,12 @@ function TickerLogo({ symbol, size = 36 }: { symbol: string; size?: number }) {
 
 // ── Single earnings row ───────────────────────────────────────────────────────
 
-function EarningsRow({ entry, onNavigate }: { entry: MarketEarningsEntry; onNavigate?: (brand: BrandProfile) => void }) {
+function EarningsRow({ entry, onNavigate }: { entry: MarketEarningsEntry; onNavigate?: (brand: BrandSummary) => void }) {
 	const beat = entry.status === "beat";
 	const miss = entry.status === "miss";
 	const upcoming = entry.status === "upcoming";
-	const brand = allBrands.find(b => b.ticker.toUpperCase() === entry.symbol.toUpperCase());
+	const { data: allBrands } = useBrandsList();
+	const brand = allBrands?.find(b => b.ticker.toUpperCase() === entry.symbol.toUpperCase());
 	const Wrapper = brand && onNavigate ? "button" : "div";
 
 	return (
@@ -124,12 +127,12 @@ function EarningsRow({ entry, onNavigate }: { entry: MarketEarningsEntry; onNavi
 
 // ── Main modal widget ─────────────────────────────────────────────────────────
 
-export function MarketEarningsWidget({ onClose, onSelectBrand }: { onClose?: () => void; onSelectBrand?: (brand: BrandProfile) => void } = {}) {
+export function MarketEarningsWidget({ onClose, onSelectBrand }: { onClose?: () => void; onSelectBrand?: (brand: BrandSummary) => void } = {}) {
 	const [tab, setTab] = useState<MarketTab>("today");
 	const [showAll, setShowAll] = useState(false);
 	const navigate = useNavigate();
 
-	const handleRowNavigate = (brand: BrandProfile) => {
+	const handleRowNavigate = (brand: BrandSummary) => {
 		onClose?.();
 		// When opened from within my-stak.tsx itself, onSelectBrand updates its
 		// selectedBrand state directly -- navigating to /my-stak while already
@@ -275,7 +278,7 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose, 
 	onOpen?: () => void;
 	externalOpen?: boolean;
 	onExternalClose?: () => void;
-	onSelectBrand?: (brand: BrandProfile) => void;
+	onSelectBrand?: (brand: BrandSummary) => void;
 } = {}) {
 	const [open, setOpen] = useState(false);
 	const { account } = useAccount();
@@ -328,10 +331,11 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose, 
 	}, [open]);
 
 	// Count today's entries for badge
-	const stakBrands = useMemo<BrandProfile[]>(() => {
-		const brandMap = new Map(allBrands.map(b => [b.id, b]));
-		return (account?.stakBrandIds ?? []).map(id => brandMap.get(id)).filter(Boolean) as BrandProfile[];
-	}, [account?.stakBrandIds]);
+	const { data: allBrands } = useBrandsList();
+	const stakBrands = useMemo<BrandSummary[]>(() => {
+		const brandMap = new Map((allBrands ?? []).map(b => [b.id, b]));
+		return (account?.stakBrandIds ?? []).map(id => brandMap.get(id)).filter(Boolean) as BrandSummary[];
+	}, [account?.stakBrandIds, allBrands]);
 
 	const earningsResults = useQueries({
 		queries: stakBrands.map(brand => ({

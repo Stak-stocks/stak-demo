@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import type { BrandSummary } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import type { LeagueState } from "@/data/league";
 import { INITIAL_LEAGUE_STATE, getWeekKey } from "@/data/league";
 import { ArrowLeft, Check } from "lucide-react";
@@ -14,22 +15,23 @@ export const Route = createFileRoute("/league_/lineup")({
 function LineupBuilderPage() {
 	const navigate = useNavigate();
 	const { account } = useAccount();
+	const { data: allBrands } = useBrandsList();
 	const [leagueState, setLeagueState] = useState<LeagueState>(INITIAL_LEAGUE_STATE);
 
-	const swipedBrands = useMemo<BrandProfile[]>(() => {
-		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+	const swipedBrands = useMemo<BrandSummary[]>(() => {
+		const brandMap = new Map((allBrands ?? []).map((b) => [b.id, b]));
 		return (account?.stakBrandIds ?? [])
 			.map((id) => brandMap.get(id))
-			.filter(Boolean) as BrandProfile[];
-	}, [account?.stakBrandIds]);
+			.filter(Boolean) as BrandSummary[];
+	}, [account?.stakBrandIds, allBrands]);
 
-	const [selectedStarters, setSelectedStarters] = useState<BrandProfile[]>(
+	const [selectedStarters, setSelectedStarters] = useState<BrandSummary[]>(
 		leagueState.currentLineup?.starters || [],
 	)
 
 
 	// Add card to next available slot
-	const handleAddStarter = (brand: BrandProfile) => {
+	const handleAddStarter = (brand: BrandSummary) => {
 		setSelectedStarters((prev) => {
 			// Don't add if already selected
 			if (prev.find((b) => b.id === brand.id)) {
@@ -154,7 +156,23 @@ function LineupBuilderPage() {
 							</p>
 						</div>
 
-						{swipedBrands.length === 0 ? (
+						{allBrands === undefined ? (
+							/* Loading skeleton -- distinct from the "no stocks saved" empty state
+							   below, since the catalog hasn't resolved yet at this point */
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								{[...Array(2)].map((_, i) => (
+									<div key={i} className="rounded-xl border-2 border-gray-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1/50 p-6">
+										<div className="flex items-start gap-4">
+											<div className="h-12 w-12 shrink-0 rounded-xl dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+											<div className="flex-1 space-y-2">
+												<div className="h-4 w-24 rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+												<div className="h-3 w-16 rounded dark:bg-slate-700/50 bg-slate-200/70 animate-pulse" />
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						) : swipedBrands.length === 0 ? (
 							<div className="bg-white dark:bg-surface-1/50 border border-gray-200 dark:dark:border-slate-700/50 border-slate-200 rounded-xl p-12 text-center">
 								<p className="text-gray-500 dark:dark:text-zinc-400 text-zinc-600 mb-2">
 									You haven't saved any stocks yet.

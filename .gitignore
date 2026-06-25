@@ -12,3 +12,4 @@ service-account.json
 .claude/
 functions/lib/
 functions/node_modules/
+backend/drafts/

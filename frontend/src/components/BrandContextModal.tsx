@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import type { BrandProfile } from "@/data/brands";
+import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAccount } from "@/context/AccountContext";
+import { useBrandDetail } from "@/hooks/useBrandDetail";
 import { Plus, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,10 +15,10 @@ import {
 } from "lucide-react";
 
 interface BrandContextModalProps {
-	brand: BrandProfile | null;
+	brand: BrandSummary | null;
 	open: boolean;
 	onClose: () => void;
-	onAddToStak?: (brand: BrandProfile) => void;
+	onAddToStak?: (brand: BrandSummary) => void;
 }
 
 type IconColor = "green" | "amber" | "purple" | "blue" | "cyan" | "slate";
@@ -210,6 +211,11 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		retry: 0,
 	});
 
+	// Full profile fetched only for culturalContext -- everything else this modal
+	// shows is summary-level. Falls back to brand.bio (see whatContent below)
+	// while this is loading, so there's no extra loading state to render.
+	const { data: fullBrand } = useBrandDetail(open ? brand?.id : undefined);
+
 	useEffect(() => {
 		if (brand && open) {
 			document.body.style.overflow = "hidden";
@@ -247,7 +253,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 	// ── Derive section content ──────────────────────────────────────────────
 
 	// 1. What the company does — first culturalContext section
-	const whatContent = brand.culturalContext.sections[0]?.content ?? brand.bio;
+	const whatContent = fullBrand?.culturalContext.sections[0]?.content ?? brand.bio;
 
 	// 2. Why it moved — Gemini 1-sentence explanation (same source as news signal)
 	const pct = stockData?.quote?.changePercent;

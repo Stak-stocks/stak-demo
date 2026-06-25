@@ -3,6 +3,7 @@ import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
 	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
@@ -456,11 +457,14 @@ async function generatePersonalizedImpact(
 	const topIds = stakBrandIds.slice(0, 5);
 	if (topIds.length > 0) {
 		try {
-			const refs = topIds.map(id => adminDb.collection("brands").doc(id));
-			const docs = await adminDb.getAll(...refs);
-			const brandInfos = docs
-				.filter(d => d.exists && d.data()?.ticker)
-				.map(d => ({ ticker: d.data()!.ticker as string, name: d.data()!.name as string }))
+			// Was reading adminDb.collection("brands") -- a Firestore collection
+			// nothing in the backend ever writes to, so this lookup always missed
+			// and stockLines stayed empty. Brand data actually lives in the
+			// @stak/shared catalog; no Firestore round-trip needed for this at all.
+			const brandInfos = topIds
+				.map(id => brands.find(b => b.id === id))
+				.filter((b): b is NonNullable<typeof b> => !!b?.ticker)
+				.map(b => ({ ticker: b.ticker, name: b.name }))
 				.slice(0, 4);
 
 			if (brandInfos.length > 0) {

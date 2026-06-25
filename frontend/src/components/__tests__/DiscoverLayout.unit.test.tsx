@@ -27,10 +27,6 @@ vi.mock("@tanstack/react-query", () => ({
 	}),
 }));
 
-vi.mock("@/data/brands", () => ({
-	brands: [],
-}));
-
 vi.mock("@/data/intelCards", () => ({
 	INTEL_CARDS: [],
 }));
@@ -54,6 +50,7 @@ vi.mock("@/lib/api", () => ({
 	getMarketEarnings: vi.fn(),
 	getDailyBrief: vi.fn(),
 	getRecommendationFreshness: vi.fn(),
+	getBrandsList: vi.fn(),
 }));
 
 vi.mock("@/hooks/useSwipeLimit", () => ({

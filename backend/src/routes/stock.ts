@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
-import { getConsensusEarningsResult } from "../services/earningsResultConsensus.js";
+import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { PEER_GROUPS } from "../data/peerGroups.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket } from "@stak/shared";
+import { marketSessionBucket, getPeerTickers } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
@@ -187,33 +187,14 @@ stockRouter.get("/calendar", async (_req, res) => {
 	res.json(result);
 });
 
-// ── Popular tickers shown in the market-wide earnings calendar ──────────────
-const MARKET_TICKERS: Record<string, string> = {
-	AAPL: "Apple", MSFT: "Microsoft", GOOGL: "Alphabet", AMZN: "Amazon",
-	META: "Meta", NVDA: "NVIDIA", TSLA: "Tesla", NFLX: "Netflix",
-	AVGO: "Broadcom", AMD: "AMD", INTC: "Intel", QCOM: "Qualcomm",
-	ORCL: "Oracle", ADBE: "Adobe", CRM: "Salesforce", CSCO: "Cisco",
-	IBM: "IBM", TXN: "Texas Instruments", INTU: "Intuit", NOW: "ServiceNow",
-	UBER: "Uber", ABNB: "Airbnb", DASH: "DoorDash", LYFT: "Lyft",
-	SPOT: "Spotify", SNAP: "Snap", PINS: "Pinterest", RDDT: "Reddit",
-	COIN: "Coinbase", HOOD: "Robinhood", RBLX: "Roblox", U: "Unity",
-	PLTR: "Palantir", SOUN: "SoundHound AI", DUOL: "Duolingo", AI: "C3.ai",
-	HIMS: "Hims & Hers", ROKU: "Roku", CRWD: "CrowdStrike", SNOW: "Snowflake",
-	DDOG: "Datadog", NET: "Cloudflare", PATH: "UiPath", GTLB: "GitLab",
-	SMCI: "Super Micro", ARM: "Arm Holdings", ANET: "Arista Networks",
-	SHOP: "Shopify", PYPL: "PayPal", SQ: "Block", V: "Visa", MA: "Mastercard",
-	JPM: "JPMorgan", GS: "Goldman Sachs", BAC: "Bank of America", MS: "Morgan Stanley",
-	WFC: "Wells Fargo", C: "Citigroup",
-	WMT: "Walmart", COST: "Costco", TGT: "Target", HD: "Home Depot",
-	MCD: "McDonald's", SBUX: "Starbucks", NKE: "Nike", LULU: "Lululemon",
-	DIS: "Disney", CMCSA: "Comcast", T: "AT&T", VZ: "Verizon", TMUS: "T-Mobile",
-	DELL: "Dell", HPQ: "HP Inc", HPE: "HP Enterprise",
-	RIVN: "Rivian", F: "Ford", GM: "General Motors", NIO: "NIO",
-	BA: "Boeing", GE: "GE", CAT: "Caterpillar", HON: "Honeywell",
-	JNJ: "Johnson & Johnson", PFE: "Pfizer", MRNA: "Moderna", LLY: "Eli Lilly",
-	ABBV: "AbbVie", AMGN: "Amgen", XOM: "ExxonMobil", CVX: "Chevron",
-	BABA: "Alibaba", JD: "JD.com", PDD: "PDD Holdings",
-};
+// ── Tickers tracked by the market-wide earnings calendar ────────────────────
+// Derived from the full shared brand catalog instead of a hand-maintained list --
+// every brand is tracked, but EarningsCalendar.tsx's MarketEarningsWidget already
+// client-side filters to the viewer's own Stak before rendering, so this only
+// changes what's trackable, not what any given viewer actually sees.
+const MARKET_TICKERS: Record<string, string> = Object.fromEntries(
+	brands.map((b) => [b.ticker.toUpperCase(), b.name]),
+);
 
 /** Market-wide earnings calendar for popular stocks — MUST be before /:symbol */
 stockRouter.get("/market-earnings", async (req, res) => {
@@ -246,9 +227,10 @@ stockRouter.get("/market-earnings", async (req, res) => {
 
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v5 -- now shares resolveEarningsStatus with /:symbol/earnings instead of
-		// its own separate (and separately buggy) logic.
-		const cacheKey = `market-earnings:v5:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		// Bumped to v6 -- MARKET_TICKERS now derives from the full shared brand catalog
+		// (333 tickers) instead of a hardcoded ~80-ticker list; a stale cache entry from
+		// before this change would keep returning the narrower set.
+		const cacheKey = `market-earnings:v6:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -337,8 +319,14 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		});
 
 		const result = { entries: filteredEntries, from: fromStr, to: toStr };
-		// today: 1h (earnings reported once); week/tomorrow: 6h (dates don't shift mid-period)
-		const cacheTtl = period === "today" ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
+		// week/tomorrow: 6h, dates don't shift mid-period. today: 15min while anything is
+		// still genuinely pending (matches /:symbol/earnings' same-day TTL, so a transition
+		// to beat/miss is picked up quickly instead of sitting stale for up to an hour);
+		// 1h once everything for today is already resolved, since nothing left to change.
+		const hasPendingToday = period === "today" && filteredEntries.some(
+			(e) => e.status === "upcoming" && e.date === todayStr,
+		);
+		const cacheTtl = period !== "today" ? 6 * 60 * 60 * 1000 : hasPendingToday ? 15 * 60 * 1000 : 60 * 60 * 1000;
 		await cacheSet(cacheKey, result, cacheTtl);
 		res.json(result);
 	} catch (error) {
@@ -609,16 +597,51 @@ async function resolveEarningsStatus(
 	// Ground truth for "has the company actually reported yet" — checked up front so every
 	// branch below can defer to it instead of guessing from dates alone (a report scheduled
 	// for *today* hasn't happened yet the moment markets open, even though date === todayStr).
+	// Two independent Finnhub signals, not one: /stock/earnings (latestEps) and the calendar
+	// entry's own epsActual field can update on different schedules, so a report that's
+	// landed but hasn't shown up in one might already be visible in the other. Prefer
+	// latestEps (it's the one with full surprise-history context); fall back to the
+	// calendar's actual/estimate only when latestEps hasn't caught up yet.
 	const latestEps = await getLatestEpsEntry(symbol);
-	const alreadyReported = latestEps?.actual != null && isRecentEpsEntry(latestEps, now);
+	const confirmedEps = (latestEps?.actual != null && isRecentEpsEntry(latestEps, now))
+		? latestEps
+		: calendarEntry?.epsActual != null
+			? { actual: calendarEntry.epsActual, estimate: calendarEntry.epsEstimate, period: calendarEntry.date }
+			: null;
+	const alreadyReported = confirmedEps != null;
 
 	// ── 1. Trust the calendar entry, verified against the 4-source consensus ──
 	if (calendarEntry) {
 		const consensus = await getConsensusEarningsDate(symbol, companyName, calendarEntry.date);
 		const confirmedDate = consensus.date ?? calendarEntry.date;
-		// Still upcoming if the date is in the future, OR it's today but Finnhub doesn't
-		// have actual results yet (>= not > — a same-day report isn't "past" until it lands).
-		if (confirmedDate > todayStr || (confirmedDate === todayStr && !alreadyReported)) {
+		if (confirmedDate > todayStr) {
+			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
+		}
+		// Still upcoming if it's today but Finnhub doesn't have actual results yet --
+		// a same-day report isn't "past" until it lands. Finnhub's own two endpoints can
+		// both lag a real announcement by hours, though, so before settling for another
+		// cache cycle of "upcoming", check whether a same-day earnings article already
+		// exists in Finnhub's news feed -- if so, it's worth asking the full cross-source
+		// consensus (FMP/Yahoo/Gemini, each independently date-checked) right now instead
+		// of waiting. The article is only ever a trigger, never the verdict: if consensus
+		// also comes back with nothing, this still falls through to "upcoming" below, so a
+		// false-positive keyword match can only cost one extra check, never a wrong status.
+		if (confirmedDate === todayStr && !alreadyReported) {
+			if (await hasSameDayEarningsArticle(symbol, companyName, todayStr)) {
+				const consensusResult = await getConsensusEarningsResult(symbol, companyName, todayStr, {
+					epsActual: null,
+					epsEstimate: calendarEntry.epsEstimate,
+					revenueActual: calendarEntry.revenueActual,
+					revenueEstimate: calendarEntry.revenueEstimate,
+				});
+				if (consensusResult.status !== "none") {
+					return {
+						status: consensusResult.status, date: todayStr, hour: calendarEntry.hour || null,
+						epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+						epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
+					};
+				}
+			}
 			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
 		}
 	}
@@ -636,17 +659,17 @@ async function resolveEarningsStatus(
 	// stock Finnhub covers, which is also exactly why steps 1–2 falling through is *not* on
 	// its own evidence the company never had an upcoming date; it just means we now have
 	// better evidence (the report itself) than a calendar lookup.
-	if (alreadyReported && latestEps) {
+	if (alreadyReported && confirmedEps) {
 		const reportDateAnchor = calendarEntry?.date ?? todayStr;
 		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
-			epsActual: latestEps.actual,
-			epsEstimate: latestEps.estimate,
+			epsActual: confirmedEps.actual,
+			epsEstimate: confirmedEps.estimate,
 			revenueActual: calendarEntry?.revenueActual ?? null,
 			revenueEstimate: calendarEntry?.revenueEstimate ?? null,
 		});
 		const finnhubDirectStatus: "beat" | "miss" | null =
-			latestEps.actual != null && latestEps.estimate != null
-				? (latestEps.actual >= latestEps.estimate ? "beat" : "miss")
+			confirmedEps.actual != null && confirmedEps.estimate != null
+				? (confirmedEps.actual >= confirmedEps.estimate ? "beat" : "miss")
 				: null;
 		// Finnhub's own actual-vs-estimate wins when available — most direct, least
 		// ambiguous. Fall back to the cross-source vote only if Finnhub lacks an estimate.
@@ -930,9 +953,14 @@ function numericMedian(values: number[]): number | null {
 
 stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 	const ticker = (req.params["ticker"] as string).toUpperCase();
-	const peerTickers = PEER_GROUPS[ticker] ?? [];
+	const peerTickers = getPeerTickers(ticker, brands);
 
-	const cacheKey = `peer-metrics:${ticker}`;
+	// Bumped to v2 -- peerTickers now comes from getPeerTickers() (category +
+	// market-cap fallback) instead of the old static PEER_GROUPS map, so some
+	// tickers' peer lists changed (e.g. MTCH went from [] to a real list after
+	// fixing a ticker-key typo) -- a stale v1 cache entry would keep serving
+	// the old, sometimes-empty list for up to its full TTL after deploy.
+	const cacheKey = `peer-metrics:v2:${ticker}`;
 	const cached = await cacheGet<unknown>(cacheKey);
 	if (cached !== null) return res.json(cached);
 

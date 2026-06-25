@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { brands as allBrands, type BrandProfile } from "@/data/brands";
+import { useBrandsList } from "@/hooks/useBrandsList";
 import { TAG_SCORE_MAX } from "@/lib/constants";
 import {
 	ChevronRight,
@@ -51,13 +51,14 @@ function ProfilePage() {
 	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();
 
-	// Stak brands — derived from Firestore account
+	// Stak brands — derived from Firestore account (only the count is ever used here)
+	const { data: allBrands } = useBrandsList();
 	const stakBrands = useMemo(() => {
-		const brandMap = new Map(allBrands.map((b) => [b.id, b]));
+		const brandMap = new Map((allBrands ?? []).map((b) => [b.id, b]));
 		return (account?.stakBrandIds ?? [])
 			.map((id) => brandMap.get(id))
-			.filter(Boolean) as BrandProfile[];
-	}, [account?.stakBrandIds]);
+			.filter(Boolean);
+	}, [account?.stakBrandIds, allBrands]);
 
 
 	// Badge tooltip
