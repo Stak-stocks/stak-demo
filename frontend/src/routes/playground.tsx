@@ -1383,24 +1383,26 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 						{alreadyDone && <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>}
 					</div>
 
-					{/* Analyst card — pre-question context */}
+					{/* Earnings report card — the actual print, shown before the player predicts the reaction */}
 					<div className="rounded-[14px] border border-purple-500/20 overflow-hidden mb-[16px]">
 						{/* Header strip */}
 						<div className="bg-purple-500/[0.08] px-[14px] py-[10px] border-b border-purple-500/15 flex items-center justify-between">
-							<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">Pre-Earnings Brief</p>
+							<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">The Earnings Report</p>
 							<p className="text-[11px] dark:text-slate-400 text-slate-500">{scenario.ticker}</p>
 						</div>
 						<div className="p-[14px] bg-surface-1">
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[12px]">{scenario.context}</p>
-							{/* Analyst estimates row */}
+							{/* Actual results vs. estimate, plus where the stock sat going in */}
 							<div className="grid grid-cols-3 gap-[8px]">
 								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Revenue Est.</p>
-									<p className="text-[14px] font-extrabold">{scenario.revenueExpected}</p>
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Revenue</p>
+									<p className="text-[14px] font-extrabold">{scenario.revenueActual ?? scenario.revenueExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400">est. {scenario.revenueExpected}</p>
 								</div>
 								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">EPS Est.</p>
-									<p className="text-[14px] font-extrabold">{scenario.epsExpected}</p>
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">EPS</p>
+									<p className="text-[14px] font-extrabold">{scenario.epsActual ?? scenario.epsExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400">est. {scenario.epsExpected}</p>
 								</div>
 								<div className={`rounded-[10px] border p-[10px] text-center ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "border-rose-500/20 bg-rose-500/[0.05]" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") || scenario.stockContext.includes("near") ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-foreground/[0.07] bg-foreground/[0.03]"}`}>
 									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Stock</p>
@@ -1458,25 +1460,6 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 							<div className="rounded-[12px] border border-purple-500/30 bg-purple-500/[0.07] p-[14px] mb-[12px]">
 								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[8px]">What Actually Happened</p>
-								{/* Actual vs Estimate comparison — shown when actual numbers are available */}
-								{(scenario.revenueActual || scenario.epsActual) && (
-									<div className="grid grid-cols-2 gap-[8px] mb-[10px]">
-										{scenario.revenueActual && (
-											<div className="rounded-[8px] bg-foreground/[0.05] p-[8px]">
-												<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-purple-300 text-purple-600 mb-[3px]">Revenue</p>
-												<p className="text-[14px] font-extrabold text-foreground">{scenario.revenueActual}</p>
-												<p className="text-[10px] dark:text-purple-300/70 text-purple-600/70">est. {scenario.revenueExpected}</p>
-											</div>
-										)}
-										{scenario.epsActual && (
-											<div className="rounded-[8px] bg-foreground/[0.05] p-[8px]">
-												<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-purple-300 text-purple-600 mb-[3px]">EPS</p>
-												<p className="text-[14px] font-extrabold text-foreground">{scenario.epsActual}</p>
-												<p className="text-[10px] dark:text-purple-300/70 text-purple-600/70">est. {scenario.epsExpected}</p>
-											</div>
-										)}
-									</div>
-								)}
 								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
 							</div>
 							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">
