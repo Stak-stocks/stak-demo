@@ -135,8 +135,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					}),
 				},
 			);
-			if (res.status === 429) continue;
-			if (!res.ok) break;
+			if (res.status === 429) {
+				console.warn(`[Gemini] getGeminiEarningsDate(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) {
+				console.warn(`[Gemini] getGeminiEarningsDate(${symbol}) got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await res.json();
 			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 			const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
@@ -144,7 +150,8 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			const parsed = JSON.parse(jsonMatch[0]) as { date?: unknown };
 			const date = typeof parsed?.date === "string" ? parsed.date : null;
 			if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-		} catch {
+		} catch (e) {
+			console.warn(`[Gemini] getGeminiEarningsDate(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			continue;
 		}
 	}
