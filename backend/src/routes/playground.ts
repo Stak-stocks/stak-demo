@@ -239,7 +239,9 @@ Rules:
 - Only output the JSON array, nothing else`;
 	} else if (type === "earnings") {
 		prompt = `Generate ${rawCount} earnings lab scenarios for a ${tierLabel}-level investing education app.
-Each scenario tests the user on predicting how a company's stock would react after earnings.
+Each scenario shows the player a company's ACTUAL earnings report (revenue/EPS actual vs. estimate) and asks them to
+predict how the stock reacted. The lesson being taught is that stock reaction does NOT always track beat/miss size
+1:1 — guidance, valuation, segment trends, and "priced in" expectations all matter too.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
 ${avoidLine}
@@ -250,13 +252,13 @@ Return a JSON array of exactly ${rawCount} objects:
   "id": "gen-earn-${dayKey}-1",
   "company": "Nike",
   "ticker": "NKE",
-  "context": "2-3 sentences describing the pre-earnings situation, INCLUDING a concrete signal that points toward the correct outcome (e.g. a guidance cut, a demand trend in a key segment, margin pressure, a comparable peer's recent results, or specific analyst sentiment).",
+  "context": "2-3 sentences giving real context for THIS report -- guidance commentary, segment-level trends, valuation level heading in, or analyst/market sentiment. This is shown to the player alongside the actual vs. estimated numbers below, before they predict the stock's reaction.",
   "revenueExpected": "$12.4B",
   "epsExpected": "$0.84",
   "revenueActual": "$12.3B",
   "epsActual": "$0.85",
   "stockContext": "Up 8% YTD",
-  "question": "Based on this setup, what do you predict will happen to Nike's stock after earnings?",
+  "question": "Given this report, what do you predict happened to Nike's stock?",
   "options": [
     {"id": "a", "text": "Up 5%+ — beats on revenue and EPS"},
     {"id": "b", "text": "Flat — meets expectations"},
@@ -264,17 +266,17 @@ Return a JSON array of exactly ${rawCount} objects:
     {"id": "d", "text": "Down 10%+ — major miss and guidance cut"}
   ],
   "correctId": "c",
-  "outcome": "Brief description of what happened and how the stock reacted.",
+  "outcome": "Brief description of how the stock actually reacted.",
   "explanation": "2-3 sentences explaining why the market reacted this way.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
 - Use real companies and plausible earnings scenarios
-- revenueActual and epsActual must match the outcome — they should show clearly whether the company beat or missed
-- IMPORTANT: the player only ever sees "context", revenueExpected, epsExpected, and stockContext before picking an answer — revenueActual, epsActual, and outcome are revealed only AFTER, as the answer reveal. The correct answer must therefore be derivable from "context" and stockContext ALONE, never from the actual-vs-expected numbers the player can't see yet.
-- "context" must contain a specific, substantive clue (a guidance change, a segment-level trend, a margin tailwind/headwind, channel checks, a peer comparison, concrete analyst sentiment) that makes one option more likely than the others. Do NOT use generic filler ("stable performance", "consistent results", "considered a safe stock") that could equally justify any of the four outcomes — that leaves the player guessing with no real signal.
-- A player who correctly reasons through the clue in "context" should be able to eliminate at least 2 of the 4 options before picking
-- Scenarios should be educational and teach something about earnings reactions
+- revenueActual and epsActual are shown to the player BEFORE they answer, right alongside revenueExpected/epsExpected and stockContext — the player already knows whether the company beat or missed and by how much
+- The correct answer must be derivable by combining the actual-vs-estimate numbers WITH the qualitative signal in "context" — not from the numbers alone (every scenario would reduce to "beat = up, miss = down", which teaches nothing) and not from "context" alone (the player needs the real print too)
+- "context" must supply the qualitative factor that makes the reaction make sense for THIS case: a beat that still gets sold on weak guidance or a "priced for perfection" valuation, a miss that doesn't tank the stock because of a one-time charge or strong forward guidance, a modest beat that rallies hard because expectations were low, etc.
+- Vary which factor dominates across the ${rawCount} scenarios so players learn beat/miss size isn't the whole story
+- Scenarios should be educational and teach something real about earnings reactions
 - Do NOT use the same company more than once
 - Only output the JSON array, nothing else`;
 	} else if (type === "risk") {
