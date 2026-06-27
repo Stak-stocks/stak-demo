@@ -250,7 +250,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "id": "gen-earn-${dayKey}-1",
   "company": "Nike",
   "ticker": "NKE",
-  "context": "2-3 sentences describing the pre-earnings situation and analyst expectations.",
+  "context": "2-3 sentences describing the pre-earnings situation, INCLUDING a concrete signal that points toward the correct outcome (e.g. a guidance cut, a demand trend in a key segment, margin pressure, a comparable peer's recent results, or specific analyst sentiment).",
   "revenueExpected": "$12.4B",
   "epsExpected": "$0.84",
   "revenueActual": "$12.3B",
@@ -271,7 +271,9 @@ Return a JSON array of exactly ${rawCount} objects:
 Rules:
 - Use real companies and plausible earnings scenarios
 - revenueActual and epsActual must match the outcome — they should show clearly whether the company beat or missed
-- The correct answer should be derivable from comparing actual vs expected numbers
+- IMPORTANT: the player only ever sees "context", revenueExpected, epsExpected, and stockContext before picking an answer — revenueActual, epsActual, and outcome are revealed only AFTER, as the answer reveal. The correct answer must therefore be derivable from "context" and stockContext ALONE, never from the actual-vs-expected numbers the player can't see yet.
+- "context" must contain a specific, substantive clue (a guidance change, a segment-level trend, a margin tailwind/headwind, channel checks, a peer comparison, concrete analyst sentiment) that makes one option more likely than the others. Do NOT use generic filler ("stable performance", "consistent results", "considered a safe stock") that could equally justify any of the four outcomes — that leaves the player guessing with no real signal.
+- A player who correctly reasons through the clue in "context" should be able to eliminate at least 2 of the 4 options before picking
 - Scenarios should be educational and teach something about earnings reactions
 - Do NOT use the same company more than once
 - Only output the JSON array, nothing else`;
