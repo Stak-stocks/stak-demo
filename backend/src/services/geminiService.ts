@@ -67,7 +67,10 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 				},
 			);
 
-			if (res.status === 429) continue;
+			if (res.status === 429) {
+				console.warn(`[Gemini] simplifyArticles rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
 			if (!res.ok) throw new Error(`Gemini error ${res.status}`);
 
 			const geminiData = await res.json();
@@ -82,7 +85,10 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 				}));
 			}
 		} catch (e) {
-			if ((e as Error)?.name === "AbortError") return null; // timed out — try next key
+			if ((e as Error)?.name === "AbortError") {
+				console.warn(`[Gemini] simplifyArticles timed out on key ...${key.slice(-4)} — trying next`);
+				return null; // timed out — try next key
+			}
 			throw e;
 		} finally {
 			clearTimeout(timeout);
@@ -121,6 +127,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	}
 
 	// All keys exhausted — return raw summaries rather than failing
+	console.warn(`[Gemini] simplifyArticles: all ${keys.length} keys exhausted — falling back to raw summaries`);
 	return articles.map((a) => ({
 		explanation: a.summary,
 		whyItMatters: "Read the full article for more context.",
@@ -231,8 +238,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					}),
 				},
 			);
-			if (res.status === 429) continue;
-			if (!res.ok) break;
+			if (res.status === 429) {
+				console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) {
+				console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await res.json();
 			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 			// Extract JSON object from the response (Gemini may wrap in markdown fences)
@@ -247,13 +260,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					await cacheSet(cacheKey, { result, date }, WEB_EARNINGS_TTL_MS);
 					return { result, date };
 				} catch {
-					// JSON parse failed — fall through to next key
+					console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}): unparseable response on key ...${key.slice(-4)}`);
 				}
 			}
-		} catch {
-			// ignore, try next key
+		} catch (e) {
+			console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
 	}
+	console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}): all ${keys.length} keys exhausted/failed — returning "none"`);
 	return { result: "none", date: null };
 }
 
@@ -294,8 +308,14 @@ Return ONLY one of these exact strings: beat, miss, none`;
 					}),
 				},
 			);
-			if (res.status === 429) continue;
-			if (!res.ok) break;
+			if (res.status === 429) {
+				console.warn(`[Gemini] classifyEarnings rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) {
+				console.warn(`[Gemini] classifyEarnings got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await res.json();
 			const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim().toLowerCase();
 			let result: EarningsOutcome = "none";
@@ -303,10 +323,11 @@ Return ONLY one of these exact strings: beat, miss, none`;
 			else if (text === "miss") result = "miss";
 			await cacheSet(cacheKey, result, CACHE_TTL_MS);
 			return result;
-		} catch {
-			// ignore, try next key
+		} catch (e) {
+			console.warn(`[Gemini] classifyEarnings errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
 	}
+	console.warn(`[Gemini] classifyEarnings: all ${keys.length} keys exhausted/failed — returning "none"`);
 	return "none";
 }
 
@@ -372,6 +393,10 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 						signal: controller.signal,
 					},
 				);
+				if (res.status === 429) {
+					console.warn(`[Gemini] filterMarketRelevant(${query}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+					continue;
+				}
 				if (!res.ok) continue;
 				const data = await res.json();
 				const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
@@ -386,13 +411,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 				articles.forEach((a, i) => { record[a.headline] = flags[i] as boolean; });
 				cacheSet(cacheKey, record, FILTER_CACHE_TTL_MS).catch(() => {});
 				return record;
-			} catch {
-				// timeout or error — try next key
+			} catch (e) {
+				console.warn(`[Gemini] filterMarketRelevant(${query}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			} finally {
 				clearTimeout(timeout);
 			}
 		}
 		// All keys failed — empty record means all articles pass through
+		console.warn(`[Gemini] filterMarketRelevant(${query}): all ${keys.length} keys exhausted/failed — articles pass through unfiltered`);
 		return {};
 	};
 

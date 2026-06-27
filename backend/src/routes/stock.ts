@@ -811,8 +811,14 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						signal: controller.signal,
 					},
 				);
-				if (gemRes.status === 429) continue;
-				if (!gemRes.ok) break;
+				if (gemRes.status === 429) {
+					console.warn(`[Gemini] analyst price-target(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+					continue;
+				}
+				if (!gemRes.ok) {
+					console.warn(`[Gemini] analyst price-target(${symbol}) got ${gemRes.status} on key ...${key.slice(-4)} — giving up`);
+					break;
+				}
 				const data = await gemRes.json();
 				const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
 					.map((p: { text?: string }) => p.text ?? "").join("").trim()
@@ -827,7 +833,12 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 					}
 				} catch { /* parse failed — try next key */ }
 				break;
-			} catch { /* timeout or error */ } finally { clearTimeout(timeout); }
+			} catch (e) {
+				console.warn(`[Gemini] analyst price-target(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
+			} finally { clearTimeout(timeout); }
+		}
+		if (priceTarget === null) {
+			console.warn(`[Gemini] analyst price-target(${symbol}): all ${keys.length} keys exhausted/failed — no coverage shown`);
 		}
 	}
 
@@ -904,8 +915,14 @@ Rules:
 					signal: controller.signal,
 				},
 			);
-			if (gemRes.status === 429) continue;
-			if (!gemRes.ok) break;
+			if (gemRes.status === 429) {
+				console.warn(`[Gemini] analyst-actions(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!gemRes.ok) {
+				console.warn(`[Gemini] analyst-actions(${symbol}) got ${gemRes.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await gemRes.json();
 			const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
 				.map((p: { text?: string }) => p.text ?? "").join("").trim();
@@ -927,15 +944,16 @@ Rules:
 					return;
 				}
 			} catch {
-				// JSON parse failed — try next key
+				console.warn(`[Gemini] analyst-actions(${symbol}): unparseable response on key ...${key.slice(-4)}`);
 			}
-		} catch {
-			// timeout or error — try next key
+		} catch (e) {
+			console.warn(`[Gemini] analyst-actions(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		} finally {
 			clearTimeout(timeout);
 		}
 	}
 
+	console.warn(`[Gemini] analyst-actions(${symbol}): all ${keys.length} keys exhausted/failed — returning empty`);
 	res.json([]);
 });
 
@@ -1134,8 +1152,14 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 					signal: controller.signal,
 				},
 			);
-			if (gemRes.status === 429) continue;
-			if (!gemRes.ok) break;
+			if (gemRes.status === 429) {
+				console.warn(`[Gemini] daily-move(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!gemRes.ok) {
+				console.warn(`[Gemini] daily-move(${symbol}) got ${gemRes.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await gemRes.json();
 			// With Google Search grounding, text may be in a different part index
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
@@ -1183,14 +1207,15 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 					return result;
 				}
 			}
-		} catch {
-			// timeout or network error — try next key
+		} catch (e) {
+			console.warn(`[Gemini] daily-move(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		} finally {
 			clearTimeout(timeout);
 		}
 	}
 
 	// All keys exhausted or errored — return simple fallback
+	console.warn(`[Gemini] daily-move(${symbol}): all ${keys.length} keys exhausted/failed — falling back to generic explanation`);
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
 	return fallback;
@@ -1250,8 +1275,14 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 					signal: controller.signal,
 				},
 			);
-			if (gemRes.status === 429) continue;
-			if (!gemRes.ok) break;
+			if (gemRes.status === 429) {
+				console.warn(`[Gemini] key-risk(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!gemRes.ok) {
+				console.warn(`[Gemini] key-risk(${symbol}) got ${gemRes.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await gemRes.json();
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
 			const rawRisk = parts.map(p => p.text ?? "").join("").trim();
@@ -1265,13 +1296,14 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 				res.json(result);
 				return;
 			}
-		} catch {
-			// timeout or network error — try next key
+		} catch (e) {
+			console.warn(`[Gemini] key-risk(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		} finally {
 			clearTimeout(timeout);
 		}
 	}
 
+	console.warn(`[Gemini] key-risk(${symbol}): all ${keys.length} keys exhausted/failed — returning null`);
 	res.json({ risk: null });
 });
 
