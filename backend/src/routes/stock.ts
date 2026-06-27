@@ -616,55 +616,15 @@ async function resolveEarningsStatus(
 			: null;
 	const alreadyReported = confirmedEps != null;
 
-	// ── 1. Trust the calendar entry, verified against the 4-source consensus ──
-	if (calendarEntry) {
-		const consensus = await getConsensusEarningsDate(symbol, companyName, calendarEntry.date);
-		const confirmedDate = consensus.date ?? calendarEntry.date;
-		if (confirmedDate > todayStr) {
-			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
-		}
-		// Still upcoming if it's today but Finnhub doesn't have actual results yet --
-		// a same-day report isn't "past" until it lands. Finnhub's own two endpoints can
-		// both lag a real announcement by hours, though, so before settling for another
-		// cache cycle of "upcoming", check whether a same-day earnings article already
-		// exists in Finnhub's news feed -- if so, it's worth asking the full cross-source
-		// consensus (FMP/Yahoo/Gemini, each independently date-checked) right now instead
-		// of waiting. The article is only ever a trigger, never the verdict: if consensus
-		// also comes back with nothing, this still falls through to "upcoming" below, so a
-		// false-positive keyword match can only cost one extra check, never a wrong status.
-		if (confirmedDate === todayStr && !alreadyReported) {
-			if (await hasSameDayEarningsArticle(symbol, companyName, todayStr)) {
-				const consensusResult = await getConsensusEarningsResult(symbol, companyName, todayStr, {
-					epsActual: null,
-					epsEstimate: calendarEntry.epsEstimate,
-					revenueActual: calendarEntry.revenueActual,
-					revenueEstimate: calendarEntry.revenueEstimate,
-				});
-				if (consensusResult.status !== "none") {
-					return {
-						status: consensusResult.status, date: todayStr, hour: calendarEntry.hour || null,
-						epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
-						epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
-					};
-				}
-			}
-			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
-		}
-	}
-
-	// ── 2. No calendar entry — run consensus to check for an upcoming date anyway ──
-	if (!calendarEntry) {
-		const consensus = await getConsensusEarningsDate(symbol, companyName, null);
-		if (consensus.date && (consensus.date > todayStr || (consensus.date === todayStr && !alreadyReported))) {
-			return { ...empty, status: "upcoming", date: consensus.date };
-		}
-	}
-
-	// ── 3. Finnhub itself confirms a report is in: compute beat/miss from its structured
+	// ── 1. Finnhub itself confirms a report is in: compute beat/miss from its structured
 	// actual-vs-estimate directly. No AI guessing needed — this is the common case for any
-	// stock Finnhub covers, which is also exactly why steps 1–2 falling through is *not* on
-	// its own evidence the company never had an upcoming date; it just means we now have
-	// better evidence (the report itself) than a calendar lookup.
+	// stock Finnhub covers. Checked first, ahead of any "is it still upcoming" date lookup
+	// below: those lookups (calendar consensus, Yahoo/FMP/Gemini majority vote) answer "when
+	// will this report," a question that no longer applies once a report has actually landed.
+	// Asking it anyway risks a stale "next date" guess from another source overriding a result
+	// Finnhub already confirmed (seen live with MU: its calendar entry already had actual EPS
+	// for the report that posted, but the cross-source vote still won with a later placeholder
+	// date, so the company never showed up in "earnings this week" despite already reporting).
 	if (alreadyReported && confirmedEps) {
 		const reportDateAnchor = calendarEntry?.date ?? todayStr;
 		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
@@ -684,6 +644,51 @@ async function resolveEarningsStatus(
 			hour: calendarEntry?.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
 			epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
 		};
+	}
+
+	// ── 2. Not yet confirmed reported — trust the calendar entry, verified against the
+	// 4-source consensus ──
+	if (calendarEntry) {
+		const consensus = await getConsensusEarningsDate(symbol, companyName, calendarEntry.date);
+		const confirmedDate = consensus.date ?? calendarEntry.date;
+		if (confirmedDate > todayStr) {
+			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
+		}
+		// Still upcoming if it's today but Finnhub doesn't have actual results yet --
+		// a same-day report isn't "past" until it lands. Finnhub's own two endpoints can
+		// both lag a real announcement by hours, though, so before settling for another
+		// cache cycle of "upcoming", check whether a same-day earnings article already
+		// exists in Finnhub's news feed -- if so, it's worth asking the full cross-source
+		// consensus (FMP/Yahoo/Gemini, each independently date-checked) right now instead
+		// of waiting. The article is only ever a trigger, never the verdict: if consensus
+		// also comes back with nothing, this still falls through to "upcoming" below, so a
+		// false-positive keyword match can only cost one extra check, never a wrong status.
+		if (confirmedDate === todayStr) {
+			if (await hasSameDayEarningsArticle(symbol, companyName, todayStr)) {
+				const consensusResult = await getConsensusEarningsResult(symbol, companyName, todayStr, {
+					epsActual: null,
+					epsEstimate: calendarEntry.epsEstimate,
+					revenueActual: calendarEntry.revenueActual,
+					revenueEstimate: calendarEntry.revenueEstimate,
+				});
+				if (consensusResult.status !== "none") {
+					return {
+						status: consensusResult.status, date: todayStr, hour: calendarEntry.hour || null,
+						epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+						epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
+					};
+				}
+			}
+			return { ...empty, status: "upcoming", date: confirmedDate, hour: calendarEntry.hour || null, epsEstimate: calendarEntry.epsEstimate };
+		}
+	}
+
+	// ── 3. No calendar entry — run consensus to check for an upcoming date anyway ──
+	if (!calendarEntry) {
+		const consensus = await getConsensusEarningsDate(symbol, companyName, null);
+		if (consensus.date && consensus.date >= todayStr) {
+			return { ...empty, status: "upcoming", date: consensus.date };
+		}
 	}
 
 	// ── 4. No confirmed date anywhere AND Finnhub has no actual data — last resort: ask

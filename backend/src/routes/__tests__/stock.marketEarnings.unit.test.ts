@@ -141,4 +141,33 @@ describe("GET /market-earnings", () => {
 		expect(res.status).toBe(200);
 		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
 	});
+
+	it("keeps a confirmed beat/miss for a past calendar entry instead of letting a stale 'upcoming' consensus date override it (live MU bug)", async () => {
+		// Real incident: Finnhub's calendar entry for MU already had actual EPS for the report
+		// that posted this week, but the 4-source consensus (Yahoo/FMP/Gemini) still voted for a
+		// later placeholder date that hadn't reported yet -- which used to win outright, making
+		// MU vanish from "earnings this week" despite having already reported a beat.
+		const reportDate = "2026-06-22"; // within this week's Sun-Sat window, before TODAY
+		mockFetchSequence(
+			{
+				earningsCalendar: [{
+					symbol: "MU", date: reportDate, hour: "amc",
+					epsActual: 25.11, epsEstimate: 21.4, revenueActual: 41456000000, revenueEstimate: 36923508824,
+				}],
+			},
+			[{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // stale latestEps, irrelevant once calendarEntry.epsActual is present
+		);
+		// Wrong/stale majority vote: still claims MU hasn't reported yet
+		getConsensusEarningsDateMock.mockResolvedValue({ date: "2026-06-30", sources: {}, confidence: "high" });
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=week&tickers=MU");
+
+		expect(res.status).toBe(200);
+		const mu = res.body.entries.find((e: { symbol: string }) => e.symbol === "MU");
+		expect(mu).toEqual(expect.objectContaining({ symbol: "MU", status: "beat", date: reportDate }));
+		// Ground truth (calendar entry already has actual EPS) must short-circuit before any
+		// "when's the next report" lookup even runs.
+		expect(getConsensusEarningsDateMock).not.toHaveBeenCalled();
+	});
 });
