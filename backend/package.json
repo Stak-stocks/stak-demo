@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@stak/shared": "*",
+		"@supabase/supabase-js": "^2.108.2",
 		"@types/node-cron": "^3.0.11",
 		"cors": "^2.8.5",
 		"dotenv": "^16.4.7",
@@ -19,11 +20,13 @@
 		"firebase-admin": "^13.0.2",
 		"ioredis": "^5.10.0",
 		"node-cron": "^4.2.1",
+		"pg": "^8.22.0",
 		"tsx": "^4.19.2"
 	},
 	"devDependencies": {
 		"@types/cors": "^2.8.17",
 		"@types/express": "^5.0.0",
+		"@types/pg": "^8.20.0",
 		"@types/supertest": "^6.0.2",
 		"supertest": "^7.0.0",
 		"typescript": "^5.7.3",

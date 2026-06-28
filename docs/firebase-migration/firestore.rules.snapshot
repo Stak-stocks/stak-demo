@@ -1,0 +1,76 @@
+// Snapshot of the ACTIVE Firestore security rules for project stak-c21a3,
+// fetched directly from the Firebase Rules API (not present anywhere in the
+// repo before this — rules were console-only/undocumented in code).
+//
+// Fetched: 2026-06-28
+// Ruleset: projects/stak-c21a3/rulesets/8047c8fb-01f8-4715-b8ac-3a4cafabd4b7
+// Last updated (per API): 2026-03-25T23:45:20.280041Z
+//
+// Purpose: reference for designing equivalent Postgres RLS policies during the
+// Supabase migration (see C:\Users\badew\.claude\plans\tingly-conjuring-lake.md).
+// This file is a point-in-time export, not a deployed/live ruleset -- it does
+// not affect Firestore behavior and is not picked up by `firebase deploy`.
+//
+// Notable: this snapshot revealed 3 stale collection entries with no live code
+// path and (for brands/intel_cards) zero documents: `brands`, `intel_cards`,
+// and `trends_v5` (which does have real but orphaned data from a deliberately
+// retired feature -- see git commits 01832ed/449f007/119ddeb). All three are
+// intentionally excluded from the Postgres migration; see the plan file.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own document
+    // Backend-only fields (streak, badges, bonus swipes) cannot be set by clients
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && !("bonusSwipes"     in request.resource.data.diff(resource.data).affectedKeys())
+        && !("badges"          in request.resource.data.diff(resource.data).affectedKeys())
+        && !("streakCount"     in request.resource.data.diff(resource.data).affectedKeys())
+        && !("lastStreakDate"  in request.resource.data.diff(resource.data).affectedKeys())
+        && !("graceUsed"       in request.resource.data.diff(resource.data).affectedKeys())
+        && !("graceWeek"       in request.resource.data.diff(resource.data).affectedKeys())
+        && !("totalSwipeCount" in request.resource.data.diff(resource.data).affectedKeys())
+        && !("totalIntelViews" in request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    // Swipes are written by the backend Admin SDK only — deny all client access
+    match /swipes/{docId} {
+      allow read, write: if false;
+    }
+
+    // Public read-only collections (brands, stocks, intel cards)
+    match /brands/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /stocks/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /intel_cards/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Trends are read-only from client (writes go through backend only)
+    match /trends_v5/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Backend-only collections — deny all client access
+    match /events/{docId}   { allow read, write: if false; }
+    match /sessions/{docId} { allow read, write: if false; }
+    match /admin/{docId}    { allow read, write: if false; }
+
+    // Deny everything else explicitly
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
