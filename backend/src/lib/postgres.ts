@@ -25,4 +25,19 @@ export async function pgQuery<T extends pg.QueryResultRow = pg.QueryResultRow>(
 	return pool.query<T>(text, params);
 }
 
+/**
+ * Every child table (swipes, events, sessions, etc.) FKs to users(uid) -- but Phase 1
+ * shadow-writes those tables before the `users` table itself is populated (that's
+ * Phase 2/3). Without a row to reference, those FK inserts would fail outright. This
+ * upsert guarantees a row exists with ON CONFLICT DO NOTHING specifically so it never
+ * clobbers a fuller row Phase 2/3 writes later -- this is a placeholder, not a source
+ * of truth for user data.
+ */
+export async function ensureUserRow(uid: string, email?: string | null): Promise<void> {
+	await pgQuery(
+		`insert into users (uid, email) values ($1, $2) on conflict (uid) do nothing`,
+		[uid, email ?? null],
+	);
+}
+
 export { pool as pgPool };

@@ -3,6 +3,8 @@ import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
+import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
 
 export const meRouter = Router();
 
@@ -21,6 +23,15 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			adminDb.collection("sessions").doc(`${uid}_${today}`)
 				.set({ uid, date: today })
 				.catch(() => {});
+
+			// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+			shadowWrite("sessions-upsert", async () => {
+				await ensureUserRow(uid, req.user!.email);
+				await pgQuery(
+					`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`,
+					[uid, today],
+				);
+			});
 		}
 
 		const doc = await adminDb.collection("users").doc(uid).get();

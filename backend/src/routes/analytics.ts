@@ -1,6 +1,12 @@
 import { Router, Request, Response } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { getEasternDateKey } from "@stak/shared";
+import { pgQuery } from "../lib/postgres.js";
+
+// Reads from Firestore by default; set ANALYTICS_READ_SOURCE=postgres to switch once
+// shadow-write parity has actually been observed over real time (migration plan,
+// Phase 1 go/no-go) -- not flipped automatically from this codebase alone.
+const READ_FROM_POSTGRES = process.env.ANALYTICS_READ_SOURCE === "postgres";
 
 export const analyticsRouter = Router();
 
@@ -48,6 +54,75 @@ interface SessionDoc {
 	date: string;
 }
 
+interface EventDoc {
+	uid: string;
+	type: string;
+	brandId?: string;
+	ticker?: string;
+	params?: Record<string, unknown>;
+	timestamp: string;
+}
+
+// Postgres equivalents of the Firestore fetches above -- column names aliased to match
+// the SwipeDoc/SessionDoc/EventDoc shapes exactly so every existing aggregation function
+// below runs completely unchanged regardless of which store the rows came from.
+//
+// `timestamp`/`occurred_at` is timestamptz in Postgres -- the pg driver auto-parses that
+// into a JS Date, not a string, but the aggregation code below calls .split("T")[0] and
+// does string comparisons against other ISO strings (e.g. todayStart.toISOString()),
+// exactly like it already does against Firestore's stored ISO-string format. Each
+// fetcher converts back to a string so callers never need to know or care.
+function toIsoString(value: string | Date): string {
+	return value instanceof Date ? value.toISOString() : value;
+}
+
+async function pgFetchSwipes(sinceIso?: string): Promise<SwipeDoc[]> {
+	const result = sinceIso
+		? await pgQuery<SwipeDoc>(
+			`select uid, direction, brand_id as "brandId", occurred_at as "timestamp", time_on_card_ms as "timeOnCardMs"
+			from swipes where occurred_at >= $1`,
+			[sinceIso],
+		)
+		: await pgQuery<SwipeDoc>(
+			`select uid, direction, brand_id as "brandId", occurred_at as "timestamp", time_on_card_ms as "timeOnCardMs"
+			from swipes`,
+		);
+	return result.rows.map((r) => ({ ...r, timestamp: toIsoString(r.timestamp) }));
+}
+
+async function pgFetchSessions(sinceDate?: string): Promise<SessionDoc[]> {
+	const result = sinceDate
+		? await pgQuery<SessionDoc>(`select uid, date from sessions where date >= $1`, [sinceDate])
+		: await pgQuery<SessionDoc>(`select uid, date from sessions`);
+	return result.rows;
+}
+
+async function pgFetchSwipesRange(fromIso: string, toIso: string): Promise<SwipeDoc[]> {
+	const result = await pgQuery<SwipeDoc>(
+		`select uid, direction, brand_id as "brandId", occurred_at as "timestamp", time_on_card_ms as "timeOnCardMs"
+		from swipes where occurred_at >= $1 and occurred_at <= $2`,
+		[fromIso, toIso],
+	);
+	return result.rows.map((r) => ({ ...r, timestamp: toIsoString(r.timestamp) }));
+}
+
+async function pgFetchSessionsRange(fromDate: string, toDate: string): Promise<SessionDoc[]> {
+	const result = await pgQuery<SessionDoc>(
+		`select uid, date from sessions where date >= $1 and date <= $2`,
+		[fromDate, toDate],
+	);
+	return result.rows;
+}
+
+async function pgFetchEvents(sinceIso: string): Promise<EventDoc[]> {
+	const result = await pgQuery<EventDoc>(
+		`select uid, type, brand_id as "brandId", ticker, params, occurred_at as "timestamp"
+		from events where occurred_at >= $1`,
+		[sinceIso],
+	);
+	return result.rows.map((r) => ({ ...r, timestamp: toIsoString(r.timestamp) }));
+}
+
 function computeSwipeStats(swipes: SwipeDoc[], periodDays: number) {
 	const total = swipes.length;
 	const right = swipes.filter((s) => s.direction === "right").length;
@@ -83,18 +158,32 @@ analyticsRouter.get("/", async (req: Request, res: Response) => {
 		const monthStartDate = getEasternDateKey(monthStartRaw);
 		const monthStart = new Date(monthStartDate + "T00:00:00Z");
 
-		// Fetch all data in parallel
-		const [monthSwipeSnap, allSwipeSnap, monthSessionSnap, allSessionSnap] = await Promise.all([
-			adminDb.collection("swipes").where("timestamp", ">=", monthStart.toISOString()).get(),
-			adminDb.collection("swipes").get(),
-			adminDb.collection("sessions").where("date", ">=", monthStartDate).get(),
-			adminDb.collection("sessions").get(),
-		]);
-
-		const monthSwipes = monthSwipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
-		const allSwipes = allSwipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
-		const monthSessions = monthSessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
-		const allSessions = allSessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
+		// Fetch all data in parallel -- from Postgres or Firestore depending on
+		// ANALYTICS_READ_SOURCE; everything below this point is unchanged either way.
+		let monthSwipes: SwipeDoc[], allSwipes: SwipeDoc[], monthSessions: SessionDoc[], allSessions: SessionDoc[];
+		if (READ_FROM_POSTGRES) {
+			[monthSwipes, allSwipes, monthSessions, allSessions] = await Promise.all([
+				pgFetchSwipes(monthStart.toISOString()),
+				pgFetchSwipes(),
+				pgFetchSessions(monthStartDate),
+				pgFetchSessions(),
+			]);
+		} else {
+			const [monthSwipeSnap, allSwipeSnap, monthSessionSnap, allSessionSnap] = await Promise.all([
+				adminDb.collection("swipes").where("timestamp", ">=", monthStart.toISOString()).get(),
+				adminDb.collection("swipes").get(),
+				adminDb.collection("sessions").where("date", ">=", monthStartDate).get(),
+				adminDb.collection("sessions").get(),
+			]);
+			monthSwipes = monthSwipeSnap.docs.map((d) => d.data() as SwipeDoc);
+			allSwipes = allSwipeSnap.docs.map((d) => d.data() as SwipeDoc);
+			monthSessions = monthSessionSnap.docs.map((d) => d.data() as SessionDoc);
+			allSessions = allSessionSnap.docs.map((d) => d.data() as SessionDoc);
+		}
+		monthSwipes = monthSwipes.filter((s) => !excluded.has(s.uid));
+		allSwipes = allSwipes.filter((s) => !excluded.has(s.uid));
+		monthSessions = monthSessions.filter((s) => !excluded.has(s.uid));
+		allSessions = allSessions.filter((s) => !excluded.has(s.uid));
 
 		// Slice periods from already-fetched data
 		const todaySwipes = monthSwipes.filter((s) => s.timestamp >= todayStart.toISOString());
@@ -210,19 +299,28 @@ analyticsRouter.get("/range", async (req: Request, res: Response) => {
 		const excluded = await getExcludedUids();
 		const days = Math.max(1, Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)));
 
-		const [swipeSnap, sessionSnap] = await Promise.all([
-			adminDb.collection("swipes")
-				.where("timestamp", ">=", fromDate.toISOString())
-				.where("timestamp", "<=", toDate.toISOString())
-				.get(),
-			adminDb.collection("sessions")
-				.where("date", ">=", from)
-				.where("date", "<=", to)
-				.get(),
-		]);
-
-		const swipes = swipeSnap.docs.map((d) => d.data() as SwipeDoc).filter((s) => !excluded.has(s.uid));
-		const sessions = sessionSnap.docs.map((d) => d.data() as SessionDoc).filter((s) => !excluded.has(s.uid));
+		let swipes: SwipeDoc[], sessions: SessionDoc[];
+		if (READ_FROM_POSTGRES) {
+			[swipes, sessions] = await Promise.all([
+				pgFetchSwipesRange(fromDate.toISOString(), toDate.toISOString()),
+				pgFetchSessionsRange(from, to),
+			]);
+		} else {
+			const [swipeSnap, sessionSnap] = await Promise.all([
+				adminDb.collection("swipes")
+					.where("timestamp", ">=", fromDate.toISOString())
+					.where("timestamp", "<=", toDate.toISOString())
+					.get(),
+				adminDb.collection("sessions")
+					.where("date", ">=", from)
+					.where("date", "<=", to)
+					.get(),
+			]);
+			swipes = swipeSnap.docs.map((d) => d.data() as SwipeDoc);
+			sessions = sessionSnap.docs.map((d) => d.data() as SessionDoc);
+		}
+		swipes = swipes.filter((s) => !excluded.has(s.uid));
+		sessions = sessions.filter((s) => !excluded.has(s.uid));
 
 		const total = swipes.length;
 		const right = swipes.filter((s) => s.direction === "right").length;
@@ -286,22 +384,10 @@ analyticsRouter.get("/events", async (req: Request, res: Response) => {
 		const excluded = await getExcludedUids();
 		const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-		const snap = await adminDb.collection("events")
-			.where("timestamp", ">=", since)
-			.get();
-
-		interface EventDoc {
-			uid: string;
-			type: string;
-			brandId?: string;
-			ticker?: string;
-			params?: Record<string, unknown>;
-			timestamp: string;
-		}
-
-		const events = snap.docs
-			.map((d) => d.data() as EventDoc)
-			.filter((e) => !excluded.has(e.uid));
+		const events = READ_FROM_POSTGRES
+			? (await pgFetchEvents(since)).filter((e) => !excluded.has(e.uid))
+			: (await adminDb.collection("events").where("timestamp", ">=", since).get())
+				.docs.map((d) => d.data() as EventDoc).filter((e) => !excluded.has(e.uid));
 
 		// ── Feature usage counts ──────────────────────────────────────────────
 		const countByType: Record<string, number> = {};

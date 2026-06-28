@@ -4,6 +4,8 @@ import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js"
 import { recordActivity } from "../services/streakService.js";
 import { updateUserTasteProfile } from "../services/tasteProfileService.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
+import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
 
 export const swipeRouter = Router();
 
@@ -60,16 +62,27 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			return;
 		}
 
+		const swipeTimestamp = new Date().toISOString();
 		await adminDb.collection("swipes").add({
 			uid,
 			brandId,
 			direction,
-			timestamp: new Date().toISOString(),
+			timestamp: swipeTimestamp,
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
 			...(stakSize != null && { stakSize }),
 			...(timeOnCardMs != null && { timeOnCardMs }),
 			...(swipeVelocity != null && { swipeVelocity }),
+		});
+
+		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+		await shadowWrite("swipes-insert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into swipes (uid, brand_id, direction, occurred_at, ticker, categories, stak_size, time_on_card_ms, swipe_velocity)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				[uid, brandId, direction, swipeTimestamp, ticker ?? null, categories ?? null, stakSize ?? null, timeOnCardMs ?? null, swipeVelocity ?? null],
+			);
 		});
 
 		const streakResult = await recordActivity(uid, "swipe", todayKey);
@@ -117,14 +130,25 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 			return;
 		}
 
+		const eventTimestamp = new Date().toISOString();
 		await adminDb.collection("events").add({
 			uid,
 			type,
-			timestamp: new Date().toISOString(),
+			timestamp: eventTimestamp,
 			...(brandId != null && { brandId }),
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
 			...(params != null && { params }),
+		});
+
+		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+		await shadowWrite("events-insert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into events (uid, type, occurred_at, brand_id, ticker, categories, params)
+				values ($1, $2, $3, $4, $5, $6, $7)`,
+				[uid, type, eventTimestamp, brandId ?? null, ticker ?? null, categories ?? null, params != null ? JSON.stringify(params) : null],
+			);
 		});
 
 		if (type === "intel_card_view") {
