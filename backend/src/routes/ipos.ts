@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { syncNewIPOs, seedAllStocks, getSeedStatus } from "../services/ipoService.js";
+import { pgQuery } from "../lib/postgres.js";
 
 export const stocksRouter = Router();
 
@@ -47,8 +48,35 @@ export async function deleteUnverifiedAccounts(maxAgeHours = 24): Promise<{ dele
 	return { deleted, errors };
 }
 
-// GET /api/stocks — public, returns all auto-detected stocks from Firestore
+// GET /api/stocks — public, returns all auto-detected stocks.
+// Reads from Firestore by default; set STOCKS_READ_SOURCE=postgres to switch once
+// shadow-write parity has actually been observed over real time (migration plan,
+// Phase 1 go/no-go) -- not something to flip automatically from this codebase alone.
 stocksRouter.get("/", async (_req, res) => {
+	if (process.env.STOCKS_READ_SOURCE === "postgres") {
+		try {
+			const result = await pgQuery(`
+				select ticker, id, name, domain, logo, hero_image, bio, personality_description,
+					vibes, cultural_context, interest_categories, sector, country, source, ipo_date,
+					added_at, updated_at
+				from stocks
+			`);
+			const stocks = result.rows.map((r) => ({
+				id: r.id, ticker: r.ticker, name: r.name, domain: r.domain, logo: r.logo,
+				heroImage: r.hero_image, bio: r.bio, personalityDescription: r.personality_description,
+				vibes: r.vibes, culturalContext: r.cultural_context, interestCategories: r.interest_categories,
+				sector: r.sector, country: r.country, source: r.source, ipoDate: r.ipo_date,
+				addedAt: r.added_at, updatedAt: r.updated_at,
+			}));
+			res.json({ stocks });
+			return;
+		} catch (error) {
+			console.error("Error fetching stocks from Postgres:", error);
+			res.status(500).json({ error: "Failed to fetch stocks" });
+			return;
+		}
+	}
+
 	try {
 		const snapshot = await adminDb.collection("stocks").get();
 		const stocks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
