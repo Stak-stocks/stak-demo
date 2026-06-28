@@ -187,10 +187,26 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 	}
 });
 
-// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs
+// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs.
+// Reads from Firestore by default; set INTEL_STATE_READ_SOURCE=postgres to switch once
+// shadow-write parity has actually been observed over real time -- see tingly-conjuring-lake.md.
+// Confirmed backend-exclusive (unlike most of users/{uid}'s other fields, nothing in
+// AccountContext.tsx writes intelCardState directly from the frontend) -- this is the
+// one field Phase 2's original scope actually applies to cleanly.
 meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
+
+		if (process.env.INTEL_STATE_READ_SOURCE === "postgres") {
+			const result = await pgQuery<{ last_date: string; queue: string[]; read_ids: string[] }>(
+				`select last_date, queue, read_ids from intel_card_state where uid = $1`,
+				[uid],
+			);
+			const row = result.rows[0];
+			res.json({ lastDate: row?.last_date ?? "", queue: row?.queue ?? [], readIds: row?.read_ids ?? [] });
+			return;
+		}
+
 		const doc = await adminDb.collection("users").doc(uid).get();
 		const data = doc.data();
 		const saved = data?.intelCardState ?? {};
@@ -221,6 +237,16 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 			{ intelCardState: { lastDate, queue, readIds }, updatedAt: new Date().toISOString() },
 			{ merge: true },
 		);
+
+		// Shadow-write to Postgres (migration Phase 2) -- see tingly-conjuring-lake.md
+		await shadowWrite("intel-state-upsert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into intel_card_state (uid, last_date, queue, read_ids) values ($1, $2, $3, $4)
+				on conflict (uid) do update set last_date = excluded.last_date, queue = excluded.queue, read_ids = excluded.read_ids`,
+				[uid, lastDate, queue, readIds],
+			);
+		});
 
 		res.json({ lastDate, queue, readIds });
 	} catch (error) {
