@@ -1,0 +1,167 @@
+/**
+ * Supabase-backed equivalent of AccountContext.tsx's Firestore onSnapshot subscription
+ * (migration plan, Phase 5). Assembles the same UserDoc shape from the 7 Postgres
+ * tables a user's account data is split across, so AccountContext's consumers never
+ * need to know which provider is actually backing the data.
+ *
+ * Deliberately does NOT filter any query by uid. The frontend only has
+ * supabaseUserId (the Supabase auth.users UUID) -- it never resolves the actual
+ * `uid` column value (Firebase-UID-format text) these tables are keyed on, and
+ * shouldn't need to. RLS (current_firebase_uid(), see the rls_policies_and_realtime
+ * migration) already restricts every one of these queries -- and every Realtime
+ * event -- to the caller's own rows unconditionally. An unfiltered select here reads
+ * "all rows I'm allowed to see," which is exactly "my own rows," enforced by Postgres
+ * itself rather than trusted client-side filtering.
+ *
+ * On any change to any of the 7 tables, refetches all 7 and reassembles -- simple and
+ * correct over maximally efficient, which is the right tradeoff at one user's data
+ * volume (a handful of rows per table, not a bulk dataset).
+ */
+import { supabase } from "./supabase";
+import type {
+	UserDoc, PassedEntry, SearchEntry, StakSaveEntry, SandboxEntry,
+	LessonProgress, EarningsProgress, ActivityProgress, IntelCardState,
+} from "../context/AccountContext";
+
+const REALTIME_TABLES = [
+	"users", "stak_brands", "passed_brands", "search_history",
+	"intel_card_state", "sandbox_portfolio", "activity_progress", "playground_state",
+] as const;
+
+export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
+	const [usersRes, stakRes, passedRes, searchRes, intelRes, sandboxRes, activityRes, playgroundRes] = await Promise.all([
+		supabase.from("users").select("*").maybeSingle(),
+		supabase.from("stak_brands").select("*"),
+		supabase.from("passed_brands").select("*"),
+		supabase.from("search_history").select("*"),
+		supabase.from("intel_card_state").select("*").maybeSingle(),
+		supabase.from("sandbox_portfolio").select("*"),
+		supabase.from("activity_progress").select("*"),
+		supabase.from("playground_state").select("*").maybeSingle(),
+	]);
+
+	const u = usersRes.data;
+	if (!u) return null;
+
+	const stakBrandIds: string[] = (stakRes.data ?? []).map((r) => r.brand_id);
+	const stakSavedAt: Record<string, StakSaveEntry> = {};
+	for (const r of stakRes.data ?? []) {
+		stakSavedAt[r.brand_id] = { savedAt: new Date(r.saved_at).getTime(), priceAtSave: r.price_at_save };
+	}
+
+	const passedBrands: PassedEntry[] = (passedRes.data ?? []).map((r) => ({
+		id: r.brand_id, at: new Date(r.first_passed_at).getTime(), count: r.pass_count,
+	}));
+
+	const searchHistory: SearchEntry[] = (searchRes.data ?? [])
+		.map((r) => ({ query: r.query, at: new Date(r.at).getTime() }))
+		.sort((a, b) => b.at - a.at);
+
+	const intel = intelRes.data;
+	const intelCardState: IntelCardState | undefined = intel
+		? { lastDate: intel.last_date ?? "", queue: intel.queue ?? [], readIds: intel.read_ids ?? [] }
+		: undefined;
+
+	const sandboxPortfolio: Record<string, SandboxEntry> = {};
+	for (const r of sandboxRes.data ?? []) {
+		sandboxPortfolio[r.ticker] = {
+			addedAt: new Date(r.added_at).getTime(), priceAtAdd: r.price_at_add, shares: Number(r.shares),
+			...(r.thesis ? { thesis: r.thesis } : {}),
+		};
+	}
+
+	const lessonProgress: Record<string, LessonProgress> = {};
+	const earningsProgress: Record<string, EarningsProgress> = {};
+	const battlesProgress: Record<string, ActivityProgress> = {};
+	const riskProgress: Record<string, ActivityProgress> = {};
+	const moodProgress: Record<string, ActivityProgress> = {};
+	const progressByKind: Record<string, Record<string, unknown>> = {
+		lesson: lessonProgress, earnings: earningsProgress, battle: battlesProgress, risk: riskProgress, mood: moodProgress,
+	};
+	for (const r of activityRes.data ?? []) {
+		const bucket = progressByKind[r.kind];
+		if (!bucket) continue;
+		bucket[r.item_id] = r.kind === "lesson"
+			? { completed: r.completed, completedAt: new Date(r.completed_at).getTime(), xpEarned: r.xp_earned }
+			: { completed: r.completed, completedAt: new Date(r.completed_at).getTime() };
+	}
+
+	const pg = playgroundRes.data;
+
+	return {
+		uid: u.uid,
+		email: u.email ?? undefined,
+		displayName: u.display_name ?? undefined,
+		phone: u.phone ?? undefined,
+		preferences: u.preferences ?? undefined,
+		onboardingCompleted: u.onboarding_completed,
+		stakBrandIds,
+		stakSavedAt,
+		passedBrands,
+		intelCardState,
+		dailySwipeState: u.daily_swipe_date ? { date: u.daily_swipe_date, count: u.daily_swipe_count } : undefined,
+		streakCount: u.streak_count,
+		lastStreakDate: u.last_streak_date ?? undefined,
+		graceUsed: u.grace_used,
+		badges: u.badges ?? [],
+		bonusSwipes: u.bonus_swipes,
+		totalSwipeCount: u.total_swipe_count,
+		totalIntelViews: u.total_intel_views,
+		deckOrder: u.deck_order ?? [],
+		searchHistory,
+		tagScores: u.tag_scores ?? {},
+		lastBriefDate: u.last_brief_date ?? undefined,
+		totalXp: pg?.total_xp,
+		lessonProgress,
+		earningsProgress,
+		battlesProgress,
+		riskProgress,
+		moodProgress,
+		// Known gaps, not silently dropped: dailyChallengeState has no Postgres column
+		// anywhere in the schema yet (missed in the original Phase 0 design), and
+		// practice_skills exists as its own table but isn't wired up here yet -- both
+		// are playground-specific features, lower priority than core app
+		// functionality for this round. Revisit before this is anything more than
+		// cohort testing.
+		dailyChallengeState: undefined,
+		sandboxPortfolio,
+		sandboxCash: pg?.sandbox_cash != null ? Number(pg.sandbox_cash) : undefined,
+		sandboxTier: pg?.sandbox_tier,
+		dailyProgress: pg?.daily_progress,
+		allTimeCompletedActivityIds: pg?.all_time_completed_activity_ids ?? [],
+		sandboxMilestones: pg?.sandbox_milestones ?? [],
+		practiceSkills: {},
+		playgroundOnboarded: pg?.playground_onboarded,
+		generatedLessonHistory: pg?.generated_lesson_history ?? [],
+	};
+}
+
+// sessionKey is only used to namespace the Realtime channel / as a React effect
+// dependency to know when to resubscribe (e.g. supabaseUserId) -- it is never used
+// to filter a query. See the module comment above for why.
+export function subscribeSupabaseAccount(sessionKey: string, onChange: (doc: UserDoc | null) => void): () => void {
+	let cancelled = false;
+
+	const refetch = () => {
+		fetchSupabaseAccount().then((doc) => {
+			if (!cancelled) onChange(doc);
+		});
+	};
+
+	refetch();
+
+	const channel = supabase.channel(`account-${sessionKey}`);
+	for (const table of REALTIME_TABLES) {
+		channel.on(
+			"postgres_changes",
+			{ event: "*", schema: "public", table },
+			refetch,
+		);
+	}
+	channel.subscribe();
+
+	return () => {
+		cancelled = true;
+		supabase.removeChannel(channel);
+	};
+}

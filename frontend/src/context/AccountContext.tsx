@@ -17,6 +17,7 @@ import {
 import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
+import { subscribeSupabaseAccount } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ const MAX_SEARCH_HISTORY = 20;
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-	const { user, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
+	const { user, supabaseUserId, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
 	const [account, setAccount] = useState<UserDoc | null>(null);
 	const [accountLoading, setAccountLoading] = useState(true);
 
@@ -169,29 +170,39 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		if (authLoading) return;
 
-		if (!user) {
-			setAccount(null);
-			setAccountLoading(false);
-			return;
+		if (user) {
+			setAccountLoading(true);
+			const userRef = doc(db, "users", user.uid);
+
+			const unsubscribe = onSnapshot(
+				userRef,
+				(snapshot) => {
+					setAccount(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
+					setAccountLoading(false);
+				},
+				() => {
+					// Offline or permission error — keep last known data, unblock UI
+					setAccountLoading(false);
+				},
+			);
+
+			return unsubscribe;
 		}
 
-		setAccountLoading(true);
-		const userRef = doc(db, "users", user.uid);
-
-		const unsubscribe = onSnapshot(
-			userRef,
-			(snapshot) => {
-				setAccount(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
+		// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase
+		// `user` -- this is the same onSnapshot-replacement, backed by Realtime instead.
+		if (supabaseUserId) {
+			setAccountLoading(true);
+			const unsubscribe = subscribeSupabaseAccount(supabaseUserId, (supabaseAccount) => {
+				setAccount(supabaseAccount);
 				setAccountLoading(false);
-			},
-			() => {
-				// Offline or permission error — keep last known data, unblock UI
-				setAccountLoading(false);
-			},
-		);
+			});
+			return unsubscribe;
+		}
 
-		return unsubscribe;
-	}, [user, authLoading]);
+		setAccount(null);
+		setAccountLoading(false);
+	}, [user, supabaseUserId, authLoading]);
 
 	// Backfill: existing users have onboardingCompleted=true in Firestore but no
 	// JWT custom claim yet. Calling GET /api/me triggers the backend to set the
