@@ -28,7 +28,12 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { user, loading } = useAuth();
+	const { user, loading, supabaseUserId } = useAuth();
+	// Narrow, additive check (migration plan, Phase 5, internal cohort only) -- "is
+	// anyone logged in at all" needs to know about both providers, even though
+	// AccountContext.tsx (the next piece of this phase) still only knows Firebase's
+	// user.uid, so a Supabase-only cohort session won't have real account data yet.
+	const isLoggedIn = !!user || !!supabaseUserId;
 	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(user?.uid ?? "guest", !!user);
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
@@ -107,13 +112,13 @@ function Root() {
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
 	useEffect(() => {
-		if (!loading && !accountLoading && !user && !isAuthPage) {
+		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, navigate]);
 
 	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
 	// the 9:30am ET open (not before): the brief is sourced from real trading
@@ -185,14 +190,14 @@ function Root() {
 	}
 
 	// Block render while a redirect is imminent — prevents one-frame flash of wrong page
-	if (!user && !isAuthPage) {
+	if (!isLoggedIn && !isAuthPage) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
-	if (user && !isAuthPage && account?.onboardingCompleted !== true) {
+	if (isLoggedIn && !isAuthPage && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
