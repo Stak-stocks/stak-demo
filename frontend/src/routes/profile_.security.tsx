@@ -16,7 +16,7 @@ export const Route = createFileRoute("/profile_/security")({
 });
 
 function SecurityPage() {
-	const { user } = useAuth();
+	const { user, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 
 	const [currentPassword, setCurrentPassword] = useState("");
@@ -30,9 +30,24 @@ function SecurityPage() {
 	const touchStartX = useRef(0);
 	const touchStartY = useRef(0);
 
-	if (!user) {
+	// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase `user`
+	// -- without the supabaseUserId check, this guard alone would loop against
+	// __root.tsx's already-dual-aware guard, same bug class as onboarding.tsx.
+	if (!user && !supabaseUserId) {
 		navigate({ to: "/login" });
 		return null;
+	}
+
+	// This entire page is Firebase-specific password-change logic
+	// (reauthenticateWithCredential, auth.currentUser) with no Supabase equivalent
+	// built yet -- a real feature gap, not something to fake. Show an honest message
+	// instead of letting the rest of this component dereference a null `user`.
+	if (!user) {
+		return (
+			<div className="flex items-center justify-center h-full px-6 text-center">
+				<p className="dark:text-slate-400 text-slate-500">Password management isn't available for this account yet.</p>
+			</div>
+		);
 	}
 
 	const provider = user.providerData[0]?.providerId;

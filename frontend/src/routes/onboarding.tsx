@@ -79,7 +79,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-	const { user, loading, onboardingCompleted: claimsOnboardingCompleted } = useAuth();
+	const { user, loading, onboardingCompleted: claimsOnboardingCompleted, supabaseUserId } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
@@ -111,7 +111,16 @@ function OnboardingPage() {
 
 	useEffect(() => {
 		if (loading) return;
-		if (!user) { navigate({ to: "/login" }); return; }
+		// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase
+		// `user` at all -- without the supabaseUserId check here, this guard alone
+		// caused the infinite /login <-> /onboarding loop (this file fought
+		// __root.tsx's already-dual-aware guard).
+		if (!user && !supabaseUserId) { navigate({ to: "/login" }); return; }
+		// The email-verification-required flow is Firebase-specific (no equivalent
+		// built for Supabase yet) -- skip it entirely for a Supabase-only session
+		// rather than dereferencing a null `user`. Cohort accounts are already
+		// provisioned/verified, so this doesn't apply to them anyway.
+		if (!user) return;
 		const isPasswordProvider = user.providerData[0]?.providerId === "password";
 		// Use auth.currentUser?.emailVerified (the live Firebase object) instead of
 		// user.emailVerified (React state) — the poll mutates auth.currentUser in-place
@@ -121,9 +130,11 @@ function OnboardingPage() {
 		if (isPasswordProvider && !emailVerified) {
 			navigate({ to: "/verify-email" });
 		}
-	}, [user, loading, navigate]);
+	}, [user, supabaseUserId, loading, navigate]);
 
-	// JWT claim guard — fast, cross-device, no Firestore read needed.
+	// JWT claim guard — fast, cross-device, no Firestore read needed. Firebase-only
+	// (Supabase doesn't have this custom-claims mechanism yet) -- a Supabase-only
+	// session simply skips this guard, not redirected by it either way.
 	// Silent while the user is actively progressing through the flow.
 	useEffect(() => {
 		if (!loading && user && !hasProgressed.current && claimsOnboardingCompleted) {

@@ -47,7 +47,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 }
 
 function ProfilePage() {
-	const { user, loading, logout } = useAuth();
+	const { user, loading, logout, supabaseUserId } = useAuth();
 	const { account, updatePreferences } = useAccount();
 	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();
@@ -126,10 +126,13 @@ function ProfilePage() {
 	}
 
 	useEffect(() => {
-		if (!loading && !user) {
+		// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase
+		// `user` -- without this, this guard alone would loop against __root.tsx's
+		// already-dual-aware guard, same bug class as onboarding.tsx.
+		if (!loading && !user && !supabaseUserId) {
 			navigate({ to: "/login" });
 		}
-	}, [loading, user, navigate]);
+	}, [loading, user, supabaseUserId, navigate]);
 
 	if (loading) {
 		return (
