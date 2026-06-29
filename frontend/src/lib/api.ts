@@ -1,12 +1,19 @@
 import { auth } from "./firebase";
+import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
+// Checks Firebase first (the live path for the overwhelming majority of users today),
+// falling back to a Supabase session only if there's no Firebase user -- internal
+// cohort only for now (migration plan, Phase 5). The backend's dual-accept middleware
+// accepts either token type in the same Authorization header, so this is the one place
+// the frontend needs to know which provider is actually active for the current user.
 async function getAuthToken(): Promise<string | null> {
 	const user = auth.currentUser;
-	if (!user) return null;
-	return user.getIdToken();
+	if (user) return user.getIdToken();
+	const { data } = await supabase.auth.getSession();
+	return data.session?.access_token ?? null;
 }
 
 async function apiRequest<T>(
@@ -34,6 +41,14 @@ async function apiRequest<T>(
 	}
 
 	return response.json();
+}
+
+// Auth migration (Firebase -> Supabase, see migration plan) -- public, called before
+// the user has signed in either way, so the login form knows which provider to use.
+export function getAuthProvider(email: string) {
+	return apiRequest<{ provider: "firebase" | "supabase"; requiresPasswordReset: boolean }>(
+		`/api/auth/provider?email=${encodeURIComponent(email)}`,
+	);
 }
 
 // User profile

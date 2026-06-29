@@ -21,6 +21,7 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
+import { supabase } from "../lib/supabase";
 
 interface AuthContextType {
 	user: User | null;
@@ -35,6 +36,16 @@ interface AuthContextType {
 	verifyResetCode: (code: string) => Promise<string>;
 	confirmReset: (code: string, newPassword: string) => Promise<void>;
 	logout: () => Promise<void>;
+	// Additive Supabase sign-in, internal cohort only for now (migration plan, Phase 5).
+	// Deliberately separate from the Firebase methods above rather than unifying `user`
+	// into a common shape -- see the plan's note on this for why, and the explicit
+	// commitment to do the unification in Phase 6/7 instead of skipping it.
+	signInWithEmailSupabase: (email: string, password: string) => Promise<void>;
+	signInWithGoogleSupabase: () => Promise<void>;
+	// Minimal session presence, NOT a unified user object (see note above) -- just
+	// enough for consumers like login.tsx to know "someone is now signed in via
+	// Supabase" and react (e.g. navigate), the same way they already react to `user`.
+	supabaseUserId: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -44,6 +55,7 @@ const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
 	const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 	const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,6 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return unsubscribe;
 	}, []);
 
+	// Mirrors the Firebase listener above, additively -- internal cohort only for now.
+	// Doesn't touch `loading`/`onboardingCompleted` (Firebase-keyed today); consumers
+	// that need to react to a Supabase sign-in check supabaseUserId directly, the same
+	// narrow approach as the rest of this Phase 5 work.
+	useEffect(() => {
+		supabase.auth.getSession().then(({ data }) => setSupabaseUserId(data.session?.user.id ?? null));
+		const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+			setSupabaseUserId(session?.user.id ?? null);
+		});
+		return () => listener.subscription.unsubscribe();
+	}, []);
+
 	async function signInWithGoogle(): Promise<{ isNew: boolean; uid: string }> {
 		const result = await signInWithPopup(auth, googleProvider);
 		const isNew = getAdditionalUserInfo(result)?.isNewUser ?? false;
@@ -120,6 +144,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	async function signUpWithEmail(email: string, password: string) {
 		await createUserWithEmailAndPassword(auth, email, password);
 		logEvent("sign_up", { method: "email" });
+	}
+
+	// Additive Supabase paths, internal cohort only -- callers check getAuthProvider()
+	// first and only call these for emails already migrated. Errors propagate to the
+	// caller the same way the Firebase methods above do, not swallowed here.
+	async function signInWithEmailSupabase(email: string, password: string) {
+		const { error } = await supabase.auth.signInWithPassword({ email, password });
+		if (error) throw error;
+		logEvent("login", { method: "email", provider: "supabase" });
+	}
+
+	async function signInWithGoogleSupabase() {
+		const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
+		if (error) throw error;
+		// signInWithOAuth redirects the browser away immediately on success -- there's
+		// no result to log here the way the Firebase popup flow has; logEvent fires
+		// after redirect-back instead, same place onAuthStateChanged would need wiring
+		// for the Supabase session once this is no longer cohort-only.
 	}
 
 	async function sendVerificationEmail() {
@@ -152,12 +194,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	async function logout() {
 		localStorage.removeItem("onboardingCompleted");
-		await signOut(auth);
+		// Sign out of both -- harmless no-op for whichever provider isn't actually
+		// active, and ensures neither session lingers regardless of which one signed
+		// the user in.
+		await Promise.all([signOut(auth), supabase.auth.signOut()]);
 	}
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{
+				user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail,
+				signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout,
+				signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId,
+			}}
 		>
 			{children}
 		</AuthContext.Provider>

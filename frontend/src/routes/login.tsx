@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { StakLogo } from "@/components/StakLogo";
 
-import { getProfile } from "@/lib/api";
+import { getProfile, getAuthProvider } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
 function LoginPage() {
-	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, signInWithEmailSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -46,16 +46,50 @@ function LoginPage() {
 		}
 	}, [user, loading, navigate, logout]);
 
+	// Mirrors the effect above for the additive Supabase path (migration plan, Phase 5,
+	// internal cohort only) -- no email-verification gate or token-deletion-detection
+	// trick here, since cohort accounts are already-verified, fully-provisioned ones,
+	// not fresh signups. Guarded by `!user` so it can't fire for someone who somehow
+	// has both a Firebase and a Supabase session at once -- the Firebase effect above
+	// takes priority.
+	useEffect(() => {
+		if (!supabaseUserId || user) return;
+		getProfile()
+			.then((profile) => {
+				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
+			})
+			.catch(() => {
+				logout().catch(() => {});
+			});
+	}, [supabaseUserId, user, navigate, logout]);
+
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
 		if (!email || !password) return;
 		setSigningIn(true);
 		try {
-			await signInWithEmail(email, password);
+			// Migration plan, Phase 5: internal cohort only. Defaults to Firebase (the
+			// live path for everyone else) if the check itself fails -- never let an
+			// auth-migration lookup be the reason a real sign-in attempt is blocked.
+			const { provider, requiresPasswordReset } = await getAuthProvider(email).catch(
+				() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
+			);
+
+			if (requiresPasswordReset) {
+				toast.error("We've upgraded login security — please use \"Forgot password\" to set a new password before signing in.");
+				setSigningIn(false);
+				return;
+			}
+
+			if (provider === "supabase") {
+				await signInWithEmailSupabase(email, password);
+			} else {
+				await signInWithEmail(email, password);
+			}
 			toast.success("Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
-			if (message.includes("user-not-found") || message.includes("invalid-credential")) {
+			if (message.includes("user-not-found") || message.includes("invalid-credential") || message.includes("Invalid login credentials")) {
 				toast.error("Invalid email or password");
 			} else if (message.includes("wrong-password")) {
 				toast.error("Wrong password");
