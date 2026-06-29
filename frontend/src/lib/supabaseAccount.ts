@@ -50,7 +50,7 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 	}
 
 	const passedBrands: PassedEntry[] = (passedRes.data ?? []).map((r) => ({
-		id: r.brand_id, at: new Date(r.first_passed_at).getTime(), count: r.pass_count,
+		id: r.brand_id, at: new Date(r.last_passed_at).getTime(), count: r.pass_count,
 	}));
 
 	const searchHistory: SearchEntry[] = (searchRes.data ?? [])
@@ -164,4 +164,116 @@ export function subscribeSupabaseAccount(sessionKey: string, onChange: (doc: Use
 		cancelled = true;
 		supabase.removeChannel(channel);
 	};
+}
+
+// ── Writes ───────────────────────────────────────────────────────────────────
+// Mirrors AccountContext.tsx's Firestore write functions, one-to-one, for a
+// Supabase-only session. Never pass `uid` explicitly -- every per-row-owned table's
+// uid column defaults to current_firebase_uid() on insert/upsert (see the
+// uid_column_defaults migration), and RLS scopes everything else. No callsite here
+// ever needs to know its own canonical Firebase UID.
+
+// Every caller of updateStak in the app passes the full desired ID list purely to
+// signal removals -- additions always go through a separate saveToStak call (verified
+// against every real callsite, not assumed). So this only ever needs to delete rows
+// that fell out of the list; it must never insert for an ID that's present, since
+// that would create a stak_brands row with no saved_at/price_at_save history.
+export async function updateStakSupabase(brandIds: string[]): Promise<void> {
+	const { data: existing } = await supabase.from("stak_brands").select("brand_id");
+	const toRemove = (existing ?? []).map((r) => r.brand_id).filter((id) => !brandIds.includes(id));
+	if (toRemove.length > 0) {
+		await supabase.from("stak_brands").delete().in("brand_id", toRemove);
+	}
+}
+
+export async function saveToStakSupabase(brandId: string, priceAtSave?: number | null): Promise<void> {
+	// ignoreDuplicates matches the Firestore version's explicit "already saved? do
+	// nothing" check -- a repeat save must not overwrite the original saved_at/price.
+	await supabase.from("stak_brands").upsert(
+		{ brand_id: brandId, saved_at: new Date().toISOString(), price_at_save: priceAtSave ?? null },
+		{ onConflict: "uid,brand_id", ignoreDuplicates: true },
+	);
+}
+
+export async function updatePassedBrandsSupabase(entries: PassedEntry[]): Promise<void> {
+	if (entries.length === 0) return;
+	await supabase.from("passed_brands").upsert(
+		entries.map((e) => ({ brand_id: e.id, last_passed_at: new Date(e.at).toISOString(), pass_count: e.count })),
+		{ onConflict: "uid,brand_id" },
+	);
+}
+
+// PostgREST hard-rejects a bare .update()/.delete() with no filter at all ("UPDATE
+// requires a WHERE clause") -- a syntactic check, separate from and in addition to
+// RLS. .not("uid", "is", null) below isn't a real filter (uid is the PK, never
+// null -- it matches every row the caller could ever see) -- it exists purely to
+// satisfy that syntax requirement. RLS alone determines which row is actually
+// affected. Verified directly: a two-user test confirmed only the calling user's own
+// row is ever touched, never the other user's, despite this condition matching both
+// rows' WHERE clause in isolation.
+export async function updateDeckOrderSupabase(order: string[]): Promise<void> {
+	await supabase.from("users").update({ deck_order: order }).not("uid", "is", null);
+}
+
+export async function updatePreferencesSupabase(prefs: UserDoc["preferences"]): Promise<void> {
+	await supabase.from("users").update({ preferences: prefs ?? {} }).not("uid", "is", null);
+}
+
+export async function updateLastBriefDateSupabase(date: string): Promise<void> {
+	await supabase.from("users").update({ last_brief_date: date }).not("uid", "is", null);
+}
+
+// Must match AccountContext.tsx's MAX_SEARCH_HISTORY -- duplicated rather than
+// imported to avoid a circular import (AccountContext.tsx already imports from this
+// module for the read-side subscription).
+const MAX_SEARCH_HISTORY = 20;
+
+export async function addSearchHistorySupabase(query: string): Promise<void> {
+	const trimmed = query.trim();
+	if (!trimmed) return;
+	const lower = trimmed.toLowerCase();
+
+	// Firestore's version dedupes case-insensitively, but (uid, query) is an exact-match
+	// PK here -- "Apple" and "apple" would otherwise coexist as two rows. Remove any
+	// case-insensitive match before inserting the new exact-case entry.
+	const { data: existing } = await supabase.from("search_history").select("query, at");
+	const toRemove = (existing ?? []).filter((e) => e.query.toLowerCase() === lower).map((e) => e.query);
+	if (toRemove.length > 0) {
+		await supabase.from("search_history").delete().in("query", toRemove);
+	}
+
+	await supabase.from("search_history").insert({ query: trimmed, at: new Date().toISOString() });
+
+	// Enforce the same MAX_SEARCH_HISTORY cap Firestore's .slice(0, MAX) applied --
+	// trim anything beyond the most recent N.
+	const { data: all } = await supabase.from("search_history").select("query, at").order("at", { ascending: false });
+	const overflow = (all ?? []).slice(MAX_SEARCH_HISTORY).map((e) => e.query);
+	if (overflow.length > 0) {
+		await supabase.from("search_history").delete().in("query", overflow);
+	}
+}
+
+export async function removeSearchHistoryEntrySupabase(query: string): Promise<void> {
+	const lower = query.toLowerCase();
+	const { data: existing } = await supabase.from("search_history").select("query");
+	const toRemove = (existing ?? []).filter((e) => e.query.toLowerCase() === lower).map((e) => e.query);
+	if (toRemove.length > 0) {
+		await supabase.from("search_history").delete().in("query", toRemove);
+	}
+}
+
+export async function clearSearchHistorySupabase(): Promise<void> {
+	await supabase.from("search_history").delete().not("uid", "is", null);
+}
+
+// completeLesson/completeEarningsScenario/completeBattle/completeRiskScenario/
+// completeMoodScenario all route through this one RPC (kind differs, only lessons
+// pass xp) -- see the activity_completion_rpcs migration for why this needs to be an
+// RPC rather than a direct write (atomicity around the already-completed check).
+export async function completeActivitySupabase(kind: "lesson" | "earnings" | "battle" | "risk" | "mood", itemId: string, xp = 0): Promise<void> {
+	await supabase.rpc("complete_activity", { p_kind: kind, p_item_id: itemId, p_xp: xp });
+}
+
+export async function addXpSupabase(xp: number): Promise<void> {
+	await supabase.rpc("add_xp", { p_amount: xp });
 }

@@ -17,7 +17,12 @@ import {
 import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
-import { subscribeSupabaseAccount } from "../lib/supabaseAccount";
+import {
+	subscribeSupabaseAccount, updateStakSupabase, saveToStakSupabase,
+	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
+	updateLastBriefDateSupabase, addSearchHistorySupabase, removeSearchHistoryEntrySupabase,
+	clearSearchHistorySupabase, completeActivitySupabase, addXpSupabase,
+} from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -219,164 +224,212 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const updateStak = useCallback(
 		async (brandIds: string[]) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { stakBrandIds: brandIds });
+			if (user) {
+				await updateDoc(doc(db, "users", user.uid), { stakBrandIds: brandIds });
+			} else if (supabaseUserId) {
+				await updateStakSupabase(brandIds);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	const saveToStak = useCallback(
 		async (brandId: string, priceAtSave?: number | null) => {
-			if (!user) return;
 			// Optimistic duplicate check against local state (fast path)
 			if ((account?.stakBrandIds ?? []).includes(brandId)) return;
-			const entry: StakSaveEntry = { savedAt: Date.now(), priceAtSave: priceAtSave ?? null };
-			// arrayUnion is atomic — safe against rapid double-tap race conditions
-			await updateDoc(doc(db, "users", user.uid), {
-				stakBrandIds: arrayUnion(brandId),
-				[`stakSavedAt.${brandId}`]: entry,
-			});
+			if (user) {
+				const entry: StakSaveEntry = { savedAt: Date.now(), priceAtSave: priceAtSave ?? null };
+				// arrayUnion is atomic — safe against rapid double-tap race conditions
+				await updateDoc(doc(db, "users", user.uid), {
+					stakBrandIds: arrayUnion(brandId),
+					[`stakSavedAt.${brandId}`]: entry,
+				});
+			} else if (supabaseUserId) {
+				await saveToStakSupabase(brandId, priceAtSave);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const updatePassedBrands = useCallback(
 		async (entries: PassedEntry[]) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { passedBrands: entries });
+			if (user) {
+				await updateDoc(doc(db, "users", user.uid), { passedBrands: entries });
+			} else if (supabaseUserId) {
+				await updatePassedBrandsSupabase(entries);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	// Server-authoritative — the daily limit can't be enforced by trusting a direct
 	// client→Firestore write (that's the bug this replaced: nothing capped the count).
+	// incrementSwipeCountServer already works for either provider -- it's a backend
+	// call authorized by the dual-accept middleware, not a direct Firestore write.
 	const incrementSwipeCount = useCallback(async (): Promise<SwipeLimitIncrementResponse> => {
-		if (!user) return { accepted: false, count: 0, limit: 0 };
+		if (!user && !supabaseUserId) return { accepted: false, count: 0, limit: 0 };
 		return incrementSwipeCountServer();
-	}, [user]);
+	}, [user, supabaseUserId]);
 
 	const updateDeckOrder = useCallback(
 		async (order: string[]) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { deckOrder: order });
+			if (user) {
+				await updateDoc(doc(db, "users", user.uid), { deckOrder: order });
+			} else if (supabaseUserId) {
+				await updateDeckOrderSupabase(order);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 
 	const addSearchHistory = useCallback(
 		async (query: string) => {
-			if (!user) return;
-			const trimmed = query.trim();
-			if (!trimmed) return;
-			const existing = account?.searchHistory ?? [];
-			const deduped = existing.filter(
-				(e) => e.query.toLowerCase() !== trimmed.toLowerCase(),
-			);
-			const updated = [{ query: trimmed, at: Date.now() }, ...deduped].slice(
-				0,
-				MAX_SEARCH_HISTORY,
-			);
-			await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
+			if (user) {
+				const trimmed = query.trim();
+				if (!trimmed) return;
+				const existing = account?.searchHistory ?? [];
+				const deduped = existing.filter(
+					(e) => e.query.toLowerCase() !== trimmed.toLowerCase(),
+				);
+				const updated = [{ query: trimmed, at: Date.now() }, ...deduped].slice(
+					0,
+					MAX_SEARCH_HISTORY,
+				);
+				await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
+			} else if (supabaseUserId) {
+				await addSearchHistorySupabase(query);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const removeSearchHistoryEntry = useCallback(
 		async (query: string) => {
-			if (!user) return;
-			const existing = account?.searchHistory ?? [];
-			const updated = existing.filter(
-				(e) => e.query.toLowerCase() !== query.toLowerCase(),
-			);
-			await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
+			if (user) {
+				const existing = account?.searchHistory ?? [];
+				const updated = existing.filter(
+					(e) => e.query.toLowerCase() !== query.toLowerCase(),
+				);
+				await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
+			} else if (supabaseUserId) {
+				await removeSearchHistoryEntrySupabase(query);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const clearSearchHistory = useCallback(async () => {
-		if (!user) return;
-		await updateDoc(doc(db, "users", user.uid), { searchHistory: [] });
-	}, [user]);
+		if (user) {
+			await updateDoc(doc(db, "users", user.uid), { searchHistory: [] });
+		} else if (supabaseUserId) {
+			await clearSearchHistorySupabase();
+		}
+	}, [user, supabaseUserId]);
 
 
 	const updatePreferences = useCallback(
 		async (prefs: UserDoc["preferences"]) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { preferences: prefs });
+			if (user) {
+				await updateDoc(doc(db, "users", user.uid), { preferences: prefs });
+			} else if (supabaseUserId) {
+				await updatePreferencesSupabase(prefs);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	const updateLastBriefDate = useCallback(
 		async (date: string) => {
-			if (!user) return;
-			await updateDoc(doc(db, "users", user.uid), { lastBriefDate: date });
+			if (user) {
+				await updateDoc(doc(db, "users", user.uid), { lastBriefDate: date });
+			} else if (supabaseUserId) {
+				await updateLastBriefDateSupabase(date);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	const completeLesson = useCallback(
 		async (lessonId: string, xp: number) => {
-			if (!user) return;
-			const existing = account?.lessonProgress ?? {};
-			if (existing[lessonId]?.completed) return;
-			const entry: LessonProgress = { completed: true, completedAt: Date.now(), xpEarned: xp };
-			// Use increment() to avoid stale-read race on totalXp
-			await updateDoc(doc(db, "users", user.uid), {
-				[`lessonProgress.${lessonId}`]: entry,
-				totalXp: increment(xp),
-			});
+			if (user) {
+				const existing = account?.lessonProgress ?? {};
+				if (existing[lessonId]?.completed) return;
+				const entry: LessonProgress = { completed: true, completedAt: Date.now(), xpEarned: xp };
+				// Use increment() to avoid stale-read race on totalXp
+				await updateDoc(doc(db, "users", user.uid), {
+					[`lessonProgress.${lessonId}`]: entry,
+					totalXp: increment(xp),
+				});
+			} else if (supabaseUserId) {
+				await completeActivitySupabase("lesson", lessonId, xp);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const completeEarningsScenario = useCallback(
 		async (scenarioId: string) => {
-			if (!user) return;
-			if (account?.earningsProgress?.[scenarioId]?.completed) return;
-			await updateDoc(doc(db, "users", user.uid), {
-				[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-			});
+			if (user) {
+				if (account?.earningsProgress?.[scenarioId]?.completed) return;
+				await updateDoc(doc(db, "users", user.uid), {
+					[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+				});
+			} else if (supabaseUserId) {
+				await completeActivitySupabase("earnings", scenarioId);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const completeBattle = useCallback(
 		async (battleId: string) => {
-			if (!user) return;
-			if (account?.battlesProgress?.[battleId]?.completed) return;
-			await updateDoc(doc(db, "users", user.uid), {
-				[`battlesProgress.${battleId}`]: { completed: true, completedAt: Date.now() },
-			});
+			if (user) {
+				if (account?.battlesProgress?.[battleId]?.completed) return;
+				await updateDoc(doc(db, "users", user.uid), {
+					[`battlesProgress.${battleId}`]: { completed: true, completedAt: Date.now() },
+				});
+			} else if (supabaseUserId) {
+				await completeActivitySupabase("battle", battleId);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const completeRiskScenario = useCallback(
 		async (scenarioId: string) => {
-			if (!user) return;
-			if (account?.riskProgress?.[scenarioId]?.completed) return;
-			await updateDoc(doc(db, "users", user.uid), {
-				[`riskProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-			});
+			if (user) {
+				if (account?.riskProgress?.[scenarioId]?.completed) return;
+				await updateDoc(doc(db, "users", user.uid), {
+					[`riskProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+				});
+			} else if (supabaseUserId) {
+				await completeActivitySupabase("risk", scenarioId);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const completeMoodScenario = useCallback(
 		async (scenarioId: string) => {
-			if (!user) return;
-			if (account?.moodProgress?.[scenarioId]?.completed) return;
-			await updateDoc(doc(db, "users", user.uid), {
-				[`moodProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-			});
+			if (user) {
+				if (account?.moodProgress?.[scenarioId]?.completed) return;
+				await updateDoc(doc(db, "users", user.uid), {
+					[`moodProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
+				});
+			} else if (supabaseUserId) {
+				await completeActivitySupabase("mood", scenarioId);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const completeChallenge = useCallback(
 		async (challengeId: string, xp: number) => {
+			// Known gap (see supabaseAccount.ts's read-side note): dailyChallengeState
+			// has no Postgres column anywhere in the schema yet. Stays Firebase-only
+			// until that's added -- a real feature gap for a Supabase session, not
+			// something to fake here.
 			if (!user) return;
 			// Use local time to match playground todayKey (not UTC which rolls over at 7pm ET)
 			const d = new Date();
@@ -393,11 +446,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const addXp = useCallback(
 		async (xp: number) => {
-			if (!user) return;
-			// Use Firestore atomic increment — safe against concurrent XP awards
-			await updateDoc(doc(db, "users", user.uid), { totalXp: increment(xp) });
+			if (user) {
+				// Use Firestore atomic increment — safe against concurrent XP awards
+				await updateDoc(doc(db, "users", user.uid), { totalXp: increment(xp) });
+			} else if (supabaseUserId) {
+				await addXpSupabase(xp);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
