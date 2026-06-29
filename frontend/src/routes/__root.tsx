@@ -111,14 +111,23 @@ function Root() {
 
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
+	// AccountContext's `account` is Firestore-based and only ever populates for a
+	// Firebase user (migration plan, Phase 5 -- AccountContext's Supabase support is
+	// the still-pending next piece). For a Supabase-only cohort session, `account` is
+	// permanently null, which isn't "onboarding incomplete" -- it's "this check
+	// doesn't have data yet". Without this guard, this effect and login.tsx's own
+	// (backend-based, accurate) onboarding check fought each other indefinitely: this
+	// one kept forcing /onboarding off of a false "incomplete" signal, login.tsx kept
+	// sending it back based on the real answer.
+	const onboardingCheckApplies = !!user;
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, onboardingCheckApplies, navigate]);
 
 	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
 	// the 9:30am ET open (not before): the brief is sourced from real trading
@@ -197,7 +206,7 @@ function Root() {
 			</div>
 		);
 	}
-	if (isLoggedIn && !isAuthPage && account?.onboardingCompleted !== true) {
+	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
