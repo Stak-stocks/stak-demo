@@ -15,6 +15,7 @@ import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb } from "../lib/yahooAuth.js";
 import { getEarningsBeatMissFromWeb } from "./geminiService.js";
 import { getCompanyNews } from "./finnhubService.js";
+import { getEasternDateKey } from "@stak/shared";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
@@ -64,7 +65,9 @@ export async function hasSameDayEarningsArticle(
 	return articles.some((a) => {
 		const text = `${a.headline} ${a.summary}`.toLowerCase();
 		if (!EARNINGS_CORE.some((k) => text.includes(k))) return false;
-		const dateStr = new Date(a.datetime * 1000).toISOString().split("T")[0];
+		// ET, not raw UTC -- a report published after ~8pm ET is still "today" in ET
+		// but already past midnight UTC, which would otherwise miss the match.
+		const dateStr = getEasternDateKey(new Date(a.datetime * 1000));
 		return dateStr === todayStr;
 	});
 }
