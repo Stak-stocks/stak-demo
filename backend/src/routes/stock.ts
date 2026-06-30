@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit } from "../services/geminiService.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -10,15 +10,32 @@ import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
+// Collapse concurrent requests for the same path into a single outgoing fetch.
+// Without this, 8 simultaneous requests for /quote?symbol=AAPL each try all 3 keys
+// in sequence, burning through the key pool in parallel even for identical data.
+const finnhubInFlight = new Map<string, Promise<unknown | null>>();
+
 async function finnhubGet(path: string): Promise<unknown | null> {
-	const keys = getFinnhubKeys();
-	for (const key of keys) {
-		const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
-		if (res.status === 403 || res.status === 429) continue;
-		if (!res.ok) return null;
-		return res.json();
+	const existing = finnhubInFlight.get(path);
+	if (existing) return existing;
+
+	const promise = (async () => {
+		const keys = getFinnhubKeys();
+		for (const key of keys) {
+			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
+			if (res.status === 403 || res.status === 429) continue;
+			if (!res.ok) return null;
+			return res.json();
+		}
+		return null;
+	})();
+
+	finnhubInFlight.set(path, promise);
+	try {
+		return await promise;
+	} finally {
+		finnhubInFlight.delete(path);
 	}
-	return null;
 }
 
 // Fetch the stock's price % change on (or after) the earnings report date.
@@ -833,6 +850,7 @@ stockRouter.get("/:symbol/analyst", async (req, res) => {
 			: null;
 
 	if (priceTarget === null) {
+		await withGeminiConcurrencyLimit(async () => {
 		const keys = getGeminiKeys();
 		const subject = companyName ? `${companyName} (${symbol})` : symbol;
 		const prompt = `Search for the current Wall Street analyst consensus price target for ${subject} stock.
@@ -890,6 +908,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 		if (priceTarget === null) {
 			console.warn(`[Gemini] analyst price-target(${symbol}): all ${keys.length} keys exhausted/failed — no coverage shown`);
 		}
+		}); // withGeminiConcurrencyLimit
 	}
 
 	const result = {
