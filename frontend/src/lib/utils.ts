@@ -43,6 +43,11 @@ export function getYesterdayKey(): string {
  * - Pre-market Tue–Fri (last close was yesterday) → "yesterday"
  * - Weekend → "Friday"
  */
+/** Rounds a share quantity to 3 decimal places (the precision used throughout the sandbox). */
+export function roundShares(qty: number): number {
+	return Math.round(qty * 1000) / 1000;
+}
+
 export function getLastCloseRef(): "today" | "close" | "yesterday" | "Friday" {
 	try {
 		const bucket = marketSessionBucket();

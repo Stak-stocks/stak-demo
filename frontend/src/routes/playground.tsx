@@ -17,7 +17,8 @@ import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, g
 // getTodayKey here is aliased -- @/data/playgroundData also exports a (different,
 // no-9am-offset) getTodayKey already imported above for daily-content resets; this
 // one is specifically the 9am-local-reset version used for streak display.
-import { marketSessionBucket, getLocalDateKey, getTodayKey as getStreakTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
+import { marketSessionBucket, getLocalDateKey, getTodayKey as getStreakTodayKey, getYesterdayKey, getEasternDateKey, roundShares } from "@/lib/utils";
+import { parseFinancialValue } from "@/lib/financial";
 import { getMarketDayKey } from "@stak/shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
@@ -1117,14 +1118,8 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	const valA = getMetricValue(dataA);
 	const valB = getMetricValue(dataB);
 
-	// Determine live winner (parse numeric value from string like "23.4%" or "45.2x")
-	function parseMetricNum(v: string | null): number | null {
-		if (!v) return null;
-		const n = parseFloat(v.replace(/[^0-9.\-]/g, ""));
-		return isNaN(n) ? null : n;
-	}
-	const numA = parseMetricNum(valA);
-	const numB = parseMetricNum(valB);
+	const numA = parseFinancialValue(valA);
+	const numB = parseFinancialValue(valB);
 	const liveWinner: "A" | "B" | null = numA != null && numB != null
 		? (battle.higherWins ? (numA >= numB ? "A" : "B") : (numA <= numB ? "A" : "B"))
 		: null;
@@ -3411,7 +3406,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	const confirmBuy = async () => {
 		if (!activeStock || !activePrice) return;
 		const qty = orderMode === "amount"
-			? Math.round((orderAmount / activePrice) * 1000) / 1000
+			? roundShares(orderAmount / activePrice)
 			: orderQty;
 		const cost = activePrice * qty;
 		if (cost > sandboxCash || qty <= 0) return;
@@ -3430,7 +3425,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const sellValue = pricePerShare * sellShares;
 		await sellFromSandbox(activeStock, sellValue, pricePerShare, sellShares);
 		closeOrder();
-		const remainingShares = Math.round((totalShares - sellShares) * 1000) / 1000;
+		const remainingShares = roundShares(totalShares - sellShares);
 		if (remainingShares <= 0) {
 			setActiveStock(null);
 		}
@@ -3459,7 +3454,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 
 		// In amount mode, derive shares from dollar amount
 		const sharesFromAmount = (orderMode === "amount" && price != null && price > 0)
-			? Math.round((orderAmount / price) * 1000) / 1000
+			? roundShares(orderAmount / price)
 			: null;
 		const effectiveShares = orderMode === "amount" ? (sharesFromAmount ?? 0) : orderQty;
 		const cost = price != null ? price * effectiveShares : null;
@@ -3522,7 +3517,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 										setOrderQtyStr(raw);
 										if (raw === "" || raw === ".") { setOrderQty(0); return; }
 										const v = parseFloat(raw);
-										if (!isNaN(v)) setOrderQty(Math.round(v * 1000) / 1000);
+										if (!isNaN(v)) setOrderQty(roundShares(v));
 									}}
 									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px] placeholder:text-foreground/25"
 								/>

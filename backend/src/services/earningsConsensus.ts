@@ -8,17 +8,10 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb, type YahooCrumbCache } from "../lib/yahooAuth.js";
 import { getEasternDateKey } from "@stak/shared";
+import { getGeminiKeys } from "./geminiService.js";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
-
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
 
 // Earnings dates are anchored to the US trading calendar, not raw UTC -- a midnight-UTC
 // rollover happens hours before the US trading day or evening is actually over.
@@ -140,8 +133,8 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 				continue;
 			}
 			if (!res.ok) {
-				console.warn(`[Gemini] getGeminiEarningsDate(${symbol}) got ${res.status} on key ...${key.slice(-4)} — giving up`);
-				break;
+				console.warn(`[Gemini] getGeminiEarningsDate(${symbol}) got ${res.status} on key ...${key.slice(-4)} — trying next`);
+				continue;
 			}
 			const data = await res.json();
 			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";

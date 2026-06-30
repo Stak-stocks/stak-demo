@@ -45,3 +45,5 @@ export type { StakStockTagConfig, WeightedLearningTag } from "./stockTags";
 
 export { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES } from "./peerGroups";
 export type { PeerLookupIndex } from "./peerGroups";
+
+export { formatMarketCap, calcPercentChange } from "./financialFormat";

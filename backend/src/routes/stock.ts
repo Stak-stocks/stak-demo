@@ -1,26 +1,19 @@
 import { Router } from "express";
 import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiService.js";
+import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getEasternDateKey, getPeerTickers } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
-function getApiKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
 async function finnhubGet(path: string): Promise<unknown | null> {
-	const keys = getApiKeys();
+	const keys = getFinnhubKeys();
 	for (const key of keys) {
-		const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`);
+		const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
 		if (res.status === 403 || res.status === 429) continue;
 		if (!res.ok) return null;
 		return res.json();
@@ -80,8 +73,8 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 			if (closes && closes.length >= 2) {
 				const prev = closes[closes.length - 2]!;
 				const reaction = closes[closes.length - 1]!;
-				if (prev !== 0) {
-					const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+				const pct = calcPercentChange(reaction, prev);
+				if (pct !== null) {
 					await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
 					return pct;
 				}
@@ -99,8 +92,8 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 		if (candle?.s === "ok" && Array.isArray(candle.c) && candle.c.length >= 2) {
 			const prev = candle.c[candle.c.length - 2]!;
 			const reaction = candle.c[candle.c.length - 1]!;
-			if (prev !== 0) {
-				const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+			const pct = calcPercentChange(reaction, prev);
+			if (pct !== null) {
 				await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
 				return pct;
 			}
@@ -124,12 +117,6 @@ const TICKER_MAP: Record<string, string> = {
 
 function resolveSymbol(symbol: string): string {
 	return TICKER_MAP[symbol.toUpperCase()] ?? symbol;
-}
-
-function formatMarketCap(millions: number): string {
-	if (millions >= 1_000_000) return `$${(millions / 1_000_000).toFixed(2)}T`;
-	if (millions >= 1_000) return `$${(millions / 1_000).toFixed(1)}B`;
-	return `$${millions.toFixed(0)}M`;
 }
 
 export const stockRouter = Router();
@@ -257,8 +244,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					// close yet would be needlessly expensive. The risky window (same-day-not-
 					// yet-reported, or Finnhub disagreeing with reality) is today-or-earlier,
 					// handled by the shared resolver below.
-					const revChangePct = e.revenueActual != null && e.revenueEstimate != null && e.revenueEstimate !== 0
-						? Math.round(((e.revenueActual - e.revenueEstimate) / Math.abs(e.revenueEstimate)) * 1000) / 10
+					const revChangePct = e.revenueActual != null && e.revenueEstimate != null
+						? calcPercentChange(e.revenueActual, e.revenueEstimate)
 						: null;
 					return {
 						symbol: e.symbol, name, date: e.date, hour: e.hour || null,
