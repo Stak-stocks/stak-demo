@@ -899,14 +899,19 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						const high = typeof parsed.high === "number" ? parsed.high : null;
 						if (avg !== null) { priceTarget = { low, avg, high }; }
 					}
-				} catch { /* parse failed — try next key */ }
+				} catch {
+					console.warn(`[Gemini] analyst price-target(${symbol}) unparseable response on key ...${key.slice(-4)}: ${rawText.slice(0, 120)}`);
+				}
+				if (priceTarget === null) {
+					console.warn(`[Gemini] analyst price-target(${symbol}) got 200 but null/no avg on key ...${key.slice(-4)} — raw: ${rawText.slice(0, 120)}`);
+				}
 				break;
 			} catch (e) {
 				console.warn(`[Gemini] analyst price-target(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			} finally { clearTimeout(timeout); }
 		}
 		if (priceTarget === null) {
-			console.warn(`[Gemini] analyst price-target(${symbol}): all ${keys.length} keys exhausted/failed — no coverage shown`);
+			console.warn(`[Gemini] analyst price-target(${symbol}): no price target found after trying all keys`);
 		}
 		}); // withGeminiConcurrencyLimit
 	}
