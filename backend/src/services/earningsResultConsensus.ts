@@ -11,6 +11,7 @@
  * Revenue actual falls back: Finnhub → FMP → Yahoo (estimate stays from Finnhub only).
  */
 
+import { calcPercentChange } from "@stak/shared";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb } from "../lib/yahooAuth.js";
 import { getEarningsBeatMissFromWeb } from "./geminiService.js";
@@ -373,8 +374,8 @@ export async function getConsensusEarningsResult(
 	const epsEstimate =
 		finnhubData.epsEstimate ?? fmpEps.epsEstimate ?? yahooResult.epsEstimate ?? null;
 	const epsSurprisePct =
-		epsActual != null && epsEstimate != null && epsEstimate !== 0
-			? Math.round(((epsActual - epsEstimate) / Math.abs(epsEstimate)) * 1000) / 10
+		epsActual != null && epsEstimate != null
+			? calcPercentChange(epsActual, epsEstimate)
 			: null;
 
 	// ── Best Revenue actual: Finnhub → FMP → Yahoo ───────────────────────────
@@ -387,8 +388,8 @@ export async function getConsensusEarningsResult(
 	const revenueActual = finnhubRevenueActual ?? fmpRevenue ?? yahooResult.revenueActual ?? null;
 	const revenueEstimate = finnhubData.revenueEstimate ?? null;
 	const revChangePct =
-		finnhubRevenueActual != null && revenueEstimate != null && revenueEstimate !== 0
-			? Math.round(((finnhubRevenueActual - revenueEstimate) / Math.abs(revenueEstimate)) * 1000) / 10
+		finnhubRevenueActual != null && revenueEstimate != null
+			? calcPercentChange(finnhubRevenueActual, revenueEstimate)
 			: null;
 
 	const result: ConsensusEarningsResult = {

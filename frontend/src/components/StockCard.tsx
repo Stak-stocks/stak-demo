@@ -2,6 +2,7 @@ import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LiveQuote } from "@/lib/api";
 import { getAnalystData } from "@/lib/api";
+import { classifyMarketCap } from "@/lib/financial";
 import { useQuery } from "@tanstack/react-query";
 import { Star, Users, BarChart3 } from "lucide-react";
 
@@ -204,11 +205,9 @@ export function StockCard({ brand, quote, isTopCard = false, scale = 1, isPopula
 		.map(id => ({ label: CATEGORY_LABELS[id] ?? id.replace(/_/g, " "), key: id }));
 	const derived = derivedTags(brand);
 	const fallbackCategoryTag: TagDef = (() => {
-		const raw = brand.financials?.marketCap?.value ?? "";
-		if (raw.includes("T") || parseFloat(raw) > 200) return { label: "Mega Cap",  key: "mega_cap"  };
-		if (parseFloat(raw) > 10)                        return { label: "Large Cap", key: "large_cap" };
-		if (parseFloat(raw) > 2)                         return { label: "Mid Cap",   key: "mid_cap"   };
-		return                                                  { label: "Small Cap", key: "small_cap" };
+		const classified = classifyMarketCap(brand.financials?.marketCap?.value);
+		if (!classified) return { label: "Small Cap", key: "small_cap" };
+		return { label: classified.label, key: classified.tier };
 	})();
 	const tags: TagDef[] = categoryTag.length > 0
 		? [...categoryTag, ...derived]

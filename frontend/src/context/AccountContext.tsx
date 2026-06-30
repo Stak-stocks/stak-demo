@@ -18,6 +18,8 @@ import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } fro
 import { db } from "../lib/firebase";
 import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
 import { useAuth } from "./AuthContext";
+import { xpToTier } from "@stak/shared";
+import { roundShares } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -390,12 +392,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	);
 
 	const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
-	const xpToSandboxTier = (xp: number) => xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
+
 
 	const initSandboxCash = useCallback(async () => {
 		if (!user) return;
 		if (account?.sandboxCash !== undefined) return;
-		const tier = xpToSandboxTier(account?.totalXp ?? 0);
+		const tier = xpToTier(account?.totalXp ?? 0);
 		await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
 	}, [user, account]);
 
@@ -414,7 +416,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				const existingShares = existing?.shares ?? 0;
 				const existingPrice = existing?.priceAtAdd ?? null;
 				// Accumulate shares and compute weighted average cost basis
-				const newShares = Math.round((existingShares + shares) * 1000) / 1000;
+				const newShares = roundShares(existingShares + shares);
 				const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
 					? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
 					: priceAtAdd;
@@ -441,7 +443,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			const qty = sharesToSell ?? totalShares; // default: sell everything
 			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * qty : 0;
 			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
-			const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
+			const remainingShares = roundShares(totalShares - qty);
 			const updated = { ...(account?.sandboxPortfolio ?? {}) };
 			if (remainingShares <= 0) {
 				delete updated[ticker]; // fully sold
@@ -459,7 +461,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const resetSandbox = useCallback(async () => {
 		if (!user) return;
-		const tier = xpToSandboxTier(account?.totalXp ?? 0);
+		const tier = xpToTier(account?.totalXp ?? 0);
 		await updateDoc(doc(db, "users", user.uid), {
 			sandboxPortfolio: {},
 			sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
@@ -472,7 +474,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	// Existing users without sandboxTier get migrated silently (no cash change).
 	useEffect(() => {
 		if (!user || account?.sandboxCash === undefined) return;
-		const currentTier = xpToSandboxTier(account.totalXp ?? 0);
+		const currentTier = xpToTier(account.totalXp ?? 0);
 		const storedTier = account.sandboxTier;
 		if (storedTier === undefined) {
 			// Migration: stamp current tier without changing cash
@@ -485,7 +487,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 			const snap = await tx.get(userRef);
 			const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
 			const liveTier = data?.sandboxTier ?? storedTier;
-			const liveCurrentTier = xpToSandboxTier(data?.totalXp ?? 0);
+			const liveCurrentTier = xpToTier(data?.totalXp ?? 0);
 			if (liveCurrentTier <= liveTier) return;
 			const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
 			tx.update(userRef, {

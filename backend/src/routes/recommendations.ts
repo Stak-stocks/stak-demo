@@ -3,25 +3,18 @@ import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, getEasternDateKey } from "@stak/shared";
+import { getFinnhubKeys } from "../services/finnhubService.js";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
-function getApiKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
 async function finnhubGet(path: string): Promise<unknown | null> {
-	const keys = getApiKeys();
+	const keys = getFinnhubKeys();
 	for (const key of keys) {
 		try {
-			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`);
+			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
 			if (res.status === 403 || res.status === 429) continue;
 			if (!res.ok) return null;
 			return res.json();

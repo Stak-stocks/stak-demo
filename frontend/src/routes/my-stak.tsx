@@ -12,6 +12,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
+import { parseFinancialValue, classifyMarketCap } from "@/lib/financial";
 import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
@@ -184,8 +185,8 @@ function StatCard({ icon, iconColor, number, title, subtitle, onClick }: {
 
 function formatGrowth(val: string | number | undefined | null): { display: string; color: string } {
 	if (val == null) return { display: "—", color: "dark:text-slate-400 text-slate-500" };
-	const num = parseFloat(String(val).replace(/[^0-9.-]/g, ""));
-	if (isNaN(num)) return { display: String(val), color: "dark:text-slate-400 text-slate-500" };
+	const num = parseFinancialValue(val);
+	if (num == null) return { display: String(val), color: "dark:text-slate-400 text-slate-500" };
 	const positive = num >= 0;
 	const raw = String(val).replace(/^\+/, "");
 	return {
@@ -203,7 +204,13 @@ const NTM_BADGE_STYLES: Record<NtmBadgeColor, string> = {
 
 function deriveMetricBadge(key: string, value: string | number | undefined | null): { label: string; color: NtmBadgeColor } {
 	if (value == null) return { label: "—", color: "blue" };
-	const num = parseFloat(String(value).replace(/[^0-9.-]/g, ""));
+	if (key === "marketCap") {
+		const classified = classifyMarketCap(value);
+		if (!classified) return { label: "—", color: "blue" };
+		return { label: classified.label, color: classified.tier === "small_cap" ? "yellow" : "blue" };
+	}
+	const num = parseFinancialValue(value);
+	if (num == null) return { label: "—", color: "blue" };
 	switch (key) {
 		case "peRatio":
 			if (num > 40) return { label: "High",         color: "yellow" };
@@ -220,11 +227,6 @@ function deriveMetricBadge(key: string, value: string | number | undefined | nul
 			if (num > 8)  return { label: "Strong",    color: "green"  };
 			if (num > 0)  return { label: "Healthy",   color: "blue"   };
 			return             { label: "Tight",      color: "yellow" };
-		case "marketCap":
-			if ((typeof value === "string" && value.includes("T")) || num > 200) return { label: "Mega Cap",  color: "blue" };
-			if (num > 10) return { label: "Large Cap", color: "blue"   };
-			if (num > 2)  return { label: "Mid Cap",   color: "blue"   };
-			return             { label: "Small Cap",  color: "yellow" };
 		default:
 			return { label: "—", color: "blue" };
 	}
@@ -357,18 +359,6 @@ function DetailMetricCard({ icon, color, title, value, desc }: {
 
 type MetricKey = "peRatio" | "revenueGrowth" | "profitMargin" | "marketCap";
 
-function parseFinancialRaw(raw: string | undefined): number | null {
-	if (!raw) return null;
-	const s = raw.trim();
-	if (s === "N/A" || s === "—" || s === "") return null;
-	const cleaned = s.replace(/[$%x,]/g, "");
-	if (cleaned.endsWith("T")) return parseFloat(cleaned) * 1e12;
-	if (cleaned.endsWith("B")) return parseFloat(cleaned) * 1e9;
-	if (cleaned.endsWith("M")) return parseFloat(cleaned) * 1e6;
-	const n = parseFloat(cleaned);
-	return isNaN(n) ? null : n;
-}
-
 function medianOf(nums: number[]): number | null {
 	if (nums.length === 0) return null;
 	const s = [...nums].sort((a, b) => a - b);
@@ -386,7 +376,7 @@ function fmtMetric(key: MetricKey, val: number): string {
 
 function computeMedianMetric(peers: BrandSummary[], key: MetricKey): string {
 	const nums = peers
-		.map((b) => parseFinancialRaw(b.financials[key]?.value))
+		.map((b) => parseFinancialValue(b.financials[key]?.value))
 		.filter((v): v is number => v !== null);
 	const med = medianOf(nums);
 	return med !== null ? fmtMetric(key, med) : "—";

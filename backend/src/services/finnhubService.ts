@@ -4,7 +4,7 @@ import { getEasternDateKey } from "@stak/shared";
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 /** Collect all configured Finnhub API keys (FINNHUB_API_KEY, FINNHUB_API_KEY_2, FINNHUB_API_KEY_3) */
-function getApiKeys(): string[] {
+export function getFinnhubKeys(): string[] {
 	return [
 		process.env.FINNHUB_API_KEY,
 		process.env.FINNHUB_API_KEY_2,
@@ -17,11 +17,11 @@ function getApiKeys(): string[] {
  * Returns the Response on success, or null if all keys are rate-limited.
  */
 async function finnhubFetch(buildUrl: (key: string) => string): Promise<Response | null> {
-	const keys = getApiKeys();
+	const keys = getFinnhubKeys();
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
 
 	for (const key of keys) {
-		const res = await fetch(buildUrl(key));
+		const res = await fetch(buildUrl(key), { signal: AbortSignal.timeout(8000) });
 		if (res.status === 403 || res.status === 429) {
 			console.warn(`Finnhub rate limited (${res.status}) on key ...${key.slice(-4)} — trying next`);
 			continue;

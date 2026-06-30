@@ -1,6 +1,7 @@
 import { getGeminiKeys } from "./geminiService.js";
+import { getFinnhubKeys } from "./finnhubService.js";
 import { getHeroImage } from "./ipoService.js";
-import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, type BrandProfile, type VibeMetric } from "@stak/shared";
+import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, formatMarketCap, type BrandProfile, type VibeMetric } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 // ── Draft shape ───────────────────────────────────────────────────────────────
@@ -30,14 +31,6 @@ interface FinnhubProfile {
 	country: string;
 	marketCapitalization: number;
 	description?: string;
-}
-
-function getFinnhubKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
 }
 
 async function fetchCompanyProfile(ticker: string): Promise<FinnhubProfile> {
@@ -76,12 +69,6 @@ async function fetchMetrics(ticker: string): Promise<FinnhubMetrics> {
 		return data.metric ?? {};
 	}
 	throw new Error(`All Finnhub keys rate-limited fetching metrics for ${ticker}`);
-}
-
-function formatMarketCap(millions: number): string {
-	if (millions >= 1_000_000) return `$${(millions / 1_000_000).toFixed(2)}T`;
-	if (millions >= 1_000) return `$${(millions / 1_000).toFixed(1)}B`;
-	return `$${millions.toFixed(0)}M`;
 }
 
 // Label + explanation text is identical across every existing brand for a given

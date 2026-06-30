@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
+import { getGeminiKeys } from "../services/geminiService.js";
 
 export const intelCardsRouter = Router();
 
@@ -62,14 +63,6 @@ const TOPIC_EMOJIS: Record<string, string> = {
 let cachedCards: IntelCardData[] | null = null;
 let cacheExpiresAt = 0;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
 
 async function generateCardsWithGemini(): Promise<IntelCardData[] | null> {
 	const keys = getGeminiKeys();
