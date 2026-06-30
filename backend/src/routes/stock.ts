@@ -601,11 +601,15 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 // FMP earnings-calendar: real announcement dates (not fiscal period-ends), faster EPS actuals.
 // Returns entries mapped to FinnhubCalendarEntry shape; hour defaults to "amc" since FMP
 // doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
+// Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
 async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
-	const key = process.env.FMP_API_KEY;
-	if (!key) return [];
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) return [];
+	const redisCacheKey = `fmp-calendar:v1:${from}:${to}`;
+	const cached = await cacheGet<FinnhubCalendarEntry[]>(redisCacheKey);
+	if (cached) return cached;
 	try {
-		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${key}`;
+		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
 		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 		if (!res.ok) return [];
 		const data = await res.json() as Array<{
@@ -613,7 +617,7 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 			epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
 		}>;
 		if (!Array.isArray(data)) return [];
-		return data
+		const entries = data
 			.filter((e) => e.symbol && e.date)
 			.map((e) => ({
 				symbol: e.symbol!,
@@ -624,6 +628,8 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 				revenueActual: e.revenueActual ?? null,
 				revenueEstimate: e.revenueEstimated ?? null,
 			}));
+		await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+		return entries;
 	} catch {
 		return [];
 	}
@@ -634,29 +640,38 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 // endpoints update asynchronously and income-statement typically lands first.
 // Returns null if the most recent filing's filingDate is more than 5 days from nearDate,
 // so we never misattribute a different quarter's EPS to this announcement.
+// Cached in Redis for 20 minutes per symbol to avoid repeated FMP API calls.
 async function fetchFMPIncomeStatementEps(
 	symbol: string,
 	nearDate: string,
 ): Promise<{ actual: number; filingDate: string } | null> {
-	const key = process.env.FMP_API_KEY;
-	if (!key) return null;
-	try {
-		const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${key}`;
-		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-		if (!res.ok) return null;
-		const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
-		if (!Array.isArray(data) || data.length === 0) return null;
-		const latest = data[0]!;
-		if (latest.eps == null || !latest.filingDate) return null;
-		const filingDate = latest.filingDate.substring(0, 10);
-		const daysDiff = Math.abs(
-			new Date(filingDate + "T12:00:00Z").getTime() - new Date(nearDate + "T12:00:00Z").getTime(),
-		) / 86400000;
-		if (daysDiff > 5) return null;
-		return { actual: latest.eps, filingDate };
-	} catch {
-		return null;
-	}
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) return null;
+	type Filing = { actual: number; filingDate: string };
+	const redisCacheKey = `fmp-income:v1:${symbol}`;
+	const cached = await cacheGet<Filing>(redisCacheKey);
+	const filing: Filing | null = cached ?? await (async () => {
+		try {
+			const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) return null;
+			const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
+			if (!Array.isArray(data) || data.length === 0) return null;
+			const latest = data[0]!;
+			if (latest.eps == null || !latest.filingDate) return null;
+			const result: Filing = { actual: latest.eps, filingDate: latest.filingDate.substring(0, 10) };
+			await cacheSet(redisCacheKey, result, 20 * 60 * 1000);
+			return result;
+		} catch {
+			return null;
+		}
+	})();
+	if (!filing) return null;
+	const daysDiff = Math.abs(
+		new Date(filing.filingDate + "T12:00:00Z").getTime() - new Date(nearDate + "T12:00:00Z").getTime(),
+	) / 86400000;
+	if (daysDiff > 5) return null;
+	return filing;
 }
 
 // A web-search-derived report date this old can't be "the report we're checking for" —
