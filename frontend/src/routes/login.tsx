@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, signInWithEmailSupabase, supabaseUserId, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -103,6 +103,24 @@ function LoginPage() {
 	async function handleGoogleSignIn() {
 		setSigningIn(true);
 		try {
+			// Migration plan, Phase 5, internal cohort only: Google sign-in has no
+			// email upfront to check a provider for (unlike password sign-in, the
+			// Google popup picks the account *after* this fires). Reusing the page's
+			// own email field as an opt-in signal is the lowest-risk way to route a
+			// cohort tester to Supabase's Google flow without touching the path for
+			// everyone else, who will have left it blank. Defaults to Firebase --
+			// same as never checking at all -- if the lookup itself fails.
+			if (email.trim()) {
+				const { provider } = await getAuthProvider(email.trim()).catch(
+					() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
+				);
+				if (provider === "supabase") {
+					await signInWithGoogleSupabase();
+					// signInWithOAuth redirects the browser away immediately -- nothing
+					// left to do here on success.
+					return;
+				}
+			}
 			const { isNew, uid } = await signInWithGoogle();
 			if (isNew) {
 				const lastUid = localStorage.getItem("last-user-uid");
