@@ -22,6 +22,9 @@ import {
 	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
 	updateLastBriefDateSupabase, addSearchHistorySupabase, removeSearchHistoryEntrySupabase,
 	clearSearchHistorySupabase, completeActivitySupabase, addXpSupabase,
+	initSandboxCashSupabase, addToSandboxSupabase, sellFromSandboxSupabase,
+	resetSandboxSupabase, checkAndApplySandboxTierUpgradeSupabase, markSandboxMilestoneSupabase,
+	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
 } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
 
@@ -460,109 +463,125 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	const xpToSandboxTier = (xp: number) => xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
 
 	const initSandboxCash = useCallback(async () => {
-		if (!user) return;
-		if (account?.sandboxCash !== undefined) return;
-		const tier = xpToSandboxTier(account?.totalXp ?? 0);
-		await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
-	}, [user, account]);
+		if (user) {
+			if (account?.sandboxCash !== undefined) return;
+			const tier = xpToSandboxTier(account?.totalXp ?? 0);
+			await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
+		} else if (supabaseUserId) {
+			if (account?.sandboxCash !== undefined) return;
+			await initSandboxCashSupabase();
+		}
+	}, [user, supabaseUserId, account]);
 
 	const addToSandbox = useCallback(
 		async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
-			if (!user) return;
-			const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
-			if (cost <= 0) return;
-			const userRef = doc(db, "users", user.uid);
-			await runTransaction(db, async (tx) => {
-				const snap = await tx.get(userRef);
-				const data = snap.data() as { sandboxCash?: number; sandboxPortfolio?: Record<string, SandboxEntry> } | undefined;
-				const liveCash = data?.sandboxCash ?? SANDBOX_BUDGET_BY_TIER[1]!;
-				if (liveCash < cost) return;
-				const existing = data?.sandboxPortfolio?.[ticker];
-				const existingShares = existing?.shares ?? 0;
-				const existingPrice = existing?.priceAtAdd ?? null;
-				// Accumulate shares and compute weighted average cost basis
-				const newShares = Math.round((existingShares + shares) * 1000) / 1000;
-				const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
-					? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
-					: priceAtAdd;
-				const entry: SandboxEntry = {
-					addedAt: existing?.addedAt ?? Date.now(),
-					priceAtAdd: newPriceAtAdd,
-					shares: newShares,
-					...(thesis ? { thesis } : existing?.thesis ? { thesis: existing.thesis } : {}),
-				};
-				tx.update(userRef, {
-					[`sandboxPortfolio.${ticker}`]: entry,
-					sandboxCash: Math.round((liveCash - cost) * 100) / 100,
+			if (user) {
+				const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
+				if (cost <= 0) return;
+				const userRef = doc(db, "users", user.uid);
+				await runTransaction(db, async (tx) => {
+					const snap = await tx.get(userRef);
+					const data = snap.data() as { sandboxCash?: number; sandboxPortfolio?: Record<string, SandboxEntry> } | undefined;
+					const liveCash = data?.sandboxCash ?? SANDBOX_BUDGET_BY_TIER[1]!;
+					if (liveCash < cost) return;
+					const existing = data?.sandboxPortfolio?.[ticker];
+					const existingShares = existing?.shares ?? 0;
+					const existingPrice = existing?.priceAtAdd ?? null;
+					const newShares = Math.round((existingShares + shares) * 1000) / 1000;
+					const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
+						? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
+						: priceAtAdd;
+					const entry: SandboxEntry = {
+						addedAt: existing?.addedAt ?? Date.now(),
+						priceAtAdd: newPriceAtAdd,
+						shares: newShares,
+						...(thesis ? { thesis } : existing?.thesis ? { thesis: existing.thesis } : {}),
+					};
+					tx.update(userRef, {
+						[`sandboxPortfolio.${ticker}`]: entry,
+						sandboxCash: Math.round((liveCash - cost) * 100) / 100,
+					});
 				});
-			});
+			} else if (supabaseUserId) {
+				await addToSandboxSupabase(ticker, priceAtAdd, shares, thesis);
+			}
 		},
-		[user],
+		[user, supabaseUserId],
 	);
 
 	const sellFromSandbox = useCallback(
 		async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
-			if (!user) return;
-			const entry = account?.sandboxPortfolio?.[ticker];
-			const totalShares = entry?.shares ?? 0;
-			const qty = sharesToSell ?? totalShares; // default: sell everything
-			const costBasis = entry?.priceAtAdd != null ? entry.priceAtAdd * qty : 0;
-			const pnl = Math.round((currentValue - costBasis) * 100) / 100;
-			const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
-			const updated = { ...(account?.sandboxPortfolio ?? {}) };
-			if (remainingShares <= 0) {
-				delete updated[ticker]; // fully sold
-			} else {
-				updated[ticker] = { ...entry!, shares: remainingShares };
+			if (user) {
+				const entry = account?.sandboxPortfolio?.[ticker];
+				const totalShares = entry?.shares ?? 0;
+				const qty = sharesToSell ?? totalShares;
+				const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
+				const updated = { ...(account?.sandboxPortfolio ?? {}) };
+				if (remainingShares <= 0) {
+					delete updated[ticker];
+				} else {
+					updated[ticker] = { ...entry!, shares: remainingShares };
+				}
+				const currentCash = account?.sandboxCash ?? 0;
+				await updateDoc(doc(db, "users", user.uid), {
+					sandboxPortfolio: updated,
+					sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
+				});
+			} else if (supabaseUserId) {
+				await sellFromSandboxSupabase(ticker, currentValue, sharesToSell);
 			}
-			const currentCash = account?.sandboxCash ?? 0;
-			await updateDoc(doc(db, "users", user.uid), {
-				sandboxPortfolio: updated,
-				sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
-			});
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const resetSandbox = useCallback(async () => {
-		if (!user) return;
-		const tier = xpToSandboxTier(account?.totalXp ?? 0);
-		await updateDoc(doc(db, "users", user.uid), {
-			sandboxPortfolio: {},
-			sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
-			sandboxMilestones: [],
-			sandboxTier: tier,
-		});
-	}, [user, account]);
+		if (user) {
+			const tier = xpToSandboxTier(account?.totalXp ?? 0);
+			await updateDoc(doc(db, "users", user.uid), {
+				sandboxPortfolio: {},
+				sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
+				sandboxMilestones: [],
+				sandboxTier: tier,
+			});
+		} else if (supabaseUserId) {
+			await resetSandboxSupabase();
+		}
+	}, [user, supabaseUserId, account]);
 
 	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
 	// Existing users without sandboxTier get migrated silently (no cash change).
 	useEffect(() => {
-		if (!user || account?.sandboxCash === undefined) return;
-		const currentTier = xpToSandboxTier(account.totalXp ?? 0);
-		const storedTier = account.sandboxTier;
-		if (storedTier === undefined) {
-			// Migration: stamp current tier without changing cash
-			updateDoc(doc(db, "users", user.uid), { sandboxTier: currentTier }).catch(() => {});
-			return;
+		if (user && account?.sandboxCash !== undefined) {
+			const currentTier = xpToSandboxTier(account.totalXp ?? 0);
+			const storedTier = account.sandboxTier;
+			if (storedTier === undefined) {
+				updateDoc(doc(db, "users", user.uid), { sandboxTier: currentTier }).catch(() => {});
+				return;
+			}
+			if (currentTier <= storedTier) return;
+			const userRef = doc(db, "users", user.uid);
+			runTransaction(db, async (tx) => {
+				const snap = await tx.get(userRef);
+				const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
+				const liveTier = data?.sandboxTier ?? storedTier;
+				const liveCurrentTier = xpToSandboxTier(data?.totalXp ?? 0);
+				if (liveCurrentTier <= liveTier) return;
+				const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
+				tx.update(userRef, {
+					sandboxCash: Math.round(((data?.sandboxCash ?? 0) + increase) * 100) / 100,
+					sandboxTier: liveCurrentTier,
+				});
+			}).catch(() => {});
+		} else if (supabaseUserId && account?.sandboxCash !== undefined) {
+			// The tier-upgrade check and application runs server-side via this RPC --
+			// same logic as the Firestore transaction above, but atomic in Postgres.
+			checkAndApplySandboxTierUpgradeSupabase().catch(() => {});
 		}
-		if (currentTier <= storedTier) return;
-		const userRef = doc(db, "users", user.uid);
-		runTransaction(db, async (tx) => {
-			const snap = await tx.get(userRef);
-			const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
-			const liveTier = data?.sandboxTier ?? storedTier;
-			const liveCurrentTier = xpToSandboxTier(data?.totalXp ?? 0);
-			if (liveCurrentTier <= liveTier) return;
-			const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
-			tx.update(userRef, {
-				sandboxCash: Math.round(((data?.sandboxCash ?? 0) + increase) * 100) / 100,
-				sandboxTier: liveCurrentTier,
-			});
-		}).catch(() => {});
-	}, [user, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
+	}, [user, supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
 	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
+		// Known gap: dailyProgress has no Postgres column (missed in Phase 0 schema
+		// design, same as dailyChallengeState). Stays Firebase-only for now.
 		if (!user) return;
 		const current = account?.dailyProgress;
 		const isSameDay = current?.dayKey === dayKey;
@@ -591,19 +610,27 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, [user, account]);
 
 	const markPlaygroundOnboarded = useCallback(async () => {
-		if (!user) return;
-		await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
-	}, [user]);
+		if (user) {
+			await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
+		} else if (supabaseUserId) {
+			await markPlaygroundOnboardedSupabase();
+		}
+	}, [user, supabaseUserId]);
 
 	const saveGeneratedLessonHistory = useCallback(async (entry: { topic: string; title: string; angle: string }) => {
-		if (!user) return;
-		const record = { ...entry, completedAt: Date.now() };
-		await updateDoc(doc(db, "users", user.uid), {
-			generatedLessonHistory: arrayUnion(record),
-		});
-	}, [user]);
+		if (user) {
+			const record = { ...entry, completedAt: Date.now() };
+			await updateDoc(doc(db, "users", user.uid), {
+				generatedLessonHistory: arrayUnion(record),
+			});
+		} else if (supabaseUserId) {
+			await saveGeneratedLessonHistorySupabase(entry);
+		}
+	}, [user, supabaseUserId]);
 
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
+		// Known gap: practice_skills table isn't wired into the read-side yet (see
+		// supabaseAccount.ts -- practiceSkills: {}). Stays Firebase-only until it is.
 		if (!user || xp <= 0) return;
 		await updateDoc(doc(db, "users", user.uid), {
 			[`practiceSkills.${skill}`]: increment(xp),
@@ -612,11 +639,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, [user]);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {
-		if (!user) return;
-		const existing = account?.sandboxMilestones ?? [];
-		if (existing.includes(value)) return;
-		await updateDoc(doc(db, "users", user.uid), { sandboxMilestones: [...existing, value] });
-	}, [user, account]);
+		if (user) {
+			const existing = account?.sandboxMilestones ?? [];
+			if (existing.includes(value)) return;
+			await updateDoc(doc(db, "users", user.uid), { sandboxMilestones: [...existing, value] });
+		} else if (supabaseUserId) {
+			await markSandboxMilestoneSupabase(value);
+		}
+	}, [user, supabaseUserId, account]);
 
 	return (
 		<AccountContext.Provider
