@@ -26,7 +26,7 @@ export const BADGES: Record<string, BadgeInfo> = {
 // server PROCESS's own local timezone -- fine on Cloud Run, which defaults to UTC,
 // but not guaranteed in local dev on a non-UTC machine). Callers anchor `date` at
 // noon UTC of the calendar day they mean, so this just needs to not reinterpret it.
-function getISOWeek(date: Date): string {
+export function getISOWeek(date: Date): string {
 	const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 	const dayNum = d.getUTCDay() || 7;
 	d.setUTCDate(d.getUTCDate() + 4 - dayNum);
