@@ -74,6 +74,45 @@ export async function provisionFirebaseUser(user: FirebaseUserInput): Promise<Pr
 	}
 }
 
+export interface RollbackResult {
+	firebaseUid: string;
+	status: "rolled_back" | "not_provisioned" | "already_firebase";
+	previousStatus?: string;
+}
+
+/**
+ * Phase 6's rollback mechanism (Step D / "Rollback strategy": tingly-conjuring-lake.md):
+ * halting a wave is just not advancing migration_status further -- this function is
+ * what actually reverses it for one user. Flips migration_status back to 'firebase',
+ * which is all login routing (GET /api/auth/provider) checks -- the dual-accept
+ * middleware itself never gates by migration_status, so an already-active Supabase
+ * session for this user isn't forcibly killed, only future fresh login attempts route
+ * to Firebase again. Firebase was never told to delete this user at any point in the
+ * migration, so their original Firebase credentials still work without further action.
+ *
+ * Deliberately leaves migrated_at untouched -- it's a historical record of when this
+ * user was last successfully migrated, not a "currently migrated" flag (migration_status
+ * already serves that purpose), so a rollback shouldn't erase it.
+ */
+export async function rollbackToFirebase(firebaseUid: string): Promise<RollbackResult> {
+	const existing = await pgQuery<{ migration_status: string }>(
+		`select migration_status from auth_identity_map where firebase_uid = $1`,
+		[firebaseUid],
+	);
+	if (existing.rows.length === 0) {
+		return { firebaseUid, status: "not_provisioned" };
+	}
+	const previousStatus = existing.rows[0]!.migration_status;
+	if (previousStatus === "firebase") {
+		return { firebaseUid, status: "already_firebase", previousStatus };
+	}
+	await pgQuery(
+		`update auth_identity_map set migration_status = 'firebase' where firebase_uid = $1`,
+		[firebaseUid],
+	);
+	return { firebaseUid, status: "rolled_back", previousStatus };
+}
+
 export interface ProvisionAllSummary {
 	total: number;
 	created: number;
