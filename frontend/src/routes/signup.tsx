@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -40,6 +40,24 @@ function SignUpPage() {
 				});
 		}
 	}, [user, loading, navigate, logout]);
+
+	// Migration plan, Phase 5: signup.tsx has no Supabase signup flow of its own (new
+	// signups stay Firebase-only until Phase 6 -- cohort accounts are existing Firebase
+	// users flipped to the Supabase login path, never fresh Supabase signups). But
+	// without this, an already-logged-in Supabase session hitting /signup directly
+	// would just render the signup form instead of redirecting away, unlike every
+	// other page. Guarded by `!user` so the Firebase effect above takes priority if
+	// someone somehow has both sessions at once.
+	useEffect(() => {
+		if (loading || !supabaseUserId || user) return;
+		getProfile()
+			.then((profile) => {
+				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
+			})
+			.catch(() => {
+				logout().catch(() => {});
+			});
+	}, [loading, supabaseUserId, user, navigate, logout]);
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
