@@ -220,9 +220,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v7 to invalidate stale "today" entries cached by the todayStr-fallback bug
-		// in resolveEarningsStatus's no-calendar-entry branch.
-		const cacheKey = `market-earnings:v7:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		// Bumped to v9: lookback calendar fetch for supplement path; period===todayStr guard.
+		const cacheKey = `market-earnings:v9:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -281,10 +280,30 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
 			const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
 
+			// Look back up to 90 days for a real, already-reported calendar entry before
+			// falling back to resolveEarningsStatus's untrustworthy EPS-period anchor.
+			// Caught live: MU and LULU both had genuine Finnhub calendar entries (with
+			// epsActual populated) just outside this period's narrow from/to window --
+			// passing calendarEntry=null forced the resolver to fall back to confirmedEps.period,
+			// which on a fiscal quarter-end boundary (e.g. 6/30) can equal todayStr and
+			// misreport "today." One extra calendar call covers every missing ticker at once.
+			const pastCalendarBySymbol = new Map<string, FinnhubCalendarEntry>();
+			if (missingStakTickers.length > 0) {
+				const lookbackFrom = getEasternDateKey(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000));
+				const pastData = await finnhubGet(`/calendar/earnings?from=${lookbackFrom}&to=${todayStr}`) as
+					{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
+				for (const e of pastData?.earningsCalendar ?? []) {
+					if (e.epsActual == null) continue;
+					const existing = pastCalendarBySymbol.get(e.symbol);
+					if (!existing || e.date > existing.date) pastCalendarBySymbol.set(e.symbol, e);
+				}
+			}
+
 			const supplements = await Promise.all(
 				missingStakTickers.map(async (ticker) => {
 					const name = MARKET_TICKERS[ticker] ?? ticker;
-					const resolved = await resolveEarningsStatus(ticker, name, todayStr, null);
+					const pastEntry = pastCalendarBySymbol.get(ticker) ?? null;
+					const resolved = await resolveEarningsStatus(ticker, name, todayStr, pastEntry);
 					// This section exists specifically to catch reports Finnhub's calendar
 					// missed -- an "upcoming"/"none" result has no calendar entry to anchor a
 					// useful date/hour against, so only confirmed reports are worth surfacing here.
@@ -612,21 +631,35 @@ async function resolveEarningsStatus(
 	// for the report that posted, but the cross-source vote still won with a later placeholder
 	// date, so the company never showed up in "earnings this week" despite already reporting).
 	if (alreadyReported && confirmedEps) {
-		// No calendar entry means Finnhub's calendar doesn't place this report in the
-		// queried window -- almost always because it actually happened on some earlier
-		// date the caller didn't ask about, not because it's "today." Returning todayStr
-		// here previously made every Stak ticker with any recent EPS look like it reported
-		// today (caught live: COST/LULU/MU/WMT all showing in the "Today" tab despite
-		// reporting days earlier). confirmedEps.period (the fiscal quarter-end) is always
-		// at or before the real announcement date, so date-range filters in callers
-		// (today/tomorrow/week tabs) correctly exclude it instead of misplacing it.
-		if (!calendarEntry) {
+		// A calendar entry only anchors a trustworthy date when it describes THIS report --
+		// not a different, future report. The problematic case: a future calendar entry
+		// (date > today, epsActual still null) whose date gets used to anchor an already-
+		// confirmed report that Finnhub's EPS history shows for a different quarter-end.
+		// Seen live: COST/LULU/MU/WMT's next scheduled report's date (e.g. "2026-09-24")
+		// was used as the anchor for a report they'd already confirmed days earlier.
+		// A same-day entry (date === todayStr, epsActual null) is fine to trust --
+		// the EPS-history endpoint often confirms actuals before the calendar catches up,
+		// so calendarEntry.date being today is still the right anchor for that day's report.
+		if (!calendarEntry || (calendarEntry.date > todayStr && calendarEntry.epsActual == null)) {
 			const directStatus: "beat" | "miss" | null =
 				confirmedEps.actual != null && confirmedEps.estimate != null
 					? (confirmedEps.actual >= confirmedEps.estimate ? "beat" : "miss")
 					: null;
+			// confirmedEps.period is a fiscal quarter-END date, not the announcement date --
+			// real companies always take weeks after quarter-end to close their books and
+			// report (SEC rules alone require up to ~40-45 days), so a period that equals
+			// todayStr literally cannot be a real announcement that already landed today.
+			// Caught live: Finnhub's /stock/earnings returned period === todayStr (with actual
+			// already populated) for COST/LULU/MU/WMT the moment todayStr crossed a common
+			// fiscal quarter-end boundary (6/30) -- trusting it as the date kept reproducing
+			// the exact "shows as reported today" bug even after anchoring to period instead
+			// of todayStr directly. Omit the date entirely rather than risk this; callers
+			// already treat a missing date as "exclude from today/tomorrow/week tabs."
+			const trustworthyDate = confirmedEps.period && confirmedEps.period !== todayStr
+				? confirmedEps.period
+				: null;
 			return {
-				status: directStatus ?? "none", date: confirmedEps.period ?? null,
+				status: directStatus ?? "none", date: trustworthyDate,
 				hour: null, epsActual: confirmedEps.actual, epsEstimate: confirmedEps.estimate,
 				epsSurprisePct: null, revChangePct: null,
 			};
@@ -727,8 +760,9 @@ async function resolveEarningsStatus(
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v9 to invalidate stale "today" dates cached by the todayStr-fallback bug.
-	const cacheKey = `earnings:v9:${symbol}`;
+	// Bumped to v11: widen calendar query to past+future so confirmed past entries anchor
+	// the real announcement date; guard period===todayStr as untrustworthy on quarter-ends.
+	const cacheKey = `earnings:v11:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
@@ -738,9 +772,19 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		const todayStr = getEasternDateKey(now);
 
 		const in90Days = getEasternDateKey(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
-		const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
+		const ago90Days = getEasternDateKey(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000));
+		// Query past + future in one call: a confirmed past entry (epsActual populated) gives
+		// the real announcement date; without it the resolver falls back to EPS-history's
+		// `period` field, which on fiscal quarter-end boundaries can equal todayStr and
+		// mislabel an already-reported ticker as "today" (live COST/LULU/MU/WMT bug).
+		const calData = await finnhubGet(`/calendar/earnings?from=${ago90Days}&to=${in90Days}`) as
 			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-		const calendarEntry = calData?.earningsCalendar?.find((e) => e.symbol === symbol) ?? null;
+		const allEntries = (calData?.earningsCalendar ?? []).filter((e) => e.symbol === symbol);
+		// Prefer the most-recent confirmed entry (epsActual populated); fall back to nearest future.
+		const calendarEntry =
+			allEntries.find((e) => e.epsActual != null) ??
+			allEntries.filter((e) => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))[0] ??
+			null;
 
 		const resolved = await resolveEarningsStatus(symbol, companyName, todayStr, calendarEntry);
 		const result: EarningsStatus = {

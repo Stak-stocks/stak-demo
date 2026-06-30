@@ -128,6 +128,7 @@ describe("GET /market-earnings", () => {
 		// instead of trusting Gemini's narrative on its own.
 		mockFetchSequence(
 			{ earningsCalendar: [] }, // shared calendar lookup finds nothing for MU
+			{ earningsCalendar: [] }, // 90-day lookback also finds nothing
 			[{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // EPS history inside resolveEarningsStatus
 		);
 		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: { yahoo: TODAY, gemini: TODAY }, confidence: "medium" });
@@ -143,17 +144,13 @@ describe("GET /market-earnings", () => {
 	});
 
 	it("does not surface a Stak ticker on the 'today' tab when it has no calendar entry but DOES have a fresh EPS report from days earlier (live COST/LULU/MU/WMT bug)", async () => {
-		// Real incident: Finnhub's calendar has no entry for the ticker in the queried window
-		// at all, but its EPS history shows a report from a few days ago (within the 60-day
-		// freshness window) -- old code fell back to `reportDateAnchor = calendarEntry?.date ??
-		// todayStr`, fabricating "today" as the report date with zero evidence it happened
-		// today. That made every Stak ticker with any recent report falsely show up in the
-		// "Today" tab. The fix anchors the date to confirmedEps.period (fiscal quarter end,
-		// always before the real announcement date) instead, so the date-range filter below
-		// correctly excludes it from "today".
+		// Real incident: Finnhub's calendar has no entry for MU in the queried window or the
+		// 90-day lookback, but its EPS history shows a report whose period falls on a date that
+		// is NOT today (so it's correctly omitted from the Today tab by the date-range filter).
 		mockFetchSequence(
-			{ earningsCalendar: [] }, // shared calendar lookup finds nothing for MU
-			[{ actual: 12.2, estimate: 9.58, period: "2026-06-15", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // recent EPS history inside resolveEarningsStatus
+			{ earningsCalendar: [] }, // today's calendar lookup finds nothing for MU
+			{ earningsCalendar: [] }, // 90-day lookback also finds nothing
+			[{ actual: 12.2, estimate: 9.58, period: "2026-06-15", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // EPS history inside resolveEarningsStatus
 		);
 
 		const app = await buildApp();
@@ -161,6 +158,50 @@ describe("GET /market-earnings", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
+	});
+
+	it("does not surface a Stak ticker on the 'today' tab when its EPS period equals today (Finnhub quirk on fiscal quarter-end boundaries)", async () => {
+		// Real incident: todayStr === "2026-06-30" (a calendar quarter-end). Finnhub returned
+		// period === "2026-06-30" (= today) with actual already populated for COST/WMT/NVDA --
+		// impossible for real data (companies need weeks post-quarter-end to file actual results),
+		// but happens in Finnhub's data on quarter boundaries. The fix treats period === todayStr
+		// as untrustworthy and returns date: null, so callers exclude it from all time-windowed tabs.
+		mockFetchSequence(
+			{ earningsCalendar: [] }, // today's calendar
+			{ earningsCalendar: [] }, // 90-day lookback
+			[{ actual: 4.93, estimate: 5.03, period: TODAY, quarter: 3, year: 2026, surprise: -0.1, surprisePercent: -1.99 }],
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=COST");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "COST")).toBeUndefined();
+	});
+
+	it("correctly surfaces a Stak ticker with a real past calendar entry found via 90-day lookback (live MU/LULU fix)", async () => {
+		// Real incident: MU's actual calendar entry (date: "2026-06-24", epsActual populated)
+		// was outside the "today" query window but findable by looking back 90 days.
+		// The fix: one extra calendar call covers the lookback window so resolveEarningsStatus
+		// gets the real confirmed calendarEntry, anchoring the date correctly.
+		const realDate = "2026-06-22"; // within this week's window, before TODAY
+		mockFetchSequence(
+			{ earningsCalendar: [] }, // today's calendar has nothing
+			{ earningsCalendar: [{ symbol: "MU", date: realDate, hour: "amc", epsActual: 25.11, epsEstimate: 21.40, revenueActual: 41456000000, revenueEstimate: 36923508824 }] }, // lookback finds it
+			[{ actual: 25.11, estimate: 21.40, period: TODAY, quarter: 3, year: 2026, surprise: 3.71, surprisePercent: 17.33 }],
+		);
+		getConsensusEarningsResultMock.mockResolvedValue({
+			status: "beat", epsActual: 25.11, epsEstimate: 21.40, epsSurprisePct: 17.33,
+			revenueActual: 41456000000, revenueEstimate: 36923508824, revChangePct: 12.5,
+			confidence: "high", sources: { finnhub: "beat", fmp: "beat", yahoo: "beat", gemini: null },
+		});
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=week&tickers=MU");
+
+		expect(res.status).toBe(200);
+		const mu = res.body.entries.find((e: { symbol: string }) => e.symbol === "MU");
+		expect(mu).toEqual(expect.objectContaining({ symbol: "MU", status: "beat", date: realDate }));
 	});
 
 	it("keeps a confirmed beat/miss for a past calendar entry instead of letting a stale 'upcoming' consensus date override it (live MU bug)", async () => {
