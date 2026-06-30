@@ -237,8 +237,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v10: FMP calendar + income-statement supplement for missing tickers.
-		const cacheKey = `market-earnings:v10:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		// Bumped to v11: prefer most-recent FMP entry even when both have null epsActual.
+		const cacheKey = `market-earnings:v11:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -327,7 +327,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					if (
 						!existing ||
 						(e.epsActual != null && existing.epsActual == null) ||
-						(e.epsActual != null && existing.epsActual != null && e.date > existing.date)
+						(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
+						(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
 					) fmpBySymbol.set(e.symbol, e);
 				}
 				// For FMP entries with correct recent date but no epsActual yet, the income-statement
