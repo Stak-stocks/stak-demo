@@ -142,6 +142,27 @@ describe("GET /market-earnings", () => {
 		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
 	});
 
+	it("does not surface a Stak ticker on the 'today' tab when it has no calendar entry but DOES have a fresh EPS report from days earlier (live COST/LULU/MU/WMT bug)", async () => {
+		// Real incident: Finnhub's calendar has no entry for the ticker in the queried window
+		// at all, but its EPS history shows a report from a few days ago (within the 60-day
+		// freshness window) -- old code fell back to `reportDateAnchor = calendarEntry?.date ??
+		// todayStr`, fabricating "today" as the report date with zero evidence it happened
+		// today. That made every Stak ticker with any recent report falsely show up in the
+		// "Today" tab. The fix anchors the date to confirmedEps.period (fiscal quarter end,
+		// always before the real announcement date) instead, so the date-range filter below
+		// correctly excludes it from "today".
+		mockFetchSequence(
+			{ earningsCalendar: [] }, // shared calendar lookup finds nothing for MU
+			[{ actual: 12.2, estimate: 9.58, period: "2026-06-15", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // recent EPS history inside resolveEarningsStatus
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=MU");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
+	});
+
 	it("keeps a confirmed beat/miss for a past calendar entry instead of letting a stale 'upcoming' consensus date override it (live MU bug)", async () => {
 		// Real incident: Finnhub's calendar entry for MU already had actual EPS for the report
 		// that posted this week, but the 4-source consensus (Yahoo/FMP/Gemini) still voted for a

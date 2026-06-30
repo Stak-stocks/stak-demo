@@ -233,10 +233,9 @@ stockRouter.get("/market-earnings", async (req, res) => {
 
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v6 -- MARKET_TICKERS now derives from the full shared brand catalog
-		// (333 tickers) instead of a hardcoded ~80-ticker list; a stale cache entry from
-		// before this change would keep returning the narrower set.
-		const cacheKey = `market-earnings:v6:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		// Bumped to v7 to invalidate stale "today" entries cached by the todayStr-fallback bug
+		// in resolveEarningsStatus's no-calendar-entry branch.
+		const cacheKey = `market-earnings:v7:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -626,12 +625,32 @@ async function resolveEarningsStatus(
 	// for the report that posted, but the cross-source vote still won with a later placeholder
 	// date, so the company never showed up in "earnings this week" despite already reporting).
 	if (alreadyReported && confirmedEps) {
-		const reportDateAnchor = calendarEntry?.date ?? todayStr;
+		// No calendar entry means Finnhub's calendar doesn't place this report in the
+		// queried window -- almost always because it actually happened on some earlier
+		// date the caller didn't ask about, not because it's "today." Returning todayStr
+		// here previously made every Stak ticker with any recent EPS look like it reported
+		// today (caught live: COST/LULU/MU/WMT all showing in the "Today" tab despite
+		// reporting days earlier). confirmedEps.period (the fiscal quarter-end) is always
+		// at or before the real announcement date, so date-range filters in callers
+		// (today/tomorrow/week tabs) correctly exclude it instead of misplacing it.
+		if (!calendarEntry) {
+			const directStatus: "beat" | "miss" | null =
+				confirmedEps.actual != null && confirmedEps.estimate != null
+					? (confirmedEps.actual >= confirmedEps.estimate ? "beat" : "miss")
+					: null;
+			return {
+				status: directStatus ?? "none", date: confirmedEps.period ?? null,
+				hour: null, epsActual: confirmedEps.actual, epsEstimate: confirmedEps.estimate,
+				epsSurprisePct: null, revChangePct: null,
+			};
+		}
+
+		const reportDateAnchor = calendarEntry.date;
 		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
 			epsActual: confirmedEps.actual,
 			epsEstimate: confirmedEps.estimate,
-			revenueActual: calendarEntry?.revenueActual ?? null,
-			revenueEstimate: calendarEntry?.revenueEstimate ?? null,
+			revenueActual: calendarEntry.revenueActual ?? null,
+			revenueEstimate: calendarEntry.revenueEstimate ?? null,
 		});
 		const finnhubDirectStatus: "beat" | "miss" | null =
 			confirmedEps.actual != null && confirmedEps.estimate != null
@@ -641,7 +660,7 @@ async function resolveEarningsStatus(
 		// ambiguous. Fall back to the cross-source vote only if Finnhub lacks an estimate.
 		return {
 			status: finnhubDirectStatus ?? consensusResult.status, date: reportDateAnchor,
-			hour: calendarEntry?.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+			hour: calendarEntry.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
 			epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
 		};
 	}
@@ -721,8 +740,8 @@ async function resolveEarningsStatus(
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v8 to invalidate bad results cached by the previous (still buggy) deploys.
-	const cacheKey = `earnings:v8:${symbol}`;
+	// Bumped to v9 to invalidate stale "today" dates cached by the todayStr-fallback bug.
+	const cacheKey = `earnings:v9:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
