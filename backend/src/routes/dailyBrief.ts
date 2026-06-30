@@ -8,6 +8,7 @@ import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
 	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
 } from "../services/marketMood.js";
+import { getISOWeek } from "../services/streakService.js";
 
 export const dailyBriefRouter = Router();
 
@@ -811,10 +812,7 @@ interface GeneratedLessonResponse {
 interface GeneratedLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
 
 async function generateGeneratedLesson(uid: string, totalXp: number, userHistory: GeneratedLessonHistoryEntry[]): Promise<GeneratedLessonResponse | null> {
-	const d = new Date();
-	const jan4 = new Date(d.getFullYear(), 0, 4);
-	const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-	const isoWeek = `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+	const isoWeek = getISOWeek(new Date());
 
 	const cacheKey = `playground:generated-lesson:v1:${uid}:${isoWeek}`;
 	const cached = await cacheGet<GeneratedLessonResponse | { empty: true }>(cacheKey);
