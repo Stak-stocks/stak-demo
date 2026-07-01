@@ -221,6 +221,7 @@ describe("GET /market-earnings", () => {
 			{ earningsCalendar: [] }, // Finnhub main calendar: no NKE entry
 			{ earningsCalendar: [] }, // Finnhub 90-day lookback: nothing
 			[{ symbol: "NKE", date: TODAY, epsActual: null, epsEstimated: 0.11, revenueActual: 10972000000, revenueEstimated: 10849540000 }], // FMP calendar: correct date, no EPS yet
+			{}, // EDGAR CIK map: NKE not found → EDGAR returns null, falls through to FMP
 			[{ eps: 0.72, filingDate: TODAY }], // FMP income-statement: has EPS already
 			[{ actual: null, estimate: 0.11, period: "2026-03-31", quarter: 3, year: 2026, surprise: null, surprisePercent: null }], // Finnhub EPS history: stale
 		);
@@ -248,6 +249,7 @@ describe("GET /market-earnings", () => {
 			{ earningsCalendar: [] }, // Finnhub main calendar: no NKE for the short window
 			{ earningsCalendar: [] }, // Finnhub 90-day lookback: nothing
 			[{ symbol: "NKE", date: reportDate, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: 10849540000 }], // FMP calendar: scheduled for reportDate, no EPS yet
+			{}, // EDGAR CIK map: NKE not found → EDGAR returns null, falls through to FMP
 			[], // FMP income-statement: empty — NKE hasn't filed yet
 			[{ actual: null, estimate: 0.11, period: "2026-03-31", quarter: 3, year: 2026, surprise: null, surprisePercent: null }], // Finnhub EPS history: stale
 		);
