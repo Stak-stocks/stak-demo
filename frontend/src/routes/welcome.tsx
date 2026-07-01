@@ -846,30 +846,53 @@ const FAQS = [
 ];
 
 function FaqRow({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
-	/* Flat Figma accordion row (node 1:866): transparent (no card fill), with a
-	   hairline divider under every row whether open or closed. Rows are separated
-	   by the container's 32px gap. */
+	/* Netflix-style accordion row (user-directed redesign, modeled on netflix.com's
+	   FAQ): solid card rows, ONLY the question bar lightens on hover, a drawn "+"
+	   icon that rotates into an "x" when open, and the answer in its own panel
+	   below with a thin seam. No focus ring, no divider hairlines. */
+	const [hover, setHover] = useState(false);
 	return (
-		<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 17, alignItems: "flex-start" }}>
+		<div style={{ width: 586, display: "flex", flexDirection: "column" }}>
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={onToggle}
-				style={{ ...btnReset, width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", cursor: "pointer" }}
+				onMouseEnter={() => setHover(true)}
+				onMouseLeave={() => setHover(false)}
+				style={{
+					...btnReset,
+					width: "100%",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					gap: 16,
+					padding: "18px 24px",
+					background: hover ? "#2a3552" : "#1a2237",
+					transition: "background-color 0.2s ease",
+					cursor: "pointer",
+					outline: "none",
+					WebkitTapHighlightColor: "transparent",
+					textAlign: "left",
+				}}
 			>
-				<div style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-					<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word", flex: 1 }}>{q}</p>
-					<div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 3 }}>
-						<img src={open ? A.faqMinus : A.faqPlus} alt={open ? "Collapse" : "Expand"} style={{ width: "100%", height: "100%" }} />
-					</div>
-				</div>
-				{open && a && (
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "25px", color: "rgba(255,255,255,0.7)", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word" }}>
+				<p style={{ fontFamily: SR, fontWeight: 500, fontSize: 20, lineHeight: "26px", color: "#fff", margin: 0, whiteSpace: "normal", wordBreak: "break-word", flex: 1 }}>{q}</p>
+				<svg
+					width={26}
+					height={26}
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+					style={{ flexShrink: 0, transform: open ? "rotate(45deg)" : "rotate(0deg)", transition: "transform 0.25s ease" }}
+				>
+					<path d="M12 4.5v15M4.5 12h15" stroke="#fff" strokeWidth={2} strokeLinecap="round" fill="none" />
+				</svg>
+			</button>
+			{open && a && (
+				<div style={{ marginTop: 2, background: "#1a2237", padding: "20px 24px" }}>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "rgba(255,255,255,0.85)", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word" }}>
 						{a}
 					</p>
-				)}
-			</button>
-			<div style={{ width: 586, height: 0, borderTop: "0.5px solid rgba(255,255,255,0.18)" }} />
+				</div>
+			)}
 		</div>
 	);
 }
@@ -896,8 +919,8 @@ function Faq({ onEmail }: { onEmail: () => void }) {
 						</div>
 					</div>
 					<div style={{ width: 586, display: "flex", flexDirection: "column", alignItems: "center" }}>
-						{/* Figma-exact 32px gap between the flat accordion rows. */}
-						<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 32 }}>
+						{/* Netflix-style card stack: tight 8px gaps between solid rows. */}
+						<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
 							{FAQS.map((f, i) => (
 								<FaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => toggle(i)} />
 							))}
