@@ -5,13 +5,15 @@ interface PullToRefreshProps {
 	/** The scrollable container element ref */
 	scrollRef: React.RefObject<HTMLElement | null>;
 	children: ReactNode;
+	/** Called instead of window.location.reload() when refresh is triggered */
+	onRefresh?: () => void;
 }
 
 const THRESHOLD = 70; // px to pull before triggering refresh
 const MAX_PULL = 110; // max pull distance
 const MIN_ARM_DISTANCE = 8; // px downward before arming — prevents iOS rubber-band false triggers
 
-export function PullToRefresh({ scrollRef, children }: PullToRefreshProps) {
+export function PullToRefresh({ scrollRef, children, onRefresh }: PullToRefreshProps) {
 	const [pullDistance, setPullDistance] = useState(0);
 	const [refreshing, setRefreshing] = useState(false);
 	const touchStartY = useRef(0);
@@ -67,9 +69,9 @@ export function PullToRefresh({ scrollRef, children }: PullToRefreshProps) {
 		if (pullDistance >= THRESHOLD && !refreshing) {
 			setRefreshing(true);
 			setPullDistance(THRESHOLD); // hold at threshold during refresh
-			// Reload the page
 			setTimeout(() => {
-				window.location.reload();
+				if (onRefresh) { onRefresh(); setRefreshing(false); setPullDistance(0); }
+				else window.location.reload();
 			}, 400);
 		} else {
 			setPullDistance(0);
