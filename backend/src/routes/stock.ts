@@ -604,7 +604,7 @@ async function fetchGeminiEarningsDates(
 			for (const [sym, date] of Object.entries(parsed)) {
 				if (typeof date === "string" && dateRe.test(date)) {
 					results[sym] = date;
-					await cacheSet(`gemini-earnings-date:v1:${sym}`, date, 24 * 60 * 60 * 1000);
+					await cacheSet(`gemini-earnings-date:v1:${sym}`, date, 7 * 24 * 60 * 60 * 1000);
 				}
 			}
 			break;
