@@ -2891,7 +2891,7 @@ export function LandingPage() {
 	// Below 850px → dedicated mobile layout (Figma node 1:1123, 810px canvas);
 	// otherwise the wide desktop canvas (1400px). Each scales to fit its width.
 	const isPhone = vw < 600;
-	const isMobile = vw < 850;
+	const isMobile = vw <= 1024; // Figma-810 tablet view covers all iPad portraits + standard iPad landscape
 	const scale = isPhone ? vw / MOBILE390_WIDTH : isMobile ? vw / MOBILE_WIDTH : vw / CANVAS_WIDTH;
 
 	const scrollTo = useCallback((key: keyof typeof SEC) => {
@@ -2902,7 +2902,7 @@ export function LandingPage() {
 		   own section tops, so links must scroll against the ACTIVE layout. */
 		const PHONE_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 1040, howItWorks: 1964, features: 3539, earlyMomentum: 5473, faq: 6356, finalCta: 7586, footer: 8653 };
 		const TABLET_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 1039, howItWorks: 2080, features: 3298, earlyMomentum: 4483, faq: 5356, finalCta: 6592, footer: 7828 };
-		const top = w < 600 ? PHONE_SEC[key] * (w / MOBILE390_WIDTH) : w < 850 ? TABLET_SEC[key] * (w / MOBILE_WIDTH) : SEC[key] * (w / CANVAS_WIDTH);
+		const top = w < 600 ? PHONE_SEC[key] * (w / MOBILE390_WIDTH) : w <= 1024 ? TABLET_SEC[key] * (w / MOBILE_WIDTH) : SEC[key] * (w / CANVAS_WIDTH);
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
 
