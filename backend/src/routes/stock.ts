@@ -232,7 +232,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		const cacheKey = `market-earnings:v17:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v18:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -546,36 +546,42 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 // doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
 // Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
 async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
-	const apiKey = process.env.FMP_API_KEY;
-	if (!apiKey) return [];
-	const redisCacheKey = `fmp-calendar:v1:${from}:${to}`;
+	const keys = [process.env.FMP_API_KEY, process.env.FMP_API_KEY_2].filter(Boolean) as string[];
+	if (keys.length === 0) return [];
+	const redisCacheKey = `fmp-calendar:v2:${from}:${to}`;
 	const cached = await cacheGet<FinnhubCalendarEntry[]>(redisCacheKey);
 	if (cached) return cached;
-	try {
-		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
-		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-		if (!res.ok) return [];
-		const data = await res.json() as Array<{
-			symbol?: string; date?: string; epsActual?: number | null;
-			epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
-		}>;
-		if (!Array.isArray(data)) return [];
-		const entries = data
-			.filter((e) => e.symbol && e.date)
-			.map((e) => ({
-				symbol: e.symbol!,
-				date: e.date!.substring(0, 10),
-				hour: "amc",
-				epsActual: e.epsActual ?? null,
-				epsEstimate: e.epsEstimated ?? null,
-				revenueActual: e.revenueActual ?? null,
-				revenueEstimate: e.revenueEstimated ?? null,
-			}));
-		await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
-		return entries;
-	} catch {
-		return [];
+
+	type FMPEntry = {
+		symbol?: string; date?: string; epsActual?: number | null;
+		epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
+	};
+
+	for (const apiKey of keys) {
+		try {
+			const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) continue;
+			const data = await res.json() as FMPEntry[] | { message?: string };
+			if (!Array.isArray(data)) continue;
+			const entries = data
+				.filter((e) => e.symbol && e.date)
+				.map((e) => ({
+					symbol: e.symbol!,
+					date: e.date!.substring(0, 10),
+					hour: "amc",
+					epsActual: e.epsActual ?? null,
+					epsEstimate: e.epsEstimated ?? null,
+					revenueActual: e.revenueActual ?? null,
+					revenueEstimate: e.revenueEstimated ?? null,
+				}));
+			await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+			return entries;
+		} catch {
+			continue;
+		}
 	}
+	return [];
 }
 
 // FMP income-statement: the quarterly filing, keyed by filingDate (= actual announcement date).
