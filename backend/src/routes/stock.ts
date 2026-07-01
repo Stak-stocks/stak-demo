@@ -1026,7 +1026,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
 							tools: [{ google_search: {} }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 100 },
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 						}),
 						signal: controller.signal,
 					},
@@ -1041,10 +1041,12 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 				}
 				const data = await gemRes.json();
 				const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
-					.map((p: { text?: string }) => p.text ?? "").join("").trim()
-					.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+					.map((p: { text?: string }) => p.text ?? "").join("").trim();
 				try {
-					const parsed = JSON.parse(rawText);
+					// Extract JSON object from wherever it appears — Gemini with grounding
+					// sometimes wraps the answer in a narrative before/after the JSON block
+					const jsonMatch = rawText.match(/\{[^{}]*"avg"[^{}]*\}/s) ?? rawText.match(/\{[\s\S]*\}/);
+					const parsed = JSON.parse(jsonMatch?.[0] ?? rawText);
 					if (parsed && typeof parsed === "object") {
 						const low  = typeof parsed.low  === "number" ? parsed.low  : null;
 						const avg  = typeof parsed.avg  === "number" ? parsed.avg  : null;
