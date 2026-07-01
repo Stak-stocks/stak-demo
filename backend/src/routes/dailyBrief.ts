@@ -8,32 +8,19 @@ import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
 	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
 } from "../services/marketMood.js";
+import { getISOWeek } from "../services/streakService.js";
+import { getFinnhubKeys } from "../services/finnhubService.js";
+import { getGeminiKeys } from "../services/geminiService.js";
 
 export const dailyBriefRouter = Router();
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
-function getFinnhubKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
 async function finnhubGet(path: string): Promise<unknown | null> {
 	const keys = getFinnhubKeys();
 	for (const key of keys) {
 		try {
-			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`);
+			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
 			if (res.status === 403 || res.status === 429) continue;
 			if (!res.ok) return null;
 			return res.json();
@@ -811,10 +798,7 @@ interface GeneratedLessonResponse {
 interface GeneratedLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
 
 async function generateGeneratedLesson(uid: string, totalXp: number, userHistory: GeneratedLessonHistoryEntry[]): Promise<GeneratedLessonResponse | null> {
-	const d = new Date();
-	const jan4 = new Date(d.getFullYear(), 0, 4);
-	const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-	const isoWeek = `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+	const isoWeek = getISOWeek(new Date());
 
 	const cacheKey = `playground:generated-lesson:v1:${uid}:${isoWeek}`;
 	const cached = await cacheGet<GeneratedLessonResponse | { empty: true }>(cacheKey);

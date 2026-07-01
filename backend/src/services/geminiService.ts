@@ -32,6 +32,28 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Global concurrency cap for all outgoing Gemini requests across the backend.
+// Without this, opening 12 stocks simultaneously can fire 40+ parallel Gemini calls
+// (analyst + earnings + news simplification per stock), exhausting all 3 keys at once.
+// Queued requests resolve as slots free up — the slight extra latency for later slots
+// is far better than every request failing with "no coverage."
+const MAX_CONCURRENT_GEMINI = 5;
+let geminiActiveCount = 0;
+const geminiWaiters: Array<() => void> = [];
+
+export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+	if (geminiActiveCount >= MAX_CONCURRENT_GEMINI) {
+		await new Promise<void>((resolve) => geminiWaiters.push(resolve));
+	}
+	geminiActiveCount++;
+	try {
+		return await fn();
+	} finally {
+		geminiActiveCount--;
+		geminiWaiters.shift()?.();
+	}
+}
+
 export function getGeminiKeys(): string[] {
 	return [
 		process.env.GEMINI_API_KEY,
@@ -87,7 +109,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 		} catch (e) {
 			if ((e as Error)?.name === "AbortError") {
 				console.warn(`[Gemini] simplifyArticles timed out on key ...${key.slice(-4)} — trying next`);
-				return null; // timed out — try next key
+				continue; // actually try the next key, not just log and bail
 			}
 			throw e;
 		} finally {
@@ -99,6 +121,10 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 
 /** Call Gemini for a single batch of up to BATCH_SIZE articles, rotating keys on 429 */
 async function simplifyBatch(articles: FinnhubArticle[]): Promise<SimplifyResult[]> {
+	return withGeminiConcurrencyLimit(async () => simplifyBatchInner(articles));
+}
+
+async function simplifyBatchInner(articles: FinnhubArticle[]): Promise<SimplifyResult[]> {
 	const keys = getGeminiKeys();
 	if (keys.length === 0) throw new Error("No GEMINI_API_KEY configured");
 

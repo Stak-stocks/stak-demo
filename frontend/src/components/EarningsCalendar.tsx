@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarDays, X } from "lucide-react";
-import { type BrandSummary, getBrandLogoUrl } from "@stak/shared";
+import { type BrandSummary, getBrandLogoUrl, getEasternDateKey } from "@stak/shared";
 import { useAccount } from "@/context/AccountContext";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useBrandsList } from "@/hooks/useBrandsList";
@@ -12,20 +12,6 @@ import { getEarnings, getCompanyNews, getMarketEarnings, type MarketEarningsEntr
 type MarketTab = "today" | "tomorrow" | "week";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getCSTDateStr(d: Date): string {
-	return d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-}
-
-function getWeekBounds(weekOffset: number): { start: string; end: string } {
-	const now = new Date();
-	const todayCST = getCSTDateStr(now);
-	const dowCST = new Date(todayCST + "T12:00:00Z").getUTCDay();
-	const daysToMon = dowCST === 0 ? -6 : 1 - dowCST;
-	const monday = new Date(now.getTime() + (daysToMon + weekOffset * 7) * 86400000);
-	const friday = new Date(monday.getTime() + 4 * 86400000);
-	return { start: getCSTDateStr(monday), end: getCSTDateStr(friday) };
-}
 
 function formatDate(dateStr: string): string {
 	if (!dateStr) return "";
@@ -355,12 +341,12 @@ export function EarningsCalendarButton({ onOpen, externalOpen, onExternalClose, 
 		})),
 	});
 
-	const todayCST = getCSTDateStr(new Date());
+	const todayET = getEasternDateKey();
 	const todayCount = stakBrands.reduce((n, _brand, i) => {
 		const cal = earningsResults[i]?.data;
 		const news = newsResults[i]?.data;
 		const date = cal?.date ?? news?.earningsSignal?.date ?? null;
-		return date === todayCST ? n + 1 : n;
+		return date === todayET ? n + 1 : n;
 	}, 0);
 
 	return (

@@ -10,6 +10,7 @@ import {
 	getPeerMetrics, getStockData, getCompanyNews, getAnalystData, getEarningsQuick, getDailyMove, getKeyRisk, getDailyBrief,
 } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
+import { parseFinancialValue } from "@/lib/financial";
 import {
 	Coffee, TrendingUp, AlertTriangle, BarChart3, Target,
 } from "lucide-react";
@@ -63,10 +64,7 @@ function InfoRow({ heading, content, icon, color, loading = false, right = null 
 // ── Peer comparison strip ────────────────────────────────────────────────────
 
 function parseStaticValue(raw: string): number | null {
-	const cleaned = raw.replace(/[%x$,]/g, "").trim();
-	if (cleaned === "N/A" || cleaned === "") return null;
-	const n = parseFloat(cleaned);
-	return isNaN(n) ? null : n;
+	return parseFinancialValue(raw);
 }
 
 interface PeerStatProps {

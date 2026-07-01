@@ -11,10 +11,12 @@
  * Revenue actual falls back: Finnhub → FMP → Yahoo (estimate stays from Finnhub only).
  */
 
+import { calcPercentChange } from "@stak/shared";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb } from "../lib/yahooAuth.js";
 import { getEarningsBeatMissFromWeb } from "./geminiService.js";
 import { getCompanyNews } from "./finnhubService.js";
+import { getEasternDateKey } from "@stak/shared";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
@@ -64,7 +66,9 @@ export async function hasSameDayEarningsArticle(
 	return articles.some((a) => {
 		const text = `${a.headline} ${a.summary}`.toLowerCase();
 		if (!EARNINGS_CORE.some((k) => text.includes(k))) return false;
-		const dateStr = new Date(a.datetime * 1000).toISOString().split("T")[0];
+		// ET, not raw UTC -- a report published after ~8pm ET is still "today" in ET
+		// but already past midnight UTC, which would otherwise miss the match.
+		const dateStr = getEasternDateKey(new Date(a.datetime * 1000));
 		return dateStr === todayStr;
 	});
 }
@@ -370,8 +374,8 @@ export async function getConsensusEarningsResult(
 	const epsEstimate =
 		finnhubData.epsEstimate ?? fmpEps.epsEstimate ?? yahooResult.epsEstimate ?? null;
 	const epsSurprisePct =
-		epsActual != null && epsEstimate != null && epsEstimate !== 0
-			? Math.round(((epsActual - epsEstimate) / Math.abs(epsEstimate)) * 1000) / 10
+		epsActual != null && epsEstimate != null
+			? calcPercentChange(epsActual, epsEstimate)
 			: null;
 
 	// ── Best Revenue actual: Finnhub → FMP → Yahoo ───────────────────────────
@@ -384,8 +388,8 @@ export async function getConsensusEarningsResult(
 	const revenueActual = finnhubRevenueActual ?? fmpRevenue ?? yahooResult.revenueActual ?? null;
 	const revenueEstimate = finnhubData.revenueEstimate ?? null;
 	const revChangePct =
-		finnhubRevenueActual != null && revenueEstimate != null && revenueEstimate !== 0
-			? Math.round(((finnhubRevenueActual - revenueEstimate) / Math.abs(revenueEstimate)) * 1000) / 10
+		finnhubRevenueActual != null && revenueEstimate != null
+			? calcPercentChange(finnhubRevenueActual, revenueEstimate)
 			: null;
 
 	const result: ConsensusEarningsResult = {

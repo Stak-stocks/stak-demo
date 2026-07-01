@@ -1,31 +1,42 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit } from "../services/geminiService.js";
+import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
+import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getEasternDateKey, getPeerTickers } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
-function getApiKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
+// Collapse concurrent requests for the same path into a single outgoing fetch.
+// Without this, 8 simultaneous requests for /quote?symbol=AAPL each try all 3 keys
+// in sequence, burning through the key pool in parallel even for identical data.
+const finnhubInFlight = new Map<string, Promise<unknown | null>>();
 
 async function finnhubGet(path: string): Promise<unknown | null> {
-	const keys = getApiKeys();
-	for (const key of keys) {
-		const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`);
-		if (res.status === 403 || res.status === 429) continue;
-		if (!res.ok) return null;
-		return res.json();
+	const existing = finnhubInFlight.get(path);
+	if (existing) return existing;
+
+	const promise = (async () => {
+		const keys = getFinnhubKeys();
+		for (const key of keys) {
+			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
+			if (res.status === 403 || res.status === 429) continue;
+			if (!res.ok) return null;
+			return res.json();
+		}
+		return null;
+	})();
+
+	finnhubInFlight.set(path, promise);
+	try {
+		return await promise;
+	} finally {
+		finnhubInFlight.delete(path);
 	}
-	return null;
 }
 
 // Fetch the stock's price % change on (or after) the earnings report date.
@@ -80,8 +91,8 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 			if (closes && closes.length >= 2) {
 				const prev = closes[closes.length - 2]!;
 				const reaction = closes[closes.length - 1]!;
-				if (prev !== 0) {
-					const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+				const pct = calcPercentChange(reaction, prev);
+				if (pct !== null) {
 					await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
 					return pct;
 				}
@@ -99,8 +110,8 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 		if (candle?.s === "ok" && Array.isArray(candle.c) && candle.c.length >= 2) {
 			const prev = candle.c[candle.c.length - 2]!;
 			const reaction = candle.c[candle.c.length - 1]!;
-			if (prev !== 0) {
-				const pct = Math.round(((reaction - prev) / prev) * 1000) / 10;
+			const pct = calcPercentChange(reaction, prev);
+			if (pct !== null) {
 				await cacheSet(cacheKey, pct, 24 * 60 * 60 * 1000);
 				return pct;
 			}
@@ -124,12 +135,6 @@ const TICKER_MAP: Record<string, string> = {
 
 function resolveSymbol(symbol: string): string {
 	return TICKER_MAP[symbol.toUpperCase()] ?? symbol;
-}
-
-function formatMarketCap(millions: number): string {
-	if (millions >= 1_000_000) return `$${(millions / 1_000_000).toFixed(2)}T`;
-	if (millions >= 1_000) return `$${(millions / 1_000).toFixed(1)}B`;
-	return `$${millions.toFixed(0)}M`;
 }
 
 export const stockRouter = Router();
@@ -210,13 +215,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		if (period === "tomorrow") {
 			fromStr = toStr = getEasternDateKey(new Date(now.getTime() + 86400000));
 		} else if (period === "week") {
-			// Full calendar week: Sunday → Saturday, anchored to ET "today" (not raw
-			// now.getDay(), which is the server process's own local/UTC weekday and can
-			// already be tomorrow's weekday in the US evening) -- todayStr is already
-			// ET-correct, and noon-UTC whole-day arithmetic on it never crosses into a
-			// different calendar day, same safe anchoring pattern used in dailyBrief.ts.
 			const todayAnchor = new Date(todayStr + "T12:00:00Z");
-			const dayOfWeek = todayAnchor.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+			const dayOfWeek = todayAnchor.getUTCDay();
 			const weekSunday = new Date(todayAnchor.getTime() - dayOfWeek * 86400000);
 			const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
 			fromStr = weekSunday.toISOString().split("T")[0];
@@ -231,93 +231,112 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			: [];
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
-		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v6 -- MARKET_TICKERS now derives from the full shared brand catalog
-		// (333 tickers) instead of a hardcoded ~80-ticker list; a stale cache entry from
-		// before this change would keep returning the narrower set.
-		const cacheKey = `market-earnings:v6:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v19:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
-			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-
 		const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
-		const calEntries = (data?.earningsCalendar ?? []).filter((e) => tickerSet.has(e.symbol));
 
-		const entries = await Promise.all(
-			calEntries.map(async (e) => {
-				const name = MARKET_TICKERS[e.symbol] ?? e.symbol;
+		// ── Steps 1+2: FMP and Finnhub calendars in parallel ─────────────────────
+		// FMP is primary (better coverage, future dates). Finnhub is the fallback
+		// for tickers FMP misses, and the source for the hour field (bmo/amc/dmh)
+		// that FMP doesn't provide. Running both in parallel also means Finnhub
+		// covers for FMP rate-limit failures.
+		const [fmpEntries, finnhubData] = await Promise.all([
+			fetchFMPEarningsCalendar(fromStr, toStr),
+			finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+				Promise<{ earningsCalendar?: FinnhubCalendarEntry[] } | null>,
+		]);
 
-				if (e.date > todayStr) {
-					// Comfortably in the future — trust Finnhub's calendar directly, no need for
-					// the full resolver's consensus/Gemini calls. This endpoint processes many
-					// tickers per request; running the full pipeline on dates that aren't even
-					// close yet would be needlessly expensive. The risky window (same-day-not-
-					// yet-reported, or Finnhub disagreeing with reality) is today-or-earlier,
-					// handled by the shared resolver below.
-					const revChangePct = e.revenueActual != null && e.revenueEstimate != null && e.revenueEstimate !== 0
-						? Math.round(((e.revenueActual - e.revenueEstimate) / Math.abs(e.revenueEstimate)) * 1000) / 10
-						: null;
-					return {
-						symbol: e.symbol, name, date: e.date, hour: e.hour || null,
-						epsActual: e.epsActual, epsEstimate: e.epsEstimate,
-						epsSurprisePct: null, priceChangePct: null,
-						revChangePct, status: "upcoming" as const,
-					};
+		// Merge: FMP preferred when it has the entry; Finnhub fills gaps.
+		// For the hour field, Finnhub is always authoritative (FMP hardcodes "amc").
+		const calBySymbol = new Map<string, FinnhubCalendarEntry>();
+		const hourMap = new Map<string, string>();
+
+		for (const e of finnhubData?.earningsCalendar ?? []) {
+			if (!tickerSet.has(e.symbol)) continue;
+			if (e.hour) hourMap.set(e.symbol, e.hour);
+			calBySymbol.set(e.symbol, e);
+		}
+		// FMP overwrites Finnhub for any ticker it covers — prefer FMP when it has
+		// epsActual, otherwise prefer whichever has more data.
+		for (const e of fmpEntries) {
+			if (!tickerSet.has(e.symbol)) continue;
+			const existing = calBySymbol.get(e.symbol);
+			if (
+				!existing ||
+				(e.epsActual != null && existing.epsActual == null) ||
+				(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
+				(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
+			) calBySymbol.set(e.symbol, { ...e, hour: hourMap.get(e.symbol) ?? e.hour });
+		}
+
+		// ── Step 2b: Gemini fallback for uncovered extra-tickers ─────────────────
+		// Only fires for user Stak tickers (extraTickers) that FMP and Finnhub
+		// both missed. One grounded call per batch; dates cached 24h per ticker.
+		const missingExtraTickers = extraTickers.filter((sym) => !calBySymbol.has(sym));
+		if (missingExtraTickers.length > 0) {
+			const geminiDates = await fetchGeminiEarningsDates(missingExtraTickers);
+			for (const [sym, date] of Object.entries(geminiDates)) {
+				if (date >= fromStr && date <= toStr) {
+					calBySymbol.set(sym, {
+						symbol: sym, date, hour: "",
+						epsActual: null, epsEstimate: null,
+						revenueActual: null, revenueEstimate: null,
+					});
 				}
-
-				const resolved = await resolveEarningsStatus(e.symbol, name, todayStr, e);
-				// Consensus may have corrected the date — if that lands outside the requested
-				// period window, exclude it rather than leaking into the wrong tab.
-				if (resolved.date && (resolved.date < fromStr || resolved.date > toStr)) return null;
-				const priceChangePct = (resolved.status === "beat" || resolved.status === "miss")
-					? await getPriceChangePct(e.symbol, resolved.date ?? e.date, resolved.hour ?? e.hour)
-					: null;
-				return {
-					symbol: e.symbol, name, date: resolved.date ?? e.date, hour: resolved.hour ?? (e.hour || null),
-					epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
-					priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
-				};
-			}),
-		);
-
-		// Filter out nulls (entries excluded by period-window guard after consensus date correction)
-		const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
-
-		// ── Fallback for Stak tickers Finnhub's calendar missed entirely ────────────
-		// extraTickers = all tickers from the user's Stak (sent by the frontend). Finnhub
-		// having no calendar entry doesn't necessarily mean nothing happened — same shared
-		// resolver, just with no calendar entry to anchor on (it'll fall back to date
-		// consensus, then Finnhub's own EPS-history freshness, then Gemini as a last resort).
-		if (extraTickers.length > 0) {
-			const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
-			const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
-
-			const supplements = await Promise.all(
-				missingStakTickers.map(async (ticker) => {
-					const name = MARKET_TICKERS[ticker] ?? ticker;
-					const resolved = await resolveEarningsStatus(ticker, name, todayStr, null);
-					// This section exists specifically to catch reports Finnhub's calendar
-					// missed -- an "upcoming"/"none" result has no calendar entry to anchor a
-					// useful date/hour against, so only confirmed reports are worth surfacing here.
-					if (resolved.status !== "beat" && resolved.status !== "miss") return null;
-					if (!resolved.date || resolved.date < fromStr || resolved.date > toStr) return null;
-					const priceChangePct = await getPriceChangePct(ticker, resolved.date, resolved.hour);
-					return {
-						symbol: ticker, name, date: resolved.date, hour: resolved.hour,
-						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
-						priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
-					};
-				}),
-			);
-
-			for (const s of supplements) {
-				if (s) filteredEntries.push(s);
 			}
 		}
 
+		// ── Step 3: Fill EPS actuals for recent past entries ─────────────────────
+		// FMP calendar epsActual lags the SEC filing. EDGAR is authoritative;
+		// FMP income-statement is the fallback. Only try within 3 days: older
+		// gaps mean postponed/cancelled, not delayed data.
+		const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
+		await Promise.all([...calBySymbol.entries()]
+			.filter(([, e]) => e.epsActual == null && e.date >= threeDaysAgo && e.date <= todayStr)
+			.map(async ([sym, e]) => {
+				const income = await getEdgarEarningsEps(sym, e.date)
+					?? await fetchFMPIncomeStatementEps(sym, e.date);
+				if (income) calBySymbol.set(sym, { ...e, epsActual: income.actual, date: income.filingDate });
+			}));
+
+		// ── Step 4: Build result entries ─────────────────────────────────────────
+		const entries = await Promise.all([...calBySymbol.values()].map(async (e) => {
+			const name = MARKET_TICKERS[e.symbol] ?? e.symbol;
+			const hour = hourMap.get(e.symbol) ?? null;
+			const revChangePct = e.revenueActual != null && e.revenueEstimate != null
+				? calcPercentChange(e.revenueActual, e.revenueEstimate)
+				: null;
+
+			if (e.epsActual != null) {
+				// Report confirmed — compute beat/miss directly from FMP/EDGAR EPS data
+				const status: "beat" | "miss" = e.epsEstimate != null
+					? (e.epsActual >= e.epsEstimate ? "beat" : "miss")
+					: (e.epsActual >= 0 ? "beat" : "miss");
+				const epsSurprisePct = calcPercentChange(e.epsActual, e.epsEstimate ?? 0) ?? null;
+				const priceChangePct = await getPriceChangePct(e.symbol, e.date, hour);
+				return {
+					symbol: e.symbol, name, date: e.date, hour,
+					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+					epsSurprisePct, priceChangePct, revChangePct, status,
+				};
+			}
+
+			// No EPS confirmed yet
+			// Past date (not today): FMP shows it was scheduled but we have no result —
+			// could be postponed or data not yet synced beyond our 3-day fill window; exclude.
+			if (e.date < todayStr) return null;
+			return {
+				symbol: e.symbol, name, date: e.date, hour,
+				epsActual: null, epsEstimate: e.epsEstimate,
+				epsSurprisePct: null, priceChangePct: null, revChangePct,
+				status: "upcoming" as const,
+			};
+		}));
+
+		const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
 		filteredEntries.sort((a, b) => {
 			if (a.status !== "upcoming" && b.status === "upcoming") return -1;
 			if (a.status === "upcoming" && b.status !== "upcoming") return 1;
@@ -325,10 +344,6 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		});
 
 		const result = { entries: filteredEntries, from: fromStr, to: toStr };
-		// week/tomorrow: 6h, dates don't shift mid-period. today: 15min while anything is
-		// still genuinely pending (matches /:symbol/earnings' same-day TTL, so a transition
-		// to beat/miss is picked up quickly instead of sitting stale for up to an hour);
-		// 1h once everything for today is already resolved, since nothing left to change.
 		const hasPendingToday = period === "today" && filteredEntries.some(
 			(e) => e.status === "upcoming" && e.date === todayStr,
 		);
@@ -543,6 +558,145 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 	return Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0]! : null;
 }
 
+// Gemini grounded search: fills earnings dates for tickers FMP and Finnhub miss.
+// Called once per batch of missing extra-tickers. Dates are cached per ticker for 24 hours
+// so re-requests within the same day skip the grounded call entirely.
+async function fetchGeminiEarningsDates(
+	tickers: string[],
+): Promise<Record<string, string>> {
+	const results: Record<string, string> = {};
+	const toFetch: string[] = [];
+
+	for (const sym of tickers) {
+		const cached = await cacheGet<string>(`gemini-earnings-date:v1:${sym}`);
+		if (cached) { results[sym] = cached; } else { toFetch.push(sym); }
+	}
+
+	if (toFetch.length === 0) return results;
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return results;
+
+	const prompt = `What is the next upcoming earnings report date for each of these stocks: ${toFetch.join(", ")}? Reply ONLY with a JSON object mapping ticker symbol to date string in YYYY-MM-DD format. Example: {"AAPL":"2026-07-30"}. If you are unsure of a date, omit that ticker. No extra text.`;
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { temperature: 0.1 },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+			const jsonMatch = raw.match(/\{[\s\S]*\}/);
+			if (!jsonMatch) continue;
+			const parsed = JSON.parse(jsonMatch[0]) as Record<string, string>;
+			const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+			for (const [sym, date] of Object.entries(parsed)) {
+				if (typeof date === "string" && dateRe.test(date)) {
+					results[sym] = date;
+					await cacheSet(`gemini-earnings-date:v1:${sym}`, date, 7 * 24 * 60 * 60 * 1000);
+				}
+			}
+			break;
+		} catch {
+			continue;
+		}
+	}
+	return results;
+}
+
+// FMP earnings-calendar: real announcement dates (not fiscal period-ends), faster EPS actuals.
+// Returns entries mapped to FinnhubCalendarEntry shape; hour defaults to "amc" since FMP
+// doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
+// Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
+async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
+	const keys = [process.env.FMP_API_KEY, process.env.FMP_API_KEY_2].filter(Boolean) as string[];
+	if (keys.length === 0) return [];
+	const redisCacheKey = `fmp-calendar:v2:${from}:${to}`;
+	const cached = await cacheGet<FinnhubCalendarEntry[]>(redisCacheKey);
+	if (cached) return cached;
+
+	type FMPEntry = {
+		symbol?: string; date?: string; epsActual?: number | null;
+		epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
+	};
+
+	for (const apiKey of keys) {
+		try {
+			const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) continue;
+			const data = await res.json() as FMPEntry[] | { message?: string };
+			if (!Array.isArray(data)) continue;
+			const entries = data
+				.filter((e) => e.symbol && e.date)
+				.map((e) => ({
+					symbol: e.symbol!,
+					date: e.date!.substring(0, 10),
+					hour: "amc",
+					epsActual: e.epsActual ?? null,
+					epsEstimate: e.epsEstimated ?? null,
+					revenueActual: e.revenueActual ?? null,
+					revenueEstimate: e.revenueEstimated ?? null,
+				}));
+			await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+			return entries;
+		} catch {
+			continue;
+		}
+	}
+	return [];
+}
+
+// FMP income-statement: the quarterly filing, keyed by filingDate (= actual announcement date).
+// Used when FMP's calendar has the right date but epsActual hasn't synced yet — the two
+// endpoints update asynchronously and income-statement typically lands first.
+// Returns null if the most recent filing's filingDate is more than 5 days from nearDate,
+// so we never misattribute a different quarter's EPS to this announcement.
+// Cached in Redis for 20 minutes per symbol to avoid repeated FMP API calls.
+async function fetchFMPIncomeStatementEps(
+	symbol: string,
+	nearDate: string,
+): Promise<{ actual: number; filingDate: string } | null> {
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) return null;
+	type Filing = { actual: number; filingDate: string };
+	const redisCacheKey = `fmp-income:v1:${symbol}`;
+	const cached = await cacheGet<Filing>(redisCacheKey);
+	const filing: Filing | null = cached ?? await (async () => {
+		try {
+			const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) return null;
+			const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
+			if (!Array.isArray(data) || data.length === 0) return null;
+			const latest = data[0]!;
+			if (latest.eps == null || !latest.filingDate) return null;
+			const result: Filing = { actual: latest.eps, filingDate: latest.filingDate.substring(0, 10) };
+			await cacheSet(redisCacheKey, result, 20 * 60 * 1000);
+			return result;
+		} catch {
+			return null;
+		}
+	})();
+	if (!filing) return null;
+	const daysDiff = Math.abs(
+		new Date(filing.filingDate + "T12:00:00Z").getTime() - new Date(nearDate + "T12:00:00Z").getTime(),
+	) / 86400000;
+	if (daysDiff > 5) return null;
+	return filing;
+}
+
 // A web-search-derived report date this old can't be "the report we're checking for" —
 // wider than any single quarter, so it only catches genuine staleness/hallucination, e.g.
 // the AI fallback finding a same-month report from a prior year instead of the current one.
@@ -626,12 +780,46 @@ async function resolveEarningsStatus(
 	// for the report that posted, but the cross-source vote still won with a later placeholder
 	// date, so the company never showed up in "earnings this week" despite already reporting).
 	if (alreadyReported && confirmedEps) {
-		const reportDateAnchor = calendarEntry?.date ?? todayStr;
+		// A calendar entry only anchors a trustworthy date when it describes THIS report --
+		// not a different, future report. The problematic case: a future calendar entry
+		// (date > today, epsActual still null) whose date gets used to anchor an already-
+		// confirmed report that Finnhub's EPS history shows for a different quarter-end.
+		// Seen live: COST/LULU/MU/WMT's next scheduled report's date (e.g. "2026-09-24")
+		// was used as the anchor for a report they'd already confirmed days earlier.
+		// A same-day entry (date === todayStr, epsActual null) is fine to trust --
+		// the EPS-history endpoint often confirms actuals before the calendar catches up,
+		// so calendarEntry.date being today is still the right anchor for that day's report.
+		if (!calendarEntry || (calendarEntry.date > todayStr && calendarEntry.epsActual == null)) {
+			const directStatus: "beat" | "miss" | null =
+				confirmedEps.actual != null && confirmedEps.estimate != null
+					? (confirmedEps.actual >= confirmedEps.estimate ? "beat" : "miss")
+					: null;
+			// confirmedEps.period is a fiscal quarter-END date, not the announcement date --
+			// real companies always take weeks after quarter-end to close their books and
+			// report (SEC rules alone require up to ~40-45 days), so a period that equals
+			// todayStr literally cannot be a real announcement that already landed today.
+			// Caught live: Finnhub's /stock/earnings returned period === todayStr (with actual
+			// already populated) for COST/LULU/MU/WMT the moment todayStr crossed a common
+			// fiscal quarter-end boundary (6/30) -- trusting it as the date kept reproducing
+			// the exact "shows as reported today" bug even after anchoring to period instead
+			// of todayStr directly. Omit the date entirely rather than risk this; callers
+			// already treat a missing date as "exclude from today/tomorrow/week tabs."
+			const trustworthyDate = confirmedEps.period && confirmedEps.period !== todayStr
+				? confirmedEps.period
+				: null;
+			return {
+				status: directStatus ?? "none", date: trustworthyDate,
+				hour: null, epsActual: confirmedEps.actual, epsEstimate: confirmedEps.estimate,
+				epsSurprisePct: null, revChangePct: null,
+			};
+		}
+
+		const reportDateAnchor = calendarEntry.date;
 		const consensusResult = await getConsensusEarningsResult(symbol, companyName, reportDateAnchor, {
 			epsActual: confirmedEps.actual,
 			epsEstimate: confirmedEps.estimate,
-			revenueActual: calendarEntry?.revenueActual ?? null,
-			revenueEstimate: calendarEntry?.revenueEstimate ?? null,
+			revenueActual: calendarEntry.revenueActual ?? null,
+			revenueEstimate: calendarEntry.revenueEstimate ?? null,
 		});
 		const finnhubDirectStatus: "beat" | "miss" | null =
 			confirmedEps.actual != null && confirmedEps.estimate != null
@@ -641,7 +829,7 @@ async function resolveEarningsStatus(
 		// ambiguous. Fall back to the cross-source vote only if Finnhub lacks an estimate.
 		return {
 			status: finnhubDirectStatus ?? consensusResult.status, date: reportDateAnchor,
-			hour: calendarEntry?.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
+			hour: calendarEntry.hour || null, epsActual: consensusResult.epsActual, epsEstimate: consensusResult.epsEstimate,
 			epsSurprisePct: consensusResult.epsSurprisePct, revChangePct: consensusResult.revChangePct,
 		};
 	}
@@ -721,8 +909,8 @@ async function resolveEarningsStatus(
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v8 to invalidate bad results cached by the previous (still buggy) deploys.
-	const cacheKey = `earnings:v8:${symbol}`;
+	// Bumped to v13: EDGAR primary EPS source, FMP income-statement as fallback.
+	const cacheKey = `earnings:v13:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
@@ -732,9 +920,40 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		const todayStr = getEasternDateKey(now);
 
 		const in90Days = getEasternDateKey(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
-		const calData = await finnhubGet(`/calendar/earnings?from=${todayStr}&to=${in90Days}`) as
+		const ago90Days = getEasternDateKey(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000));
+		// Query past + future in one call: a confirmed past entry (epsActual populated) gives
+		// the real announcement date; without it the resolver falls back to EPS-history's
+		// `period` field, which on fiscal quarter-end boundaries can equal todayStr and
+		// mislabel an already-reported ticker as "today" (live COST/LULU/MU/WMT bug).
+		const calData = await finnhubGet(`/calendar/earnings?from=${ago90Days}&to=${in90Days}`) as
 			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-		const calendarEntry = calData?.earningsCalendar?.find((e) => e.symbol === symbol) ?? null;
+		const allEntries = (calData?.earningsCalendar ?? []).filter((e) => e.symbol === symbol);
+		// Prefer the most-recent confirmed entry (epsActual populated); fall back to nearest future.
+		let calendarEntry: FinnhubCalendarEntry | null =
+			allEntries.find((e) => e.epsActual != null) ??
+			allEntries.filter((e) => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))[0] ??
+			null;
+
+		// FMP fallback: Finnhub's calendar can lag hours behind an actual announcement.
+		// FMP has the real filing date and often EPS actuals sooner; income-statement arrives
+		// even faster than FMP's calendar syncs. Only tried when Finnhub has no confirmed actuals.
+		if (!calendarEntry?.epsActual) {
+			const ago30Days = getEasternDateKey(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+			const fmpEntries = await fetchFMPEarningsCalendar(ago30Days, todayStr);
+			const fmpPast = fmpEntries
+				.filter((e) => e.symbol === symbol && e.date <= todayStr)
+				.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
+			if (fmpPast?.epsActual != null) {
+				calendarEntry = fmpPast;
+			} else if (fmpPast) {
+				const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
+				if (fmpPast.date >= threeDaysAgo) {
+					const income = await getEdgarEarningsEps(symbol, fmpPast.date)
+						?? await fetchFMPIncomeStatementEps(symbol, fmpPast.date);
+					if (income) calendarEntry = { ...fmpPast, epsActual: income.actual, date: income.filingDate };
+				}
+			}
+		}
 
 		const resolved = await resolveEarningsStatus(symbol, companyName, todayStr, calendarEntry);
 		const result: EarningsStatus = {
@@ -783,6 +1002,7 @@ stockRouter.get("/:symbol/analyst", async (req, res) => {
 			: null;
 
 	if (priceTarget === null) {
+		await withGeminiConcurrencyLimit(async () => {
 		const keys = getGeminiKeys();
 		const subject = companyName ? `${companyName} (${symbol})` : symbol;
 		const prompt = `Search for the current Wall Street analyst consensus price target for ${subject} stock.
@@ -806,7 +1026,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
 							tools: [{ google_search: {} }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 100 },
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 						}),
 						signal: controller.signal,
 					},
@@ -821,25 +1041,33 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 				}
 				const data = await gemRes.json();
 				const rawText: string = (data?.candidates?.[0]?.content?.parts ?? [])
-					.map((p: { text?: string }) => p.text ?? "").join("").trim()
-					.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+					.map((p: { text?: string }) => p.text ?? "").join("").trim();
 				try {
-					const parsed = JSON.parse(rawText);
+					// Extract JSON object from wherever it appears — Gemini with grounding
+					// sometimes wraps the answer in a narrative before/after the JSON block
+					const jsonMatch = rawText.match(/\{[^{}]*"avg"[^{}]*\}/s) ?? rawText.match(/\{[\s\S]*\}/);
+					const parsed = JSON.parse(jsonMatch?.[0] ?? rawText);
 					if (parsed && typeof parsed === "object") {
 						const low  = typeof parsed.low  === "number" ? parsed.low  : null;
 						const avg  = typeof parsed.avg  === "number" ? parsed.avg  : null;
 						const high = typeof parsed.high === "number" ? parsed.high : null;
 						if (avg !== null) { priceTarget = { low, avg, high }; }
 					}
-				} catch { /* parse failed — try next key */ }
+				} catch {
+					console.warn(`[Gemini] analyst price-target(${symbol}) unparseable response on key ...${key.slice(-4)}: ${rawText.slice(0, 120)}`);
+				}
+				if (priceTarget === null) {
+					console.warn(`[Gemini] analyst price-target(${symbol}) got 200 but null/no avg on key ...${key.slice(-4)} — raw: ${rawText.slice(0, 120)}`);
+				}
 				break;
 			} catch (e) {
 				console.warn(`[Gemini] analyst price-target(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			} finally { clearTimeout(timeout); }
 		}
 		if (priceTarget === null) {
-			console.warn(`[Gemini] analyst price-target(${symbol}): all ${keys.length} keys exhausted/failed — no coverage shown`);
+			console.warn(`[Gemini] analyst price-target(${symbol}): no price target found after trying all keys`);
 		}
+		}); // withGeminiConcurrencyLimit
 	}
 
 	const result = {

@@ -27,6 +27,8 @@ import {
 	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
 } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
+import { xpToTier } from "@stak/shared";
+import { roundShares } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -460,12 +462,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	);
 
 	const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
-	const xpToSandboxTier = (xp: number) => xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
+
 
 	const initSandboxCash = useCallback(async () => {
 		if (user) {
 			if (account?.sandboxCash !== undefined) return;
-			const tier = xpToSandboxTier(account?.totalXp ?? 0);
+			const tier = xpToTier(account?.totalXp ?? 0);
 			await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
 		} else if (supabaseUserId) {
 			if (account?.sandboxCash !== undefined) return;
@@ -487,7 +489,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 					const existing = data?.sandboxPortfolio?.[ticker];
 					const existingShares = existing?.shares ?? 0;
 					const existingPrice = existing?.priceAtAdd ?? null;
-					const newShares = Math.round((existingShares + shares) * 1000) / 1000;
+					const newShares = roundShares(existingShares + shares);
 					const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
 						? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
 						: priceAtAdd;
@@ -515,7 +517,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				const entry = account?.sandboxPortfolio?.[ticker];
 				const totalShares = entry?.shares ?? 0;
 				const qty = sharesToSell ?? totalShares;
-				const remainingShares = Math.round((totalShares - qty) * 1000) / 1000;
+				const remainingShares = roundShares(totalShares - qty);
 				const updated = { ...(account?.sandboxPortfolio ?? {}) };
 				if (remainingShares <= 0) {
 					delete updated[ticker];
@@ -536,7 +538,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const resetSandbox = useCallback(async () => {
 		if (user) {
-			const tier = xpToSandboxTier(account?.totalXp ?? 0);
+			const tier = xpToTier(account?.totalXp ?? 0);
 			await updateDoc(doc(db, "users", user.uid), {
 				sandboxPortfolio: {},
 				sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
@@ -552,7 +554,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	// Existing users without sandboxTier get migrated silently (no cash change).
 	useEffect(() => {
 		if (user && account?.sandboxCash !== undefined) {
-			const currentTier = xpToSandboxTier(account.totalXp ?? 0);
+			const currentTier = xpToTier(account.totalXp ?? 0);
 			const storedTier = account.sandboxTier;
 			if (storedTier === undefined) {
 				updateDoc(doc(db, "users", user.uid), { sandboxTier: currentTier }).catch(() => {});
@@ -564,7 +566,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				const snap = await tx.get(userRef);
 				const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
 				const liveTier = data?.sandboxTier ?? storedTier;
-				const liveCurrentTier = xpToSandboxTier(data?.totalXp ?? 0);
+				const liveCurrentTier = xpToTier(data?.totalXp ?? 0);
 				if (liveCurrentTier <= liveTier) return;
 				const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
 				tx.update(userRef, {
@@ -573,8 +575,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				});
 			}).catch(() => {});
 		} else if (supabaseUserId && account?.sandboxCash !== undefined) {
-			// The tier-upgrade check and application runs server-side via this RPC --
-			// same logic as the Firestore transaction above, but atomic in Postgres.
 			checkAndApplySandboxTierUpgradeSupabase().catch(() => {});
 		}
 	}, [user, supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);

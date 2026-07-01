@@ -3,6 +3,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
 import { shadowWrite } from "../lib/shadowWrite.js";
+import { getFinnhubKeys } from "./finnhubService.js";
+import { getGeminiKeys } from "./geminiService.js";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -82,22 +84,6 @@ export function getHeroImage(sector: string): string {
 }
 
 // ── Finnhub helpers ───────────────────────────────────────────────────────────
-
-function getFinnhubKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
 
 function formatDate(date: Date): string {
 	return getEasternDateKey(date);
