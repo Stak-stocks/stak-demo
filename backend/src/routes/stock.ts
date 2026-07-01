@@ -3,6 +3,7 @@ import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit }
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
+import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange } from "@stak/shared";
@@ -238,7 +239,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
 		// Bumped to v11: prefer most-recent FMP entry even when both have null epsActual.
-		const cacheKey = `market-earnings:v11:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v13:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -337,7 +338,11 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				await Promise.all([...fmpBySymbol.entries()]
 					.filter(([, e]) => e.epsActual == null && e.date >= threeDaysAgo)
 					.map(async ([sym, e]) => {
-						const income = await fetchFMPIncomeStatementEps(sym, e.date);
+						// EDGAR is the authoritative source: free, no rate limit, straight from SEC.
+						// FMP income-statement is the fallback for tickers EDGAR doesn't cover or
+						// whose press release doesn't match the EPS regex.
+						const income = await getEdgarEarningsEps(sym, e.date)
+							?? await fetchFMPIncomeStatementEps(sym, e.date);
 						if (income) fmpBySymbol.set(sym, { ...e, epsActual: income.actual, date: income.filingDate });
 					}));
 				// Merge FMP into the map: use FMP when it has confirmed actuals Finnhub doesn't.
@@ -354,12 +359,18 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					const name = MARKET_TICKERS[ticker] ?? ticker;
 					const pastEntry = pastCalendarBySymbol.get(ticker) ?? null;
 					const resolved = await resolveEarningsStatus(ticker, name, todayStr, pastEntry);
-					// This section exists specifically to catch reports Finnhub's calendar
-					// missed -- an "upcoming"/"none" result has no calendar entry to anchor a
-					// useful date/hour against, so only confirmed reports are worth surfacing here.
-					if (resolved.status !== "beat" && resolved.status !== "miss") return null;
+					// Allow beat/miss always; also allow upcoming when pastEntry is a real
+					// calendar entry (Finnhub lookback or FMP) — those have a specific scheduled
+					// date that's trustworthy. "none" and consensus/Gemini-only upcoming results
+					// (no calendar entry backing them) are still excluded: no anchor date means
+					// we'd be surfacing a guess, not a real scheduled report.
+					const isUsable = resolved.status === "beat" || resolved.status === "miss" ||
+						(resolved.status === "upcoming" && pastEntry !== null && resolved.date !== null);
+					if (!isUsable) return null;
 					if (!resolved.date || resolved.date < fromStr || resolved.date > toStr) return null;
-					const priceChangePct = await getPriceChangePct(ticker, resolved.date, resolved.hour);
+					const priceChangePct = resolved.status !== "upcoming"
+						? await getPriceChangePct(ticker, resolved.date, resolved.hour)
+						: null;
 					return {
 						symbol: ticker, name, date: resolved.date, hour: resolved.hour,
 						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
@@ -601,11 +612,15 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 // FMP earnings-calendar: real announcement dates (not fiscal period-ends), faster EPS actuals.
 // Returns entries mapped to FinnhubCalendarEntry shape; hour defaults to "amc" since FMP
 // doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
+// Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
 async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
-	const key = process.env.FMP_API_KEY;
-	if (!key) return [];
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) return [];
+	const redisCacheKey = `fmp-calendar:v1:${from}:${to}`;
+	const cached = await cacheGet<FinnhubCalendarEntry[]>(redisCacheKey);
+	if (cached) return cached;
 	try {
-		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${key}`;
+		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
 		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 		if (!res.ok) return [];
 		const data = await res.json() as Array<{
@@ -613,7 +628,7 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 			epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
 		}>;
 		if (!Array.isArray(data)) return [];
-		return data
+		const entries = data
 			.filter((e) => e.symbol && e.date)
 			.map((e) => ({
 				symbol: e.symbol!,
@@ -624,6 +639,8 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 				revenueActual: e.revenueActual ?? null,
 				revenueEstimate: e.revenueEstimated ?? null,
 			}));
+		await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+		return entries;
 	} catch {
 		return [];
 	}
@@ -634,29 +651,38 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 // endpoints update asynchronously and income-statement typically lands first.
 // Returns null if the most recent filing's filingDate is more than 5 days from nearDate,
 // so we never misattribute a different quarter's EPS to this announcement.
+// Cached in Redis for 20 minutes per symbol to avoid repeated FMP API calls.
 async function fetchFMPIncomeStatementEps(
 	symbol: string,
 	nearDate: string,
 ): Promise<{ actual: number; filingDate: string } | null> {
-	const key = process.env.FMP_API_KEY;
-	if (!key) return null;
-	try {
-		const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${key}`;
-		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-		if (!res.ok) return null;
-		const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
-		if (!Array.isArray(data) || data.length === 0) return null;
-		const latest = data[0]!;
-		if (latest.eps == null || !latest.filingDate) return null;
-		const filingDate = latest.filingDate.substring(0, 10);
-		const daysDiff = Math.abs(
-			new Date(filingDate + "T12:00:00Z").getTime() - new Date(nearDate + "T12:00:00Z").getTime(),
-		) / 86400000;
-		if (daysDiff > 5) return null;
-		return { actual: latest.eps, filingDate };
-	} catch {
-		return null;
-	}
+	const apiKey = process.env.FMP_API_KEY;
+	if (!apiKey) return null;
+	type Filing = { actual: number; filingDate: string };
+	const redisCacheKey = `fmp-income:v1:${symbol}`;
+	const cached = await cacheGet<Filing>(redisCacheKey);
+	const filing: Filing | null = cached ?? await (async () => {
+		try {
+			const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) return null;
+			const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
+			if (!Array.isArray(data) || data.length === 0) return null;
+			const latest = data[0]!;
+			if (latest.eps == null || !latest.filingDate) return null;
+			const result: Filing = { actual: latest.eps, filingDate: latest.filingDate.substring(0, 10) };
+			await cacheSet(redisCacheKey, result, 20 * 60 * 1000);
+			return result;
+		} catch {
+			return null;
+		}
+	})();
+	if (!filing) return null;
+	const daysDiff = Math.abs(
+		new Date(filing.filingDate + "T12:00:00Z").getTime() - new Date(nearDate + "T12:00:00Z").getTime(),
+	) / 86400000;
+	if (daysDiff > 5) return null;
+	return filing;
 }
 
 // A web-search-derived report date this old can't be "the report we're checking for" —
@@ -871,8 +897,8 @@ async function resolveEarningsStatus(
 stockRouter.get("/:symbol/earnings", async (req, res) => {
 	const symbol = req.params.symbol.toUpperCase();
 	const companyName = req.query.name as string | undefined;
-	// Bumped to v12: FMP fallback when Finnhub's calendar lags on announcement date or actuals.
-	const cacheKey = `earnings:v12:${symbol}`;
+	// Bumped to v13: EDGAR primary EPS source, FMP income-statement as fallback.
+	const cacheKey = `earnings:v13:${symbol}`;
 
 	try {
 		const cached = await cacheGet<EarningsStatus>(cacheKey);
@@ -910,7 +936,8 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 			} else if (fmpPast) {
 				const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
 				if (fmpPast.date >= threeDaysAgo) {
-					const income = await fetchFMPIncomeStatementEps(symbol, fmpPast.date);
+					const income = await getEdgarEarningsEps(symbol, fmpPast.date)
+						?? await fetchFMPIncomeStatementEps(symbol, fmpPast.date);
 					if (income) calendarEntry = { ...fmpPast, epsActual: income.actual, date: income.filingDate };
 				}
 			}
