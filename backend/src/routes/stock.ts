@@ -232,7 +232,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		const cacheKey = `market-earnings:v18:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v19:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -270,6 +270,23 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
 				(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
 			) calBySymbol.set(e.symbol, { ...e, hour: hourMap.get(e.symbol) ?? e.hour });
+		}
+
+		// ── Step 2b: Gemini fallback for uncovered extra-tickers ─────────────────
+		// Only fires for user Stak tickers (extraTickers) that FMP and Finnhub
+		// both missed. One grounded call per batch; dates cached 24h per ticker.
+		const missingExtraTickers = extraTickers.filter((sym) => !calBySymbol.has(sym));
+		if (missingExtraTickers.length > 0) {
+			const geminiDates = await fetchGeminiEarningsDates(missingExtraTickers);
+			for (const [sym, date] of Object.entries(geminiDates)) {
+				if (date >= fromStr && date <= toStr) {
+					calBySymbol.set(sym, {
+						symbol: sym, date, hour: undefined,
+						epsActual: null, epsEstimate: null,
+						revenueActual: null, revenueEstimate: null,
+					});
+				}
+			}
 		}
 
 		// ── Step 3: Fill EPS actuals for recent past entries ─────────────────────
@@ -539,6 +556,63 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 	const epsHistory = cached ?? await finnhubGet(`/stock/earnings?symbol=${symbol}&limit=1`) as FinnhubEpsEntry[] | null;
 	if (!cached && epsHistory) await cacheSet(epsHistKey, epsHistory, 15 * 60 * 1000);
 	return Array.isArray(epsHistory) && epsHistory.length > 0 ? epsHistory[0]! : null;
+}
+
+// Gemini grounded search: fills earnings dates for tickers FMP and Finnhub miss.
+// Called once per batch of missing extra-tickers. Dates are cached per ticker for 24 hours
+// so re-requests within the same day skip the grounded call entirely.
+async function fetchGeminiEarningsDates(
+	tickers: string[],
+): Promise<Record<string, string>> {
+	const results: Record<string, string> = {};
+	const toFetch: string[] = [];
+
+	for (const sym of tickers) {
+		const cached = await cacheGet<string>(`gemini-earnings-date:v1:${sym}`);
+		if (cached) { results[sym] = cached; } else { toFetch.push(sym); }
+	}
+
+	if (toFetch.length === 0) return results;
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return results;
+
+	const prompt = `What is the next upcoming earnings report date for each of these stocks: ${toFetch.join(", ")}? Reply ONLY with a JSON object mapping ticker symbol to date string in YYYY-MM-DD format. Example: {"AAPL":"2026-07-30"}. If you are unsure of a date, omit that ticker. No extra text.`;
+
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { temperature: 0.1 },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+			const jsonMatch = raw.match(/\{[\s\S]*\}/);
+			if (!jsonMatch) continue;
+			const parsed = JSON.parse(jsonMatch[0]) as Record<string, string>;
+			const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+			for (const [sym, date] of Object.entries(parsed)) {
+				if (typeof date === "string" && dateRe.test(date)) {
+					results[sym] = date;
+					await cacheSet(`gemini-earnings-date:v1:${sym}`, date, 24 * 60 * 60 * 1000);
+				}
+			}
+			break;
+		} catch {
+			continue;
+		}
+	}
+	return results;
 }
 
 // FMP earnings-calendar: real announcement dates (not fiscal period-ends), faster EPS actuals.
