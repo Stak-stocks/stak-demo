@@ -239,7 +239,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
 		// Bumped to v11: prefer most-recent FMP entry even when both have null epsActual.
-		const cacheKey = `market-earnings:v13:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v15:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -311,16 +311,15 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				const pastData = await finnhubGet(`/calendar/earnings?from=${lookbackFrom}&to=${todayStr}`) as
 					{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
 				for (const e of pastData?.earningsCalendar ?? []) {
-					if (e.epsActual == null) continue;
 					const existing = pastCalendarBySymbol.get(e.symbol);
 					if (!existing || e.date > existing.date) pastCalendarBySymbol.set(e.symbol, e);
 				}
 
 				// FMP supplement: real announcement dates + faster EPS actuals than Finnhub.
-				// Queried after Finnhub so we only call FMP when Finnhub hasn't already provided
-				// a confirmed entry, keeping FMP as a targeted fallback rather than a parallel race.
+				// Query up to toStr (not todayStr) so upcoming events in the query window
+				// (e.g. NKE reporting Friday when user checks on Monday) are captured.
 				const fmpFrom = getEasternDateKey(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-				const fmpEntries = await fetchFMPEarningsCalendar(fmpFrom, todayStr);
+				const fmpEntries = await fetchFMPEarningsCalendar(fmpFrom, toStr);
 				const fmpBySymbol = new Map<string, FinnhubCalendarEntry>();
 				for (const e of fmpEntries) {
 					if (!missingStakTickers.includes(e.symbol)) continue;
@@ -332,20 +331,17 @@ stockRouter.get("/market-earnings", async (req, res) => {
 						(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
 					) fmpBySymbol.set(e.symbol, e);
 				}
-				// For FMP entries with correct recent date but no epsActual yet, the income-statement
-				// often has EPS minutes after the SEC filing while the calendar endpoint catches up.
+				// For FMP entries with no epsActual, try EDGAR then FMP income-statement.
 				const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
 				await Promise.all([...fmpBySymbol.entries()]
 					.filter(([, e]) => e.epsActual == null && e.date >= threeDaysAgo)
 					.map(async ([sym, e]) => {
-						// EDGAR is the authoritative source: free, no rate limit, straight from SEC.
-						// FMP income-statement is the fallback for tickers EDGAR doesn't cover or
-						// whose press release doesn't match the EPS regex.
 						const income = await getEdgarEarningsEps(sym, e.date)
 							?? await fetchFMPIncomeStatementEps(sym, e.date);
 						if (income) fmpBySymbol.set(sym, { ...e, epsActual: income.actual, date: income.filingDate });
 					}));
-				// Merge FMP into the map: use FMP when it has confirmed actuals Finnhub doesn't.
+				// Merge FMP: prefer FMP when it has confirmed actuals Finnhub doesn't, or when
+				// Finnhub has no entry at all.
 				for (const [sym, fmpEntry] of fmpBySymbol) {
 					const finnhubEntry = pastCalendarBySymbol.get(sym);
 					if (!finnhubEntry || (fmpEntry.epsActual != null && finnhubEntry.epsActual == null)) {
@@ -359,20 +355,18 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					const name = MARKET_TICKERS[ticker] ?? ticker;
 					const pastEntry = pastCalendarBySymbol.get(ticker) ?? null;
 					const resolved = await resolveEarningsStatus(ticker, name, todayStr, pastEntry);
-					// Allow beat/miss always; also allow upcoming when pastEntry is a real
-					// calendar entry (Finnhub lookback or FMP) — those have a specific scheduled
-					// date that's trustworthy. "none" and consensus/Gemini-only upcoming results
-					// (no calendar entry backing them) are still excluded: no anchor date means
-					// we'd be surfacing a guess, not a real scheduled report.
+					// Allow beat/miss always; only allow upcoming when there's a real calendar
+					// entry (pastEntry !== null) — consensus-only upcoming has no anchor date.
 					const isUsable = resolved.status === "beat" || resolved.status === "miss" ||
 						(resolved.status === "upcoming" && pastEntry !== null && resolved.date !== null);
 					if (!isUsable) return null;
-					if (!resolved.date || resolved.date < fromStr || resolved.date > toStr) return null;
+					const resolvedDate = resolved.date;
+					if (!resolvedDate || resolvedDate < fromStr || resolvedDate > toStr) return null;
 					const priceChangePct = resolved.status !== "upcoming"
-						? await getPriceChangePct(ticker, resolved.date, resolved.hour)
+						? await getPriceChangePct(ticker, resolvedDate, resolved.hour)
 						: null;
 					return {
-						symbol: ticker, name, date: resolved.date, hour: resolved.hour,
+						symbol: ticker, name, date: resolvedDate, hour: resolved.hour,
 						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
 						priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
 					};
