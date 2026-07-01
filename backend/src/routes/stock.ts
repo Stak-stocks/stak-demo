@@ -232,18 +232,35 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		const cacheKey = `market-earnings:v16:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v18:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
 		const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
 
-		// ── Step 1: FMP calendar (primary scheduling source) ─────────────────────
-		// FMP covers the full period window (past beats + upcoming) and has better
-		// ticker coverage than Finnhub's narrow calendar. If FMP doesn't list it,
-		// we have no reliable scheduling signal and don't guess.
-		const fmpEntries = await fetchFMPEarningsCalendar(fromStr, toStr);
+		// ── Steps 1+2: FMP and Finnhub calendars in parallel ─────────────────────
+		// FMP is primary (better coverage, future dates). Finnhub is the fallback
+		// for tickers FMP misses, and the source for the hour field (bmo/amc/dmh)
+		// that FMP doesn't provide. Running both in parallel also means Finnhub
+		// covers for FMP rate-limit failures.
+		const [fmpEntries, finnhubData] = await Promise.all([
+			fetchFMPEarningsCalendar(fromStr, toStr),
+			finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+				Promise<{ earningsCalendar?: FinnhubCalendarEntry[] } | null>,
+		]);
+
+		// Merge: FMP preferred when it has the entry; Finnhub fills gaps.
+		// For the hour field, Finnhub is always authoritative (FMP hardcodes "amc").
 		const calBySymbol = new Map<string, FinnhubCalendarEntry>();
+		const hourMap = new Map<string, string>();
+
+		for (const e of finnhubData?.earningsCalendar ?? []) {
+			if (!tickerSet.has(e.symbol)) continue;
+			if (e.hour) hourMap.set(e.symbol, e.hour);
+			calBySymbol.set(e.symbol, e);
+		}
+		// FMP overwrites Finnhub for any ticker it covers — prefer FMP when it has
+		// epsActual, otherwise prefer whichever has more data.
 		for (const e of fmpEntries) {
 			if (!tickerSet.has(e.symbol)) continue;
 			const existing = calBySymbol.get(e.symbol);
@@ -252,16 +269,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				(e.epsActual != null && existing.epsActual == null) ||
 				(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
 				(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
-			) calBySymbol.set(e.symbol, e);
-		}
-
-		// ── Step 2: Finnhub calendar for hour enrichment (bmo/amc/dmh) ──────────
-		// FMP doesn't expose timing; Finnhub does. One call, same window.
-		const finnhubData = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
-			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-		const hourMap = new Map<string, string>();
-		for (const e of finnhubData?.earningsCalendar ?? []) {
-			if (e.hour && !hourMap.has(e.symbol)) hourMap.set(e.symbol, e.hour);
+			) calBySymbol.set(e.symbol, { ...e, hour: hourMap.get(e.symbol) ?? e.hour });
 		}
 
 		// ── Step 3: Fill EPS actuals for recent past entries ─────────────────────
@@ -538,36 +546,42 @@ async function getLatestEpsEntry(symbol: string): Promise<FinnhubEpsEntry | null
 // doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
 // Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
 async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
-	const apiKey = process.env.FMP_API_KEY;
-	if (!apiKey) return [];
-	const redisCacheKey = `fmp-calendar:v1:${from}:${to}`;
+	const keys = [process.env.FMP_API_KEY, process.env.FMP_API_KEY_2].filter(Boolean) as string[];
+	if (keys.length === 0) return [];
+	const redisCacheKey = `fmp-calendar:v2:${from}:${to}`;
 	const cached = await cacheGet<FinnhubCalendarEntry[]>(redisCacheKey);
 	if (cached) return cached;
-	try {
-		const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
-		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-		if (!res.ok) return [];
-		const data = await res.json() as Array<{
-			symbol?: string; date?: string; epsActual?: number | null;
-			epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
-		}>;
-		if (!Array.isArray(data)) return [];
-		const entries = data
-			.filter((e) => e.symbol && e.date)
-			.map((e) => ({
-				symbol: e.symbol!,
-				date: e.date!.substring(0, 10),
-				hour: "amc",
-				epsActual: e.epsActual ?? null,
-				epsEstimate: e.epsEstimated ?? null,
-				revenueActual: e.revenueActual ?? null,
-				revenueEstimate: e.revenueEstimated ?? null,
-			}));
-		await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
-		return entries;
-	} catch {
-		return [];
+
+	type FMPEntry = {
+		symbol?: string; date?: string; epsActual?: number | null;
+		epsEstimated?: number | null; revenueActual?: number | null; revenueEstimated?: number | null;
+	};
+
+	for (const apiKey of keys) {
+		try {
+			const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) continue;
+			const data = await res.json() as FMPEntry[] | { message?: string };
+			if (!Array.isArray(data)) continue;
+			const entries = data
+				.filter((e) => e.symbol && e.date)
+				.map((e) => ({
+					symbol: e.symbol!,
+					date: e.date!.substring(0, 10),
+					hour: "amc",
+					epsActual: e.epsActual ?? null,
+					epsEstimate: e.epsEstimated ?? null,
+					revenueActual: e.revenueActual ?? null,
+					revenueEstimate: e.revenueEstimated ?? null,
+				}));
+			await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+			return entries;
+		} catch {
+			continue;
+		}
 	}
+	return [];
 }
 
 // FMP income-statement: the quarterly filing, keyed by filingDate (= actual announcement date).
