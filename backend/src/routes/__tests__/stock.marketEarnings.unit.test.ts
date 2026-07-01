@@ -2,6 +2,8 @@ import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// These services are still used by /:symbol/earnings (resolveEarningsStatus),
+// but market-earnings no longer calls them — mocked here to prevent import errors.
 const getConsensusEarningsDateMock = vi.fn();
 const getConsensusEarningsResultMock = vi.fn();
 const getEarningsBeatMissFromWebMock = vi.fn();
@@ -58,23 +60,216 @@ describe("GET /market-earnings", () => {
 		vi.useRealTimers();
 	});
 
+	// Mock call order for market-earnings:
+	// 1. FMP calendar (fetchFMPEarningsCalendar → financialmodelingprep.com)
+	// 2. Finnhub calendar (finnhubGet → api.finnhub.io, for hour enrichment)
+	// 3. [Optional] EDGAR CIK map (sec.gov/files/company_tickers.json) — only for
+	//    past entries with no epsActual within 3 days of today
+	// 4. [Optional] EDGAR submissions JSON, filing index JSON, exhibit HTML (text)
+	// 5. [Optional] FMP income-statement — if EDGAR returned null
+	//
+	// String responses are served via .text(); everything else via .json().
 	function mockFetchSequence(...responses: unknown[]) {
 		let call = 0;
 		fetchMock.mockImplementation(async () => {
 			const body = responses[call] ?? null;
 			call++;
-			return { ok: true, status: 200, json: async () => body };
+			if (typeof body === "string") {
+				return { ok: true, status: 200, text: async () => body, json: async () => { throw new Error("not json"); } };
+			}
+			return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
 		});
 	}
 
-	it("tracks a ticker outside the old hardcoded ~80-ticker list now that MARKET_TICKERS derives from the full shared brand catalog", async () => {
+	it("shows an upcoming entry when FMP calendar has a scheduled future date (primary scheduling source)", async () => {
+		const futureDate = "2026-07-10";
+		mockFetchSequence(
+			[{ symbol: "AAPL", date: futureDate, epsActual: null, epsEstimated: 1.5, revenueActual: null, revenueEstimated: null }], // FMP calendar
+			{ earningsCalendar: [] }, // Finnhub (no hour for AAPL)
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries).toEqual([
+			expect.objectContaining({ symbol: "AAPL", date: futureDate, status: "upcoming" }),
+		]);
+	});
+
+	it("enriches the hour field from Finnhub when FMP (which hardcodes amc) has the wrong timing", async () => {
+		const futureDate = "2026-07-10";
+		mockFetchSequence(
+			[{ symbol: "AAPL", date: futureDate, epsActual: null, epsEstimated: 1.5, revenueActual: null, revenueEstimated: null }], // FMP calendar (no reliable hour)
+			{ earningsCalendar: [{ symbol: "AAPL", date: futureDate, hour: "bmo", epsActual: null, epsEstimate: 1.5 }] }, // Finnhub: has bmo
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today");
+
+		expect(res.status).toBe(200);
+		const aapl = res.body.entries.find((e: { symbol: string }) => e.symbol === "AAPL");
+		expect(aapl).toEqual(expect.objectContaining({ hour: "bmo" }));
+	});
+
+	it("shows a beat when FMP calendar already has epsActual (report landed before next FMP sync)", async () => {
+		mockFetchSequence(
+			[{ symbol: "AAPL", date: TODAY, epsActual: 1.65, epsEstimated: 1.5, revenueActual: 95000000000, revenueEstimated: 93000000000 }], // FMP calendar with EPS
+			{ earningsCalendar: [{ symbol: "AAPL", date: TODAY, hour: "amc" }] }, // Finnhub hour
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today");
+
+		expect(res.status).toBe(200);
+		const aapl = res.body.entries.find((e: { symbol: string }) => e.symbol === "AAPL");
+		expect(aapl).toEqual(expect.objectContaining({
+			symbol: "AAPL", status: "beat", date: TODAY,
+			epsActual: 1.65, epsEstimate: 1.5,
+		}));
+		// No consensus/Gemini calls — beat/miss computed directly from FMP data
+		expect(getConsensusEarningsResultMock).not.toHaveBeenCalled();
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
+	it("shows a miss when epsActual is below epsEstimate", async () => {
+		mockFetchSequence(
+			[{ symbol: "AAPL", date: TODAY, epsActual: 1.30, epsEstimated: 1.5, revenueActual: null, revenueEstimated: null }],
+			{ earningsCalendar: [] },
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today");
+
+		expect(res.status).toBe(200);
+		const aapl = res.body.entries.find((e: { symbol: string }) => e.symbol === "AAPL");
+		expect(aapl).toEqual(expect.objectContaining({ symbol: "AAPL", status: "miss", epsActual: 1.30 }));
+	});
+
+	it("fills EPS from EDGAR when FMP calendar has no epsActual for a past entry within 3 days", async () => {
+		// NKE reported yesterday — FMP calendar has the date but no EPS yet.
+		// EDGAR has the 8-K filing with EPS. The route should fill and surface as beat.
+		const yesterday = "2026-06-23";
+		mockFetchSequence(
+			[{ symbol: "NKE", date: yesterday, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: null }], // FMP calendar: date but no EPS
+			{ earningsCalendar: [] }, // Finnhub: no hour
+			// EDGAR CIK map — SEC format: { "0": { cik_str: number, ticker: string }, ... }
+			{ "0": { cik_str: 1386112, ticker: "NKE" } },
+			// EDGAR submissions JSON for CIK 0001386112
+			{ filings: { recent: { form: ["8-K"], items: ["2.02"], filingDate: [yesterday], primaryDocument: ["ex99.htm"], accessionNumber: ["0001386112-26-001234"] } } },
+			// EDGAR filing index (EX-99.1 exhibit)
+			{ directory: { item: [{ name: "ex99.htm", type: "EX-99.1" }] } },
+			// EDGAR exhibit HTML — extractEpsFromText extracts 0.72 from this
+			"Diluted earnings per share was $0.72",
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=NKE");
+
+		expect(res.status).toBe(200);
+		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
+		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "beat", epsActual: 0.72 }));
+	});
+
+	it("falls back to FMP income-statement when EDGAR CIK is not found", async () => {
+		// NKE reported today but isn't in EDGAR's CIK map — fall through to FMP income-statement.
+		mockFetchSequence(
+			[{ symbol: "NKE", date: TODAY, epsActual: null, epsEstimated: 0.11, revenueActual: 10972000000, revenueEstimated: 10849540000 }], // FMP calendar: correct date, no EPS yet
+			{ earningsCalendar: [] }, // Finnhub: no hour
+			{}, // EDGAR CIK map: NKE not found → EDGAR returns null
+			[{ eps: 0.72, filingDate: TODAY }], // FMP income-statement: has EPS
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=NKE");
+
+		expect(res.status).toBe(200);
+		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
+		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "beat", date: TODAY, epsActual: 0.72 }));
+		// No consensus/Gemini — beat computed directly from EDGAR/FMP income-statement
+		expect(getConsensusEarningsResultMock).not.toHaveBeenCalled();
+	});
+
+	it("shows an upcoming entry for today when FMP calendar has no EPS yet (pre-close same-day announcement)", async () => {
+		mockFetchSequence(
+			[{ symbol: "COST", date: TODAY, epsActual: null, epsEstimated: 4.88, revenueActual: null, revenueEstimated: null }], // FMP: scheduled today, no EPS
+			{ earningsCalendar: [] }, // Finnhub: no hour
+			{}, // EDGAR CIK map: no COST (or returns null fast)
+			[], // FMP income-statement: empty — COST hasn't filed yet
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=COST");
+
+		expect(res.status).toBe(200);
+		const cost = res.body.entries.find((e: { symbol: string }) => e.symbol === "COST");
+		expect(cost).toEqual(expect.objectContaining({ symbol: "COST", status: "upcoming", date: TODAY }));
+	});
+
+	it("excludes a past entry when FMP has the date but no EPS could be filled (older than 3 days = likely postponed)", async () => {
+		// Entry from 4 days ago — outside the 3-day fill window. No EDGAR/income-statement
+		// calls will be made for it. Entry should be excluded entirely.
+		const fourDaysAgo = "2026-06-20";
+		mockFetchSequence(
+			[{ symbol: "MU", date: fourDaysAgo, epsActual: null, epsEstimated: 1.0, revenueActual: null, revenueEstimated: null }], // FMP: old date, no EPS
+			{ earningsCalendar: [] }, // Finnhub: no hour
+			// No EDGAR/income-statement calls — date is outside 3-day fill window
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=week&tickers=MU");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
+	});
+
+	it("shows NKE as upcoming this week when FMP calendar has a future date within the week window", async () => {
+		// The original NKE bug: Finnhub's calendar missed NKE, so it never showed in 'this week'.
+		// With FMP as primary, NKE appears as long as FMP has the scheduled date.
+		// TODAY = "2026-06-24" (Wednesday) → week window: Sun 2026-06-22 – Sat 2026-06-28.
+		const reportDate = "2026-06-26"; // Friday of this week
+		mockFetchSequence(
+			[{ symbol: "NKE", date: reportDate, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: null }], // FMP: scheduled Friday
+			{ earningsCalendar: [] }, // Finnhub: no hour for NKE
+			// No EDGAR/income-statement — date is in future
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=week&tickers=NKE");
+
+		expect(res.status).toBe(200);
+		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
+		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "upcoming", date: reportDate, priceChangePct: null }));
+		// No Gemini or consensus calls — FMP gives the date directly
+		expect(getConsensusEarningsDateMock).not.toHaveBeenCalled();
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
+	it("does not show a ticker not in FMP calendar even if it's in extraTickers (trust FMP for scheduling)", async () => {
+		// Stale Finnhub EPS history or guessing from last quarter's date was the root cause
+		// of wrong "beat/miss" entries. Now if FMP has no entry, we simply don't show.
+		mockFetchSequence(
+			[], // FMP: no MU entry in this period
+			{ earningsCalendar: [] }, // Finnhub: also no MU
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=today&tickers=MU");
+
+		expect(res.status).toBe(200);
+		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
+		// No Gemini, no consensus, no EPS-history fallback — no guessing
+		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
+	});
+
+	it("tracks a ticker from the full brand catalog (not just the old hardcoded list)", async () => {
 		// ELF (e.l.f. Beauty) was never in the old hand-maintained MARKET_TICKERS map,
-		// but it is a real brand in the shared catalog -- confirms the bulk calendar now
-		// tracks everything in @stak/shared, not just the old curated ~80.
+		// but it is a real brand in the shared catalog.
 		const futureDate = "2026-07-30";
-		mockFetchSequence({
-			earningsCalendar: [{ symbol: "ELF", date: futureDate, hour: "amc", epsActual: null, epsEstimate: 0.5, revenueActual: null, revenueEstimate: null }],
-		});
+		mockFetchSequence(
+			[{ symbol: "ELF", date: futureDate, epsActual: null, epsEstimated: 0.5, revenueActual: null, revenueEstimated: null }], // FMP: ELF upcoming
+			{ earningsCalendar: [] }, // Finnhub: no hour
+		);
 
 		const app = await buildApp();
 		const res = await request(app).get("/market-earnings?period=today");
@@ -85,209 +280,40 @@ describe("GET /market-earnings", () => {
 		]);
 	});
 
-	it("reports a clearly future calendar entry as upcoming without calling the resolver's consensus/Gemini checks", async () => {
-		const futureDate = "2026-07-30";
-		// Only 1 fetch expected: the shared calendar lookup. No EPS-history fetch since the
-		// fast path for future dates skips resolveEarningsStatus entirely.
-		mockFetchSequence({
-			earningsCalendar: [{ symbol: "AAPL", date: futureDate, hour: "amc", epsActual: null, epsEstimate: 1.5, revenueActual: null, revenueEstimate: null }],
-		});
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=today");
-
-		expect(res.status).toBe(200);
-		expect(res.body.entries).toEqual([
-			expect.objectContaining({ symbol: "AAPL", date: futureDate, status: "upcoming" }),
-		]);
-		expect(getConsensusEarningsDateMock).not.toHaveBeenCalled();
-		expect(getEarningsBeatMissFromWebMock).not.toHaveBeenCalled();
-	});
-
-	it("does not show a wrong beat/miss for a ticker whose Finnhub calendar entry is today but whose EPS history is just last quarter's stale data (live MU bug)", async () => {
-		// Finnhub's calendar entry says "today" but its own EPS history hasn't caught up --
-		// same shape as the live MU bug. 1st fetch: calendar (today entry), 2nd fetch:
-		// EPS-history (stale, ~85 days old, inside resolveEarningsStatus).
+	it("beats/misses appear before upcoming entries in the sorted result", async () => {
+		// Beat entries (already reported) should sort before upcoming entries regardless
+		// of date, so the most actionable data is first.
+		const pastDate = "2026-06-22"; // Monday of this week, before TODAY
+		const futureDate = "2026-06-26"; // Friday of this week, after TODAY
 		mockFetchSequence(
-			{ earningsCalendar: [{ symbol: "MU", date: TODAY, hour: "amc", epsActual: null, epsEstimate: 25.27, revenueActual: null, revenueEstimate: null }] },
-			[{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }],
-		);
-		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: {}, confidence: "high" });
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=today&tickers=MU");
-
-		expect(res.status).toBe(200);
-		const mu = res.body.entries.find((e: { symbol: string }) => e.symbol === "MU");
-		expect(mu).toEqual(expect.objectContaining({ symbol: "MU", status: "upcoming", date: TODAY }));
-	});
-
-	it("omits a Stak ticker entirely (rather than showing a wrong Missed) when Finnhub's calendar has no entry at all and EPS history is just last quarter's stale data", async () => {
-		// This is the exact scenario from the live bug report: Finnhub's calendar has NO
-		// entry for MU at all (not even a wrong one) -- it only shows up via the
-		// "missing Stak tickers" fallback, which must defer to the same shared resolver
-		// instead of trusting Gemini's narrative on its own.
-		mockFetchSequence(
-			{ earningsCalendar: [] }, // shared calendar lookup finds nothing for MU
-			{ earningsCalendar: [] }, // 90-day lookback also finds nothing
-			[], // FMP 30-day calendar also finds nothing
-			[{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // EPS history inside resolveEarningsStatus
-		);
-		getConsensusEarningsDateMock.mockResolvedValue({ date: TODAY, sources: { yahoo: TODAY, gemini: TODAY }, confidence: "medium" });
-		// Even if Gemini's narrative claims a miss, it must never be reached -- the
-		// consensus date check (step 2) resolves "upcoming" first.
-		getEarningsBeatMissFromWebMock.mockResolvedValue({ result: "miss", date: TODAY });
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=today&tickers=MU");
-
-		expect(res.status).toBe(200);
-		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
-	});
-
-	it("does not surface a Stak ticker on the 'today' tab when it has no calendar entry but DOES have a fresh EPS report from days earlier (live COST/LULU/MU/WMT bug)", async () => {
-		// Real incident: Finnhub's calendar has no entry for MU in the queried window or the
-		// 90-day lookback, but its EPS history shows a report whose period falls on a date that
-		// is NOT today (so it's correctly omitted from the Today tab by the date-range filter).
-		mockFetchSequence(
-			{ earningsCalendar: [] }, // today's calendar lookup finds nothing for MU
-			{ earningsCalendar: [] }, // 90-day lookback also finds nothing
-			[], // FMP 30-day calendar also finds nothing
-			[{ actual: 12.2, estimate: 9.58, period: "2026-06-15", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // EPS history inside resolveEarningsStatus
+			[
+				{ symbol: "MU", date: pastDate, epsActual: 25.11, epsEstimated: 21.40, revenueActual: null, revenueEstimated: null },
+				{ symbol: "NKE", date: futureDate, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: null },
+			], // FMP: one beat (past), one upcoming (future)
+			{ earningsCalendar: [] }, // Finnhub: no hour
 		);
 
 		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=today&tickers=MU");
+		const res = await request(app).get("/market-earnings?period=week&tickers=MU,NKE");
 
 		expect(res.status).toBe(200);
-		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "MU")).toBeUndefined();
+		expect(res.body.entries[0]).toEqual(expect.objectContaining({ symbol: "MU", status: "beat" }));
+		expect(res.body.entries[1]).toEqual(expect.objectContaining({ symbol: "NKE", status: "upcoming" }));
 	});
 
-	it("does not surface a Stak ticker on the 'today' tab when its EPS period equals today (Finnhub quirk on fiscal quarter-end boundaries)", async () => {
-		// Real incident: todayStr === "2026-06-30" (a calendar quarter-end). Finnhub returned
-		// period === "2026-06-30" (= today) with actual already populated for COST/WMT/NVDA --
-		// impossible for real data (companies need weeks post-quarter-end to file actual results),
-		// but happens in Finnhub's data on quarter boundaries. The fix treats period === todayStr
-		// as untrustworthy and returns date: null, so callers exclude it from all time-windowed tabs.
+	it("computes epsSurprisePct correctly from epsActual and epsEstimate", async () => {
+		// NKE: actual 0.72, estimate 0.11 → surprise = (0.72 - 0.11) / 0.11 * 100 ≈ 554.5%
 		mockFetchSequence(
-			{ earningsCalendar: [] }, // today's calendar
-			{ earningsCalendar: [] }, // 90-day lookback
-			[], // FMP 30-day calendar also finds nothing
-			[{ actual: 4.93, estimate: 5.03, period: TODAY, quarter: 3, year: 2026, surprise: -0.1, surprisePercent: -1.99 }],
+			[{ symbol: "NKE", date: TODAY, epsActual: 0.72, epsEstimated: 0.11, revenueActual: null, revenueEstimated: null }],
+			{ earningsCalendar: [] },
 		);
 
 		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=today&tickers=COST");
-
-		expect(res.status).toBe(200);
-		expect(res.body.entries.find((e: { symbol: string }) => e.symbol === "COST")).toBeUndefined();
-	});
-
-	it("correctly surfaces a Stak ticker with a real past calendar entry found via 90-day lookback (live MU/LULU fix)", async () => {
-		// Real incident: MU's actual calendar entry (date: "2026-06-24", epsActual populated)
-		// was outside the "today" query window but findable by looking back 90 days.
-		// The fix: one extra calendar call covers the lookback window so resolveEarningsStatus
-		// gets the real confirmed calendarEntry, anchoring the date correctly.
-		const realDate = "2026-06-22"; // within this week's window, before TODAY
-		mockFetchSequence(
-			{ earningsCalendar: [] }, // today's calendar has nothing
-			{ earningsCalendar: [{ symbol: "MU", date: realDate, hour: "amc", epsActual: 25.11, epsEstimate: 21.40, revenueActual: 41456000000, revenueEstimate: 36923508824 }] }, // lookback finds it
-			[], // FMP 30-day calendar has nothing (Finnhub already provided the entry)
-			[{ actual: 25.11, estimate: 21.40, period: TODAY, quarter: 3, year: 2026, surprise: 3.71, surprisePercent: 17.33 }],
-		);
-		getConsensusEarningsResultMock.mockResolvedValue({
-			status: "beat", epsActual: 25.11, epsEstimate: 21.40, epsSurprisePct: 17.33,
-			revenueActual: 41456000000, revenueEstimate: 36923508824, revChangePct: 12.5,
-			confidence: "high", sources: { finnhub: "beat", fmp: "beat", yahoo: "beat", gemini: null },
-		});
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=week&tickers=MU");
-
-		expect(res.status).toBe(200);
-		const mu = res.body.entries.find((e: { symbol: string }) => e.symbol === "MU");
-		expect(mu).toEqual(expect.objectContaining({ symbol: "MU", status: "beat", date: realDate }));
-	});
-
-	it("surfaces a Stak ticker as beat when FMP income-statement has EPS actuals before Finnhub's calendar or EPS-history catches up (live NKE scenario)", async () => {
-		// Real scenario: NKE reports after close on 2026-06-30 (= TODAY). Finnhub's
-		// /stock/earnings still shows last quarter (period="2026-03-31", 91 days old, stale).
-		// Finnhub's calendar has no confirmed entry for NKE. FMP's earnings-calendar has the
-		// correct date (TODAY) but epsActual: null. FMP's income-statement, however, already
-		// has eps: 0.72 (filingDate = TODAY) within minutes of the SEC filing.
-		// The fix: fill calendarEntry.epsActual from income-statement → resolveEarningsStatus
-		// sees alreadyReported=true with epsActual=0.72, epsEstimate=0.11 → returns beat.
-		mockFetchSequence(
-			{ earningsCalendar: [] }, // Finnhub main calendar: no NKE entry
-			{ earningsCalendar: [] }, // Finnhub 90-day lookback: nothing
-			[{ symbol: "NKE", date: TODAY, epsActual: null, epsEstimated: 0.11, revenueActual: 10972000000, revenueEstimated: 10849540000 }], // FMP calendar: correct date, no EPS yet
-			{}, // EDGAR CIK map: NKE not found → EDGAR returns null, falls through to FMP
-			[{ eps: 0.72, filingDate: TODAY }], // FMP income-statement: has EPS already
-			[{ actual: null, estimate: 0.11, period: "2026-03-31", quarter: 3, year: 2026, surprise: null, surprisePercent: null }], // Finnhub EPS history: stale
-		);
-		getConsensusEarningsResultMock.mockResolvedValue({
-			status: "beat", epsActual: 0.72, epsEstimate: 0.11, epsSurprisePct: 554.5,
-			revenueActual: 10972000000, revenueEstimate: 10849540000, revChangePct: 1.13,
-			confidence: "high", sources: { finnhub: "beat", fmp: "beat", yahoo: null, gemini: null },
-		});
-
-		const app = await buildApp();
-		const res = await request(app).get(`/market-earnings?period=today&tickers=NKE`);
+		const res = await request(app).get("/market-earnings?period=today&tickers=NKE");
 
 		expect(res.status).toBe(200);
 		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
-		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "beat", date: TODAY }));
-	});
-
-	it("surfaces a Stak ticker as upcoming in the 'this week' tab when FMP calendar has a scheduled date (pre-announcement fix)", async () => {
-		// Real incident: NKE was reporting the following day but didn't appear in "this week".
-		// The supplement path filtered out upcoming results unconditionally.
-		// Fix: allow upcoming through when pastEntry !== null (real calendar anchor exists).
-		// TODAY = "2026-06-24" (Wednesday) → week window is Sun 2026-06-21 – Sat 2026-06-27.
-		const reportDate = "2026-06-26"; // Friday of this week, after TODAY
-		mockFetchSequence(
-			{ earningsCalendar: [] }, // Finnhub main calendar: no NKE for the short window
-			{ earningsCalendar: [] }, // Finnhub 90-day lookback: nothing
-			[{ symbol: "NKE", date: reportDate, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: 10849540000 }], // FMP calendar: scheduled for reportDate, no EPS yet
-			{}, // EDGAR CIK map: NKE not found → EDGAR returns null, falls through to FMP
-			[], // FMP income-statement: empty — NKE hasn't filed yet
-			[{ actual: null, estimate: 0.11, period: "2026-03-31", quarter: 3, year: 2026, surprise: null, surprisePercent: null }], // Finnhub EPS history: stale
-		);
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=week&tickers=NKE");
-
-		expect(res.status).toBe(200);
-		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
-		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "upcoming", date: reportDate, priceChangePct: null }));
-	});
-
-	it("keeps a confirmed beat/miss for a past calendar entry instead of letting a stale 'upcoming' consensus date override it (live MU bug)", async () => {
-		// Real incident: Finnhub's calendar entry for MU already had actual EPS for the report
-		// that posted this week, but the 4-source consensus (Yahoo/FMP/Gemini) still voted for a
-		// later placeholder date that hadn't reported yet -- which used to win outright, making
-		// MU vanish from "earnings this week" despite having already reported a beat.
-		const reportDate = "2026-06-22"; // within this week's Sun-Sat window, before TODAY
-		mockFetchSequence(
-			{
-				earningsCalendar: [{
-					symbol: "MU", date: reportDate, hour: "amc",
-					epsActual: 25.11, epsEstimate: 21.4, revenueActual: 41456000000, revenueEstimate: 36923508824,
-				}],
-			},
-			[{ actual: 12.2, estimate: 9.58, period: "2026-03-31", quarter: 2, year: 2026, surprise: 2.62, surprisePercent: 27.28 }], // stale latestEps, irrelevant once calendarEntry.epsActual is present
-		);
-		// Wrong/stale majority vote: still claims MU hasn't reported yet
-		getConsensusEarningsDateMock.mockResolvedValue({ date: "2026-06-30", sources: {}, confidence: "high" });
-
-		const app = await buildApp();
-		const res = await request(app).get("/market-earnings?period=week&tickers=MU");
-
-		expect(res.status).toBe(200);
-		const mu = res.body.entries.find((e: { symbol: string }) => e.symbol === "MU");
-		expect(mu).toEqual(expect.objectContaining({ symbol: "MU", status: "beat", date: reportDate }));
-		// Ground truth (calendar entry already has actual EPS) must short-circuit before any
-		// "when's the next report" lookup even runs.
-		expect(getConsensusEarningsDateMock).not.toHaveBeenCalled();
+		// calcPercentChange rounds to 1 decimal: (0.72 - 0.11) / 0.11 * 100 = 554.5%
+		expect(nke?.epsSurprisePct).toBeCloseTo(554.5, 0);
 	});
 });
