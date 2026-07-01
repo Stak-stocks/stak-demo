@@ -215,13 +215,8 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		if (period === "tomorrow") {
 			fromStr = toStr = getEasternDateKey(new Date(now.getTime() + 86400000));
 		} else if (period === "week") {
-			// Full calendar week: Sunday → Saturday, anchored to ET "today" (not raw
-			// now.getDay(), which is the server process's own local/UTC weekday and can
-			// already be tomorrow's weekday in the US evening) -- todayStr is already
-			// ET-correct, and noon-UTC whole-day arithmetic on it never crosses into a
-			// different calendar day, same safe anchoring pattern used in dailyBrief.ts.
 			const todayAnchor = new Date(todayStr + "T12:00:00Z");
-			const dayOfWeek = todayAnchor.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+			const dayOfWeek = todayAnchor.getUTCDay();
 			const weekSunday = new Date(todayAnchor.getTime() - dayOfWeek * 86400000);
 			const weekSaturday = new Date(weekSunday.getTime() + 6 * 86400000);
 			fromStr = weekSunday.toISOString().split("T")[0];
@@ -236,148 +231,87 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			: [];
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
-		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		// Bumped to v11: prefer most-recent FMP entry even when both have null epsActual.
-		const cacheKey = `market-earnings:v15:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v16:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const data = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
-			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-
 		const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
-		const calEntries = (data?.earningsCalendar ?? []).filter((e) => tickerSet.has(e.symbol));
 
-		const entries = await Promise.all(
-			calEntries.map(async (e) => {
-				const name = MARKET_TICKERS[e.symbol] ?? e.symbol;
-
-				if (e.date > todayStr) {
-					// Comfortably in the future — trust Finnhub's calendar directly, no need for
-					// the full resolver's consensus/Gemini calls. This endpoint processes many
-					// tickers per request; running the full pipeline on dates that aren't even
-					// close yet would be needlessly expensive. The risky window (same-day-not-
-					// yet-reported, or Finnhub disagreeing with reality) is today-or-earlier,
-					// handled by the shared resolver below.
-					const revChangePct = e.revenueActual != null && e.revenueEstimate != null
-						? calcPercentChange(e.revenueActual, e.revenueEstimate)
-						: null;
-					return {
-						symbol: e.symbol, name, date: e.date, hour: e.hour || null,
-						epsActual: e.epsActual, epsEstimate: e.epsEstimate,
-						epsSurprisePct: null, priceChangePct: null,
-						revChangePct, status: "upcoming" as const,
-					};
-				}
-
-				const resolved = await resolveEarningsStatus(e.symbol, name, todayStr, e);
-				// Consensus may have corrected the date — if that lands outside the requested
-				// period window, exclude it rather than leaking into the wrong tab.
-				if (resolved.date && (resolved.date < fromStr || resolved.date > toStr)) return null;
-				const priceChangePct = (resolved.status === "beat" || resolved.status === "miss")
-					? await getPriceChangePct(e.symbol, resolved.date ?? e.date, resolved.hour ?? e.hour)
-					: null;
-				return {
-					symbol: e.symbol, name, date: resolved.date ?? e.date, hour: resolved.hour ?? (e.hour || null),
-					epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
-					priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
-				};
-			}),
-		);
-
-		// Filter out nulls (entries excluded by period-window guard after consensus date correction)
-		const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
-
-		// ── Fallback for Stak tickers Finnhub's calendar missed entirely ────────────
-		// extraTickers = all tickers from the user's Stak (sent by the frontend). Finnhub
-		// having no calendar entry doesn't necessarily mean nothing happened — same shared
-		// resolver, just with no calendar entry to anchor on (it'll fall back to date
-		// consensus, then Finnhub's own EPS-history freshness, then Gemini as a last resort).
-		if (extraTickers.length > 0) {
-			const finnhubFoundSymbols = new Set(calEntries.map((e) => e.symbol));
-			const missingStakTickers = extraTickers.filter((t) => !finnhubFoundSymbols.has(t));
-
-			// Look back up to 90 days for a real, already-reported calendar entry before
-			// falling back to resolveEarningsStatus's untrustworthy EPS-period anchor.
-			// Caught live: MU and LULU both had genuine Finnhub calendar entries (with
-			// epsActual populated) just outside this period's narrow from/to window --
-			// passing calendarEntry=null forced the resolver to fall back to confirmedEps.period,
-			// which on a fiscal quarter-end boundary (e.g. 6/30) can equal todayStr and
-			// misreport "today." One extra calendar call covers every missing ticker at once.
-			const pastCalendarBySymbol = new Map<string, FinnhubCalendarEntry>();
-			if (missingStakTickers.length > 0) {
-				const lookbackFrom = getEasternDateKey(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000));
-				const pastData = await finnhubGet(`/calendar/earnings?from=${lookbackFrom}&to=${todayStr}`) as
-					{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-				for (const e of pastData?.earningsCalendar ?? []) {
-					const existing = pastCalendarBySymbol.get(e.symbol);
-					if (!existing || e.date > existing.date) pastCalendarBySymbol.set(e.symbol, e);
-				}
-
-				// FMP supplement: real announcement dates + faster EPS actuals than Finnhub.
-				// Query up to toStr (not todayStr) so upcoming events in the query window
-				// (e.g. NKE reporting Friday when user checks on Monday) are captured.
-				const fmpFrom = getEasternDateKey(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-				const fmpEntries = await fetchFMPEarningsCalendar(fmpFrom, toStr);
-				const fmpBySymbol = new Map<string, FinnhubCalendarEntry>();
-				for (const e of fmpEntries) {
-					if (!missingStakTickers.includes(e.symbol)) continue;
-					const existing = fmpBySymbol.get(e.symbol);
-					if (
-						!existing ||
-						(e.epsActual != null && existing.epsActual == null) ||
-						(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
-						(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
-					) fmpBySymbol.set(e.symbol, e);
-				}
-				// For FMP entries with no epsActual, try EDGAR then FMP income-statement.
-				const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
-				await Promise.all([...fmpBySymbol.entries()]
-					.filter(([, e]) => e.epsActual == null && e.date >= threeDaysAgo)
-					.map(async ([sym, e]) => {
-						const income = await getEdgarEarningsEps(sym, e.date)
-							?? await fetchFMPIncomeStatementEps(sym, e.date);
-						if (income) fmpBySymbol.set(sym, { ...e, epsActual: income.actual, date: income.filingDate });
-					}));
-				// Merge FMP: prefer FMP when it has confirmed actuals Finnhub doesn't, or when
-				// Finnhub has no entry at all.
-				for (const [sym, fmpEntry] of fmpBySymbol) {
-					const finnhubEntry = pastCalendarBySymbol.get(sym);
-					if (!finnhubEntry || (fmpEntry.epsActual != null && finnhubEntry.epsActual == null)) {
-						pastCalendarBySymbol.set(sym, fmpEntry);
-					}
-				}
-			}
-
-			const supplements = await Promise.all(
-				missingStakTickers.map(async (ticker) => {
-					const name = MARKET_TICKERS[ticker] ?? ticker;
-					const pastEntry = pastCalendarBySymbol.get(ticker) ?? null;
-					const resolved = await resolveEarningsStatus(ticker, name, todayStr, pastEntry);
-					// Allow beat/miss always; only allow upcoming when there's a real calendar
-					// entry (pastEntry !== null) — consensus-only upcoming has no anchor date.
-					const isUsable = resolved.status === "beat" || resolved.status === "miss" ||
-						(resolved.status === "upcoming" && pastEntry !== null && resolved.date !== null);
-					if (!isUsable) return null;
-					const resolvedDate = resolved.date;
-					if (!resolvedDate || resolvedDate < fromStr || resolvedDate > toStr) return null;
-					const priceChangePct = resolved.status !== "upcoming"
-						? await getPriceChangePct(ticker, resolvedDate, resolved.hour)
-						: null;
-					return {
-						symbol: ticker, name, date: resolvedDate, hour: resolved.hour,
-						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
-						priceChangePct, revChangePct: resolved.revChangePct, status: resolved.status,
-					};
-				}),
-			);
-
-			for (const s of supplements) {
-				if (s) filteredEntries.push(s);
-			}
+		// ── Step 1: FMP calendar (primary scheduling source) ─────────────────────
+		// FMP covers the full period window (past beats + upcoming) and has better
+		// ticker coverage than Finnhub's narrow calendar. If FMP doesn't list it,
+		// we have no reliable scheduling signal and don't guess.
+		const fmpEntries = await fetchFMPEarningsCalendar(fromStr, toStr);
+		const calBySymbol = new Map<string, FinnhubCalendarEntry>();
+		for (const e of fmpEntries) {
+			if (!tickerSet.has(e.symbol)) continue;
+			const existing = calBySymbol.get(e.symbol);
+			if (
+				!existing ||
+				(e.epsActual != null && existing.epsActual == null) ||
+				(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
+				(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
+			) calBySymbol.set(e.symbol, e);
 		}
 
+		// ── Step 2: Finnhub calendar for hour enrichment (bmo/amc/dmh) ──────────
+		// FMP doesn't expose timing; Finnhub does. One call, same window.
+		const finnhubData = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
+		const hourMap = new Map<string, string>();
+		for (const e of finnhubData?.earningsCalendar ?? []) {
+			if (e.hour && !hourMap.has(e.symbol)) hourMap.set(e.symbol, e.hour);
+		}
+
+		// ── Step 3: Fill EPS actuals for recent past entries ─────────────────────
+		// FMP calendar epsActual lags the SEC filing. EDGAR is authoritative;
+		// FMP income-statement is the fallback. Only try within 3 days: older
+		// gaps mean postponed/cancelled, not delayed data.
+		const threeDaysAgo = getEasternDateKey(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000));
+		await Promise.all([...calBySymbol.entries()]
+			.filter(([, e]) => e.epsActual == null && e.date >= threeDaysAgo && e.date <= todayStr)
+			.map(async ([sym, e]) => {
+				const income = await getEdgarEarningsEps(sym, e.date)
+					?? await fetchFMPIncomeStatementEps(sym, e.date);
+				if (income) calBySymbol.set(sym, { ...e, epsActual: income.actual, date: income.filingDate });
+			}));
+
+		// ── Step 4: Build result entries ─────────────────────────────────────────
+		const entries = await Promise.all([...calBySymbol.values()].map(async (e) => {
+			const name = MARKET_TICKERS[e.symbol] ?? e.symbol;
+			const hour = hourMap.get(e.symbol) ?? null;
+			const revChangePct = e.revenueActual != null && e.revenueEstimate != null
+				? calcPercentChange(e.revenueActual, e.revenueEstimate)
+				: null;
+
+			if (e.epsActual != null) {
+				// Report confirmed — compute beat/miss directly from FMP/EDGAR EPS data
+				const status: "beat" | "miss" = e.epsEstimate != null
+					? (e.epsActual >= e.epsEstimate ? "beat" : "miss")
+					: (e.epsActual >= 0 ? "beat" : "miss");
+				const epsSurprisePct = calcPercentChange(e.epsActual, e.epsEstimate ?? 0) ?? null;
+				const priceChangePct = await getPriceChangePct(e.symbol, e.date, hour);
+				return {
+					symbol: e.symbol, name, date: e.date, hour,
+					epsActual: e.epsActual, epsEstimate: e.epsEstimate,
+					epsSurprisePct, priceChangePct, revChangePct, status,
+				};
+			}
+
+			// No EPS confirmed yet
+			// Past date (not today): FMP shows it was scheduled but we have no result —
+			// could be postponed or data not yet synced beyond our 3-day fill window; exclude.
+			if (e.date < todayStr) return null;
+			return {
+				symbol: e.symbol, name, date: e.date, hour,
+				epsActual: null, epsEstimate: e.epsEstimate,
+				epsSurprisePct: null, priceChangePct: null, revChangePct,
+				status: "upcoming" as const,
+			};
+		}));
+
+		const filteredEntries = entries.filter((e): e is NonNullable<typeof e> => e !== null);
 		filteredEntries.sort((a, b) => {
 			if (a.status !== "upcoming" && b.status === "upcoming") return -1;
 			if (a.status === "upcoming" && b.status !== "upcoming") return 1;
@@ -385,10 +319,6 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		});
 
 		const result = { entries: filteredEntries, from: fromStr, to: toStr };
-		// week/tomorrow: 6h, dates don't shift mid-period. today: 15min while anything is
-		// still genuinely pending (matches /:symbol/earnings' same-day TTL, so a transition
-		// to beat/miss is picked up quickly instead of sitting stale for up to an hour);
-		// 1h once everything for today is already resolved, since nothing left to change.
 		const hasPendingToday = period === "today" && filteredEntries.some(
 			(e) => e.status === "upcoming" && e.date === todayStr,
 		);
