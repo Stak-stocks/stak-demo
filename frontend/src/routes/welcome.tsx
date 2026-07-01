@@ -2906,14 +2906,14 @@ export function LandingPage() {
 			) : isMobile ? (
 				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 			) : (
-			<div className="landing-wrapper" style={{ width: "100%", height: TOTAL_HEIGHT * scale, overflow: "hidden" }}>
+			<div className="landing-wrapper" style={{ width: "100%", height: TOTAL_HEIGHT * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 				<div
 					className="landing-canvas"
 					style={{
 						width: CANVAS_WIDTH,
 						height: TOTAL_HEIGHT,
 						position: "relative",
-						margin: "0 auto",
+						flexShrink: 0,
 						background: SECTION_BG,
 						transform: `scale(${scale})`,
 						transformOrigin: "top center",
