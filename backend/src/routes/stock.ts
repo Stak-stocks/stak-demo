@@ -232,18 +232,35 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		const extraTickersKey = [...extraTickers].sort().join(",");
 
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
-		const cacheKey = `market-earnings:v16:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v17:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
 		const tickerSet = new Set([...Object.keys(MARKET_TICKERS), ...extraTickers]);
 
-		// ── Step 1: FMP calendar (primary scheduling source) ─────────────────────
-		// FMP covers the full period window (past beats + upcoming) and has better
-		// ticker coverage than Finnhub's narrow calendar. If FMP doesn't list it,
-		// we have no reliable scheduling signal and don't guess.
-		const fmpEntries = await fetchFMPEarningsCalendar(fromStr, toStr);
+		// ── Steps 1+2: FMP and Finnhub calendars in parallel ─────────────────────
+		// FMP is primary (better coverage, future dates). Finnhub is the fallback
+		// for tickers FMP misses, and the source for the hour field (bmo/amc/dmh)
+		// that FMP doesn't provide. Running both in parallel also means Finnhub
+		// covers for FMP rate-limit failures.
+		const [fmpEntries, finnhubData] = await Promise.all([
+			fetchFMPEarningsCalendar(fromStr, toStr),
+			finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
+				Promise<{ earningsCalendar?: FinnhubCalendarEntry[] } | null>,
+		]);
+
+		// Merge: FMP preferred when it has the entry; Finnhub fills gaps.
+		// For the hour field, Finnhub is always authoritative (FMP hardcodes "amc").
 		const calBySymbol = new Map<string, FinnhubCalendarEntry>();
+		const hourMap = new Map<string, string>();
+
+		for (const e of finnhubData?.earningsCalendar ?? []) {
+			if (!tickerSet.has(e.symbol)) continue;
+			if (e.hour) hourMap.set(e.symbol, e.hour);
+			calBySymbol.set(e.symbol, e);
+		}
+		// FMP overwrites Finnhub for any ticker it covers — prefer FMP when it has
+		// epsActual, otherwise prefer whichever has more data.
 		for (const e of fmpEntries) {
 			if (!tickerSet.has(e.symbol)) continue;
 			const existing = calBySymbol.get(e.symbol);
@@ -252,16 +269,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 				(e.epsActual != null && existing.epsActual == null) ||
 				(e.epsActual != null && existing.epsActual != null && e.date > existing.date) ||
 				(e.epsActual == null && existing.epsActual == null && e.date > existing.date)
-			) calBySymbol.set(e.symbol, e);
-		}
-
-		// ── Step 2: Finnhub calendar for hour enrichment (bmo/amc/dmh) ──────────
-		// FMP doesn't expose timing; Finnhub does. One call, same window.
-		const finnhubData = await finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
-			{ earningsCalendar?: FinnhubCalendarEntry[] } | null;
-		const hourMap = new Map<string, string>();
-		for (const e of finnhubData?.earningsCalendar ?? []) {
-			if (e.hour && !hourMap.has(e.symbol)) hourMap.set(e.symbol, e.hour);
+			) calBySymbol.set(e.symbol, { ...e, hour: hourMap.get(e.symbol) ?? e.hour });
 		}
 
 		// ── Step 3: Fill EPS actuals for recent past entries ─────────────────────
