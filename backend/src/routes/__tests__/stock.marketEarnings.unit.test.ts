@@ -238,6 +238,28 @@ describe("GET /market-earnings", () => {
 		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "beat", date: TODAY }));
 	});
 
+	it("surfaces a Stak ticker as upcoming in the 'this week' tab when FMP calendar has a scheduled date (pre-announcement fix)", async () => {
+		// Real incident: NKE was reporting the following day but didn't appear in "this week".
+		// The supplement path filtered out upcoming results unconditionally.
+		// Fix: allow upcoming through when pastEntry !== null (real calendar anchor exists).
+		// TODAY = "2026-06-24" (Wednesday) → week window is Sun 2026-06-21 – Sat 2026-06-27.
+		const reportDate = "2026-06-26"; // Friday of this week, after TODAY
+		mockFetchSequence(
+			{ earningsCalendar: [] }, // Finnhub main calendar: no NKE for the short window
+			{ earningsCalendar: [] }, // Finnhub 90-day lookback: nothing
+			[{ symbol: "NKE", date: reportDate, epsActual: null, epsEstimated: 0.11, revenueActual: null, revenueEstimated: 10849540000 }], // FMP calendar: scheduled for reportDate, no EPS yet
+			[], // FMP income-statement: empty — NKE hasn't filed yet
+			[{ actual: null, estimate: 0.11, period: "2026-03-31", quarter: 3, year: 2026, surprise: null, surprisePercent: null }], // Finnhub EPS history: stale
+		);
+
+		const app = await buildApp();
+		const res = await request(app).get("/market-earnings?period=week&tickers=NKE");
+
+		expect(res.status).toBe(200);
+		const nke = res.body.entries.find((e: { symbol: string }) => e.symbol === "NKE");
+		expect(nke).toEqual(expect.objectContaining({ symbol: "NKE", status: "upcoming", date: reportDate, priceChangePct: null }));
+	});
+
 	it("keeps a confirmed beat/miss for a past calendar entry instead of letting a stale 'upcoming' consensus date override it (live MU bug)", async () => {
 		// Real incident: Finnhub's calendar entry for MU already had actual EPS for the report
 		// that posted this week, but the 4-source consensus (Yahoo/FMP/Gemini) still voted for a

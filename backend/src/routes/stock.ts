@@ -238,7 +238,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		// Use fromStr:toStr (not todayStr) so week/tomorrow cache survives across days within the same period
 		const periodKey = period === "today" ? todayStr : `${fromStr}:${toStr}`;
 		// Bumped to v11: prefer most-recent FMP entry even when both have null epsActual.
-		const cacheKey = `market-earnings:v11:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
+		const cacheKey = `market-earnings:v12:${period}:${periodKey}${extraTickersKey ? `:${extraTickersKey}` : ""}`;
 		const cached = await cacheGet(cacheKey);
 		if (cached) { res.json(cached); return; }
 
@@ -354,12 +354,18 @@ stockRouter.get("/market-earnings", async (req, res) => {
 					const name = MARKET_TICKERS[ticker] ?? ticker;
 					const pastEntry = pastCalendarBySymbol.get(ticker) ?? null;
 					const resolved = await resolveEarningsStatus(ticker, name, todayStr, pastEntry);
-					// This section exists specifically to catch reports Finnhub's calendar
-					// missed -- an "upcoming"/"none" result has no calendar entry to anchor a
-					// useful date/hour against, so only confirmed reports are worth surfacing here.
-					if (resolved.status !== "beat" && resolved.status !== "miss") return null;
+					// Allow beat/miss always; also allow upcoming when pastEntry is a real
+					// calendar entry (Finnhub lookback or FMP) — those have a specific scheduled
+					// date that's trustworthy. "none" and consensus/Gemini-only upcoming results
+					// (no calendar entry backing them) are still excluded: no anchor date means
+					// we'd be surfacing a guess, not a real scheduled report.
+					const isUsable = resolved.status === "beat" || resolved.status === "miss" ||
+						(resolved.status === "upcoming" && pastEntry !== null && resolved.date !== null);
+					if (!isUsable) return null;
 					if (!resolved.date || resolved.date < fromStr || resolved.date > toStr) return null;
-					const priceChangePct = await getPriceChangePct(ticker, resolved.date, resolved.hour);
+					const priceChangePct = resolved.status !== "upcoming"
+						? await getPriceChangePct(ticker, resolved.date, resolved.hour)
+						: null;
 					return {
 						symbol: ticker, name, date: resolved.date, hour: resolved.hour,
 						epsActual: resolved.epsActual, epsEstimate: resolved.epsEstimate, epsSurprisePct: resolved.epsSurprisePct,
