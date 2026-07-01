@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, supabaseUserId, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -94,28 +94,9 @@ function SignUpPage() {
 	async function handleGoogleSignIn() {
 		setSigningUp(true);
 		try {
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch { /* fall through to new user */ }
-				}
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			await signInWithGoogleSupabase();
 		} catch (error: unknown) {
-			const code = (error as { code?: string }).code ?? "";
-			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
-		} finally {
+			toast.error("Sign in failed. Please try again.");
 			setSigningUp(false);
 		}
 	}

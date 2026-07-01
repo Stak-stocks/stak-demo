@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { user, loading, onboardingCompleted, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -103,50 +103,12 @@ function LoginPage() {
 	async function handleGoogleSignIn() {
 		setSigningIn(true);
 		try {
-			// Migration plan, Phase 5, internal cohort only: Google sign-in has no
-			// email upfront to check a provider for (unlike password sign-in, the
-			// Google popup picks the account *after* this fires). Reusing the page's
-			// own email field as an opt-in signal is the lowest-risk way to route a
-			// cohort tester to Supabase's Google flow without touching the path for
-			// everyone else, who will have left it blank. Defaults to Firebase --
-			// same as never checking at all -- if the lookup itself fails.
-			if (email.trim()) {
-				const { provider } = await getAuthProvider(email.trim()).catch(
-					() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
-				);
-				if (provider === "supabase") {
-					await signInWithGoogleSupabase();
-					// signInWithOAuth redirects the browser away immediately -- nothing
-					// left to do here on success.
-					return;
-				}
-			}
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				// If the UID matches a previous session, this is an existing email/password
-				// user linking their Google account — check profile before overwriting.
-				// If UID is different (or no previous session), it's a fresh account.
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch { /* fall through to new user */ }
-				}
-				// Truly new user or deleted account re-registering — start fresh
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			// Phase 6: full Google OAuth cutover to Supabase. signInWithOAuth redirects
+			// the browser away immediately -- the supabaseUserId effect above handles
+			// navigation once the session is established after redirect-back.
+			await signInWithGoogleSupabase();
 		} catch (error: unknown) {
-			const code = (error as { code?: string }).code ?? "";
-			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
-		} finally {
+			toast.error("Sign in failed. Please try again.");
 			setSigningIn(false);
 		}
 	}
