@@ -7,7 +7,7 @@ export const Route = createFileRoute("/league")({
 
 function LeaguePage() {
 	return (
-		<div className="min-h-full bg-background text-zinc-900 dark:text-white flex flex-col items-center justify-center px-6 pb-24 relative overflow-hidden">
+		<div className="min-h-full bg-background text-foreground flex flex-col items-center justify-center px-6 pb-24 relative overflow-hidden">
 
 			{/* Background glow */}
 			<div className="absolute inset-0 pointer-events-none">
@@ -46,7 +46,7 @@ function LeaguePage() {
 					</span>
 				</h1>
 
-				<p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-8">
+				<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 text-sm leading-relaxed mb-8">
 					Compete with other investors, climb the leaderboard, and prove your Stak is the best in the game.
 				</p>
 
@@ -57,11 +57,11 @@ function LeaguePage() {
 						{ icon: "📊", label: "Live Leaderboard",     desc: "See how your Stak ranks in real time" },
 						{ icon: "🥇", label: "Badges & Rewards",     desc: "Earn exclusive investor titles"   },
 					].map((f) => (
-						<div key={f.label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/60 dark:bg-[#0f1729]/60 backdrop-blur border border-zinc-200/60 dark:border-yellow-400/10">
+						<div key={f.label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/60 dark:bg-surface-1/60 backdrop-blur border border-zinc-200/60 dark:border-yellow-400/10">
 							<span className="text-xl shrink-0">{f.icon}</span>
 							<div>
 								<p className="text-sm font-semibold">{f.label}</p>
-								<p className="text-[11px] text-zinc-500 dark:text-zinc-400">{f.desc}</p>
+								<p className="text-[11px] text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">{f.desc}</p>
 							</div>
 						</div>
 					))}

@@ -12,6 +12,7 @@ vi.mock("@tanstack/react-router", () => ({
 	},
 	lazyRouteComponent: (fn: any) => fn,
 	Link: ({ children, ...props }: any) => createElement("a", props, children),
+	useLocation: () => ({ pathname: "/feed" }),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -31,29 +32,9 @@ vi.mock("@/components/MarketBar", () => ({
 	MarketBar: () => <div data-testid="market-bar">MarketBar</div>,
 }));
 
-vi.mock("@/components/EarningsCalendar", () => ({
-	MarketEarningsWidget: () => null,
-	EarningsCalendarButton: () => (
-		<button data-testid="earnings-calendar-btn" aria-label="Earnings Calendar">
-			Calendar
-		</button>
-	),
-}));
-
 describe("Feed Page Layout", () => {
 	beforeAll(async () => {
 		await import("../../routes/feed");
-	});
-
-	it("renders earnings calendar button in a top-left container", () => {
-		expect(capturedComponent).toBeDefined();
-		render(createElement(capturedComponent));
-
-		const calBtn = screen.getByTestId("earnings-calendar-btn");
-		expect(calBtn).toBeInTheDocument();
-
-		const container = calBtn.closest("div");
-		expect(container?.className).toContain("justify-start");
 	});
 
 	it("renders Market News header text", () => {

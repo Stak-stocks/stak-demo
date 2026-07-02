@@ -1,4 +1,5 @@
 {
 	"name": "stak",
-	"private": true
+	"private": true,
+	"workspaces": ["frontend", "backend", "shared"]
 }

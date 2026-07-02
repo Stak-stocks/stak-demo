@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { adminDb } from "../firebaseAdmin.js";
+import { getGeminiKeys } from "../services/geminiService.js";
 
 export const intelCardsRouter = Router();
 
@@ -63,14 +64,6 @@ let cachedCards: IntelCardData[] | null = null;
 let cacheExpiresAt = 0;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
 async function generateCardsWithGemini(): Promise<IntelCardData[] | null> {
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return null;
@@ -102,13 +95,13 @@ Return ONLY a JSON array of exactly 30 objects:
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 					}),
 				},
 			);

@@ -32,7 +32,29 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function getGeminiKeys(): string[] {
+// Global concurrency cap for all outgoing Gemini requests across the backend.
+// Without this, opening 12 stocks simultaneously can fire 40+ parallel Gemini calls
+// (analyst + earnings + news simplification per stock), exhausting all 3 keys at once.
+// Queued requests resolve as slots free up — the slight extra latency for later slots
+// is far better than every request failing with "no coverage."
+const MAX_CONCURRENT_GEMINI = 5;
+let geminiActiveCount = 0;
+const geminiWaiters: Array<() => void> = [];
+
+export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+	if (geminiActiveCount >= MAX_CONCURRENT_GEMINI) {
+		await new Promise<void>((resolve) => geminiWaiters.push(resolve));
+	}
+	geminiActiveCount++;
+	try {
+		return await fn();
+	} finally {
+		geminiActiveCount--;
+		geminiWaiters.shift()?.();
+	}
+}
+
+export function getGeminiKeys(): string[] {
 	return [
 		process.env.GEMINI_API_KEY,
 		process.env.GEMINI_API_KEY_2,
@@ -42,36 +64,56 @@ function getGeminiKeys(): string[] {
 
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
 
+// Use the lite model for high-volume article simplification — faster and cheaper
+const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
+const SIMPLIFY_TIMEOUT_MS = 12000;
+
 /** Try one Gemini key with one retry on 429. Returns parsed results or null if rate-limited. */
 async function trySimplifyKey(key: string, prompt: string, count: number): Promise<SimplifyResult[] | null> {
 	for (let attempt = 0; attempt < 2; attempt++) {
-		if (attempt > 0) await sleep(2000);
+		if (attempt > 0) await sleep(1500);
 
-		const res = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
-				}),
-			},
-		);
-
-		if (res.status === 429) continue;
-		if (!res.ok) throw new Error(`Gemini error ${res.status}`);
-
-		const geminiData = await res.json();
-		const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), SIMPLIFY_TIMEOUT_MS);
 		try {
-			return JSON.parse(rawText);
-		} catch {
-			return Array.from({ length: count }, () => ({
-				explanation: "Could not simplify this article.",
-				whyItMatters: "Check the original source for details.",
-				sentiment: "neutral",
-			}));
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/${SIMPLIFY_MODEL}:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, responseMimeType: "application/json" },
+					}),
+					signal: controller.signal,
+				},
+			);
+
+			if (res.status === 429) {
+				console.warn(`[Gemini] simplifyArticles rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+			const geminiData = await res.json();
+			const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+			try {
+				return JSON.parse(rawText);
+			} catch {
+				return Array.from({ length: count }, () => ({
+					explanation: "Could not simplify this article.",
+					whyItMatters: "Check the original source for details.",
+					sentiment: "neutral",
+				}));
+			}
+		} catch (e) {
+			if ((e as Error)?.name === "AbortError") {
+				console.warn(`[Gemini] simplifyArticles timed out on key ...${key.slice(-4)} — trying next`);
+				continue; // actually try the next key, not just log and bail
+			}
+			throw e;
+		} finally {
+			clearTimeout(timeout);
 		}
 	}
 	return null;
@@ -79,6 +121,10 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 
 /** Call Gemini for a single batch of up to BATCH_SIZE articles, rotating keys on 429 */
 async function simplifyBatch(articles: FinnhubArticle[]): Promise<SimplifyResult[]> {
+	return withGeminiConcurrencyLimit(async () => simplifyBatchInner(articles));
+}
+
+async function simplifyBatchInner(articles: FinnhubArticle[]): Promise<SimplifyResult[]> {
 	const keys = getGeminiKeys();
 	if (keys.length === 0) throw new Error("No GEMINI_API_KEY configured");
 
@@ -107,6 +153,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	}
 
 	// All keys exhausted — return raw summaries rather than failing
+	console.warn(`[Gemini] simplifyArticles: all ${keys.length} keys exhausted — falling back to raw summaries`);
 	return articles.map((a) => ({
 		explanation: a.summary,
 		whyItMatters: "Read the full article for more context.",
@@ -170,7 +217,9 @@ export async function getEarningsBeatMissFromWeb(
 	symbol: string,
 	companyName?: string,
 ): Promise<{ result: EarningsOutcome; date: string | null }> {
-	const cacheKey = `web:v2:${symbol}`;
+	// Bumped to v3 to invalidate stale/hallucinated results cached during the earnings
+	// status investigation, before the date-plausibility check existed.
+	const cacheKey = `web:v3:${symbol}`;
 	const cached = await cacheGet<{ result: EarningsOutcome; date: string | null }>(cacheKey);
 	if (cached) return { result: cached.result, date: cached.date };
 
@@ -204,19 +253,25 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
 					}),
 				},
 			);
-			if (res.status === 429) continue;
-			if (!res.ok) break;
+			if (res.status === 429) {
+				console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) {
+				console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await res.json();
 			const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 			// Extract JSON object from the response (Gemini may wrap in markdown fences)
@@ -231,13 +286,14 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					await cacheSet(cacheKey, { result, date }, WEB_EARNINGS_TTL_MS);
 					return { result, date };
 				} catch {
-					// JSON parse failed — fall through to next key
+					console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}): unparseable response on key ...${key.slice(-4)}`);
 				}
 			}
-		} catch {
-			// ignore, try next key
+		} catch (e) {
+			console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
 	}
+	console.warn(`[Gemini] getEarningsBeatMissFromWeb(${symbol}): all ${keys.length} keys exhausted/failed — returning "none"`);
 	return { result: "none", date: null };
 }
 
@@ -268,18 +324,24 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { temperature: 0, maxOutputTokens: 10 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
 					}),
 				},
 			);
-			if (res.status === 429) continue;
-			if (!res.ok) break;
+			if (res.status === 429) {
+				console.warn(`[Gemini] classifyEarnings rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
+			if (!res.ok) {
+				console.warn(`[Gemini] classifyEarnings got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				break;
+			}
 			const data = await res.json();
 			const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim().toLowerCase();
 			let result: EarningsOutcome = "none";
@@ -287,9 +349,111 @@ Return ONLY one of these exact strings: beat, miss, none`;
 			else if (text === "miss") result = "miss";
 			await cacheSet(cacheKey, result, CACHE_TTL_MS);
 			return result;
-		} catch {
-			// ignore, try next key
+		} catch (e) {
+			console.warn(`[Gemini] classifyEarnings errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
 	}
+	console.warn(`[Gemini] classifyEarnings: all ${keys.length} keys exhausted/failed — returning "none"`);
 	return "none";
+}
+
+const FILTER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// In-flight deduplication: if two requests arrive for the same query simultaneously,
+// the second waits for the first Gemini call rather than firing a duplicate.
+const filterInFlight = new Map<string, Promise<Record<string, boolean>>>();
+
+/**
+ * Filter articles to only those relevant to financial markets for the given query.
+ * Sends headlines only to Gemini for speed. Times out after 2.5s and falls back
+ * to returning all articles so the app never blocks on this call.
+ */
+export async function filterMarketRelevant(
+	articles: FinnhubArticle[],
+	query: string,
+): Promise<FinnhubArticle[]> {
+	if (articles.length === 0) return articles;
+
+	// Cache keyed by query only (not article IDs) so it survives Finnhub cache refreshes.
+	// Stores a Record<headline, boolean> so new articles not yet seen pass through by default.
+	const cacheKey = `filter:${query.toLowerCase()}`;
+	const cached = await cacheGet<Record<string, boolean>>(cacheKey);
+	if (cached) return articles.filter((a) => cached[a.headline] !== false);
+
+	const keys = getGeminiKeys();
+	if (keys.length === 0) return articles;
+
+	// Deduplicate concurrent requests for the same query
+	const inflight = filterInFlight.get(cacheKey);
+	if (inflight) {
+		const record = await inflight;
+		return articles.filter((a) => record[a.headline] !== false);
+	}
+
+	const prompt = `Stak is a stock market app for young investors. A user searched for "${query}".
+
+For each article headline below, return true if it is relevant to financial markets, stocks, investing, or the economic impact of "${query}". Return false if it has no financial angle (e.g. pure entertainment, sports scores, academic research, lifestyle).
+
+Return a JSON array of booleans with exactly ${articles.length} values in the same order.
+Example: [true, false, true]
+
+Headlines:
+${articles.map((a, i) => `${i + 1}. ${a.headline}`).join("\n")}
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+
+	const doFilter = async (): Promise<Record<string, boolean>> => {
+		for (const key of keys) {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 2500);
+			try {
+				const res = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							contents: [{ parts: [{ text: prompt }] }],
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, responseMimeType: "application/json" },
+						}),
+						signal: controller.signal,
+					},
+				);
+				if (res.status === 429) {
+					console.warn(`[Gemini] filterMarketRelevant(${query}) rate limited (429) on key ...${key.slice(-4)} — trying next`);
+					continue;
+				}
+				if (!res.ok) continue;
+				const data = await res.json();
+				const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+				const flags: unknown[] = JSON.parse(raw);
+				// Validate: must be a boolean array of the correct length
+				if (
+					!Array.isArray(flags) ||
+					flags.length !== articles.length ||
+					!flags.every((f) => typeof f === "boolean")
+				) continue;
+				const record: Record<string, boolean> = {};
+				articles.forEach((a, i) => { record[a.headline] = flags[i] as boolean; });
+				cacheSet(cacheKey, record, FILTER_CACHE_TTL_MS).catch(() => {});
+				return record;
+			} catch (e) {
+				console.warn(`[Gemini] filterMarketRelevant(${query}) errored on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
+			} finally {
+				clearTimeout(timeout);
+			}
+		}
+		// All keys failed — empty record means all articles pass through
+		console.warn(`[Gemini] filterMarketRelevant(${query}): all ${keys.length} keys exhausted/failed — articles pass through unfiltered`);
+		return {};
+	};
+
+	const promise = doFilter();
+	filterInFlight.set(cacheKey, promise);
+	try {
+		const record = await promise;
+		return articles.filter((a) => record[a.headline] !== false);
+	} finally {
+		filterInFlight.delete(cacheKey);
+	}
 }

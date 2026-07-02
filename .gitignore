@@ -1,3 +1,5 @@
+STAK_SETUP.md
+STAK_SETUP.txt
 node_modules
 .vercel
 .vite
@@ -10,3 +12,4 @@ service-account.json
 .claude/
 functions/lib/
 functions/node_modules/
+backend/drafts/

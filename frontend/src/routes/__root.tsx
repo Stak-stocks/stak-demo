@@ -10,8 +10,14 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import type { BrandProfile } from "@/data/brands";
-import { getTodayKey } from "@/lib/utils";
+import { DailyBriefModal } from "@/components/DailyBriefModal";
+import type { BrandProfile } from "@stak/shared";
+import { getEasternDateKey } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { getMarketEarnings } from "@/lib/api";
+import { useStakTickers } from "@/hooks/useStakTickers";
+import { useSwipeLimit } from "@/hooks/useSwipeLimit";
+import { STAK_CAPACITY } from "@/lib/constants";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -21,51 +27,85 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 	return <>{children}</>;
 }
 
-// Date key for daily swipe reset at 9 AM
-
-const DAILY_SWIPE_LIMIT = 20;
-const STAK_CAPACITY = 30;
-
 function Root() {
 	const { user, loading } = useAuth();
-	const { account, accountLoading, updateStak, incrementSwipeCount } = useAccount();
-	const { resolvedTheme } = useTheme();
+	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
+	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(user?.uid ?? "guest", !!user);
+	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [briefOpen, setBriefOpen] = useState(false);
+	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
+	const [refreshKey, setRefreshKey] = useState(0);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const themeAppliedForUid = useRef<string | null>(null);
+
+	// Apply theme from Firestore once per login — light by default, dark if user explicitly set it
+	useEffect(() => {
+		if (!account?.uid || themeAppliedForUid.current === account.uid) return;
+		themeAppliedForUid.current = account.uid;
+		setTheme(account.preferences?.theme ?? "light");
+	}, [account?.uid, account?.preferences?.theme, setTheme]);
+
+	// Auth/landing pages are always dark regardless of user theme preference
+	useEffect(() => {
+		if (isAuthPage) {
+			document.documentElement.classList.add("dark");
+		} else {
+			// Restore user's actual theme by triggering ThemeProvider re-apply
+			reapplyTheme();
+		}
+	}, [isAuthPage, reapplyTheme]);
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
-		scrollRef.current?.scrollTo({ top: 0 });
-		document.body.style.overflow = "";
-	}, [location.pathname]);
+		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+		if (!briefOpen) document.body.style.overflow = "";
+		logEvent("page_view", { page_path: location.pathname });
+	}, [location.pathname, briefOpen]);
+
+	// Prefetch earnings calendar as soon as account loads so modal opens instantly
+	const queryClient = useQueryClient();
+	const stakTickers = useStakTickers();
+	useEffect(() => {
+		if (!user || stakTickers.length === 0) return;
+		for (const tab of ["today", "tomorrow", "week"] as const) {
+			queryClient.prefetchQuery({
+				queryKey: ["market-earnings", tab, stakTickers],
+				queryFn: () => getMarketEarnings(tab, stakTickers),
+				staleTime: 10 * 60 * 1000,
+			});
+		}
+	}, [queryClient, stakTickers, user]);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
 		if (stakIds.includes(brand.id)) {
-			toast.info("Already in your Stak", { description: brand.name, duration: 2000 });
+			
 			return;
 		}
 		if (stakIds.length >= STAK_CAPACITY) {
 			toast.error("Your Stak is full!", { description: "Remove a stock first (max 30)", duration: 2000 });
 			return;
 		}
-		const today = getTodayKey();
-		const swipeState = account?.dailySwipeState;
-		const swipeCount = swipeState?.date === today ? (swipeState.count ?? 0) : 0;
-		if (swipeCount >= DAILY_SWIPE_LIMIT) {
+		if (stakLimitReached) {
 			toast.error("Daily limit reached", { description: "Come back tomorrow for more picks!", duration: 3000 });
 			return;
 		}
-		updateStak([...stakIds, brand.id]).catch(() => {});
-		incrementSwipeCount().catch(() => {});
+		const cachedStock = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])
+			?? queryClient.getQueryData<{ quote: { price: number } | null }>(["stock-price", brand.ticker]);
+		const priceAtSave = cachedStock?.quote?.price ?? null;
+		saveToStak(brand.id, priceAtSave).catch(() => {});
+		incrementStakSwipe().catch(() => {});
+		// Invalidate daily brief so personalization reflects the new Stak brand
+		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
-		toast.success("Added to your Stak", { description: brand.name, duration: 2000 });
-	}, [account, updateStak, incrementSwipeCount]);
+
+	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
 	useEffect(() => {
 		if (!loading && !accountLoading && !user && !isAuthPage) {
@@ -75,6 +115,35 @@ function Root() {
 			navigate({ to: "/onboarding" });
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
+
+	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
+	// the 9:30am ET open (not before): the brief is sourced from real trading
+	// activity and news coverage of the session, which doesn't exist yet right at
+	// open. "today" is ET too (getEasternDateKey), matching the brief content's own
+	// day boundary -- comparing against the browser's local date here instead would
+	// let this gate disagree with when the content itself actually refreshes.
+	// Stored in Firestore so it's cross-device.
+	useEffect(() => {
+		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		const d = new Date();
+		const today = getEasternDateKey(d);
+		if (account.lastBriefDate === today) return;
+		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
+		if (etHour < 10) return; // too early — will re-check when user re-opens app
+		// Open immediately (next tick) so Discover never flashes before the brief
+		const t = setTimeout(() => {
+			// Force "auto" -- briefSource is page-lifetime state, not reset on sign-out/
+			// sign-in, so without this an account that previously opened the brief from
+			// My Stak (source: "mystak") would leave that value stuck, making the next
+			// auto-popup (this account's tomorrow, or a different account signing in on
+			// the same device) wrongly show the My Stak back-button view and hide the
+			// "Start Today's Deck" CTA.
+			setBriefSource("auto");
+			setBriefOpen(true);
+			updateLastBriefDate(today).catch(() => {});
+		}, 0);
+		return () => clearTimeout(t);
+	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -95,6 +164,17 @@ function Root() {
 		const handler = () => setSearchOpen(true);
 		window.addEventListener("open-search", handler);
 		return () => window.removeEventListener("open-search", handler);
+	}, []);
+
+	// Listen for custom event to open daily brief from child pages
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const source = (e as CustomEvent<{ source?: string }>).detail?.source;
+			setBriefSource(source === "mystak" ? "mystak" : "auto");
+			setBriefOpen(true);
+		};
+		window.addEventListener("open-brief", handler);
+		return () => window.removeEventListener("open-brief", handler);
 	}, []);
 
 	if (loading || accountLoading) {
@@ -121,14 +201,31 @@ function Root() {
 		);
 	}
 
+	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes
+	if (!briefOpen && !isAuthPage && user && account?.onboardingCompleted) {
+		const d = new Date();
+		const today = getEasternDateKey(d);
+		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
+		if (account.lastBriefDate !== today && etHour >= 10) {
+			return (
+				<div className="flex items-center justify-center h-full bg-background">
+					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+				</div>
+			);
+		}
+	}
+
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} className={`flex-1 overflow-y-auto overscroll-y-contain ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
-				<PullToRefresh scrollRef={scrollRef}>
+			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
+				<PullToRefresh scrollRef={scrollRef} onRefresh={() => {
+						queryClient.invalidateQueries();
+						setRefreshKey((k) => k + 1);
+					}}>
 					<ErrorBoundary tagName="main" className="min-h-full">
 						<PageTransition pathname={location.pathname}>
-							<Outlet />
+							<Outlet key={refreshKey} />
 						</PageTransition>
 					</ErrorBoundary>
 				</PullToRefresh>
@@ -151,6 +248,8 @@ function Root() {
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>
+
+		{briefOpen && <DailyBriefModal onClose={() => setBriefOpen(false)} source={briefSource} />}
 
 		</div>
 	);

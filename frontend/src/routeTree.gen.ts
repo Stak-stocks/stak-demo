@@ -14,6 +14,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MyStakRouteImport } from './routes/my-stak'
 import { Route as LoginRouteImport } from './routes/login'
@@ -27,7 +28,6 @@ import { Route as ProfileHelpSupportRouteImport } from './routes/profile_.help-s
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
-import { Route as BrandBrandIdRouteImport } from './routes/brand.$brandId'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -52,6 +52,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -119,11 +124,6 @@ const LeagueLineupRoute = LeagueLineupRouteImport.update({
   path: '/league/lineup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BrandBrandIdRoute = BrandBrandIdRouteImport.update({
-  id: '/brand/$brandId',
-  path: '/brand/$brandId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -133,12 +133,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/onboarding': typeof OnboardingRoute
+  '/playground': typeof PlaygroundRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -154,12 +154,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/onboarding': typeof OnboardingRoute
+  '/playground': typeof PlaygroundRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -176,12 +176,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
   '/onboarding': typeof OnboardingRoute
+  '/playground': typeof PlaygroundRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
-  '/brand/$brandId': typeof BrandBrandIdRoute
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
   '/league_/results': typeof LeagueResultsRoute
@@ -199,12 +199,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-stak'
     | '/onboarding'
+    | '/playground'
     | '/profile'
     | '/reset-password'
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -220,12 +220,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-stak'
     | '/onboarding'
+    | '/playground'
     | '/profile'
     | '/reset-password'
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -241,12 +241,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-stak'
     | '/onboarding'
+    | '/playground'
     | '/profile'
     | '/reset-password'
     | '/signup'
     | '/verify-email'
     | '/welcome'
-    | '/brand/$brandId'
     | '/league_/lineup'
     | '/league_/performance'
     | '/league_/results'
@@ -263,12 +263,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MyStakRoute: typeof MyStakRoute
   OnboardingRoute: typeof OnboardingRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   WelcomeRoute: typeof WelcomeRoute
-  BrandBrandIdRoute: typeof BrandBrandIdRoute
   LeagueLineupRoute: typeof LeagueLineupRoute
   LeaguePerformanceRoute: typeof LeaguePerformanceRoute
   LeagueResultsRoute: typeof LeagueResultsRoute
@@ -312,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -405,13 +412,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeagueLineupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/brand/$brandId': {
-      id: '/brand/$brandId'
-      path: '/brand/$brandId'
-      fullPath: '/brand/$brandId'
-      preLoaderRoute: typeof BrandBrandIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -423,12 +423,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MyStakRoute: MyStakRoute,
   OnboardingRoute: OnboardingRoute,
+  PlaygroundRoute: PlaygroundRoute,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   WelcomeRoute: WelcomeRoute,
-  BrandBrandIdRoute: BrandBrandIdRoute,
   LeagueLineupRoute: LeagueLineupRoute,
   LeaguePerformanceRoute: LeaguePerformanceRoute,
   LeagueResultsRoute: LeagueResultsRoute,

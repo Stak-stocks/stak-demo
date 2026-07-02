@@ -24,6 +24,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": resolve(__dirname, "./src"),
+			"@stak/shared": resolve(__dirname, "../shared/src"),
 		},
 	},
 	server: {
@@ -41,12 +42,5 @@ export default defineConfig({
 	},
 	build: {
 		chunkSizeWarningLimit: 1500,
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					"brands-data": ["./src/data/brands.ts"],
-				},
-			},
-		},
 	},
 });

@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
-import { updateProfile } from "@/lib/api";
-import { auth } from "@/lib/firebase";
+import { updateProfile, trackEvent } from "@/lib/api";
+import { auth, logEvent } from "@/lib/firebase";
 
 import {
 	INTEREST_OPTIONS,
@@ -12,19 +12,19 @@ import {
 	ONBOARDING_SWIPE_BRAND_IDS,
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
-import { brands as allBrands } from "@/data/brands";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@/data/brands";
+import type { BrandIdentity } from "@stak/shared";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
+import { useBrandsList } from "@/hooks/useBrandsList";
 
 export const Route = createFileRoute("/onboarding")({
 	component: OnboardingPage,
 });
 
-const SWIPE_BRANDS = ONBOARDING_SWIPE_BRAND_IDS.map((id) => {
-	const brand = allBrands.find((b) => b.id === id);
-	return brand
-		? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
-		: null;
-}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
+type SwipeCard = { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string };
+
+function toSwipeCard(brand: BrandIdentity): SwipeCard {
+	return { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker };
+}
 
 // Brand colors for the building step fan cards
 const BRAND_COLORS: Record<string, string> = {
@@ -67,7 +67,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 		<button
 			type="button"
 			onClick={onClick}
-			className="absolute top-8 left-6 z-20 p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+			className="absolute top-8 left-6 z-20 p-2 rounded-full dark:text-slate-400 text-slate-500 hover:text-foreground hover:bg-foreground/10 transition-colors"
 		>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 				<path d="M15 18l-6-6 6-6" />
@@ -246,12 +246,12 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 						strokeLinejoin="round"
 					/>
 				</svg>
-				<span className="text-white text-4xl font-bold tracking-wider">STAK</span>
+				<span className="text-foreground text-4xl font-bold tracking-wider">STAK</span>
 			</div>
 
 			<div>
-				<h1 className="text-3xl font-bold text-white">Welcome to STAK</h1>
-				<p className="text-slate-400 mt-3 text-lg">
+				<h1 className="text-[26px] font-extrabold text-foreground">Welcome to STAK</h1>
+				<p className="dark:text-slate-400 text-slate-500 mt-3 text-lg">
 					Discover stocks through brands you already know
 				</p>
 			</div>
@@ -259,7 +259,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 			<button
 				type="button"
 				onClick={onNext}
-				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+				className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 			>
 				Get Started ►
 			</button>
@@ -281,8 +281,8 @@ function InterestsStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">What are you into?</h1>
-				<p className="text-slate-400 mt-1">Pick the topics that interest you</p>
+				<h1 className="text-[22px] font-extrabold text-foreground">What are you into?</h1>
+				<p className="dark:text-slate-400 text-slate-500 mt-1">Pick the topics that interest you</p>
 			</div>
 
 			<div className="grid grid-cols-3 gap-3">
@@ -292,7 +292,7 @@ function InterestsStep({
 						type="button"
 						onClick={() => onToggle(interest.id)}
 						className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-95 ${selected.includes(interest.id)
-							? "bg-orange-500/20 border-orange-500 text-white"
+							? "bg-orange-500/20 border-orange-500 text-foreground"
 							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
@@ -306,7 +306,7 @@ function InterestsStep({
 				type="button"
 				onClick={onNext}
 				disabled={selected.length === 0}
-				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+				className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
 				Continue
 			</button>
@@ -325,6 +325,18 @@ function SwipeStep({
 	onSwipeRight: (id: string) => void;
 	onNext: () => void;
 }) {
+	const { data: allBrandsList } = useBrandsList();
+	const brandsLoading = allBrandsList === undefined;
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
+
+	const SWIPE_BRANDS = useMemo(
+		() => ONBOARDING_SWIPE_BRAND_IDS
+			.map((id) => allBrands.find((b) => b.id === id))
+			.filter(Boolean)
+			.map((b) => toSwipeCard(b!)),
+		[allBrands],
+	);
+
 	// Derive swipe brands from user's interest selections
 	// Round-robin across categories so each interest gets equal representation
 	const swipeBrands = useMemo(() => {
@@ -350,14 +362,12 @@ function SwipeStep({
 
 		const mapped = [...picked].map((id) => {
 			const brand = allBrands.find((b) => b.id === id);
-			return brand
-				? { id: brand.id, name: brand.name, logo: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand), ticker: brand.ticker }
-				: null;
-		}).filter(Boolean) as { id: string; name: string; logo: string; fallbackLogo: string; ultimateFallbackLogo: string; ticker: string }[];
+			return brand ? toSwipeCard(brand) : null;
+		}).filter(Boolean) as SwipeCard[];
 
 		// Pad with defaults if fewer than 4 brands
 		return mapped.length >= 4 ? mapped : [...mapped, ...SWIPE_BRANDS.filter((b) => !mapped.some((m) => m.id === b.id))].slice(0, 8);
-	}, [selectedInterests]);
+	}, [selectedInterests, allBrands, SWIPE_BRANDS]);
 
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -367,7 +377,10 @@ function SwipeStep({
 	const velocityHistory = useRef<{ x: number; t: number }[]>([]);
 	const isProcessingSwipe = useRef(false);
 
-	const done = currentIndex >= swipeBrands.length;
+	// brandsLoading guards against showing the "done" screen before the catalog
+	// has even loaded -- swipeBrands is empty during that window, which would
+	// otherwise make this true immediately, before a single card is shown.
+	const done = !brandsLoading && currentIndex >= swipeBrands.length;
 
 	const FLICK_VELOCITY = 0.4;      // px/ms
 	const DISTANCE_THRESHOLD = 60;   // px
@@ -454,18 +467,22 @@ function SwipeStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">Swipe to discover</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">Swipe to discover</h1>
 				{!done && (
-					<p className="text-slate-400 text-sm mt-1">Swipe right on brands you like, left to skip</p>
+					<p className="dark:text-slate-400 text-slate-500 text-sm mt-1">Swipe right on brands you like, left to skip</p>
 				)}
 			</div>
 
 			<div className="relative w-full h-[320px]">
-				{done ? (
+				{brandsLoading ? (
+					<div className="flex items-center justify-center h-full">
+						<div className="w-64 h-72 rounded-2xl bg-foreground/5 animate-pulse" />
+					</div>
+				) : done ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="text-center space-y-3">
-							<p className="text-xl font-bold text-white">Nice picks!</p>
-							<p className="text-slate-400">Let's keep going</p>
+							<p className="text-xl font-bold text-foreground">Nice picks!</p>
+							<p className="dark:text-slate-400 text-slate-500">Let's keep going</p>
 						</div>
 					</div>
 				) : (
@@ -534,7 +551,7 @@ function SwipeStep({
 										</div>
 										<div className="text-center">
 											<p className="text-white font-bold text-lg">{brand.name}</p>
-											<p className="text-slate-400 text-sm">${brand.ticker}</p>
+											<p className="dark:text-slate-400 text-slate-500 text-sm">${brand.ticker}</p>
 										</div>
 									</div>
 								</div>
@@ -564,7 +581,7 @@ function SwipeStep({
 
 
 			{/* Card counter */}
-			{!done && (
+			{!brandsLoading && !done && (
 				<div className="text-center text-sm text-slate-500">
 					{currentIndex + 1} / {swipeBrands.length}
 				</div>
@@ -573,7 +590,7 @@ function SwipeStep({
 			<button
 				type="button"
 				onClick={onNext}
-				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
+				className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-500/25"
 			>
 				{done ? "Continue" : "Skip"}
 			</button>
@@ -595,7 +612,7 @@ function MotivationStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">What brings you to STAK?</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">What brings you to STAK?</h1>
 			</div>
 
 			<div className="space-y-3">
@@ -605,8 +622,8 @@ function MotivationStep({
 						type="button"
 						onClick={() => onToggle(option.id)}
 						className={`w-full flex items-center gap-3 text-left py-4 px-5 rounded-xl transition-all active:scale-[0.98] ${selected.includes(option.id)
-							? `${option.color} text-white border border-transparent`
-							: "bg-[#1a2332] text-white border border-slate-700 hover:border-slate-500"
+							? `${option.color} text-foreground border border-transparent`
+							: "bg-[#1a2332] text-foreground border border-slate-700 hover:border-slate-500"
 							}`}
 					>
 						<span className="text-lg">{option.icon}</span>
@@ -619,7 +636,7 @@ function MotivationStep({
 				type="button"
 				onClick={onNext}
 				disabled={selected.length === 0}
-				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+				className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
 				Continue
 			</button>
@@ -641,7 +658,7 @@ function FamiliarityStep({
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-400">
 			<div className="text-center">
-				<h1 className="text-2xl font-bold text-white">How familiar are you with stocks?</h1>
+				<h1 className="text-[22px] font-extrabold text-foreground">How familiar are you with stocks?</h1>
 			</div>
 
 			<div className="space-y-3">
@@ -651,7 +668,7 @@ function FamiliarityStep({
 						type="button"
 						onClick={() => onSelect(option.id)}
 						className={`w-full text-center py-4 px-5 rounded-xl border transition-all active:scale-[0.98] ${selected === option.id
-							? "bg-orange-500/20 border-orange-500 text-white"
+							? "bg-orange-500/20 border-orange-500 text-foreground"
 							: "bg-[#1a2332] border-slate-700 text-slate-300 hover:border-slate-500"
 							}`}
 					>
@@ -664,7 +681,7 @@ function FamiliarityStep({
 				type="button"
 				onClick={onNext}
 				disabled={!selected}
-				className="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+				className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
 			>
 				Continue
 			</button>
@@ -685,8 +702,10 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
-	const { updatePreferences, updateDeckOrder } = useAccount();
+	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { refreshClaims } = useAuth();
+	const { data: allBrandsList } = useBrandsList();
+	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
 	const userBrandIds = useMemo(() => {
 		const fromInterests = selectedInterests.flatMap((interest) => INTEREST_TO_BRANDS[interest] || []);
@@ -695,18 +714,31 @@ function BuildingStep({
 		const unique = [...new Set(combined)];
 		// Only keep brands that exist in our data
 		return unique.filter((id) => allBrands.some((b) => b.id === id)).slice(0, 4);
-	}, [selectedInterests, swipedBrandIds]);
+	}, [selectedInterests, swipedBrandIds, allBrands]);
 
 	// Fallback if user somehow has no selections
-	const SHUFFLE_BRANDS = (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).flatMap((id) => {
-		const brand = allBrands.find((b) => b.id === id);
-		if (!brand) return [];
-		return [{ id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) }];
-	});
+	const SHUFFLE_BRANDS = useMemo(
+		() => (userBrandIds.length >= 2 ? userBrandIds : ["tsla", "aapl", "spot", "amzn"]).flatMap((id) => {
+			const brand = allBrands.find((b) => b.id === id);
+			if (!brand) return [];
+			return [{ id: brand.id, name: brand.name, color: BRAND_COLORS[brand.id] || "#3b82f6", logoUrl: getBrandLogoUrl(brand), fallbackLogo: getBrandFallbackLogoUrl(brand), ultimateFallbackLogo: getBrandUltimateFallbackUrl(brand) }];
+		}),
+		[userBrandIds, allBrands],
+	);
 
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
+
+	// SwipeStep (earlier in the flow) already fetches the same catalog, so this is
+	// normally already cached by the time BuildingStep mounts -- this just guards
+	// against the rare case where it's still in flight when order's lazy
+	// initializer above ran with an empty SHUFFLE_BRANDS.
+	useEffect(() => {
+		if (order.length === 0 && SHUFFLE_BRANDS.length > 0) {
+			setOrder(SHUFFLE_BRANDS.map((_, i) => i));
+		}
+	}, [SHUFFLE_BRANDS, order.length]);
 
 	useEffect(() => {
 		// Clear any cached deck order and passed brands so Discover starts fresh
@@ -720,17 +752,21 @@ function BuildingStep({
 			...(familiarity ? { familiarity } : {}),
 			...(swipedBrandIds.length > 0 ? { onboardingSwipes: swipedBrandIds } : {}),
 		};
+		// Fire all writes — these are best-effort; onboardingCompleted is the critical one.
+		// Errors are swallowed so the animation always completes.
 		updatePreferences(prefs).catch(() => { });
-
-		// Clear any stale deckOrder from previous sessions so index.tsx always
-		// recomputes the deck from the freshly-written preferences above.
 		updateDeckOrder([]).catch(() => { });
+		const _nd = new Date(); updateLastBriefDate(`${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,"0")}-${String(_nd.getDate()).padStart(2,"0")}`).catch(() => {});
 
-		// Sync via REST — backend sets onboardingCompleted in Firestore AND
-		// writes a JWT custom claim so future loads skip this page instantly.
+		// Critical write — backend sets onboardingCompleted. If this fails the root
+		// guard will redirect back to /onboarding; the user can just re-tap "Get started"
+		// which replays this step. We log the error to aid debugging.
 		updateProfile({ onboardingCompleted: true, preferences: prefs })
 			.then(() => refreshClaims())
-			.catch(() => { });
+			.catch((err) => { console.warn("[onboarding] updateProfile failed:", err); });
+
+		logEvent("onboarding_complete", { interests: prefs.interests });
+		trackEvent("onboarding_complete", { interests: prefs.interests }).catch(() => {});
 
 		// Cards enter, then start shuffling
 		const enterTimer = setTimeout(() => setPhase("shuffle"), 600);
@@ -764,8 +800,8 @@ function BuildingStep({
 	return (
 		<div className="text-center space-y-8 animate-in fade-in duration-500">
 			<div>
-				<h1 className="text-2xl font-bold text-white">Building your STAK...</h1>
-				<p className="text-slate-400 mt-2">
+				<h1 className="text-[22px] font-extrabold text-foreground">Building your STAK...</h1>
+				<p className="dark:text-slate-400 text-slate-500 mt-2">
 					Finding the best stocks for you
 				</p>
 			</div>
@@ -814,7 +850,7 @@ function BuildingStep({
 								className="w-16 h-16 object-contain rounded-2xl"
 								onError={(e) => { const img = e.target as HTMLImageElement; if (img.dataset.errored) { img.src = brand.ultimateFallbackLogo; } else { img.dataset.errored = "1"; img.src = brand.fallbackLogo; } }}
 							/>
-							<span className="text-white text-[11px] font-bold">{brand.name}</span>
+							<span className="text-foreground text-[11px] font-bold">{brand.name}</span>
 						</div>
 					);
 				})}

@@ -1,0 +1,34 @@
+steps:
+  # Build the Docker image (context is repo root so shared/ workspace is included)
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - -t
+      - gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
+      - -f
+      - ./backend/Dockerfile
+      - .
+
+  # Push to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
+
+  # Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - stak-backend
+      - --image=gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
+      - --region=us-central1
+      - --platform=managed
+      - --quiet
+
+images:
+  - gcr.io/stak-c21a3/stak-backend:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY

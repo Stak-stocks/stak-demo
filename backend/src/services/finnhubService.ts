@@ -1,9 +1,10 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { getEasternDateKey } from "@stak/shared";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 /** Collect all configured Finnhub API keys (FINNHUB_API_KEY, FINNHUB_API_KEY_2, FINNHUB_API_KEY_3) */
-function getApiKeys(): string[] {
+export function getFinnhubKeys(): string[] {
 	return [
 		process.env.FINNHUB_API_KEY,
 		process.env.FINNHUB_API_KEY_2,
@@ -16,11 +17,11 @@ function getApiKeys(): string[] {
  * Returns the Response on success, or null if all keys are rate-limited.
  */
 async function finnhubFetch(buildUrl: (key: string) => string): Promise<Response | null> {
-	const keys = getApiKeys();
+	const keys = getFinnhubKeys();
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
 
 	for (const key of keys) {
-		const res = await fetch(buildUrl(key));
+		const res = await fetch(buildUrl(key), { signal: AbortSignal.timeout(8000) });
 		if (res.status === 403 || res.status === 429) {
 			console.warn(`Finnhub rate limited (${res.status}) on key ...${key.slice(-4)} — trying next`);
 			continue;
@@ -227,7 +228,7 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	const apiKey = process.env.NEWSAPI_KEY;
 	if (!apiKey) return [];
 
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 	const quotedName = encodeURIComponent('"' + companyName + '"');
 	const url = `https://newsapi.org/v2/everything?q=${quotedName}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
@@ -270,7 +271,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 	const apiKey = process.env.NEWSAPI_KEY;
 	if (!apiKey) return [];
 
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 	const q = encodeURIComponent('Iran war oil OR Iran oil sanctions OR Middle East conflict oil OR OPEC crude');
 	const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=10&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
@@ -307,8 +308,8 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	if (cached) return cached;
 
 	const newsSymbol = resolveNewsSymbol(symbol);
-	const today = new Date().toISOString().split("T")[0];
-	const sevenDaysAgo = new Date(Date.now() - ONE_WEEK_AGO_MS).toISOString().split("T")[0];
+	const today = getEasternDateKey();
+	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
 
 	const res = await finnhubFetch(
 		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
@@ -380,48 +381,4 @@ export async function searchNewsArticles(query: string): Promise<FinnhubArticle[
 	result = result.slice(0, 20);
 	await cacheSet(cacheKey, result, NEWS_CACHE_TTL_MS);
 	return result;
-}
-
-export interface NewsSentiment {
-	buzz: number;           // 0–1: how much the stock is talked about vs weekly average
-	bullishPercent: number; // 0–1
-	bearishPercent: number; // 0–1
-}
-
-/** Fetch news sentiment + buzz for a ticker. Cached 1 hour. */
-export async function getNewsSentiment(ticker: string): Promise<NewsSentiment | null> {
-	const cacheKey = `sentiment:${ticker}`;
-	const cached = await cacheGet<NewsSentiment>(cacheKey);
-	if (cached) return cached;
-
-	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/news-sentiment?symbol=${ticker}&token=${key}`);
-	if (!res || !res.ok) return null;
-
-	const data = await res.json();
-	if (!data?.buzz?.buzz) return null;
-
-	const result: NewsSentiment = {
-		buzz: data.buzz.buzz ?? 0,
-		bullishPercent: data.sentiment?.bullishPercent ?? 0.5,
-		bearishPercent: data.sentiment?.bearishPercent ?? 0.5,
-	};
-	await cacheSet(cacheKey, result, 60 * 60 * 1000); // 1 hour
-	return result;
-}
-
-/** Fetch market cap (in millions USD) for a ticker. Cached 7 days. */
-export async function getMarketCap(ticker: string): Promise<number | null> {
-	const cacheKey = `marketcap:${ticker}`;
-	const cached = await cacheGet<number>(cacheKey);
-	if (cached) return cached;
-
-	const res = await finnhubFetch((key) => `${FINNHUB_BASE}/stock/profile2?symbol=${ticker}&token=${key}`);
-	if (!res || !res.ok) return null;
-
-	const data = await res.json();
-	const marketCap: number | undefined = data?.marketCapitalization;
-	if (!marketCap) return null;
-
-	await cacheSet(cacheKey, marketCap, 7 * 24 * 60 * 60 * 1000); // 7 days
-	return marketCap;
 }

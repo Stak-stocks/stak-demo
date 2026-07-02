@@ -1,4 +1,5 @@
 import { auth } from "./firebase";
+import { getTodayKey } from "./utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -48,8 +49,21 @@ export function updateProfile(data: { displayName?: string; phone?: string; pref
 }
 
 // Brands
-export function getBrands() {
-	return apiRequest<{ brands: unknown[] }>("/api/brands");
+// Lightweight summary of every brand -- excludes culturalContext,
+// personalityDescription, and each financial metric's label/explanation/
+// culturalTranslation, so this stays small as the catalog grows (~225KB for
+// 333 entries vs ~850KB for the fully-bundled equivalent). Use getBrandDetail
+// for one brand's full profile when actually viewing its detail sheet.
+export function getBrandsList() {
+	return apiRequest<{ brands: import("@stak/shared").BrandSummary[] }>("/api/brands");
+}
+
+export function getBrandDetail(id: string) {
+	return apiRequest<import("@stak/shared").BrandProfile>(`/api/brands/${encodeURIComponent(id)}`);
+}
+
+export function getPopularBrands() {
+	return apiRequest<{ brandIds: string[] }>("/api/brands/popular");
 }
 
 // Stak
@@ -77,14 +91,22 @@ export function savePassedBrands(entries: { id: string; at: number }[]) {
 }
 
 // Swipe
+export interface RecordSwipeResponse {
+	success: boolean;
+	limitReached?: boolean;
+	dailySwipeCount: number;
+	dailySwipeLimit: number;
+	streakUpdate?: unknown;
+}
+
 export function recordSwipe(
 	brandId: string,
 	direction: "left" | "right",
 	meta?: { ticker?: string; categories?: string[]; stakSize?: number; timeOnCardMs?: number; swipeVelocity?: number },
 ) {
-	return apiRequest("/api/swipe", {
+	return apiRequest<RecordSwipeResponse>("/api/swipe", {
 		method: "POST",
-		body: JSON.stringify({ brandId, direction, ...meta }),
+		body: JSON.stringify({ brandId, direction, todayKey: getTodayKey(), ...meta }),
 	});
 }
 
@@ -99,11 +121,18 @@ export function recordEngagement(
 	});
 }
 
-// Live Trends (Gemini-generated, cached 3 days in Firestore)
-export function getLiveTrends(brandId: string, ticker: string, name: string) {
-	return apiRequest<{ cards: import("@/data/brands").TrendCard[]; brandId: string }>(
-		`/api/trends/${brandId}?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`,
-	);
+/** Track any named event to Firestore (shows up in the analytics dashboard).
+ *  Sends todayKey so the backend can credit streak-affecting event types
+ *  (brand_tap, playground_activity) to the user's own local day, same as
+ *  recordSwipe -- a streak is a personal daily habit, not a market concept. */
+export function trackEvent(
+	type: string,
+	params?: Record<string, unknown>,
+) {
+	return apiRequest("/api/swipe/event", {
+		method: "POST",
+		body: JSON.stringify({ type, params, todayKey: getTodayKey() }),
+	});
 }
 
 // News
@@ -115,30 +144,19 @@ export interface EarningsSignal {
 export function getCompanyNews(symbol: string, name?: string) {
 	const query = name ? `?name=${encodeURIComponent(name)}` : "";
 	return apiRequest<{
-		articles: import("@/data/brands").NewsArticle[];
+		articles: import("@stak/shared").NewsArticle[];
 		earningsSignal: EarningsSignal;
 	}>(`/api/news/company/${symbol}${query}`);
 }
 
 export function getMarketNews() {
-	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>("/api/news/market");
+	return apiRequest<{ articles: import("@stak/shared").NewsArticle[] }>("/api/news/market");
 }
 
 export function searchNews(query: string) {
-	return apiRequest<{ articles: import("@/data/brands").NewsArticle[] }>(
+	return apiRequest<{ articles: import("@stak/shared").NewsArticle[] }>(
 		`/api/news/search?q=${encodeURIComponent(query)}`,
 	);
-}
-
-export interface DynamicVibes {
-	ticker: string;
-	internetHype: number | null;
-	dramaLevel: number | null;
-	clout: number | null;
-}
-
-export function getVibes(ticker: string) {
-	return apiRequest<DynamicVibes>(`/api/vibes/${encodeURIComponent(ticker)}`);
 }
 
 export function getIntelCards() {
@@ -171,10 +189,18 @@ export function getDailySwipeCount() {
 	return apiRequest<{ date: string; count: number }>("/api/me/daily-swipes");
 }
 
-export function saveDailySwipeCount(date: string, count: number) {
-	return apiRequest("/api/me/daily-swipes", {
-		method: "PUT",
-		body: JSON.stringify({ date, count }),
+export interface SwipeLimitIncrementResponse {
+	accepted: boolean;
+	count: number;
+	limit: number;
+}
+
+/** Server-authoritative increment for the search-add / global add-to-stak paths,
+ *  which don't go through recordSwipe(). Never trust a client-side count. */
+export function incrementSwipeCountServer() {
+	return apiRequest<SwipeLimitIncrementResponse>("/api/me/swipes/increment", {
+		method: "POST",
+		body: JSON.stringify({ todayKey: getTodayKey() }),
 	});
 }
 
@@ -186,6 +212,10 @@ export interface LiveQuote {
 	low: number;
 	open: number;
 	prevClose: number;
+	marketState?: "PRE" | "REGULAR" | "POST" | "POSTPOST" | "PREPRE" | "CLOSED";
+	extendedPrice?: number | null;
+	extendedChange?: number | null;
+	extendedChangePercent?: number | null;
 }
 
 export interface LiveMetrics {
@@ -199,23 +229,7 @@ export interface LiveMetrics {
 	week52Low: number | null;
 }
 
-export interface CalendarEntry {
-	symbol: string;
-	date: string;
-	hour: string;
-	epsActual: number | null;
-	epsEstimate: number | null;
-	revenueActual: number | null;
-	revenueEstimate: number | null;
-}
 
-export function getEarningsCalendar() {
-	return apiRequest<{
-		today: CalendarEntry[];
-		tomorrow: CalendarEntry[];
-		week: CalendarEntry[];
-	}>("/api/stock/calendar");
-}
 
 export function getStockData(symbol: string) {
 	return apiRequest<{ quote: LiveQuote | null; metrics: LiveMetrics }>(`/api/stock/${encodeURIComponent(symbol)}`);
@@ -241,6 +255,44 @@ export function getMarketEarnings(period: "today" | "tomorrow" | "week", extraTi
 	);
 }
 
+export interface AnalystData {
+	priceTarget: { low: number | null; avg: number | null; high: number | null } | null;
+	recommendation: {
+		strongBuy: number; buy: number; hold: number; sell: number; strongSell: number;
+		period: string | null;
+	} | null;
+}
+
+export function getAnalystData(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystData>(`/api/stock/${encodeURIComponent(symbol)}/analyst${qs}`);
+}
+
+export interface AnalystAction {
+	firm: string;
+	action: string;
+	priceTarget: number | null;
+}
+
+export function getAnalystActions(symbol: string, name?: string) {
+	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+	return apiRequest<AnalystAction[]>(`/api/stock/${encodeURIComponent(symbol)}/analyst-actions${qs}`);
+}
+
+export interface PeerMetrics {
+	ticker: string;
+	peerTickers: string[];
+	peerCount: number;
+	pe: number | null;
+	revenueGrowth: number | null;
+	profitMargin: number | null;
+	beta: number | null;
+}
+
+export function getPeerMetrics(symbol: string) {
+	return apiRequest<PeerMetrics>(`/api/stock/peer-metrics/${encodeURIComponent(symbol)}`);
+}
+
 export function getEarnings(symbol: string, name?: string) {
 	const qs = name ? `?name=${encodeURIComponent(name)}` : "";
 	return apiRequest<{
@@ -250,43 +302,181 @@ export function getEarnings(symbol: string, name?: string) {
 	}>(`/api/stock/${encodeURIComponent(symbol)}/earnings${qs}`);
 }
 
-// Dynamic IPO-detected stocks (from Firestore, auto-populated every 2 days)
-
-// Module-level cache — populated on first fetch, refreshed every 2 hours
-const DYNAMIC_STOCKS_TTL_MS = 2 * 60 * 60 * 1000;
-let _dynamicStocksCache: import("@/data/brands").BrandProfile[] = [];
-let _dynamicStocksCachedAt = 0;
-
-export function getCachedDynamicStocks(): import("@/data/brands").BrandProfile[] {
-	return _dynamicStocksCache;
+export interface EarningsQuick {
+	period: string;
+	quarter: number;
+	year: number;
+	epsActual: number | null;
+	epsEstimate: number | null;
+	beat: boolean | null;
+	surprisePercent: number | null;
 }
 
-export async function fetchDynamicStocks(): Promise<import("@/data/brands").BrandProfile[]> {
-	// Return cache if still fresh
-	if (_dynamicStocksCache.length > 0 && Date.now() - _dynamicStocksCachedAt < DYNAMIC_STOCKS_TTL_MS) {
-		return _dynamicStocksCache;
-	}
+export function getEarningsQuick(symbol: string) {
+	return apiRequest<EarningsQuick | null>(`/api/stock/${encodeURIComponent(symbol)}/earnings-quick`);
+}
 
-	try {
-		const { brands: staticBrands } = await import("@/data/brands");
-		const staticTickers = new Set(staticBrands.map((b) => b.ticker.toUpperCase()));
+export interface DailyMoveBullet {
+	text: string;
+	tone: "bullish" | "bearish" | "neutral";
+}
+export interface DailyMoveData {
+	explanation: string;
+	direction: "up" | "down" | "flat";
+	bullets?: DailyMoveBullet[];
+}
 
-		const res = await fetch(`${API_BASE_URL}/api/stocks`);
-		if (!res.ok) return [];
-		const { stocks } = await res.json();
+export function getDailyMove(symbol: string, changePercent?: number, name?: string, sentences?: number, marketClosed?: boolean, closeRef?: string) {
+	const params = new URLSearchParams();
+	if (changePercent !== undefined) params.set("pct", changePercent.toFixed(4));
+	if (name) params.set("name", name);
+	if (sentences && sentences > 1) params.set("sentences", String(sentences));
+	if (marketClosed) params.set("marketClosed", "1");
+	if (closeRef) params.set("closeRef", closeRef);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
+}
 
-		// Filter out class-share duplicates (e.g. GOOG when GOOGL is a static brand)
-		const filtered = (stocks ?? []).filter((s: import("@/data/brands").BrandProfile) => {
-			const t = s.ticker?.toUpperCase() ?? "";
-			return ![...staticTickers].some(
-				(st) => st !== t && st.startsWith(t) && st.length === t.length + 1,
-			);
-		}) as import("@/data/brands").BrandProfile[];
+export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: string) {
+	const params = new URLSearchParams();
+	if (name) params.set("name", name);
+	if (beta) params.set("beta", beta);
+	if (pe) params.set("pe", pe);
+	const qs = params.toString() ? `?${params.toString()}` : "";
+	return apiRequest<{ risk: string | null }>(`/api/stock/${encodeURIComponent(symbol)}/key-risk${qs}`);
+}
 
-		_dynamicStocksCache = filtered;
-		_dynamicStocksCachedAt = Date.now();
-		return _dynamicStocksCache;
-	} catch {
-		return [];
-	}
+export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
+export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y";
+
+export function getStockChart(symbol: string, range: ChartRange = "1m") {
+	return apiRequest<{ prices: StockChartPoint[] }>(
+		`/api/stock/${encodeURIComponent(symbol)}/chart?range=${range}`,
+	);
+}
+
+export interface DailyBriefDeck {
+	id: string;
+	title: string;
+	subtitle: string;
+	icon: string;
+	color: "green" | "purple" | "blue";
+	bars?: boolean;
+}
+
+export interface FeaturedLesson {
+	eventType: string;
+	angle?: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+export interface DailyBriefResponse {
+	mood: "Bullish" | "Bearish" | "Cautious" | "Volatile" | "Calm" | "Mixed";
+	session: "open" | "midday" | "close";
+	dayLabel: string;
+	marketClosed: boolean;
+	nextTradingDayLabel: string;
+	moodExplanation: string;
+	plainEnglish: string;
+	personalizedImpact: string;
+	decks: DailyBriefDeck[];
+	featuredLesson?: FeaturedLesson;
+	marketSnapshot: {
+		spyChange: number | null;
+		qqqChange: number | null;
+		diaChange: number | null;
+	};
+	generatedAt: string;
+}
+
+export function getDailyBrief() {
+	return apiRequest<DailyBriefResponse>("/api/daily-brief");
+}
+
+/** Live market-open status backed by Finnhub's real exchange status (catches
+ *  unscheduled closures and any NYSE holiday-schedule change) — not just the
+ *  client-side algorithmic holiday calendar. Public, no auth required. */
+export function getMarketStatusLive() {
+	return apiRequest<{ isOpen: boolean; holiday: string | null }>("/api/daily-brief/market-status");
+}
+
+export function getFeaturedLesson() {
+	return apiRequest<{ lesson: FeaturedLesson | null; isMarketDay?: boolean; isTradingDay?: boolean }>("/api/daily-brief/featured-lesson");
+}
+
+export interface GeneratedLesson {
+	topic: string;
+	angle: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+export function getGeneratedLesson() {
+	return apiRequest<{ lesson: GeneratedLesson | null }>("/api/daily-brief/generated-lesson");
+}
+
+export interface RecommendationDebugStock {
+	ticker: string;
+	primaryCategory: string;
+	displayTags: string[];
+	finalScore: number;
+	scoreBreakdown: {
+		tasteMatchScore: number;
+		freshnessBoost: number;
+		dailyBriefThemeBoost: number;
+		diversityAdjustment: number;
+	};
+	matchedUserTags: string[];
+}
+
+export interface FreshnessSignals {
+	majorNewsLast48h: string[];
+	unusualMovers: string[];
+	analystUpdatesLast7d: string[];
+}
+
+export function getRecommendationFreshness() {
+	return apiRequest<FreshnessSignals>("/api/recommendations/freshness");
+}
+
+export function getRecommendationDebug(limit = 50) {
+	return apiRequest<{
+		uid: string;
+		hasTagScores: boolean;
+		tagScoreCount: number;
+		upcomingEarningsCount: number;
+		upcomingEarningsTickers: string[];
+		totalStocks: number;
+		returnedCount: number;
+		stocks: RecommendationDebugStock[];
+	}>(`/api/recommendations/debug?limit=${limit}`);
+}
+
+export async function generatePlaygroundQuestions(
+	dayKey: string,
+	tier: number,
+	type: "battle" | "earnings" | "risk" | "mood" | "lesson" | "drill_sentiment" | "drill_nextstep",
+	count: number,
+): Promise<unknown[]> {
+	return apiRequest<{ questions: unknown[] }>("/api/playground/generate", {
+		method: "POST",
+		body: JSON.stringify({ dayKey, tier, type, count }),
+	}).then(r => r.questions ?? []);
 }

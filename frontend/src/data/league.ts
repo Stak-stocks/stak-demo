@@ -1,7 +1,7 @@
-import type { BrandProfile } from "./brands";
+import type { BrandSummary } from "@stak/shared";
 
 export interface LeagueLineup {
-	starters: BrandProfile[];
+	starters: BrandSummary[];
 	locked: boolean;
 	weekStartDate: string;
 }

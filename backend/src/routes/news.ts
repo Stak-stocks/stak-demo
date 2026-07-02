@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
+import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
@@ -8,6 +9,60 @@ const COMPANY_NEWS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const SEARCH_NEWS_TTL_MS  =  5 * 60 * 1000; //  5 minutes
 
 export const newsRouter = Router();
+
+// ── Non-financial content filter ─────────────────────────────────────────────
+const NON_FINANCIAL_KEYWORDS = [
+	// Academic / research
+	"researchgate", "abstract", "methodology", "case study", "literature review",
+	"peer-reviewed", "peer reviewed", "scientific american", "arxiv", "pubmed",
+	"scientific reports", "journal of", "meta-analysis", "randomized trial",
+	"research paper", "university study", "hypothesis", "clinical study",
+	"dissertation", "scholarly", "academic journal", "neuroscience", "paleontology",
+	"archaeology", "astronomy", "astrophysics", "marine biology", "ecology study",
+	// Entertainment
+	"film review", "tv show", "movie trailer", "cast member",
+	"actor", "actress", "celebrity gossip", "album release", "concert tour", "spoiler",
+	"streaming now", "grammy", "oscar", "emmy", "golden globe", "music video",
+	"new album", "season finale", "reality show", "podcast episode", "box office hit",
+	"tiktok viral", "youtube video", "viral video", "movie review", "new movie",
+	"new series", "binge watch", "fan theory", "comic con", "anime", "manga",
+	"video game release", "game review", "esports tournament", "twitch stream",
+	"new song", "music tour", "festival lineup", "celebrity gossip", "red carpet",
+	"award show", "mtv awards", "bet awards", "billboard chart",
+	// Wrestling / combat entertainment
+	"wwe", "wrestlemania", "wwe raw", "smackdown", "aew wrestling", "wwe champion",
+	"wrestling match", "royal rumble", "summerslam", "monday night raw",
+	"pro wrestling", "ufc fight night", "bellator mma",
+	// Sports (non-financial)
+	"nfl draft", "nba trade", "fifa", "premier league", "la liga", "champions league",
+	"match result", "game recap", "touchdown", "hat trick", "transfer window",
+	"super bowl", "world cup", "nba finals", "stanley cup",
+	"boxing match", "tennis tournament", "golf tournament", "olympic games",
+	"mlb season", "nhl season", "sports highlights", "sports scores",
+	"fantasy football", "fantasy sports", "draft picks", "trade deadline",
+	"roster move", "injury report", "player stats", "game preview", "halftime",
+	"march madness", "ncaa tournament", "college football", "college basketball",
+	"formula 1 race", "f1 race", "nascar race", "motogp",
+	// Personal finance / lifestyle
+	"side hustle", "passive income", "how i earned", "quit my job", "started a business",
+	"budgeting tips", "credit score tips", "retirement tips", "career advice",
+	"entrepreneurship tips", "get rich quick", "financial freedom", "dave ramsey",
+	"weight loss", "fitness tips", "diet plan", "mental health tips",
+	"relationship advice", "travel guide", "travel tips", "recipe", "cooking tips",
+	"home decor", "fashion tips", "beauty tips", "skincare routine",
+	"horoscope", "astrology reading", "meditation guide", "self help",
+	"morning routine", "productivity tips", "life hack", "parenting tips",
+	"pet care", "dog training", "cat care", "gardening tips",
+	// Political (no market angle)
+	"political rally", "campaign trail", "election debate", "poll numbers",
+	"approval rating", "political speech", "party convention",
+	"gun control debate", "abortion rights rally", "social justice protest",
+];
+
+function isNonFinancial(headline: string, summary: string): boolean {
+	const text = `${headline} ${summary}`.toLowerCase();
+	return NON_FINANCIAL_KEYWORDS.some((kw) => text.includes(kw));
+}
 
 // ── Topic diversity cap ───────────────────────────────────────────────────────
 const STOP_WORDS = new Set([
@@ -19,7 +74,7 @@ const STOP_WORDS = new Set([
 
 function extractTerms(headline: string): string[] {
 	return headline.toLowerCase()
-		.replace(/[^a-z\s]/g, " ")
+		.replaceAll(/[^a-z\s]/g, " ")
 		.split(/\s+/)
 		.filter((w) => w.length > 4 && !STOP_WORDS.has(w));
 }
@@ -46,22 +101,9 @@ function capByTopicDiversity(articles: FinnhubArticle[], maxPerCluster = 2): Fin
 }
 
 // ── Earnings signal extraction from article headlines ────────────────────────
-const EARNINGS_CORE = [
-	// Direct mentions
-	"earnings", "eps",
-	// Results announcements (the most common phrasing in press releases)
-	"financial results", "quarterly results", "quarterly earnings",
-	"annual results", "full year results", "fourth quarter results",
-	"third quarter results", "second quarter results", "first quarter results",
-	"q1 results", "q2 results", "q3 results", "q4 results",
-	"results for the quarter", "results for the year",
-	// Report/announce patterns
-	"reports results", "reports revenue", "reports earnings",
-	"announces results", "announces earnings", "announces revenue",
-	"fiscal quarter", "revenue and earnings",
-	// Revenue + period patterns
-	"quarterly revenue", "q4 revenue", "q3 revenue", "q2 revenue", "q1 revenue",
-];
+// EARNINGS_CORE lives in earningsResultConsensus.ts -- shared with stock.ts's
+// resolveEarningsStatus, which uses it to decide when to check for a confirmed
+// result sooner instead of waiting on Finnhub's calendar/EPS-history alone.
 const UPCOMING_WORDS = [
 	"upcoming earnings", "reports earnings on", "will report earnings",
 	"scheduled to report", "earnings date", "earnings call scheduled",
@@ -108,11 +150,11 @@ newsRouter.get("/market", async (_req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const raw = await getMarketNews(40);
-		const articles = capByTopicDiversity(raw, 2).slice(0, 16);
+		const raw = await getMarketNews(30);
+		const articles = capByTopicDiversity(raw, 2).slice(0, 10);
 		const simplified = await simplifyArticles(articles, articles.map(() => "macro" as const));
 		const result = { articles: simplified };
-		await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);
+		if (simplified.length > 0) await cacheSet(cacheKey, result, MARKET_NEWS_TTL_MS);
 		res.json(result);
 	} catch (error) {
 		console.error("Error fetching market news:", error);
@@ -133,9 +175,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const articles = await getCompanyNews(ticker, 24, companyName);
 
 		if (articles.length === 0) {
-			const result = { articles: [], earningsSignal: { status: "none", date: null } };
-			await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
-			res.json(result);
+			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
 			return;
 		}
 
@@ -161,7 +201,7 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 			? { articles: [], earningsSignal }
 			: { articles: simplified, earningsSignal };
 
-		await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
+		if (simplified.length > 0) await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
 		res.json(result);
 	} catch (error) {
 		console.error("Error fetching company news:", error);
@@ -181,7 +221,9 @@ newsRouter.get("/search", async (req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const articles = await searchNewsArticles(q);
+		const raw = await searchNewsArticles(q);
+		const keywordFiltered = raw.filter((a) => !isNonFinancial(a.headline, a.summary));
+		const articles = await filterMarketRelevant(keywordFiltered, q);
 		if (articles.length === 0) {
 			res.json({ articles: [] });
 			return;

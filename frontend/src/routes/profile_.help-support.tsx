@@ -45,14 +45,14 @@ function FaqItem({ q, a, action }: Readonly<{ q: string; a: string; action?: "se
 				onClick={() => setOpen((v) => !v)}
 				className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
 			>
-				<span className="text-sm font-medium text-zinc-900 dark:text-white">{q}</span>
+				<span className="text-sm font-medium text-foreground">{q}</span>
 				<ChevronDown
-					className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+					className={`w-4 h-4 dark:text-zinc-400 text-zinc-600 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
 				/>
 			</button>
 			{open && (
 				<div className="px-4 pb-4">
-					<p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{a}</p>
+					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 leading-relaxed">{a}</p>
 					{action === "security" && (
 						<button
 							type="button"
@@ -76,7 +76,7 @@ function HelpSupportPage() {
 
 	return (
 		<div
-			className="min-h-screen bg-background text-zinc-900 dark:text-white pb-24"
+			className="min-h-screen bg-background text-foreground pb-24"
 			onTouchStart={(e) => {
 				touchStartX.current = e.touches[0].clientX;
 				touchStartY.current = e.touches[0].clientY;
@@ -92,7 +92,7 @@ function HelpSupportPage() {
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
 				>
 					<ChevronLeft className="w-5 h-5" />
 					Back
@@ -109,7 +109,7 @@ function HelpSupportPage() {
 						<span className="text-3xl">🛟</span>
 					</div>
 					<h2 className="text-lg font-bold mb-1">How can we help?</h2>
-					<p className="text-sm text-zinc-500 dark:text-zinc-400">
+					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
 						Check the FAQs below or send us a message and we'll get you sorted.
 					</p>
 				</div>
@@ -118,7 +118,7 @@ function HelpSupportPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
 					Frequently Asked Questions
 				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6 shadow-sm dark:shadow-none">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6 shadow-sm dark:shadow-none">
 					{FAQS.map((item) => (
 						<FaqItem key={item.q} q={item.q} a={item.a} action={item.action} />
 					))}
@@ -128,19 +128,19 @@ function HelpSupportPage() {
 				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
 					Still need help?
 				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-[#0f1729]/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 shadow-sm dark:shadow-none">
+				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 shadow-sm dark:shadow-none">
 					<div className="px-4 py-4">
-						<p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">
+						<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mb-1">
 							Hit a snag or found a bug? Drop us the details and our team will get back to you.
 						</p>
-						<p className="text-xs text-zinc-400 dark:text-zinc-600 mb-4">
+						<p className="text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-600 mb-4">
 							We typically reply within 24–48 hours.
 						</p>
 						<a
 							href="https://forms.gle/6v8mDfyN1DHFsK5M6"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all text-white font-semibold text-sm"
+							className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all text-foreground font-semibold text-sm"
 						>
 							<MessageSquare className="w-4 h-4" />
 							Contact Us

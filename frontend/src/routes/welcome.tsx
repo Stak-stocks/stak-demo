@@ -2828,7 +2828,7 @@ export function LandingPage() {
 	}, []);
 
 	return (
-		<div ref={scrollRef} style={{ background: SECTION_BG, height: "100vh", overflowY: "auto", overflowX: "hidden" }}>
+		<div ref={scrollRef} className="landing-scroll" style={{ background: SECTION_BG, height: "100vh", overflowY: "auto", overflowX: "hidden", scrollbarWidth: "none" }}>
 			<link
 				href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@300;400;600;700&display=swap"
 				rel="stylesheet"
@@ -2845,6 +2845,9 @@ export function LandingPage() {
 					src: url("/fonts/squarish-sans-ct-sc.ttf") format("truetype");
 					font-weight: 400 800;
 					font-display: swap;
+				}
+				.landing-scroll::-webkit-scrollbar {
+					display: none;
 				}
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);

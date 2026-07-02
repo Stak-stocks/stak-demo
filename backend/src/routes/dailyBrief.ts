@@ -1,0 +1,1047 @@
+import { Router } from "express";
+import { adminDb } from "../firebaseAdmin.js";
+import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
+import { cacheGet, cacheSet } from "../lib/cache.js";
+import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
+import {
+	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
+	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
+} from "../services/marketMood.js";
+import { getISOWeek } from "../services/streakService.js";
+import { getFinnhubKeys } from "../services/finnhubService.js";
+import { getGeminiKeys } from "../services/geminiService.js";
+
+export const dailyBriefRouter = Router();
+
+const FINNHUB_BASE = "https://finnhub.io/api/v1";
+
+async function finnhubGet(path: string): Promise<unknown | null> {
+	const keys = getFinnhubKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
+			if (res.status === 403 || res.status === 429) continue;
+			if (!res.ok) return null;
+			return res.json();
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
+async function getQuoteChange(symbol: string): Promise<number | null> {
+	const cacheKey = `daily-brief:quote:${symbol}`;
+	const cached = await cacheGet<number>(cacheKey);
+	if (cached !== null) return cached;
+
+	const q = await finnhubGet(`/quote?symbol=${symbol}`) as { dp?: number } | null;
+	if (q?.dp == null) return null;
+
+	const pct = Math.round(q.dp * 10) / 10;
+	await cacheSet(cacheKey, pct, 5 * 60 * 1000);
+	return pct;
+}
+
+type Session = "open" | "midday" | "close";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string | null }> {
+	const cacheKey = "market-status:us";
+	const cached = await cacheGet<{ isOpen: boolean; holiday: string | null }>(cacheKey);
+	if (cached) return cached;
+
+	try {
+		const keys = getFinnhubKeys();
+		for (const key of keys) {
+			const res = await fetch(`${FINNHUB_BASE}/stock/market-status?exchange=US&token=${key}`);
+			if (!res.ok) continue;
+			const data = await res.json() as { isOpen?: boolean; holiday?: string | null };
+			if (typeof data.isOpen === "boolean") {
+				const result = { isOpen: data.isOpen, holiday: data.holiday ?? null };
+				// Cache for 10 min — short enough to catch intraday open/close transitions
+				await cacheSet(cacheKey, result, 10 * 60 * 1000);
+				return result;
+			}
+		}
+	} catch { /* fall through to weekend check */ }
+
+	return { isOpen: false, holiday: null };
+}
+
+// GET /api/daily-brief/market-status — public, no auth required (used by guests too).
+// Lightweight live status check backed by Finnhub's real exchange status, not just
+// the algorithmic holiday calendar — catches unscheduled closures (weather, days of
+// mourning) and any NYSE holiday-schedule change that the hardcoded list doesn't
+// know about yet. Reuses fetchMarketStatus()'s existing 10-min cache.
+dailyBriefRouter.get("/market-status", async (_req, res) => {
+	try {
+		const { isOpen, holiday } = await fetchMarketStatus();
+		res.json({ isOpen, holiday });
+	} catch {
+		res.status(500).json({ error: "Failed to fetch market status" });
+	}
+});
+
+// Walks forward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getNextTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysAhead = 1; daysAhead <= 10; daysAhead++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() + daysAhead);
+		const dayNum = d.getUTCDay();
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return daysAhead === 1 ? "tomorrow" : DAY_NAMES[dayNum];
+	}
+	return "tomorrow";
+}
+
+// Algorithmic set is always the base — Gemini only adds unexpected closures on top.
+// This prevents a Gemini miss (e.g. omitting Juneteenth) from causing wrong "last close" labels.
+async function fetchMarketHolidays(): Promise<Set<string>> {
+	const year = new Date().getFullYear();
+	const cacheKey = `market-holidays:gemini:v2:${year}`;
+	const algorithmic = getNYSEHolidays(year);
+
+	const cached = await cacheGet<string[]>(cacheKey);
+	if (cached) return new Set([...algorithmic, ...cached]);
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text:
+							`List every official NYSE US stock market holiday in ${year} — including any unexpected closures — as a JSON array of date strings in YYYY-MM-DD format. Return ONLY the JSON array, no explanation, no markdown fences.`
+						}] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+					}),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim() ?? "";
+			const match = text.match(/\[[\s\S]*?\]/);
+			if (!match) continue;
+			const parsed: unknown = JSON.parse(match[0]);
+			if (!Array.isArray(parsed)) continue;
+			const dates = (parsed as unknown[]).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
+			if (dates.length < 5) continue; // sanity check — a valid year has at least 9 holidays
+			await cacheSet(cacheKey, dates, 7 * 24 * 60 * 60 * 1000); // cache 7 days
+			return new Set([...algorithmic, ...dates]);
+		} catch { continue; }
+	}
+
+	return algorithmic;
+}
+
+// Walks backward from etDateStr until it finds a day that is not a weekend or holiday.
+async function getLastTradingDayLabel(etDateStr: string): Promise<string> {
+	const holidays = await fetchMarketHolidays();
+	for (let daysBack = 1; daysBack <= 10; daysBack++) {
+		const d = new Date(etDateStr + "T12:00:00Z");
+		d.setUTCDate(d.getUTCDate() - daysBack);
+		const dayNum = d.getUTCDay(); // 0=Sun … 6=Sat
+		if (dayNum === 0 || dayNum === 6) continue;
+		const dateStr = d.toISOString().split("T")[0];
+		if (holidays.has(dateStr)) continue;
+		return DAY_NAMES[dayNum] + "'s";
+	}
+	// Fallback — should never be reached
+	return "Last trading day's";
+}
+
+async function getMarketStatus(): Promise<{ session: Session; marketClosed: boolean; holiday: string | null; dayLabel: string; nextTradingDayLabel: string }> {
+	const now = new Date();
+	const etDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD
+	const etDayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const etDayNum  = DAY_NAMES.indexOf(etDayName);
+	const etHour = parseInt(now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
+	const etMin  = parseInt(now.toLocaleString("en-US", { minute: "2-digit", timeZone: "America/New_York" }), 10);
+	const total  = etHour * 60 + etMin;
+	const nextTradingDayLabel = await getNextTradingDayLabel(etDateStr);
+
+	const isWeekend = etDayNum === 0 || etDayNum === 6;
+
+	// Fast path: skip Finnhub status API on weekends, but still need holiday list for dayLabel
+	if (isWeekend) {
+		const dayLabel = await getLastTradingDayLabel(etDateStr);
+		return { session: "close", marketClosed: true, holiday: null, dayLabel, nextTradingDayLabel };
+	}
+
+	const { isOpen, holiday } = await fetchMarketStatus();
+
+	if (!isOpen) {
+		// Before 9:30am = pre-market — today's session hasn't started, use last trading day
+		// After 4pm with no holiday = today's session finished normally
+		const isPreMarket = total < 9 * 60 + 30;
+		const dayLabel = (holiday == null && !isPreMarket) ? "Today's" : await getLastTradingDayLabel(etDateStr);
+		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
+	}
+
+	let session: Session;
+	if (total < 12 * 60)           session = "open";
+	else if (total < 15 * 60 + 30) session = "midday";
+	else                           session = "close";
+
+	return { session, marketClosed: false, holiday: null, dayLabel: "Today's", nextTradingDayLabel };
+}
+
+
+function getFallbackText(mood: Mood): { moodExplanation: string; plainEnglish: string } {
+	const map: Record<Mood, { moodExplanation: string; plainEnglish: string }> = {
+		Bullish:   { moodExplanation: "Stocks moved higher today with broad strength across major indexes and low volatility.", plainEnglish: "The S&P and Nasdaq are both up today as investors lean into risk. Growth and tech names are leading — a good session to watch what's running." },
+		Bearish:   { moodExplanation: "Stocks moved lower today as selling pressure spread across most sectors with VIX rising.", plainEnglish: "Markets are under pressure today with broad selling across sectors. This kind of pullback is normal — not a crash, but worth watching your risk exposure." },
+		Cautious:  { moodExplanation: "Markets are holding near flat as investors wait on upcoming economic data before making bigger moves.", plainEnglish: "No big moves today — investors are in wait-and-see mode ahead of key data. Expect lower volume until a catalyst arrives." },
+		Volatile:  { moodExplanation: "Stocks swung sharply today as major catalysts triggered large moves across indexes.", plainEnglish: "Big swings in both directions today — a catalyst hit and volatility spiked. Stocks in your Stak may move more than usual." },
+		Calm:      { moodExplanation: "Major indexes are near flat today with low volatility and no major catalyst in play.", plainEnglish: "Markets are quiet today — no major news moving things. A good day to study fundamentals rather than react to price action." },
+		Mixed:     { moodExplanation: "The market has no clear direction — growth names and value stocks are moving in opposite directions.", plainEnglish: "The broader market is split today. Some sectors are up while others pull back — what you own matters more than the overall index direction." },
+		"Risk-On": { moodExplanation: "Investors are leaning into growth today with tech, AI, and higher-upside names outperforming.", plainEnglish: "It's a risk-on session — growth and tech stocks are getting attention while the VIX falls. Good day to watch momentum names." },
+		"Risk-Off": { moodExplanation: "Investors shifted toward defensive assets today as growth and speculative stocks came under pressure.", plainEnglish: "Investors are playing defense today — riskier names are selling off while stable, dividend-paying stocks hold up better." },
+	};
+	return map[mood];
+}
+
+const SESSION_TONE: Record<Session, string> = {
+	open:   "Markets are opening right now. Write in a forward-looking tone — what should investors watch for today?",
+	midday: "Markets are mid-session. Write in a present-tense tone — how are markets trending so far today?",
+	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
+};
+
+async function searchMarketDrivers(today: string, skipSearch: boolean): Promise<string | null> {
+	const cacheKey = `daily-brief:drivers:v1:${today}`;
+	const cached = await cacheGet<string>(cacheKey);
+	if (cached) return cached;
+
+	// Skip on weekends/holidays (no session happened) — but still run after normal weekday close
+	if (skipSearch) return null;
+
+	const prompt = `Search the web for what is driving US stock markets today (${today}). Look for:
+- Federal Reserve / FOMC rate decisions or statements
+- Economic data releases with actual numbers (CPI, PCE, jobs/nonfarm payrolls, GDP, PPI, retail sales, ISM, jobless claims)
+- Major earnings reports from large-cap companies with results vs estimates
+- Geopolitical events, tariffs, or trade news affecting markets
+- Oil, bond yields, or currency moves causing broad market shifts
+
+Return a factual 3-4 sentence paragraph summarising the 1-3 most significant things happening today. Include real numbers where available (e.g. "CPI came in at 3.1% vs 3.0% expected"). Plain text only, no markdown. If markets are closed or nothing significant is happening, return an empty string.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tools: [{ google_search: {} }],
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
+					}),
+					signal: AbortSignal.timeout(20000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim();
+			if (!text) continue;
+			await cacheSet(cacheKey, text, 6 * 60 * 60 * 1000);
+			return text;
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
+async function generateMarketText(
+	mood: Mood,
+	session: Session,
+	spyDp: number | null,
+	qqqDp: number | null,
+	diaDp: number | null,
+	vixDp?: number | null,
+	sectorsGreen?: number,
+	sectorsRed?: number,
+	topSector?: string | null,
+	worstSector?: string | null,
+	marketClosed = false,
+	dayLabel = "Today's",
+	marketDrivers: string | null = null,
+	holiday: string | null = null,
+): Promise<{ moodExplanation: string; plainEnglish: string }> {
+	const today = getEasternDateKey();
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:text:v11:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
+	if (cached) return cached;
+
+	const fmt = (v: number | null | undefined, prefix = "") => v != null ? `${prefix}${v >= 0 ? "+" : ""}${v}%` : null;
+	const snapshot = [
+		spyDp != null   ? `S&P 500 ${fmt(spyDp)}` : null,
+		qqqDp != null   ? `Nasdaq ${fmt(qqqDp)}` : null,
+		diaDp != null   ? `Dow ${fmt(diaDp)}` : null,
+		vixDp != null   ? `VIX ${fmt(vixDp)}` : null,
+		sectorsGreen != null ? `${sectorsGreen} sectors green, ${sectorsRed ?? 0} red` : null,
+		topSector       ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
+
+	const etDayName = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const etDateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" });
+
+	// lastDayName: "today" when dayLabel is "Today's" (after-hours on a normal weekday), else the actual day name
+	const isToday = dayLabel === "Today's";
+	const lastDayName = isToday ? "today" : dayLabel.replace(/'s$/, "");
+
+	const timeContext = marketClosed
+		? holiday
+			? `Today is ${etDateStr} — a US market holiday (${holiday}), so markets are closed. Acknowledge the holiday by name. This is a recap of ${lastDayName}'s session. Write in past tense.`
+			: isToday
+				? `The market closed earlier today. This is a recap of today's session. Use 'today' — do NOT say the day name. Write in past tense.`
+				: `The market is closed (weekend). This is a recap of ${lastDayName}'s close. Use 'on ${lastDayName}' or 'at ${lastDayName}'s close' — never say 'today' or any other day name. Write in past tense.`
+		: `Today is ${etDateStr}. ${SESSION_TONE[session]} Always say 'today' when referencing this session — do NOT say '${etDayName}' or reference any prior day.`;
+
+	const timeWord = marketClosed && !isToday ? `on ${lastDayName}` : "today";
+	const driversSection = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}` : "";
+
+	const prompt = `You are writing a market brief for a stock-learning app. Young investors need specific, data-backed context — not vague descriptions.
+
+Market data: ${snapshot || "data unavailable"}
+Overall mood: ${mood}
+${timeContext}${driversSection}
+
+Return JSON with exactly two fields:
+
+"moodExplanation": 1–2 sentences explaining WHAT drove markets ${timeWord}. Use the live driver info above to name the real reason (e.g. Fed decision, CPI miss, earnings). Reference actual numbers. Max 140 chars.
+
+"plainEnglish": 2 short sentences. Sentence 1: what happened and WHY — use the real driver from above if available (e.g. "CPI came in hotter than expected, pushing the S&P down 1.2%"). Sentence 2: what this means for someone watching their stocks heading into the next session. Max 180 chars total.
+
+No financial advice. No disclaimers. Just describe what happened clearly.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+					}),
+					signal: AbortSignal.timeout(12000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as {
+				candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+			};
+			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (!text) continue;
+			const parsed = JSON.parse(text) as { moodExplanation?: string; plainEnglish?: string };
+			if (parsed.moodExplanation && parsed.plainEnglish) {
+				await cacheSet(cacheKey, parsed, 4 * 60 * 60 * 1000);
+				return { moodExplanation: parsed.moodExplanation, plainEnglish: parsed.plainEnglish };
+			}
+		} catch {
+			continue;
+		}
+	}
+
+	return getFallbackText(mood);
+}
+
+const TAG_LABELS: Record<string, string> = {
+	technology:      "tech",
+	consumer_brand:  "consumer brands",
+	high_growth:     "high-growth stocks",
+	ecommerce:       "e-commerce",
+	marketplace:     "marketplace platforms",
+	financials:      "financials",
+	digital_ads:     "digital advertising",
+	semiconductor:   "semiconductors",
+	ai_data:         "AI and data",
+	streaming:       "streaming",
+	social_media:    "social media",
+	payments:        "payments",
+	saas:            "software/SaaS",
+	ev_auto:         "EVs",
+	retail:          "retail",
+	healthcare:      "healthcare",
+	energy:          "energy",
+	dividend_income: "dividend stocks",
+	real_estate:     "real estate",
+	travel:          "travel",
+};
+
+function buildPersonalizedImpact(tagScores: Record<string, number>, mood: Mood, marketClosed = false): string {
+	const top = Object.entries(tagScores)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 3)
+		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
+
+	if (top.length === 0) {
+		return "Swipe on more brands to unlock personalized market insights here.";
+	}
+
+	const topStr = top.length === 1
+		? top[0]
+		: top.length === 2
+			? `${top[0]} and ${top[1]}`
+			: `${top[0]}, ${top[1]}, and ${top[2]}`;
+
+	const t = marketClosed ? "at last close" : "today";
+	const context: Record<Mood, string> = {
+		Bullish:    `tend to benefit most when markets rally — worth exploring ${t}.`,
+		Bearish:    `may have seen pressure ${t}. Watch for dips that could be buying opportunities.`,
+		Cautious:   `could see choppier moves than usual with recent uncertainty.`,
+		Volatile:   `may swing sharply — big moves in either direction are possible.`,
+		Calm:       `fundamentals can shine through on quiet sessions like this.`,
+		Mixed:      `results ${t} will depend on individual catalysts, not the broad market.`,
+		"Risk-On":  `are in focus as investors lean into growth and higher-upside names.`,
+		"Risk-Off": `may face headwinds as investors rotate toward safer, more defensive positions.`,
+	};
+
+	return `Your feed leans toward ${topStr} — those ${context[mood]}`;
+}
+
+async function generatePersonalizedImpact(
+	tagScores: Record<string, number>,
+	stakBrandIds: string[],
+	mood: Mood,
+	session: Session,
+	market: MarketData,
+	uid: string,
+	marketClosed = false,
+	marketDrivers: string | null = null,
+	holiday: string | null = null,
+	dayLabel = "Today's",
+): Promise<string> {
+	const today = getEasternDateKey();
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:impact:v11:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	const cached = await cacheGet<string>(cacheKey);
+	if (cached) return cached;
+
+	if (stakBrandIds.length === 0 && Object.keys(tagScores).length === 0) {
+		return "Swipe on more brands to unlock personalized market insights here.";
+	}
+
+	// Look up tickers + names for top 5 staked brands, then fetch their today's move
+	let stockLines: string[] = [];
+	const topIds = stakBrandIds.slice(0, 5);
+	if (topIds.length > 0) {
+		try {
+			// Was reading adminDb.collection("brands") -- a Firestore collection
+			// nothing in the backend ever writes to, so this lookup always missed
+			// and stockLines stayed empty. Brand data actually lives in the
+			// @stak/shared catalog; no Firestore round-trip needed for this at all.
+			const brandInfos = topIds
+				.map(id => brands.find(b => b.id === id))
+				.filter((b): b is NonNullable<typeof b> => !!b?.ticker)
+				.map(b => ({ ticker: b.ticker, name: b.name }))
+				.slice(0, 4);
+
+			if (brandInfos.length > 0) {
+				const changes = await Promise.all(brandInfos.map(b => getQuoteChange(b.ticker)));
+				stockLines = brandInfos.map((b, i) => {
+					const c = changes[i];
+					if (c === null) return null;
+					return `${b.name} (${b.ticker}) ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+				}).filter(Boolean) as string[];
+			}
+		} catch {
+			// non-fatal
+		}
+	}
+
+	// Build full market context with real numbers
+	const { spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = market;
+	const marketLines = [
+		spyDp !== null ? `S&P 500 ${spyDp >= 0 ? "+" : ""}${spyDp.toFixed(2)}%` : null,
+		qqqDp !== null ? `Nasdaq ${qqqDp >= 0 ? "+" : ""}${qqqDp.toFixed(2)}%` : null,
+		diaDp !== null ? `Dow ${diaDp >= 0 ? "+" : ""}${diaDp.toFixed(2)}%` : null,
+		vixDp !== null ? `VIX ${vixDp >= 0 ? "+" : ""}${vixDp.toFixed(1)}%` : null,
+		(sectorsGreen !== null && sectorsRed !== null) ? `${sectorsGreen}/11 sectors green` : null,
+		topSector ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
+
+	// Fallback to tag interests if no stock data
+	const topTags = Object.entries(tagScores)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 3)
+		.map(([tag]) => TAG_LABELS[tag] ?? tag.replace(/_/g, " "));
+
+	const etDayNameImpact = new Date().toLocaleString("en-US", { weekday: "long", timeZone: "America/New_York" });
+	const isTodayImpact = dayLabel === "Today's";
+	const lastDayNameImpact = isTodayImpact ? "today" : dayLabel.replace(/'s$/, "");
+
+	const lastSessionRef = marketClosed && !isTodayImpact ? `${lastDayNameImpact}'s` : "today's";
+	const stockSection = stockLines.length > 0
+		? `User's stocks at ${lastSessionRef} close: ${stockLines.join(", ")}`
+		: topTags.length > 0
+			? `User's top interests: ${topTags.join(", ")}`
+			: "User hasn't saved stocks yet";
+
+	const timeWord = marketClosed && !isTodayImpact ? `on ${lastDayNameImpact}` : "today";
+	const actionWord = marketClosed ? "watch for when markets reopen" : "watch or act on today";
+	const holidayNote = holiday ? `Today is a US market holiday (${holiday}) — markets are closed.\n` : "";
+	const driversLine = marketDrivers ? `\nWhat's driving markets ${timeWord} (from live search):\n${marketDrivers}\n` : "";
+
+	const prompt = `You are writing the "Why this matters to you" section of a daily market brief inside the STAK investing app (Gen Z/millennial audience).
+
+${holidayNote}${marketClosed ? `${lastSessionRef.charAt(0).toUpperCase() + lastSessionRef.slice(1)} close` : "Today's live"} market data:
+${marketLines || "unavailable"}
+${driversLine}
+${stockSection}
+Mood: ${mood}
+
+Write exactly 2 punchy sentences:
+1. If stocks are listed above, name the single most relevant one, connect it to the real driver above (e.g. "With the Fed holding rates, growth stocks like NVDA face continued pressure"), and include the actual % move. If no stocks are listed, reference the leading or lagging sector instead. Do NOT use the word "today" if the market is closed.
+2. Give one specific, concrete thing to ${actionWord} — tied directly to the mood (${mood}), the real driver above, and leading/lagging sectors.
+
+CRITICAL RULES:
+- ONLY use stock names that appear verbatim in the section above. NEVER guess, invent, or add stock names that are not listed.
+- Do NOT write phrases like "if [stock] is in your list" or any conditional about whether a stock is relevant — just use the names given or omit them.
+- Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
+- Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 200 },
+					}),
+					signal: AbortSignal.timeout(12000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as {
+				candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+			};
+			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+			if (!text) continue;
+			await cacheSet(cacheKey, text, 24 * 60 * 60 * 1000);
+			return text;
+		} catch {
+			continue;
+		}
+	}
+
+	return buildPersonalizedImpact(tagScores, mood, marketClosed);
+}
+
+// ── Market lesson (standalone, for Playground Featured) ──────────────────────
+
+interface MarketLessonResponse {
+	eventType: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+interface GlobalLessonHistoryEntry { date: string; eventType: string; title: string; angle: string; }
+
+async function isTradingDay(): Promise<boolean> {
+	const etDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+	const d = new Date(etDateStr + "T12:00:00Z");
+	const dayNum = d.getUTCDay();
+	if (dayNum === 0 || dayNum === 6) return false;
+	const holidays = await fetchMarketHolidays();
+	return !holidays.has(etDateStr);
+}
+
+async function getGlobalFeaturedLessonHistory(): Promise<GlobalLessonHistoryEntry[]> {
+	const cacheKey = `playground:featured-lesson-history:v1`;
+	const cached = await cacheGet<GlobalLessonHistoryEntry[]>(cacheKey);
+	if (cached) return cached;
+	try {
+		const snap = await adminDb.collection("config").doc("featured-lesson-history").get();
+		if (snap.exists) {
+			const entries = (snap.data()?.entries as GlobalLessonHistoryEntry[] | undefined) ?? [];
+			await cacheSet(cacheKey, entries, 60 * 60 * 1000);
+			return entries;
+		}
+	} catch { /* ignore */ }
+	return [];
+}
+
+async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry): Promise<void> {
+	try {
+		const existing = await getGlobalFeaturedLessonHistory();
+		const filtered = existing.filter(e => e.date !== entry.date);
+		const updated = [entry, ...filtered].slice(0, 30);
+		await adminDb.collection("config").doc("featured-lesson-history").set({ entries: updated });
+		await cacheSet(`playground:featured-lesson-history:v1`, updated, 60 * 60 * 1000);
+	} catch { /* non-fatal */ }
+}
+
+// isMarketDay: true only when the lesson is about a specific real market event (vs a
+// general concept lesson). isTradingDay: whether today is an actual trading day — kept
+// separate because isMarketDay is also false on ordinary trading days when nothing
+// significant was found and we fell back to a concept lesson; conflating the two used
+// to make the frontend show "Weekend Prep" on a perfectly normal Tuesday.
+interface FeaturedLessonResult { lesson: MarketLessonResponse; isMarketDay: boolean; isTradingDay: boolean }
+
+async function generateFeaturedLesson(): Promise<FeaturedLessonResult | null> {
+	const today = getMarketDayKey();
+	const marketDay = await isTradingDay();
+	const cacheKey = `playground:featured-lesson:v1:${today}`;
+
+	// 1. Redis / in-memory cache (fast path)
+	const cached = await cacheGet<FeaturedLessonResult | { empty: true }>(cacheKey);
+	if (cached !== null) {
+		if ("empty" in (cached as object)) return null;
+		return cached as FeaturedLessonResult;
+	}
+
+	// 2. Firestore fallback — survives server restarts in local dev
+	try {
+		const snap = await adminDb.collection("config").doc("featured-lesson").get();
+		if (snap.exists) {
+			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean; isTradingDay?: boolean };
+			if (d.date === today && d.lesson) {
+				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay, isTradingDay: d.isTradingDay ?? marketDay };
+				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
+				return result;
+			}
+		}
+	} catch { /* Firestore unavailable — proceed to generate */ }
+
+	const history = (await getGlobalFeaturedLessonHistory()).slice(0, 20);
+
+	const historyBlock = history.length > 0
+		? `\nRecent lessons already taught in this app (DO NOT repeat the same angle — always teach something genuinely new):\n${history.map(h => `- ${h.date}: "${h.title}" [${h.eventType}] — angle: ${h.angle}`).join("\n")}\n`
+		: "";
+
+	const marketMomentPrompt = `You are writing a featured Market Lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+${historyBlock}
+Search the web for the single most significant market-moving event from today (${today}) or yesterday only. Priority order:
+1. Federal Reserve / FOMC rate decisions or statements
+2. Major economic data releases with actual numbers (CPI, PCE, jobs, GDP)
+3. Major earnings that surprised the market
+4. Significant geopolitical or trade events affecting markets
+
+Only use events from today or yesterday — do NOT reach back further. If the event is the same type as a recently taught lesson above, cover a DIFFERENT angle — go one level deeper, zoom out to the broader mechanism, or explore a sector/stock-type implication not covered before. The lesson structure (3 cards + quiz) must always teach something new.
+
+Build a 3-card educational lesson that teaches a beginner WHY this matters for their stocks. Focus on cause-and-effect.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "eventType": "fed" | "inflation" | "jobs" | "gdp" | "ppi" | "retail" | "earnings" | "geopolitical" | "other",
+  "angle": "one short phrase describing the specific angle of this lesson — e.g. 'how rate expectations affect bond yields' or 'why tech valuations fall when rates stay high'",
+  "title": "7 words max — e.g. 'What the Fed's Rate Hold Means'",
+  "subtitle": "One hook sentence, max 12 words — e.g. 'Rates stayed put. Here's why that still moves your stocks.'",
+  "emoji": "single relevant emoji",
+  "cards": [
+    { "heading": "What Happened", "body": "2-3 sentences. State exactly what happened with real numbers." },
+    { "heading": "Why It Moves Stocks", "body": "2-3 sentences. Explain the cause-and-effect chain. Use arrows: e.g. 'Higher rates → borrowing costs rise → growth stocks get hit.'" },
+    { "heading": "What to Watch", "body": "2-3 sentences. Name 1-2 sectors or stock types most affected." }
+  ],
+  "quiz": {
+    "question": "Test the mechanism, not the headline fact",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right"
+  }
+}
+
+If nothing significant happened today or yesterday, return: { "empty": true }
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	const conceptPrompt = `You are writing a Featured Today lesson for STAK, a stock-learning app for Gen Z and millennials. Today is ${today}.
+${historyBlock}
+Search the web for one timely concept that will help a young investor understand what's driving markets right now or prepare for the week ahead. Pick something relevant to current market themes, economic conditions, or a topic that came up in the news recently.
+
+Examples: how to read an earnings report before a big earnings week, what a yield curve means if rates are in focus, how sector rotation works if there's been market volatility, what market sentiment indicators tell us, etc.
+
+If the concept is the same type as a recently taught lesson above, cover a DIFFERENT angle.
+
+Build a 3-card educational lesson that teaches a beginner investor something genuinely useful.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "eventType": "concept",
+  "angle": "one short phrase describing the specific angle — e.g. 'how to interpret P/E ratios in a high-rate environment'",
+  "title": "7 words max — e.g. 'Why the Yield Curve Actually Matters'",
+  "subtitle": "One hook sentence, max 12 words",
+  "emoji": "single relevant emoji",
+  "cards": [
+    { "heading": "The Concept", "body": "2-3 sentences. Explain what this concept is in plain English." },
+    { "heading": "Why It Matters for Your Stocks", "body": "2-3 sentences. Connect it to real stock/portfolio impact." },
+    { "heading": "How to Use It", "body": "2-3 sentences. What should a young investor actually do or watch for?" }
+  ],
+  "quiz": {
+    "question": "Test the concept, not just a definition",
+    "options": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right"
+  }
+}
+
+Tone: confident, plain English, no jargon without a quick explanation. No financial advice. No disclaimers.`;
+
+	async function callGemini(prompt: string): Promise<(MarketLessonResponse & { empty?: boolean; angle?: string }) | null> {
+		const keys = getGeminiKeys();
+		for (const key of keys) {
+			try {
+				const res = await fetch(
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							tools: [{ google_search: {} }],
+							contents: [{ parts: [{ text: prompt }] }],
+							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+						}),
+						signal: AbortSignal.timeout(30000),
+					},
+				);
+				if (!res.ok) continue;
+				const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+				const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+				if (!text) continue;
+				const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+				return JSON.parse(jsonStr) as MarketLessonResponse & { empty?: boolean; angle?: string };
+			} catch {
+				continue;
+			}
+		}
+		return null;
+	}
+
+	function saveLesson(parsed: MarketLessonResponse & { angle?: string }, isMarketDay: boolean) {
+		const result = { lesson: parsed, isMarketDay, isTradingDay: marketDay };
+		cacheSet(cacheKey, result, 12 * 60 * 60 * 1000).catch(() => {});
+		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay, isTradingDay: marketDay }).catch(() => {});
+		appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
+		return result;
+	}
+
+	// On trading days: try market event from today/yesterday first; fall back to concept if nothing significant
+	if (marketDay) {
+		const parsed = await callGemini(marketMomentPrompt);
+		if (parsed && !parsed.empty && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+			return saveLesson(parsed, true);
+		}
+		// Nothing significant today/yesterday — fall through to concept lesson
+	}
+
+	// Non-trading day or no significant market event: teach a timely concept instead
+	const parsed = await callGemini(conceptPrompt);
+	if (!parsed || parsed.empty) {
+		await cacheSet(cacheKey, { empty: true }, 6 * 60 * 60 * 1000);
+		return null;
+	}
+	if (parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+		return saveLesson(parsed, false);
+	}
+	return null;
+}
+
+// GET /api/daily-brief/featured-lesson
+dailyBriefRouter.get("/featured-lesson", authMiddleware, async (_req: AuthenticatedRequest, res) => {
+	try {
+		const result = await generateFeaturedLesson();
+		if (!result) { res.json({ lesson: null }); return; }
+		res.json({ lesson: result.lesson, isMarketDay: result.isMarketDay, isTradingDay: result.isTradingDay });
+	} catch {
+		res.json({ lesson: null });
+	}
+});
+
+// ── Weekly generated lesson (per-user, per-ISO-week) ─────────────────────────
+
+interface GeneratedLessonResponse {
+	topic: string;
+	angle: string;
+	title: string;
+	subtitle: string;
+	emoji: string;
+	cards: Array<{ heading: string; body: string }>;
+	quiz: {
+		question: string;
+		options: Array<{ id: string; text: string }>;
+		correctId: string;
+		explanation: string;
+	};
+}
+
+interface GeneratedLessonHistoryEntry { topic: string; title: string; angle: string; completedAt?: number }
+
+async function generateGeneratedLesson(uid: string, totalXp: number, userHistory: GeneratedLessonHistoryEntry[]): Promise<GeneratedLessonResponse | null> {
+	const isoWeek = getISOWeek(new Date());
+
+	const cacheKey = `playground:generated-lesson:v1:${uid}:${isoWeek}`;
+	const cached = await cacheGet<GeneratedLessonResponse | { empty: true }>(cacheKey);
+	if (cached !== null) {
+		if ("empty" in (cached as object)) return null;
+		return cached as GeneratedLessonResponse;
+	}
+
+	const tier = xpToTier(totalXp);
+	const tierLabel = TIER_XP[tier].label;
+
+	const history = [...userHistory]
+		.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+		.slice(0, 15);
+
+	const historyBlock = history.length > 0
+		? `\nThis user's personal lesson history (DO NOT repeat these angles):\n${history.map(h => `- "${h.title}" [${h.topic}] — angle: ${h.angle}`).join("\n")}\n`
+		: "";
+
+	const tierGuidance: Record<TierNumber, string> = {
+		1: "Absolute beginner: explain what stocks, markets, and investing are from scratch. Use simple analogies. No jargon.",
+		2: "Basic knowledge: covers P/E ratios, revenue, earnings. Ready to learn about sectors, dividends, ETFs, and how to read a stock chart.",
+		3: "Intermediate: understands fundamentals. Teach valuation methods (DCF basics, PEG ratio), market cycles, macro indicators, portfolio construction.",
+		4: "Advanced: comfortable with valuation. Teach options basics, short selling, market microstructure, factor investing, macro-market relationships.",
+		5: "Expert: teach advanced macro (yield curve, credit spreads, currency effects), derivatives strategy, or behavioral finance nuances.",
+	};
+
+	const prompt = `You are writing a personalized Weekly Deep Dive lesson for STAK, a stock-learning app for Gen Z and millennials.
+
+User level: ${tierLabel} (${totalXp} XP)
+Week: ${isoWeek}
+${historyBlock}
+Guidance for this level: ${tierGuidance[tier]}
+
+Pick a specific topic that:
+1. Is appropriate for the ${tierLabel} level
+2. Has NOT been covered in the history above (different topic OR different angle)
+3. Is highly practical — teaches something the user can directly apply when looking at their stocks
+
+Build a 3-card educational lesson. Keep the tone conversational, plain English, relatable to a 22-year-old investor.
+
+Return ONLY a JSON object (no markdown, no code fences):
+{
+  "topic": "short slug for the topic — e.g. 'pe-ratio', 'dividend-yield', 'market-cycles', 'beta', 'etf-basics'",
+  "angle": "one short phrase describing the specific angle — e.g. 'why a high P/E doesn't always mean overvalued' or 'how beta predicts volatility during market crashes'",
+  "title": "7 words max — e.g. 'What P/E Ratio Actually Tells You'",
+  "subtitle": "One hook sentence, max 12 words",
+  "emoji": "single relevant emoji",
+  "cards": [
+    {
+      "heading": "What It Is",
+      "body": "2-3 sentences. Define the concept in plain English with a concrete example."
+    },
+    {
+      "heading": "Why It Matters",
+      "body": "2-3 sentences. Explain how this affects real stock prices or investing decisions. Use arrows or cause-effect chains."
+    },
+    {
+      "heading": "How to Use It",
+      "body": "2-3 sentences. Give one practical thing the user can do with this knowledge when looking at their own stocks."
+    }
+  ],
+  "quiz": {
+    "question": "Test understanding of the mechanism, not just the definition",
+    "options": [
+      { "id": "a", "text": "..." },
+      { "id": "b", "text": "..." },
+      { "id": "c", "text": "..." }
+    ],
+    "correctId": "a" | "b" | "c",
+    "explanation": "2 sentences — why the correct answer is right and why the others miss the point"
+  }
+}
+
+Tone: confident, conversational, no financial advice, no disclaimers.`;
+
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }],
+						generationConfig: {
+							responseMimeType: "application/json",
+							thinkingConfig: { thinkingBudget: 0 },
+							temperature: 0.4,
+						},
+					}),
+					signal: AbortSignal.timeout(25000),
+				},
+			);
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+			if (!text) continue;
+			const jsonStr = text.replace(/```json\n?|\n?```/g, "").trim();
+			const parsed = JSON.parse(jsonStr) as GeneratedLessonResponse;
+			if (parsed.topic && parsed.title && parsed.cards?.length === 3 && parsed.quiz?.question) {
+				const ttl = 7 * 24 * 60 * 60 * 1000;
+				await cacheSet(cacheKey, parsed, ttl);
+				return parsed;
+			}
+		} catch {
+			continue;
+		}
+	}
+	return null;
+}
+
+// GET /api/daily-brief/generated-lesson
+dailyBriefRouter.get("/generated-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const userSnap = await adminDb.collection("users").doc(uid).get();
+		const data = userSnap.data();
+		const totalXp: number = (data?.totalXp as number | undefined) ?? 0;
+		const userHistory: GeneratedLessonHistoryEntry[] = (data?.generatedLessonHistory as GeneratedLessonHistoryEntry[] | undefined) ?? [];
+		const lesson = await generateGeneratedLesson(uid, totalXp, userHistory);
+		if (!lesson) { res.json({ lesson: null }); return; }
+		res.json({ lesson });
+	} catch {
+		res.json({ lesson: null });
+	}
+});
+
+// ── Deck definitions ──────────────────────────────────────────────────────────
+
+// Primary deck shown in "Today's Focus" — varies by mood AND session window.
+// decks[1] and decks[2] stay from MOOD_DECKS for any future multi-deck use.
+const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
+	Bullish: {
+		open:   { id: "momentum",   title: "What's Rising Today",  subtitle: "Stocks gaining as markets open",          icon: "trending_up", color: "green"  },
+		midday: { id: "leaders",    title: "Still Climbing",       subtitle: "What's kept going since the open",        icon: "zap",         color: "blue"   },
+		close:  { id: "winners",    title: "Today's Winners",      subtitle: "What rallied today — and why it matters", icon: "trending_up", color: "green"  },
+	},
+	Bearish: {
+		open:   { id: "defensive",  title: "Play It Safe Today",   subtitle: "Safer picks as markets open lower",       icon: "shield",      color: "purple" },
+		midday: { id: "dip_watch",  title: "Stocks on Sale",       subtitle: "Good companies at lower prices",          icon: "trending_up", color: "green"  },
+		close:  { id: "bounce",     title: "Bounce-Back Watch",    subtitle: "Stocks to keep an eye on tomorrow",       icon: "book",        color: "blue",  bars: true },
+	},
+	Cautious: {
+		open:   { id: "quality",    title: "Strong Foundations",   subtitle: "Companies built to handle uncertainty",   icon: "book",        color: "blue",  bars: true },
+		midday: { id: "movers",     title: "Pushing Through",      subtitle: "What's holding up despite the jitters",  icon: "zap",         color: "blue"   },
+		close:  { id: "overnight",  title: "Tomorrow's Watchlist", subtitle: "What to keep an eye on when we reopen",  icon: "shield",      color: "purple" },
+	},
+	Volatile: {
+		open:   { id: "conviction", title: "Big Movers Today",     subtitle: "Stocks making the biggest early moves",  icon: "zap",         color: "blue"   },
+		midday: { id: "swings",     title: "What's Swinging",      subtitle: "The biggest moves happening right now",  icon: "trending_up", color: "green"  },
+		close:  { id: "stabilize",  title: "After the Storm",      subtitle: "Calmer picks after a wild day",          icon: "shield",      color: "purple" },
+	},
+	Calm: {
+		open:   { id: "steady",     title: "Low-Drama Picks",      subtitle: "Solid stocks for a quiet open",          icon: "sun",         color: "green"  },
+		midday: { id: "gems",       title: "Under the Radar",      subtitle: "Stocks worth a look on a quiet day",     icon: "book",        color: "blue",  bars: true },
+		close:  { id: "growers",    title: "Steady Growers",       subtitle: "Stocks that grow consistently over time", icon: "sun",        color: "green"  },
+	},
+	Mixed: {
+		open:   { id: "spread",     title: "Something for Everyone",subtitle: "A spread of picks for any direction",   icon: "book",        color: "blue",  bars: true },
+		midday: { id: "rotation",   title: "Who's Winning Today",  subtitle: "The sectors and stocks leading right now",icon: "trending_up", color: "green" },
+		close:  { id: "balance",    title: "Wrap It Up",           subtitle: "End-of-day picks to carry into tomorrow",icon: "shield",      color: "purple" },
+	},
+	"Risk-On": {
+		open:   { id: "high_growth", title: "Growth in Focus",     subtitle: "Tech and growth names leading today",    icon: "zap",         color: "blue"   },
+		midday: { id: "momentum",    title: "Risk-On Rally",       subtitle: "What's climbing as investors lean in",   icon: "trending_up", color: "green"  },
+		close:  { id: "leaders",     title: "Today's Growth Leaders",subtitle: "What drove the risk-on session",       icon: "trending_up", color: "green"  },
+	},
+	"Risk-Off": {
+		open:   { id: "defensive",   title: "Playing Defense",     subtitle: "Safer picks as growth faces pressure",   icon: "shield",      color: "purple" },
+		midday: { id: "quality",     title: "Defensive Hold",      subtitle: "What's holding up in a risk-off day",   icon: "book",        color: "blue",  bars: true },
+		close:  { id: "dividend",    title: "Safety First",        subtitle: "Steadier picks after a risk-off session", icon: "sun",        color: "blue"   },
+	},
+};
+
+// GET /api/daily-brief
+dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+
+		// Fetch major indices + VIX + sectors in parallel
+		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, userSnap, ...sectorChanges] = await Promise.all([
+			getQuoteChange("SPY"),
+			getQuoteChange("QQQ"),
+			getQuoteChange("DIA"),
+			getQuoteChange("IWM"),   // Russell 2000
+			getQuoteChange("VIX"),   // VIX
+			adminDb.collection("users").doc(uid).get(),
+			...SECTOR_ETFS.map(s => getQuoteChange(s)),
+		]);
+
+		// Build sector summary
+		let sectorsGreen = 0, sectorsRed = 0;
+		let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
+		let topVal = -Infinity, worstVal = Infinity;
+		SECTOR_ETFS.forEach((sym, i) => {
+			const pct = sectorChanges[i] as number | null;
+			if (pct === null) return;
+			if (pct > 0) sectorsGreen++;
+			else if (pct < 0) sectorsRed++;
+			if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
+			if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
+		});
+		const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
+		const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+
+		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+		const mood = classifyMood(marketData);
+		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = await getMarketStatus();
+		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
+		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
+
+		const today = getEasternDateKey();
+		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
+		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's");
+
+		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
+		]);
+
+		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
+
+		res.json({
+			mood,
+			session,
+			dayLabel,
+			marketClosed,
+			nextTradingDayLabel,
+			moodExplanation,
+			plainEnglish,
+			personalizedImpact,
+			decks,
+			marketSnapshot: {
+				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
+				iwmChange: iwmDp, vixChange: vixDp,
+				sectorsGreen, sectorsRed, topSector, worstSector,
+			},
+			generatedAt: new Date().toISOString(),
+		});
+	} catch (error) {
+		console.error("Error generating daily brief:", error);
+		res.status(500).json({ error: "Failed to generate daily brief" });
+	}
+});

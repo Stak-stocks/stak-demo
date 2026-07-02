@@ -1,5 +1,8 @@
 import { adminDb } from "../firebaseAdmin.js";
 import { FieldValue } from "firebase-admin/firestore";
+import { getEasternDateKey } from "@stak/shared";
+import { getFinnhubKeys } from "./finnhubService.js";
+import { getGeminiKeys } from "./geminiService.js";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -73,31 +76,15 @@ const SECTOR_HERO: Record<string, string> = {
 	default: "photo-1535303311272-63661ad60b4b",
 };
 
-function getHeroImage(sector: string): string {
+export function getHeroImage(sector: string): string {
 	const id = SECTOR_HERO[sector] ?? SECTOR_HERO.default;
 	return `https://images.unsplash.com/${id}?w=800&auto=format&q=80`;
 }
 
 // ── Finnhub helpers ───────────────────────────────────────────────────────────
 
-function getFinnhubKeys(): string[] {
-	return [
-		process.env.FINNHUB_API_KEY,
-		process.env.FINNHUB_API_KEY_2,
-		process.env.FINNHUB_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
-function getGeminiKeys(): string[] {
-	return [
-		process.env.GEMINI_API_KEY,
-		process.env.GEMINI_API_KEY_2,
-		process.env.GEMINI_API_KEY_3,
-	].filter((k): k is string => !!k);
-}
-
 function formatDate(date: Date): string {
-	return date.toISOString().split("T")[0];
+	return getEasternDateKey(date);
 }
 
 async function fetchRecentIPOs(daysBack = 3): Promise<FinnhubIPOEntry[]> {
@@ -172,13 +159,13 @@ async function tryGeminiKey(
 		if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
 
 		const res = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
 			{
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: {
+					generationConfig: { thinkingConfig: { thinkingBudget: 0 },
 						temperature: 0.4,
 						responseMimeType: "application/json",
 					},
