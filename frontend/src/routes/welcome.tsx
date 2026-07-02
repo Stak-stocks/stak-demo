@@ -2643,7 +2643,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 				<div style={{ width: 37.912, height: 37.912, borderRadius: 49.884, overflow: "hidden", flexShrink: 0 }}>
 					<img src={A.emAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
 				</div>
-				<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 8.182, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
+				<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 8.182, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
 			</div>
 		</div>
 	);
@@ -2675,7 +2675,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: 82.97, top: 435.36, display: "flex", gap: 10.52 }}>{r3.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
-			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, #0a1020 0%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
+			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, rgba(10,16,32,1) 0%, rgba(18,29,58,0.75) 25%, rgba(26,42,83,0.5) 50%, rgba(34,54,108,0.25) 75%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 623.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
 				{stat("50M+", "Millennials & Gen Z investing today")}
 				{stat("30M+", "Investors seeking better tools")}
