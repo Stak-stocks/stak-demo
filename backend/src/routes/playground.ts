@@ -282,6 +282,7 @@ Rules:
 - The correct answer must be derivable from the combination of actuals, context, AND forwardGuidance — not from the numbers alone (that would reduce every scenario to "beat = up, miss = down", which teaches nothing)
 - forwardGuidance is often the KEY signal that explains a surprising reaction (e.g. a beat that still sells off because guidance was cut)
 - stockMove must be the actual stock reaction as a signed % string (e.g. "-4%", "+8%", "-12%")
+- keyTakeaway is REQUIRED — one punchy, memorable sentence that generalises the lesson beyond this specific company
 - Vary which factor dominates across the ${rawCount} scenarios so players learn beat/miss size isn't the whole story
 - Scenarios should be educational and teach something real about earnings reactions
 - Do NOT use the same company more than once

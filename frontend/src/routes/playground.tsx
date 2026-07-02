@@ -1525,12 +1525,16 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 								</div>
 								<div className="p-[14px]">
 									<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[10px]">{scenario.explanation}</p>
-									{scenario.keyTakeaway && (
-										<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
-											<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
-											<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{scenario.keyTakeaway}</p>
-										</div>
-									)}
+									{(() => {
+										const kt = scenario.keyTakeaway ?? scenario.explanation.split(/(?<=[.!?])\s+/).pop();
+										if (!kt) return null;
+										return (
+											<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
+												<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
+												<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{kt}</p>
+											</div>
+										);
+									})()}
 								</div>
 							</div>
 
