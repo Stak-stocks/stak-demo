@@ -26,10 +26,11 @@ import type {
 const REALTIME_TABLES = [
 	"users", "stak_brands", "passed_brands", "search_history",
 	"intel_card_state", "sandbox_portfolio", "activity_progress", "playground_state",
+	"practice_skills",
 ] as const;
 
 export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
-	const [usersRes, stakRes, passedRes, searchRes, intelRes, sandboxRes, activityRes, playgroundRes] = await Promise.all([
+	const [usersRes, stakRes, passedRes, searchRes, intelRes, sandboxRes, activityRes, playgroundRes, practiceRes] = await Promise.all([
 		supabase.from("users").select("*").maybeSingle(),
 		supabase.from("stak_brands").select("*"),
 		supabase.from("passed_brands").select("*"),
@@ -38,6 +39,7 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		supabase.from("sandbox_portfolio").select("*"),
 		supabase.from("activity_progress").select("*"),
 		supabase.from("playground_state").select("*").maybeSingle(),
+		supabase.from("practice_skills").select("*"),
 	]);
 
 	const u = usersRes.data;
@@ -117,20 +119,16 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		battlesProgress,
 		riskProgress,
 		moodProgress,
-		// Known gaps, not silently dropped: dailyChallengeState has no Postgres column
-		// anywhere in the schema yet (missed in the original Phase 0 design), and
-		// practice_skills exists as its own table but isn't wired up here yet -- both
-		// are playground-specific features, lower priority than core app
-		// functionality for this round. Revisit before this is anything more than
-		// cohort testing.
-		dailyChallengeState: undefined,
+		dailyChallengeState: pg?.daily_challenge_state?.date
+			? { date: pg.daily_challenge_state.date, completedIds: pg.daily_challenge_state.completedIds ?? [] }
+			: undefined,
 		sandboxPortfolio,
 		sandboxCash: pg?.sandbox_cash != null ? Number(pg.sandbox_cash) : undefined,
 		sandboxTier: pg?.sandbox_tier,
 		dailyProgress: pg?.daily_progress,
 		allTimeCompletedActivityIds: pg?.all_time_completed_activity_ids ?? [],
 		sandboxMilestones: pg?.sandbox_milestones ?? [],
-		practiceSkills: {},
+		practiceSkills: Object.fromEntries((practiceRes.data ?? []).map((r) => [r.skill, r.xp])),
 		playgroundOnboarded: pg?.playground_onboarded,
 		generatedLessonHistory: pg?.generated_lesson_history ?? [],
 	};
@@ -308,4 +306,16 @@ export async function markPlaygroundOnboardedSupabase(): Promise<void> {
 
 export async function saveGeneratedLessonHistorySupabase(entry: { topic: string; title: string; angle: string }): Promise<void> {
 	await supabase.rpc("save_generated_lesson_history", { p_topic: entry.topic, p_title: entry.title, p_angle: entry.angle });
+}
+
+export async function completeDailyActivitySupabase(dayKey: string, activityId: string, xp: number, activityType?: string): Promise<void> {
+	await supabase.rpc("complete_daily_activity", { p_day_key: dayKey, p_activity_id: activityId, p_xp: xp, p_activity_type: activityType ?? null });
+}
+
+export async function completeChallengeSupabase(challengeId: string, xp: number, today: string): Promise<void> {
+	await supabase.rpc("complete_challenge", { p_challenge_id: challengeId, p_xp: xp, p_today: today });
+}
+
+export async function addPracticeSkillXpSupabase(skill: string, xp: number): Promise<void> {
+	await supabase.rpc("add_practice_skill_xp", { p_skill: skill, p_xp: xp });
 }

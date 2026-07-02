@@ -25,6 +25,7 @@ import {
 	initSandboxCashSupabase, addToSandboxSupabase, sellFromSandboxSupabase,
 	resetSandboxSupabase, checkAndApplySandboxTierUpgradeSupabase, markSandboxMilestoneSupabase,
 	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
+	completeDailyActivitySupabase, completeChallengeSupabase, addPracticeSkillXpSupabase,
 } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
 import { xpToTier } from "@stak/shared";
@@ -431,22 +432,21 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const completeChallenge = useCallback(
 		async (challengeId: string, xp: number) => {
-			// Known gap (see supabaseAccount.ts's read-side note): dailyChallengeState
-			// has no Postgres column anywhere in the schema yet. Stays Firebase-only
-			// until that's added -- a real feature gap for a Supabase session, not
-			// something to fake here.
-			if (!user) return;
 			// Use local time to match playground todayKey (not UTC which rolls over at 7pm ET)
 			const d = new Date();
 			const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+			if (user) {
 			const current = account?.dailyChallengeState;
 			const completedIds = current?.date === today ? [...(current.completedIds ?? []), challengeId] : [challengeId];
 			await updateDoc(doc(db, "users", user.uid), {
 				dailyChallengeState: { date: today, completedIds },
 				totalXp: increment(xp),
 			});
+			} else if (supabaseUserId) {
+				await completeChallengeSupabase(challengeId, xp, today);
+			}
 		},
-		[user, account],
+		[user, supabaseUserId, account],
 	);
 
 	const addXp = useCallback(
@@ -580,34 +580,34 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, [user, supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
 	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
-		// Known gap: dailyProgress has no Postgres column (missed in Phase 0 schema
-		// design, same as dailyChallengeState). Stays Firebase-only for now.
-		if (!user) return;
-		const current = account?.dailyProgress;
-		const isSameDay = current?.dayKey === dayKey;
-		const alreadyDone = isSameDay && (current?.completedIds ?? []).includes(activityId);
-		if (alreadyDone) return;
-		const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
-		const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
-		const typeUpdate = activityType ? { "dailyProgress.completedTypes": arrayUnion(activityType) } : {};
-		if (isSameDay) {
-			await updateDoc(doc(db, "users", user.uid), {
-				"dailyProgress.completedIds": arrayUnion(activityId),
-				"dailyProgress.xpEarned": increment(xp),
-				"dailyProgress.dayKey": dayKey,
-				totalXp: increment(xp),
-				...typeUpdate,
-				...allTimeUpdate,
-			});
-		} else {
-			// New day: reset the whole dailyProgress object
-			await updateDoc(doc(db, "users", user.uid), {
-				dailyProgress: { dayKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
-				totalXp: increment(xp),
-				...allTimeUpdate,
-			});
+		if (user) {
+			const current = account?.dailyProgress;
+			const isSameDay = current?.dayKey === dayKey;
+			const alreadyDone = isSameDay && (current?.completedIds ?? []).includes(activityId);
+			if (alreadyDone) return;
+			const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
+			const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
+			const typeUpdate = activityType ? { "dailyProgress.completedTypes": arrayUnion(activityType) } : {};
+			if (isSameDay) {
+				await updateDoc(doc(db, "users", user.uid), {
+					"dailyProgress.completedIds": arrayUnion(activityId),
+					"dailyProgress.xpEarned": increment(xp),
+					"dailyProgress.dayKey": dayKey,
+					totalXp: increment(xp),
+					...typeUpdate,
+					...allTimeUpdate,
+				});
+			} else {
+				await updateDoc(doc(db, "users", user.uid), {
+					dailyProgress: { dayKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
+					totalXp: increment(xp),
+					...allTimeUpdate,
+				});
+			}
+		} else if (supabaseUserId) {
+			await completeDailyActivitySupabase(dayKey, activityId, xp, activityType);
 		}
-	}, [user, account]);
+	}, [user, supabaseUserId, account]);
 
 	const markPlaygroundOnboarded = useCallback(async () => {
 		if (user) {
@@ -629,14 +629,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, [user, supabaseUserId]);
 
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
-		// Known gap: practice_skills table isn't wired into the read-side yet (see
-		// supabaseAccount.ts -- practiceSkills: {}). Stays Firebase-only until it is.
-		if (!user || xp <= 0) return;
-		await updateDoc(doc(db, "users", user.uid), {
-			[`practiceSkills.${skill}`]: increment(xp),
-			totalXp: increment(xp),
-		});
-	}, [user]);
+		if (xp <= 0) return;
+		if (user) {
+			await updateDoc(doc(db, "users", user.uid), {
+				[`practiceSkills.${skill}`]: increment(xp),
+				totalXp: increment(xp),
+			});
+		} else if (supabaseUserId) {
+			await addPracticeSkillXpSupabase(skill, xp);
+		}
+	}, [user, supabaseUserId]);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {
 		if (user) {
