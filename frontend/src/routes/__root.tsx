@@ -73,7 +73,7 @@ function Root() {
 	const queryClient = useQueryClient();
 	const stakTickers = useStakTickers();
 	useEffect(() => {
-		if (!user || stakTickers.length === 0) return;
+		if (!appUser || stakTickers.length === 0) return;
 		for (const tab of ["today", "tomorrow", "week"] as const) {
 			queryClient.prefetchQuery({
 				queryKey: ["market-earnings", tab, stakTickers],
@@ -129,7 +129,7 @@ function Root() {
 	// let this gate disagree with when the content itself actually refreshes.
 	// Stored in Firestore so it's cross-device.
 	useEffect(() => {
-		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		if (!appUser || !account?.onboardingCompleted || isAuthPage) return;
 		const d = new Date();
 		const today = getEasternDateKey(d);
 		if (account.lastBriefDate === today) return;

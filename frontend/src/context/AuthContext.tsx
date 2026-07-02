@@ -90,7 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		email: string | null; emailVerified: boolean; displayName: string | null;
 		photoURL: string | null; provider: string;
 	} | null>(null);
-	const [supabaseUidLoading, setSupabaseUidLoading] = useState(false);
+	// Start true so the combined `loading || supabaseUidLoading` guard never briefly
+	// sees both false before the initial getSession() resolves. Set false once either
+	// there's no Supabase session (getSession returned null) or the UID is resolved.
+	const [supabaseUidLoading, setSupabaseUidLoading] = useState(true);
 
 	// Auto-logout after 30 minutes of inactivity
 	useEffect(() => {
@@ -150,9 +153,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	useEffect(() => {
-		supabase.auth.getSession().then(({ data }) => setSupabaseUserId(data.session?.user.id ?? null));
+		// getSession() resolves supabaseUidLoading: the initial getSession call determines
+		// whether there is a Supabase session at all. If there isn't, supabaseUidLoading
+		// goes false here so the app doesn't spin forever for pure Firebase users.
+		supabase.auth.getSession().then(({ data }) => {
+			const uid = data.session?.user.id ?? null;
+			setSupabaseUserId(uid);
+			if (!uid) setSupabaseUidLoading(false);
+		});
 		const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
 			setSupabaseUserId(session?.user.id ?? null);
+			if (!session) setSupabaseUidLoading(false);
 		});
 		return () => listener.subscription.unsubscribe();
 	}, []);
@@ -214,12 +225,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function signInWithGoogleSupabase() {
-		const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
+		const { error } = await supabase.auth.signInWithOAuth({
+			provider: "google",
+			options: {
+				// Without redirectTo, Supabase falls back to the dashboard Site URL, which
+				// may not match the current origin (breaks on dev vs prod or staging deploys).
+				redirectTo: window.location.origin,
+			},
+		});
 		if (error) throw error;
 		// signInWithOAuth redirects the browser away immediately on success -- there's
 		// no result to log here the way the Firebase popup flow has; logEvent fires
-		// after redirect-back instead, same place onAuthStateChanged would need wiring
-		// for the Supabase session once this is no longer cohort-only.
+		// after redirect-back instead.
 	}
 
 	async function resetPasswordSupabase(email: string) {

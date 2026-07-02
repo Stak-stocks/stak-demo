@@ -116,8 +116,9 @@ function ProfilePage() {
 	const earnedBadges = allBadges.filter((b) => b.earned);
 	const inProgressBadges = allBadges.filter((b) => !b.earned && b.progress > 0);
 
-	const displayName = user?.displayName || "STAK User";
-	const email = user?.email || "";
+	// appUser covers both Firebase (user.displayName) and Supabase (from session metadata)
+	const displayName = appUser?.displayName || account?.displayName || "STAK User";
+	const email = appUser?.email || "";
 
 	async function handleLogout() {
 		await logout();
