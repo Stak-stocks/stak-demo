@@ -1,7 +1,25 @@
 import type { Request, Response, NextFunction } from "express";
 import { adminAuth } from "./firebaseAdmin.js";
 import { getSupabaseAdmin } from "./lib/supabaseAdmin.js";
+import { createClient } from "@supabase/supabase-js";
 import { pgQuery } from "./lib/postgres.js";
+
+// Lightweight client with anon key used ONLY for JWT verification (getUser).
+// The admin client (service role key) can't verify user JWTs in all environments --
+// the anon key is the correct key for /auth/v1/user token validation.
+const getSupabaseVerifier = (() => {
+	let client: ReturnType<typeof createClient> | null = null;
+	return () => {
+		if (!client) {
+			client = createClient(
+				(process.env.SUPABASE_URL ?? "").trim(),
+				(process.env.SUPABASE_ANON_KEY ?? "").trim(),
+				{ auth: { autoRefreshToken: false, persistSession: false } },
+			);
+		}
+		return client;
+	};
+})();
 
 export interface AuthenticatedRequest extends Request {
 	user?: {
@@ -110,7 +128,7 @@ async function handleSupabaseToken(
 	next: NextFunction,
 ): Promise<void> {
 	try {
-		const { data, error } = await getSupabaseAdmin().auth.getUser(token);
+		const { data, error } = await getSupabaseVerifier().auth.getUser(token);
 		if (error || !data?.user) {
 			res.status(401).json({ error: "Invalid or expired token" });
 			return;
