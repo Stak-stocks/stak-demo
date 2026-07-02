@@ -148,7 +148,7 @@ function Root() {
 			updateLastBriefDate(today).catch(() => {});
 		}, 0);
 		return () => clearTimeout(t);
-	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
+	}, [appUser, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
