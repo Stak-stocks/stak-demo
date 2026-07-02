@@ -56,7 +56,11 @@ export async function authMiddleware(
 	// Exact prefix match against the known Supabase issuer URL -- substring check
 	// ("supabase") is fragile and could misroute a Firebase token from a project
 	// coincidentally named "supabase-*" or similar.
-	const supabaseIssuer = `${process.env.SUPABASE_URL}/auth/v1`;
+	// .trim() mirrors supabaseAdmin.ts -- the Cloud Run secret may have a trailing \r
+	// from the Windows grep|cut pipe used to create it. Without trim, supabaseIssuer
+	// would be "https://...co\r/auth/v1" and never match the JWT iss claim, silently
+	// routing every Supabase token to the Firebase branch and returning 401.
+	const supabaseIssuer = `${(process.env.SUPABASE_URL ?? "").trim()}/auth/v1`;
 	if (issuer === supabaseIssuer) {
 		await handleSupabaseToken(token, req, res, next);
 	} else {

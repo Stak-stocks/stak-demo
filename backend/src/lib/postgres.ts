@@ -10,7 +10,11 @@
 
 import pg from "pg";
 
-const pool = new pg.Pool({ connectionString: process.env.SUPABASE_DB_URL });
+// .trim() is defensive against trailing \r from Windows grep|cut pipe used to create
+// the Cloud Run secret. node-postgres's URL parser appears to tolerate it in practice
+// (health check confirmed db:connected), but better safe than a hard-to-diagnose
+// connection failure on a stricter postgres client version.
+const pool = new pg.Pool({ connectionString: (process.env.SUPABASE_DB_URL ?? "").trim() });
 
 pool.on("error", (err) => {
 	// A pooled, idle connection dying shouldn't crash the process -- pg already retries
