@@ -79,7 +79,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-	const { user, loading, onboardingCompleted: claimsOnboardingCompleted } = useAuth();
+	const { appUser, user, loading, onboardingCompleted: claimsOnboardingCompleted, supabaseUserId } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
@@ -111,7 +111,12 @@ function OnboardingPage() {
 
 	useEffect(() => {
 		if (loading) return;
-		if (!user) { navigate({ to: "/login" }); return; }
+		if (!appUser) { navigate({ to: "/login" }); return; }
+		// The email-verification-required flow is Firebase-specific (no equivalent
+		// built for Supabase yet) -- skip it entirely for a Supabase-only session
+		// rather than dereferencing a null `user`. Cohort accounts are already
+		// provisioned/verified, so this doesn't apply to them anyway.
+		if (!user) return;
 		const isPasswordProvider = user.providerData[0]?.providerId === "password";
 		// Use auth.currentUser?.emailVerified (the live Firebase object) instead of
 		// user.emailVerified (React state) — the poll mutates auth.currentUser in-place
@@ -121,9 +126,11 @@ function OnboardingPage() {
 		if (isPasswordProvider && !emailVerified) {
 			navigate({ to: "/verify-email" });
 		}
-	}, [user, loading, navigate]);
+	}, [user, supabaseUserId, loading, navigate]);
 
-	// JWT claim guard — fast, cross-device, no Firestore read needed.
+	// JWT claim guard — fast, cross-device, no Firestore read needed. Firebase-only
+	// (Supabase doesn't have this custom-claims mechanism yet) -- a Supabase-only
+	// session simply skips this guard, not redirected by it either way.
 	// Silent while the user is actively progressing through the flow.
 	useEffect(() => {
 		if (!loading && user && !hasProgressed.current && claimsOnboardingCompleted) {
@@ -131,14 +138,15 @@ function OnboardingPage() {
 		}
 	}, [loading, user, claimsOnboardingCompleted, navigate]);
 
-	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
-	// a false redirect caused by a race condition on reload), send them back.
-	// Silent while the user is actively progressing through the flow.
+	// Account-based guard: if account data (Firestore for Firebase sessions, Postgres
+	// for Supabase sessions) confirms onboarding is done, send them back. Using appUser
+	// instead of user so Supabase-session users are also protected -- without this,
+	// Supabase users can re-run onboarding repeatedly since user is null for them.
 	useEffect(() => {
-		if (!loading && !accountLoading && user && !hasProgressed.current && account?.onboardingCompleted === true) {
+		if (!loading && !accountLoading && appUser && !hasProgressed.current && account?.onboardingCompleted === true) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, accountLoading, user, account, navigate]);
+	}, [loading, accountLoading, appUser, account, navigate]);
 
 	if (loading || accountLoading) {
 		return (

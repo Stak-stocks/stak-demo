@@ -47,7 +47,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 }
 
 function ProfilePage() {
-	const { user, loading, logout } = useAuth();
+	const { appUser, user, loading, logout } = useAuth();
 	const { account, updatePreferences } = useAccount();
 	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();
@@ -116,8 +116,9 @@ function ProfilePage() {
 	const earnedBadges = allBadges.filter((b) => b.earned);
 	const inProgressBadges = allBadges.filter((b) => !b.earned && b.progress > 0);
 
-	const displayName = user?.displayName || "STAK User";
-	const email = user?.email || "";
+	// appUser covers both Firebase (user.displayName) and Supabase (from session metadata)
+	const displayName = appUser?.displayName || account?.displayName || "STAK User";
+	const email = appUser?.email || "";
 
 	async function handleLogout() {
 		await logout();
@@ -126,10 +127,10 @@ function ProfilePage() {
 	}
 
 	useEffect(() => {
-		if (!loading && !user) {
+		if (!loading && !appUser) {
 			navigate({ to: "/login" });
 		}
-	}, [loading, user, navigate]);
+	}, [loading, appUser, navigate]);
 
 	if (loading) {
 		return (
@@ -139,7 +140,7 @@ function ProfilePage() {
 		);
 	}
 
-	if (!user) {
+	if (!appUser) {
 		return null;
 	}
 
@@ -174,8 +175,8 @@ function ProfilePage() {
 					<div className="relative mb-1">
 						<div className="absolute -inset-2 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 blur-lg" />
 						<div className="relative w-[80px] h-[80px] rounded-full ring-[3px] ring-purple-400/40 overflow-hidden bg-zinc-200 dark:bg-slate-800 shadow-xl shadow-purple-900/30">
-							{user.photoURL ? (
-								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+							{appUser.photoURL ? (
+								<img src={appUser.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
 								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}

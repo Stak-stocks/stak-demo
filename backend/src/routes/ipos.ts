@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { syncNewIPOs, seedAllStocks, getSeedStatus } from "../services/ipoService.js";
+import { pgQuery } from "../lib/postgres.js";
 
 export const stocksRouter = Router();
 
@@ -47,8 +48,35 @@ export async function deleteUnverifiedAccounts(maxAgeHours = 24): Promise<{ dele
 	return { deleted, errors };
 }
 
-// GET /api/stocks — public, returns all auto-detected stocks from Firestore
+// GET /api/stocks — public, returns all auto-detected stocks.
+// Reads from Firestore by default; set STOCKS_READ_SOURCE=postgres to switch once
+// shadow-write parity has actually been observed over real time (migration plan,
+// Phase 1 go/no-go) -- not something to flip automatically from this codebase alone.
 stocksRouter.get("/", async (_req, res) => {
+	if (process.env.STOCKS_READ_SOURCE === "postgres") {
+		try {
+			const result = await pgQuery(`
+				select ticker, id, name, domain, logo, hero_image, bio, personality_description,
+					vibes, cultural_context, interest_categories, sector, country, source, ipo_date,
+					added_at, updated_at
+				from stocks
+			`);
+			const stocks = result.rows.map((r) => ({
+				id: r.id, ticker: r.ticker, name: r.name, domain: r.domain, logo: r.logo,
+				heroImage: r.hero_image, bio: r.bio, personalityDescription: r.personality_description,
+				vibes: r.vibes, culturalContext: r.cultural_context, interestCategories: r.interest_categories,
+				sector: r.sector, country: r.country, source: r.source, ipoDate: r.ipo_date,
+				addedAt: r.added_at, updatedAt: r.updated_at,
+			}));
+			res.json({ stocks });
+			return;
+		} catch (error) {
+			console.error("Error fetching stocks from Postgres:", error);
+			res.status(500).json({ error: "Failed to fetch stocks" });
+			return;
+		}
+	}
+
 	try {
 		const snapshot = await adminDb.collection("stocks").get();
 		const stocks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -139,7 +167,20 @@ stocksRouter.post("/cleanup-orphaned-docs", async (req, res) => {
 		const snapshot = await adminDb.collection("users").get();
 		let deleted = 0;
 		let errors = 0;
+		// Pre-fetch all migrated Firebase UIDs so we never delete a Firestore doc for
+		// a user who has already moved to Supabase, even if their Firebase Auth account
+		// was deleted in a Phase 7 sweep before this cleanup ran.
+		const migratedResult = await pgQuery<{ firebase_uid: string }>(
+			`select firebase_uid from auth_identity_map where migration_status = 'supabase'`,
+		);
+		const migratedUids = new Set(migratedResult.rows.map((r) => r.firebase_uid));
+
 		for (const doc of snapshot.docs) {
+			if (migratedUids.has(doc.id)) {
+				// User has been migrated to Supabase -- their Firestore doc is still in use
+				// (migration shadow-writes are still active), never delete it here.
+				continue;
+			}
 			try {
 				await adminAuth.getUser(doc.id);
 				// Auth user exists — keep the doc

@@ -1,11 +1,14 @@
-// test cloud build auto-deploy
+// dotenv MUST be first -- postgres.ts creates its pool at module-init time using
+// process.env.SUPABASE_DB_URL. If dotenv loads after, the pool gets undefined and
+// falls back to localhost:5432, causing ECONNREFUSED on every pgQuery.
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import cron from "node-cron";
+import { pgQuery } from "./lib/postgres.js";
 import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
 import { meRouter } from "./routes/me.js";
@@ -18,9 +21,8 @@ import { recommendationsRouter } from "./routes/recommendations.js";
 import { dailyBriefRouter } from "./routes/dailyBrief.js";
 import { playgroundRouter } from "./routes/playground.js";
 import { brandAdminRouter } from "./routes/brandAdmin.js";
+import { authMigrationRouter } from "./routes/authMigration.js";
 import { syncNewIPOs } from "./services/ipoService.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -78,6 +80,7 @@ app.use("/api/news", publicLimiter, newsRouter);
 app.use("/api/stock", publicLimiter, stockRouter);
 app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, stocksRouter);
+app.use("/api/auth", publicLimiter, authMigrationRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
 // No outer limiter here -- brandAdminRouter applies its own secret check
 // before its own (much stricter) rate limit, see routes/brandAdmin.ts.
@@ -89,9 +92,17 @@ app.use("/api/playground", authLimiter, playgroundRouter);
 // Convenience redirect: /analytics → /analytics.html
 app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));
 
-// Health check
-app.get("/api/health", (_req, res) => {
-	res.json({ status: "ok" });
+// Health check -- verifies database connectivity, not just process liveness.
+// Use this after every deploy to confirm the service can actually reach Postgres
+// before promoting traffic or declaring the deploy successful.
+app.get("/api/health", async (_req, res) => {
+	try {
+		await pgQuery("select 1");
+		res.json({ status: "ok", db: "connected" });
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		res.status(503).json({ status: "error", db: "unreachable", detail: message });
+	}
 });
 
 app.listen(PORT, () => {

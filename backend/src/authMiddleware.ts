@@ -1,5 +1,25 @@
 import type { Request, Response, NextFunction } from "express";
 import { adminAuth } from "./firebaseAdmin.js";
+import { getSupabaseAdmin } from "./lib/supabaseAdmin.js";
+import { createClient } from "@supabase/supabase-js";
+import { pgQuery } from "./lib/postgres.js";
+
+// Lightweight client with anon key used ONLY for JWT verification (getUser).
+// The admin client (service role key) can't verify user JWTs in all environments --
+// the anon key is the correct key for /auth/v1/user token validation.
+const getSupabaseVerifier = (() => {
+	let client: ReturnType<typeof createClient> | null = null;
+	return () => {
+		if (!client) {
+			client = createClient(
+				(process.env.SUPABASE_URL ?? "").trim(),
+				(process.env.SUPABASE_ANON_KEY ?? "").trim(),
+				{ auth: { autoRefreshToken: false, persistSession: false } },
+			);
+		}
+		return client;
+	};
+})();
 
 export interface AuthenticatedRequest extends Request {
 	user?: {
@@ -9,6 +29,33 @@ export interface AuthenticatedRequest extends Request {
 	};
 }
 
+/**
+ * Peeks at a JWT's `iss` claim without verifying the signature -- just enough to route
+ * to the correct verifier (Firebase vs Supabase). The actual verification (which is
+ * what matters for trust) still happens afterward, against the matching service.
+ * Never throws -- a malformed token just falls through to "unknown", handled below.
+ */
+function peekIssuer(token: string): string | null {
+	try {
+		const payload = token.split(".")[1];
+		if (!payload) return null;
+		const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+		return typeof decoded.iss === "string" ? decoded.iss : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Dual-accept token verification (migration plan, Phase 4, Step B:
+ * tingly-conjuring-lake.md). Verifies via Firebase or Supabase depending on the
+ * token's issuer, resolving either way to the canonical Firebase uid (via
+ * auth_identity_map for Supabase tokens) so every downstream route sees the exact
+ * same req.user shape regardless of which provider actually issued the token.
+ * Nothing in real traffic exercises the Supabase branch yet -- no real user has a
+ * Supabase session until Phase 5/6 -- this exists now so the middleware only needs
+ * rewriting once, against an already-stable data layer, not twice.
+ */
 export async function authMiddleware(
 	req: AuthenticatedRequest,
 	res: Response,
@@ -21,8 +68,30 @@ export async function authMiddleware(
 		return;
 	}
 
-	const token = authHeader.split("Bearer ")[1];
+	const token = authHeader.split("Bearer ")[1]!;
+	const issuer = peekIssuer(token);
 
+	// Exact prefix match against the known Supabase issuer URL -- substring check
+	// ("supabase") is fragile and could misroute a Firebase token from a project
+	// coincidentally named "supabase-*" or similar.
+	// .trim() mirrors supabaseAdmin.ts -- the Cloud Run secret may have a trailing \r
+	// from the Windows grep|cut pipe used to create it. Without trim, supabaseIssuer
+	// would be "https://...co\r/auth/v1" and never match the JWT iss claim, silently
+	// routing every Supabase token to the Firebase branch and returning 401.
+	const supabaseIssuer = `${(process.env.SUPABASE_URL ?? "").trim()}/auth/v1`;
+	if (issuer === supabaseIssuer) {
+		await handleSupabaseToken(token, req, res, next);
+	} else {
+		await handleFirebaseToken(token, req, res, next);
+	}
+}
+
+async function handleFirebaseToken(
+	token: string,
+	req: AuthenticatedRequest,
+	res: Response,
+	next: NextFunction,
+): Promise<void> {
 	// Accounts created on or after this date must have email verified.
 	// Accounts created before this date (existing users) get a grace period.
 	const VERIFICATION_REQUIRED_SINCE = new Date("2026-03-11T00:00:00Z").getTime();
@@ -45,6 +114,61 @@ export async function authMiddleware(
 			uid: decoded.uid,
 			email: decoded.email,
 			onboardingCompleted: decoded.onboardingCompleted === true,
+		};
+		next();
+	} catch {
+		res.status(401).json({ error: "Invalid or expired token" });
+	}
+}
+
+async function handleSupabaseToken(
+	token: string,
+	req: AuthenticatedRequest,
+	res: Response,
+	next: NextFunction,
+): Promise<void> {
+	try {
+		const { data, error } = await getSupabaseVerifier().auth.getUser(token);
+		if (error || !data?.user) {
+			res.status(401).json({ error: "Invalid or expired token" });
+			return;
+		}
+
+		let mapped = await pgQuery<{ firebase_uid: string }>(
+			`select firebase_uid from auth_identity_map where supabase_uid = $1`,
+			[data.user.id],
+		);
+		if (mapped.rows.length === 0) {
+			// No auth_identity_map row. Covers two cases:
+			// 1. Brand-new users who signed up via Supabase Google OAuth after the
+			//    migration branch deployed (no Firebase account, no prior provisioning).
+			// 2. Any user who slipped through the batch provisionAllUsers run.
+			// Provision on-demand: use the Supabase UUID as the canonical uid -- these
+			// users never had Firebase accounts, so there is no "Firebase UID" to use.
+			// All Postgres tables accept any text as uid; UUID format is fine.
+			const supabaseUid = data.user.id;
+			const email = data.user.email ?? null;
+			await pgQuery(
+				`insert into users (uid, email) values ($1, $2) on conflict (uid) do nothing`,
+				[supabaseUid, email],
+			);
+			await pgQuery(
+				`insert into auth_identity_map (firebase_uid, supabase_uid, provider, migration_status)
+				values ($1, $2, $3, 'supabase') on conflict (firebase_uid) do nothing`,
+				[supabaseUid, supabaseUid, data.user.app_metadata?.provider ?? "email"],
+			);
+			mapped = { rows: [{ firebase_uid: supabaseUid }] } as typeof mapped;
+		}
+
+		const onboardingResult = await pgQuery<{ onboarding_completed: boolean }>(
+			`select onboarding_completed from users where uid = $1`,
+			[mapped.rows[0]!.firebase_uid],
+		);
+
+		req.user = {
+			uid: mapped.rows[0]!.firebase_uid,
+			email: data.user.email,
+			onboardingCompleted: onboardingResult.rows[0]?.onboarding_completed === true,
 		};
 		next();
 	} catch {

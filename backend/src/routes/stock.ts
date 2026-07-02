@@ -284,7 +284,7 @@ stockRouter.get("/market-earnings", async (req, res) => {
 			for (const [sym, date] of Object.entries(geminiDates)) {
 				if (date >= fromStr && date <= toStr) {
 					calBySymbol.set(sym, {
-						symbol: sym, date, hour: undefined,
+						symbol: sym, date, hour: "",
 						epsActual: null, epsEstimate: null,
 						revenueActual: null, revenueEstimate: null,
 					});

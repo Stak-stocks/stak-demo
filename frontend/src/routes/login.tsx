@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { StakLogo } from "@/components/StakLogo";
 
-import { getProfile } from "@/lib/api";
+import { getProfile, getAuthProvider } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
 function LoginPage() {
-	const { user, loading, onboardingCompleted, signInWithGoogle, signInWithEmail, logout } = useAuth();
+	const { appUser, user, loading, onboardingCompleted, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,8 +21,8 @@ function LoginPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			// Block unverified email/password users — redirect them to verify their inbox
-			const isPasswordProvider = user.providerData[0]?.providerId === "password";
-			if (isPasswordProvider && !user.emailVerified) {
+			const isPasswordProvider = appUser?.provider === "password";
+			if (isPasswordProvider && !appUser?.emailVerified) {
 				navigate({ to: "/verify-email" });
 				return;
 			}
@@ -46,16 +46,50 @@ function LoginPage() {
 		}
 	}, [user, loading, navigate, logout]);
 
+	// Mirrors the effect above for the additive Supabase path (migration plan, Phase 5,
+	// internal cohort only) -- no email-verification gate or token-deletion-detection
+	// trick here, since cohort accounts are already-verified, fully-provisioned ones,
+	// not fresh signups. Guarded by `!user` so it can't fire for someone who somehow
+	// has both a Firebase and a Supabase session at once -- the Firebase effect above
+	// takes priority.
+	useEffect(() => {
+		if (!supabaseUserId || user) return;
+		getProfile()
+			.then((profile) => {
+				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
+			})
+			.catch(() => {
+				logout().catch(() => {});
+			});
+	}, [supabaseUserId, user, navigate, logout]);
+
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
 		if (!email || !password) return;
 		setSigningIn(true);
 		try {
-			await signInWithEmail(email, password);
+			// Migration plan, Phase 5: internal cohort only. Defaults to Firebase (the
+			// live path for everyone else) if the check itself fails -- never let an
+			// auth-migration lookup be the reason a real sign-in attempt is blocked.
+			const { provider, requiresPasswordReset } = await getAuthProvider(email).catch(
+				() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
+			);
+
+			if (requiresPasswordReset) {
+				toast.error("We've upgraded login security — please use \"Forgot password\" to set a new password before signing in.");
+				setSigningIn(false);
+				return;
+			}
+
+			if (provider === "supabase") {
+				await signInWithEmailSupabase(email, password);
+			} else {
+				await signInWithEmail(email, password);
+			}
 			toast.success("Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
-			if (message.includes("user-not-found") || message.includes("invalid-credential")) {
+			if (message.includes("user-not-found") || message.includes("invalid-credential") || message.includes("Invalid login credentials")) {
 				toast.error("Invalid email or password");
 			} else if (message.includes("wrong-password")) {
 				toast.error("Wrong password");
@@ -69,32 +103,12 @@ function LoginPage() {
 	async function handleGoogleSignIn() {
 		setSigningIn(true);
 		try {
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				// If the UID matches a previous session, this is an existing email/password
-				// user linking their Google account — check profile before overwriting.
-				// If UID is different (or no previous session), it's a fresh account.
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch { /* fall through to new user */ }
-				}
-				// Truly new user or deleted account re-registering — start fresh
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			// Phase 6: full Google OAuth cutover to Supabase. signInWithOAuth redirects
+			// the browser away immediately -- the supabaseUserId effect above handles
+			// navigation once the session is established after redirect-back.
+			await signInWithGoogleSupabase();
 		} catch (error: unknown) {
-			const code = (error as { code?: string }).code ?? "";
-			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
-		} finally {
+			toast.error("Sign in failed. Please try again.");
 			setSigningIn(false);
 		}
 	}

@@ -1,0 +1,47 @@
+/**
+ * Postgres connection pool for the Supabase migration (see
+ * C:\Users\badew\.claude\plans\tingly-conjuring-lake.md). Direct pg access, not the
+ * @supabase/supabase-js/PostgREST client -- the backend is a trusted server-side
+ * environment with full DB access already (mirrors how firebaseAdmin.ts uses the
+ * Admin SDK directly rather than client-style Firestore calls). supabase-js becomes
+ * relevant later for the frontend specifically (Phase 5, RLS-secured Realtime), not
+ * for the backend's own data access pattern.
+ */
+
+import pg from "pg";
+
+// .trim() is defensive against trailing \r from Windows grep|cut pipe used to create
+// the Cloud Run secret. node-postgres's URL parser appears to tolerate it in practice
+// (health check confirmed db:connected), but better safe than a hard-to-diagnose
+// connection failure on a stricter postgres client version.
+const pool = new pg.Pool({ connectionString: (process.env.SUPABASE_DB_URL ?? "").trim() });
+
+pool.on("error", (err) => {
+	// A pooled, idle connection dying shouldn't crash the process -- pg already retries
+	// new connections on next query; this just stops it being an unhandled rejection.
+	console.error("[Postgres] Unexpected pool error:", err.message);
+});
+
+export async function pgQuery<T extends pg.QueryResultRow = pg.QueryResultRow>(
+	text: string,
+	params?: unknown[],
+): Promise<pg.QueryResult<T>> {
+	return pool.query<T>(text, params);
+}
+
+/**
+ * Every child table (swipes, events, sessions, etc.) FKs to users(uid) -- but Phase 1
+ * shadow-writes those tables before the `users` table itself is populated (that's
+ * Phase 2/3). Without a row to reference, those FK inserts would fail outright. This
+ * upsert guarantees a row exists with ON CONFLICT DO NOTHING specifically so it never
+ * clobbers a fuller row Phase 2/3 writes later -- this is a placeholder, not a source
+ * of truth for user data.
+ */
+export async function ensureUserRow(uid: string, email?: string | null): Promise<void> {
+	await pgQuery(
+		`insert into users (uid, email) values ($1, $2) on conflict (uid) do nothing`,
+		[uid, email ?? null],
+	);
+}
+
+export { pool as pgPool };

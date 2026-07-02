@@ -3,6 +3,9 @@ import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
+import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
+import { provisionFirebaseUser } from "../services/authMigrationService.js";
 
 export const meRouter = Router();
 
@@ -21,6 +24,15 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			adminDb.collection("sessions").doc(`${uid}_${today}`)
 				.set({ uid, date: today })
 				.catch(() => {});
+
+			// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+			shadowWrite("sessions-upsert", async () => {
+				await ensureUserRow(uid, req.user!.email);
+				await pgQuery(
+					`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`,
+					[uid, today],
+				);
+			});
 		}
 
 		const doc = await adminDb.collection("users").doc(uid).get();
@@ -44,7 +56,21 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		// before this claim was introduced. Runs once per user then is a no-op.
 		const data = doc.data();
 		if (data?.onboardingCompleted === true && !req.user!.onboardingCompleted) {
-			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+			// Phase 7 note: once Firebase Auth accounts are deleted, setCustomUserClaims
+			// will throw "user-not-found". Swallow it silently -- Supabase-migrated users
+			// no longer need this claim (their onboarding status comes from Postgres).
+			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
+				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
+			});
+		}
+
+		// Backfill Postgres onboarding_completed on read. PUT /api/me now writes this
+		// directly, but existing migrated users (who completed onboarding before the
+		// migration branch deployed) need their Postgres value synced. Fire-and-forget --
+		// if it fails, the next GET /api/me will retry.
+		if (data?.onboardingCompleted === true) {
+			pgQuery(`update users set onboarding_completed = true where uid = $1 and not onboarding_completed`, [uid])
+				.catch(() => {});
 		}
 
 		res.json({ id: doc.id, ...doc.data() });
@@ -88,11 +114,37 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 		// Embed onboardingCompleted in the Firebase ID token so clients can
 		// read it instantly on any device without a Firestore round trip.
+		// Phase 7 note: guard against user-not-found once Firebase accounts are deleted.
 		if (onboardingCompleted === true) {
-			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
+				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
+			});
+
+			// Provision new users into auth_identity_map (fire-and-forget, idempotent).
+			// New signups via Firebase are never auto-provisioned -- this is the earliest
+			// point every new user passes through, so it's the right hook for ensuring
+			// they're included in future migration wave sweeps.
+			const firebaseUser = await adminAuth.getUser(uid).catch(() => null);
+			if (firebaseUser) {
+				provisionFirebaseUser({
+					uid: firebaseUser.uid,
+					email: firebaseUser.email,
+					emailVerified: firebaseUser.emailVerified,
+					signInProvider: firebaseUser.providerData[0]?.providerId ?? "password",
+				}).catch(() => {});
+			}
 		}
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
+
+		// Write onboarding_completed to Postgres so Supabase-session users' account
+		// data (assembled from Postgres via fetchSupabaseAccount) reflects completion.
+		// Without this, account.onboardingCompleted is always false for Supabase users
+		// and the onboarding redirect guard never fires.
+		if (onboardingCompleted === true) {
+			pgQuery(`update users set onboarding_completed = true where uid = $1`, [uid])
+				.catch((e) => console.error("[onboarding_completed] Postgres update failed:", e));
+		}
 
 		const updated = await adminDb.collection("users").doc(uid).get();
 		res.json({ id: updated.id, ...updated.data() });
@@ -176,10 +228,26 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 	}
 });
 
-// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs
+// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs.
+// Reads from Firestore by default; set INTEL_STATE_READ_SOURCE=postgres to switch once
+// shadow-write parity has actually been observed over real time -- see tingly-conjuring-lake.md.
+// Confirmed backend-exclusive (unlike most of users/{uid}'s other fields, nothing in
+// AccountContext.tsx writes intelCardState directly from the frontend) -- this is the
+// one field Phase 2's original scope actually applies to cleanly.
 meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
+
+		if (process.env.INTEL_STATE_READ_SOURCE === "postgres") {
+			const result = await pgQuery<{ last_date: string; queue: string[]; read_ids: string[] }>(
+				`select last_date, queue, read_ids from intel_card_state where uid = $1`,
+				[uid],
+			);
+			const row = result.rows[0];
+			res.json({ lastDate: row?.last_date ?? "", queue: row?.queue ?? [], readIds: row?.read_ids ?? [] });
+			return;
+		}
+
 		const doc = await adminDb.collection("users").doc(uid).get();
 		const data = doc.data();
 		const saved = data?.intelCardState ?? {};
@@ -210,6 +278,16 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 			{ intelCardState: { lastDate, queue, readIds }, updatedAt: new Date().toISOString() },
 			{ merge: true },
 		);
+
+		// Shadow-write to Postgres (migration Phase 2) -- see tingly-conjuring-lake.md
+		await shadowWrite("intel-state-upsert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into intel_card_state (uid, last_date, queue, read_ids) values ($1, $2, $3, $4)
+				on conflict (uid) do update set last_date = excluded.last_date, queue = excluded.queue, read_ids = excluded.read_ids`,
+				[uid, lastDate, queue, readIds],
+			);
+		});
 
 		res.json({ lastDate, queue, readIds });
 	} catch (error) {

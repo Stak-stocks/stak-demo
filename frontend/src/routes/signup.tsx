@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
+	const { appUser, user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -22,8 +22,8 @@ function SignUpPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			// Email/password users who haven't verified yet → go to verify screen
-			const isPasswordProvider = user.providerData[0]?.providerId === "password";
-			if (isPasswordProvider && !user.emailVerified) {
+			const isPasswordProvider = appUser?.provider === "password";
+			if (isPasswordProvider && !appUser?.emailVerified) {
 				navigate({ to: "/verify-email" });
 				return;
 			}
@@ -40,6 +40,24 @@ function SignUpPage() {
 				});
 		}
 	}, [user, loading, navigate, logout]);
+
+	// Migration plan, Phase 5: signup.tsx has no Supabase signup flow of its own (new
+	// signups stay Firebase-only until Phase 6 -- cohort accounts are existing Firebase
+	// users flipped to the Supabase login path, never fresh Supabase signups). But
+	// without this, an already-logged-in Supabase session hitting /signup directly
+	// would just render the signup form instead of redirecting away, unlike every
+	// other page. Guarded by `!user` so the Firebase effect above takes priority if
+	// someone somehow has both sessions at once.
+	useEffect(() => {
+		if (loading || !supabaseUserId || user) return;
+		getProfile()
+			.then((profile) => {
+				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
+			})
+			.catch(() => {
+				logout().catch(() => {});
+			});
+	}, [loading, supabaseUserId, user, navigate, logout]);
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
@@ -76,28 +94,9 @@ function SignUpPage() {
 	async function handleGoogleSignIn() {
 		setSigningUp(true);
 		try {
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch { /* fall through to new user */ }
-				}
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			await signInWithGoogleSupabase();
 		} catch (error: unknown) {
-			const code = (error as { code?: string }).code ?? "";
-			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
-		} finally {
+			toast.error("Sign in failed. Please try again.");
 			setSigningUp(false);
 		}
 	}

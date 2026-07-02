@@ -87,10 +87,10 @@ export const Route = createFileRoute("/")({
 
 
 function App() {
-	const { user } = useAuth();
+	const { appUser, user } = useAuth();
 	const { account, updateStak, saveToStak, updatePassedBrands, updateDeckOrder } = useAccount();
 	const queryClient = useQueryClient();
-	const uid = user?.uid ?? "guest";
+	const uid = appUser?.uid ?? "guest";
 
 	const { data: allBrandsList } = useBrandsList();
 	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
@@ -98,7 +98,7 @@ function App() {
 	const [selectedBrand, setSelectedBrand] = useState<BrandSummary | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 
-	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe, bumpOptimistic, reportSwipeResult } = useSwipeLimit(uid, !!user);
+	const { count: swipeCount, hasReachedLimit, increment: incrementSwipe, bumpOptimistic, reportSwipeResult } = useSwipeLimit(uid, !!appUser);
 
 	// Daily Brief themes for dailyBriefThemeBoost — shares TanStack Query cache with DailyBriefModal
 	const { data: dailyBriefData } = useQuery({

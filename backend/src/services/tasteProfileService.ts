@@ -1,4 +1,6 @@
 import { adminDb } from "../firebaseAdmin.js";
+import { pgQuery } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
 import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 
 type ActionType =
@@ -44,10 +46,12 @@ export async function updateUserTasteProfile(
 
 	const userRef = adminDb.collection("users").doc(uid);
 
+	let updated: Record<string, number> = {};
+
 	await adminDb.runTransaction(async (tx) => {
 		const snap = await tx.get(userRef);
 		const current: Record<string, number> = (snap.data()?.tagScores as Record<string, number>) ?? {};
-		const updated: Record<string, number> = { ...current };
+		updated = { ...current };
 
 		for (const lt of stock.learningTags) {
 			const delta = actionPoints * lt.weight;
@@ -56,4 +60,13 @@ export async function updateUserTasteProfile(
 
 		tx.set(userRef, { tagScores: updated }, { merge: true });
 	});
+
+	// Shadow-write tag_scores to Postgres so Supabase-session users get the same
+	// personalization. Firestore stays the source of truth for now.
+	shadowWrite("tag-scores-update", () =>
+		pgQuery(
+			`update users set tag_scores = $1 where uid = $2`,
+			[JSON.stringify(updated), uid],
+		),
+	);
 }

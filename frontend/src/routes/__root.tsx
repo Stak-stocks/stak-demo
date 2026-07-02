@@ -28,9 +28,10 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { user, loading } = useAuth();
+	const { appUser, user, loading, supabaseUserId } = useAuth();
+	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
-	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(user?.uid ?? "guest", !!user);
+	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -72,7 +73,7 @@ function Root() {
 	const queryClient = useQueryClient();
 	const stakTickers = useStakTickers();
 	useEffect(() => {
-		if (!user || stakTickers.length === 0) return;
+		if (!appUser || stakTickers.length === 0) return;
 		for (const tab of ["today", "tomorrow", "week"] as const) {
 			queryClient.prefetchQuery({
 				queryKey: ["market-earnings", tab, stakTickers],
@@ -107,14 +108,18 @@ function Root() {
 
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
+	// The Firestore-based account.onboardingCompleted check only applies for Firebase
+	// sessions -- Supabase sessions get their onboarding status from the backend's
+	// getProfile() (see login.tsx's supabaseUserId effect), not from Firestore.
+	const onboardingCheckApplies = appUser?.sessionType === "firebase";
 	useEffect(() => {
-		if (!loading && !accountLoading && !user && !isAuthPage) {
+		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, onboardingCheckApplies, navigate]);
 
 	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
 	// the 9:30am ET open (not before): the brief is sourced from real trading
@@ -124,7 +129,7 @@ function Root() {
 	// let this gate disagree with when the content itself actually refreshes.
 	// Stored in Firestore so it's cross-device.
 	useEffect(() => {
-		if (!user || !account?.onboardingCompleted || isAuthPage) return;
+		if (!appUser || !account?.onboardingCompleted || isAuthPage) return;
 		const d = new Date();
 		const today = getEasternDateKey(d);
 		if (account.lastBriefDate === today) return;
@@ -143,7 +148,7 @@ function Root() {
 			updateLastBriefDate(today).catch(() => {});
 		}, 0);
 		return () => clearTimeout(t);
-	}, [user, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
+	}, [appUser, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -186,14 +191,14 @@ function Root() {
 	}
 
 	// Block render while a redirect is imminent — prevents one-frame flash of wrong page
-	if (!user && !isAuthPage) {
+	if (!isLoggedIn && !isAuthPage) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
-	if (user && !isAuthPage && account?.onboardingCompleted !== true) {
+	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />

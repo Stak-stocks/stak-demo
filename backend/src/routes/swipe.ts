@@ -4,6 +4,8 @@ import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js"
 import { recordActivity } from "../services/streakService.js";
 import { updateUserTasteProfile } from "../services/tasteProfileService.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
+import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
 
 export const swipeRouter = Router();
 
@@ -60,11 +62,12 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			return;
 		}
 
+		const swipeTimestamp = new Date().toISOString();
 		await adminDb.collection("swipes").add({
 			uid,
 			brandId,
 			direction,
-			timestamp: new Date().toISOString(),
+			timestamp: swipeTimestamp,
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
 			...(stakSize != null && { stakSize }),
@@ -72,12 +75,22 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			...(swipeVelocity != null && { swipeVelocity }),
 		});
 
+		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+		await shadowWrite("swipes-insert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into swipes (uid, brand_id, direction, occurred_at, ticker, categories, stak_size, time_on_card_ms, swipe_velocity)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				[uid, brandId, direction, swipeTimestamp, ticker ?? null, categories ?? null, stakSize ?? null, timeOnCardMs ?? null, swipeVelocity ?? null],
+			);
+		});
+
 		const streakResult = await recordActivity(uid, "swipe", todayKey);
 
 		// Update weighted taste profile (fire-and-forget, never blocks response)
 		if (ticker) {
 			const tasteAction = direction === "right" ? "right_swipe" : "left_swipe";
-			updateUserTasteProfile(uid, ticker, tasteAction).catch(() => {});
+			updateUserTasteProfile(uid, ticker, tasteAction).catch((err) => console.error("[tasteProfile] update failed:", err));
 		}
 
 		res.json({
@@ -117,14 +130,25 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 			return;
 		}
 
+		const eventTimestamp = new Date().toISOString();
 		await adminDb.collection("events").add({
 			uid,
 			type,
-			timestamp: new Date().toISOString(),
+			timestamp: eventTimestamp,
 			...(brandId != null && { brandId }),
 			...(ticker != null && { ticker }),
 			...(categories != null && { categories }),
 			...(params != null && { params }),
+		});
+
+		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
+		await shadowWrite("events-insert", async () => {
+			await ensureUserRow(uid, req.user!.email);
+			await pgQuery(
+				`insert into events (uid, type, occurred_at, brand_id, ticker, categories, params)
+				values ($1, $2, $3, $4, $5, $6, $7)`,
+				[uid, type, eventTimestamp, brandId ?? null, ticker ?? null, categories ?? null, params != null ? JSON.stringify(params) : null],
+			);
 		});
 
 		if (type === "intel_card_view") {
@@ -139,7 +163,7 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 		// Update weighted taste profile for brand-specific engagement events
 		if (ticker && (type === "learn_more" || type === "removed_from_stak")) {
 			const tasteAction = type === "removed_from_stak" ? "remove_from_watchlist" : type;
-			updateUserTasteProfile(uid, ticker, tasteAction).catch(() => {});
+			updateUserTasteProfile(uid, ticker, tasteAction).catch((err) => console.error("[tasteProfile] update failed:", err));
 		}
 
 		res.json({ success: true });

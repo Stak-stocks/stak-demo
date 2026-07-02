@@ -12,7 +12,7 @@ export const Route = createFileRoute("/profile_/personal-details")({
 });
 
 function PersonalDetailsPage() {
-	const { user } = useAuth();
+	const { appUser, user } = useAuth();
 	const navigate = useNavigate();
 
 	// Display name editing
@@ -41,9 +41,21 @@ function PersonalDetailsPage() {
 	const touchStartX = useRef(0);
 	const touchStartY = useRef(0);
 
-	if (!user) {
+	if (!appUser) {
 		navigate({ to: "/login" });
 		return null;
+	}
+
+	// This page is built entirely around Firebase's user object (displayName,
+	// metadata.creationTime, providerData) with no Supabase equivalent built yet --
+	// a real feature gap, not something to fake. Show an honest message instead of
+	// letting the rest of this component dereference a null `user`.
+	if (!user) {
+		return (
+			<div className="flex items-center justify-center h-full px-6 text-center">
+				<p className="dark:text-slate-400 text-slate-500">Personal details aren't available for this account yet.</p>
+			</div>
+		);
 	}
 
 	const displayName = user.displayName || "STAK User";

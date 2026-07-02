@@ -2,6 +2,7 @@ import {
 	createContext,
 	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 	type ReactNode,
@@ -21,12 +22,41 @@ import {
 	type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
+import { supabase } from "../lib/supabase";
+
+/**
+ * Unified user shape exposed to all consumers (migration plan, Phase 6/7:
+ * tingly-conjuring-lake.md). uid is the canonical Firebase UID for both session
+ * types -- the bridge that keeps all Postgres tables, analytics, and downstream
+ * logic consistent regardless of which provider authenticated the user.
+ */
+export interface AppUser {
+	uid: string;
+	email: string | null;
+	emailVerified: boolean;
+	displayName: string | null;
+	photoURL: string | null;
+	provider: string;            // 'password' or 'google.com' (original Firebase provider)
+	sessionType: "firebase" | "supabase";
+}
 
 interface AuthContextType {
-	user: User | null;
+	// appUser is the canonical, provider-agnostic user shape -- prefer this over
+	// `user` and `supabaseUserId` in all new consumers.
+	appUser: AppUser | null;
+	// loading: true until both Firebase and (if active) Supabase sessions have
+	// resolved, including the canonical UID lookup for Supabase sessions.
 	loading: boolean;
 	onboardingCompleted: boolean;
 	refreshClaims: () => Promise<void>;
+	// raw Firebase User -- still needed by Firebase-specific pages (profile editing,
+	// email verification) and AccountContext's Firestore write path. Will be removed
+	// in Phase 7 once Firebase is fully decommissioned.
+	user: User | null;
+	// raw Supabase UUID -- still used by AccountContext's Realtime subscription and
+	// by profile_.security/personal-details guards. Will collapse into appUser in
+	// Phase 7.
+	supabaseUserId: string | null;
 	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -35,6 +65,10 @@ interface AuthContextType {
 	verifyResetCode: (code: string) => Promise<string>;
 	confirmReset: (code: string, newPassword: string) => Promise<void>;
 	logout: () => Promise<void>;
+	signInWithEmailSupabase: (email: string, password: string) => Promise<void>;
+	signInWithGoogleSupabase: () => Promise<void>;
+	resetPasswordSupabase: (email: string) => Promise<void>;
+	confirmResetSupabase: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -44,8 +78,22 @@ const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
 	const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 	const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Supabase-session-specific state, resolved asynchronously once per sign-in.
+	// canonicalUid is the Firebase UID corresponding to the Supabase session -- needed
+	// to fill appUser.uid, which must be the same uid Postgres tables key on.
+	const [canonicalUid, setCanonicalUid] = useState<string | null>(null);
+	const [supabaseSessionData, setSupabaseSessionData] = useState<{
+		email: string | null; emailVerified: boolean; displayName: string | null;
+		photoURL: string | null; provider: string;
+	} | null>(null);
+	// Start true so the combined `loading || supabaseUidLoading` guard never briefly
+	// sees both false before the initial getSession() resolves. Set false once either
+	// there's no Supabase session (getSession returned null) or the UID is resolved.
+	const [supabaseUidLoading, setSupabaseUidLoading] = useState(true);
 
 	// Auto-logout after 30 minutes of inactivity
 	useEffect(() => {
@@ -104,6 +152,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return unsubscribe;
 	}, []);
 
+	useEffect(() => {
+		// getSession() resolves supabaseUidLoading: the initial getSession call determines
+		// whether there is a Supabase session at all. If there isn't, supabaseUidLoading
+		// goes false here so the app doesn't spin forever for pure Firebase users.
+		supabase.auth.getSession().then(({ data }) => {
+			const uid = data.session?.user.id ?? null;
+			setSupabaseUserId(uid);
+			if (!uid) setSupabaseUidLoading(false);
+		});
+		const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+			setSupabaseUserId(session?.user.id ?? null);
+			if (!session) setSupabaseUidLoading(false);
+		});
+		return () => listener.subscription.unsubscribe();
+	}, []);
+
+	// When a Supabase session exists, resolve the canonical Firebase UID and session
+	// metadata needed to build appUser. One round-trip per sign-in, not per render.
+	useEffect(() => {
+		if (!supabaseUserId) {
+			setCanonicalUid(null);
+			setSupabaseSessionData(null);
+			setSupabaseUidLoading(false);
+			return;
+		}
+		setSupabaseUidLoading(true);
+		Promise.all([
+			supabase.rpc("current_firebase_uid"),
+			supabase.auth.getSession(),
+		]).then(([uidResult, sessionResult]) => {
+			// current_firebase_uid() returns null when there's no auth_identity_map row
+			// yet -- this happens for brand-new Supabase-only users whose row isn't
+			// created until their first backend API call (authMiddleware on-demand
+			// provisioning). Fall back to the Supabase UUID itself, which is exactly
+			// what authMiddleware uses as the canonical uid for these users.
+			setCanonicalUid((uidResult.data as string | null) ?? supabaseUserId);
+			const session = sessionResult.data.session;
+			if (session) {
+				const meta = session.user.user_metadata ?? {};
+				setSupabaseSessionData({
+					email: session.user.email ?? null,
+					emailVerified: !!session.user.email_confirmed_at,
+					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
+					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
+					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+				});
+			}
+		}).finally(() => setSupabaseUidLoading(false));
+	}, [supabaseUserId]);
+
 	async function signInWithGoogle(): Promise<{ isNew: boolean; uid: string }> {
 		const result = await signInWithPopup(auth, googleProvider);
 		const isNew = getAdditionalUserInfo(result)?.isNewUser ?? false;
@@ -120,6 +218,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	async function signUpWithEmail(email: string, password: string) {
 		await createUserWithEmailAndPassword(auth, email, password);
 		logEvent("sign_up", { method: "email" });
+	}
+
+	// Additive Supabase paths, internal cohort only -- callers check getAuthProvider()
+	// first and only call these for emails already migrated. Errors propagate to the
+	// caller the same way the Firebase methods above do, not swallowed here.
+	async function signInWithEmailSupabase(email: string, password: string) {
+		const { error } = await supabase.auth.signInWithPassword({ email, password });
+		if (error) throw error;
+		logEvent("login", { method: "email", provider: "supabase" });
+	}
+
+	async function signInWithGoogleSupabase() {
+		const { error } = await supabase.auth.signInWithOAuth({
+			provider: "google",
+			options: {
+				// Without redirectTo, Supabase falls back to the dashboard Site URL, which
+				// may not match the current origin (breaks on dev vs prod or staging deploys).
+				redirectTo: window.location.origin,
+			},
+		});
+		if (error) throw error;
+		// signInWithOAuth redirects the browser away immediately on success -- there's
+		// no result to log here the way the Firebase popup flow has; logEvent fires
+		// after redirect-back instead.
+	}
+
+	async function resetPasswordSupabase(email: string) {
+		const { error } = await supabase.auth.resetPasswordForEmail(email, {
+			// supabase_recovery=1 lets reset-password.tsx reliably detect this is a
+			// Supabase recovery redirect via query params (readable by TanStack Router),
+			// rather than depending on the URL hash which varies by Supabase auth flow.
+			redirectTo: `${window.location.origin}/reset-password?supabase_recovery=1`,
+		});
+		if (error) throw error;
+	}
+
+	async function confirmResetSupabase(newPassword: string) {
+		const { error } = await supabase.auth.updateUser({ password: newPassword });
+		if (error) throw error;
 	}
 
 	async function sendVerificationEmail() {
@@ -152,12 +289,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	async function logout() {
 		localStorage.removeItem("onboardingCompleted");
-		await signOut(auth);
+		// Sign out of both -- harmless no-op for whichever provider isn't actually
+		// active, and ensures neither session lingers regardless of which one signed
+		// the user in.
+		await Promise.all([signOut(auth), supabase.auth.signOut()]);
 	}
+
+	const appUser = useMemo<AppUser | null>(() => {
+		if (user) {
+			return {
+				uid: user.uid,
+				email: user.email,
+				emailVerified: user.emailVerified,
+				displayName: user.displayName,
+				photoURL: user.photoURL,
+				provider: user.providerData[0]?.providerId ?? "password",
+				sessionType: "firebase",
+			};
+		}
+		if (supabaseUserId && canonicalUid && supabaseSessionData) {
+			return { uid: canonicalUid, ...supabaseSessionData, sessionType: "supabase" };
+		}
+		return null;
+	}, [user, supabaseUserId, canonicalUid, supabaseSessionData]);
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{
+				appUser,
+				user, loading: loading || supabaseUidLoading, onboardingCompleted, refreshClaims,
+				signInWithGoogle, signInWithEmail,
+				signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout,
+				signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId,
+				resetPasswordSupabase, confirmResetSupabase,
+			}}
 		>
 			{children}
 		</AuthContext.Provider>

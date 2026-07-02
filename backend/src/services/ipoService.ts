@@ -1,6 +1,8 @@
 import { adminDb } from "../firebaseAdmin.js";
 import { FieldValue } from "firebase-admin/firestore";
 import { getEasternDateKey } from "@stak/shared";
+import { pgQuery } from "../lib/postgres.js";
+import { shadowWrite } from "../lib/shadowWrite.js";
 import { getFinnhubKeys } from "./finnhubService.js";
 import { getGeminiKeys } from "./geminiService.js";
 
@@ -261,6 +263,31 @@ async function upsertStockToFirestore(
 	};
 
 	await docRef.set(data, { merge: true });
+
+	// Shadow-write to Postgres (migration Phase 1) -- Firestore stays authoritative for
+	// reads until parity is verified over a real observation period; see
+	// C:\Users\badew\.claude\plans\tingly-conjuring-lake.md.
+	await shadowWrite("stocks-upsert", () =>
+		pgQuery(
+			`insert into stocks (ticker, id, name, domain, logo, hero_image, bio, personality_description,
+				vibes, cultural_context, interest_categories, sector, country, source, ipo_date)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			on conflict (ticker) do update set
+				id = excluded.id, name = excluded.name, domain = excluded.domain, logo = excluded.logo,
+				hero_image = excluded.hero_image, bio = excluded.bio,
+				personality_description = excluded.personality_description, vibes = excluded.vibes,
+				cultural_context = excluded.cultural_context, interest_categories = excluded.interest_categories,
+				sector = excluded.sector, country = excluded.country, source = excluded.source,
+				ipo_date = excluded.ipo_date, updated_at = now()`,
+			[
+				symbol.toUpperCase(), id, profile.name, getDomain(profile), getLogoUrl(profile),
+				getHeroImage(profile.finnhubIndustry), brandData.bio, brandData.personalityDescription,
+				JSON.stringify(brandData.vibes), JSON.stringify(brandData.culturalContext),
+				brandData.interestCategories, profile.finnhubIndustry || "Unknown", profile.country || "Unknown",
+				"ipo-auto", ipoDate,
+			],
+		),
+	);
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
