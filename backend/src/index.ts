@@ -91,9 +91,18 @@ app.use("/api/playground", authLimiter, playgroundRouter);
 // Convenience redirect: /analytics → /analytics.html
 app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));
 
-// Health check
-app.get("/api/health", (_req, res) => {
-	res.json({ status: "ok" });
+// Health check -- verifies database connectivity, not just process liveness.
+// Use this after every deploy to confirm the service can actually reach Postgres
+// before promoting traffic or declaring the deploy successful.
+app.get("/api/health", async (_req, res) => {
+	try {
+		const { pgQuery } = await import("./lib/postgres.js");
+		await pgQuery("select 1");
+		res.json({ status: "ok", db: "connected" });
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		res.status(503).json({ status: "error", db: "unreachable", detail: message });
+	}
 });
 
 app.listen(PORT, () => {
