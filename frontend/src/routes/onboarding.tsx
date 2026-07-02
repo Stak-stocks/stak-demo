@@ -138,14 +138,15 @@ function OnboardingPage() {
 		}
 	}, [loading, user, claimsOnboardingCompleted, navigate]);
 
-	// Firestore-based guard: if Firestore confirms onboarding is done (e.g. after
-	// a false redirect caused by a race condition on reload), send them back.
-	// Silent while the user is actively progressing through the flow.
+	// Account-based guard: if account data (Firestore for Firebase sessions, Postgres
+	// for Supabase sessions) confirms onboarding is done, send them back. Using appUser
+	// instead of user so Supabase-session users are also protected -- without this,
+	// Supabase users can re-run onboarding repeatedly since user is null for them.
 	useEffect(() => {
-		if (!loading && !accountLoading && user && !hasProgressed.current && account?.onboardingCompleted === true) {
+		if (!loading && !accountLoading && appUser && !hasProgressed.current && account?.onboardingCompleted === true) {
 			navigate({ to: "/", replace: true });
 		}
-	}, [loading, accountLoading, user, account, navigate]);
+	}, [loading, accountLoading, appUser, account, navigate]);
 
 	if (loading || accountLoading) {
 		return (

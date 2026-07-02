@@ -182,7 +182,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			supabase.rpc("current_firebase_uid"),
 			supabase.auth.getSession(),
 		]).then(([uidResult, sessionResult]) => {
-			setCanonicalUid((uidResult.data as string | null));
+			// current_firebase_uid() returns null when there's no auth_identity_map row
+			// yet -- this happens for brand-new Supabase-only users whose row isn't
+			// created until their first backend API call (authMiddleware on-demand
+			// provisioning). Fall back to the Supabase UUID itself, which is exactly
+			// what authMiddleware uses as the canonical uid for these users.
+			setCanonicalUid((uidResult.data as string | null) ?? supabaseUserId);
 			const session = sessionResult.data.session;
 			if (session) {
 				const meta = session.user.user_metadata ?? {};

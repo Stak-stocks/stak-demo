@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import cron from "node-cron";
+import { pgQuery } from "./lib/postgres.js";
 import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
 import { meRouter } from "./routes/me.js";
@@ -96,7 +97,6 @@ app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));
 // before promoting traffic or declaring the deploy successful.
 app.get("/api/health", async (_req, res) => {
 	try {
-		const { pgQuery } = await import("./lib/postgres.js");
 		await pgQuery("select 1");
 		res.json({ status: "ok", db: "connected" });
 	} catch (err) {
