@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	BookOpen, Zap, Swords, FlaskConical, ShieldAlert,
 	Brain, TrendingUp, Wallet, ChevronRight, Star, Lock,
+	DollarSign, BarChart2, LineChart, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
@@ -1362,54 +1363,102 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 	if (scenario) {
 		const alreadyDone = completedIds.has(scenario.id);
+
+		// Beat/miss % for revenue and EPS
+		const calcBeatMiss = (actual: string | undefined, estimate: string): { pct: number; label: string } | null => {
+			const a = parseFinancialValue(actual);
+			const e = parseFinancialValue(estimate);
+			if (a == null || e == null || e === 0) return null;
+			const pct = ((a - e) / Math.abs(e)) * 100;
+			const sign = pct >= 0 ? "+" : "";
+			return { pct, label: `${pct >= 0 ? "Beat" : "Miss"} ${sign}${pct.toFixed(1)}%` };
+		};
+		const revBeatMiss = calcBeatMiss(scenario.revenueActual, scenario.revenueExpected);
+		const epsBeatMiss = calcBeatMiss(scenario.epsActual, scenario.epsExpected);
+
+		// Stock context colour
+		const stockUp = /up|^\+/i.test(scenario.stockContext);
+		const stockDown = /down|^-/i.test(scenario.stockContext);
+
+		// Outcome colour (stockMove field, e.g. "-4%" or "+8%")
+		const moveNeg = scenario.stockMove ? scenario.stockMove.startsWith("-") : false;
+		const movePos = scenario.stockMove ? scenario.stockMove.startsWith("+") : false;
+
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-				<BackBtn onClick={backToList} label="All Scenarios" />
+					<BackBtn onClick={backToList} label="All Scenarios" />
 					<div className="flex items-center gap-[10px] mb-[16px]">
 						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
 							<FlaskConical size={18} />
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[12px] dark:text-slate-400 text-slate-500">Earnings Lab</p>
-							<h2 className="text-[18px] font-extrabold">{scenario.company} ({scenario.ticker})</h2>
+							<h2 className="text-[18px] font-extrabold">{scenario.company} <span className="font-normal dark:text-slate-400 text-slate-500">({scenario.ticker})</span></h2>
 						</div>
 						{alreadyDone && <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>}
 					</div>
 
-					{/* Earnings report card — the actual print, shown before the player predicts the reaction */}
-					<div className="rounded-[14px] border border-purple-500/20 overflow-hidden mb-[16px]">
-						{/* Header strip */}
-						<div className="bg-purple-500/[0.08] px-[14px] py-[10px] border-b border-purple-500/15 flex items-center justify-between">
-							<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">The Earnings Report</p>
-							<p className="text-[11px] dark:text-slate-400 text-slate-500">{scenario.ticker}</p>
+					{/* Earnings report card */}
+					<div className="rounded-[14px] border border-foreground/10 overflow-hidden mb-[16px]">
+						<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] flex items-center justify-between bg-foreground/[0.02]">
+							<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">The Earnings Report</p>
+							<p className="text-[11px] font-semibold dark:text-slate-400 text-slate-500">{scenario.ticker}</p>
 						</div>
-						<div className="p-[14px] bg-surface-1">
+						<div className="p-[14px]">
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[12px]">{scenario.context}</p>
-							{/* Actual results vs. estimate, plus where the stock sat going in */}
-							<div className="grid grid-cols-3 gap-[8px]">
-								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Revenue</p>
-									<p className="text-[14px] font-extrabold">{scenario.revenueActual ?? scenario.revenueExpected}</p>
-									<p className="text-[9px] dark:text-slate-500 text-slate-400">est. {scenario.revenueExpected}</p>
+
+							{/* Metrics grid */}
+							<div className="grid grid-cols-3 gap-[8px] mb-[10px]">
+								{/* Revenue */}
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px]">
+									<div className="flex items-center gap-[4px] mb-[6px]">
+										<DollarSign size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
+										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">Revenue</p>
+									</div>
+									<p className="text-[14px] font-extrabold leading-none mb-[3px]">{scenario.revenueActual ?? scenario.revenueExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[5px]">est. {scenario.revenueExpected}</p>
+									{revBeatMiss && (
+										<p className={`text-[9px] font-semibold ${revBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{revBeatMiss.label}</p>
+									)}
 								</div>
-								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px] text-center">
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">EPS</p>
-									<p className="text-[14px] font-extrabold">{scenario.epsActual ?? scenario.epsExpected}</p>
-									<p className="text-[9px] dark:text-slate-500 text-slate-400">est. {scenario.epsExpected}</p>
+								{/* EPS */}
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px]">
+									<div className="flex items-center gap-[4px] mb-[6px]">
+										<LineChart size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
+										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">EPS</p>
+									</div>
+									<p className="text-[14px] font-extrabold leading-none mb-[3px]">{scenario.epsActual ?? scenario.epsExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[5px]">est. {scenario.epsExpected}</p>
+									{epsBeatMiss && (
+										<p className={`text-[9px] font-semibold ${epsBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{epsBeatMiss.label}</p>
+									)}
 								</div>
-								<div className={`rounded-[10px] border p-[10px] text-center ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "border-rose-500/20 bg-rose-500/[0.05]" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") || scenario.stockContext.includes("near") ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-foreground/[0.07] bg-foreground/[0.03]"}`}>
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Stock</p>
-									<p className={`text-[11px] font-bold leading-tight ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "text-rose-400" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") ? "text-emerald-400" : "text-foreground"}`}>{scenario.stockContext}</p>
+								{/* Stock setup */}
+								<div className={`rounded-[10px] border p-[10px] ${stockDown ? "border-rose-500/20 bg-rose-500/[0.04]" : stockUp ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-foreground/[0.07] bg-foreground/[0.03]"}`}>
+									<div className="flex items-center gap-[4px] mb-[6px]">
+										<BarChart2 size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
+										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">Stock Setup</p>
+									</div>
+									<p className={`text-[13px] font-extrabold leading-none mb-[3px] ${stockDown ? "text-rose-500 dark:text-rose-400" : stockUp ? "text-emerald-500 dark:text-emerald-400" : "text-foreground"}`}>{scenario.stockContext}</p>
 								</div>
 							</div>
+
+							{/* Forward guidance */}
+							{scenario.forwardGuidance && (
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.02] px-[12px] py-[8px]">
+									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Forward Guidance</p>
+									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug">{scenario.forwardGuidance}</p>
+								</div>
+							)}
 						</div>
 					</div>
 
 					{phase === "question" ? (
 						<>
-							<p className="text-[15px] font-bold mb-[12px]">{scenario.question}</p>
+							<p className="text-[15px] font-bold mb-[4px]">{scenario.question}</p>
+							<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[12px]">Choose your prediction.</p>
 							<div className="space-y-[8px]">
 								{scenario.options.map((opt, i) => (
 									<OptionBtn
@@ -1422,7 +1471,6 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 												const correct = opt.id === scenario.correctId;
 												setSelected(opt.id);
 												setPhase("outcome");
-												// Always mark as attempted (0 XP if wrong) so it never reappears on re-entry
 												const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
 												setCompletedIds(prev => new Set([...prev, scenario.id]));
 												if (correct) {
@@ -1439,7 +1487,6 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 						</>
 					) : (
 						<>
-							{/* Show options with correct/wrong revealed */}
 							<p className="text-[15px] font-bold mb-[10px]">{scenario.question}</p>
 							<div className="space-y-[8px] mb-[14px]">
 								{scenario.options.map((opt, i) => (
@@ -1453,16 +1500,50 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 								))}
 							</div>
 
-							<div className="rounded-[12px] border border-purple-500/30 bg-purple-500/[0.07] p-[14px] mb-[12px]">
-								<p className="text-[12px] text-purple-400 font-semibold uppercase tracking-wide mb-[8px]">What Actually Happened</p>
-								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
+							{/* What actually happened */}
+							<div className="rounded-[12px] border border-foreground/10 overflow-hidden mb-[12px]">
+								<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] bg-foreground/[0.02]">
+									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">What Actually Happened</p>
+								</div>
+								<div className="p-[14px] flex items-start gap-[14px]">
+									{scenario.stockMove && (
+										<div className={`shrink-0 w-[56px] h-[56px] rounded-[12px] flex flex-col items-center justify-center border ${moveNeg ? "border-rose-500/20 bg-rose-500/[0.06]" : movePos ? "border-emerald-500/20 bg-emerald-500/[0.06]" : "border-foreground/10 bg-foreground/[0.03]"}`}>
+											<p className={`text-[18px] font-extrabold leading-none ${moveNeg ? "text-rose-500 dark:text-rose-400" : movePos ? "text-emerald-500 dark:text-emerald-400" : "text-foreground"}`}>{scenario.stockMove}</p>
+										</div>
+									)}
+									<div className="flex-1 min-w-0">
+										{selected && (
+											<div className={`flex items-center gap-[5px] mb-[4px] ${selected === scenario.correctId ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+												{selected === scenario.correctId
+													? <CheckCircle2 size={13} />
+													: <XCircle size={13} />
+												}
+												<p className="text-[12px] font-semibold">{selected === scenario.correctId ? "You got it right!" : "Not quite"}</p>
+											</div>
+										)}
+										<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
+									</div>
+								</div>
 							</div>
-							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 p-[14px] mb-[14px]">
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 font-semibold uppercase tracking-wide mb-[4px]">The Lesson</p>
-								<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.explanation}</p>
-								{!alreadyDone && <p className="text-[12px] text-amber-400 font-semibold mt-[8px]">+{scenario.xp} XP</p>}
+
+							{/* The lesson */}
+							<div className="rounded-[12px] border border-foreground/10 overflow-hidden mb-[14px]">
+								<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] bg-foreground/[0.02] flex items-center justify-between">
+									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">The Lesson</p>
+									{!alreadyDone && <p className="text-[11px] font-semibold text-amber-400">+{scenario.xp} XP</p>}
+								</div>
+								<div className="p-[14px]">
+									<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[10px]">{scenario.explanation}</p>
+									{scenario.keyTakeaway && (
+										<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
+											<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
+											<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{scenario.keyTakeaway}</p>
+										</div>
+									)}
+								</div>
 							</div>
-							{/* Navigation buttons */}
+
+							{/* Navigation */}
 							<div className="space-y-[8px]">
 								{nextScenario && (
 									<button type="button" onClick={() => openScenario(nextScenario.id)}
