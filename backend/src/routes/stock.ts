@@ -243,8 +243,11 @@ stockRouter.get("/market-earnings", async (req, res) => {
 		// for tickers FMP misses, and the source for the hour field (bmo/amc/dmh)
 		// that FMP doesn't provide. Running both in parallel also means Finnhub
 		// covers for FMP rate-limit failures.
+		// TTL: week/tomorrow data changes rarely; use longer cache to preserve FMP quota.
+		// Today with pending earnings uses the default 30min so actuals can land.
+		const fmpTtlMs = period === "week" ? 4 * 60 * 60 * 1000 : period === "tomorrow" ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000;
 		const [fmpEntries, finnhubData] = await Promise.all([
-			fetchFMPEarningsCalendar(fromStr, toStr),
+			fetchFMPEarningsCalendar(fromStr, toStr, fmpTtlMs),
 			finnhubGet(`/calendar/earnings?from=${fromStr}&to=${toStr}`) as
 				Promise<{ earningsCalendar?: FinnhubCalendarEntry[] } | null>,
 		]);
@@ -618,8 +621,9 @@ async function fetchGeminiEarningsDates(
 // FMP earnings-calendar: real announcement dates (not fiscal period-ends), faster EPS actuals.
 // Returns entries mapped to FinnhubCalendarEntry shape; hour defaults to "amc" since FMP
 // doesn't expose timing. Returns [] on any failure so callers treat it as an optional supplement.
-// Cached in Redis for 20 minutes so multiple route-level cache misses share one FMP API call.
-async function fetchFMPEarningsCalendar(from: string, to: string): Promise<FinnhubCalendarEntry[]> {
+// ttlMs controls how long the raw FMP response is cached — callers should pass a longer TTL
+// for stable date ranges (e.g. full week, historical 30-day) to keep FMP quota consumption low.
+async function fetchFMPEarningsCalendar(from: string, to: string, ttlMs = 30 * 60 * 1000): Promise<FinnhubCalendarEntry[]> {
 	const keys = [process.env.FMP_API_KEY, process.env.FMP_API_KEY_2].filter(Boolean) as string[];
 	if (keys.length === 0) return [];
 	const redisCacheKey = `fmp-calendar:v2:${from}:${to}`;
@@ -649,7 +653,7 @@ async function fetchFMPEarningsCalendar(from: string, to: string): Promise<Finnh
 					revenueActual: e.revenueActual ?? null,
 					revenueEstimate: e.revenueEstimated ?? null,
 				}));
-			await cacheSet(redisCacheKey, entries, 20 * 60 * 1000);
+			await cacheSet(redisCacheKey, entries, ttlMs);
 			return entries;
 		} catch {
 			continue;
@@ -939,7 +943,7 @@ stockRouter.get("/:symbol/earnings", async (req, res) => {
 		// even faster than FMP's calendar syncs. Only tried when Finnhub has no confirmed actuals.
 		if (!calendarEntry?.epsActual) {
 			const ago30Days = getEasternDateKey(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-			const fmpEntries = await fetchFMPEarningsCalendar(ago30Days, todayStr);
+			const fmpEntries = await fetchFMPEarningsCalendar(ago30Days, todayStr, 2 * 60 * 60 * 1000);
 			const fmpPast = fmpEntries
 				.filter((e) => e.symbol === symbol && e.date <= todayStr)
 				.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
