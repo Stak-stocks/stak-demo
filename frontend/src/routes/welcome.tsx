@@ -15,6 +15,7 @@ const A = {
 	boxBeamComposite: "/images/landing-v2/hero-beam-composite-2xb.png",
 	boxFlareComposite: "/images/landing-v2/hero-flare-composite-2xb.png",
 	boxM390: "/images/landing-v2/hero-box-frame124-m390-2x.png",
+	boxT810: "/images/landing-v2/hero-box-frame124-t810-2x.png",
 	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
 	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
 	boxFlap3: "/images/landing-v2/hero-box-flap-3.svg",
@@ -1874,7 +1875,13 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 				</div>
 			</div>
 
-			<BoxIllustration top={295.77} />
+			{/* Tablet Frame 124 (1:1135) is the tight-beam mobile composition (208x299 beam, no
+			    desktop flare) — rendered from a flattened 2x export of the node, alpha
+			    un-premultiplied vs the baked page bg. left 111 = frame x (verified by edge
+			    correlation); top 284 = frame y 295.77 minus 11.8px effect spill in the render. */}
+			<div style={{ position: "absolute", left: 111, top: 284, width: 587.309, height: 563.5, pointerEvents: "none" }}>
+				<img src={A.boxT810} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+			</div>
 
 			<div style={{ position: "absolute", left: "50%", top: 858, transform: "translateX(-50%)" }}>
 				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))" }} />
