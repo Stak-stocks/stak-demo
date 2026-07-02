@@ -37,8 +37,10 @@ interface GeneratedEarnings {
 	question: string;
 	options: { id: string; text: string }[];
 	correctId: string;
+	stockMove: string;
 	outcome: string;
 	explanation: string;
+	keyTakeaway: string;
 	xp: number;
 }
 
@@ -142,7 +144,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	}
 
 	// Per-user per-day cache — each user gets their own generated content
-	const cacheKey = `playground:gen:v6:${uid}:${dayKey}:${type}`;
+	const cacheKey = `playground:gen:v7:${uid}:${dayKey}:${type}`;
 	const fsDocId = `${uid}_${dayKey}`;
 
 	// 1. Redis fast path
@@ -268,8 +270,10 @@ Return a JSON array of exactly ${rawCount} objects:
     {"id": "d", "text": "Down 10%+ — major miss and guidance cut"}
   ],
   "correctId": "c",
-  "outcome": "Brief description of how the stock actually reacted.",
-  "explanation": "2-3 sentences explaining why the market reacted this way.",
+  "stockMove": "-4%",
+  "outcome": "1 sentence describing how the stock actually reacted (e.g. 'Nike fell 6% after hours despite the EPS beat.').",
+  "explanation": "2-3 sentences explaining WHY the market reacted this way — the key lesson.",
+  "keyTakeaway": "One punchy sentence summing up what this scenario teaches (e.g. 'A stock priced for perfection needs a perfect report — not just a good one.').",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
@@ -277,6 +281,7 @@ Rules:
 - revenueActual, epsActual, forwardGuidance, context, and stockContext are ALL shown to the player BEFORE they answer — the player already knows the full picture: beat/miss size, stock run-up, and what management said about next quarter
 - The correct answer must be derivable from the combination of actuals, context, AND forwardGuidance — not from the numbers alone (that would reduce every scenario to "beat = up, miss = down", which teaches nothing)
 - forwardGuidance is often the KEY signal that explains a surprising reaction (e.g. a beat that still sells off because guidance was cut)
+- stockMove must be the actual stock reaction as a signed % string (e.g. "-4%", "+8%", "-12%")
 - Vary which factor dominates across the ${rawCount} scenarios so players learn beat/miss size isn't the whole story
 - Scenarios should be educational and teach something real about earnings reactions
 - Do NOT use the same company more than once

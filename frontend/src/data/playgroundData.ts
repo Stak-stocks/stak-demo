@@ -87,8 +87,10 @@ export interface EarningsScenario {
 	question: string;
 	options: QuizOption[];
 	correctId: string;
+	stockMove?: string;
 	outcome: string;
 	explanation: string;
+	keyTakeaway?: string;
 	xp: number;
 }
 
