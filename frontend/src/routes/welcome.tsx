@@ -2163,8 +2163,7 @@ function MobileFaq({ onEmail }: { onEmail: () => void }) {
 }
 
 /* Mobile Final CTA — Figma node 1:1465 (Frame 226), 810×1236 */
-function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
-	const [email, setEmail] = useState("");
+function MobileFinalCta() {
 	const tb: CSSProperties = { width: 240.752, height: 129.049, borderRadius: 8.326, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", maxWidth: "none", ...st }} /></div>;
 	const maskTile = (src: string, st: CSSProperties, mpos: string, key: number) => (
@@ -2219,14 +2218,6 @@ function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void 
 				imgTile(A.ctaMqBb, { left: -15.96, top: -90.19, width: 271.973, height: 388.006 }, 3),
 				maskTile(A.ctaMqC5, { left: -8.24, top: -24.29, width: 260.799, height: 346.065 }, "8.243px 24.286px", 4),
 			], "calc(50% - 53.83px)", 769.95, 1259.265)}
-			<div style={{ position: "absolute", left: "calc(50% - 0.05px)", top: 1019.2, transform: "translateX(-50%)", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13, zIndex: 2 }}>
-				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 114 }} />
-					<button type="button" onClick={() => onSubscribe(email)} style={{ background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "18px", color: "#fff", whiteSpace: "nowrap" }}>Join us</span>
-					</button>
-				</div>
-			</div>
 		</section>
 	);
 }
@@ -2324,7 +2315,7 @@ function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { 
 				<MobileFeatures onSignup={onSignup} />
 				<MobileEarlyMomentum onSignup={onSignup} />
 				<MobileFaq onEmail={onEmail} />
-				<MobileFinalCta onSubscribe={onSubscribe} />
+				<MobileFinalCta />
 				<MobileFooter onSubscribe={onSubscribe} onScrollTo={onScrollTo} />
 			</div>
 		</div>
@@ -2635,8 +2626,7 @@ function MobileFaq390({ onEmail }: { onEmail: () => void }) {
 	);
 }
 
-function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
-	const [email, setEmail] = useState("");
+function MobileFinalCta390() {
 	const tb: CSSProperties = { width: 182.724, height: 97.944, borderRadius: 6.319, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", maxWidth: "none", ...st }} /></div>;
 	const maskTile = (src: string, st: CSSProperties, mpos: string, key: number) => (
@@ -2690,14 +2680,6 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 				imgTile(A.ctaMqBb, { left: -12.11, top: -68.45, width: 206.42, height: 294.485 }, 3),
 				maskTile(A.ctaMqC5, { left: -6.26, top: -18.43, width: 197.939, height: 262.653 }, "6.256px 18.435px", 4),
 			], "calc(50% + 159.69px)", 729.78, 955.745)}
-			<div style={{ position: "absolute", left: "calc(50% - 0.05px)", top: 948.2, transform: "translateX(-50%)", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13, zIndex: 2 }}>
-				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 120 }} />
-					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: "0.361px solid rgba(101,158,173,0.63)", borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "normal", color: "#fff", whiteSpace: "nowrap" }}>Join us</span>
-					</button>
-				</div>
-			</div>
 		</section>
 	);
 }
@@ -2778,7 +2760,7 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }:
 				<MobileFeatures390 onSignup={onSignup} />
 				<MobileEarlyMomentum390 onSignup={onSignup} />
 				<MobileFaq390 onEmail={onEmail} />
-				<MobileFinalCta390 onSubscribe={onSubscribe} />
+				<MobileFinalCta390 />
 				<MobileFooter390 onSubscribe={onSubscribe} />
 			</div>
 		</div>
