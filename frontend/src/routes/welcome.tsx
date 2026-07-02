@@ -1941,7 +1941,10 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 642, transform: "translate(-50%, -50%)", width: 611, height: 598, overflow: "hidden" }}>
 				<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: "calc(50% - 10px)", transform: "translate(-50%, -50%)", width: 1238, height: 746 }}>
 					<div style={{ position: "absolute", left: "calc(50% + 1.46px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
-						<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
+						{/* mask rows sit entirely under the fade's solid zone (container y 574-590 < clip 598):
+						    visually invisible, but zeroes the photo at the clip row so no per-layer rounding
+						    hairline can leak — same treatment as the 390 mockup */}
+						<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 83%, transparent 85.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 83%, transparent 85.5%)" }} />
 					</div>
 					<div style={{ position: "absolute", bottom: 31, left: -84, width: 1400, height: 214, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(12.798px)", pointerEvents: "none" }} />
 				</div>
