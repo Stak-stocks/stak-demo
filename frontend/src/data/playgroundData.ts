@@ -78,6 +78,7 @@ export interface EarningsScenario {
 	company: string;
 	ticker: string;
 	context: string;
+	forwardGuidance?: string;
 	revenueExpected: string;
 	epsExpected: string;
 	revenueActual?: string;
@@ -86,8 +87,10 @@ export interface EarningsScenario {
 	question: string;
 	options: QuizOption[];
 	correctId: string;
+	stockMove?: string;
 	outcome: string;
 	explanation: string;
+	keyTakeaway?: string;
 	xp: number;
 }
 
