@@ -30,6 +30,7 @@ interface GeneratedEarnings {
 	company: string;
 	ticker: string;
 	context: string;
+	forwardGuidance: string;
 	revenueExpected: string;
 	epsExpected: string;
 	stockContext: string;
@@ -141,7 +142,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	}
 
 	// Per-user per-day cache — each user gets their own generated content
-	const cacheKey = `playground:gen:v5:${uid}:${dayKey}:${type}`;
+	const cacheKey = `playground:gen:v6:${uid}:${dayKey}:${type}`;
 	const fsDocId = `${uid}_${dayKey}`;
 
 	// 1. Redis fast path
@@ -252,7 +253,8 @@ Return a JSON array of exactly ${rawCount} objects:
   "id": "gen-earn-${dayKey}-1",
   "company": "Nike",
   "ticker": "NKE",
-  "context": "2-3 sentences giving real context for THIS report -- guidance commentary, segment-level trends, valuation level heading in, or analyst/market sentiment. This is shown to the player alongside the actual vs. estimated numbers below, before they predict the stock's reaction.",
+  "context": "2-3 sentences giving real context for THIS report — segment-level trends, valuation level heading in, or analyst/market sentiment. Do NOT include guidance here; that goes in forwardGuidance.",
+  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided next-quarter revenue to $11.8B, below the $12.4B analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
   "revenueExpected": "$12.4B",
   "epsExpected": "$0.84",
   "revenueActual": "$12.3B",
@@ -272,9 +274,9 @@ Return a JSON array of exactly ${rawCount} objects:
 }]
 Rules:
 - Use real companies and plausible earnings scenarios
-- revenueActual and epsActual are shown to the player BEFORE they answer, right alongside revenueExpected/epsExpected and stockContext — the player already knows whether the company beat or missed and by how much
-- The correct answer must be derivable by combining the actual-vs-estimate numbers WITH the qualitative signal in "context" — not from the numbers alone (every scenario would reduce to "beat = up, miss = down", which teaches nothing) and not from "context" alone (the player needs the real print too)
-- "context" must supply the qualitative factor that makes the reaction make sense for THIS case: a beat that still gets sold on weak guidance or a "priced for perfection" valuation, a miss that doesn't tank the stock because of a one-time charge or strong forward guidance, a modest beat that rallies hard because expectations were low, etc.
+- revenueActual, epsActual, forwardGuidance, context, and stockContext are ALL shown to the player BEFORE they answer — the player already knows the full picture: beat/miss size, stock run-up, and what management said about next quarter
+- The correct answer must be derivable from the combination of actuals, context, AND forwardGuidance — not from the numbers alone (that would reduce every scenario to "beat = up, miss = down", which teaches nothing)
+- forwardGuidance is often the KEY signal that explains a surprising reaction (e.g. a beat that still sells off because guidance was cut)
 - Vary which factor dominates across the ${rawCount} scenarios so players learn beat/miss size isn't the whole story
 - Scenarios should be educational and teach something real about earnings reactions
 - Do NOT use the same company more than once

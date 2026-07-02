@@ -1404,6 +1404,12 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 									<p className={`text-[11px] font-bold leading-tight ${scenario.stockContext.includes("Down") || scenario.stockContext.includes("down") ? "text-rose-400" : scenario.stockContext.includes("Up") || scenario.stockContext.includes("up") ? "text-emerald-400" : "text-foreground"}`}>{scenario.stockContext}</p>
 								</div>
 							</div>
+								{scenario.forwardGuidance && (
+									<div className="mt-[10px] rounded-[10px] border border-amber-500/20 bg-amber-500/[0.05] px-[12px] py-[8px]">
+										<p className="text-[9px] font-semibold uppercase tracking-wide text-amber-400 mb-[3px]">Forward Guidance</p>
+										<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug">{scenario.forwardGuidance}</p>
+									</div>
+								)}
 						</div>
 					</div>
 

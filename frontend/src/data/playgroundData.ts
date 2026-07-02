@@ -78,6 +78,7 @@ export interface EarningsScenario {
 	company: string;
 	ticker: string;
 	context: string;
+	forwardGuidance?: string;
 	revenueExpected: string;
 	epsExpected: string;
 	revenueActual?: string;
