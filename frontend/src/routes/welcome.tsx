@@ -2190,25 +2190,8 @@ function MobileFaqRow({ q, a, open, onToggle, width = 586, qSize = 20, aSize = 1
 	);
 }
 
-function MobileFaqRowFlat({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
-	return (
-		<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 17, alignItems: "flex-start" }}>
-			<button type="button" onClick={onToggle} style={{ ...btnReset, width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-				<div style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-					<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word" }}>{q}</p>
-					<svg width={18} height={18} viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0, marginTop: 3 }}>
-						{open ? <path d="M2 9h14" stroke="#fff" strokeWidth={1.6} strokeLinecap="round" /> : <path d="M9 2v14M2 9h14" stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />}
-					</svg>
-				</div>
-				{open && a && <p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "25px", color: "rgba(255,255,255,0.7)", margin: 0, textAlign: "left", whiteSpace: "normal", wordBreak: "break-word" }}>{a}</p>}
-			</button>
-			<div style={{ width: 583, height: 0, borderTop: "0.5px solid rgba(255,255,255,0.18)" }} />
-		</div>
-	);
-}
-
 function MobileFaq({ onEmail }: { onEmail: () => void }) {
-	const [openIdx, setOpenIdx] = useState<number | null>(0);
+	const [openIdx, setOpenIdx] = useState<number | null>(null);
 	return (
 		<section style={{ position: "absolute", left: 0, top: 5356, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 183 }}>
@@ -2230,9 +2213,9 @@ function MobileFaq({ onEmail }: { onEmail: () => void }) {
 					</div>
 				</div>
 				<div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
-					<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 32 }}>
+					<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 8 }}>
 						{FAQS.map((f, i) => (
-							<MobileFaqRowFlat key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => setOpenIdx((p) => (p === i ? null : i))} />
+							<MobileFaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => setOpenIdx((p) => (p === i ? null : i))} />
 						))}
 					</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center" }}>
