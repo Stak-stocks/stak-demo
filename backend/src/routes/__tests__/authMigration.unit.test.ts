@@ -8,6 +8,16 @@ vi.mock("../../lib/postgres.js", () => ({
 	pgQuery: pgQueryMock,
 }));
 
+// authMigration.ts now imports authMiddleware, which pulls in Firebase Admin.
+// Mock it so the test doesn't trigger real SDK initialization. Also sets req.user
+// so POST /complete-migration can access req.user!.uid without throwing.
+vi.mock("../../authMiddleware.js", () => ({
+	authMiddleware: (req: { user?: { uid: string } }, _res: unknown, next: () => void) => {
+		req.user = { uid: "test-uid" };
+		next();
+	},
+}));
+
 async function buildApp() {
 	vi.resetModules();
 	const { authMigrationRouter } = await import("../authMigration.js");
@@ -72,5 +82,39 @@ describe("GET /provider", () => {
 		const app = await buildApp();
 		await request(app).get("/provider?email=MiXeD-Case@Example.COM");
 		expect(pgQueryMock).toHaveBeenCalledWith(expect.any(String), ["mixed-case@example.com"]);
+	});
+});
+
+describe("POST /complete-migration", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("flips requires_password_reset to supabase and returns updated: true", async () => {
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ migration_status: "supabase" }] });
+		const app = await buildApp();
+		const res = await request(app).post("/complete-migration");
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ ok: true, updated: true });
+		expect(pgQueryMock.mock.calls[0][0]).toMatch(/migration_status = 'supabase'/);
+	});
+
+	it("returns updated: false when already on supabase (no matching row to update)", async () => {
+		pgQueryMock.mockResolvedValueOnce({ rows: [] });
+		const app = await buildApp();
+		const res = await request(app).post("/complete-migration");
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ ok: true, updated: false });
+	});
+
+	it("returns 500 on database error", async () => {
+		pgQueryMock.mockRejectedValueOnce(new Error("db down"));
+		const app = await buildApp();
+		const res = await request(app).post("/complete-migration");
+		expect(res.status).toBe(500);
 	});
 });

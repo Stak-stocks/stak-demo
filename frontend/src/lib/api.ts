@@ -51,6 +51,10 @@ export function getAuthProvider(email: string) {
 	);
 }
 
+export function completeMigration() {
+	return apiRequest<{ ok: boolean; updated: boolean }>("/api/auth/complete-migration", { method: "POST" });
+}
+
 // User profile
 export function getProfile() {
 	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");

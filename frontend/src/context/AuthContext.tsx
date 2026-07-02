@@ -42,6 +42,8 @@ interface AuthContextType {
 	// commitment to do the unification in Phase 6/7 instead of skipping it.
 	signInWithEmailSupabase: (email: string, password: string) => Promise<void>;
 	signInWithGoogleSupabase: () => Promise<void>;
+	resetPasswordSupabase: (email: string) => Promise<void>;
+	confirmResetSupabase: (newPassword: string) => Promise<void>;
 	// Minimal session presence, NOT a unified user object (see note above) -- just
 	// enough for consumers like login.tsx to know "someone is now signed in via
 	// Supabase" and react (e.g. navigate), the same way they already react to `user`.
@@ -164,6 +166,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		// for the Supabase session once this is no longer cohort-only.
 	}
 
+	async function resetPasswordSupabase(email: string) {
+		const { error } = await supabase.auth.resetPasswordForEmail(email, {
+			redirectTo: `${window.location.origin}/reset-password`,
+		});
+		if (error) throw error;
+	}
+
+	async function confirmResetSupabase(newPassword: string) {
+		const { error } = await supabase.auth.updateUser({ password: newPassword });
+		if (error) throw error;
+	}
+
 	async function sendVerificationEmail() {
 		if (!auth.currentUser) return;
 		await sendEmailVerification(auth.currentUser);
@@ -206,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail,
 				signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout,
 				signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId,
+				resetPasswordSupabase, confirmResetSupabase,
 			}}
 		>
 			{children}

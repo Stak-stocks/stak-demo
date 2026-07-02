@@ -6,6 +6,8 @@ import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
 import { applyActionCode } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { supabase } from "../lib/supabase";
+import { completeMigration } from "@/lib/api";
 
 export const Route = createFileRoute("/reset-password")({
 	component: ResetPasswordPage,
@@ -13,12 +15,15 @@ export const Route = createFileRoute("/reset-password")({
 		mode: (search.mode as string) || "",
 		oobCode: (search.oobCode as string) || "",
 		continueUrl: (search.continueUrl as string) || "",
+		// Supabase password recovery params
+		token_hash: (search.token_hash as string) || "",
+		type: (search.type as string) || "",
 	}),
 });
 
 function ResetPasswordPage() {
-	const { mode, oobCode, continueUrl } = Route.useSearch();
-	const { verifyResetCode, confirmReset } = useAuth();
+	const { mode, oobCode, continueUrl, token_hash, type } = Route.useSearch();
+	const { verifyResetCode, confirmReset, confirmResetSupabase } = useAuth();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,8 +32,37 @@ function ResetPasswordPage() {
 	const [verifying, setVerifying] = useState(true);
 	const [email, setEmail] = useState("");
 	const [invalidCode, setInvalidCode] = useState(false);
+	const isSupabaseReset = type === "recovery" && !!token_hash;
 
 	useEffect(() => {
+		// Supabase password recovery: token_hash + type=recovery in URL params.
+		// The Supabase JS client processes the token automatically via its own URL
+		// detection; we just need to confirm it produced a valid session.
+		if (isSupabaseReset) {
+			supabase.auth.getSession().then(({ data }) => {
+				if (data.session?.user.email) {
+					setEmail(data.session.user.email);
+					setVerifying(false);
+				} else {
+					// Token not yet processed or invalid -- give Supabase client a moment
+					// (it processes tokens asynchronously on init) then re-check
+					const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+						if (event === "PASSWORD_RECOVERY" && session?.user.email) {
+							setEmail(session.user.email);
+							setVerifying(false);
+							listener.subscription.unsubscribe();
+						}
+					});
+					setTimeout(() => {
+						setInvalidCode(true);
+						setVerifying(false);
+						listener.subscription.unsubscribe();
+					}, 5000);
+				}
+			});
+			return;
+		}
+
 		if (!oobCode) {
 			setInvalidCode(true);
 			setVerifying(false);
@@ -40,8 +74,6 @@ function ResetPasswordPage() {
 			applyActionCode(auth, oobCode)
 				.then(() => {
 					toast.success("Email verified! Welcome to STAK!");
-					// Redirect to continueUrl (handles cross-origin dev→localhost redirects).
-					// Fall back to /verify-email so the poll can detect verification.
 					if (continueUrl) {
 						window.location.href = continueUrl;
 					} else {
@@ -64,7 +96,7 @@ function ResetPasswordPage() {
 				setInvalidCode(true);
 				setVerifying(false);
 			});
-	}, [mode, oobCode, verifyResetCode, navigate]);
+	}, [mode, oobCode, isSupabaseReset, verifyResetCode, navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -79,7 +111,14 @@ function ResetPasswordPage() {
 		}
 		setResetting(true);
 		try {
-			await confirmReset(oobCode, password);
+			if (isSupabaseReset) {
+				await confirmResetSupabase(password);
+				// Flip migration_status from requires_password_reset → supabase so future
+				// logins don't show the reset gate again.
+				await completeMigration().catch(() => {});
+			} else {
+				await confirmReset(oobCode, password);
+			}
 			toast.success("Password reset! You can now sign in.");
 			navigate({ to: "/login" });
 		} catch {
