@@ -14,6 +14,7 @@ const A = {
 	gifAlpha: "/images/landing-v2/hero-gif-alpha.png",
 	boxBeamComposite: "/images/landing-v2/hero-beam-composite-2xb.png",
 	boxFlareComposite: "/images/landing-v2/hero-flare-composite-2xb.png",
+	boxM390: "/images/landing-v2/hero-box-frame124-m390-2x.png",
 	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
 	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
 	boxFlap3: "/images/landing-v2/hero-box-flap-3.svg",
@@ -2447,12 +2448,14 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 					</div>
 				</div>
 			</div>
-			<div style={{ position: "absolute", left: -25.586, top: 383.891, width: 587.309, height: 545.016, transform: "scale(0.75)", transformOrigin: "top left", pointerEvents: "none" }}>
-				<BoxIllustration top={0} />
+			{/* Frame 124 (mobile) is its own composition — narrower beam frame (156x224 at x142.5),
+			    no desktop flare layer — so it renders from a flattened 2x export of the node itself
+			    (alpha un-premultiplied against the baked page bg; coins/box/glows baked at mobile
+			    truth). Placement (top 375: bounds include ~9px blur spill above the frame) measured
+			    by edge-correlation against Figma's own hero render. */}
+			<div style={{ position: "absolute", left: 0, top: 375, width: 390, height: 422.5, pointerEvents: "none" }}>
+				<img src={A.boxM390} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 			</div>
-			{/* Frame 222 overlays its own crisp nvidia/amazon coins on the composite's baked ghosts */}
-			<div style={{ position: "absolute", left: 195.3, top: 491.2, width: 54.9, height: 54.9, pointerEvents: "none" }}><img src={A.brandNvidia} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
-			<div style={{ position: "absolute", left: 173.7, top: 533, width: 46.4, height: 46.4, pointerEvents: "none" }}><img src={A.brandAmazon} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
 			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.6, top: 849, width: 112.905, height: 32.453, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", boxSizing: "border-box" }}>
 				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
 			</button>
