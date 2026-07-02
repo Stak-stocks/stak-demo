@@ -408,7 +408,12 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 				</div>
 			</div>
 
-			<BoxIllustration />
+			{/* Frame 124 (1:343) — the design now uses the tight-beam composition on the desktop
+			    too (identical geometry to the tablet frame), rendered from the same flattened 2x
+			    export. left 406 = frame x; top 314 = frame y 325.77 minus 11.77px render spill. */}
+			<div style={{ position: "absolute", left: 406, top: 314, width: 587.309, height: 563.5, pointerEvents: "none" }}>
+				<img src={A.boxT810} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+			</div>
 
 			<div style={{ position: "absolute", left: "calc(50% - 0.43px)", top: 895, transform: "translateX(-50%)" }}>
 				<CtaButton label="Get started" onClick={onSignup} />
@@ -489,7 +494,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				    intent — the blur in Figma was a stylization that obscured the
 				    actual screenshot content. */}
 				<div style={{ position: "absolute", left: "calc(50% + 1.48px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
-					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
+					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 94%, transparent 96.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 94%, transparent 96.5%)" }} />
 				</div>
 				{/* Bottom fade — Figma node 1:441, EXACT values. A `to top`
 				    gradient: solid #0a1020 up to 30.374%, fading to transparent
@@ -1719,80 +1724,6 @@ function FooterUsefulLinks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) =
 	);
 }
 
-
-/* === SHARED: 3D box illustration (desktop + mobile) === */
-function BoxIllustration({ top = 325.77 }: { top?: number }) {
-	return (
-			<div style={{ position: "absolute", left: "calc(50% - 0.35px)", top, transform: "translateX(-50%)", width: 587.309, height: 545.016 }}>
-				<div style={{ position: "absolute", left: 138.55, top: 411.25, width: 304.111, height: 93.278 }}>
-					<img src={A.boxFlap1} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-				<div style={{ position: "absolute", left: 144.98, top: 403.21, width: 289.513, height: 88.8 }}>
-					<img src={A.boxFlap2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-				<div style={{ position: "absolute", left: 145.85, top: 417.15, width: 289.513, height: 88.8, overflow: "visible" }}>
-					<img src={A.boxFlap3} alt="" style={{ position: "absolute", top: "-29.44%", left: "-8.64%", right: "-8.72%", bottom: "-29.29%", width: "auto", height: "auto", maxWidth: "none" }} />
-				</div>
-				<div style={{ position: "absolute", left: 149.01, top: 398.42, width: 280.584, height: 84.524 }}>
-					<img src={A.boxFlap4} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-				<div style={{ position: "absolute", left: 156.84, top: 395.25, width: 267.518, height: 82.054 }}>
-					<img src={A.boxFlap5} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-
-				<div style={{ position: "absolute", left: "50%", top: 6.1, transform: "translateX(-50%)", width: 587.309, height: 545.016 }}>
-					<img src={A.box3d} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-				</div>
-
-				{/* Plinth light ring — Figma's base glow composite renders ~16L brighter
-				    than the exported flap SVGs; this screen-blended wash makes up the
-				    measured deficit (band y448-504, calibrated vs the 1:343 render). */}
-				<div style={{ position: "absolute", left: "50%", top: 434, transform: "translateX(-50%)", width: 470, height: 110, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 45%, rgba(190,220,255,0.34) 0%, rgba(160,200,250,0.13) 52%, rgba(140,185,245,0) 74%)", pointerEvents: "none" }} />
-
-				{/* Mouth flare — Figma node 1:351 "Vector 6" as its flattened isolated
-				    render (dim navy radial; the old per-asset export baked it brighter
-				    and leaked light into the dark flanks). Render bounds = layout box
-				    + symmetric 132px blur bleed -> (20.09, 110.05) 548x380. */}
-				<div style={{ position: "absolute", left: 20.09, top: 110.05, width: 548, height: 380, pointerEvents: "none" }}>
-					<img src={A.boxFlareComposite} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-
-				{/* Beam waist flanks — the isolated export lacks the outermost fringe the
-				    sparkle layer gains against the page backdrop; two faint washes restore
-				    the silhouette (threshold-30 contour calibrated, waist rows exact). */}
-				<div style={{ position: "absolute", left: "calc(50% - 94px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
-				<div style={{ position: "absolute", left: "calc(50% + 96px)", top: 100, transform: "translateX(-50%)", width: 95, height: 105, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(170,205,250,0.09) 0%, rgba(160,200,250,0.05) 60%, rgba(140,185,245,0) 95%)", pointerEvents: "none" }} />
-
-				{/* Light beam + sparkles + falling amazon/nvidia coins — Figma node 1:352
-				    ("Frame 115") exported as ONE flattened composite (contentsOnly render),
-				    so the beam shape, its sparkles, and all internal blend modes are
-				    pixel-exact by construction. Render bounds (147.96, 0.2) 294x343 within
-				    Frame 124, aligned by cross-correlation against the 1:343 node render. */}
-				<div style={{ position: "absolute", left: 147.96, top: 0.2, width: 294, height: 343, pointerEvents: "none" }}>
-					{/* screen blend: the export bakes the sparkle layer's pure-black plate
-					    (Figma drops it at composite time, a browser will not) — screen()
-					    erases black and adds only the light, exactly like Figma. */}
-					<img src={A.boxBeamComposite} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-				</div>
-
-
-				<div style={{ position: "absolute", left: 313.7, top: 240.7, width: 38.341, height: 38.341 }}>
-					<img src={A.brandTwitch} alt="Twitch" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-				</div>
-				<div style={{ position: "absolute", left: 264.9, top: 76.89, width: 62.063, height: 62.063 }}>
-					<img src={A.brandShopify} alt="Shopify" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-				</div>
-				<div style={{ position: "absolute", left: 220.83, top: 129.54, width: 93.363, height: 93.363, display: "flex", alignItems: "center", justifyContent: "center" }}>
-					<div style={{ transform: "rotate(-49.53deg)", width: 66.225, height: 66.225 }}>
-						<img src={A.brandGoogle} alt="Google" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-					</div>
-				</div>
-				<div style={{ position: "absolute", left: 223.07, top: 219.79, width: 68.839, height: 68.839 }}>
-					<img src={A.brandApple} alt="Apple" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-				</div>
-			</div>
-	);
-}
 
 /* === MOBILE LAYOUT (Figma node 1:1123 / Frame 220, 810px wide) === */
 const MOBILE_WIDTH = 810;
