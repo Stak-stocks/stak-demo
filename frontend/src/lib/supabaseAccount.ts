@@ -158,8 +158,19 @@ export function subscribeSupabaseAccount(sessionKey: string, onChange: (doc: Use
 	}
 	channel.subscribe();
 
+	// Supabase JWTs expire every hour. The client auto-refreshes the token and Supabase
+	// Realtime v2 re-authorizes channels internally on TOKEN_REFRESHED. As a defensive
+	// measure, we also trigger a data refetch at that point to ensure account state is
+	// current even if the Realtime channel missed any events during the token transition.
+	const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+		if (event === "TOKEN_REFRESHED" && !cancelled) {
+			refetch();
+		}
+	});
+
 	return () => {
 		cancelled = true;
+		authListener.subscription.unsubscribe();
 		supabase.removeChannel(channel);
 	};
 }

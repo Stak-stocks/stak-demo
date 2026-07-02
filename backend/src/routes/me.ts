@@ -5,6 +5,7 @@ import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery, ensureUserRow } from "../lib/postgres.js";
 import { shadowWrite } from "../lib/shadowWrite.js";
+import { provisionFirebaseUser } from "../services/authMigrationService.js";
 
 export const meRouter = Router();
 
@@ -114,7 +115,6 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			// New signups via Firebase are never auto-provisioned -- this is the earliest
 			// point every new user passes through, so it's the right hook for ensuring
 			// they're included in future migration wave sweeps.
-			const { provisionFirebaseUser } = await import("../services/authMigrationService.js");
 			const firebaseUser = await adminAuth.getUser(uid).catch(() => null);
 			if (firebaseUser) {
 				provisionFirebaseUser({
