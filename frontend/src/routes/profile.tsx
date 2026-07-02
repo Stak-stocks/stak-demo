@@ -140,7 +140,7 @@ function ProfilePage() {
 		);
 	}
 
-	if (!user) {
+	if (!appUser) {
 		return null;
 	}
 
@@ -175,8 +175,8 @@ function ProfilePage() {
 					<div className="relative mb-1">
 						<div className="absolute -inset-2 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 blur-lg" />
 						<div className="relative w-[80px] h-[80px] rounded-full ring-[3px] ring-purple-400/40 overflow-hidden bg-zinc-200 dark:bg-slate-800 shadow-xl shadow-purple-900/30">
-							{user.photoURL ? (
-								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+							{appUser.photoURL ? (
+								<img src={appUser.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
 								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}

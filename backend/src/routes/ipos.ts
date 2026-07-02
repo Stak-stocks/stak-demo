@@ -167,7 +167,20 @@ stocksRouter.post("/cleanup-orphaned-docs", async (req, res) => {
 		const snapshot = await adminDb.collection("users").get();
 		let deleted = 0;
 		let errors = 0;
+		// Pre-fetch all migrated Firebase UIDs so we never delete a Firestore doc for
+		// a user who has already moved to Supabase, even if their Firebase Auth account
+		// was deleted in a Phase 7 sweep before this cleanup ran.
+		const migratedResult = await pgQuery<{ firebase_uid: string }>(
+			`select firebase_uid from auth_identity_map where migration_status = 'supabase'`,
+		);
+		const migratedUids = new Set(migratedResult.rows.map((r) => r.firebase_uid));
+
 		for (const doc of snapshot.docs) {
+			if (migratedUids.has(doc.id)) {
+				// User has been migrated to Supabase -- their Firestore doc is still in use
+				// (migration shadow-writes are still active), never delete it here.
+				continue;
+			}
 			try {
 				await adminAuth.getUser(doc.id);
 				// Auth user exists — keep the doc

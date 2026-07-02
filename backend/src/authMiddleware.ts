@@ -53,7 +53,11 @@ export async function authMiddleware(
 	const token = authHeader.split("Bearer ")[1]!;
 	const issuer = peekIssuer(token);
 
-	if (issuer?.includes("supabase")) {
+	// Exact prefix match against the known Supabase issuer URL -- substring check
+	// ("supabase") is fragile and could misroute a Firebase token from a project
+	// coincidentally named "supabase-*" or similar.
+	const supabaseIssuer = `${process.env.SUPABASE_URL}/auth/v1`;
+	if (issuer === supabaseIssuer) {
 		await handleSupabaseToken(token, req, res, next);
 	} else {
 		await handleFirebaseToken(token, req, res, next);

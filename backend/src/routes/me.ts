@@ -55,7 +55,12 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		// before this claim was introduced. Runs once per user then is a no-op.
 		const data = doc.data();
 		if (data?.onboardingCompleted === true && !req.user!.onboardingCompleted) {
-			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+			// Phase 7 note: once Firebase Auth accounts are deleted, setCustomUserClaims
+			// will throw "user-not-found". Swallow it silently -- Supabase-migrated users
+			// no longer need this claim (their onboarding status comes from Postgres).
+			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
+				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
+			});
 		}
 
 		res.json({ id: doc.id, ...doc.data() });
@@ -99,8 +104,26 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 		// Embed onboardingCompleted in the Firebase ID token so clients can
 		// read it instantly on any device without a Firestore round trip.
+		// Phase 7 note: guard against user-not-found once Firebase accounts are deleted.
 		if (onboardingCompleted === true) {
-			await adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true });
+			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
+				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
+			});
+
+			// Provision new users into auth_identity_map (fire-and-forget, idempotent).
+			// New signups via Firebase are never auto-provisioned -- this is the earliest
+			// point every new user passes through, so it's the right hook for ensuring
+			// they're included in future migration wave sweeps.
+			const { provisionFirebaseUser } = await import("../services/authMigrationService.js");
+			const firebaseUser = await adminAuth.getUser(uid).catch(() => null);
+			if (firebaseUser) {
+				provisionFirebaseUser({
+					uid: firebaseUser.uid,
+					email: firebaseUser.email,
+					emailVerified: firebaseUser.emailVerified,
+					signInProvider: firebaseUser.providerData[0]?.providerId ?? "password",
+				}).catch(() => {});
+			}
 		}
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });

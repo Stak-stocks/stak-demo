@@ -116,6 +116,11 @@ function ResetPasswordPage() {
 				// Flip migration_status from requires_password_reset → supabase so future
 				// logins don't show the reset gate again.
 				await completeMigration().catch(() => {});
+				// Navigate to / not /login -- the Supabase session is already active after
+				// confirmResetSupabase, so /login would immediately redirect back anyway.
+				toast.success("Password updated! You're now signed in.");
+				navigate({ to: "/" });
+				return;
 			} else {
 				await confirmReset(oobCode, password);
 			}
