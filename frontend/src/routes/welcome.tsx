@@ -2647,9 +2647,9 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 			</div>
 		</div>
 	);
-	const r1: [string, boolean][] = [["Just STAKed Amazon!", false], ["Time to save more!", true], ["Woooo!!", false], ["Portfolio up this week!", false], ["New to STAK, loving it!", false]];
-	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["My portfolio is growing!", true], ["Gold, Google", false], ["Big gains incoming!", false], ["This app is different!", false]];
-	const r3: [string, boolean][] = [["What's the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Bullish on tech stocks!", true], ["STAKed Apple today!", false], ["Up 12% this month!", false]];
+	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
 	const stat = (num: string, label: string) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 0.838, alignItems: "center", justifyContent: "center" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
