@@ -2969,16 +2969,21 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, scrollToPixel
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
 function LandingPage() {
-	const { user, loading, onboardingCompleted } = useAuth();
+	const { appUser, user, loading, onboardingCompleted } = useAuth();
 	const navigate = useNavigate();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [vw, setVw] = useState(() => (typeof window !== "undefined" ? window.innerWidth : CANVAS_WIDTH));
 
 	useEffect(() => {
-		if (!loading && user) {
+		if (loading) return;
+		if (user) {
+			// Firebase session
 			navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
+		} else if (appUser) {
+			// Supabase session (new users arriving here after Google OAuth redirect)
+			navigate({ to: "/onboarding" });
 		}
-	}, [user, loading, navigate, onboardingCompleted]);
+	}, [appUser, user, loading, navigate, onboardingCompleted]);
 
 	useEffect(() => {
 		const compute = () => setVw(window.innerWidth);
