@@ -246,7 +246,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	async function resetPasswordSupabase(email: string) {
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
-			redirectTo: `${window.location.origin}/reset-password`,
+			// supabase_recovery=1 lets reset-password.tsx reliably detect this is a
+			// Supabase recovery redirect via query params (readable by TanStack Router),
+			// rather than depending on the URL hash which varies by Supabase auth flow.
+			redirectTo: `${window.location.origin}/reset-password?supabase_recovery=1`,
 		});
 		if (error) throw error;
 	}

@@ -18,11 +18,12 @@ export const Route = createFileRoute("/reset-password")({
 		// Supabase password recovery params
 		token_hash: (search.token_hash as string) || "",
 		type: (search.type as string) || "",
+		supabase_recovery: (search.supabase_recovery as string) || "",
 	}),
 });
 
 function ResetPasswordPage() {
-	const { mode, oobCode, continueUrl, token_hash, type } = Route.useSearch();
+	const { mode, oobCode, continueUrl, token_hash, type, supabase_recovery } = Route.useSearch();
 	const { verifyResetCode, confirmReset, confirmResetSupabase } = useAuth();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
@@ -32,35 +33,52 @@ function ResetPasswordPage() {
 	const [verifying, setVerifying] = useState(true);
 	const [email, setEmail] = useState("");
 	const [invalidCode, setInvalidCode] = useState(false);
-	const isSupabaseReset = type === "recovery" && !!token_hash;
+
+	// Detect Supabase recovery via query param (set by resetPasswordSupabase's redirectTo)
+	// OR via URL hash error/type (implicit flow result from Supabase's own verify endpoint).
+	const hashParams = new URLSearchParams(window.location.hash.substring(1));
+	const isSupabaseReset = supabase_recovery === "1"
+		|| hashParams.get("type") === "recovery"
+		|| hashParams.has("error_code");
 
 	useEffect(() => {
-		// Supabase password recovery: token_hash + type=recovery in URL params.
-		// The Supabase JS client processes the token automatically via its own URL
-		// detection; we just need to confirm it produced a valid session.
 		if (isSupabaseReset) {
+			// Show error immediately if Supabase returned an error in the hash
+			if (hashParams.has("error_code")) {
+				setInvalidCode(true);
+				setVerifying(false);
+				return;
+			}
+
+			// Register listener SYNCHRONOUSLY before any async calls. The Supabase
+			// client processes the ?code= PKCE exchange on page init and fires
+			// PASSWORD_RECOVERY almost immediately -- if we set up the listener inside
+			// a .then() callback it fires AFTER the event, and we miss it entirely.
+			const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+				if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session?.user.email) {
+					setEmail(session.user.email);
+					setVerifying(false);
+					listener.subscription.unsubscribe();
+				}
+			});
+
+			// Also check for an existing session (covers the case where the event
+			// already fired before this effect even ran on mount)
 			supabase.auth.getSession().then(({ data }) => {
 				if (data.session?.user.email) {
 					setEmail(data.session.user.email);
 					setVerifying(false);
-				} else {
-					// Token not yet processed or invalid -- give Supabase client a moment
-					// (it processes tokens asynchronously on init) then re-check
-					const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-						if (event === "PASSWORD_RECOVERY" && session?.user.email) {
-							setEmail(session.user.email);
-							setVerifying(false);
-							listener.subscription.unsubscribe();
-						}
-					});
-					setTimeout(() => {
-						setInvalidCode(true);
-						setVerifying(false);
-						listener.subscription.unsubscribe();
-					}, 5000);
+					listener.subscription.unsubscribe();
 				}
 			});
-			return;
+
+			const t = setTimeout(() => {
+				setInvalidCode(true);
+				setVerifying(false);
+				listener.subscription.unsubscribe();
+			}, 15000);
+
+			return () => { clearTimeout(t); listener.subscription.unsubscribe(); };
 		}
 
 		if (!oobCode) {
