@@ -90,7 +90,7 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		// Update weighted taste profile (fire-and-forget, never blocks response)
 		if (ticker) {
 			const tasteAction = direction === "right" ? "right_swipe" : "left_swipe";
-			updateUserTasteProfile(uid, ticker, tasteAction).catch(() => {});
+			updateUserTasteProfile(uid, ticker, tasteAction).catch((err) => console.error("[tasteProfile] update failed:", err));
 		}
 
 		res.json({
@@ -163,7 +163,7 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 		// Update weighted taste profile for brand-specific engagement events
 		if (ticker && (type === "learn_more" || type === "removed_from_stak")) {
 			const tasteAction = type === "removed_from_stak" ? "remove_from_watchlist" : type;
-			updateUserTasteProfile(uid, ticker, tasteAction).catch(() => {});
+			updateUserTasteProfile(uid, ticker, tasteAction).catch((err) => console.error("[tasteProfile] update failed:", err));
 		}
 
 		res.json({ success: true });

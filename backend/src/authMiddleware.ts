@@ -112,16 +112,30 @@ async function handleSupabaseToken(
 			return;
 		}
 
-		const mapped = await pgQuery<{ firebase_uid: string }>(
+		let mapped = await pgQuery<{ firebase_uid: string }>(
 			`select firebase_uid from auth_identity_map where supabase_uid = $1`,
 			[data.user.id],
 		);
 		if (mapped.rows.length === 0) {
-			// A Supabase user with no recorded mapping back to a canonical uid --
-			// shouldn't happen for anyone provisioned via authMigrationService.ts, but
-			// fail closed rather than guessing.
-			res.status(401).json({ error: "Account not recognized" });
-			return;
+			// No auth_identity_map row. Covers two cases:
+			// 1. Brand-new users who signed up via Supabase Google OAuth after the
+			//    migration branch deployed (no Firebase account, no prior provisioning).
+			// 2. Any user who slipped through the batch provisionAllUsers run.
+			// Provision on-demand: use the Supabase UUID as the canonical uid -- these
+			// users never had Firebase accounts, so there is no "Firebase UID" to use.
+			// All Postgres tables accept any text as uid; UUID format is fine.
+			const supabaseUid = data.user.id;
+			const email = data.user.email ?? null;
+			await pgQuery(
+				`insert into users (uid, email) values ($1, $2) on conflict (uid) do nothing`,
+				[supabaseUid, email],
+			);
+			await pgQuery(
+				`insert into auth_identity_map (firebase_uid, supabase_uid, provider, migration_status)
+				values ($1, $2, $3, 'supabase') on conflict (firebase_uid) do nothing`,
+				[supabaseUid, supabaseUid, data.user.app_metadata?.provider ?? "email"],
+			);
+			mapped = { rows: [{ firebase_uid: supabaseUid }] } as typeof mapped;
 		}
 
 		const onboardingResult = await pgQuery<{ onboarding_completed: boolean }>(
