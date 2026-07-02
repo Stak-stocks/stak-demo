@@ -145,7 +145,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 
 	// Per-user per-day cache — each user gets their own generated content
 	const cacheKey = `playground:gen:v7:${uid}:${dayKey}:${type}`;
-	const fsDocId = `${uid}_${dayKey}`;
+	const fsDocId = `${uid}_${dayKey}_v7`;
 
 	// 1. Redis fast path
 	const cached = await cacheGet<unknown[]>(cacheKey);
