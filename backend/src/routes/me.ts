@@ -64,6 +64,15 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			});
 		}
 
+		// Backfill Postgres onboarding_completed on read. PUT /api/me now writes this
+		// directly, but existing migrated users (who completed onboarding before the
+		// migration branch deployed) need their Postgres value synced. Fire-and-forget --
+		// if it fails, the next GET /api/me will retry.
+		if (data?.onboardingCompleted === true) {
+			pgQuery(`update users set onboarding_completed = true where uid = $1 and not onboarding_completed`, [uid])
+				.catch(() => {});
+		}
+
 		res.json({ id: doc.id, ...doc.data() });
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -127,6 +136,15 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		}
 
 		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
+
+		// Write onboarding_completed to Postgres so Supabase-session users' account
+		// data (assembled from Postgres via fetchSupabaseAccount) reflects completion.
+		// Without this, account.onboardingCompleted is always false for Supabase users
+		// and the onboarding redirect guard never fires.
+		if (onboardingCompleted === true) {
+			pgQuery(`update users set onboarding_completed = true where uid = $1`, [uid])
+				.catch((e) => console.error("[onboarding_completed] Postgres update failed:", e));
+		}
 
 		const updated = await adminDb.collection("users").doc(uid).get();
 		res.json({ id: updated.id, ...updated.data() });

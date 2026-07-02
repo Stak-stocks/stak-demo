@@ -17,9 +17,12 @@ let client: SupabaseClient | null = null;
 
 export function getSupabaseAdmin(): SupabaseClient {
 	if (!client) {
+		// .trim() guards against trailing \r\n from the `grep | cut` pipe used to
+		// create the Cloud Run secrets on Windows -- a trailing newline in the URL
+		// produces a malformed fetch, and in the service role key produces a 401.
 		client = createClient(
-			process.env.SUPABASE_URL ?? "",
-			process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+			(process.env.SUPABASE_URL ?? "").trim(),
+			(process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim(),
 			{ auth: { autoRefreshToken: false, persistSession: false } },
 		);
 	}
