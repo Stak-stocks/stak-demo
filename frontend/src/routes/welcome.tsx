@@ -2490,11 +2490,10 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-337.79%", left: "-108.2%", width: "316.4%", height: "775.58%", maxWidth: "none" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% - 0.21px)", top: "calc(50% + 128.5px)", transform: "translate(-50%, -50%)", width: 403.587, height: 395, overflow: "hidden" }}>
-				{/* Figma 1:1659/1:1660: the 390 mockup is blurred by design (user-confirmed 2026-07-01).
-				    Figma declares layer-blur 2.17 but its canvas rasterizes milder than CSS blur(2.17px);
-				    blur(1px) matches the canvas look (calibrated against the user's Figma screenshot).
-				    The bottom mask rows sit entirely under the solid overlay (kills a compositing hairline). */}
-				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "calc(50% + 1.29px)", top: 29.12, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", filter: "blur(1px)", maskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)" }} />
+				{/* Figma 1:1659/1:1660 geometry, but the photo stays SHARP — the user rejected the
+				    design's layer blur (re-confirmed 2026-07-01). The bottom mask rows sit entirely
+				    under the solid overlay (kills a compositing hairline, invisible otherwise). */}
+				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "calc(50% + 1.29px)", top: 29.12, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", maskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)" }} />
 				<div style={{ position: "absolute", left: "calc(50% + 1.21px)", bottom: -22, transform: "translateX(-50%)", width: 410, height: 142, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(8.453px)" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
