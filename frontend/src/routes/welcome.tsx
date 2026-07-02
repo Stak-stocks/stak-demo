@@ -484,7 +484,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				<Pill label="The Problem" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["The Market Isn't Hard.", "It's Just Been Made That Way."]} />
-					<Subhead lines={[`You've heard the advice — "invest early, invest often."`, "But nobody tells you how. Here’s how"]} />
+					<Subhead lines={[`You've heard the advice — "invest early, invest often."`, "But nobody tells you how. Here’s how:"]} />
 				</div>
 			</div>
 
@@ -1720,9 +1720,10 @@ const MOBILE_WIDTH = 810;
 const MOBILE390_WIDTH = 390;
 
 function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onSignup }: { width?: number; left?: number; padX?: number; onScrollTo?: (k: keyof typeof SEC) => void; onSignup?: () => void } = {}) {
-	/* Desktop-parity nav: the hamburger opens a real menu (Home / Features /
-	   How It Works / FAQ wired to onScrollTo) and the bar carries the same
-	   "Get started" CTA the desktop NavBar has. */
+	/* Figma-exact mobile/tablet bar: logo + hamburger only (Frames 220/222 have
+	   no nav CTA). The hamburger opens a real menu (Home / Features / How It
+	   Works / FAQ wired to onScrollTo). onSignup is accepted so a layout CAN
+	   opt into a bar CTA, but none do by design — do not pass it to match Figma. */
 	const [menuOpen, setMenuOpen] = useState(false);
 	const go = (k: keyof typeof SEC) => {
 		setMenuOpen(false);
