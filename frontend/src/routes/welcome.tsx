@@ -1089,8 +1089,7 @@ function EmptyTile({ scale = 1 }: { scale?: number }) {
 	return <div style={{ width: TILE_W * scale, height: TILE_H * scale, flexShrink: 0 }} />;
 }
 
-function FinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
-	const [email, setEmail] = useState("");
+function FinalCta() {
 	/* Row 1 scale is responsive to viewport width so the row ALWAYS fits the
 	   viewport exactly (no empty space on the right, no overflow that hides
 	   tile-3). The math: with 4 tiles of width 347·scale and 3 × 20px gaps,
@@ -1151,15 +1150,6 @@ function FinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 				<ImageTile src={A.ctaTile5} />
 			</div>
 
-			{/* Email subscribe pill — Figma 1:920 "Frame 152", centered at section y=1214 */}
-			<div style={{ position: "absolute", left: "50%", top: 1214, transform: "translateX(-50%)", background: "rgba(255,255,255,0.07)", borderRadius: 13, padding: "8px 9px 8px 11px" }} data-node-id="1:920">
-				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 114 }} data-node-id="1:922" />
-					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", filter: CTA_SHADOW, cursor: "pointer" }} data-node-id="1:923">
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "18.066px", color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
-					</button>
-				</div>
-			</div>
 		</section>
 	);
 }
@@ -2902,7 +2892,7 @@ export function LandingPage() {
 					<Features onScrollTo={scrollTo} />
 					<EarlyMomentum onSignup={handleSignup} />
 					<Faq onEmail={handleEmail} />
-					<FinalCta onSubscribe={handleSubscribe} />
+					<FinalCta />
 					<Footer onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 				</div>
 			</div>
