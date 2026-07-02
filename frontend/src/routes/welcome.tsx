@@ -2251,7 +2251,7 @@ function MobileFaq({ onEmail }: { onEmail: () => void }) {
 function MobileFinalCta({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 	const [email, setEmail] = useState("");
 	const tb: CSSProperties = { width: 240.752, height: 129.049, borderRadius: 8.326, overflow: "hidden", position: "relative", flexShrink: 0 };
-	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", ...st }} /></div>;
+	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", maxWidth: "none", ...st }} /></div>;
 	const maskTile = (src: string, st: CSSProperties, mpos: string, key: number) => (
 		<div key={key} style={tb}>
 			<div style={{ position: "absolute", WebkitMaskImage: `url(${A.ctaMqMask})`, maskImage: `url(${A.ctaMqMask})`, WebkitMaskSize: "240.752px 129.049px", maskSize: "240.752px 129.049px", WebkitMaskPosition: mpos, maskPosition: mpos, WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", ...st }}>
@@ -2420,15 +2420,14 @@ function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { 
 function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE390_WIDTH, height: 925, background: SECTION_BG, overflow: "hidden" }}>
-			<div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(46% 20% at 50% 55%, rgba(70,118,162,0.12) 0%, rgba(45,86,130,0.045) 46%, rgba(10,16,32,0) 72%)" }} />
 			<div style={{ position: "absolute", left: -216, top: 180, width: 470, height: 231, overflow: "visible", pointerEvents: "none" }}>
-				<img src={A.ellipse108} alt="" style={{ position: "absolute", top: "-199.08%", left: "-97.85%", right: "-97.85%", bottom: "-199.08%", width: "auto", height: "auto", maxWidth: "none" }} />
+				<img src={A.ellipse108} alt="" style={{ position: "absolute", top: "-199.08%", left: "-97.85%", width: "295.7%", height: "498.16%", maxWidth: "none" }} />
 			</div>
 			<div style={{ position: "absolute", left: 191, top: 441, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
-				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", right: "-108.2%", bottom: "-179.01%", width: "auto", height: "auto", maxWidth: "none" }} />
+				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
-			<MobileNavBar width={330.2} left={29.8} onScrollTo={onScrollTo} onSignup={onSignup} />
-			<div style={{ position: "absolute", left: 30, top: 110, width: 330, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
+			<MobileNavBar width={330.2} left={29.8} onScrollTo={onScrollTo} />
+			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Get early access</p>
@@ -2436,11 +2435,11 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "35px" }}>The Stock Market,</p>
-						<p style={{ margin: 0, lineHeight: "35px" }}>Finally Speaks </p>
-						<p style={{ margin: 0, lineHeight: "35px" }}>Your Language.</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>The Stock Market</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Finally Speaks</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Your Language.</p>
 					</div>
-					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "#fff" }}>
+					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)" }}>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`STAK matches you with stocks you'll `}</p>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`actually understand —through swipes, `}</p>
 						<p style={{ margin: 0, lineHeight: "25px" }}>smart insights, and zero pressure.</p>
@@ -2451,7 +2450,12 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 			<div style={{ position: "absolute", left: -25.586, top: 383.891, width: 587.309, height: 545.016, transform: "scale(0.75)", transformOrigin: "top left", pointerEvents: "none" }}>
 				<BoxIllustration top={0} />
 			</div>
-			<CtaButton label="Get started" onClick={onSignup} fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} style={{ position: "absolute", left: "50%", top: 849, transform: "translateX(-50%)" }} />
+			{/* Frame 222 overlays its own crisp nvidia/amazon coins on the composite's baked ghosts */}
+			<div style={{ position: "absolute", left: 195.3, top: 491.2, width: 54.9, height: 54.9, pointerEvents: "none" }}><img src={A.brandNvidia} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+			<div style={{ position: "absolute", left: 173.7, top: 533, width: 46.4, height: 46.4, pointerEvents: "none" }}><img src={A.brandAmazon} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.6, top: 849, width: 112.905, height: 32.453, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", boxSizing: "border-box" }}>
+				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
+			</button>
 		</section>
 	);
 }
@@ -2459,7 +2463,7 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 function MobileProofStrip390() {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 925, width: MOBILE390_WIDTH, height: 115, background: "#0a1020", overflow: "hidden" }}>
-			<div style={{ position: "absolute", left: "50%", top: 42, transform: "translateX(-50%) scale(0.46)", transformOrigin: "center top", display: "flex", gap: 34, alignItems: "center" }}>
+			<div style={{ position: "absolute", left: "calc(50% + 168.5px)", top: 47, transform: "translateX(-50%)", display: "flex", gap: 34, alignItems: "center" }}>
 				<div style={{ width: 150, height: 21, position: "relative", flexShrink: 0 }} aria-label="Block Wallet">
 					<div style={{ position: "absolute", inset: "0 85.94% 0 0" }}><img src={A.proofBwIcon} alt="Block Wallet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 					<div style={{ position: "absolute", inset: "9.07% 0 11.2% 18.72%" }}><img src={A.proofBwWord} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
@@ -2473,6 +2477,8 @@ function MobileProofStrip390() {
 				<div style={{ width: 56.1, height: 19.513, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
 				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div></div>
 			</div>
+			<div style={{ position: "absolute", left: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to right, rgba(10,16,32,0.99) 41.41%, rgba(10,16,32,0.12) 74.22%)", pointerEvents: "none" }} />
+			<div style={{ position: "absolute", right: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to left, rgb(10,16,32) 27.344%, rgba(10,16,32,0.79) 133.59%)", pointerEvents: "none" }} />
 		</section>
 	);
 }
@@ -2480,12 +2486,19 @@ function MobileProofStrip390() {
 function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 1040, width: MOBILE390_WIDTH, height: 924, background: SECTION_BG, overflow: "hidden" }}>
+			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 267, transform: "translateX(-50%) scaleY(-1)", width: 359, height: 115, overflow: "visible", pointerEvents: "none" }}>
+				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-337.79%", left: "-108.2%", width: "316.4%", height: "775.58%", maxWidth: "none" }} />
+			</div>
 			<div style={{ position: "absolute", left: "calc(50% - 0.21px)", top: "calc(50% + 128.5px)", transform: "translate(-50%, -50%)", width: 403.587, height: 395, overflow: "hidden" }}>
-				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "50%", top: 36, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", maskImage: "linear-gradient(to bottom, black 82%, transparent 99%)", WebkitMaskImage: "linear-gradient(to bottom, black 82%, transparent 99%)" }} />
-				<div style={{ position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)", width: 410, height: 142, background: "linear-gradient(to top, #0a1020 30%, rgba(10,16,32,0) 96%)", filter: "blur(12.798px)" }} />
+				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "50%", top: 29.12, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", maskImage: "linear-gradient(to bottom, black 78%, transparent 86%)", WebkitMaskImage: "linear-gradient(to bottom, black 78%, transparent 86%)" }} />
+				<div style={{ position: "absolute", left: "50%", bottom: -3, transform: "translateX(-50%)", width: 410, height: 145, background: "linear-gradient(to top, #0a1020 30%, rgba(10,16,32,0) 96%)" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
-				<Pill label="The Problem" />
+				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The problem</p>
+					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>{`The Market Isn't `}</p>
@@ -2496,11 +2509,13 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "#fff", width: 308 }}>
 						<p style={{ margin: 0, lineHeight: "25px" }}>{`You've heard the advice — "invest early, invest often."`}</p>
 						<p style={{ margin: 0, lineHeight: "25px" }}>But nobody tells you how. </p>
-						<p style={{ margin: 0, lineHeight: "25px" }}>Here’s how</p>
+						<p style={{ margin: 0, lineHeight: "25px" }}>Here’s how:</p>
 					</div>
 				</div>
 			</div>
-			<CtaButton label="Get started" onClick={onSignup} fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} style={{ position: "absolute", left: "50%", bottom: 44.55, transform: "translateX(-50%)" }} />
+			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.63, bottom: 51.55, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer" }}>
+				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
+			</button>
 		</section>
 	);
 }
@@ -2512,31 +2527,35 @@ function MobileHowCard390({ num, title, body, bottom }: { num: string; title: st
 				<p style={{ fontFamily: SQ, fontSize: 22.856, color: "#fff", margin: 0, whiteSpace: "nowrap" }}>{num}</p>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6.095, width: "100%" }}>
 					<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0 }}>{title}</p>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "normal", color: "rgba(255,255,255,0.62)", width: 251.415, margin: 0 }}>{body}</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "normal", whiteSpace: "pre-line", color: "rgba(255,255,255,0.62)", width: 251.415, margin: 0 }}>{body}</p>
 				</div>
 			</div>
 		</div>
 	);
 }
 
-function MobileHowItWorks390({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 1964, width: MOBILE390_WIDTH, height: 1575, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 70 }}>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
-					<Pill label="How It Works" />
+					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+						<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
+						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					</div>
 					<div style={{ fontFamily: SQ, fontSize: 30, textAlign: "center", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "35px" }}>Three Swipes to</p>
-						<p style={{ margin: 0, lineHeight: "35px" }}>Smarter Investing.</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Three Swipes to</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Smarter Investing.</p>
 					</div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 12.952, alignItems: "flex-start" }}>
-						<MobileHowCard390 num="01/" title="Tell Us Who You Are" body="Take a quick risk quiz. STAK learns your personality, your goals, and your vibe. No spreadsheets. No jargon." bottom={28.19} />
+						<MobileHowCard390 num="01/" title="Tell Us Who You Are" body={"Take a quick risk quiz. STAK learns your personality, your goals, and your vibe.\nNo spreadsheets. No jargon."} bottom={28.19} />
 						<MobileHowCard390 num="02/" title="Swipe Through Stocks" body="Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. It's that simple." bottom={24.38} />
 						<MobileHowCard390 num="03/" title="STAK Before You Spend" body="Practice with real market data and zero real money. Build confidence before you commit a single dollar." bottom={24.38} />
 					</div>
-					<button type="button" onClick={() => onScrollTo("features")} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
+					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
 						<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</button>
@@ -2546,26 +2565,26 @@ function MobileHowItWorks390({ onSignup, onScrollTo }: { onSignup: () => void; o
 	);
 }
 
-function MobileFeatures390({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 	const card: CSSProperties = { background: "#10172a", width: 295, height: 338, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "normal" };
-	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 11, color: "rgba(255,255,255,0.62)", lineHeight: "normal", margin: 0 };
+	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 11, color: "rgba(255,255,255,0.62)", lineHeight: "normal", whiteSpace: "pre-line", margin: 0 };
 	const renderPhone = (variant: 1 | 2) => (
 		<div style={{ position: "absolute", left: 20.3, top: 24.2, width: 515.477, height: 490.504, transform: "scale(0.4928)", transformOrigin: "top left" }}>
 			<div style={{ position: "relative", width: "100%", height: "100%" }}><PhoneMockup variant={variant} /></div>
 		</div>
 	);
 	const renderStack = () => (
-		<div style={{ position: "absolute", left: "50%", top: 30, transform: "translateX(-50%)", width: 170.311, height: 94.755 }}>
-			<div style={{ position: "absolute", left: 92.47, top: 7.79, width: 77.843, height: 86.964, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(12.75deg)", width: 62.853, height: 74.94, background: "#b4b4b4", borderRadius: 4.835 }} /></div>
-			<div style={{ position: "absolute", left: 47.91, top: 0, width: 74.499, height: 88.826, background: "#d9d9d9", borderRadius: 5.731 }} />
-			<div style={{ position: "absolute", left: 0, top: 7.18, width: 77.842, height: 86.964, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(-12.75deg)", width: 62.853, height: 74.94, background: "rgba(217,217,217,0.8)", borderRadius: 4.835 }} /></div>
+		<div style={{ position: "absolute", left: "50%", top: "calc(50% - 33.65px)", transform: "translate(-50%, -50%)", width: 205.149, height: 114.138 }}>
+			<div style={{ position: "absolute", left: 111.38, top: 9.38, width: 93.766, height: 104.753, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(12.75deg)", width: 75.71, height: 90.27, background: "#b4b4b4", borderRadius: 5.824 }} /></div>
+			<div style={{ position: "absolute", left: 57.72, top: 0, width: 89.739, height: 106.996, background: "#d9d9d9", borderRadius: 6.903 }} />
+			<div style={{ position: "absolute", left: 0, top: 8.65, width: 93.765, height: 104.753, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(-12.75deg)", width: 75.71, height: 90.27, background: "rgba(217,217,217,0.8)", borderRadius: 5.824 }} /></div>
 		</div>
 	);
 	const phoneCard = (variant: 1 | 2, title: string, body: string) => (
 		<div style={card}>
 			{renderPhone(variant)}
-			<div style={{ position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 231 }}>
+			<div style={{ position: "absolute", left: "50%", top: "calc(50% + 101.7px)", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 259 }}>
 				<p style={titleS}>{title}</p>
 				<p style={{ ...bodyS, width: 231 }}>{body}</p>
 			</div>
@@ -2574,7 +2593,7 @@ function MobileFeatures390({ onSignup, onScrollTo }: { onSignup: () => void; onS
 	const stackCard = (title: string, body: string) => (
 		<div style={card}>
 			{renderStack()}
-			<div style={{ position: "absolute", left: "50%", top: 155, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 259 }}>
+			<div style={{ position: "absolute", left: "50%", top: "calc(50% + 101.7px)", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 259 }}>
 				<p style={titleS}>{title}</p>
 				<p style={{ ...bodyS, width: 259 }}>{body}</p>
 			</div>
@@ -2584,7 +2603,11 @@ function MobileFeatures390({ onSignup, onScrollTo }: { onSignup: () => void; onS
 		<section style={{ position: "absolute", left: 0, top: 3539, width: MOBILE390_WIDTH, height: 1934, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 70 }}>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
-					<Pill label="Features" />
+					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+						<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Features</p>
+						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					</div>
 					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", textAlign: "center", width: "100%", lineHeight: "35px" }}>
 						<p style={{ margin: 0 }}>Everything You Need.</p>
 						<p style={{ margin: 0 }}>Nothing You Don't.</p>
@@ -2593,11 +2616,11 @@ function MobileFeatures390({ onSignup, onScrollTo }: { onSignup: () => void; onS
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 13.922 }}>
 						{phoneCard(1, "Trends", "See what's moving, what's hot, and what the market is actually doing — in plain English. Stay in the loop without the noise")}
-						{stackCard("Swipe Deck", "Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed, your pace.")}
-						{stackCard("Simulated STAK", "Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.")}
+						{stackCard("Swipe Deck", "Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed,\nyour pace.")}
 						{phoneCard(2, "Intel Injections", "Bite-sized lessons delivered in-app, right when you need them. No textbooks. No boring lectures. Just context that makes you smarter on the spot.")}
+						{stackCard("Simulated STAK", "Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.")}
 					</div>
-					<button type="button" onClick={() => onScrollTo("earlyMomentum")} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
+					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
 						<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</button>
@@ -2622,7 +2645,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["My portfolio is growing!", true], ["Gold, Google", false], ["Big gains incoming!", false], ["This app is different!", false]];
 	const r3: [string, boolean][] = [["What's the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Bullish on tech stocks!", true], ["STAKed Apple today!", false], ["Up 12% this month!", false]];
 	const stat = (num: string, label: string) => (
-		<div style={{ display: "flex", flexDirection: "column", gap: 13.838, alignItems: "center", justifyContent: "center" }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: 0.838, alignItems: "center", justifyContent: "center" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
 				<div style={{ width: 16.347, height: 19.616, flexShrink: 0 }}><img src={A.emStatArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				<p style={{ fontFamily: SQ, fontSize: 43.589, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" }}>{num}</p>
@@ -2633,22 +2656,25 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 	return (
 		<section style={{ position: "absolute", left: 0, top: 5473, width: MOBILE390_WIDTH, height: 883, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
-				<Pill label="Early Momentum" />
+				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Early Momentum</p>
+					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				</div>
 				<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", textAlign: "center", width: 298 }}>
 					<p style={{ margin: 0, lineHeight: "35px" }}>Real People.</p>
 					<p style={{ margin: 0, lineHeight: "35px" }}>Real Momentum.</p>
 				</div>
 			</div>
-			<div style={{ position: "absolute", left: 20, top: 370, width: 350, height: 200, mixBlendMode: "screen", background: "radial-gradient(50% 50% at 50% 50%, rgba(90,130,210,0.22) 0%, rgba(90,130,210,0.08) 45%, rgba(90,130,210,0) 80%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: 82.97, top: 435.36, display: "flex", gap: 10.52 }}>{r3.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
 			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, #0a1020 0%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
-			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 635.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
+			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 623.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
 				{stat("50M+", "Millennials & Gen Z investing today")}
 				{stat("30M+", "Investors seeking better tools")}
 			</div>
-			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 128.5, top: 785.1, background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
+			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: "50%", top: 785.1, transform: "translateX(-50%)", background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
 				<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 			</button>
@@ -2692,7 +2718,7 @@ function MobileFaq390({ onEmail }: { onEmail: () => void }) {
 function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 	const [email, setEmail] = useState("");
 	const tb: CSSProperties = { width: 182.724, height: 97.944, borderRadius: 6.319, overflow: "hidden", position: "relative", flexShrink: 0 };
-	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", ...st }} /></div>;
+	const imgTile = (src: string, st: CSSProperties, key: number) => <div key={key} style={{ ...tb, background: "#172037" }}><img src={src} alt="" style={{ position: "absolute", objectFit: "cover", maxWidth: "none", ...st }} /></div>;
 	const maskTile = (src: string, st: CSSProperties, mpos: string, key: number) => (
 		<div key={key} style={tb}>
 			<div style={{ position: "absolute", WebkitMaskImage: `url(${A.ctaMqMask})`, maskImage: `url(${A.ctaMqMask})`, WebkitMaskSize: "182.724px 97.944px", maskSize: "182.724px 97.944px", WebkitMaskPosition: mpos, maskPosition: mpos, WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", ...st }}>
@@ -2701,14 +2727,18 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 		</div>
 	);
 	const txt = (t: string, key: number) => <div key={key} style={tb}><p style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", fontFamily: SQ, fontSize: 42.126, color: "#fff", margin: 0, whiteSpace: "nowrap", lineHeight: "23.696px" }}>{t}</p></div>;
-	const emptyTile = (key: number) => <div key={key} style={{ width: tb.width, height: tb.height, flexShrink: 0 }} />;
+	const emptyTile = (key: number) => <div key={key} style={{ ...tb, background: "#172037" }} />;
 	const row = (tiles: React.ReactNode[], left: string, top: number, w: number) => (
 		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 10.532, alignItems: "center" }}>{tiles}</div>
 	);
 	return (
 		<section style={{ position: "absolute", left: 0, top: 7586, width: MOBILE390_WIDTH, height: 1067, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60, zIndex: 2 }}>
-				<Pill label="Our growing community" />
+				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Our growing community</p>
+					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
+				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, width: 298 }}>
 						<p style={{ margin: 0, lineHeight: "35px" }}>Our community of fast rising </p>
@@ -2744,7 +2774,7 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 				<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
 					<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 120 }} />
 					<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: "0.361px solid rgba(101,158,173,0.63)", borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
+						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "normal", color: "#fff", whiteSpace: "nowrap" }}>Join us</span>
 					</button>
 				</div>
 			</div>
@@ -2752,21 +2782,18 @@ function MobileFinalCta390({ onSubscribe }: { onSubscribe: (email: string) => vo
 	);
 }
 
-function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
 	const [email, setEmail] = useState("");
-	const linkCol = (title: string, items: { label: string; onClick?: () => void }[]) => (
+	const linkCol = (title: string, items: string[]) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
-			<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 18, color: "#fff", margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
+			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
 			<div style={{ display: "flex", flexDirection: "column", gap: 14, fontFamily: SR, fontWeight: 300, fontSize: 16, color: "#fff", lineHeight: "25px" }}>
-				{items.map((it, i) => it.onClick
-					? <button key={i} type="button" onClick={it.onClick} style={{ ...btnReset, margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff", textAlign: "left" }}>{it.label}</button>
-					: <a key={i} href="#" style={{ margin: 0, whiteSpace: "nowrap", textDecoration: "none", color: "#fff", cursor: "pointer" }}>{it.label}</a>
-				)}
+				{items.map((it, i) => <p key={i} style={{ margin: 0, whiteSpace: "nowrap", ...(it === "Home" ? { fontSize: 14 } : {}) }}>{it}</p>)}
 			</div>
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 8653, width: MOBILE390_WIDTH, height: 1270.87, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
+		<section style={{ position: "absolute", left: 0, top: 8653, width: MOBILE390_WIDTH, height: 1173.93, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
 			<div style={{ display: "flex", flexDirection: "column", gap: 58, alignItems: "flex-start", padding: "40px 0", width: "100%" }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: 59, alignItems: "flex-start", justifyContent: "center", width: 310 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 40, alignItems: "flex-start", width: "100%" }}>
@@ -2780,14 +2807,14 @@ function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: str
 						</div>
 					</div>
 					<div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
+						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
 								<p style={{ fontFamily: "'Product Sans', Arial, sans-serif", fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
 								<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
 							</div>
 						</div>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
+						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
 								<p style={{ fontFamily: "'SF Compact Text', -apple-system, sans-serif", fontWeight: 500, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
@@ -2796,39 +2823,21 @@ function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: str
 						</div>
 					</div>
 				</div>
-				{linkCol("Useful Links", [
-					{ label: "Home", onClick: () => onScrollTo("hero") },
-					{ label: "How it works", onClick: () => onScrollTo("howItWorks") },
-					{ label: "Features", onClick: () => onScrollTo("features") },
-					{ label: "FAQ", onClick: () => onScrollTo("faq") },
-					{ label: "Privacy terms" },
-				])}
-				{linkCol("Social Links", [
-					{ label: "Facebook" },
-					{ label: "Instagram" },
-					{ label: "X" },
-					{ label: "Tiktok" },
-					{ label: "Discord" },
-				])}
+				{linkCol("Useful Links", ["Home", "How it works", "Features", "FAQ", "Privacy terms"])}
+				{linkCol("Social Links", ["Facebook", "Instagram", "X", "Tiktok", "Discord"])}
 				<div style={{ display: "flex", flexDirection: "column", gap: 51, alignItems: "flex-start" }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start" }}>
-						<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Subscribe to our newsletter</p>
+						<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "pre" }}>Subscribe to our newsletter</p>
 						<div style={{ background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "8px 9px 8px 11px", borderRadius: 13 }}>
 							<div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-								<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "rgba(255,255,255,0.53)", width: 120 }} />
+								<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" style={{ background: "transparent", border: "none", outline: "none", fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", width: 120 }} />
 								<button type="button" onClick={() => onSubscribe(email)} style={{ ...btnReset, background: CTA_GRADIENT, border: "0.361px solid rgba(101,158,173,0.63)", borderRadius: 5.781, padding: "7.226px 14.453px", filter: CTA_SHADOW, cursor: "pointer", flexShrink: 0 }}>
-									<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
+									<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "normal", color: "#fff", whiteSpace: "nowrap" }}>Subscribe</span>
 								</button>
 							</div>
 						</div>
 					</div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>© 2026 All rights reserved</p>
-				</div>
-			</div>
-					{/* Desktop-parity bottom band: giant STAK watermark + divider, scaled to the canvas */}
-			<div style={{ position: "absolute", left: 0, bottom: 0, width: MOBILE390_WIDTH, height: 348 * (MOBILE390_WIDTH / 1400), overflow: "hidden" }}>
-				<div style={{ width: 1400, transform: `scale(${MOBILE390_WIDTH / 1400})`, transformOrigin: "top left" }}>
-					<FooterBottomBand />
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "1", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>© 2026 All rights reserved</p>
 				</div>
 			</div>
 		</section>
@@ -2838,19 +2847,19 @@ function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: str
 function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	// 390px phone canvas (Figma node 1:1586 / Frame 222). Height grows as sections are added.
 	void onEmail; void onSubscribe;
-	const H = 9923.87;
+	const H = 9826.93;
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE390_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
 				<MobileHero390 onSignup={onSignup} onScrollTo={onScrollTo} />
 				<MobileProofStrip390 />
 				<MobileProblem390 onSignup={onSignup} />
-				<MobileHowItWorks390 onSignup={onSignup} onScrollTo={onScrollTo} />
-				<MobileFeatures390 onSignup={onSignup} onScrollTo={onScrollTo} />
+				<MobileHowItWorks390 onSignup={onSignup} />
+				<MobileFeatures390 onSignup={onSignup} />
 				<MobileEarlyMomentum390 onSignup={onSignup} />
 				<MobileFaq390 onEmail={onEmail} />
 				<MobileFinalCta390 onSubscribe={onSubscribe} />
-				<MobileFooter390 onSubscribe={onSubscribe} onScrollTo={onScrollTo} />
+				<MobileFooter390 onSubscribe={onSubscribe} />
 			</div>
 		</div>
 	);
