@@ -1,6 +1,9 @@
+// dotenv MUST be first -- postgres.ts creates its pool at module-init time using
+// process.env.SUPABASE_DB_URL. If dotenv loads after, the pool gets undefined and
+// falls back to localhost:5432, causing ECONNREFUSED on every pgQuery.
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -20,8 +23,6 @@ import { playgroundRouter } from "./routes/playground.js";
 import { brandAdminRouter } from "./routes/brandAdmin.js";
 import { authMigrationRouter } from "./routes/authMigration.js";
 import { syncNewIPOs } from "./services/ipoService.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
