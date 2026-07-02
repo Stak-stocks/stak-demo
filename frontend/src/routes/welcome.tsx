@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext";
 import { useEffect, useState, useRef, useCallback, type CSSProperties } from "react";
 
 export const Route = createFileRoute("/welcome")({
@@ -2970,20 +2971,21 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, scrollToPixel
 /* ═══════════════════════════════════════════════════════════════════ */
 function LandingPage() {
 	const { appUser, user, loading, onboardingCompleted } = useAuth();
+	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [vw, setVw] = useState(() => (typeof window !== "undefined" ? window.innerWidth : CANVAS_WIDTH));
 
 	useEffect(() => {
-		if (loading) return;
+		if (loading || accountLoading) return;
 		if (user) {
-			// Firebase session
+			// Firebase session -- onboardingCompleted comes from JWT claims
 			navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
 		} else if (appUser) {
-			// Supabase session (new users arriving here after Google OAuth redirect)
-			navigate({ to: "/onboarding" });
+			// Supabase session -- onboardingCompleted comes from Postgres via AccountContext
+			navigate({ to: account?.onboardingCompleted ? "/" : "/onboarding" });
 		}
-	}, [appUser, user, loading, navigate, onboardingCompleted]);
+	}, [appUser, user, loading, accountLoading, navigate, onboardingCompleted, account?.onboardingCompleted]);
 
 	useEffect(() => {
 		const compute = () => setVw(window.innerWidth);
