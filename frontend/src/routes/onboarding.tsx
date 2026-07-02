@@ -79,7 +79,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-	const { user, loading, onboardingCompleted: claimsOnboardingCompleted, supabaseUserId } = useAuth();
+	const { appUser, user, loading, onboardingCompleted: claimsOnboardingCompleted, supabaseUserId } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
@@ -111,11 +111,7 @@ function OnboardingPage() {
 
 	useEffect(() => {
 		if (loading) return;
-		// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase
-		// `user` at all -- without the supabaseUserId check here, this guard alone
-		// caused the infinite /login <-> /onboarding loop (this file fought
-		// __root.tsx's already-dual-aware guard).
-		if (!user && !supabaseUserId) { navigate({ to: "/login" }); return; }
+		if (!appUser) { navigate({ to: "/login" }); return; }
 		// The email-verification-required flow is Firebase-specific (no equivalent
 		// built for Supabase yet) -- skip it entirely for a Supabase-only session
 		// rather than dereferencing a null `user`. Cohort accounts are already

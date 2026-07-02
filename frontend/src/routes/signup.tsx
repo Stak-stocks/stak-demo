@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { appUser, user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -22,8 +22,8 @@ function SignUpPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			// Email/password users who haven't verified yet → go to verify screen
-			const isPasswordProvider = user.providerData[0]?.providerId === "password";
-			if (isPasswordProvider && !user.emailVerified) {
+			const isPasswordProvider = appUser?.provider === "password";
+			if (isPasswordProvider && !appUser?.emailVerified) {
 				navigate({ to: "/verify-email" });
 				return;
 			}

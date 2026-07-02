@@ -12,7 +12,7 @@ export const Route = createFileRoute("/profile_/personal-details")({
 });
 
 function PersonalDetailsPage() {
-	const { user, supabaseUserId } = useAuth();
+	const { appUser, user } = useAuth();
 	const navigate = useNavigate();
 
 	// Display name editing
@@ -41,10 +41,7 @@ function PersonalDetailsPage() {
 	const touchStartX = useRef(0);
 	const touchStartY = useRef(0);
 
-	// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase `user`
-	// -- without the supabaseUserId check, this guard alone would loop against
-	// __root.tsx's already-dual-aware guard, same bug class as onboarding.tsx.
-	if (!user && !supabaseUserId) {
+	if (!appUser) {
 		navigate({ to: "/login" });
 		return null;
 	}

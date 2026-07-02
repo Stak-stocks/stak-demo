@@ -171,7 +171,7 @@ const MAX_SEARCH_HISTORY = 20;
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-	const { user, supabaseUserId, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
+	const { appUser, user, supabaseUserId, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
 	const [account, setAccount] = useState<UserDoc | null>(null);
 	const [accountLoading, setAccountLoading] = useState(true);
 

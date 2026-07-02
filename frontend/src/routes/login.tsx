@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { user, loading, onboardingCompleted, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { appUser, user, loading, onboardingCompleted, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,8 +21,8 @@ function LoginPage() {
 	useEffect(() => {
 		if (!loading && user) {
 			// Block unverified email/password users — redirect them to verify their inbox
-			const isPasswordProvider = user.providerData[0]?.providerId === "password";
-			if (isPasswordProvider && !user.emailVerified) {
+			const isPasswordProvider = appUser?.provider === "password";
+			if (isPasswordProvider && !appUser?.emailVerified) {
 				navigate({ to: "/verify-email" });
 				return;
 			}

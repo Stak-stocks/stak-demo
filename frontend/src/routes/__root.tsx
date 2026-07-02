@@ -28,14 +28,10 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { user, loading, supabaseUserId } = useAuth();
-	// Narrow, additive check (migration plan, Phase 5, internal cohort only) -- "is
-	// anyone logged in at all" needs to know about both providers, even though
-	// AccountContext.tsx (the next piece of this phase) still only knows Firebase's
-	// user.uid, so a Supabase-only cohort session won't have real account data yet.
-	const isLoggedIn = !!user || !!supabaseUserId;
+	const { appUser, user, loading, supabaseUserId } = useAuth();
+	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
-	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(user?.uid ?? "guest", !!user);
+	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -112,15 +108,10 @@ function Root() {
 
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
-	// AccountContext's `account` is Firestore-based and only ever populates for a
-	// Firebase user (migration plan, Phase 5 -- AccountContext's Supabase support is
-	// the still-pending next piece). For a Supabase-only cohort session, `account` is
-	// permanently null, which isn't "onboarding incomplete" -- it's "this check
-	// doesn't have data yet". Without this guard, this effect and login.tsx's own
-	// (backend-based, accurate) onboarding check fought each other indefinitely: this
-	// one kept forcing /onboarding off of a false "incomplete" signal, login.tsx kept
-	// sending it back based on the real answer.
-	const onboardingCheckApplies = !!user;
+	// The Firestore-based account.onboardingCompleted check only applies for Firebase
+	// sessions -- Supabase sessions get their onboarding status from the backend's
+	// getProfile() (see login.tsx's supabaseUserId effect), not from Firestore.
+	const onboardingCheckApplies = appUser?.sessionType === "firebase";
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
