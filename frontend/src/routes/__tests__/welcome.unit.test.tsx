@@ -20,7 +20,10 @@ vi.mock("@/context/AuthContext", () => ({
 	useAuth: () => ({ user: null, loading: false, onboardingCompleted: false }),
 }));
 
-import { LandingPage } from "../welcome";
+import { Route } from "../welcome";
+// createFileRoute mock above returns (opts) => opts, so Route is the raw options object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const LandingPage = (Route as any).component as React.ComponentType;
 
 /* The page sizes itself from the scroll container's clientWidth (jsdom
    defaults to 0, which would always select the phone layout). */

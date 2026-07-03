@@ -2772,7 +2772,7 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }:
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
-export function LandingPage() {
+function LandingPage() {
 	const { appUser, user, loading, onboardingCompleted } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
