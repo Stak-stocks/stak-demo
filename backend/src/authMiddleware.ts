@@ -59,7 +59,6 @@ export async function authMiddleware(
 	const authHeader = req.headers.authorization;
 
 	if (!authHeader?.startsWith("Bearer ")) {
-		console.log(`[auth] 401 no-bearer path=${req.path}`);
 		res.status(401).json({ error: "Missing or invalid authorization header" });
 		return;
 	}
@@ -68,7 +67,6 @@ export async function authMiddleware(
 	const issuer = peekIssuer(token);
 
 	const supabaseIssuer = `${(process.env.SUPABASE_URL ?? "").trim()}/auth/v1`;
-	console.log(`[auth] path=${req.path} issuer="${issuer}" supabaseIssuer="${supabaseIssuer}" match=${issuer === supabaseIssuer}`);
 	if (issuer === supabaseIssuer) {
 		await handleSupabaseToken(token, req, res, next);
 	} else {
@@ -103,8 +101,7 @@ async function handleFirebaseToken(
 			onboardingCompleted: decoded.onboardingCompleted === true,
 		};
 		next();
-	} catch (err) {
-		console.log(`[auth] firebase-401 path=${req.path} err=${String(err)}`);
+	} catch {
 		res.status(401).json({ error: "Invalid or expired token" });
 	}
 }
@@ -118,7 +115,6 @@ async function handleSupabaseToken(
 	try {
 		const supabaseUser = await verifySupabaseJwt(token);
 		if (!supabaseUser) {
-			console.log(`[auth] supabase-jwt-fail path=${req.path}`);
 			res.status(401).json({ error: "Invalid or expired token" });
 			return;
 		}
@@ -160,8 +156,7 @@ async function handleSupabaseToken(
 			onboardingCompleted: onboardingResult.rows[0]?.onboarding_completed === true,
 		};
 		next();
-	} catch (err) {
-		console.log(`[auth] supabase-catch path=${req.path} err=${String(err)}`);
+	} catch {
 		res.status(401).json({ error: "Invalid or expired token" });
 	}
 }
