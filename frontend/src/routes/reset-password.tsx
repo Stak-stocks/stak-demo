@@ -63,6 +63,7 @@ function ResetPasswordPage() {
 				verifyOtpCalledRef.current = true;
 				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
 					.then(({ data, error }) => {
+						console.log("[reset-password] verifyOtp result:", { error: error?.message, status: (error as {status?: number})?.status, session: !!data.session, email: data.session?.user.email });
 						if (error || !data.session?.user.email) {
 							setInvalidCode(true);
 							setVerifying(false);
