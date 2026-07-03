@@ -245,12 +245,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function resetPasswordSupabase(email: string) {
-		const { error } = await supabase.auth.resetPasswordForEmail(email, {
-			// supabase_recovery=1 lets reset-password.tsx reliably detect this is a
-			// Supabase recovery redirect via query params (readable by TanStack Router),
-			// rather than depending on the URL hash which varies by Supabase auth flow.
-			redirectTo: `${window.location.origin}/reset-password?supabase_recovery=1`,
-		});
+		// No redirectTo — passing it causes Supabase to generate a PKCE-linked token
+		// that verifyOtp rejects. The email template already uses {{ .TokenHash }} to
+		// point directly to /reset-password, so redirectTo is not needed.
+		const { error } = await supabase.auth.resetPasswordForEmail(email);
 		if (error) throw error;
 	}
 
