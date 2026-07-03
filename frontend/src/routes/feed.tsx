@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { getMarketNews, searchNews, trackEvent } from "@/lib/api";
-import { logEvent } from "@/lib/firebase";
 import type { NewsArticle } from "@stak/shared";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { MarketBar } from "@/components/MarketBar";
@@ -175,8 +174,7 @@ function FeedPage() {
 		if (q.length >= 2) {
 			setActiveQuery(q);
 			setVisibleCount(PAGE_SIZE);
-			logEvent("news_search", { query: q });
-			trackEvent("news_search", { query: q }).catch(() => {});
+				trackEvent("news_search", { query: q }).catch(() => {});
 		}
 	}
 

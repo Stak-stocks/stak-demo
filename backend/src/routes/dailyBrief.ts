@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey } from "@stak/shared";
@@ -444,10 +444,6 @@ async function generatePersonalizedImpact(
 	const topIds = stakBrandIds.slice(0, 5);
 	if (topIds.length > 0) {
 		try {
-			// Was reading adminDb.collection("brands") -- a Firestore collection
-			// nothing in the backend ever writes to, so this lookup always missed
-			// and stockLines stayed empty. Brand data actually lives in the
-			// @stak/shared catalog; no Firestore round-trip needed for this at all.
 			const brandInfos = topIds
 				.map(id => brands.find(b => b.id === id))
 				.filter((b): b is NonNullable<typeof b> => !!b?.ticker)
@@ -582,9 +578,11 @@ async function getGlobalFeaturedLessonHistory(): Promise<GlobalLessonHistoryEntr
 	const cached = await cacheGet<GlobalLessonHistoryEntry[]>(cacheKey);
 	if (cached) return cached;
 	try {
-		const snap = await adminDb.collection("config").doc("featured-lesson-history").get();
-		if (snap.exists) {
-			const entries = (snap.data()?.entries as GlobalLessonHistoryEntry[] | undefined) ?? [];
+		const result = await pgQuery<{ value: { entries: GlobalLessonHistoryEntry[] } }>(
+			`select value from app_config where key = 'featured-lesson-history'`,
+		);
+		if (result.rows.length > 0) {
+			const entries = result.rows[0]!.value.entries ?? [];
 			await cacheSet(cacheKey, entries, 60 * 60 * 1000);
 			return entries;
 		}
@@ -597,7 +595,11 @@ async function appendGlobalFeaturedLessonHistory(entry: GlobalLessonHistoryEntry
 		const existing = await getGlobalFeaturedLessonHistory();
 		const filtered = existing.filter(e => e.date !== entry.date);
 		const updated = [entry, ...filtered].slice(0, 30);
-		await adminDb.collection("config").doc("featured-lesson-history").set({ entries: updated });
+		await pgQuery(
+			`insert into app_config (key, value) values ('featured-lesson-history', $1::jsonb)
+			on conflict (key) do update set value = excluded.value, updated_at = now()`,
+			[JSON.stringify({ entries: updated })],
+		);
 		await cacheSet(`playground:featured-lesson-history:v1`, updated, 60 * 60 * 1000);
 	} catch { /* non-fatal */ }
 }
@@ -621,18 +623,20 @@ async function generateFeaturedLesson(): Promise<FeaturedLessonResult | null> {
 		return cached as FeaturedLessonResult;
 	}
 
-	// 2. Firestore fallback — survives server restarts in local dev
+	// 2. Postgres app_config fallback — survives server restarts / Cloud Run cold starts
 	try {
-		const snap = await adminDb.collection("config").doc("featured-lesson").get();
-		if (snap.exists) {
-			const d = snap.data() as { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean; isTradingDay?: boolean };
+		const configResult = await pgQuery<{ value: { date?: string; lesson?: MarketLessonResponse; isMarketDay?: boolean; isTradingDay?: boolean } }>(
+			`select value from app_config where key = 'featured-lesson'`,
+		);
+		if (configResult.rows.length > 0) {
+			const d = configResult.rows[0]!.value;
 			if (d.date === today && d.lesson) {
 				const result = { lesson: d.lesson, isMarketDay: d.isMarketDay ?? marketDay, isTradingDay: d.isTradingDay ?? marketDay };
 				await cacheSet(cacheKey, result, 12 * 60 * 60 * 1000);
 				return result;
 			}
 		}
-	} catch { /* Firestore unavailable — proceed to generate */ }
+	} catch { /* Postgres unavailable — proceed to generate */ }
 
 	const history = (await getGlobalFeaturedLessonHistory()).slice(0, 20);
 
@@ -741,7 +745,11 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 	function saveLesson(parsed: MarketLessonResponse & { angle?: string }, isMarketDay: boolean) {
 		const result = { lesson: parsed, isMarketDay, isTradingDay: marketDay };
 		cacheSet(cacheKey, result, 12 * 60 * 60 * 1000).catch(() => {});
-		adminDb.collection("config").doc("featured-lesson").set({ date: today, lesson: parsed, isMarketDay, isTradingDay: marketDay }).catch(() => {});
+		pgQuery(
+			`insert into app_config (key, value) values ('featured-lesson', $1::jsonb)
+			on conflict (key) do update set value = excluded.value, updated_at = now()`,
+			[JSON.stringify({ date: today, lesson: parsed, isMarketDay, isTradingDay: marketDay })],
+		).catch(() => {});
 		appendGlobalFeaturedLessonHistory({ date: today, eventType: parsed.eventType, title: parsed.title, angle: parsed.angle ?? "" }).catch(() => {});
 		return result;
 	}
@@ -916,10 +924,12 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 dailyBriefRouter.get("/generated-lesson", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const userSnap = await adminDb.collection("users").doc(uid).get();
-		const data = userSnap.data();
-		const totalXp: number = (data?.totalXp as number | undefined) ?? 0;
-		const userHistory: GeneratedLessonHistoryEntry[] = (data?.generatedLessonHistory as GeneratedLessonHistoryEntry[] | undefined) ?? [];
+		const pgResult = await pgQuery<{ total_xp: number | null; generated_lesson_history: GeneratedLessonHistoryEntry[] | null }>(
+			`select total_xp, generated_lesson_history from playground_state where uid = $1`,
+			[uid],
+		);
+		const totalXp: number = pgResult.rows[0]?.total_xp ?? 0;
+		const userHistory: GeneratedLessonHistoryEntry[] = pgResult.rows[0]?.generated_lesson_history ?? [];
 		const lesson = await generateGeneratedLesson(uid, totalXp, userHistory);
 		if (!lesson) { res.json({ lesson: null }); return; }
 		res.json({ lesson });
@@ -981,15 +991,20 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const uid = req.user!.uid;
 
 		// Fetch major indices + VIX + sectors in parallel
-		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, userSnap, ...sectorChanges] = await Promise.all([
+		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges] = await Promise.all([
 			getQuoteChange("SPY"),
 			getQuoteChange("QQQ"),
 			getQuoteChange("DIA"),
 			getQuoteChange("IWM"),   // Russell 2000
 			getQuoteChange("VIX"),   // VIX
-			adminDb.collection("users").doc(uid).get(),
 			...SECTOR_ETFS.map(s => getQuoteChange(s)),
 		]);
+		const [userRow, stakResult] = await Promise.all([
+			pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
+			pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
+		]);
+		const tagScores: Record<string, number> = userRow.rows[0]?.tag_scores ?? {};
+		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
 
 		// Build sector summary
 		let sectorsGreen = 0, sectorsRed = 0;
@@ -1009,8 +1024,6 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
 		const mood = classifyMood(marketData);
 		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = await getMarketStatus();
-		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
-		const stakBrandIds: string[] = (userSnap.data()?.stakBrandIds as string[]) ?? [];
 
 		const today = getEasternDateKey();
 		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close

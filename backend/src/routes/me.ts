@@ -1,11 +1,8 @@
 import { Router } from "express";
-import { adminDb, adminAuth } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery, ensureUserRow } from "../lib/postgres.js";
-import { shadowWrite } from "../lib/shadowWrite.js";
-import { provisionFirebaseUser } from "../services/authMigrationService.js";
 
 export const meRouter = Router();
 
@@ -14,66 +11,53 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 
-		// Track login session for today — fire-and-forget, one doc per user per day
-		// Skip internal team emails to keep analytics clean
+		// Track login session for today — fire-and-forget, one row per user per day
 		const excludedEmails = (process.env.ANALYTICS_EXCLUDED_EMAILS ?? "")
 			.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 		const userEmail = (req.user!.email ?? "").toLowerCase();
 		if (userEmail && !excludedEmails.includes(userEmail)) {
 			const today = getEasternDateKey();
-			adminDb.collection("sessions").doc(`${uid}_${today}`)
-				.set({ uid, date: today })
-				.catch(() => {});
-
-			// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
-			shadowWrite("sessions-upsert", async () => {
-				await ensureUserRow(uid, req.user!.email);
-				await pgQuery(
+			ensureUserRow(uid, req.user!.email)
+				.then(() => pgQuery(
 					`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`,
 					[uid, today],
-				);
-			});
+				))
+				.catch(() => {});
 		}
 
-		const doc = await adminDb.collection("users").doc(uid).get();
+		const result = await pgQuery<{
+			uid: string; email: string | null; display_name: string | null; phone: string | null;
+			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
+			created_at: string; updated_at: string | null;
+		}>(
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			from users where uid = $1`,
+			[uid],
+		);
 
-		if (!doc.exists) {
-			// Create default profile on first access
+		if (result.rows.length === 0) {
+			await ensureUserRow(uid, req.user!.email);
 			const defaultProfile = {
-				uid,
-				email: req.user!.email || "",
-				displayName: "",
-				preferences: {},
-				onboardingCompleted: false,
+				id: uid, uid, email: req.user!.email || "",
+				displayName: "", preferences: {}, onboardingCompleted: false,
 				createdAt: new Date().toISOString(),
 			};
-			await adminDb.collection("users").doc(uid).set(defaultProfile);
 			res.json(defaultProfile);
 			return;
 		}
 
-		// Backfill: set the JWT custom claim for users who completed onboarding
-		// before this claim was introduced. Runs once per user then is a no-op.
-		const data = doc.data();
-		if (data?.onboardingCompleted === true && !req.user!.onboardingCompleted) {
-			// Phase 7 note: once Firebase Auth accounts are deleted, setCustomUserClaims
-			// will throw "user-not-found". Swallow it silently -- Supabase-migrated users
-			// no longer need this claim (their onboarding status comes from Postgres).
-			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
-				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
-			});
-		}
-
-		// Backfill Postgres onboarding_completed on read. PUT /api/me now writes this
-		// directly, but existing migrated users (who completed onboarding before the
-		// migration branch deployed) need their Postgres value synced. Fire-and-forget --
-		// if it fails, the next GET /api/me will retry.
-		if (data?.onboardingCompleted === true) {
-			pgQuery(`update users set onboarding_completed = true where uid = $1 and not onboarding_completed`, [uid])
-				.catch(() => {});
-		}
-
-		res.json({ id: doc.id, ...doc.data() });
+		const row = result.rows[0]!;
+		res.json({
+			id: row.uid,
+			uid: row.uid,
+			email: row.email ?? "",
+			displayName: row.display_name ?? "",
+			phone: row.phone ?? "",
+			preferences: row.preferences ?? {},
+			onboardingCompleted: row.onboarding_completed,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
+		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
 		res.status(500).json({ error: "Failed to fetch profile" });
@@ -103,51 +87,44 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			return;
 		}
 
-		const updates: Record<string, unknown> = {
-			updatedAt: new Date().toISOString(),
-		};
+		await ensureUserRow(uid, req.user!.email);
 
-		if (displayName !== undefined) updates.displayName = displayName;
-		if (phone !== undefined) updates.phone = phone;
-		if (preferences !== undefined) updates.preferences = preferences;
-		if (onboardingCompleted !== undefined) updates.onboardingCompleted = onboardingCompleted;
+		const setClauses: string[] = ["updated_at = now()"];
+		const values: unknown[] = [];
+		let i = 1;
 
-		// Embed onboardingCompleted in the Firebase ID token so clients can
-		// read it instantly on any device without a Firestore round trip.
-		// Phase 7 note: guard against user-not-found once Firebase accounts are deleted.
-		if (onboardingCompleted === true) {
-			adminAuth.setCustomUserClaims(uid, { onboardingCompleted: true }).catch((e) => {
-				if (e?.errorInfo?.code !== "auth/user-not-found") console.warn("[setCustomUserClaims]", e?.message);
-			});
+		if (displayName !== undefined) { setClauses.push(`display_name = $${i++}`); values.push(displayName); }
+		if (phone !== undefined) { setClauses.push(`phone = $${i++}`); values.push(phone); }
+		if (preferences !== undefined) { setClauses.push(`preferences = $${i++}`); values.push(JSON.stringify(preferences)); }
+		if (onboardingCompleted !== undefined) { setClauses.push(`onboarding_completed = $${i++}`); values.push(onboardingCompleted); }
 
-			// Provision new users into auth_identity_map (fire-and-forget, idempotent).
-			// New signups via Firebase are never auto-provisioned -- this is the earliest
-			// point every new user passes through, so it's the right hook for ensuring
-			// they're included in future migration wave sweeps.
-			const firebaseUser = await adminAuth.getUser(uid).catch(() => null);
-			if (firebaseUser) {
-				provisionFirebaseUser({
-					uid: firebaseUser.uid,
-					email: firebaseUser.email,
-					emailVerified: firebaseUser.emailVerified,
-					signInProvider: firebaseUser.providerData[0]?.providerId ?? "password",
-				}).catch(() => {});
-			}
-		}
+		values.push(uid);
+		await pgQuery(
+			`update users set ${setClauses.join(", ")} where uid = $${i}`,
+			values,
+		);
 
-		await adminDb.collection("users").doc(uid).set(updates, { merge: true });
-
-		// Write onboarding_completed to Postgres so Supabase-session users' account
-		// data (assembled from Postgres via fetchSupabaseAccount) reflects completion.
-		// Without this, account.onboardingCompleted is always false for Supabase users
-		// and the onboarding redirect guard never fires.
-		if (onboardingCompleted === true) {
-			pgQuery(`update users set onboarding_completed = true where uid = $1`, [uid])
-				.catch((e) => console.error("[onboarding_completed] Postgres update failed:", e));
-		}
-
-		const updated = await adminDb.collection("users").doc(uid).get();
-		res.json({ id: updated.id, ...updated.data() });
+		const updated = await pgQuery<{
+			uid: string; email: string | null; display_name: string | null; phone: string | null;
+			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
+			created_at: string; updated_at: string | null;
+		}>(
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			from users where uid = $1`,
+			[uid],
+		);
+		const row = updated.rows[0]!;
+		res.json({
+			id: row.uid,
+			uid: row.uid,
+			email: row.email ?? "",
+			displayName: row.display_name ?? "",
+			phone: row.phone ?? "",
+			preferences: row.preferences ?? {},
+			onboardingCompleted: row.onboarding_completed,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
+		});
 	} catch (error) {
 		console.error("Error updating profile:", error);
 		res.status(500).json({ error: "Failed to update profile" });
@@ -158,10 +135,11 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.get("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const doc = await adminDb.collection("users").doc(uid).get();
-		const data = doc.data();
-		const brandIds: string[] = data?.stakBrandIds ?? [];
-		res.json({ brandIds });
+		const result = await pgQuery<{ brand_id: string }>(
+			`select brand_id from stak_brands where uid = $1 order by saved_at asc`,
+			[uid],
+		);
+		res.json({ brandIds: result.rows.map((r) => r.brand_id) });
 	} catch (error) {
 		console.error("Error fetching stak:", error);
 		res.status(500).json({ error: "Failed to fetch stak" });
@@ -179,10 +157,17 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 			return;
 		}
 
-		await adminDb.collection("users").doc(uid).set(
-			{ stakBrandIds: brandIds, updatedAt: new Date().toISOString() },
-			{ merge: true },
-		);
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(`delete from stak_brands where uid = $1`, [uid]);
+		if (brandIds.length > 0) {
+			const now = new Date().toISOString();
+			const placeholders = brandIds.map((_: string, i: number) => `($1, $${i + 2}, $${brandIds.length + i + 2})`).join(", ");
+			const params: unknown[] = [uid, ...brandIds, ...brandIds.map(() => now)];
+			await pgQuery(
+				`insert into stak_brands (uid, brand_id, saved_at) values ${placeholders}`,
+				params,
+			);
+		}
 
 		res.json({ brandIds });
 	} catch (error) {
@@ -195,9 +180,14 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 meRouter.get("/passed", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const doc = await adminDb.collection("users").doc(uid).get();
-		const data = doc.data();
-		const entries: { id: string; at: number }[] = data?.passedBrands ?? [];
+		const result = await pgQuery<{ brand_id: string; last_passed_at: string }>(
+			`select brand_id, last_passed_at from passed_brands where uid = $1`,
+			[uid],
+		);
+		const entries = result.rows.map((r) => ({
+			id: r.brand_id,
+			at: new Date(r.last_passed_at).getTime(),
+		}));
 		res.json({ entries });
 	} catch (error) {
 		console.error("Error fetching passed brands:", error);
@@ -216,10 +206,21 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 			return;
 		}
 
-		await adminDb.collection("users").doc(uid).set(
-			{ passedBrands: entries, updatedAt: new Date().toISOString() },
-			{ merge: true },
-		);
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(`delete from passed_brands where uid = $1`, [uid]);
+		if (entries.length > 0) {
+			const values = (entries as { id: string; at: number }[]).map(
+				(e, i) => `($1, $${i * 2 + 2}, to_timestamp($${i * 2 + 3}::bigint / 1000.0))`
+			).join(", ");
+			const params: unknown[] = [uid];
+			for (const e of entries as { id: string; at: number }[]) {
+				params.push(e.id, e.at);
+			}
+			await pgQuery(
+				`insert into passed_brands (uid, brand_id, last_passed_at) values ${values}`,
+				params,
+			);
+		}
 
 		res.json({ entries });
 	} catch (error) {
@@ -228,35 +229,16 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 	}
 });
 
-// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs.
-// Reads from Firestore by default; set INTEL_STATE_READ_SOURCE=postgres to switch once
-// shadow-write parity has actually been observed over real time -- see tingly-conjuring-lake.md.
-// Confirmed backend-exclusive (unlike most of users/{uid}'s other fields, nothing in
-// AccountContext.tsx writes intelCardState directly from the frontend) -- this is the
-// one field Phase 2's original scope actually applies to cleanly.
+// GET /api/me/intel-state — get intel card queue, last shown date, and read card IDs
 meRouter.get("/intel-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-
-		if (process.env.INTEL_STATE_READ_SOURCE === "postgres") {
-			const result = await pgQuery<{ last_date: string; queue: string[]; read_ids: string[] }>(
-				`select last_date, queue, read_ids from intel_card_state where uid = $1`,
-				[uid],
-			);
-			const row = result.rows[0];
-			res.json({ lastDate: row?.last_date ?? "", queue: row?.queue ?? [], readIds: row?.read_ids ?? [] });
-			return;
-		}
-
-		const doc = await adminDb.collection("users").doc(uid).get();
-		const data = doc.data();
-		const saved = data?.intelCardState ?? {};
-		const intelCardState: { lastDate: string; queue: string[]; readIds: string[] } = {
-			lastDate: saved.lastDate ?? "",
-			queue: saved.queue ?? [],
-			readIds: saved.readIds ?? [],
-		};
-		res.json(intelCardState);
+		const result = await pgQuery<{ last_date: string; queue: string[]; read_ids: string[] }>(
+			`select last_date, queue, read_ids from intel_card_state where uid = $1`,
+			[uid],
+		);
+		const row = result.rows[0];
+		res.json({ lastDate: row?.last_date ?? "", queue: row?.queue ?? [], readIds: row?.read_ids ?? [] });
 	} catch (error) {
 		console.error("Error fetching intel state:", error);
 		res.status(500).json({ error: "Failed to fetch intel state" });
@@ -274,20 +256,12 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 			return;
 		}
 
-		await adminDb.collection("users").doc(uid).set(
-			{ intelCardState: { lastDate, queue, readIds }, updatedAt: new Date().toISOString() },
-			{ merge: true },
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`insert into intel_card_state (uid, last_date, queue, read_ids) values ($1, $2, $3, $4)
+			on conflict (uid) do update set last_date = excluded.last_date, queue = excluded.queue, read_ids = excluded.read_ids`,
+			[uid, lastDate, queue, readIds],
 		);
-
-		// Shadow-write to Postgres (migration Phase 2) -- see tingly-conjuring-lake.md
-		await shadowWrite("intel-state-upsert", async () => {
-			await ensureUserRow(uid, req.user!.email);
-			await pgQuery(
-				`insert into intel_card_state (uid, last_date, queue, read_ids) values ($1, $2, $3, $4)
-				on conflict (uid) do update set last_date = excluded.last_date, queue = excluded.queue, read_ids = excluded.read_ids`,
-				[uid, lastDate, queue, readIds],
-			);
-		});
 
 		res.json({ lastDate, queue, readIds });
 	} catch (error) {
@@ -300,27 +274,25 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const doc = await adminDb.collection("users").doc(uid).get();
-		const saved = doc.data()?.dailySwipeState ?? {};
-		res.json({ date: saved.date ?? "", count: saved.count ?? 0 });
+		const result = await pgQuery<{ daily_swipe_date: string | null; daily_swipe_count: number | null }>(
+			`select daily_swipe_date, daily_swipe_count from users where uid = $1`,
+			[uid],
+		);
+		const row = result.rows[0];
+		res.json({ date: row?.daily_swipe_date ?? "", count: row?.daily_swipe_count ?? 0 });
 	} catch (error) {
 		console.error("Error fetching daily swipes:", error);
 		res.status(500).json({ error: "Failed to fetch daily swipes" });
 	}
 });
 
-// POST /api/me/swipes/increment — atomically increment today's swipe count, server-
-// authoritative. Used by the search-add and global add-to-stak paths, which don't
-// otherwise hit the backend per "swipe" (see backend/src/routes/swipe.ts for the main
-// swipe-gesture path, which merges the same check into its own per-swipe request
-// instead of calling this — avoids a second concurrent transaction on the same doc).
-// Replaces a previous PUT here that let the client set an arbitrary count directly.
+// POST /api/me/swipes/increment — atomically increment today's swipe count, server-authoritative.
+// Used by the search-add and global add-to-stak paths, which don't otherwise hit the backend
+// per "swipe". Replaces a previous PUT that let the client set an arbitrary count directly.
 meRouter.post("/swipes/increment", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const result = await checkAndIncrementSwipeLimit(uid, req.body?.todayKey);
-		// Always 200 — "limit reached" is an expected outcome the client needs in the
-		// body (accepted:false), not a thrown error.
 		res.json(result);
 	} catch (error) {
 		console.error("Error incrementing daily swipes:", error);
@@ -332,9 +304,11 @@ meRouter.post("/swipes/increment", authMiddleware, async (req: AuthenticatedRequ
 meRouter.get("/deck-order", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const doc = await adminDb.collection("users").doc(uid).get();
-		const order: string[] = doc.data()?.deckOrder ?? [];
-		res.json({ order });
+		const result = await pgQuery<{ deck_order: string[] | null }>(
+			`select deck_order from users where uid = $1`,
+			[uid],
+		);
+		res.json({ order: result.rows[0]?.deck_order ?? [] });
 	} catch (error) {
 		console.error("Error fetching deck order:", error);
 		res.status(500).json({ error: "Failed to fetch deck order" });
@@ -352,9 +326,10 @@ meRouter.put("/deck-order", authMiddleware, async (req: AuthenticatedRequest, re
 			return;
 		}
 
-		await adminDb.collection("users").doc(uid).set(
-			{ deckOrder: order, updatedAt: new Date().toISOString() },
-			{ merge: true },
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`update users set deck_order = $1, updated_at = now() where uid = $2`,
+			[order, uid],
 		);
 
 		res.json({ order });

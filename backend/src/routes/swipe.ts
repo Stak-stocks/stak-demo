@@ -1,11 +1,9 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { recordActivity } from "../services/streakService.js";
 import { updateUserTasteProfile } from "../services/tasteProfileService.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { pgQuery, ensureUserRow } from "../lib/postgres.js";
-import { shadowWrite } from "../lib/shadowWrite.js";
 
 export const swipeRouter = Router();
 
@@ -48,7 +46,7 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		// Server-authoritative daily limit check — must run before recordActivity()
 		// below, so the limit for THIS swipe is evaluated against the bonus-swipes
 		// balance as it stood before any bonus this same swipe might grant for later.
-		// A rejected swipe is treated as if it never happened: no swipe doc, no
+		// A rejected swipe is treated as if it never happened: no swipe row, no
 		// streak credit, no taste-profile update. Always 200 — "limit reached" is an
 		// expected business outcome the client needs in the body, not a thrown error.
 		const limitResult = await checkAndIncrementSwipeLimit(uid, todayKey);
@@ -63,27 +61,12 @@ swipeRouter.post("/", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		}
 
 		const swipeTimestamp = new Date().toISOString();
-		await adminDb.collection("swipes").add({
-			uid,
-			brandId,
-			direction,
-			timestamp: swipeTimestamp,
-			...(ticker != null && { ticker }),
-			...(categories != null && { categories }),
-			...(stakSize != null && { stakSize }),
-			...(timeOnCardMs != null && { timeOnCardMs }),
-			...(swipeVelocity != null && { swipeVelocity }),
-		});
-
-		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
-		await shadowWrite("swipes-insert", async () => {
-			await ensureUserRow(uid, req.user!.email);
-			await pgQuery(
-				`insert into swipes (uid, brand_id, direction, occurred_at, ticker, categories, stak_size, time_on_card_ms, swipe_velocity)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-				[uid, brandId, direction, swipeTimestamp, ticker ?? null, categories ?? null, stakSize ?? null, timeOnCardMs ?? null, swipeVelocity ?? null],
-			);
-		});
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`insert into swipes (uid, brand_id, direction, occurred_at, ticker, categories, stak_size, time_on_card_ms, swipe_velocity)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			[uid, brandId, direction, swipeTimestamp, ticker ?? null, categories ?? null, stakSize ?? null, timeOnCardMs ?? null, swipeVelocity ?? null],
+		);
 
 		const streakResult = await recordActivity(uid, "swipe", todayKey);
 
@@ -131,32 +114,18 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 		}
 
 		const eventTimestamp = new Date().toISOString();
-		await adminDb.collection("events").add({
-			uid,
-			type,
-			timestamp: eventTimestamp,
-			...(brandId != null && { brandId }),
-			...(ticker != null && { ticker }),
-			...(categories != null && { categories }),
-			...(params != null && { params }),
-		});
-
-		// Shadow-write to Postgres (migration Phase 1) -- see tingly-conjuring-lake.md
-		await shadowWrite("events-insert", async () => {
-			await ensureUserRow(uid, req.user!.email);
-			await pgQuery(
-				`insert into events (uid, type, occurred_at, brand_id, ticker, categories, params)
-				values ($1, $2, $3, $4, $5, $6, $7)`,
-				[uid, type, eventTimestamp, brandId ?? null, ticker ?? null, categories ?? null, params != null ? JSON.stringify(params) : null],
-			);
-		});
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`insert into events (uid, type, occurred_at, brand_id, ticker, categories, params)
+			values ($1, $2, $3, $4, $5, $6, $7)`,
+			[uid, type, eventTimestamp, brandId ?? null, ticker ?? null, categories ?? null, params != null ? JSON.stringify(params) : null],
+		);
 
 		if (type === "intel_card_view") {
 			recordActivity(uid, "intel_view", todayKey).catch(() => {});
 		} else if (type === "brand_tap") {
 			recordActivity(uid, "brand_tap", todayKey).catch(() => {});
 		} else if (type === "playground_activity") {
-			// Completing any playground activity (lesson, battle, etc.) counts toward streak
 			recordActivity(uid, "swipe", todayKey).catch(() => {});
 		}
 
@@ -177,18 +146,18 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 swipeRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const snapshot = await adminDb
-			.collection("swipes")
-			.where("uid", "==", uid)
-			.orderBy("timestamp", "desc")
-			.get();
-
-		const swipes = snapshot.docs.map((doc) => ({
-			id: doc.id,
-			...doc.data(),
-		}));
-
-		res.json({ swipes });
+		const result = await pgQuery<{
+			id: number; uid: string; brandId: string; direction: string; timestamp: string;
+			ticker: string | null; categories: string[] | null; stakSize: number | null;
+			timeOnCardMs: number | null; swipeVelocity: number | null;
+		}>(
+			`select id, uid, brand_id as "brandId", direction, occurred_at as "timestamp",
+			 ticker, categories, stak_size as "stakSize", time_on_card_ms as "timeOnCardMs",
+			 swipe_velocity as "swipeVelocity"
+			 from swipes where uid = $1 order by occurred_at desc`,
+			[uid],
+		);
+		res.json({ swipes: result.rows });
 	} catch (error) {
 		console.error("Error fetching swipes:", error);
 		res.status(500).json({ error: "Failed to fetch swipes" });

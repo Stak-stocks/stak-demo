@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { pgQuery } from "../lib/postgres.js";
 import { getGeminiKeys } from "../services/geminiService.js";
 
 export const intelCardsRouter = Router();
@@ -139,7 +139,7 @@ Return ONLY a JSON array of exactly 30 objects:
 	return null;
 }
 
-const FIRESTORE_DOC = adminDb.collection("admin").doc("intel-cards");
+const CONFIG_KEY = "intel-cards";
 
 // GET /api/intel-cards
 intelCardsRouter.get("/", async (_req, res) => {
@@ -149,11 +149,14 @@ intelCardsRouter.get("/", async (_req, res) => {
 		return;
 	}
 
-	// 2. Firestore cache (survives server restarts / Cloud Run cold starts)
+	// 2. Postgres app_config cache (survives server restarts / Cloud Run cold starts)
 	try {
-		const doc = await FIRESTORE_DOC.get();
-		if (doc.exists) {
-			const stored = doc.data() as { cards: IntelCardData[]; expiresAt: number };
+		const result = await pgQuery<{ value: { cards: IntelCardData[]; expiresAt: number } }>(
+			`select value from app_config where key = $1`,
+			[CONFIG_KEY],
+		);
+		if (result.rows.length > 0) {
+			const stored = result.rows[0]!.value;
 			if (stored.expiresAt > Date.now()) {
 				cachedCards = stored.cards;
 				cacheExpiresAt = stored.expiresAt;
@@ -162,7 +165,7 @@ intelCardsRouter.get("/", async (_req, res) => {
 			}
 		}
 	} catch {
-		// Firestore unavailable — fall through to generation
+		// Postgres unavailable — fall through to generation
 	}
 
 	// 3. Generate fresh cards with Gemini and persist to both layers
@@ -171,8 +174,11 @@ intelCardsRouter.get("/", async (_req, res) => {
 		const expiresAt = Date.now() + CACHE_TTL_MS;
 		cachedCards = generated;
 		cacheExpiresAt = expiresAt;
-		// Fire-and-forget Firestore write
-		FIRESTORE_DOC.set({ cards: generated, expiresAt }).catch(() => {});
+		pgQuery(
+			`insert into app_config (key, value) values ($1, $2::jsonb)
+			on conflict (key) do update set value = excluded.value, updated_at = now()`,
+			[CONFIG_KEY, JSON.stringify({ cards: generated, expiresAt })],
+		).catch(() => {});
 		res.json({ cards: generated });
 	} else {
 		// Frontend falls back to its hardcoded set

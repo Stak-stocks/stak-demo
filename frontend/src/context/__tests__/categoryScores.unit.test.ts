@@ -2,19 +2,39 @@ import { renderHook } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ── Firebase mocks ────────────────────────────────────────────────────────────
+// ── Supabase account subscription mock ───────────────────────────────────────
 
-const onSnapshotMock = vi.fn();
-const docRefStub = {};
+const subscribeSupabaseAccountMock = vi.fn();
 
-vi.mock("firebase/firestore", () => ({
-	doc: vi.fn(() => docRefStub),
-	onSnapshot: onSnapshotMock,
-	updateDoc: vi.fn().mockResolvedValue(undefined),
-	runTransaction: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/lib/supabaseAccount", () => ({
+	subscribeSupabaseAccount: subscribeSupabaseAccountMock,
+	updateStakSupabase: vi.fn().mockResolvedValue(undefined),
+	saveToStakSupabase: vi.fn().mockResolvedValue(undefined),
+	updatePassedBrandsSupabase: vi.fn().mockResolvedValue(undefined),
+	updateDeckOrderSupabase: vi.fn().mockResolvedValue(undefined),
+	updatePreferencesSupabase: vi.fn().mockResolvedValue(undefined),
+	updateLastBriefDateSupabase: vi.fn().mockResolvedValue(undefined),
+	addSearchHistorySupabase: vi.fn().mockResolvedValue(undefined),
+	removeSearchHistoryEntrySupabase: vi.fn().mockResolvedValue(undefined),
+	clearSearchHistorySupabase: vi.fn().mockResolvedValue(undefined),
+	completeActivitySupabase: vi.fn().mockResolvedValue(undefined),
+	addXpSupabase: vi.fn().mockResolvedValue(undefined),
+	initSandboxCashSupabase: vi.fn().mockResolvedValue(undefined),
+	addToSandboxSupabase: vi.fn().mockResolvedValue(undefined),
+	sellFromSandboxSupabase: vi.fn().mockResolvedValue(undefined),
+	resetSandboxSupabase: vi.fn().mockResolvedValue(undefined),
+	checkAndApplySandboxTierUpgradeSupabase: vi.fn().mockResolvedValue(undefined),
+	markSandboxMilestoneSupabase: vi.fn().mockResolvedValue(undefined),
+	markPlaygroundOnboardedSupabase: vi.fn().mockResolvedValue(undefined),
+	saveGeneratedLessonHistorySupabase: vi.fn().mockResolvedValue(undefined),
+	completeDailyActivitySupabase: vi.fn().mockResolvedValue(undefined),
+	completeChallengeSupabase: vi.fn().mockResolvedValue(undefined),
+	addPracticeSkillXpSupabase: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/lib/firebase", () => ({ db: {} }));
+vi.mock("@/lib/api", () => ({
+	incrementSwipeCountServer: vi.fn().mockResolvedValue({ accepted: true, count: 1, limit: 10 }),
+}));
 
 vi.mock("@/context/AuthContext", () => ({
 	useAuth: vi.fn(),
@@ -24,14 +44,11 @@ vi.mock("@/context/AuthContext", () => ({
 
 async function setupHook(tagScores: Record<string, number> = {}) {
 	const { useAuth } = await import("@/context/AuthContext");
-	vi.mocked(useAuth).mockReturnValue({ user: { uid: "u1" }, loading: false } as any);
+	vi.mocked(useAuth).mockReturnValue({ supabaseUserId: "u1", loading: false } as any);
 
-	onSnapshotMock.mockImplementation(
-		(_ref: unknown, cb: (snap: unknown) => void, _err: unknown) => {
-			cb({
-				exists: () => true,
-				data: () => ({ tagScores }),
-			});
+	subscribeSupabaseAccountMock.mockImplementation(
+		(_uid: string, cb: (account: unknown) => void) => {
+			cb({ tagScores, stakBrandIds: [], passedBrands: [] });
 			return () => {};
 		},
 	);
@@ -45,13 +62,13 @@ async function setupHook(tagScores: Record<string, number> = {}) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("AccountContext — tagScores read from Firestore", () => {
+describe("AccountContext — tagScores from Supabase account subscription", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.resetModules();
 	});
 
-	it("exposes tagScores from the Firestore snapshot", async () => {
+	it("exposes tagScores from the Supabase account snapshot", async () => {
 		const { result } = await setupHook({ technology: 15, high_growth: 7.5 });
 		expect(result.current.account?.tagScores).toEqual({ technology: 15, high_growth: 7.5 });
 	});

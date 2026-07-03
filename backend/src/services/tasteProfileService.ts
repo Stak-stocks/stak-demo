@@ -1,6 +1,4 @@
-import { adminDb } from "../firebaseAdmin.js";
 import { pgQuery } from "../lib/postgres.js";
-import { shadowWrite } from "../lib/shadowWrite.js";
 import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 
 type ActionType =
@@ -30,7 +28,7 @@ const STOCK_TAG_MAP = new Map(
 );
 
 /**
- * Update a user's tagScores in Firestore based on a swipe / engagement action.
+ * Update a user's tag_scores in Postgres based on a swipe / engagement action.
  * Fires-and-forgets safely — all errors are swallowed so callers don't break.
  */
 export async function updateUserTasteProfile(
@@ -44,29 +42,13 @@ export async function updateUserTasteProfile(
 	const actionPoints = ACTION_POINTS[action] ?? 0;
 	if (actionPoints === 0) return;
 
-	const userRef = adminDb.collection("users").doc(uid);
+	const deltas: Record<string, number> = {};
+	for (const lt of stock.learningTags) {
+		deltas[lt.tag] = actionPoints * lt.weight;
+	}
 
-	let updated: Record<string, number> = {};
-
-	await adminDb.runTransaction(async (tx) => {
-		const snap = await tx.get(userRef);
-		const current: Record<string, number> = (snap.data()?.tagScores as Record<string, number>) ?? {};
-		updated = { ...current };
-
-		for (const lt of stock.learningTags) {
-			const delta = actionPoints * lt.weight;
-			updated[lt.tag] = Math.max(-10, (updated[lt.tag] ?? 0) + delta);
-		}
-
-		tx.set(userRef, { tagScores: updated }, { merge: true });
-	});
-
-	// Shadow-write tag_scores to Postgres so Supabase-session users get the same
-	// personalization. Firestore stays the source of truth for now.
-	shadowWrite("tag-scores-update", () =>
-		pgQuery(
-			`update users set tag_scores = $1 where uid = $2`,
-			[JSON.stringify(updated), uid],
-		),
+	await pgQuery(
+		`select update_user_taste_profile($1, $2::jsonb)`,
+		[uid, JSON.stringify(deltas)],
 	);
 }

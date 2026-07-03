@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
-import { applyActionCode } from "firebase/auth";
-import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
 import { completeMigration } from "@/lib/api";
 
@@ -24,7 +22,7 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
 	const { mode, oobCode, continueUrl, token_hash, type, supabase_recovery } = Route.useSearch();
-	const { verifyResetCode, confirmReset, confirmResetSupabase } = useAuth();
+	const { confirmResetSupabase } = useAuth();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -117,41 +115,12 @@ function ResetPasswordPage() {
 			return () => { clearTimeout(t); listener.subscription.unsubscribe(); };
 		}
 
-		if (!oobCode) {
-			setInvalidCode(true);
-			setVerifying(false);
-			return;
-		}
-
-		// Email verification link from Firebase
-		if (mode === "verifyEmail") {
-			applyActionCode(auth, oobCode)
-				.then(() => {
-					toast.success("Email verified! Welcome to STAK!");
-					if (continueUrl) {
-						window.location.href = continueUrl;
-					} else {
-						navigate({ to: "/verify-email" });
-					}
-				})
-				.catch(() => {
-					setInvalidCode(true);
-					setVerifying(false);
-				});
-			return;
-		}
-
-		verifyResetCode(oobCode)
-			.then((userEmail) => {
-				setEmail(userEmail);
-				setVerifying(false);
-			})
-			.catch(() => {
-				setInvalidCode(true);
-				setVerifying(false);
-			});
+		// Any link that isn't a Supabase recovery link (old Firebase links, malformed URLs)
+		// is no longer supported after Phase 7.
+		setInvalidCode(true);
+		setVerifying(false);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode, oobCode, isSupabaseReset, isTokenHashFlow, token_hash, navigate]);
+	}, [isSupabaseReset, isTokenHashFlow, token_hash, navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -186,12 +155,7 @@ function ResetPasswordPage() {
 				await supabase.auth.signOut();
 				toast.success("Password updated! Sign in with your new password.");
 				navigate({ to: "/login" });
-				return;
-			} else {
-				await confirmReset(oobCode, password);
 			}
-			toast.success("Password reset! You can now sign in.");
-			navigate({ to: "/login" });
 		} catch {
 			toast.error("Failed to reset password. The link may have expired.");
 			setResetting(false);

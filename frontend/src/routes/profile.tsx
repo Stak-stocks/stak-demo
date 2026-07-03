@@ -47,7 +47,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 }
 
 function ProfilePage() {
-	const { appUser, user, loading, logout } = useAuth();
+	const { appUser, loading, logout } = useAuth();
 	const { account, updatePreferences } = useAccount();
 	const { resolvedTheme, setTheme } = useTheme();
 	const navigate = useNavigate();

@@ -1,5 +1,4 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { logEvent } from "@/lib/firebase";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
@@ -28,14 +27,14 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { appUser, user, loading, supabaseUserId } = useAuth();
+	const { appUser, loading } = useAuth();
 	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [briefOpen, setBriefOpen] = useState(false);
@@ -66,7 +65,6 @@ function Root() {
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
 		if (!briefOpen) document.body.style.overflow = "";
-		logEvent("page_view", { page_path: location.pathname });
 	}, [location.pathname, briefOpen]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly
@@ -81,7 +79,7 @@ function Root() {
 				staleTime: 10 * 60 * 1000,
 			});
 		}
-	}, [queryClient, stakTickers, user]);
+	}, [queryClient, stakTickers, appUser]);
 
 	const handleAddToStak = useCallback((brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
@@ -104,14 +102,11 @@ function Root() {
 		incrementStakSwipe().catch(() => {});
 		// Invalidate daily brief so personalization reflects the new Stak brand
 		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
-		logEvent("add_to_stak", { brand_id: brand.id, brand_name: brand.name });
-
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
-	// The Firestore-based account.onboardingCompleted check only applies for Firebase
-	// sessions -- Supabase sessions get their onboarding status from the backend's
-	// getProfile() (see login.tsx's supabaseUserId effect), not from Firestore.
-	const onboardingCheckApplies = appUser?.sessionType === "firebase";
+	// All sessions are now Supabase — onboarding completion is stored in Postgres and
+	// reflected in account.onboardingCompleted via the Supabase Realtime subscription.
+	const onboardingCheckApplies = !!appUser;
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
@@ -162,7 +157,7 @@ function Root() {
 		if (searchOpen) {
 			setSearchOpen(false);
 		}
-	}, [location.pathname, isAuthPage, user]);
+	}, [location.pathname, isAuthPage, appUser]);
 
 	// Listen for custom event to open search from child pages
 	useEffect(() => {
@@ -207,7 +202,7 @@ function Root() {
 	}
 
 	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes
-	if (!briefOpen && !isAuthPage && user && account?.onboardingCompleted) {
+	if (!briefOpen && !isAuthPage && appUser && account?.onboardingCompleted) {
 		const d = new Date();
 		const today = getEasternDateKey(d);
 		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);

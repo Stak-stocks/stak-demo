@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { appUser, user, loading, onboardingCompleted, signInWithEmail, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { appUser, loading, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -19,41 +19,7 @@ function LoginPage() {
 	const [showPassword, setShowPassword] = useState(false);
 
 	useEffect(() => {
-		if (!loading && user) {
-			// Block unverified email/password users — redirect them to verify their inbox
-			const isPasswordProvider = appUser?.provider === "password";
-			if (isPasswordProvider && !appUser?.emailVerified) {
-				navigate({ to: "/verify-email" });
-				return;
-			}
-
-			// Force-refresh the token to detect if the account was deleted server-side
-			// (Firebase keeps the client session alive for up to 1 hour after deletion)
-			// Force-refresh then read fresh claims — avoids stale React state from
-		// the previous onAuthStateChanged call.
-		user.getIdToken(true)
-				.then(() => getProfile().catch(() => {}))
-				.then(() => user.getIdToken(true))
-				.then(() => user.getIdTokenResult())
-				.then((result) => {
-					const done = result.claims.onboardingCompleted === true;
-					navigate({ to: done ? "/" : "/onboarding" });
-				})
-				.catch(() => {
-					// Token refresh failed — account was deleted or disabled on the server
-					logout().catch(() => {});
-				});
-		}
-	}, [user, loading, navigate, logout]);
-
-	// Mirrors the effect above for the additive Supabase path (migration plan, Phase 5,
-	// internal cohort only) -- no email-verification gate or token-deletion-detection
-	// trick here, since cohort accounts are already-verified, fully-provisioned ones,
-	// not fresh signups. Guarded by `!user` so it can't fire for someone who somehow
-	// has both a Firebase and a Supabase session at once -- the Firebase effect above
-	// takes priority.
-	useEffect(() => {
-		if (!supabaseUserId || user) return;
+		if (!supabaseUserId) return;
 		getProfile()
 			.then((profile) => {
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
@@ -61,7 +27,7 @@ function LoginPage() {
 			.catch(() => {
 				logout().catch(() => {});
 			});
-	}, [supabaseUserId, user, navigate, logout]);
+	}, [supabaseUserId, navigate, logout]);
 
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
@@ -81,18 +47,12 @@ function LoginPage() {
 				return;
 			}
 
-			if (provider === "supabase") {
-				await signInWithEmailSupabase(email, password);
-			} else {
-				await signInWithEmail(email, password);
-			}
+			await signInWithEmailSupabase(email, password);
 			toast.success("Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (message.includes("user-not-found") || message.includes("invalid-credential") || message.includes("Invalid login credentials")) {
 				toast.error("Invalid email or password");
-			} else if (message.includes("wrong-password")) {
-				toast.error("Wrong password");
 			} else {
 				toast.error("Sign in failed. Please try again.");
 			}

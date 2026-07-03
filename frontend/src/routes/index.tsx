@@ -12,7 +12,6 @@ import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
 import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
 import { marketSessionBucket, getTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
-import { logEvent } from "@/lib/firebase";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import type { StreakUpdate } from "@/components/SwipeableCardStack";
@@ -87,7 +86,7 @@ export const Route = createFileRoute("/")({
 
 
 function App() {
-	const { appUser, user } = useAuth();
+	const { appUser } = useAuth();
 	const { account, updateStak, saveToStak, updatePassedBrands, updateDeckOrder } = useAccount();
 	const queryClient = useQueryClient();
 	const uid = appUser?.uid ?? "guest";
@@ -356,13 +355,11 @@ function App() {
 	const handleLearnMore = (brand: BrandSummary) => {
 		setSelectedBrand(brand);
 		setModalOpen(true);
-		logEvent("learn_more", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	};
 
 	const handleSwipeRight = (brand: BrandSummary) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
-		logEvent("swipe_right", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
 		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
 
@@ -422,7 +419,6 @@ function App() {
 	};
 
 	const handleSwipeLeft = useCallback((brand: BrandSummary) => {
-		logEvent("swipe_left", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
 		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
 
@@ -515,8 +511,7 @@ function App() {
 						type="button"
 						onClick={() => {
 							window.dispatchEvent(new Event("open-search"));
-							logEvent("search_open");
-							trackEvent("search_open").catch(() => {});
+								trackEvent("search_open").catch(() => {});
 						}}
 						aria-label="Search"
 						className="relative grid h-[30px] w-[30px] place-items-center rounded-full bg-slate-200 dark:bg-slate-700/80 ring-1 ring-slate-300 dark:ring-white/20 text-slate-700 dark:text-slate-300 hover:text-foreground transition-colors"

@@ -2,22 +2,23 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { updateProfile as firebaseUpdateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { getProfile, updateProfile as apiUpdateProfile } from "@/lib/api";
-import { ChevronLeft, Pencil, Check, X, Mail, Phone, Calendar, Shield } from "lucide-react";
+import { ChevronLeft, Pencil, Check, X, Mail, Phone, Shield } from "lucide-react";
 
 export const Route = createFileRoute("/profile_/personal-details")({
 	component: PersonalDetailsPage,
 });
 
 function PersonalDetailsPage() {
-	const { appUser, user } = useAuth();
+	const { appUser } = useAuth();
 	const navigate = useNavigate();
 
-	// Display name editing
+	// Display name editing. savedName tracks the last persisted value so cancel
+	// can restore it even though appUser.displayName won't update until next session load.
+	const [savedName, setSavedName] = useState(appUser?.displayName ?? "");
 	const [editingName, setEditingName] = useState(false);
-	const [nameValue, setNameValue] = useState(user?.displayName ?? "");
+	const [nameValue, setNameValue] = useState(appUser?.displayName ?? "");
 	const [savingName, setSavingName] = useState(false);
 
 	// Phone editing
@@ -30,12 +31,12 @@ function PersonalDetailsPage() {
 	useEffect(() => {
 		getProfile()
 			.then((profile) => {
-				const p = profile.phone ?? user?.phoneNumber ?? "";
+				const p = profile.phone ?? "";
 				setPhone(p);
 				setPhoneValue(p);
 			})
 			.catch(() => {});
-	}, [user?.phoneNumber]);
+	}, []);
 
 	// Swipe right to go back
 	const touchStartX = useRef(0);
@@ -46,31 +47,18 @@ function PersonalDetailsPage() {
 		return null;
 	}
 
-	// This page is built entirely around Firebase's user object (displayName,
-	// metadata.creationTime, providerData) with no Supabase equivalent built yet --
-	// a real feature gap, not something to fake. Show an honest message instead of
-	// letting the rest of this component dereference a null `user`.
-	if (!user) {
-		return (
-			<div className="flex items-center justify-center h-full px-6 text-center">
-				<p className="dark:text-slate-400 text-slate-500">Personal details aren't available for this account yet.</p>
-			</div>
-		);
-	}
-
-	const displayName = user.displayName || "STAK User";
-	const provider = user?.providerData[0]?.providerId;
-	const isGoogle = provider === "google.com";
-	const memberSince = user.metadata.creationTime
-		? new Date(user.metadata.creationTime).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-		: "—";
+	const displayName = savedName || "STAK User";
+	const isGoogle = appUser.provider === "google.com";
 
 	async function saveName() {
-		if (!auth.currentUser || !nameValue.trim()) return;
+		if (!nameValue.trim()) return;
 		setSavingName(true);
 		try {
-			await firebaseUpdateProfile(auth.currentUser, { displayName: nameValue.trim() });
+			// Update Supabase Auth user metadata (reflected in next session load)
+			// and the Postgres users row (what the app reads day-to-day).
+			await supabase.auth.updateUser({ data: { full_name: nameValue.trim() } });
 			await apiUpdateProfile({ displayName: nameValue.trim() });
+			setSavedName(nameValue.trim());
 			toast.success("Name updated");
 			setEditingName(false);
 		} catch {
@@ -127,8 +115,8 @@ function PersonalDetailsPage() {
 					<div className="relative mb-3">
 						<div className="absolute -inset-2 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 blur-lg" />
 						<div className="relative w-20 h-20 rounded-full ring-[3px] ring-purple-400/40 overflow-hidden bg-slate-800 shadow-xl shadow-purple-900/30">
-							{user.photoURL ? (
-								<img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+							{appUser.photoURL ? (
+								<img src={appUser.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
 							) : (
 								<div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-[26px] font-extrabold text-foreground">
 									{displayName.charAt(0).toUpperCase()}
@@ -136,8 +124,8 @@ function PersonalDetailsPage() {
 							)}
 						</div>
 					</div>
-					<p className="text-lg font-bold">{user.displayName || "STAK User"}</p>
-					<span className="text-xs text-zinc-500 mt-0.5">{user.email}</span>
+					<p className="text-lg font-bold">{displayName}</p>
+					<span className="text-xs text-zinc-500 mt-0.5">{appUser.email}</span>
 				</div>
 
 				{/* Account Info */}
@@ -156,13 +144,13 @@ function PersonalDetailsPage() {
 									type="text"
 									value={nameValue}
 									onChange={(e) => setNameValue(e.target.value)}
-									onKeyDown={(e) => { if (e.key === "Enter") { saveName(); } else if (e.key === "Escape") { setNameValue(user.displayName ?? ""); setEditingName(false); } }}
+									onKeyDown={(e) => { if (e.key === "Enter") { saveName(); } else if (e.key === "Escape") { setNameValue(savedName); setEditingName(false); } }}
 									className="w-full bg-transparent text-sm text-foreground outline-none border-b border-cyan-500/50 pb-0.5 focus:border-cyan-400"
 									autoFocus
 									maxLength={50}
 								/>
 							) : (
-								<p className="text-sm font-medium text-foreground truncate">{user.displayName || "Not set"}</p>
+								<p className="text-sm font-medium text-foreground truncate">{savedName || "Not set"}</p>
 							)}
 						</div>
 						{editingName ? (
@@ -170,12 +158,12 @@ function PersonalDetailsPage() {
 								<button type="button" onClick={saveName} disabled={savingName} className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-colors">
 									<Check className="w-3.5 h-3.5" />
 								</button>
-								<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
+								<button type="button" onClick={() => { setNameValue(savedName); setEditingName(false); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors">
 									<X className="w-3.5 h-3.5" />
 								</button>
 							</div>
 						) : (
-							<button type="button" onClick={() => { setNameValue(user.displayName ?? ""); setEditingName(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
+							<button type="button" onClick={() => { setNameValue(savedName); setEditingName(true); }} className="w-7 h-7 rounded-full dark:bg-slate-700/50 bg-slate-200/70 flex items-center justify-center dark:text-zinc-400 text-zinc-600 hover:bg-surface-3 transition-colors shrink-0">
 								<Pencil className="w-3 h-3" />
 							</button>
 						)}
@@ -188,9 +176,9 @@ function PersonalDetailsPage() {
 						</div>
 						<div className="flex-1 min-w-0">
 							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Email</p>
-							<p className="text-sm font-medium text-foreground truncate">{user.email}</p>
+							<p className="text-sm font-medium text-foreground truncate">{appUser.email}</p>
 						</div>
-						{user.emailVerified && (
+						{appUser.emailVerified && (
 							<span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">Verified</span>
 						)}
 					</div>
@@ -252,17 +240,6 @@ function PersonalDetailsPage() {
 						<span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 border", isGoogle ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-cyan-400 bg-cyan-500/10 border-cyan-500/20"].join(" ")}>
 							{isGoogle ? "Google" : "Email"}
 						</span>
-					</div>
-
-					{/* Member Since */}
-					<div className="flex items-center gap-3 px-4 py-3.5">
-						<div className="w-8 h-8 rounded-lg bg-pink-500/15 flex items-center justify-center shrink-0">
-							<Calendar className="w-4 h-4 text-pink-400" />
-						</div>
-						<div className="flex-1 min-w-0">
-							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Member Since</p>
-							<p className="text-sm font-medium text-foreground">{memberSince}</p>
-						</div>
 					</div>
 				</div>
 			</div>

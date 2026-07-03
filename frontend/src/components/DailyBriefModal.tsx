@@ -219,8 +219,8 @@ function FeaturedLessonCard({ lesson }: { lesson: FeaturedLesson }) {
 
 export function DailyBriefModal({ onClose, source = "auto" }: { onClose: () => void; source?: "auto" | "mystak" }) {
 	const navigate = useNavigate();
-	const { user } = useAuth();
-	const firstName = user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
+	const { appUser } = useAuth();
+	const firstName = appUser?.displayName?.split(" ")[0] ?? appUser?.email?.split("@")[0] ?? "there";
 
 	const { data: liveData, isLoading: briefLoading } = useQuery({
 		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],

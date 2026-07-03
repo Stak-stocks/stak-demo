@@ -17,7 +17,10 @@ vi.mock("@tanstack/react-router", () => ({
 	useNavigate: () => mockNavigate,
 }));
 vi.mock("@/context/AuthContext", () => ({
-	useAuth: () => ({ user: null, loading: false, onboardingCompleted: false }),
+	useAuth: () => ({ appUser: null, loading: false }),
+}));
+vi.mock("@/context/AccountContext", () => ({
+	useAccount: () => ({ account: null, accountLoading: false }),
 }));
 
 import { Route } from "../welcome";
