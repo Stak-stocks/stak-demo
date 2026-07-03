@@ -64,6 +64,7 @@ export async function authMiddleware(
 	const authHeader = req.headers.authorization;
 
 	if (!authHeader?.startsWith("Bearer ")) {
+		console.log(`[auth] 401 no-bearer path=${req.path}`);
 		res.status(401).json({ error: "Missing or invalid authorization header" });
 		return;
 	}
@@ -71,14 +72,8 @@ export async function authMiddleware(
 	const token = authHeader.split("Bearer ")[1]!;
 	const issuer = peekIssuer(token);
 
-	// Exact prefix match against the known Supabase issuer URL -- substring check
-	// ("supabase") is fragile and could misroute a Firebase token from a project
-	// coincidentally named "supabase-*" or similar.
-	// .trim() mirrors supabaseAdmin.ts -- the Cloud Run secret may have a trailing \r
-	// from the Windows grep|cut pipe used to create it. Without trim, supabaseIssuer
-	// would be "https://...co\r/auth/v1" and never match the JWT iss claim, silently
-	// routing every Supabase token to the Firebase branch and returning 401.
 	const supabaseIssuer = `${(process.env.SUPABASE_URL ?? "").trim()}/auth/v1`;
+	console.log(`[auth] path=${req.path} issuer="${issuer}" supabaseIssuer="${supabaseIssuer}" match=${issuer === supabaseIssuer}`);
 	if (issuer === supabaseIssuer) {
 		await handleSupabaseToken(token, req, res, next);
 	} else {
@@ -92,14 +87,11 @@ async function handleFirebaseToken(
 	res: Response,
 	next: NextFunction,
 ): Promise<void> {
-	// Accounts created on or after this date must have email verified.
-	// Accounts created before this date (existing users) get a grace period.
 	const VERIFICATION_REQUIRED_SINCE = new Date("2026-03-11T00:00:00Z").getTime();
 
 	try {
 		const decoded = await adminAuth.verifyIdToken(token);
 
-		// Block unverified email/password accounts created after the feature was deployed
 		const isPasswordProvider = decoded.firebase?.sign_in_provider === "password";
 		if (isPasswordProvider && !decoded.email_verified) {
 			const userRecord = await adminAuth.getUser(decoded.uid);
@@ -116,7 +108,8 @@ async function handleFirebaseToken(
 			onboardingCompleted: decoded.onboardingCompleted === true,
 		};
 		next();
-	} catch {
+	} catch (err) {
+		console.log(`[auth] firebase-401 path=${req.path} err=${String(err)}`);
 		res.status(401).json({ error: "Invalid or expired token" });
 	}
 }
@@ -130,6 +123,7 @@ async function handleSupabaseToken(
 	try {
 		const { data, error } = await getSupabaseVerifier().auth.getUser(token);
 		if (error || !data?.user) {
+			console.log(`[auth] supabase-getUser-fail path=${req.path} error=${error?.message ?? "no user"}`);
 			res.status(401).json({ error: "Invalid or expired token" });
 			return;
 		}
