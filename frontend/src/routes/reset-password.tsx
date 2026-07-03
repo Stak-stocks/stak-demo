@@ -22,12 +22,6 @@ export const Route = createFileRoute("/reset-password")({
 	}),
 });
 
-// Module-level set: survives component remounts (which reset useRef). The first
-// verifyOtp call creates a Supabase session, which fires onAuthStateChange in
-// AuthContext, which causes __root.tsx to remount this component -- resetting any
-// useRef guard. The Set persists until the page is fully refreshed (JS re-executed).
-const verifyOtpCalledFor = new Set<string>();
-
 function ResetPasswordPage() {
 	const { mode, oobCode, continueUrl, token_hash, type, supabase_recovery } = Route.useSearch();
 	const { verifyResetCode, confirmReset, confirmResetSupabase } = useAuth();
@@ -61,21 +55,11 @@ function ResetPasswordPage() {
 				return;
 			}
 
-			// token_hash flow: call verifyOtp explicitly. Scanners can't consume the token
-			// because they don't execute JS -- the token only gets used when this runs.
+			// token_hash flow: show the form immediately without calling verifyOtp.
+			// verifyOtp is deferred to submit time so that clicking the link never
+			// creates a Supabase session -- only actively submitting a new password does.
 			if (isTokenHashFlow) {
-				if (verifyOtpCalledFor.has(token_hash)) return;
-				verifyOtpCalledFor.add(token_hash);
-				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
-					.then(({ data, error }) => {
-						if (error || !data.session?.user.email) {
-							setInvalidCode(true);
-							setVerifying(false);
-						} else {
-							setEmail(data.session.user.email);
-							setVerifying(false);
-						}
-					});
+				setVerifying(false);
 				return;
 			}
 
@@ -183,14 +167,25 @@ function ResetPasswordPage() {
 		setResetting(true);
 		try {
 			if (isSupabaseReset) {
-				await confirmResetSupabase(password);
-				// Flip migration_status from requires_password_reset → supabase so future
-				// logins don't show the reset gate again.
+				if (isTokenHashFlow) {
+					// verifyOtp was deferred to here so clicking the link never auto-signs the
+					// user in. The session exists only for the duration of this submit handler.
+					const { data, error } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
+					if (error || !data.session) {
+						toast.error("This link has expired or already been used. Request a new one.");
+						navigate({ to: "/forgot-password" });
+						return;
+					}
+					await supabase.auth.updateUser({ password });
+				} else {
+					await confirmResetSupabase(password);
+				}
 				await completeMigration().catch(() => {});
-				// Navigate to / not /login -- the Supabase session is already active after
-				// confirmResetSupabase, so /login would immediately redirect back anyway.
-				toast.success("Password updated! You're now signed in.");
-				navigate({ to: "/" });
+				// Sign out so the recovery session doesn't persist — user should sign in
+				// fresh with their new password.
+				await supabase.auth.signOut();
+				toast.success("Password updated! Sign in with your new password.");
+				navigate({ to: "/login" });
 				return;
 			} else {
 				await confirmReset(oobCode, password);
@@ -240,7 +235,10 @@ function ResetPasswordPage() {
 						<div>
 							<h1 className="text-[26px] font-extrabold text-foreground">New Password</h1>
 							<p className="dark:text-slate-400 text-slate-500 mt-1">
-								Enter a new password for <strong className="dark:text-slate-300 text-slate-600">{email}</strong>
+								{email
+									? <>Enter a new password for <strong className="dark:text-slate-300 text-slate-600">{email}</strong></>
+									: "Enter a new password for your account"
+								}
 							</p>
 						</div>
 
