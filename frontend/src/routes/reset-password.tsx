@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
@@ -33,6 +33,7 @@ function ResetPasswordPage() {
 	const [verifying, setVerifying] = useState(true);
 	const [email, setEmail] = useState("");
 	const [invalidCode, setInvalidCode] = useState(false);
+	const verifyOtpCalledRef = useRef(false);
 
 	// Detect Supabase recovery:
 	// - token_hash + type=recovery: scanner-safe direct link (email template sends user here;
@@ -58,10 +59,10 @@ function ResetPasswordPage() {
 			// token_hash flow: call verifyOtp explicitly. Scanners can't consume the token
 			// because they don't execute JS -- the token only gets used when this runs.
 			if (isTokenHashFlow) {
-				console.log("[reset-password] token_hash flow", { token_hash, type });
+				if (verifyOtpCalledRef.current) return;
+				verifyOtpCalledRef.current = true;
 				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
 					.then(({ data, error }) => {
-						console.log("[reset-password] verifyOtp result", { error, session: data.session });
 						if (error || !data.session?.user.email) {
 							setInvalidCode(true);
 							setVerifying(false);
@@ -160,7 +161,8 @@ function ResetPasswordPage() {
 				setInvalidCode(true);
 				setVerifying(false);
 			});
-	}, [mode, oobCode, isSupabaseReset, isTokenHashFlow, token_hash, verifyResetCode, navigate]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode, oobCode, isSupabaseReset, isTokenHashFlow, token_hash, navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
