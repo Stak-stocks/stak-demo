@@ -34,10 +34,15 @@ function ResetPasswordPage() {
 	const [email, setEmail] = useState("");
 	const [invalidCode, setInvalidCode] = useState(false);
 
-	// Detect Supabase recovery via query param (set by resetPasswordSupabase's redirectTo)
-	// OR via URL hash error/type (implicit flow result from Supabase's own verify endpoint).
+	// Detect Supabase recovery:
+	// - token_hash + type=recovery: scanner-safe direct link (email template sends user here;
+	//   scanners click it but don't execute JS, so verifyOtp is never called, token survives)
+	// - supabase_recovery=1: PKCE redirectTo flow (legacy path, kept for backward compat)
+	// - hash params: implicit flow fallback
 	const hashParams = new URLSearchParams(window.location.hash.substring(1));
-	const isSupabaseReset = supabase_recovery === "1"
+	const isTokenHashFlow = !!token_hash && type === "recovery";
+	const isSupabaseReset = isTokenHashFlow
+		|| supabase_recovery === "1"
 		|| hashParams.get("type") === "recovery"
 		|| hashParams.has("error_code");
 
@@ -50,10 +55,51 @@ function ResetPasswordPage() {
 				return;
 			}
 
-			// Register listener SYNCHRONOUSLY before any async calls. The Supabase
-			// client processes the ?code= PKCE exchange on page init and fires
-			// PASSWORD_RECOVERY almost immediately -- if we set up the listener inside
-			// a .then() callback it fires AFTER the event, and we miss it entirely.
+			// token_hash flow: call verifyOtp explicitly. Scanners can't consume the token
+			// because they don't execute JS -- the token only gets used when this runs.
+			if (isTokenHashFlow) {
+				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
+					.then(({ data, error }) => {
+						if (error || !data.session?.user.email) {
+							setInvalidCode(true);
+							setVerifying(false);
+						} else {
+							setEmail(data.session.user.email);
+							setVerifying(false);
+						}
+					});
+				return;
+			}
+
+			// PKCE flow: Supabase appends ?code=xxx to the redirectTo URL. Call
+			// exchangeCodeForSession explicitly rather than relying on detectSessionInUrl,
+			// which fires before the component mounts and emits PASSWORD_RECOVERY before
+			// we can register a listener -- causing the 15-second timeout to fire instead.
+			// If detectSessionInUrl already ran and exchanged the code, the explicit call
+			// will fail; the getSession() fallback catches that case.
+			const urlCode = new URLSearchParams(window.location.search).get("code");
+			if (urlCode) {
+				supabase.auth.exchangeCodeForSession(urlCode)
+					.then(async ({ data, error }) => {
+						if (!error && data.session?.user.email) {
+							setEmail(data.session.user.email);
+							setVerifying(false);
+							return;
+						}
+						// detectSessionInUrl may have already exchanged the code; check session
+						const { data: existing } = await supabase.auth.getSession();
+						if (existing.session?.user.email) {
+							setEmail(existing.session.user.email);
+							setVerifying(false);
+						} else {
+							setInvalidCode(true);
+							setVerifying(false);
+						}
+					});
+				return;
+			}
+
+			// Implicit flow fallback (?code absent, session arrives via URL hash)
 			const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
 				if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session?.user.email) {
 					setEmail(session.user.email);
@@ -62,8 +108,6 @@ function ResetPasswordPage() {
 				}
 			});
 
-			// Also check for an existing session (covers the case where the event
-			// already fired before this effect even ran on mount)
 			supabase.auth.getSession().then(({ data }) => {
 				if (data.session?.user.email) {
 					setEmail(data.session.user.email);
@@ -114,7 +158,7 @@ function ResetPasswordPage() {
 				setInvalidCode(true);
 				setVerifying(false);
 			});
-	}, [mode, oobCode, isSupabaseReset, verifyResetCode, navigate]);
+	}, [mode, oobCode, isSupabaseReset, isTokenHashFlow, token_hash, verifyResetCode, navigate]);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
