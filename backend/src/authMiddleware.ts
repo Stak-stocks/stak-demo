@@ -3,10 +3,13 @@ import { adminAuth } from "./firebaseAdmin.js";
 import { getSupabaseAdmin } from "./lib/supabaseAdmin.js";
 import { createClient } from "@supabase/supabase-js";
 import { pgQuery } from "./lib/postgres.js";
+import { WebSocket as WS } from "ws";
 
 // Lightweight client with anon key used ONLY for JWT verification (getUser).
 // The admin client (service role key) can't verify user JWTs in all environments --
 // the anon key is the correct key for /auth/v1/user token validation.
+// WS polyfill: @supabase/realtime-js v2.108+ throws on Node.js 20 if globalThis.WebSocket
+// is undefined (Node 20 requires --experimental-websocket; Node 22 has it natively).
 const getSupabaseVerifier = (() => {
 	let client: ReturnType<typeof createClient> | null = null;
 	return () => {
@@ -14,7 +17,11 @@ const getSupabaseVerifier = (() => {
 			client = createClient(
 				(process.env.SUPABASE_URL ?? "").trim(),
 				(process.env.SUPABASE_ANON_KEY ?? "").trim(),
-				{ auth: { autoRefreshToken: false, persistSession: false } },
+				{
+					auth: { autoRefreshToken: false, persistSession: false },
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					global: { WebSocket: WS as any },
+				},
 			);
 		}
 		return client;
