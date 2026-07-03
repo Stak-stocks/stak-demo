@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
@@ -22,6 +22,12 @@ export const Route = createFileRoute("/reset-password")({
 	}),
 });
 
+// Module-level set: survives component remounts (which reset useRef). The first
+// verifyOtp call creates a Supabase session, which fires onAuthStateChange in
+// AuthContext, which causes __root.tsx to remount this component -- resetting any
+// useRef guard. The Set persists until the page is fully refreshed (JS re-executed).
+const verifyOtpCalledFor = new Set<string>();
+
 function ResetPasswordPage() {
 	const { mode, oobCode, continueUrl, token_hash, type, supabase_recovery } = Route.useSearch();
 	const { verifyResetCode, confirmReset, confirmResetSupabase } = useAuth();
@@ -33,7 +39,6 @@ function ResetPasswordPage() {
 	const [verifying, setVerifying] = useState(true);
 	const [email, setEmail] = useState("");
 	const [invalidCode, setInvalidCode] = useState(false);
-	const verifyOtpCalledRef = useRef(false);
 
 	// Detect Supabase recovery:
 	// - token_hash + type=recovery: scanner-safe direct link (email template sends user here;
@@ -59,11 +64,10 @@ function ResetPasswordPage() {
 			// token_hash flow: call verifyOtp explicitly. Scanners can't consume the token
 			// because they don't execute JS -- the token only gets used when this runs.
 			if (isTokenHashFlow) {
-				if (verifyOtpCalledRef.current) return;
-				verifyOtpCalledRef.current = true;
+				if (verifyOtpCalledFor.has(token_hash)) return;
+				verifyOtpCalledFor.add(token_hash);
 				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
 					.then(({ data, error }) => {
-						console.log("[reset-password] verifyOtp result:", { error: error?.message, status: (error as {status?: number})?.status, session: !!data.session, email: data.session?.user.email });
 						if (error || !data.session?.user.email) {
 							setInvalidCode(true);
 							setVerifying(false);
