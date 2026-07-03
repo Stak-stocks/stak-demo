@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	BookOpen, Zap, Swords, FlaskConical, ShieldAlert,
 	Brain, TrendingUp, Wallet, ChevronRight, Star, Lock,
-	DollarSign, BarChart2, LineChart, CheckCircle2, XCircle,
+	DollarSign, BarChart2, LineChart,
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
@@ -1512,15 +1512,6 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 										</div>
 									)}
 									<div className="flex-1 min-w-0">
-										{selected && (
-											<div className={`flex items-center gap-[5px] mb-[4px] ${selected === scenario.correctId ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-												{selected === scenario.correctId
-													? <CheckCircle2 size={13} />
-													: <XCircle size={13} />
-												}
-												<p className="text-[12px] font-semibold">{selected === scenario.correctId ? "You got it right!" : "Not quite"}</p>
-											</div>
-										)}
 										<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
 									</div>
 								</div>
@@ -1534,12 +1525,16 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 								</div>
 								<div className="p-[14px]">
 									<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[10px]">{scenario.explanation}</p>
-									{scenario.keyTakeaway && (
-										<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
-											<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
-											<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{scenario.keyTakeaway}</p>
-										</div>
-									)}
+									{(() => {
+										const kt = scenario.keyTakeaway ?? scenario.explanation.split(/(?<=[.!?])\s+/).pop();
+										if (!kt) return null;
+										return (
+											<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
+												<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
+												<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{kt}</p>
+											</div>
+										);
+									})()}
 								</div>
 							</div>
 
