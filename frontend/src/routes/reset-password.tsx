@@ -58,8 +58,10 @@ function ResetPasswordPage() {
 			// token_hash flow: call verifyOtp explicitly. Scanners can't consume the token
 			// because they don't execute JS -- the token only gets used when this runs.
 			if (isTokenHashFlow) {
+				console.log("[reset-password] token_hash flow", { token_hash, type });
 				supabase.auth.verifyOtp({ token_hash, type: "recovery" })
 					.then(({ data, error }) => {
+						console.log("[reset-password] verifyOtp result", { error, session: data.session });
 						if (error || !data.session?.user.email) {
 							setInvalidCode(true);
 							setVerifying(false);
