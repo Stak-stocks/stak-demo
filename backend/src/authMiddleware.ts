@@ -165,7 +165,8 @@ async function handleSupabaseToken(
 			onboardingCompleted: onboardingResult.rows[0]?.onboarding_completed === true,
 		};
 		next();
-	} catch {
+	} catch (err) {
+		console.log(`[auth] supabase-catch path=${req.path} err=${String(err)}`);
 		res.status(401).json({ error: "Invalid or expired token" });
 	}
 }
