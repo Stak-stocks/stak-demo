@@ -25,7 +25,7 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 			queryKey: ["playground-gen", uid, dayKey, type],
 			queryFn: async () => {
 				// localStorage cache — same content across page refreshes within the day
-				const lsKey = `stak:gen:v4:${uid}:${dayKey}:${type}`;
+				const lsKey = `stak:gen:v5:${uid}:${dayKey}:${type}`;
 				try {
 					const hit = localStorage.getItem(lsKey);
 					if (hit) return JSON.parse(hit) as unknown[];
@@ -115,6 +115,9 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 					...(typeof r.forwardGuidance === "string" && r.forwardGuidance ? { forwardGuidance: r.forwardGuidance } : {}),
 					...(typeof r.stockMove === "string" && r.stockMove ? { stockMove: r.stockMove } : {}),
 					...(typeof r.keyTakeaway === "string" && r.keyTakeaway ? { keyTakeaway: r.keyTakeaway } : {}),
+					...(typeof r.peRatio === "string" && r.peRatio ? { peRatio: r.peRatio } : {}),
+					...(typeof r.stockSetupLabel === "string" && r.stockSetupLabel ? { stockSetupLabel: r.stockSetupLabel } : {}),
+					...(typeof r.watchNextTime === "string" && r.watchNextTime ? { watchNextTime: r.watchNextTime } : {}),
 				});
 			}
 		}

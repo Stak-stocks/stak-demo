@@ -34,6 +34,8 @@ interface GeneratedEarnings {
 	revenueExpected: string;
 	epsExpected: string;
 	stockContext: string;
+	peRatio: string;
+	stockSetupLabel: string;
 	question: string;
 	options: { id: string; text: string }[];
 	correctId: string;
@@ -41,6 +43,7 @@ interface GeneratedEarnings {
 	outcome: string;
 	explanation: string;
 	keyTakeaway: string;
+	watchNextTime: string;
 	xp: number;
 }
 
@@ -144,8 +147,8 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	}
 
 	// Per-user per-day cache — each user gets their own generated content
-	const cacheKey = `playground:gen:v7:${uid}:${dayKey}:${type}`;
-	const fsDocId = `${uid}_${dayKey}_v7`;
+	const cacheKey = `playground:gen:v8:${uid}:${dayKey}:${type}`;
+	const pgType = `${type}_v8`;
 
 	// 1. Redis fast path
 	const cached = await cacheGet<unknown[]>(cacheKey);
@@ -158,7 +161,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 	try {
 		const pgCached = await pgQuery<{ payload: unknown[] }>(
 			`select payload from playground_cache where uid = $1 and date = $2 and type = $3`,
-			[uid, dayKey, type],
+			[uid, dayKey, pgType],
 		);
 		if (pgCached.rows.length > 0 && Array.isArray(pgCached.rows[0]!.payload) && pgCached.rows[0]!.payload.length > 0) {
 			await cacheSet(cacheKey, pgCached.rows[0]!.payload, CACHE_TTL_MS);
@@ -262,6 +265,8 @@ Return a JSON array of exactly ${rawCount} objects:
   "revenueActual": "$12.3B",
   "epsActual": "$0.85",
   "stockContext": "Up 8% YTD",
+  "peRatio": "28x",
+  "stockSetupLabel": "Fairly valued",
   "question": "Given this report, what do you predict happened to Nike's stock?",
   "options": [
     {"id": "a", "text": "Up 5%+ — beats on revenue and EPS"},
@@ -274,6 +279,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "outcome": "1 sentence describing how the stock actually reacted (e.g. 'Nike fell 6% after hours despite the EPS beat.').",
   "explanation": "2-3 sentences explaining WHY the market reacted this way — the key lesson.",
   "keyTakeaway": "One punchy sentence summing up what this scenario teaches (e.g. 'A stock priced for perfection needs a perfect report — not just a good one.').",
+  "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector (e.g. 'Watch China revenue and gross margin guidance — these are the swing factors for Nike.').",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
@@ -283,6 +289,9 @@ Rules:
 - forwardGuidance is often the KEY signal that explains a surprising reaction (e.g. a beat that still sells off because guidance was cut)
 - stockMove must be the actual stock reaction as a signed % string (e.g. "-4%", "+8%", "-12%")
 - keyTakeaway is REQUIRED — one punchy, memorable sentence that generalises the lesson beyond this specific company
+- peRatio is the company's P/E ratio heading into earnings (e.g. "60x", "18x", "N/A" for unprofitable)
+- stockSetupLabel is a short phrase describing the valuation setup (e.g. "Priced for perfection", "Value play", "Growth at a discount", "Elevated expectations")
+- watchNextTime is REQUIRED — a specific, actionable forward-looking signal for this company or sector
 - Vary which factor dominates across the ${rawCount} scenarios so players learn beat/miss size isn't the whole story
 - Scenarios should be educational and teach something real about earnings reactions
 - Do NOT use the same company more than once
@@ -459,7 +468,7 @@ Rules:
 			pgQuery(
 				`insert into playground_cache (uid, date, type, payload) values ($1, $2, $3, $4::jsonb)
 				on conflict (uid, date, type) do update set payload = excluded.payload`,
-				[uid, dayKey, type, JSON.stringify(valid)],
+				[uid, dayKey, pgType, JSON.stringify(valid)],
 			),
 		).catch(() => {});
 		res.json({ questions: valid });
