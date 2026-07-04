@@ -1330,6 +1330,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 		}
 	}, [dailyCompleted]);
 	const savedScrollY = useRef(0);
+	const sessionAnswers = useRef<Map<string, string>>(new Map());
 	const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 	const toggleSection = (key: string) => setOpenSections(prev => {
 		const next = new Set(prev);
@@ -1352,12 +1353,13 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 	const openScenario = (id: string) => {
 		savedScrollY.current = scrollEl()?.scrollTop ?? 0;
 		setActiveId(id);
-		const alreadyCorrect = completedIds.has(id);
+		const alreadyCompleted = completedIds.has(id);
 		const resolvedCorrectId = pool.find(s => s.id === id)?.correctId ?? null;
-		// Only jump to outcome if already correct AND we can resolve the correctId
-		// If correctId is missing, fall back to question phase to avoid a broken state
-		setSelected(alreadyCorrect && resolvedCorrectId ? resolvedCorrectId : null);
-		setPhase(alreadyCorrect && resolvedCorrectId ? "outcome" : "question");
+		// Restore with the actual answer the user picked this session (if available),
+		// otherwise fall back to correctId so the reveal still shows correctly
+		const sessionAnswer = sessionAnswers.current.get(id);
+		setSelected(alreadyCompleted && resolvedCorrectId ? (sessionAnswer ?? resolvedCorrectId) : null);
+		setPhase(alreadyCompleted && resolvedCorrectId ? "outcome" : "question");
 		scrollEl()?.scrollTo({ top: 0, behavior: "instant" });
 	};
 
@@ -1374,6 +1376,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 	if (scenario) {
 		const alreadyDone = completedIds.has(scenario.id);
 		const isCorrect = selected !== null && selected.toLowerCase() === scenario.correctId.toLowerCase();
+		const hasSessionAnswer = sessionAnswers.current.has(scenario.id);
 
 		const calcBeatMiss = (actual: string | undefined, estimate: string): { pct: number; label: string } | null => {
 			const a = parseFinancialValue(actual);
@@ -1494,6 +1497,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 								onClick={phase === "question" ? () => {
 									if (!selected) {
 										const correct = opt.id === scenario.correctId;
+										sessionAnswers.current.set(scenario.id, opt.id);
 										setSelected(opt.id);
 										setPhase("outcome");
 										const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
@@ -1529,9 +1533,11 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 									)}
 									<div className="flex-1 min-w-0">
 										<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
-										<p className={`text-[12px] font-bold mt-[6px] ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
-											{isCorrect ? "You got it right! ✓" : "You got it wrong."}
-										</p>
+										{hasSessionAnswer && (
+											<p className={`text-[12px] font-bold mt-[6px] ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+												{isCorrect ? "You got it right! ✓" : "You got it wrong."}
+											</p>
+										)}
 									</div>
 								</div>
 							</div>
