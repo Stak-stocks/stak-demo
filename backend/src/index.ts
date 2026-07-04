@@ -21,7 +21,6 @@ import { recommendationsRouter } from "./routes/recommendations.js";
 import { dailyBriefRouter } from "./routes/dailyBrief.js";
 import { playgroundRouter } from "./routes/playground.js";
 import { brandAdminRouter } from "./routes/brandAdmin.js";
-import { authMigrationRouter } from "./routes/authMigration.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 const app = express();
@@ -80,7 +79,6 @@ app.use("/api/news", publicLimiter, newsRouter);
 app.use("/api/stock", publicLimiter, stockRouter);
 app.use("/api/intel-cards", publicLimiter, intelCardsRouter);
 app.use("/api/stocks", publicLimiter, stocksRouter);
-app.use("/api/auth", publicLimiter, authMigrationRouter);
 app.use("/api/admin/analytics", publicLimiter, analyticsRouter);
 // No outer limiter here -- brandAdminRouter applies its own secret check
 // before its own (much stricter) rate limit, see routes/brandAdmin.ts.

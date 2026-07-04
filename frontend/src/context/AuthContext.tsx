@@ -167,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function logout() {
-		localStorage.removeItem("onboardingCompleted");
 		await supabase.auth.signOut();
 	}
 
