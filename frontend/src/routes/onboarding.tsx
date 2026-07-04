@@ -684,7 +684,7 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
-	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
+	const { account, updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { data: allBrandsList } = useBrandsList();
 	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
@@ -710,6 +710,10 @@ function BuildingStep({
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
+	const [animationDone, setAnimationDone] = useState(false);
+	const navigated = useRef(false);
+	const onDoneRef = useRef(onDone);
+	onDoneRef.current = onDone;
 
 	// SwipeStep (earlier in the flow) already fetches the same catalog, so this is
 	// normally already cached by the time BuildingStep mounts -- this just guards
@@ -725,9 +729,8 @@ function BuildingStep({
 		// Clear any cached deck order and passed brands so Discover starts fresh
 		sessionStorage.removeItem("stak-deck-order");
 
-		// Write preferences via client SDK first — updates local Firestore cache
-		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
-		// the correct interests/onboardingSwipes when it mounts after the animation.
+		// Write preferences before the animation so index.tsx sees the correct
+		// interests/onboardingSwipes when it mounts after navigation.
 		const prefs = {
 			interests: selectedInterests,
 			...(familiarity ? { familiarity } : {}),
@@ -765,16 +768,32 @@ function BuildingStep({
 				return next;
 			});
 
-			// After 10 rotations, finish and redirect
+			// After 10 rotations, finish — navigation waits for Realtime confirmation
 			if (shuffleCount.current >= 10) {
 				clearInterval(interval);
 				setPhase("done");
-				setTimeout(() => onDone(), 800);
+				setAnimationDone(true);
 			}
 		}, 500);
 
 		return () => clearInterval(interval);
-	}, [phase, onDone]);
+	}, [phase]);
+
+	// Navigate once the animation completes AND the Realtime subscription confirms
+	// onboardingCompleted=true (meaning the backend write reached Postgres). Falls
+	// back to 8s so a very slow connection doesn't leave the user stuck on the screen.
+	useEffect(() => {
+		if (!animationDone) return;
+		const delay = account?.onboardingCompleted ? 800 : 8000;
+		const t = setTimeout(() => {
+			if (!navigated.current) {
+				navigated.current = true;
+				onDoneRef.current();
+			}
+		}, delay);
+		return () => clearTimeout(t);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [animationDone, account?.onboardingCompleted]);
 
 	return (
 		<div className="text-center space-y-8 animate-in fade-in duration-500">

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
 import { supabase } from "../lib/supabase";
-import { completeMigration } from "@/lib/api";
 
 export const Route = createFileRoute("/reset-password")({
 	component: ResetPasswordPage,
@@ -149,7 +148,6 @@ function ResetPasswordPage() {
 				} else {
 					await confirmResetSupabase(password);
 				}
-				await completeMigration().catch(() => {});
 				// Sign out so the recovery session doesn't persist — user should sign in
 				// fresh with their new password.
 				await supabase.auth.signOut();

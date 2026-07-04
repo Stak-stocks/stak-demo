@@ -35,18 +35,6 @@ async function apiRequest<T>(
 	return response.json();
 }
 
-// Auth migration (Firebase -> Supabase, see migration plan) -- public, called before
-// the user has signed in either way, so the login form knows which provider to use.
-export function getAuthProvider(email: string) {
-	return apiRequest<{ provider: "firebase" | "supabase"; requiresPasswordReset: boolean }>(
-		`/api/auth/provider?email=${encodeURIComponent(email)}`,
-	);
-}
-
-export function completeMigration() {
-	return apiRequest<{ ok: boolean; updated: boolean }>("/api/auth/complete-migration", { method: "POST" });
-}
-
 // User profile
 export function getProfile() {
 	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");

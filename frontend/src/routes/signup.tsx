@@ -11,7 +11,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { loading, signUpWithEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { loading, signUpWithEmail, signInWithGoogleSupabase, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [emailSent, setEmailSent] = useState(false);
@@ -27,10 +27,8 @@ function SignUpPage() {
 			.then((profile) => {
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
 			})
-			.catch(() => {
-				logout().catch(() => {});
-			});
-	}, [loading, supabaseUserId, navigate, logout]);
+			.catch(() => navigate({ to: "/" }));
+	}, [loading, supabaseUserId, navigate]);
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();

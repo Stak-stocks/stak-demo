@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { StakLogo } from "@/components/StakLogo";
 
-import { getProfile, getAuthProvider } from "@/lib/api";
+import { getProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
 function LoginPage() {
-	const { appUser, loading, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { appUser, loading, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -24,34 +24,19 @@ function LoginPage() {
 			.then((profile) => {
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
 			})
-			.catch(() => {
-				logout().catch(() => {});
-			});
-	}, [supabaseUserId, navigate, logout]);
+			.catch(() => navigate({ to: "/" }));
+	}, [supabaseUserId, navigate]);
 
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
 		if (!email || !password) return;
 		setSigningIn(true);
 		try {
-			// Migration plan, Phase 5: internal cohort only. Defaults to Firebase (the
-			// live path for everyone else) if the check itself fails -- never let an
-			// auth-migration lookup be the reason a real sign-in attempt is blocked.
-			const { provider, requiresPasswordReset } = await getAuthProvider(email).catch(
-				() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
-			);
-
-			if (requiresPasswordReset) {
-				toast.error("We've upgraded login security — please use \"Forgot password\" to set a new password before signing in.");
-				setSigningIn(false);
-				return;
-			}
-
 			await signInWithEmailSupabase(email, password);
 			toast.success("Welcome back!");
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
-			if (message.includes("user-not-found") || message.includes("invalid-credential") || message.includes("Invalid login credentials")) {
+			if (message.includes("Invalid login credentials")) {
 				toast.error("Invalid email or password");
 			} else {
 				toast.error("Sign in failed. Please try again.");

@@ -122,7 +122,7 @@ function Root() {
 	// open. "today" is ET too (getEasternDateKey), matching the brief content's own
 	// day boundary -- comparing against the browser's local date here instead would
 	// let this gate disagree with when the content itself actually refreshes.
-	// Stored in Firestore so it's cross-device.
+	// Stored in Postgres, reflected cross-device via Realtime.
 	useEffect(() => {
 		if (!appUser || !account?.onboardingCompleted || isAuthPage) return;
 		const d = new Date();
