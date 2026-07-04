@@ -84,6 +84,8 @@ export interface EarningsScenario {
 	revenueActual?: string;
 	epsActual?: string;
 	stockContext: string;
+	peRatio?: string;
+	stockSetupLabel?: string;
 	question: string;
 	options: QuizOption[];
 	correctId: string;
@@ -91,6 +93,7 @@ export interface EarningsScenario {
 	outcome: string;
 	explanation: string;
 	keyTakeaway?: string;
+	watchNextTime?: string;
 	xp: number;
 }
 

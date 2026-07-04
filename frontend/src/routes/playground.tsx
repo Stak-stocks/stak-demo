@@ -1330,6 +1330,16 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 		}
 	}, [dailyCompleted]);
 	const savedScrollY = useRef(0);
+	const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+	const toggleSection = (key: string) => setOpenSections(prev => {
+		const next = new Set(prev);
+		if (next.has(key)) next.delete(key); else next.add(key);
+		return next;
+	});
+	useEffect(() => {
+		if (phase === "outcome") setOpenSections(new Set(["why"]));
+		else setOpenSections(new Set());
+	}, [phase]);
 
 	const visibleScenarios = dailyEarningsIds ? pool.filter(s => dailyEarningsIds.includes(s.id)) : pool;
 	const scenario = pool.find(s => s.id === activeId);
@@ -1363,8 +1373,8 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 	if (scenario) {
 		const alreadyDone = completedIds.has(scenario.id);
+		const isCorrect = selected !== null && selected.toLowerCase() === scenario.correctId.toLowerCase();
 
-		// Beat/miss % for revenue and EPS
 		const calcBeatMiss = (actual: string | undefined, estimate: string): { pct: number; label: string } | null => {
 			const a = parseFinancialValue(actual);
 			const e = parseFinancialValue(estimate);
@@ -1376,183 +1386,217 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 		const revBeatMiss = calcBeatMiss(scenario.revenueActual, scenario.revenueExpected);
 		const epsBeatMiss = calcBeatMiss(scenario.epsActual, scenario.epsExpected);
 
-		// Stock context colour
-		const stockUp = /up|^\+/i.test(scenario.stockContext);
-		const stockDown = /down|^-/i.test(scenario.stockContext);
-
-		// Outcome colour (stockMove field, e.g. "-4%" or "+8%")
 		const moveNeg = scenario.stockMove ? scenario.stockMove.startsWith("-") : false;
-		const movePos = scenario.stockMove ? scenario.stockMove.startsWith("+") : false;
+		const movePos = scenario.stockMove ? (scenario.stockMove.startsWith("+") || /^\d/.test(scenario.stockMove)) : false;
 
 		return (
 			<div className="min-h-full bg-background text-foreground">
 				{XPFloat}
 				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[32px]">
-					<BackBtn onClick={backToList} label="All Scenarios" />
+
+					{/* Header */}
+					<div className="flex items-center justify-between mb-[16px]">
+						<button type="button" onClick={backToList} className="flex items-center gap-[6px] text-[13px] font-medium dark:text-slate-400 text-slate-500 active:opacity-70">
+							<ChevronRight size={15} className="rotate-180" strokeWidth={2.5} />
+							Back
+						</button>
+						<p className="text-[13px] font-bold text-foreground">Earnings Lab</p>
+						{alreadyDone
+							? <span className="text-[12px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-[10px] py-[4px] rounded-full">Done ✓</span>
+							: <span className="text-[12px] font-semibold text-amber-400">+{scenario.xp} XP</span>
+						}
+					</div>
+
+					{/* Company */}
 					<div className="flex items-center gap-[10px] mb-[16px]">
-						<div className="grid h-[40px] w-[40px] place-items-center rounded-[10px] bg-purple-500/10 text-purple-400">
-							<FlaskConical size={18} />
+						<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[9px] bg-purple-500/10">
+							<FlaskConical size={16} className="text-purple-400" />
 						</div>
-						<div className="flex-1 min-w-0">
-							<p className="text-[12px] dark:text-slate-400 text-slate-500">Earnings Lab</p>
-							<h2 className="text-[18px] font-extrabold">{scenario.company} <span className="font-normal dark:text-slate-400 text-slate-500">({scenario.ticker})</span></h2>
-						</div>
-						{alreadyDone && <span className="shrink-0 text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-emerald-500/15 text-emerald-400">Done ✓</span>}
+						<h2 className="text-[18px] font-extrabold leading-snug">{scenario.company} <span className="font-normal dark:text-slate-400 text-slate-500">({scenario.ticker})</span></h2>
 					</div>
 
 					{/* Earnings report card */}
 					<div className="rounded-[14px] border border-foreground/10 overflow-hidden mb-[16px]">
-						<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] flex items-center justify-between bg-foreground/[0.02]">
-							<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">The Earnings Report</p>
-							<p className="text-[11px] font-semibold dark:text-slate-400 text-slate-500">{scenario.ticker}</p>
+						<div className="h-[3px] bg-gradient-to-r from-purple-500 to-violet-500" />
+						<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] flex items-center justify-between">
+							<div className="flex items-center gap-[6px]">
+								<FlaskConical size={11} className="text-purple-400 shrink-0" />
+								<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">The earnings report</p>
+							</div>
+							<span className="text-[11px] font-semibold dark:text-slate-500 text-slate-400 bg-foreground/[0.05] px-[7px] py-[2px] rounded-full">{scenario.ticker}</span>
 						</div>
 						<div className="p-[14px]">
-							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[12px]">{scenario.context}</p>
+							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[12px]">
+								{scenario.context}{scenario.forwardGuidance ? ` ${scenario.forwardGuidance}` : ""}
+							</p>
 
-							{/* Metrics grid */}
-							<div className="grid grid-cols-3 gap-[8px] mb-[10px]">
+							{/* 3 metric tiles */}
+							<div className="grid grid-cols-3 gap-[8px]">
 								{/* Revenue */}
 								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px]">
-									<div className="flex items-center gap-[4px] mb-[6px]">
+									<div className="flex items-center gap-[4px] mb-[5px]">
 										<DollarSign size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
 										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">Revenue</p>
 									</div>
-									<p className="text-[14px] font-extrabold leading-none mb-[3px]">{scenario.revenueActual ?? scenario.revenueExpected}</p>
-									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[5px]">est. {scenario.revenueExpected}</p>
+									<p className="text-[14px] font-extrabold leading-none mb-[2px]">{scenario.revenueActual ?? scenario.revenueExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[4px]">est. {scenario.revenueExpected}</p>
 									{revBeatMiss && (
-										<p className={`text-[9px] font-semibold ${revBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{revBeatMiss.label}</p>
+										<p className={`text-[9px] font-bold ${revBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{revBeatMiss.label}</p>
 									)}
 								</div>
+
 								{/* EPS */}
 								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px]">
-									<div className="flex items-center gap-[4px] mb-[6px]">
+									<div className="flex items-center gap-[4px] mb-[5px]">
 										<LineChart size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
 										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">EPS</p>
 									</div>
-									<p className="text-[14px] font-extrabold leading-none mb-[3px]">{scenario.epsActual ?? scenario.epsExpected}</p>
-									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[5px]">est. {scenario.epsExpected}</p>
+									<p className="text-[14px] font-extrabold leading-none mb-[2px]">{scenario.epsActual ?? scenario.epsExpected}</p>
+									<p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[4px]">est. {scenario.epsExpected}</p>
 									{epsBeatMiss && (
-										<p className={`text-[9px] font-semibold ${epsBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{epsBeatMiss.label}</p>
+										<p className={`text-[9px] font-bold ${epsBeatMiss.pct >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>{epsBeatMiss.label}</p>
 									)}
 								</div>
-								{/* Stock setup */}
-								<div className={`rounded-[10px] border p-[10px] ${stockDown ? "border-rose-500/20 bg-rose-500/[0.04]" : stockUp ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-foreground/[0.07] bg-foreground/[0.03]"}`}>
-									<div className="flex items-center gap-[4px] mb-[6px]">
+
+								{/* Stock reaction / setup */}
+								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] p-[10px]">
+									<div className="flex items-center gap-[4px] mb-[5px]">
 										<BarChart2 size={10} className="dark:text-slate-500 text-slate-400 shrink-0" />
-										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">Stock Setup</p>
+										<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400">Stock setup</p>
 									</div>
-									<p className={`text-[13px] font-extrabold leading-none mb-[3px] ${stockDown ? "text-rose-500 dark:text-rose-400" : stockUp ? "text-emerald-500 dark:text-emerald-400" : "text-foreground"}`}>{scenario.stockContext}</p>
+									<p className="text-[13px] font-extrabold leading-none mb-[2px] text-foreground">{scenario.stockContext}</p>
+									{scenario.peRatio && <p className="text-[9px] dark:text-slate-500 text-slate-400 mb-[2px]">P/E ratio: {scenario.peRatio}</p>}
+									{scenario.stockSetupLabel && <p className="text-[9px] font-semibold dark:text-slate-400 text-slate-500 leading-snug">{scenario.stockSetupLabel}</p>}
 								</div>
 							</div>
-
-							{/* Forward guidance */}
-							{scenario.forwardGuidance && (
-								<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.02] px-[12px] py-[8px]">
-									<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Forward Guidance</p>
-									<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug">{scenario.forwardGuidance}</p>
-								</div>
-							)}
 						</div>
 					</div>
 
-					{phase === "question" ? (
-						<>
-							<p className="text-[15px] font-bold mb-[4px]">{scenario.question}</p>
-							<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[12px]">Choose your prediction.</p>
-							<div className="space-y-[8px]">
-								{scenario.options.map((opt, i) => (
-									<OptionBtn
-										key={opt.id}
-										letter={LETTERS[i] ?? String(i + 1)}
-										text={opt.text}
-										state={selected === opt.id ? "selected" : "idle"}
-										onClick={() => {
-											if (!selected) {
-												const correct = opt.id === scenario.correctId;
-												setSelected(opt.id);
-												setPhase("outcome");
-												const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
-												setCompletedIds(prev => new Set([...prev, scenario.id]));
-												if (correct) {
-													showXp(scenario.xp);
-													onEarningsScenarioCorrect?.(scenario.id);
-												}
-												if (dayKey && !alreadyAttempted && onDailyComplete)
-													onDailyComplete(dayKey, scenario.id, correct ? scenario.xp : 0, "earnings");
-											}
-										}}
-									/>
-								))}
-							</div>
-						</>
-					) : (
-						<>
-							<p className="text-[15px] font-bold mb-[10px]">{scenario.question}</p>
-							<div className="space-y-[8px] mb-[14px]">
-								{scenario.options.map((opt, i) => (
-									<OptionBtn
-										key={opt.id}
-										letter={LETTERS[i] ?? String(i + 1)}
-										text={opt.text}
-										state={optionState(opt.id, scenario.correctId, selected, true)}
-										disabled
-									/>
-								))}
-							</div>
+					{/* Question */}
+					<div className="flex items-start gap-[10px] mb-[12px]">
+						<div className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full bg-purple-500/10 mt-[1px]">
+							<span className="text-[13px]">🎯</span>
+						</div>
+						<p className="text-[15px] font-bold leading-snug">{scenario.question}</p>
+					</div>
 
-							{/* What actually happened */}
-							<div className="rounded-[12px] border border-foreground/10 overflow-hidden mb-[12px]">
-								<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] bg-foreground/[0.02]">
-									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">What Actually Happened</p>
+					{/* Options */}
+					<div className="space-y-[8px] mb-[16px]">
+						{scenario.options.map((opt, i) => (
+							<OptionBtn
+								key={opt.id}
+								letter={LETTERS[i] ?? String(i + 1)}
+								text={opt.text}
+								state={phase === "question"
+									? (selected === opt.id ? "selected" : "idle")
+									: optionState(opt.id, scenario.correctId, selected, true)
+								}
+								onClick={phase === "question" ? () => {
+									if (!selected) {
+										const correct = opt.id === scenario.correctId;
+										setSelected(opt.id);
+										setPhase("outcome");
+										const alreadyAttempted = dailyCompleted?.has(scenario.id) ?? completedIds.has(scenario.id);
+										setCompletedIds(prev => new Set([...prev, scenario.id]));
+										if (correct) {
+											showXp(scenario.xp);
+											onEarningsScenarioCorrect?.(scenario.id);
+										}
+										if (dayKey && !alreadyAttempted && onDailyComplete)
+											onDailyComplete(dayKey, scenario.id, correct ? scenario.xp : 0, "earnings");
+									}
+								} : undefined}
+								disabled={phase === "outcome"}
+							/>
+						))}
+					</div>
+
+					{/* Post-answer sections */}
+					{phase === "outcome" && (
+						<div className="space-y-[8px]">
+
+							{/* What actually happened — always visible */}
+							<div className="rounded-[12px] border border-foreground/10 p-[14px]">
+								<div className="flex items-center gap-[7px] mb-[10px]">
+									<TrendingUp size={13} className="text-purple-400 shrink-0" />
+									<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">What actually happened</p>
 								</div>
-								<div className="p-[14px] flex items-start gap-[14px]">
+								<div className="flex items-start gap-[12px]">
 									{scenario.stockMove && (
-										<div className={`shrink-0 w-[56px] h-[56px] rounded-[12px] flex flex-col items-center justify-center border ${moveNeg ? "border-rose-500/20 bg-rose-500/[0.06]" : movePos ? "border-emerald-500/20 bg-emerald-500/[0.06]" : "border-foreground/10 bg-foreground/[0.03]"}`}>
-											<p className={`text-[18px] font-extrabold leading-none ${moveNeg ? "text-rose-500 dark:text-rose-400" : movePos ? "text-emerald-500 dark:text-emerald-400" : "text-foreground"}`}>{scenario.stockMove}</p>
+										<div className={`shrink-0 w-[52px] h-[52px] rounded-[11px] flex items-center justify-center border ${moveNeg ? "border-rose-500/25 bg-rose-500/[0.07]" : movePos ? "border-emerald-500/25 bg-emerald-500/[0.07]" : "border-foreground/10 bg-foreground/[0.03]"}`}>
+											<p className={`text-[15px] font-extrabold ${moveNeg ? "text-rose-500 dark:text-rose-400" : movePos ? "text-emerald-500 dark:text-emerald-400" : "text-foreground"}`}>{scenario.stockMove}</p>
 										</div>
 									)}
 									<div className="flex-1 min-w-0">
 										<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{scenario.outcome}</p>
+										<p className={`text-[12px] font-bold mt-[6px] ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+											{isCorrect ? "You got it right! ✓" : "You got it wrong."}
+										</p>
 									</div>
 								</div>
 							</div>
 
-							{/* The lesson */}
-							<div className="rounded-[12px] border border-foreground/10 overflow-hidden mb-[14px]">
-								<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] bg-foreground/[0.02] flex items-center justify-between">
-									<p className="text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500">The Lesson</p>
-									{!alreadyDone && <p className="text-[11px] font-semibold text-amber-400">+{scenario.xp} XP</p>}
-								</div>
-								<div className="p-[14px]">
-									<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed mb-[10px]">{scenario.explanation}</p>
-									{(() => {
-										const kt = scenario.keyTakeaway ?? scenario.explanation.split(/(?<=[.!?])\s+/).pop();
-										if (!kt) return null;
-										return (
-											<div className="rounded-[10px] border border-foreground/[0.07] bg-foreground/[0.03] px-[12px] py-[8px]">
-												<p className="text-[9px] font-semibold uppercase tracking-wide dark:text-slate-500 text-slate-400 mb-[3px]">Key Takeaway</p>
-												<p className="text-[12px] dark:text-slate-300 text-slate-600 leading-snug font-medium">{kt}</p>
-											</div>
-										);
-									})()}
-								</div>
+							{/* Why this happened — collapsible, starts open */}
+							<div className="rounded-[12px] border border-foreground/10 overflow-hidden">
+								<button type="button" onClick={() => toggleSection("why")} className="w-full flex items-center gap-[10px] px-[14px] py-[13px] text-left active:opacity-70">
+									<span className="text-[15px] shrink-0">💡</span>
+									<p className="flex-1 text-[13px] font-semibold text-foreground">Why this happened</p>
+									<ChevronRight size={14} className={`dark:text-slate-500 text-slate-400 transition-transform duration-200 ${openSections.has("why") ? "rotate-90" : ""}`} />
+								</button>
+								{openSections.has("why") && (
+									<div className="px-[14px] pb-[14px] border-t border-foreground/[0.07]">
+										<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed pt-[10px]">{scenario.explanation}</p>
+									</div>
+								)}
 							</div>
 
-							{/* Navigation */}
-							<div className="space-y-[8px]">
-								{nextScenario && (
-									<button type="button" onClick={() => openScenario(nextScenario.id)}
-										className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-										style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}>
-										Next: {nextScenario.company} →
+							{/* The lesson — collapsible, starts closed */}
+							{scenario.keyTakeaway && (
+								<div className="rounded-[12px] border border-foreground/10 overflow-hidden">
+									<button type="button" onClick={() => toggleSection("lesson")} className="w-full flex items-center gap-[10px] px-[14px] py-[13px] text-left active:opacity-70">
+										<span className="text-[15px] shrink-0">📖</span>
+										<p className="flex-1 text-[13px] font-semibold text-foreground">The lesson</p>
+										<ChevronRight size={14} className={`dark:text-slate-500 text-slate-400 transition-transform duration-200 ${openSections.has("lesson") ? "rotate-90" : ""}`} />
 									</button>
-								)}
+									{openSections.has("lesson") && (
+										<div className="px-[14px] pb-[14px] border-t border-foreground/[0.07]">
+											<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed pt-[10px] font-medium">{scenario.keyTakeaway}</p>
+										</div>
+									)}
+								</div>
+							)}
+
+							{/* What to watch next time — collapsible, starts closed */}
+							{scenario.watchNextTime && (
+								<div className="rounded-[12px] border border-foreground/10 overflow-hidden">
+									<button type="button" onClick={() => toggleSection("watch")} className="w-full flex items-center gap-[10px] px-[14px] py-[13px] text-left active:opacity-70">
+										<span className="text-[15px] shrink-0">👁</span>
+										<p className="flex-1 text-[13px] font-semibold text-foreground">What to watch next time</p>
+										<ChevronRight size={14} className={`dark:text-slate-500 text-slate-400 transition-transform duration-200 ${openSections.has("watch") ? "rotate-90" : ""}`} />
+									</button>
+									{openSections.has("watch") && (
+										<div className="px-[14px] pb-[14px] border-t border-foreground/[0.07]">
+											<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed pt-[10px]">{scenario.watchNextTime}</p>
+										</div>
+									)}
+								</div>
+							)}
+
+							{/* Bottom navigation */}
+							<div className="flex gap-[10px] pt-[4px]">
 								<button type="button" onClick={backToList}
-									className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
+									className="flex-1 h-[44px] rounded-[12px] font-medium text-[13px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
 									All Scenarios
 								</button>
+								{nextScenario && (
+									<button type="button" onClick={() => openScenario(nextScenario.id)}
+										className="flex-1 h-[44px] rounded-[12px] font-semibold text-[14px] text-white active:opacity-80 flex items-center justify-center gap-[5px]"
+										style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}>
+										Next Scenario <ChevronRight size={15} />
+									</button>
+								)}
 							</div>
-						</>
+						</div>
 					)}
 				</div>
 			</div>
