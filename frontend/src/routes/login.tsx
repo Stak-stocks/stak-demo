@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	const { appUser, loading, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId } = useAuth();
+	const { loading, signInWithEmailSupabase, signInWithGoogleSupabase, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");

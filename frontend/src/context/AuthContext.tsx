@@ -56,9 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			setSupabaseUserId(uid);
 			if (!uid) setLoading(false);
 		});
-		const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+		const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
 			setSupabaseUserId(session?.user.id ?? null);
 			if (!session && sessionChecked.current) setLoading(false);
+			// Refresh displayName/photoURL immediately when the user updates their profile
+			// (e.g. name edit in personal-details). Without this, appUser.displayName stays
+			// stale until next login because the second effect only runs on supabaseUserId change.
+			if (event === "USER_UPDATED" && session) {
+				const meta = session.user.user_metadata ?? {};
+				setSupabaseSessionData({
+					email: session.user.email ?? null,
+					emailVerified: !!session.user.email_confirmed_at,
+					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
+					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
+					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+				});
+			}
 		});
 		return () => listener.subscription.unsubscribe();
 	}, []);

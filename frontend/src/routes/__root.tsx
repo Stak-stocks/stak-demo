@@ -44,7 +44,7 @@ function Root() {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const themeAppliedForUid = useRef<string | null>(null);
 
-	// Apply theme from Firestore once per login — light by default, dark if user explicitly set it
+	// Apply theme from Postgres (users.preferences) once per login — light by default, dark if user explicitly set it
 	useEffect(() => {
 		if (!account?.uid || themeAppliedForUid.current === account.uid) return;
 		themeAppliedForUid.current = account.uid;
