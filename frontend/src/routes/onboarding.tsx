@@ -3,7 +3,6 @@ import { useState, useRef, useEffect, useMemo, type MouseEvent, type TouchEvent 
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import { updateProfile, trackEvent } from "@/lib/api";
-import { auth, logEvent } from "@/lib/firebase";
 
 import {
 	INTEREST_OPTIONS,
@@ -79,7 +78,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-	const { appUser, user, loading, onboardingCompleted: claimsOnboardingCompleted, supabaseUserId } = useAuth();
+	const { appUser, loading } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 
@@ -110,35 +109,10 @@ function OnboardingPage() {
 	}, []);
 
 	useEffect(() => {
-		if (loading) return;
-		if (!appUser) { navigate({ to: "/login" }); return; }
-		// The email-verification-required flow is Firebase-specific (no equivalent
-		// built for Supabase yet) -- skip it entirely for a Supabase-only session
-		// rather than dereferencing a null `user`. Cohort accounts are already
-		// provisioned/verified, so this doesn't apply to them anyway.
-		if (!user) return;
-		const isPasswordProvider = user.providerData[0]?.providerId === "password";
-		// Use auth.currentUser?.emailVerified (the live Firebase object) instead of
-		// user.emailVerified (React state) — the poll mutates auth.currentUser in-place
-		// via reload() before React state has a chance to update, so reading React state
-		// here causes a false redirect back to verify-email and a ping-pong loop.
-		const emailVerified = auth.currentUser?.emailVerified ?? user.emailVerified;
-		if (isPasswordProvider && !emailVerified) {
-			navigate({ to: "/verify-email" });
-		}
-	}, [user, supabaseUserId, loading, navigate]);
+		if (!loading && !appUser) navigate({ to: "/login" });
+	}, [loading, appUser, navigate]);
 
-	// JWT claim guard — fast, cross-device, no Firestore read needed. Firebase-only
-	// (Supabase doesn't have this custom-claims mechanism yet) -- a Supabase-only
-	// session simply skips this guard, not redirected by it either way.
-	// Silent while the user is actively progressing through the flow.
-	useEffect(() => {
-		if (!loading && user && !hasProgressed.current && claimsOnboardingCompleted) {
-			navigate({ to: "/", replace: true });
-		}
-	}, [loading, user, claimsOnboardingCompleted, navigate]);
-
-	// Account-based guard: if account data (Firestore for Firebase sessions, Postgres
+	// Account-based guard: if account data (Postgres
 	// for Supabase sessions) confirms onboarding is done, send them back. Using appUser
 	// instead of user so Supabase-session users are also protected -- without this,
 	// Supabase users can re-run onboarding repeatedly since user is null for them.
@@ -710,8 +684,7 @@ function BuildingStep({
 	familiarity: string | null;
 	onDone: () => void;
 }) {
-	const { updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
-	const { refreshClaims } = useAuth();
+	const { account, updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const { data: allBrandsList } = useBrandsList();
 	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 	// Derive brands from user selections: interests → brand IDs, plus swiped brands
@@ -737,6 +710,10 @@ function BuildingStep({
 	const [phase, setPhase] = useState<"enter" | "shuffle" | "done">("enter");
 	const [order, setOrder] = useState(() => SHUFFLE_BRANDS.map((_, i) => i));
 	const shuffleCount = useRef(0);
+	const [animationDone, setAnimationDone] = useState(false);
+	const navigated = useRef(false);
+	const onDoneRef = useRef(onDone);
+	onDoneRef.current = onDone;
 
 	// SwipeStep (earlier in the flow) already fetches the same catalog, so this is
 	// normally already cached by the time BuildingStep mounts -- this just guards
@@ -752,9 +729,8 @@ function BuildingStep({
 		// Clear any cached deck order and passed brands so Discover starts fresh
 		sessionStorage.removeItem("stak-deck-order");
 
-		// Write preferences via client SDK first — updates local Firestore cache
-		// instantly (onSnapshot fires synchronously from cache) so index.tsx sees
-		// the correct interests/onboardingSwipes when it mounts after the animation.
+		// Write preferences before the animation so index.tsx sees the correct
+		// interests/onboardingSwipes when it mounts after navigation.
 		const prefs = {
 			interests: selectedInterests,
 			...(familiarity ? { familiarity } : {}),
@@ -770,10 +746,8 @@ function BuildingStep({
 		// guard will redirect back to /onboarding; the user can just re-tap "Get started"
 		// which replays this step. We log the error to aid debugging.
 		updateProfile({ onboardingCompleted: true, preferences: prefs })
-			.then(() => refreshClaims())
 			.catch((err) => { console.warn("[onboarding] updateProfile failed:", err); });
 
-		logEvent("onboarding_complete", { interests: prefs.interests });
 		trackEvent("onboarding_complete", { interests: prefs.interests }).catch(() => {});
 
 		// Cards enter, then start shuffling
@@ -794,16 +768,32 @@ function BuildingStep({
 				return next;
 			});
 
-			// After 10 rotations, finish and redirect
+			// After 10 rotations, finish — navigation waits for Realtime confirmation
 			if (shuffleCount.current >= 10) {
 				clearInterval(interval);
 				setPhase("done");
-				setTimeout(() => onDone(), 800);
+				setAnimationDone(true);
 			}
 		}, 500);
 
 		return () => clearInterval(interval);
-	}, [phase, onDone]);
+	}, [phase]);
+
+	// Navigate once the animation completes AND the Realtime subscription confirms
+	// onboardingCompleted=true (meaning the backend write reached Postgres). Falls
+	// back to 8s so a very slow connection doesn't leave the user stuck on the screen.
+	useEffect(() => {
+		if (!animationDone) return;
+		const delay = account?.onboardingCompleted ? 800 : 8000;
+		const t = setTimeout(() => {
+			if (!navigated.current) {
+				navigated.current = true;
+				onDoneRef.current();
+			}
+		}, delay);
+		return () => clearTimeout(t);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [animationDone, account?.onboardingCompleted]);
 
 	return (
 		<div className="text-center space-y-8 animate-in fade-in duration-500">

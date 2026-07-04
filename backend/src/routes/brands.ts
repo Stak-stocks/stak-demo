@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { pgQuery } from "../lib/postgres.js";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
 
@@ -56,23 +56,15 @@ brandsRouter.get("/popular", async (_req, res) => {
 			return;
 		}
 
-		const snapshot = await adminDb.collection("users").get();
-		const countMap: Record<string, number> = {};
+		const result = await pgQuery<{ brand_id: string }>(
+			`select brand_id from stak_brands group by brand_id having count(*) >= $1`,
+			[MIN_SAVES],
+		);
+		const brandIds = result.rows.map((r) => r.brand_id);
 
-		for (const doc of snapshot.docs) {
-			const ids: string[] = doc.data().stakBrandIds ?? [];
-			for (const id of ids) {
-				countMap[id] = (countMap[id] ?? 0) + 1;
-			}
-		}
-
-		const brandIds = Object.entries(countMap)
-			.filter(([, count]) => count >= MIN_SAVES)
-			.map(([id]) => id);
-
-		const result = { brandIds };
-		await cacheSet(CACHE_KEY, result, 4 * 60 * 60 * 1000);
-		res.json(result);
+		const payload = { brandIds };
+		await cacheSet(CACHE_KEY, payload, 4 * 60 * 60 * 1000);
+		res.json(payload);
 	} catch (error) {
 		console.error("Error fetching popular brands:", error);
 		res.status(500).json({ error: "Failed to fetch popular brands" });

@@ -1,10 +1,10 @@
 /**
  * AccountContext — single source of truth for all user account data.
  *
- * Subscribes to users/{uid} via Firestore onSnapshot so all devices
- * and tabs stay in sync in real time without polling.
+ * Subscribes to the users table (and related tables) via Supabase Realtime so
+ * all devices and tabs stay in sync without polling.
  *
- * Write methods use updateDoc directly — no backend round-trip needed.
+ * Write methods call Supabase RPC functions or direct table writes via RLS.
  */
 import {
 	createContext,
@@ -14,9 +14,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
-import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
+import { incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
 import {
 	subscribeSupabaseAccount, updateStakSupabase, saveToStakSupabase,
 	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
@@ -28,8 +26,6 @@ import {
 	completeDailyActivitySupabase, completeChallengeSupabase, addPracticeSkillXpSupabase,
 } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
-import { xpToTier } from "@stak/shared";
-import { roundShares } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -166,42 +162,16 @@ interface AccountContextType {
 
 const AccountContext = createContext<AccountContextType | null>(null);
 
-const MAX_SEARCH_HISTORY = 20;
-
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-	const { appUser, user, supabaseUserId, loading: authLoading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
+	const { supabaseUserId, loading: authLoading } = useAuth();
 	const [account, setAccount] = useState<UserDoc | null>(null);
 	const [accountLoading, setAccountLoading] = useState(true);
 
-	// Wait for Firebase auth to fully resolve before acting.
-	// This prevents the race where user=User but accountLoading=false
-	// (stale from the logged-out state) causes a false redirect to /onboarding.
 	useEffect(() => {
 		if (authLoading) return;
 
-		if (user) {
-			setAccountLoading(true);
-			const userRef = doc(db, "users", user.uid);
-
-			const unsubscribe = onSnapshot(
-				userRef,
-				(snapshot) => {
-					setAccount(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
-					setAccountLoading(false);
-				},
-				() => {
-					// Offline or permission error — keep last known data, unblock UI
-					setAccountLoading(false);
-				},
-			);
-
-			return unsubscribe;
-		}
-
-		// Migration plan, Phase 5: a Supabase-only cohort session has no Firebase
-		// `user` -- this is the same onSnapshot-replacement, backed by Realtime instead.
 		if (supabaseUserId) {
 			setAccountLoading(true);
 			const unsubscribe = subscribeSupabaseAccount(supabaseUserId, (supabaseAccount) => {
@@ -213,442 +183,129 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 		setAccount(null);
 		setAccountLoading(false);
-	}, [user, supabaseUserId, authLoading]);
+	}, [supabaseUserId, authLoading]);
 
-	// Backfill: existing users have onboardingCompleted=true in Firestore but no
-	// JWT custom claim yet. Calling GET /api/me triggers the backend to set the
-	// claim, then refreshClaims() force-refreshes the token to pick it up.
+	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
 	useEffect(() => {
-		if (accountLoading || authLoading) return;
-		if (!account || !user) return;
-		if (account.onboardingCompleted === true && !claimsOnboardingCompleted) {
-			getProfile()
-				.then(() => refreshClaims())
-				.catch(() => {});
+		if (supabaseUserId && account?.sandboxCash !== undefined) {
+			checkAndApplySandboxTierUpgradeSupabase().catch(() => {});
 		}
-	}, [account, accountLoading, authLoading, user, claimsOnboardingCompleted, refreshClaims]);
+	}, [supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
-	const updateStak = useCallback(
-		async (brandIds: string[]) => {
-			if (user) {
-				await updateDoc(doc(db, "users", user.uid), { stakBrandIds: brandIds });
-			} else if (supabaseUserId) {
-				await updateStakSupabase(brandIds);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const updateStak = useCallback(async (brandIds: string[]) => {
+		await updateStakSupabase(brandIds);
+	}, []);
 
 	const saveToStak = useCallback(
 		async (brandId: string, priceAtSave?: number | null) => {
-			// Optimistic duplicate check against local state (fast path)
 			if ((account?.stakBrandIds ?? []).includes(brandId)) return;
-			if (user) {
-				const entry: StakSaveEntry = { savedAt: Date.now(), priceAtSave: priceAtSave ?? null };
-				// arrayUnion is atomic — safe against rapid double-tap race conditions
-				await updateDoc(doc(db, "users", user.uid), {
-					stakBrandIds: arrayUnion(brandId),
-					[`stakSavedAt.${brandId}`]: entry,
-				});
-			} else if (supabaseUserId) {
-				await saveToStakSupabase(brandId, priceAtSave);
-			}
+			await saveToStakSupabase(brandId, priceAtSave);
 		},
-		[user, supabaseUserId, account],
+		[account],
 	);
 
-	const updatePassedBrands = useCallback(
-		async (entries: PassedEntry[]) => {
-			if (user) {
-				await updateDoc(doc(db, "users", user.uid), { passedBrands: entries });
-			} else if (supabaseUserId) {
-				await updatePassedBrandsSupabase(entries);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const updatePassedBrands = useCallback(async (entries: PassedEntry[]) => {
+		await updatePassedBrandsSupabase(entries);
+	}, []);
 
 	// Server-authoritative — the daily limit can't be enforced by trusting a direct
-	// client→Firestore write (that's the bug this replaced: nothing capped the count).
-	// incrementSwipeCountServer already works for either provider -- it's a backend
-	// call authorized by the dual-accept middleware, not a direct Firestore write.
+	// client write (that's the bug this replaced: nothing capped the count).
 	const incrementSwipeCount = useCallback(async (): Promise<SwipeLimitIncrementResponse> => {
-		if (!user && !supabaseUserId) return { accepted: false, count: 0, limit: 0 };
+		if (!supabaseUserId) return { accepted: false, count: 0, limit: 0 };
 		return incrementSwipeCountServer();
-	}, [user, supabaseUserId]);
+	}, [supabaseUserId]);
 
-	const updateDeckOrder = useCallback(
-		async (order: string[]) => {
-			if (user) {
-				await updateDoc(doc(db, "users", user.uid), { deckOrder: order });
-			} else if (supabaseUserId) {
-				await updateDeckOrderSupabase(order);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const updateDeckOrder = useCallback(async (order: string[]) => {
+		await updateDeckOrderSupabase(order);
+	}, []);
 
+	const addSearchHistory = useCallback(async (query: string) => {
+		await addSearchHistorySupabase(query);
+	}, []);
 
-	const addSearchHistory = useCallback(
-		async (query: string) => {
-			if (user) {
-				const trimmed = query.trim();
-				if (!trimmed) return;
-				const existing = account?.searchHistory ?? [];
-				const deduped = existing.filter(
-					(e) => e.query.toLowerCase() !== trimmed.toLowerCase(),
-				);
-				const updated = [{ query: trimmed, at: Date.now() }, ...deduped].slice(
-					0,
-					MAX_SEARCH_HISTORY,
-				);
-				await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
-			} else if (supabaseUserId) {
-				await addSearchHistorySupabase(query);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
-
-	const removeSearchHistoryEntry = useCallback(
-		async (query: string) => {
-			if (user) {
-				const existing = account?.searchHistory ?? [];
-				const updated = existing.filter(
-					(e) => e.query.toLowerCase() !== query.toLowerCase(),
-				);
-				await updateDoc(doc(db, "users", user.uid), { searchHistory: updated });
-			} else if (supabaseUserId) {
-				await removeSearchHistoryEntrySupabase(query);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const removeSearchHistoryEntry = useCallback(async (query: string) => {
+		await removeSearchHistoryEntrySupabase(query);
+	}, []);
 
 	const clearSearchHistory = useCallback(async () => {
-		if (user) {
-			await updateDoc(doc(db, "users", user.uid), { searchHistory: [] });
-		} else if (supabaseUserId) {
-			await clearSearchHistorySupabase();
-		}
-	}, [user, supabaseUserId]);
+		await clearSearchHistorySupabase();
+	}, []);
 
+	const updatePreferences = useCallback(async (prefs: UserDoc["preferences"]) => {
+		await updatePreferencesSupabase(prefs);
+	}, []);
 
-	const updatePreferences = useCallback(
-		async (prefs: UserDoc["preferences"]) => {
-			if (user) {
-				await updateDoc(doc(db, "users", user.uid), { preferences: prefs });
-			} else if (supabaseUserId) {
-				await updatePreferencesSupabase(prefs);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const updateLastBriefDate = useCallback(async (date: string) => {
+		await updateLastBriefDateSupabase(date);
+	}, []);
 
-	const updateLastBriefDate = useCallback(
-		async (date: string) => {
-			if (user) {
-				await updateDoc(doc(db, "users", user.uid), { lastBriefDate: date });
-			} else if (supabaseUserId) {
-				await updateLastBriefDateSupabase(date);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const completeLesson = useCallback(async (lessonId: string, xp: number) => {
+		await completeActivitySupabase("lesson", lessonId, xp);
+	}, []);
 
-	const completeLesson = useCallback(
-		async (lessonId: string, xp: number) => {
-			if (user) {
-				const existing = account?.lessonProgress ?? {};
-				if (existing[lessonId]?.completed) return;
-				const entry: LessonProgress = { completed: true, completedAt: Date.now(), xpEarned: xp };
-				// Use increment() to avoid stale-read race on totalXp
-				await updateDoc(doc(db, "users", user.uid), {
-					[`lessonProgress.${lessonId}`]: entry,
-					totalXp: increment(xp),
-				});
-			} else if (supabaseUserId) {
-				await completeActivitySupabase("lesson", lessonId, xp);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const completeEarningsScenario = useCallback(async (scenarioId: string) => {
+		await completeActivitySupabase("earnings", scenarioId);
+	}, []);
 
-	const completeEarningsScenario = useCallback(
-		async (scenarioId: string) => {
-			if (user) {
-				if (account?.earningsProgress?.[scenarioId]?.completed) return;
-				await updateDoc(doc(db, "users", user.uid), {
-					[`earningsProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-				});
-			} else if (supabaseUserId) {
-				await completeActivitySupabase("earnings", scenarioId);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const completeBattle = useCallback(async (battleId: string) => {
+		await completeActivitySupabase("battle", battleId);
+	}, []);
 
-	const completeBattle = useCallback(
-		async (battleId: string) => {
-			if (user) {
-				if (account?.battlesProgress?.[battleId]?.completed) return;
-				await updateDoc(doc(db, "users", user.uid), {
-					[`battlesProgress.${battleId}`]: { completed: true, completedAt: Date.now() },
-				});
-			} else if (supabaseUserId) {
-				await completeActivitySupabase("battle", battleId);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const completeRiskScenario = useCallback(async (scenarioId: string) => {
+		await completeActivitySupabase("risk", scenarioId);
+	}, []);
 
-	const completeRiskScenario = useCallback(
-		async (scenarioId: string) => {
-			if (user) {
-				if (account?.riskProgress?.[scenarioId]?.completed) return;
-				await updateDoc(doc(db, "users", user.uid), {
-					[`riskProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-				});
-			} else if (supabaseUserId) {
-				await completeActivitySupabase("risk", scenarioId);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const completeMoodScenario = useCallback(async (scenarioId: string) => {
+		await completeActivitySupabase("mood", scenarioId);
+	}, []);
 
-	const completeMoodScenario = useCallback(
-		async (scenarioId: string) => {
-			if (user) {
-				if (account?.moodProgress?.[scenarioId]?.completed) return;
-				await updateDoc(doc(db, "users", user.uid), {
-					[`moodProgress.${scenarioId}`]: { completed: true, completedAt: Date.now() },
-				});
-			} else if (supabaseUserId) {
-				await completeActivitySupabase("mood", scenarioId);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const completeChallenge = useCallback(async (challengeId: string, xp: number) => {
+		const d = new Date();
+		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+		await completeChallengeSupabase(challengeId, xp, today);
+	}, []);
 
-	const completeChallenge = useCallback(
-		async (challengeId: string, xp: number) => {
-			// Use local time to match playground todayKey (not UTC which rolls over at 7pm ET)
-			const d = new Date();
-			const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-			if (user) {
-			const current = account?.dailyChallengeState;
-			const completedIds = current?.date === today ? [...(current.completedIds ?? []), challengeId] : [challengeId];
-			await updateDoc(doc(db, "users", user.uid), {
-				dailyChallengeState: { date: today, completedIds },
-				totalXp: increment(xp),
-			});
-			} else if (supabaseUserId) {
-				await completeChallengeSupabase(challengeId, xp, today);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
-
-	const addXp = useCallback(
-		async (xp: number) => {
-			if (user) {
-				// Use Firestore atomic increment — safe against concurrent XP awards
-				await updateDoc(doc(db, "users", user.uid), { totalXp: increment(xp) });
-			} else if (supabaseUserId) {
-				await addXpSupabase(xp);
-			}
-		},
-		[user, supabaseUserId],
-	);
-
-	const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
-
+	const addXp = useCallback(async (xp: number) => {
+		await addXpSupabase(xp);
+	}, []);
 
 	const initSandboxCash = useCallback(async () => {
-		if (user) {
-			if (account?.sandboxCash !== undefined) return;
-			const tier = xpToTier(account?.totalXp ?? 0);
-			await updateDoc(doc(db, "users", user.uid), { sandboxCash: SANDBOX_BUDGET_BY_TIER[tier], sandboxTier: tier });
-		} else if (supabaseUserId) {
-			if (account?.sandboxCash !== undefined) return;
-			await initSandboxCashSupabase();
-		}
-	}, [user, supabaseUserId, account]);
+		if (account?.sandboxCash !== undefined) return;
+		await initSandboxCashSupabase();
+	}, [account?.sandboxCash]);
 
-	const addToSandbox = useCallback(
-		async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
-			if (user) {
-				const cost = priceAtAdd != null ? Math.round(priceAtAdd * shares * 100) / 100 : 0;
-				if (cost <= 0) return;
-				const userRef = doc(db, "users", user.uid);
-				await runTransaction(db, async (tx) => {
-					const snap = await tx.get(userRef);
-					const data = snap.data() as { sandboxCash?: number; sandboxPortfolio?: Record<string, SandboxEntry> } | undefined;
-					const liveCash = data?.sandboxCash ?? SANDBOX_BUDGET_BY_TIER[1]!;
-					if (liveCash < cost) return;
-					const existing = data?.sandboxPortfolio?.[ticker];
-					const existingShares = existing?.shares ?? 0;
-					const existingPrice = existing?.priceAtAdd ?? null;
-					const newShares = roundShares(existingShares + shares);
-					const newPriceAtAdd = existingShares > 0 && existingPrice !== null && priceAtAdd !== null
-						? Math.round(((existingPrice * existingShares + priceAtAdd * shares) / newShares) * 100) / 100
-						: priceAtAdd;
-					const entry: SandboxEntry = {
-						addedAt: existing?.addedAt ?? Date.now(),
-						priceAtAdd: newPriceAtAdd,
-						shares: newShares,
-						...(thesis ? { thesis } : existing?.thesis ? { thesis: existing.thesis } : {}),
-					};
-					tx.update(userRef, {
-						[`sandboxPortfolio.${ticker}`]: entry,
-						sandboxCash: Math.round((liveCash - cost) * 100) / 100,
-					});
-				});
-			} else if (supabaseUserId) {
-				await addToSandboxSupabase(ticker, priceAtAdd, shares, thesis);
-			}
-		},
-		[user, supabaseUserId],
-	);
+	const addToSandbox = useCallback(async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
+		await addToSandboxSupabase(ticker, priceAtAdd, shares, thesis);
+	}, []);
 
-	const sellFromSandbox = useCallback(
-		async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
-			if (user) {
-				const entry = account?.sandboxPortfolio?.[ticker];
-				const totalShares = entry?.shares ?? 0;
-				const qty = sharesToSell ?? totalShares;
-				const remainingShares = roundShares(totalShares - qty);
-				const updated = { ...(account?.sandboxPortfolio ?? {}) };
-				if (remainingShares <= 0) {
-					delete updated[ticker];
-				} else {
-					updated[ticker] = { ...entry!, shares: remainingShares };
-				}
-				const currentCash = account?.sandboxCash ?? 0;
-				await updateDoc(doc(db, "users", user.uid), {
-					sandboxPortfolio: updated,
-					sandboxCash: Math.round((currentCash + currentValue) * 100) / 100,
-				});
-			} else if (supabaseUserId) {
-				await sellFromSandboxSupabase(ticker, currentValue, sharesToSell);
-			}
-		},
-		[user, supabaseUserId, account],
-	);
+	const sellFromSandbox = useCallback(async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
+		await sellFromSandboxSupabase(ticker, currentValue, sharesToSell);
+	}, []);
 
 	const resetSandbox = useCallback(async () => {
-		if (user) {
-			const tier = xpToTier(account?.totalXp ?? 0);
-			await updateDoc(doc(db, "users", user.uid), {
-				sandboxPortfolio: {},
-				sandboxCash: SANDBOX_BUDGET_BY_TIER[tier],
-				sandboxMilestones: [],
-				sandboxTier: tier,
-			});
-		} else if (supabaseUserId) {
-			await resetSandboxSupabase();
-		}
-	}, [user, supabaseUserId, account]);
-
-	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
-	// Existing users without sandboxTier get migrated silently (no cash change).
-	useEffect(() => {
-		if (user && account?.sandboxCash !== undefined) {
-			const currentTier = xpToTier(account.totalXp ?? 0);
-			const storedTier = account.sandboxTier;
-			if (storedTier === undefined) {
-				updateDoc(doc(db, "users", user.uid), { sandboxTier: currentTier }).catch(() => {});
-				return;
-			}
-			if (currentTier <= storedTier) return;
-			const userRef = doc(db, "users", user.uid);
-			runTransaction(db, async (tx) => {
-				const snap = await tx.get(userRef);
-				const data = snap.data() as { sandboxCash?: number; sandboxTier?: number; totalXp?: number } | undefined;
-				const liveTier = data?.sandboxTier ?? storedTier;
-				const liveCurrentTier = xpToTier(data?.totalXp ?? 0);
-				if (liveCurrentTier <= liveTier) return;
-				const increase = SANDBOX_BUDGET_BY_TIER[liveCurrentTier]! - SANDBOX_BUDGET_BY_TIER[liveTier]!;
-				tx.update(userRef, {
-					sandboxCash: Math.round(((data?.sandboxCash ?? 0) + increase) * 100) / 100,
-					sandboxTier: liveCurrentTier,
-				});
-			}).catch(() => {});
-		} else if (supabaseUserId && account?.sandboxCash !== undefined) {
-			checkAndApplySandboxTierUpgradeSupabase().catch(() => {});
-		}
-	}, [user, supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
+		await resetSandboxSupabase();
+	}, []);
 
 	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
-		if (user) {
-			const current = account?.dailyProgress;
-			const isSameDay = current?.dayKey === dayKey;
-			const alreadyDone = isSameDay && (current?.completedIds ?? []).includes(activityId);
-			if (alreadyDone) return;
-			const alreadySeen = new Set(account?.allTimeCompletedActivityIds ?? []);
-			const allTimeUpdate = alreadySeen.has(activityId) ? {} : { allTimeCompletedActivityIds: arrayUnion(activityId) };
-			const typeUpdate = activityType ? { "dailyProgress.completedTypes": arrayUnion(activityType) } : {};
-			if (isSameDay) {
-				await updateDoc(doc(db, "users", user.uid), {
-					"dailyProgress.completedIds": arrayUnion(activityId),
-					"dailyProgress.xpEarned": increment(xp),
-					"dailyProgress.dayKey": dayKey,
-					totalXp: increment(xp),
-					...typeUpdate,
-					...allTimeUpdate,
-				});
-			} else {
-				await updateDoc(doc(db, "users", user.uid), {
-					dailyProgress: { dayKey, completedIds: [activityId], completedTypes: activityType ? [activityType] : [], xpEarned: xp },
-					totalXp: increment(xp),
-					...allTimeUpdate,
-				});
-			}
-		} else if (supabaseUserId) {
-			await completeDailyActivitySupabase(dayKey, activityId, xp, activityType);
-		}
-	}, [user, supabaseUserId, account]);
+		await completeDailyActivitySupabase(dayKey, activityId, xp, activityType);
+	}, []);
 
 	const markPlaygroundOnboarded = useCallback(async () => {
-		if (user) {
-			await updateDoc(doc(db, "users", user.uid), { playgroundOnboarded: true });
-		} else if (supabaseUserId) {
-			await markPlaygroundOnboardedSupabase();
-		}
-	}, [user, supabaseUserId]);
+		await markPlaygroundOnboardedSupabase();
+	}, []);
 
 	const saveGeneratedLessonHistory = useCallback(async (entry: { topic: string; title: string; angle: string }) => {
-		if (user) {
-			const record = { ...entry, completedAt: Date.now() };
-			await updateDoc(doc(db, "users", user.uid), {
-				generatedLessonHistory: arrayUnion(record),
-			});
-		} else if (supabaseUserId) {
-			await saveGeneratedLessonHistorySupabase(entry);
-		}
-	}, [user, supabaseUserId]);
+		await saveGeneratedLessonHistorySupabase(entry);
+	}, []);
 
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
 		if (xp <= 0) return;
-		if (user) {
-			await updateDoc(doc(db, "users", user.uid), {
-				[`practiceSkills.${skill}`]: increment(xp),
-				totalXp: increment(xp),
-			});
-		} else if (supabaseUserId) {
-			await addPracticeSkillXpSupabase(skill, xp);
-		}
-	}, [user, supabaseUserId]);
+		await addPracticeSkillXpSupabase(skill, xp);
+	}, []);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {
-		if (user) {
-			const existing = account?.sandboxMilestones ?? [];
-			if (existing.includes(value)) return;
-			await updateDoc(doc(db, "users", user.uid), { sandboxMilestones: [...existing, value] });
-		} else if (supabaseUserId) {
-			await markSandboxMilestoneSupabase(value);
-		}
-	}, [user, supabaseUserId, account]);
+		await markSandboxMilestoneSupabase(value);
+	}, []);
 
 	return (
 		<AccountContext.Provider
@@ -660,13 +317,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				updatePassedBrands,
 				incrementSwipeCount,
 				updateDeckOrder,
-	
 				updatePreferences,
 				completeLesson,
 				completeEarningsScenario,
-			completeBattle,
-			completeRiskScenario,
-			completeMoodScenario,
+				completeBattle,
+				completeRiskScenario,
+				completeMoodScenario,
 				completeChallenge,
 				addXp,
 				addToSandbox,

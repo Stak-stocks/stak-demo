@@ -2773,7 +2773,7 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }:
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
 function LandingPage() {
-	const { appUser, user, loading, onboardingCompleted } = useAuth();
+	const { appUser, loading } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -2781,14 +2781,10 @@ function LandingPage() {
 
 	useEffect(() => {
 		if (loading || accountLoading) return;
-		if (user) {
-			// Firebase session -- onboardingCompleted comes from JWT claims
-			navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
-		} else if (appUser) {
-			// Supabase session -- onboardingCompleted comes from Postgres via AccountContext
+		if (appUser) {
 			navigate({ to: account?.onboardingCompleted ? "/" : "/onboarding" });
 		}
-	}, [appUser, user, loading, accountLoading, navigate, onboardingCompleted, account?.onboardingCompleted]);
+	}, [appUser, loading, accountLoading, navigate, account?.onboardingCompleted]);
 
 	useEffect(() => {
 		/* Measure the scroll container's clientWidth — NOT window.innerWidth — so the

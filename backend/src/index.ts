@@ -15,7 +15,7 @@ import { meRouter } from "./routes/me.js";
 import { newsRouter } from "./routes/news.js";
 import { stockRouter } from "./routes/stock.js";
 import { intelCardsRouter } from "./routes/intelCards.js";
-import { stocksRouter, deleteUnverifiedAccounts } from "./routes/ipos.js";
+import { stocksRouter } from "./routes/ipos.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { recommendationsRouter } from "./routes/recommendations.js";
 import { dailyBriefRouter } from "./routes/dailyBrief.js";
@@ -120,17 +120,4 @@ app.listen(PORT, () => {
 	});
 	console.log("[IPO Sync] Cron scheduled — runs every 2 days at 2 AM UTC");
 
-	// Delete unverified email/password accounts older than 24h — runs every hour
-	cron.schedule("0 * * * *", async () => {
-		console.log("[Cleanup] Deleting unverified accounts...");
-		try {
-			const result = await deleteUnverifiedAccounts();
-			if (result.deleted > 0 || result.errors > 0) {
-				console.log(`[Cleanup] Done: deleted=${result.deleted}, errors=${result.errors}`);
-			}
-		} catch (e) {
-			console.error("[Cleanup] Failed:", e);
-		}
-	});
-	console.log("[Cleanup] Cron scheduled — runs every hour");
 });

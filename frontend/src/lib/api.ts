@@ -1,17 +1,9 @@
-import { auth } from "./firebase";
 import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-// Checks Firebase first (the live path for the overwhelming majority of users today),
-// falling back to a Supabase session only if there's no Firebase user -- internal
-// cohort only for now (migration plan, Phase 5). The backend's dual-accept middleware
-// accepts either token type in the same Authorization header, so this is the one place
-// the frontend needs to know which provider is actually active for the current user.
 async function getAuthToken(): Promise<string | null> {
-	const user = auth.currentUser;
-	if (user) return user.getIdToken();
 	const { data } = await supabase.auth.getSession();
 	return data.session?.access_token ?? null;
 }
@@ -41,18 +33,6 @@ async function apiRequest<T>(
 	}
 
 	return response.json();
-}
-
-// Auth migration (Firebase -> Supabase, see migration plan) -- public, called before
-// the user has signed in either way, so the login form knows which provider to use.
-export function getAuthProvider(email: string) {
-	return apiRequest<{ provider: "firebase" | "supabase"; requiresPasswordReset: boolean }>(
-		`/api/auth/provider?email=${encodeURIComponent(email)}`,
-	);
-}
-
-export function completeMigration() {
-	return apiRequest<{ ok: boolean; updated: boolean }>("/api/auth/complete-migration", { method: "POST" });
 }
 
 // User profile
@@ -140,7 +120,7 @@ export function recordEngagement(
 	});
 }
 
-/** Track any named event to Firestore (shows up in the analytics dashboard).
+/** Track any named event (shows up in the analytics dashboard).
  *  Sends todayKey so the backend can credit streak-affecting event types
  *  (brand_tap, playground_activity) to the user's own local day, same as
  *  recordSwipe -- a streak is a personal daily habit, not a market concept. */

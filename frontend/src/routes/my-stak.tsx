@@ -16,7 +16,6 @@ import { parseFinancialValue, classifyMarketCap } from "@/lib/financial";
 import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
-import { logEvent } from "@/lib/firebase";
 import { useAccount } from "@/context/AccountContext";
 import { EarningsCalendarButton } from "@/components/EarningsCalendar";
 
@@ -577,7 +576,6 @@ function MyStakPage() {
 	const handleBrandClick = (brand: BrandSummary) => {
 		sessionStorage.setItem("selectedBrandId", brand.id);
 		setSelectedBrandId(brand.id);
-		logEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker });
 		trackEvent("brand_tap", { brand_id: brand.id, brand_name: brand.name, ticker: brand.ticker }).catch(() => {});
 	};
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminDb } from "../firebaseAdmin.js";
+import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, getEasternDateKey } from "@stak/shared";
@@ -235,9 +235,11 @@ recommendationsRouter.get("/debug", authMiddleware, async (req: AuthenticatedReq
 		const uid = req.user!.uid;
 		const limit = Math.min(Number(req.query.limit ?? 50), 334);
 
-		// Read user's tagScores from Firestore
-		const userSnap = await adminDb.collection("users").doc(uid).get();
-		const tagScores: Record<string, number> = (userSnap.data()?.tagScores as Record<string, number>) ?? {};
+		const tagResult = await pgQuery<{ tag_scores: Record<string, number> | null }>(
+			`select tag_scores from users where uid = $1`,
+			[uid],
+		);
+		const tagScores: Record<string, number> = (tagResult.rows[0]?.tag_scores as Record<string, number>) ?? {};
 
 		const hasScores = Object.keys(tagScores).length > 0;
 

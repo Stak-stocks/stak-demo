@@ -17,7 +17,7 @@ interface SearchViewProps {
 }
 
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
-	const { user } = useAuth();
+	const { appUser } = useAuth();
 	const { account, addSearchHistory, removeSearchHistoryEntry, clearSearchHistory } = useAccount();
 	const { data: allBrands } = useBrandsList();
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -77,7 +77,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 
 	// Save clicked brand name to search history (Firestore via AccountContext)
 	const handleLearnMore = useCallback((brand: BrandSummary) => {
-		if (user) {
+		if (appUser) {
 			addSearchHistory(brand.name).catch(() => {});
 		}
 		if (modalOpen && selectedBrand?.id === brand.id) {
@@ -87,7 +87,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 			setSelectedBrand(brand);
 			setModalOpen(true);
 		}
-	}, [user, addSearchHistory, modalOpen, selectedBrand]);
+	}, [appUser, addSearchHistory, modalOpen, selectedBrand]);
 
 	const handleCloseModal = () => {
 		setModalOpen(false);

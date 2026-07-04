@@ -11,53 +11,24 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignUpPage() {
-	const { appUser, user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogleSupabase, supabaseUserId, logout } = useAuth();
+	const { loading, signUpWithEmail, signInWithGoogleSupabase, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
+	const [emailSent, setEmailSent] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 
+	// Already logged in — redirect to appropriate page
 	useEffect(() => {
-		if (!loading && user) {
-			// Email/password users who haven't verified yet → go to verify screen
-			const isPasswordProvider = appUser?.provider === "password";
-			if (isPasswordProvider && !appUser?.emailVerified) {
-				navigate({ to: "/verify-email" });
-				return;
-			}
-			user.getIdToken(true)
-				.then(() => getProfile())
-				.then(() => user.getIdToken(true))
-				.then(() => user.getIdTokenResult())
-				.then((result) => {
-					const done = result.claims.onboardingCompleted === true;
-					navigate({ to: done ? "/" : "/onboarding" });
-				})
-				.catch(() => {
-					logout().catch(() => {});
-				});
-		}
-	}, [user, loading, navigate, logout]);
-
-	// Migration plan, Phase 5: signup.tsx has no Supabase signup flow of its own (new
-	// signups stay Firebase-only until Phase 6 -- cohort accounts are existing Firebase
-	// users flipped to the Supabase login path, never fresh Supabase signups). But
-	// without this, an already-logged-in Supabase session hitting /signup directly
-	// would just render the signup form instead of redirecting away, unlike every
-	// other page. Guarded by `!user` so the Firebase effect above takes priority if
-	// someone somehow has both sessions at once.
-	useEffect(() => {
-		if (loading || !supabaseUserId || user) return;
+		if (loading || !supabaseUserId) return;
 		getProfile()
 			.then((profile) => {
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
 			})
-			.catch(() => {
-				logout().catch(() => {});
-			});
-	}, [loading, supabaseUserId, user, navigate, logout]);
+			.catch(() => navigate({ to: "/" }));
+	}, [loading, supabaseUserId, navigate]);
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
@@ -73,17 +44,15 @@ function SignUpPage() {
 		setSigningUp(true);
 		try {
 			await signUpWithEmail(email, password);
-			await sendVerificationEmail();
-			// Don't navigate here — let the useEffect handle it once auth state
-			// updates with the new unverified user (prevents stale-user race condition)
+			// Supabase sends a confirmation email — show "check your inbox" state
+			// instead of navigating. Once the user clicks the link, Supabase exchanges
+			// the code for a session and onAuthStateChange fires, which will trigger
+			// the supabaseUserId effect above to navigate to /onboarding.
+			setEmailSent(true);
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
-			if (message.includes("email-already-in-use")) {
+			if (message.toLowerCase().includes("already registered") || message.toLowerCase().includes("already been registered")) {
 				toast.error("Email already in use. Try signing in instead.");
-			} else if (message.includes("weak-password")) {
-				toast.error("Password is too weak. Use at least 6 characters.");
-			} else if (message.includes("invalid-email")) {
-				toast.error("Invalid email address");
 			} else {
 				toast.error("Sign up failed. Please try again.");
 			}
@@ -105,6 +74,28 @@ function SignUpPage() {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
 				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+
+	if (emailSent) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 text-center">
+				<StakLogo size={48} />
+				<h1 className="text-[26px] font-extrabold text-foreground mt-6">Check your inbox</h1>
+				<p className="dark:text-slate-400 text-slate-500 mt-2 max-w-xs">
+					We sent a confirmation link to <strong className="text-foreground">{email}</strong>. Click it to activate your account and get started.
+				</p>
+				<p className="text-slate-500 text-sm mt-6">
+					Didn't get it?{" "}
+					<button
+						type="button"
+						className="text-blue-400 hover:text-blue-300"
+						onClick={() => setEmailSent(false)}
+					>
+						Try again
+					</button>
+				</p>
 			</div>
 		);
 	}

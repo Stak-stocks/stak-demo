@@ -4,14 +4,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { FloatingBrands } from "@/components/FloatingBrands";
 import { StakLogo } from "@/components/StakLogo";
-import { getAuthProvider } from "@/lib/api";
-
 export const Route = createFileRoute("/forgot-password")({
 	component: ForgotPasswordPage,
 });
 
 function ForgotPasswordPage() {
-	const { resetPassword, resetPasswordSupabase } = useAuth();
+	const { resetPasswordSupabase } = useAuth();
 	const [email, setEmail] = useState("");
 	const [sending, setSending] = useState(false);
 	const [sent, setSent] = useState(false);
@@ -21,26 +19,11 @@ function ForgotPasswordPage() {
 		if (!email) return;
 		setSending(true);
 		try {
-			// Route to Supabase reset for migrated users, Firebase reset for everyone else.
-			// Defaults to Firebase if the lookup fails -- never let a migration check
-			// be the reason a password reset fails.
-			const { provider } = await getAuthProvider(email).catch(
-				() => ({ provider: "firebase" as const, requiresPasswordReset: false }),
-			);
-			if (provider === "supabase") {
-				await resetPasswordSupabase(email);
-			} else {
-				await resetPassword(email);
-			}
+			await resetPasswordSupabase(email);
 			setSent(true);
 			toast.success("Reset email sent!");
-		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "";
-			if (message.includes("invalid-email")) {
-				toast.error("Invalid email address");
-			} else {
-				toast.error("Failed to send reset email. Try again.");
-			}
+		} catch {
+			toast.error("Failed to send reset email. Try again.");
 		} finally {
 			setSending(false);
 		}

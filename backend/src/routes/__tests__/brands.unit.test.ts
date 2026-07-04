@@ -1,15 +1,11 @@
 import express from "express";
 import request from "supertest";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const usersGetMock = vi.fn();
-const collectionMock = vi.fn((name: string) => {
-	if (name === "users") return { get: usersGetMock };
-	throw new Error(`Unexpected collection ${name}`);
-});
-
-vi.mock("../../firebaseAdmin.js", () => ({
-	adminDb: { collection: collectionMock },
+const pgQueryMock = vi.fn();
+vi.mock("../../lib/postgres.js", () => ({
+	pgQuery: pgQueryMock,
+	ensureUserRow: vi.fn().mockResolvedValue(undefined),
 }));
 
 async function buildApp() {
@@ -22,6 +18,11 @@ async function buildApp() {
 }
 
 describe("brandsRouter", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		pgQueryMock.mockResolvedValue({ rows: [] });
+	});
+
 	it("GET / returns a lightweight summary for every brand -- not the heavy text fields", async () => {
 		const app = await buildApp();
 		const res = await request(app).get("/");
@@ -62,12 +63,8 @@ describe("brandsRouter", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("GET /popular returns brand IDs saved by 50+ users, derived from the users collection", async () => {
-		const docs = [
-			...Array.from({ length: 51 }, () => ({ data: () => ({ stakBrandIds: ["aapl"] }) })),
-			...Array.from({ length: 10 }, () => ({ data: () => ({ stakBrandIds: ["tsla"] }) })),
-		];
-		usersGetMock.mockResolvedValue({ docs });
+	it("GET /popular returns brand IDs saved by 50+ users, derived from stak_brands", async () => {
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ brand_id: "aapl" }] });
 
 		const app = await buildApp();
 		const res = await request(app).get("/popular");

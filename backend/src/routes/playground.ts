@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys } from "../services/geminiService.js";
-import { adminDb } from "../firebaseAdmin.js";
+import { pgQuery, ensureUserRow } from "../lib/postgres.js";
 import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
@@ -154,34 +154,34 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 		return;
 	}
 
-	// 2. Firestore fallback — cross-device consistency, survives server restarts
+	// 2. Postgres playground_cache fallback — cross-device consistency, survives server restarts
 	try {
-		const snap = await adminDb.collection("playgroundCache").doc(fsDocId).get();
-		if (snap.exists) {
-			const fsData = snap.data()?.[type] as unknown[] | undefined;
-			if (Array.isArray(fsData) && fsData.length > 0) {
-				await cacheSet(cacheKey, fsData, CACHE_TTL_MS);
-				res.json({ questions: fsData });
-				return;
-			}
+		const pgCached = await pgQuery<{ payload: unknown[] }>(
+			`select payload from playground_cache where uid = $1 and date = $2 and type = $3`,
+			[uid, dayKey, type],
+		);
+		if (pgCached.rows.length > 0 && Array.isArray(pgCached.rows[0]!.payload) && pgCached.rows[0]!.payload.length > 0) {
+			await cacheSet(cacheKey, pgCached.rows[0]!.payload, CACHE_TTL_MS);
+			res.json({ questions: pgCached.rows[0]!.payload });
+			return;
 		}
-	} catch { /* Firestore unavailable — proceed to generate */ }
+	} catch { /* Postgres unavailable — proceed to generate */ }
 
 	// Fetch last 14 days of generated content for this user to build topic exclusion list
 	let avoidLine = "";
 	try {
-		const today = new Date();
-		const recentRefs = Array.from({ length: 14 }, (_, i) => {
-			const d = new Date(today);
-			d.setDate(d.getDate() - (i + 1));
-			const dk = sanitizeKey(d.toISOString().split("T")[0]!);
-			return adminDb.collection("playgroundCache").doc(`${uid}_${dk}`);
-		});
-		const snaps = await adminDb.getAll(...recentRefs);
+		const cutoffDate = (() => {
+			const d = new Date();
+			d.setDate(d.getDate() - 14);
+			return d.toISOString().split("T")[0]!;
+		})();
+		const historyResult = await pgQuery<{ payload: unknown[] }>(
+			`select payload from playground_cache where uid = $1 and type = $2 and date >= $3 order by date desc`,
+			[uid, type, cutoffDate],
+		);
 		const recent: string[] = [];
-		for (const snap of snaps) {
-			if (!snap.exists) continue;
-			const items = snap.data()?.[type] as unknown[] | undefined;
+		for (const row of historyResult.rows) {
+			const items = row.payload;
 			if (!Array.isArray(items)) continue;
 			for (const item of items) {
 				if (!item || typeof item !== "object") continue;
@@ -454,8 +454,14 @@ Rules:
 		});
 		if (valid.length === 0) throw new Error("No valid items in response");
 		await cacheSet(cacheKey, valid, CACHE_TTL_MS);
-		// Persist to Firestore for cross-device consistency
-		adminDb.collection("playgroundCache").doc(fsDocId).set({ [type]: valid }, { merge: true }).catch(() => {});
+		// Persist to Postgres playground_cache for cross-device consistency
+		ensureUserRow(uid).then(() =>
+			pgQuery(
+				`insert into playground_cache (uid, date, type, payload) values ($1, $2, $3, $4::jsonb)
+				on conflict (uid, date, type) do update set payload = excluded.payload`,
+				[uid, dayKey, type, JSON.stringify(valid)],
+			),
+		).catch(() => {});
 		res.json({ questions: valid });
 	} catch {
 		res.status(500).json({ error: "Failed to parse generated content" });
