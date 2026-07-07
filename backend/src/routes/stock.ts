@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE } from "../services/geminiService.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -139,9 +139,6 @@ function resolveSymbol(symbol: string): string {
 
 export const stockRouter = Router();
 
-// Gemini occasionally returns a refusal/apology string instead of content when
-// thinkingBudget:0 conflicts with google_search tool invocation. Detect and skip these.
-const GEMINI_REFUSAL_RE = /^(i('?m| am) sorry|i cannot|i'?m unable|i can'?t|sorry,|unfortunately,|i apologize)/i;
 
 // ── Earnings Calendar ────────────────────────────────────────────────────────
 

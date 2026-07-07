@@ -10,7 +10,7 @@ import {
 } from "../services/marketMood.js";
 import { getISOWeek } from "../services/streakService.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
-import { getGeminiKeys } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_REFUSAL_RE } from "../services/geminiService.js";
 
 export const dailyBriefRouter = Router();
 
@@ -254,7 +254,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 			if (!res.ok) continue;
 			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim();
-			if (!text) continue;
+			if (!text || GEMINI_REFUSAL_RE.test(text)) continue;
 			await cacheSet(cacheKey, text, 6 * 60 * 60 * 1000);
 			return text;
 		} catch {
