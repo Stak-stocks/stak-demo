@@ -39,6 +39,7 @@ function Root() {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [briefOpen, setBriefOpen] = useState(false);
 	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
+	const briefShownRef = useRef(false);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -146,6 +147,7 @@ function Root() {
 			// "Start Today's Deck" CTA.
 			setBriefSource("auto");
 			setBriefOpen(true);
+			briefShownRef.current = true;
 			updateLastBriefDate(today).catch(() => {});
 		}, 0);
 		return () => clearTimeout(t);
@@ -207,8 +209,10 @@ function Root() {
 		);
 	}
 
-	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes
-	if (!briefOpen && !isAuthPage && appUser && account?.onboardingCompleted) {
+	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes.
+	// briefShownRef guards against a race where the brief was shown but account.lastBriefDate hasn't
+	// updated in React state yet (Supabase realtime lag), which would otherwise re-trigger this spinner.
+	if (!briefOpen && !briefShownRef.current && !isAuthPage && appUser && account?.onboardingCompleted) {
 		const d = new Date();
 		const today = getEasternDateKey(d);
 		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);

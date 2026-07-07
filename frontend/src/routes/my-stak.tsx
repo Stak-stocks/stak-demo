@@ -405,12 +405,14 @@ function MyStakPage() {
 	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
 
 	// One-time backfill: for saved stocks missing priceAtSave, fetch current price and patch Supabase
-	const backfilledRef = useRef(false);
+	const BACKFILL_SS_KEY = "stak:price-backfill:done";
+	const backfilledRef = useRef(sessionStorage.getItem(BACKFILL_SS_KEY) === "1");
 	useEffect(() => {
 		if (backfilledRef.current || !account?.stakSavedAt || allBrands.length === 0) return;
 		const nullEntries = Object.entries(account.stakSavedAt).filter(([, e]) => e.priceAtSave === null);
-		if (nullEntries.length === 0) { backfilledRef.current = true; return; }
+		if (nullEntries.length === 0) { backfilledRef.current = true; sessionStorage.setItem(BACKFILL_SS_KEY, "1"); return; }
 		backfilledRef.current = true;
+		sessionStorage.setItem(BACKFILL_SS_KEY, "1");
 		for (const [brandId] of nullEntries) {
 			const brand = allBrands.find(b => b.id === brandId);
 			if (!brand?.ticker) continue;
