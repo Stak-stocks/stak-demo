@@ -54,6 +54,10 @@ export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>): Promi
 	}
 }
 
+// Gemini occasionally returns a refusal/apology string instead of content when
+// thinkingBudget:0 conflicts with google_search tool invocation. Use this to detect and skip.
+export const GEMINI_REFUSAL_RE = /^(i('?m| am) sorry|i cannot|i'?m unable|i can'?t|sorry,|unfortunately,|i apologize)/i;
+
 export function getGeminiKeys(): string[] {
 	return [
 		process.env.GEMINI_API_KEY,

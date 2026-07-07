@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE } from "../services/geminiService.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -138,6 +138,7 @@ function resolveSymbol(symbol: string): string {
 }
 
 export const stockRouter = Router();
+
 
 // ── Earnings Calendar ────────────────────────────────────────────────────────
 
@@ -1396,6 +1397,10 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 			// With Google Search grounding, text may be in a different part index
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
 			const raw = parts.map((p) => p.text ?? "").join("").trim();
+			if (!raw || GEMINI_REFUSAL_RE.test(raw)) {
+				console.warn(`[Gemini] daily-move(${symbol}) returned refusal on key ...${key.slice(-4)} — trying next`);
+				continue;
+			}
 			if (sentences > 1) {
 				// Expect JSON array of bullets
 				try {
@@ -1465,7 +1470,7 @@ stockRouter.get("/:symbol/key-risk", async (req, res) => {
 	const peStr = req.query.pe as string | undefined;
 
 	const today = getEasternDateKey();
-	const cacheKey = `key-risk:v4:${symbol}:${today}`;
+	const cacheKey = `key-risk:v5:${symbol}:${today}`;
 	const cached = await cacheGet<{ risk: string }>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -1518,7 +1523,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 			const data = await gemRes.json();
 			const parts: Array<{ text?: string }> = data?.candidates?.[0]?.content?.parts ?? [];
 			const rawRisk = parts.map(p => p.text ?? "").join("").trim();
-			if (rawRisk) {
+			if (rawRisk && !GEMINI_REFUSAL_RE.test(rawRisk)) {
 				// Gemini doesn't reliably honor the word-count instruction (especially with
 				// search grounding on) — enforce the cap server-side as a safety net.
 				const words = rawRisk.split(/\s+/);
