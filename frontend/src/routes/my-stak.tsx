@@ -11,6 +11,7 @@ import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmar
 
 import { toast } from "sonner";
 import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
+import { patchStakPriceSupabase } from "@/lib/supabaseAccount";
 import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
 import { parseFinancialValue, classifyMarketCap } from "@/lib/financial";
 import { computeTopDisplayCategory } from "@stak/shared";
@@ -402,6 +403,22 @@ function MyStakPage() {
 	// its own full profile separately below.
 	const { data: allBrandsList } = useBrandsList();
 	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
+
+	// One-time backfill: for saved stocks missing priceAtSave, fetch current price and patch Supabase
+	const backfilledRef = useRef(false);
+	useEffect(() => {
+		if (backfilledRef.current || !account?.stakSavedAt || allBrands.length === 0) return;
+		const nullEntries = Object.entries(account.stakSavedAt).filter(([, e]) => e.priceAtSave === null);
+		if (nullEntries.length === 0) { backfilledRef.current = true; return; }
+		backfilledRef.current = true;
+		for (const [brandId] of nullEntries) {
+			const brand = allBrands.find(b => b.id === brandId);
+			if (!brand?.ticker) continue;
+			getStockData(brand.ticker)
+				.then(data => { if (data?.quote?.price) patchStakPriceSupabase(brandId, data.quote.price); })
+				.catch(() => {});
+		}
+	}, [account?.stakSavedAt, allBrands]);
 
 	const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
 	const { data: selectedBrand, isError: selectedBrandError } = useBrandDetail(selectedBrandId);
