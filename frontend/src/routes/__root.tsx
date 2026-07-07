@@ -13,7 +13,7 @@ import { DailyBriefModal } from "@/components/DailyBriefModal";
 import type { BrandProfile } from "@stak/shared";
 import { getEasternDateKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMarketEarnings } from "@/lib/api";
+import { getMarketEarnings, getStockData } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
@@ -81,7 +81,7 @@ function Root() {
 		}
 	}, [queryClient, stakTickers, appUser]);
 
-	const handleAddToStak = useCallback((brand: BrandProfile) => {
+	const handleAddToStak = useCallback(async (brand: BrandProfile) => {
 		const stakIds = account?.stakBrandIds ?? [];
 		if (stakIds.includes(brand.id)) {
 			
@@ -97,7 +97,13 @@ function Root() {
 		}
 		const cachedStock = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])
 			?? queryClient.getQueryData<{ quote: { price: number } | null }>(["stock-price", brand.ticker]);
-		const priceAtSave = cachedStock?.quote?.price ?? null;
+		let priceAtSave = cachedStock?.quote?.price ?? null;
+		if (priceAtSave === null) {
+			try {
+				const fresh = await getStockData(brand.ticker);
+				priceAtSave = fresh?.quote?.price ?? null;
+			} catch { /* save without price rather than blocking the save */ }
+		}
 		saveToStak(brand.id, priceAtSave).catch(() => {});
 		incrementStakSwipe().catch(() => {});
 		// Invalidate daily brief so personalization reflects the new Stak brand

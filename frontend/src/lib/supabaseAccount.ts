@@ -195,6 +195,13 @@ export async function updateStakSupabase(brandIds: string[]): Promise<void> {
 	}
 }
 
+export async function patchStakPriceSupabase(brandId: string, price: number): Promise<void> {
+	await supabase.from("stak_brands")
+		.update({ price_at_save: price })
+		.eq("brand_id", brandId)
+		.is("price_at_save", null);
+}
+
 export async function saveToStakSupabase(brandId: string, priceAtSave?: number | null): Promise<void> {
 	// ignoreDuplicates matches the Firestore version's explicit "already saved? do
 	// nothing" check -- a repeat save must not overwrite the original saved_at/price.
