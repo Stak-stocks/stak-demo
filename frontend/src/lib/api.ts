@@ -178,6 +178,55 @@ export function saveIntelState(lastDate: string, queue: string[], readIds: strin
 	});
 }
 
+// Sandbox portfolio
+export function sandboxInit() {
+	return apiRequest<{ ok: boolean }>("/api/sandbox/init", { method: "POST" });
+}
+
+export interface SandboxBuyResult {
+	price: number;
+	shares: number;
+	costBasis: number;
+	cost: number;
+	remainingCash: number;
+}
+
+export function sandboxBuy(ticker: string, shares: number, thesis?: string) {
+	return apiRequest<SandboxBuyResult>("/api/sandbox/buy", {
+		method: "POST",
+		body: JSON.stringify({ ticker, shares, thesis }),
+	});
+}
+
+export interface SandboxSellResult {
+	price: number;
+	sharesToSell: number;
+	sellValue: number;
+	remaining: number;
+}
+
+export function sandboxSell(ticker: string, shares?: number) {
+	return apiRequest<SandboxSellResult>("/api/sandbox/sell", {
+		method: "POST",
+		body: JSON.stringify({ ticker, shares }),
+	});
+}
+
+export function sandboxReset() {
+	return apiRequest<{ ok: boolean; cash: number; tier: number }>("/api/sandbox/reset", { method: "POST" });
+}
+
+export function sandboxMilestone(value: number) {
+	return apiRequest<{ ok: boolean }>("/api/sandbox/milestone", {
+		method: "POST",
+		body: JSON.stringify({ value }),
+	});
+}
+
+export function sandboxTierUpgrade() {
+	return apiRequest<{ ok: boolean; increase?: number; newTier?: number }>("/api/sandbox/tier-upgrade", { method: "POST" });
+}
+
 export function getDeckOrder() {
 	return apiRequest<{ order: string[] }>("/api/me/deck-order");
 }

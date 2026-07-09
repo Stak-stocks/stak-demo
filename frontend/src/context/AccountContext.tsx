@@ -14,14 +14,15 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
+import {
+	incrementSwipeCountServer, type SwipeLimitIncrementResponse,
+	sandboxInit, sandboxBuy, sandboxSell, sandboxReset, sandboxMilestone, sandboxTierUpgrade,
+} from "../lib/api";
 import {
 	subscribeSupabaseAccount, updateStakSupabase, saveToStakSupabase,
 	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
 	updateLastBriefDateSupabase, addSearchHistorySupabase, removeSearchHistoryEntrySupabase,
 	clearSearchHistorySupabase, completeActivitySupabase, addXpSupabase,
-	initSandboxCashSupabase, addToSandboxSupabase, sellFromSandboxSupabase,
-	resetSandboxSupabase, checkAndApplySandboxTierUpgradeSupabase, markSandboxMilestoneSupabase,
 	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
 	completeDailyActivitySupabase, completeChallengeSupabase, addPracticeSkillXpSupabase,
 } from "../lib/supabaseAccount";
@@ -149,8 +150,8 @@ interface AccountContextType {
 	completeMoodScenario: (scenarioId: string) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addXp: (xp: number) => Promise<void>;
-	addToSandbox: (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => Promise<void>;
-	sellFromSandbox: (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => Promise<void>;
+	addToSandbox: (ticker: string, shares: number, thesis?: string) => Promise<void>;
+	sellFromSandbox: (ticker: string, sharesToSell?: number) => Promise<{ sellValue: number; price: number; sharesToSell: number; remaining: number }>;
 	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
@@ -188,7 +189,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
 	useEffect(() => {
 		if (supabaseUserId && account?.sandboxCash !== undefined) {
-			checkAndApplySandboxTierUpgradeSupabase().catch(() => {});
+			sandboxTierUpgrade().catch(() => {});
 		}
 	}, [supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
@@ -271,19 +272,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const initSandboxCash = useCallback(async () => {
 		if (account?.sandboxCash !== undefined) return;
-		await initSandboxCashSupabase();
+		await sandboxInit();
 	}, [account?.sandboxCash]);
 
-	const addToSandbox = useCallback(async (ticker: string, priceAtAdd: number | null, shares: number, thesis?: string) => {
-		await addToSandboxSupabase(ticker, priceAtAdd, shares, thesis);
+	const addToSandbox = useCallback(async (ticker: string, shares: number, thesis?: string) => {
+		await sandboxBuy(ticker, shares, thesis);
 	}, []);
 
-	const sellFromSandbox = useCallback(async (ticker: string, currentValue: number, currentPrice: number | null, sharesToSell?: number) => {
-		await sellFromSandboxSupabase(ticker, currentValue, sharesToSell);
+	const sellFromSandbox = useCallback(async (ticker: string, sharesToSell?: number) => {
+		return sandboxSell(ticker, sharesToSell);
 	}, []);
 
 	const resetSandbox = useCallback(async () => {
-		await resetSandboxSupabase();
+		await sandboxReset();
 	}, []);
 
 	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
@@ -304,7 +305,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {
-		await markSandboxMilestoneSupabase(value);
+		await sandboxMilestone(value);
 	}, []);
 
 	return (
