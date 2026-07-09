@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
-import { getGeminiKeys } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL } from "../services/geminiService.js";
 
 export const intelCardsRouter = Router();
 
@@ -95,7 +95,7 @@ Return ONLY a JSON array of exactly 30 objects:
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

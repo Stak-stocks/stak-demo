@@ -1,14 +1,12 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { getGeminiKeys } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL } from "../services/geminiService.js";
 import { pgQuery, ensureUserRow } from "../lib/postgres.js";
 import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
-
-const GEN_MODEL = "gemini-3.5-flash";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — fresh content each day
 
 

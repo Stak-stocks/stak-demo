@@ -68,6 +68,8 @@ export function getGeminiKeys(): string[] {
 
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
 
+export const GEMINI_MODEL = "gemini-3.5-flash";
+
 // Use the lite model for high-volume article simplification — faster and cheaper
 const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
 const SIMPLIFY_TIMEOUT_MS = 12000;
@@ -257,7 +259,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -328,7 +330,7 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -412,7 +414,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			const timeout = setTimeout(() => controller.abort(), 2500);
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },

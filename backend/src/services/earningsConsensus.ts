@@ -8,7 +8,7 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb, type YahooCrumbCache } from "../lib/yahooAuth.js";
 import { getEasternDateKey } from "@stak/shared";
-import { getGeminiKeys } from "./geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL } from "./geminiService.js";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
@@ -116,7 +116,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -586,7 +586,7 @@ async function fetchGeminiEarningsDates(
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -1024,7 +1024,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 			const timeout = setTimeout(() => controller.abort(), 15000);
 			try {
 				const gemRes = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -1136,7 +1136,7 @@ Rules:
 		const timeout = setTimeout(() => controller.abort(), 20000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -1373,7 +1373,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 		const timeout = setTimeout(() => controller.abort(), 8000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -1500,7 +1500,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 		const timeout = setTimeout(() => controller.abort(), 15000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
