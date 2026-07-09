@@ -563,3 +563,71 @@ export async function generatePlaygroundQuestions(
 		body: JSON.stringify({ dayKey, tier, type, count }),
 	}).then(r => r.questions ?? []);
 }
+
+// Playground XP — server-authoritative writes replacing direct Supabase RPC calls
+export function completeActivity(kind: "lesson" | "earnings" | "battle" | "risk" | "mood", itemId: string, xp?: number) {
+	return apiRequest<{ newlyCompleted: boolean; xp?: number }>("/api/playground/complete-activity", {
+		method: "POST",
+		body: JSON.stringify({ kind, itemId, xp }),
+	});
+}
+
+export function completeDailyActivityApi(dayKey: string, activityId: string, xp?: number, activityType?: string) {
+	return apiRequest<{ ok: boolean }>("/api/playground/complete-daily", {
+		method: "POST",
+		body: JSON.stringify({ dayKey, activityId, xp, activityType }),
+	});
+}
+
+export function completeChallengeApi(challengeId: string, xp?: number) {
+	return apiRequest<{ ok: boolean; xp?: number }>("/api/playground/complete-challenge", {
+		method: "POST",
+		body: JSON.stringify({ challengeId, xp }),
+	});
+}
+
+export function addSkillXp(skill: string, xp: number) {
+	return apiRequest<{ ok: boolean; xp: number }>("/api/playground/skill-xp", {
+		method: "POST",
+		body: JSON.stringify({ skill, xp }),
+	});
+}
+
+// Batch stock quotes for the watchlist
+export function getBatchQuotes(tickers: string[]) {
+	return apiRequest<{ quotes: Record<string, { price: number; change: number; changePercent: number }> }>(
+		`/api/stock/batch-quotes?tickers=${encodeURIComponent(tickers.join(","))}`,
+	);
+}
+
+// Search history — server manages dedup/cap (replaces 4 Supabase round-trips per add)
+export function addSearchHistoryEntry(query: string) {
+	return apiRequest<{ ok: boolean }>("/api/me/search-history", {
+		method: "POST",
+		body: JSON.stringify({ query }),
+	});
+}
+
+export function removeSearchHistoryEntry(query: string) {
+	return apiRequest<{ ok: boolean }>(`/api/me/search-history/${encodeURIComponent(query)}`, {
+		method: "DELETE",
+	});
+}
+
+export function clearSearchHistoryApi() {
+	return apiRequest<{ ok: boolean }>("/api/me/search-history", { method: "DELETE" });
+}
+
+// Stak brand price backfill
+export function patchStakBrandPrice(brandId: string, price: number) {
+	return apiRequest<{ ok: boolean }>(`/api/me/stak/${encodeURIComponent(brandId)}/price`, {
+		method: "PATCH",
+		body: JSON.stringify({ price }),
+	});
+}
+
+// Sorted recommendations (server-scored, personalized)
+export function getSortedRecommendations(limit?: number) {
+	const q = limit ? `?limit=${limit}` : "";
+	return apiRequest<{ brandIds: string[] }>(`/api/recommendations${q}`);
+}

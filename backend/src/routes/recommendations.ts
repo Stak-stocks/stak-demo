@@ -281,3 +281,45 @@ recommendationsRouter.get("/debug", authMiddleware, async (req: AuthenticatedReq
 		res.status(500).json({ error: "Failed to compute recommendations" });
 	}
 });
+
+// GET /api/recommendations — authenticated, returns brand IDs sorted by personalised score.
+// Used by the Discover page for the initial deck order for users with 20+ swipes,
+// replacing the client-side O(N) scoring loop. Cached per uid for 5 min.
+recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const limit = Math.min(Number(req.query.limit ?? 334), 334);
+
+		const cacheKey = `recommendations:sorted:${uid}:v1`;
+		const cached = await cacheGet<string[]>(cacheKey);
+		if (cached) {
+			res.json({ brandIds: cached });
+			return;
+		}
+
+		const tagResult = await pgQuery<{ tag_scores: Record<string, number> | null }>(
+			`SELECT tag_scores FROM users WHERE uid = $1`,
+			[uid],
+		);
+		const tagScores: Record<string, number> = (tagResult.rows[0]?.tag_scores as Record<string, number>) ?? {};
+
+		const [earningsTickers, todayThemes, freshness] = await Promise.all([
+			getUpcomingEarningsTickers(),
+			getTodayThemes(),
+			getFreshnessSignals(),
+		]);
+
+		const stocks = STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[];
+		const brandIds = stocks
+			.map((stock) => computeScore(stock, tagScores, earningsTickers, freshness, todayThemes))
+			.sort((a, b) => b.finalScore - a.finalScore)
+			.slice(0, limit)
+			.map((s) => s.ticker);
+
+		await cacheSet(cacheKey, brandIds, 5 * 60 * 1000); // 5 min
+		res.json({ brandIds });
+	} catch (error) {
+		console.error("Error computing sorted recommendations:", error);
+		res.status(500).json({ error: "Failed to compute recommendations" });
+	}
+});

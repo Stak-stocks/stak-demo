@@ -2,7 +2,8 @@ import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getGeminiKeys, GEMINI_MODEL } from "../services/geminiService.js";
-import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
+import type { AuthenticatedRequest } from "../authMiddleware.js";
 import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
@@ -472,5 +473,273 @@ Rules:
 		res.json({ questions: valid });
 	} catch {
 		res.status(500).json({ error: "Failed to parse generated content" });
+	}
+});
+
+// ── XP write endpoints — server-authoritative ─────────────────────────────────
+// These replace the direct Supabase RPC calls (complete_activity,
+// complete_daily_activity, complete_challenge, add_practice_skill_xp) so the
+// backend caps the XP values and the client never controls the XP amount.
+
+const XP_CAP: Record<string, number> = {
+	lesson: 50, earnings: 50, battle: 50, risk: 50, mood: 50,
+};
+const VALID_KINDS = new Set(["lesson", "earnings", "battle", "risk", "mood"]);
+
+// POST /api/playground/complete-activity — TypeScript replica of complete_activity() SQL RPC
+playgroundRouter.post("/complete-activity", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { kind, itemId, xp: rawXp } = req.body as { kind?: string; itemId?: string; xp?: unknown };
+
+		if (typeof kind !== "string" || !VALID_KINDS.has(kind)) {
+			res.status(400).json({ error: "kind must be one of: lesson, earnings, battle, risk, mood" });
+			return;
+		}
+		if (typeof itemId !== "string" || !itemId.trim()) {
+			res.status(400).json({ error: "itemId required" });
+			return;
+		}
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), XP_CAP[kind] ?? 50);
+
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const existing = await client.query<{ completed: boolean }>(
+				`SELECT completed FROM activity_progress WHERE uid = $1 AND kind = $2 AND item_id = $3`,
+				[uid, kind, itemId],
+			);
+
+			if (existing.rows[0]?.completed) {
+				await client.query("ROLLBACK");
+				res.json({ newlyCompleted: false });
+				return;
+			}
+
+			await client.query(
+				`INSERT INTO activity_progress (uid, kind, item_id, completed, completed_at, xp_earned)
+				 VALUES ($1, $2, $3, true, now(), $4)
+				 ON CONFLICT (uid, kind, item_id) DO UPDATE
+				   SET completed = true, completed_at = now(), xp_earned = $4`,
+				[uid, kind, itemId, xp],
+			);
+
+			if (xp > 0) {
+				await client.query(
+					`INSERT INTO playground_state (uid, total_xp) VALUES ($1, $2)
+					 ON CONFLICT (uid) DO UPDATE SET total_xp = playground_state.total_xp + $2`,
+					[uid, xp],
+				);
+			}
+
+			await client.query("COMMIT");
+			res.json({ newlyCompleted: true, xp });
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+	} catch (e) {
+		console.error("[playground] complete-activity error:", e);
+		res.status(500).json({ error: "Failed to complete activity" });
+	}
+});
+
+// POST /api/playground/complete-daily — TypeScript replica of complete_daily_activity() SQL RPC
+playgroundRouter.post("/complete-daily", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { dayKey, activityId, xp: rawXp, activityType } = req.body as {
+			dayKey?: string; activityId?: string; xp?: unknown; activityType?: string;
+		};
+
+		if (typeof dayKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+			res.status(400).json({ error: "dayKey must be YYYY-MM-DD" });
+			return;
+		}
+		if (typeof activityId !== "string" || !activityId.trim()) {
+			res.status(400).json({ error: "activityId required" });
+			return;
+		}
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 50);
+
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+
+			await client.query(
+				`INSERT INTO playground_state (uid) VALUES ($1) ON CONFLICT (uid) DO NOTHING`,
+				[uid],
+			);
+
+			const stateRow = await client.query<{
+				daily_progress: Record<string, unknown> | null;
+				all_time_completed_activity_ids: string[] | null;
+			}>(
+				`SELECT daily_progress, all_time_completed_activity_ids
+				 FROM playground_state WHERE uid = $1 FOR UPDATE`,
+				[uid],
+			);
+
+			const daily: Record<string, unknown> = (stateRow.rows[0]?.daily_progress as Record<string, unknown>) ?? {};
+			const allTime: string[] = stateRow.rows[0]?.all_time_completed_activity_ids ?? [];
+
+			const isSameDay = (daily["dayKey"] as string | undefined) === dayKey;
+			const alreadyDone = isSameDay && Array.isArray(daily["completedIds"]) &&
+				(daily["completedIds"] as string[]).includes(activityId);
+
+			if (alreadyDone) {
+				await client.query("ROLLBACK");
+				res.json({ ok: true, alreadyDone: true });
+				return;
+			}
+
+			let updatedDaily: Record<string, unknown>;
+			if (isSameDay) {
+				updatedDaily = {
+					...daily,
+					completedIds: [...((daily["completedIds"] as string[]) ?? []), activityId],
+					xpEarned: ((daily["xpEarned"] as number) ?? 0) + xp,
+					...(activityType ? { completedTypes: [...((daily["completedTypes"] as string[]) ?? []), activityType] } : {}),
+				};
+			} else {
+				updatedDaily = {
+					dayKey,
+					completedIds: [activityId],
+					completedTypes: activityType ? [activityType] : [],
+					xpEarned: xp,
+				};
+			}
+
+			const updatedAllTime = allTime.includes(activityId) ? allTime : [...allTime, activityId];
+
+			await client.query(
+				`UPDATE playground_state
+				 SET daily_progress = $1::jsonb,
+				     all_time_completed_activity_ids = $2,
+				     total_xp = total_xp + $3
+				 WHERE uid = $4`,
+				[JSON.stringify(updatedDaily), updatedAllTime, xp, uid],
+			);
+
+			await client.query("COMMIT");
+			res.json({ ok: true });
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+	} catch (e) {
+		console.error("[playground] complete-daily error:", e);
+		res.status(500).json({ error: "Failed to complete daily activity" });
+	}
+});
+
+// POST /api/playground/complete-challenge — TypeScript replica of complete_challenge() SQL RPC
+// Server generates today's date (ET) so the client can't backdate completions.
+playgroundRouter.post("/complete-challenge", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { challengeId, xp: rawXp } = req.body as { challengeId?: string; xp?: unknown };
+
+		if (typeof challengeId !== "string" || !challengeId.trim()) {
+			res.status(400).json({ error: "challengeId required" });
+			return;
+		}
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 50);
+		const today = getEasternDateKey();
+
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+
+			await client.query(
+				`INSERT INTO playground_state (uid) VALUES ($1) ON CONFLICT (uid) DO NOTHING`,
+				[uid],
+			);
+
+			const stateRow = await client.query<{ daily_challenge_state: Record<string, unknown> | null }>(
+				`SELECT daily_challenge_state FROM playground_state WHERE uid = $1 FOR UPDATE`,
+				[uid],
+			);
+			const state: Record<string, unknown> = (stateRow.rows[0]?.daily_challenge_state as Record<string, unknown>) ?? {};
+
+			const existingDate = state["date"] as string | undefined;
+			const existingIds: string[] = existingDate === today
+				? ((state["completedIds"] as string[]) ?? [])
+				: [];
+
+			if (existingIds.includes(challengeId)) {
+				await client.query("ROLLBACK");
+				res.json({ ok: true, alreadyDone: true });
+				return;
+			}
+
+			const newState = { date: today, completedIds: [...existingIds, challengeId] };
+			await client.query(
+				`UPDATE playground_state
+				 SET daily_challenge_state = $1::jsonb, total_xp = total_xp + $2
+				 WHERE uid = $3`,
+				[JSON.stringify(newState), xp, uid],
+			);
+
+			await client.query("COMMIT");
+			res.json({ ok: true, xp });
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+	} catch (e) {
+		console.error("[playground] complete-challenge error:", e);
+		res.status(500).json({ error: "Failed to complete challenge" });
+	}
+});
+
+const VALID_SKILLS = new Set(["fundamentals", "valuation", "earnings", "risk", "macro"]);
+
+// POST /api/playground/skill-xp — TypeScript replica of add_practice_skill_xp() SQL RPC
+// xp is capped at 5 per call (practice awards 1 correct, 3 wrong — any higher is invalid).
+playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { skill, xp: rawXp } = req.body as { skill?: string; xp?: unknown };
+
+		if (typeof skill !== "string" || !VALID_SKILLS.has(skill)) {
+			res.status(400).json({ error: `skill must be one of: ${[...VALID_SKILLS].join(", ")}` });
+			return;
+		}
+		const xp = Math.min(Math.max(1, Math.floor(Number(rawXp) || 0)), 5);
+
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+
+			await client.query(
+				`INSERT INTO practice_skills (uid, skill, xp) VALUES ($1, $2, $3)
+				 ON CONFLICT (uid, skill) DO UPDATE SET xp = practice_skills.xp + $3`,
+				[uid, skill, xp],
+			);
+			await client.query(
+				`INSERT INTO playground_state (uid, total_xp) VALUES ($1, $2)
+				 ON CONFLICT (uid) DO UPDATE SET total_xp = playground_state.total_xp + $2`,
+				[uid, xp],
+			);
+
+			await client.query("COMMIT");
+			res.json({ ok: true, xp });
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+	} catch (e) {
+		console.error("[playground] skill-xp error:", e);
+		res.status(500).json({ error: "Failed to record skill XP" });
 	}
 });

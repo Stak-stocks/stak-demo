@@ -14,16 +14,8 @@ vi.mock("@/lib/supabaseAccount", () => ({
 	updateDeckOrderSupabase: vi.fn().mockResolvedValue(undefined),
 	updatePreferencesSupabase: vi.fn().mockResolvedValue(undefined),
 	updateLastBriefDateSupabase: vi.fn().mockResolvedValue(undefined),
-	addSearchHistorySupabase: vi.fn().mockResolvedValue(undefined),
-	removeSearchHistoryEntrySupabase: vi.fn().mockResolvedValue(undefined),
-	clearSearchHistorySupabase: vi.fn().mockResolvedValue(undefined),
-	completeActivitySupabase: vi.fn().mockResolvedValue(undefined),
-	addXpSupabase: vi.fn().mockResolvedValue(undefined),
 	markPlaygroundOnboardedSupabase: vi.fn().mockResolvedValue(undefined),
 	saveGeneratedLessonHistorySupabase: vi.fn().mockResolvedValue(undefined),
-	completeDailyActivitySupabase: vi.fn().mockResolvedValue(undefined),
-	completeChallengeSupabase: vi.fn().mockResolvedValue(undefined),
-	addPracticeSkillXpSupabase: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -34,6 +26,13 @@ vi.mock("@/lib/api", () => ({
 	sandboxReset: vi.fn().mockResolvedValue({ ok: true, cash: 1000, tier: 1 }),
 	sandboxMilestone: vi.fn().mockResolvedValue({ ok: true }),
 	sandboxTierUpgrade: vi.fn().mockResolvedValue({ ok: true }),
+	completeActivity: vi.fn().mockResolvedValue(undefined),
+	completeDailyActivityApi: vi.fn().mockResolvedValue(undefined),
+	completeChallengeApi: vi.fn().mockResolvedValue(undefined),
+	addSkillXp: vi.fn().mockResolvedValue(undefined),
+	addSearchHistoryEntry: vi.fn().mockResolvedValue(undefined),
+	removeSearchHistoryEntry: vi.fn().mockResolvedValue(undefined),
+	clearSearchHistoryApi: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/context/AuthContext", () => ({

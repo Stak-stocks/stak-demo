@@ -17,14 +17,14 @@ import {
 import {
 	incrementSwipeCountServer, type SwipeLimitIncrementResponse,
 	sandboxInit, sandboxBuy, sandboxSell, sandboxReset, sandboxMilestone, sandboxTierUpgrade,
+	completeActivity, completeDailyActivityApi, completeChallengeApi, addSkillXp,
+	addSearchHistoryEntry, removeSearchHistoryEntry as removeSearchHistoryEntryApi, clearSearchHistoryApi,
 } from "../lib/api";
 import {
 	subscribeSupabaseAccount, updateStakSupabase, saveToStakSupabase,
 	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
-	updateLastBriefDateSupabase, addSearchHistorySupabase, removeSearchHistoryEntrySupabase,
-	clearSearchHistorySupabase, completeActivitySupabase, addXpSupabase,
+	updateLastBriefDateSupabase,
 	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
-	completeDailyActivitySupabase, completeChallengeSupabase, addPracticeSkillXpSupabase,
 } from "../lib/supabaseAccount";
 import { useAuth } from "./AuthContext";
 
@@ -149,7 +149,6 @@ interface AccountContextType {
 	completeRiskScenario: (scenarioId: string) => Promise<void>;
 	completeMoodScenario: (scenarioId: string) => Promise<void>;
 	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
-	addXp: (xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, sharesToSell?: number) => Promise<{ sellValue: number; price: number; sharesToSell: number; remaining: number }>;
 	initSandboxCash: () => Promise<void>;
@@ -221,15 +220,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const addSearchHistory = useCallback(async (query: string) => {
-		await addSearchHistorySupabase(query);
+		await addSearchHistoryEntry(query);
 	}, []);
 
 	const removeSearchHistoryEntry = useCallback(async (query: string) => {
-		await removeSearchHistoryEntrySupabase(query);
+		await removeSearchHistoryEntryApi(query);
 	}, []);
 
 	const clearSearchHistory = useCallback(async () => {
-		await clearSearchHistorySupabase();
+		await clearSearchHistoryApi();
 	}, []);
 
 	const updatePreferences = useCallback(async (prefs: UserDoc["preferences"]) => {
@@ -241,33 +240,27 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const completeLesson = useCallback(async (lessonId: string, xp: number) => {
-		await completeActivitySupabase("lesson", lessonId, xp);
+		await completeActivity("lesson", lessonId, xp);
 	}, []);
 
 	const completeEarningsScenario = useCallback(async (scenarioId: string) => {
-		await completeActivitySupabase("earnings", scenarioId);
+		await completeActivity("earnings", scenarioId);
 	}, []);
 
 	const completeBattle = useCallback(async (battleId: string) => {
-		await completeActivitySupabase("battle", battleId);
+		await completeActivity("battle", battleId);
 	}, []);
 
 	const completeRiskScenario = useCallback(async (scenarioId: string) => {
-		await completeActivitySupabase("risk", scenarioId);
+		await completeActivity("risk", scenarioId);
 	}, []);
 
 	const completeMoodScenario = useCallback(async (scenarioId: string) => {
-		await completeActivitySupabase("mood", scenarioId);
+		await completeActivity("mood", scenarioId);
 	}, []);
 
 	const completeChallenge = useCallback(async (challengeId: string, xp: number) => {
-		const d = new Date();
-		const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-		await completeChallengeSupabase(challengeId, xp, today);
-	}, []);
-
-	const addXp = useCallback(async (xp: number) => {
-		await addXpSupabase(xp);
+		await completeChallengeApi(challengeId, xp);
 	}, []);
 
 	const initSandboxCash = useCallback(async () => {
@@ -288,7 +281,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const completeDailyActivity = useCallback(async (dayKey: string, activityId: string, xp: number, activityType?: string) => {
-		await completeDailyActivitySupabase(dayKey, activityId, xp, activityType);
+		await completeDailyActivityApi(dayKey, activityId, xp, activityType);
 	}, []);
 
 	const markPlaygroundOnboarded = useCallback(async () => {
@@ -301,7 +294,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
 	const addPracticeSkillXp = useCallback(async (skill: string, xp: number) => {
 		if (xp <= 0) return;
-		await addPracticeSkillXpSupabase(skill, xp);
+		await addSkillXp(skill, xp);
 	}, []);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {
@@ -325,7 +318,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				completeRiskScenario,
 				completeMoodScenario,
 				completeChallenge,
-				addXp,
 				addToSandbox,
 				sellFromSandbox,
 				initSandboxCash,

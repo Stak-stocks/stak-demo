@@ -10,7 +10,7 @@ import { AlertTriangle, Search, Brain, Flame, BarChart3, Coffee, Zap, Shield, Me
 import stakLogo from "@/assets/stak-logo-icon.svg";
 import stakLogoColor from "@/assets/stak-logo-color.svg";
 import { toast } from "sonner";
-import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness } from "@/lib/api";
+import { recordEngagement, trackEvent, getMarketEarnings, getDailyBrief, getRecommendationFreshness, getSortedRecommendations } from "@/lib/api";
 import { marketSessionBucket, getTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
@@ -225,21 +225,31 @@ function App() {
 		const deckOrder = account.deckOrder;
 		let order: BrandSummary[];
 
-		// ── Phase A: Users with 20+ swipes → always use live recommendation score ──
+		// ── Phase A: Users with 20+ swipes → server-sorted recommendations ──
 		if (totalSwipes >= 20) {
-			// Clear any stale saved order — we always recompute for returning users
 			if (deckOrder?.length) {
 				updateDeckOrder([]).catch(() => {});
 			}
-			const tagScores = account.tagScores ?? {};
-			order = [...allBrands]
-				.map((b) => ({
-					brand: b,
-					score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
-				}))
-				.sort((a, b) => b.score - a.score)
-				.map(({ brand }) => brand);
-			setRecommendedOrder(order);
+			const tickerMap = new Map(allBrands.map((b) => [b.ticker, b]));
+			getSortedRecommendations()
+				.then((data) => {
+					const sorted = (data.brandIds ?? []).map((t) => tickerMap.get(t)).filter(Boolean) as BrandSummary[];
+					const sortedSet = new Set(data.brandIds ?? []);
+					const missing = allBrands.filter((b) => !sortedSet.has(b.ticker));
+					setRecommendedOrder([...sorted, ...missing]);
+				})
+				.catch(() => {
+					// Fall back to client-side scoring on network error
+					const tagScores = account.tagScores ?? {};
+					order = [...allBrands]
+						.map((b) => ({
+							brand: b,
+							score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
+						}))
+						.sort((a, b) => b.score - a.score)
+						.map(({ brand }) => brand);
+					setRecommendedOrder(order);
+				});
 			return; // don't persist — will always recompute on load
 		}
 

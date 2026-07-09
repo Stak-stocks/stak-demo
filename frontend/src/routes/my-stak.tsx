@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
 import { useBrandsList } from "@/hooks/useBrandsList";
@@ -10,8 +10,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { Sparkles, TrendingUp, X, ChevronRight, ChevronLeft, GitCompare, Bookmark, ShoppingBag, Shield, CalendarDays, FileText, BarChart3, DollarSign, Building2, Target, Plus, ArrowLeftRight } from "lucide-react";
 
 import { toast } from "sonner";
-import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove } from "@/lib/api";
-import { patchStakPriceSupabase } from "@/lib/supabaseAccount";
+import { getStockData, getCompanyNews, getAnalystData, getAnalystActions, getMarketEarnings, getDailyBrief, getBrandDetail, recordEngagement, trackEvent, getPeerMetrics, getDailyMove, getBatchQuotes, patchStakBrandPrice } from "@/lib/api";
 import { marketSessionBucket, getLastCloseRef, getEasternDateKey } from "@/lib/utils";
 import { parseFinancialValue, classifyMarketCap } from "@/lib/financial";
 import { computeTopDisplayCategory } from "@stak/shared";
@@ -32,20 +31,12 @@ const CATEGORY_META: Record<string, string> = {
 	shopping: "Retail", energy: "Clean Energy", lifestyle: "Lifestyle",
 };
 
-function WatchRow({ brand, onRemove, onClick }: {
+function WatchRow({ brand, quote, onRemove, onClick }: {
 	brand: BrandSummary;
+	quote?: { price: number; changePercent: number } | null;
 	onRemove: (e: React.MouseEvent) => void;
 	onClick: () => void;
 }) {
-	const { data: stockData } = useQuery({
-		queryKey: ["stock", brand.ticker],
-		queryFn: () => getStockData(brand.ticker),
-		staleTime: 60 * 1000,
-		refetchInterval: 60 * 1000,
-		retry: 1,
-	});
-
-	const quote = stockData?.quote;
 	const up = (quote?.changePercent ?? 0) >= 0;
 	const categoryMeta = CATEGORY_META[brand.interestCategories?.[0] ?? ""] ?? brand.ticker;
 
@@ -96,8 +87,9 @@ function WatchRow({ brand, onRemove, onClick }: {
 	);
 }
 
-function StakWatchList({ brands, onRemove, onClick }: {
+function StakWatchList({ brands, quotes, onRemove, onClick }: {
 	brands: BrandSummary[];
+	quotes: Record<string, { price: number; changePercent: number }>;
 	onRemove: (e: React.MouseEvent, brand: BrandSummary) => void;
 	onClick: (brand: BrandSummary) => void;
 }) {
@@ -112,6 +104,7 @@ function StakWatchList({ brands, onRemove, onClick }: {
 					<WatchRow
 						key={brand.id}
 						brand={brand}
+						quote={quotes[brand.ticker] ?? null}
 						onRemove={(e) => onRemove(e, brand)}
 						onClick={() => onClick(brand)}
 					/>
@@ -417,7 +410,7 @@ function MyStakPage() {
 			const brand = allBrands.find(b => b.id === brandId);
 			if (!brand?.ticker) continue;
 			getStockData(brand.ticker)
-				.then(data => { if (data?.quote?.price) patchStakPriceSupabase(brandId, data.quote.price); })
+				.then(data => { if (data?.quote?.price) patchStakBrandPrice(brandId, data.quote.price); })
 				.catch(() => {});
 		}
 	}, [account?.stakSavedAt, allBrands]);
@@ -542,26 +535,28 @@ function MyStakPage() {
 		retry: 1,
 	});
 
-	const stakBrandQueries = useQueries({
-		queries: swipedBrands.map((brand) => ({
-			queryKey: ["stock", brand.ticker],
-			queryFn: () => getStockData(brand.ticker),
-			staleTime: 60 * 1000,
-			retry: 1,
-		})),
+	const tickers = useMemo(() => swipedBrands.map((b) => b.ticker), [swipedBrands]);
+	const { data: batchQuotesData } = useQuery({
+		queryKey: ["batch-quotes", tickers],
+		queryFn: () => getBatchQuotes(tickers),
+		enabled: tickers.length > 0,
+		staleTime: 60 * 1000,
+		refetchInterval: 60 * 1000,
+		retry: 1,
 	});
+	const batchQuotes = batchQuotesData?.quotes ?? {};
 
 	const topMover = useMemo(() => {
 		let best: { ticker: string; changePercent: number } | null = null;
-		swipedBrands.forEach((brand, i) => {
-			const quote = stakBrandQueries[i]?.data?.quote;
-			if (!quote) return;
+		for (const brand of swipedBrands) {
+			const quote = batchQuotes[brand.ticker];
+			if (!quote) continue;
 			if (!best || Math.abs(quote.changePercent) > Math.abs(best.changePercent)) {
 				best = { ticker: brand.ticker, changePercent: quote.changePercent };
 			}
-		});
-		return best as { ticker: string; changePercent: number } | null;
-	}, [swipedBrands, stakBrandQueries]);
+		}
+		return best;
+	}, [swipedBrands, batchQuotes]);
 
 	// Restore selected brand overlay after page reload -- just needs the id to be a
 	// real one of the user's own staked brands; useBrandDetail fetches its full
@@ -1447,6 +1442,7 @@ function MyStakPage() {
 				<div className="px-[18px] pt-[18px] pb-6">
 					<StakWatchList
 						brands={swipedBrands}
+						quotes={batchQuotes}
 						onRemove={handleRemoveFromStak}
 						onClick={handleBrandClick}
 					/>
