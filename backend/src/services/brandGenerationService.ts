@@ -1,4 +1,4 @@
-import { getGeminiKeys } from "./geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL } from "./geminiService.js";
 import { getFinnhubKeys } from "./finnhubService.js";
 import { getHeroImage } from "./ipoService.js";
 import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, formatMarketCap, type BrandProfile, type VibeMetric } from "@stak/shared";
@@ -163,7 +163,7 @@ async function callGemini(prompt: string): Promise<GeminiBrandFields> {
 			if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
