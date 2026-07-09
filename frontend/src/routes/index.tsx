@@ -246,8 +246,8 @@ function App() {
 			const tickerMap = new Map(allBrands.map((b) => [b.ticker, b]));
 			getSortedRecommendations()
 				.then((data) => {
-					const sorted = (data.brandIds ?? []).map((t) => tickerMap.get(t)).filter(Boolean) as BrandSummary[];
-					const sortedSet = new Set(data.brandIds ?? []);
+					const sorted = (data.tickers ?? []).map((t) => tickerMap.get(t)).filter(Boolean) as BrandSummary[];
+					const sortedSet = new Set(data.tickers ?? []);
 					const missing = allBrands.filter((b) => !sortedSet.has(b.ticker));
 					setRecommendedOrder([...sorted, ...missing]);
 				})

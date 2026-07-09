@@ -622,5 +622,5 @@ export function patchStakBrandPrice(brandId: string, price: number) {
 // Sorted recommendations (server-scored, personalized)
 export function getSortedRecommendations(limit?: number) {
 	const q = limit ? `?limit=${limit}` : "";
-	return apiRequest<{ brandIds: string[] }>(`/api/recommendations${q}`);
+	return apiRequest<{ tickers: string[] }>(`/api/recommendations${q}`);
 }

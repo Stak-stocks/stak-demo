@@ -310,14 +310,14 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 		]);
 
 		const stocks = STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[];
-		const brandIds = stocks
+		const tickers = stocks
 			.map((stock) => computeScore(stock, tagScores, earningsTickers, freshness, todayThemes))
 			.sort((a, b) => b.finalScore - a.finalScore)
 			.slice(0, limit)
 			.map((s) => s.ticker);
 
-		await cacheSet(cacheKey, brandIds, 5 * 60 * 1000); // 5 min
-		res.json({ brandIds });
+		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
+		res.json({ tickers });
 	} catch (error) {
 		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });

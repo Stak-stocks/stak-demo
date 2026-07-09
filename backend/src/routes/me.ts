@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
-import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 
 export const meRouter = Router();
 
@@ -357,22 +357,30 @@ meRouter.post("/search-history", authMiddleware, async (req: AuthenticatedReques
 
 		await ensureUserRow(uid, req.user!.email);
 
-		// Remove any case-insensitive duplicate, insert new entry, trim to max — all in one trip
-		await pgQuery(
-			`DELETE FROM search_history WHERE uid = $1 AND LOWER(query) = $2`,
-			[uid, lower],
-		);
-		await pgQuery(
-			`INSERT INTO search_history (uid, query, at) VALUES ($1, $2, now())`,
-			[uid, trimmed],
-		);
-		// Trim oldest entries beyond cap
-		await pgQuery(
-			`DELETE FROM search_history WHERE uid = $1 AND query NOT IN (
-			   SELECT query FROM search_history WHERE uid = $1 ORDER BY at DESC LIMIT $2
-			 )`,
-			[uid, MAX_SEARCH_HISTORY],
-		);
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+			await client.query(
+				`DELETE FROM search_history WHERE uid = $1 AND LOWER(query) = $2`,
+				[uid, lower],
+			);
+			await client.query(
+				`INSERT INTO search_history (uid, query, at) VALUES ($1, $2, now())`,
+				[uid, trimmed],
+			);
+			await client.query(
+				`DELETE FROM search_history WHERE uid = $1 AND query NOT IN (
+				   SELECT query FROM search_history WHERE uid = $1 ORDER BY at DESC LIMIT $2
+				 )`,
+				[uid, MAX_SEARCH_HISTORY],
+			);
+			await client.query("COMMIT");
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
 
 		res.json({ ok: true });
 	} catch (error) {
