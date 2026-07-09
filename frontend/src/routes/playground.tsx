@@ -3536,8 +3536,13 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 			: orderQty;
 		const cost = activePrice * qty;
 		if (cost > sandboxCash || qty <= 0) return;
-		await handleAdd(activeStock, qty, activePrice);
-		closeOrder();
+		try {
+			await handleAdd(activeStock, qty, activePrice);
+			closeOrder();
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : "Order failed";
+			import("sonner").then(({ toast }) => toast.error(msg));
+		}
 	};
 
 	// Confirm sell
@@ -3547,7 +3552,14 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		if (!holding) return;
 		const totalShares = holding.shares;
 		const sellShares = orderQty;
-		const result = await sellFromSandbox(activeStock, sellShares);
+		let result: { sellValue: number; price: number; sharesToSell: number; remaining: number };
+		try {
+			result = await sellFromSandbox(activeStock, sellShares);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : "Sell failed";
+			import("sonner").then(({ toast }) => toast.error(msg));
+			return;
+		}
 		closeOrder();
 		const remainingShares = roundShares(totalShares - sellShares);
 		if (remainingShares <= 0) {
