@@ -223,17 +223,9 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			res.status(429).json({ error: `You've reached the daily limit of ${DAILY_AI_LIMIT} Stak AI messages. Come back tomorrow!` });
 			return;
 		}
-		// Create conversation if new
+		// Validate existing conversation ownership (don't create yet — wait for successful AI response)
 		let conversationId = existingConvId ?? null;
-		if (!conversationId) {
-			const title = trimTitle(message);
-			const result = await pgQuery<{ id: string }>(
-				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
-				[uid, title],
-			);
-			conversationId = result.rows[0]?.id ?? null;
-			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
-		} else {
+		if (conversationId) {
 			const result = await pgQuery<{ id: string }>(
 				`SELECT id FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
 				[conversationId, uid],
@@ -326,6 +318,16 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		if (!aiResponse) {
 			res.status(503).json({ error: "AI unavailable, please try again" });
 			return;
+		}
+
+		// Create conversation now that we have a successful exchange (both sides exist)
+		if (!conversationId) {
+			const result = await pgQuery<{ id: string }>(
+				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
+				[uid, trimTitle(message)],
+			);
+			conversationId = result.rows[0]?.id ?? null;
+			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
 		}
 
 		await pgQuery(
