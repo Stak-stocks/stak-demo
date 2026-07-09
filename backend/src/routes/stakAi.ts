@@ -68,6 +68,8 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 		const keys = getGeminiKeys();
 		if (keys.length === 0) return null;
 
+		let firstRefusal: string | null = null;
+
 		for (const key of keys) {
 			try {
 				const res = await fetch(
@@ -104,6 +106,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 				}
 				if (GEMINI_REFUSAL_RE.test(text.trim())) {
 					console.warn(`[Stak AI] Gemini refusal on key ...${key.slice(-4)}: "${text.trim().slice(0, 120)}"`);
+					firstRefusal ??= text.trim();
 					continue;
 				}
 				return text.trim();
@@ -111,6 +114,11 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 				console.warn(`[Stak AI] Gemini error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			}
 		}
+
+		// If every key refused (investment advice, out-of-scope), surface the refusal text
+		// so the user sees the actual explanation instead of a generic "AI unavailable" error.
+		if (firstRefusal) return firstRefusal;
+
 		console.warn("[Stak AI] All Gemini keys exhausted");
 		return null;
 	});
