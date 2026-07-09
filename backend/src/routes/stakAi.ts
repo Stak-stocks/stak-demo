@@ -68,6 +68,8 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 		const keys = getGeminiKeys();
 		if (keys.length === 0) return null;
 
+		let firstRefusal: string | null = null;
+
 		for (const key of keys) {
 			try {
 				const res = await fetch(
@@ -104,6 +106,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 				}
 				if (GEMINI_REFUSAL_RE.test(text.trim())) {
 					console.warn(`[Stak AI] Gemini refusal on key ...${key.slice(-4)}: "${text.trim().slice(0, 120)}"`);
+					firstRefusal ??= text.trim();
 					continue;
 				}
 				return text.trim();
@@ -111,6 +114,11 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 				console.warn(`[Stak AI] Gemini error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 			}
 		}
+
+		// If every key refused (investment advice, out-of-scope), surface the refusal text
+		// so the user sees the actual explanation instead of a generic "AI unavailable" error.
+		if (firstRefusal) return firstRefusal;
+
 		console.warn("[Stak AI] All Gemini keys exhausted");
 		return null;
 	});
@@ -215,17 +223,9 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			res.status(429).json({ error: `You've reached the daily limit of ${DAILY_AI_LIMIT} Stak AI messages. Come back tomorrow!` });
 			return;
 		}
-		// Create conversation if new
+		// Validate existing conversation ownership (don't create yet — wait for successful AI response)
 		let conversationId = existingConvId ?? null;
-		if (!conversationId) {
-			const title = trimTitle(message);
-			const result = await pgQuery<{ id: string }>(
-				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
-				[uid, title],
-			);
-			conversationId = result.rows[0]?.id ?? null;
-			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
-		} else {
+		if (conversationId) {
 			const result = await pgQuery<{ id: string }>(
 				`SELECT id FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
 				[conversationId, uid],
@@ -318,6 +318,16 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		if (!aiResponse) {
 			res.status(503).json({ error: "AI unavailable, please try again" });
 			return;
+		}
+
+		// Create conversation now that we have a successful exchange (both sides exist)
+		if (!conversationId) {
+			const result = await pgQuery<{ id: string }>(
+				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
+				[uid, trimTitle(message)],
+			);
+			conversationId = result.rows[0]?.id ?? null;
+			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
 		}
 
 		await pgQuery(
