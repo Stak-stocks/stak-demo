@@ -3515,8 +3515,8 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [tickers, sandboxCash, investedTotal, totalPortfolioValue, portfolioChartRange, portfolioChartLoading, portfolioStartMs]);
 
-	const handleAdd = async (ticker: string, shares: number, price: number | null) => {
-		await addToSandbox(ticker.toUpperCase(), price, shares, undefined);
+	const handleAdd = async (ticker: string, shares: number, _price: number | null) => {
+		await addToSandbox(ticker.toUpperCase(), shares);
 	};
 
 	// Close order sheet helper
@@ -3545,16 +3545,15 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		if (!activeStock) return;
 		const holding = holdings.find(h => h.ticker === activeStock);
 		if (!holding) return;
-		const pricePerShare = holding.currentPrice ?? (holding.costBasis > 0 ? holding.costBasis / holding.shares : 0);
-		const sellShares = orderQty;
 		const totalShares = holding.shares;
-		const sellValue = pricePerShare * sellShares;
-		await sellFromSandbox(activeStock, sellValue, pricePerShare, sellShares);
+		const sellShares = orderQty;
+		const result = await sellFromSandbox(activeStock, sellShares);
 		closeOrder();
 		const remainingShares = roundShares(totalShares - sellShares);
 		if (remainingShares <= 0) {
 			setActiveStock(null);
 		}
+		const sellValue = result.sellValue;
 		const sellPnl = sellValue - (holding.entry.priceAtAdd ?? 0) * sellShares;
 		const won = sellPnl >= 0;
 		import("sonner").then(({ toast }) => toast.custom(() => (

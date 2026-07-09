@@ -294,30 +294,6 @@ export async function addXpSupabase(xp: number): Promise<void> {
 	await supabase.rpc("add_xp", { p_amount: xp });
 }
 
-export async function initSandboxCashSupabase(): Promise<void> {
-	await supabase.rpc("init_sandbox_cash");
-}
-
-export async function addToSandboxSupabase(ticker: string, priceAtAdd: number | null, shares: number, thesis?: string): Promise<void> {
-	await supabase.rpc("add_to_sandbox", { p_ticker: ticker, p_price_at_add: priceAtAdd, p_shares: shares, p_thesis: thesis ?? null });
-}
-
-export async function sellFromSandboxSupabase(ticker: string, currentValue: number, sharesToSell?: number): Promise<void> {
-	await supabase.rpc("sell_from_sandbox", { p_ticker: ticker, p_current_value: currentValue, ...(sharesToSell != null ? { p_shares_to_sell: sharesToSell } : {}) });
-}
-
-export async function resetSandboxSupabase(): Promise<void> {
-	await supabase.rpc("reset_sandbox");
-}
-
-export async function checkAndApplySandboxTierUpgradeSupabase(): Promise<void> {
-	await supabase.rpc("check_and_apply_sandbox_tier_upgrade");
-}
-
-export async function markSandboxMilestoneSupabase(value: number): Promise<void> {
-	await supabase.rpc("mark_sandbox_milestone", { p_value: value });
-}
-
 export async function markPlaygroundOnboardedSupabase(): Promise<void> {
 	await supabase.rpc("mark_playground_onboarded");
 }

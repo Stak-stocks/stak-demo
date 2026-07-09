@@ -19,12 +19,6 @@ vi.mock("@/lib/supabaseAccount", () => ({
 	clearSearchHistorySupabase: vi.fn().mockResolvedValue(undefined),
 	completeActivitySupabase: vi.fn().mockResolvedValue(undefined),
 	addXpSupabase: vi.fn().mockResolvedValue(undefined),
-	initSandboxCashSupabase: vi.fn().mockResolvedValue(undefined),
-	addToSandboxSupabase: vi.fn().mockResolvedValue(undefined),
-	sellFromSandboxSupabase: vi.fn().mockResolvedValue(undefined),
-	resetSandboxSupabase: vi.fn().mockResolvedValue(undefined),
-	checkAndApplySandboxTierUpgradeSupabase: vi.fn().mockResolvedValue(undefined),
-	markSandboxMilestoneSupabase: vi.fn().mockResolvedValue(undefined),
 	markPlaygroundOnboardedSupabase: vi.fn().mockResolvedValue(undefined),
 	saveGeneratedLessonHistorySupabase: vi.fn().mockResolvedValue(undefined),
 	completeDailyActivitySupabase: vi.fn().mockResolvedValue(undefined),
@@ -34,6 +28,12 @@ vi.mock("@/lib/supabaseAccount", () => ({
 
 vi.mock("@/lib/api", () => ({
 	incrementSwipeCountServer: vi.fn().mockResolvedValue({ accepted: true, count: 1, limit: 10 }),
+	sandboxInit: vi.fn().mockResolvedValue({ ok: true }),
+	sandboxBuy: vi.fn().mockResolvedValue({ price: 100, shares: 1, costBasis: 100, cost: 100, remainingCash: 900 }),
+	sandboxSell: vi.fn().mockResolvedValue({ price: 100, sharesToSell: 1, sellValue: 100, remaining: 0 }),
+	sandboxReset: vi.fn().mockResolvedValue({ ok: true, cash: 1000, tier: 1 }),
+	sandboxMilestone: vi.fn().mockResolvedValue({ ok: true }),
+	sandboxTierUpgrade: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 vi.mock("@/context/AuthContext", () => ({

@@ -70,7 +70,7 @@ async function callGemini(prompt: string): Promise<string | null> {
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEN_MODEL}:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
