@@ -639,68 +639,6 @@ playgroundRouter.post("/complete-daily", authMiddleware, async (req: Authenticat
 	}
 });
 
-// POST /api/playground/complete-challenge — TypeScript replica of complete_challenge() SQL RPC
-// Server generates today's date (ET) so the client can't backdate completions.
-playgroundRouter.post("/complete-challenge", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	try {
-		const uid = req.user!.uid;
-		const { challengeId, xp: rawXp } = req.body as { challengeId?: string; xp?: unknown };
-
-		if (typeof challengeId !== "string" || !challengeId.trim()) {
-			res.status(400).json({ error: "challengeId required" });
-			return;
-		}
-		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 50);
-		const today = getEasternDateKey();
-
-		const client = await pgPool.connect();
-		try {
-			await client.query("BEGIN");
-
-			await client.query(
-				`INSERT INTO playground_state (uid) VALUES ($1) ON CONFLICT (uid) DO NOTHING`,
-				[uid],
-			);
-
-			const stateRow = await client.query<{ daily_challenge_state: Record<string, unknown> | null }>(
-				`SELECT daily_challenge_state FROM playground_state WHERE uid = $1 FOR UPDATE`,
-				[uid],
-			);
-			const state: Record<string, unknown> = (stateRow.rows[0]?.daily_challenge_state as Record<string, unknown>) ?? {};
-
-			const existingDate = state["date"] as string | undefined;
-			const existingIds: string[] = existingDate === today
-				? ((state["completedIds"] as string[]) ?? [])
-				: [];
-
-			if (existingIds.includes(challengeId)) {
-				await client.query("ROLLBACK");
-				res.json({ ok: true, alreadyDone: true });
-				return;
-			}
-
-			const newState = { date: today, completedIds: [...existingIds, challengeId] };
-			await client.query(
-				`UPDATE playground_state
-				 SET daily_challenge_state = $1::jsonb, total_xp = total_xp + $2
-				 WHERE uid = $3`,
-				[JSON.stringify(newState), xp, uid],
-			);
-
-			await client.query("COMMIT");
-			res.json({ ok: true, xp });
-		} catch (e) {
-			await client.query("ROLLBACK");
-			throw e;
-		} finally {
-			client.release();
-		}
-	} catch (e) {
-		console.error("[playground] complete-challenge error:", e);
-		res.status(500).json({ error: "Failed to complete challenge" });
-	}
-});
-
 const VALID_SKILLS = new Set(["fundamentals", "valuation", "earnings", "risk", "macro"]);
 
 // POST /api/playground/skill-xp — TypeScript replica of add_practice_skill_xp() SQL RPC

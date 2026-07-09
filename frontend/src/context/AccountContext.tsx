@@ -17,7 +17,7 @@ import {
 import {
 	incrementSwipeCountServer, type SwipeLimitIncrementResponse,
 	sandboxInit, sandboxBuy, sandboxSell, sandboxReset, sandboxMilestone, sandboxTierUpgrade,
-	completeActivity, completeDailyActivityApi, completeChallengeApi, addSkillXp,
+	completeActivity, completeDailyActivityApi, addSkillXp,
 	addSearchHistoryEntry, removeSearchHistoryEntry as removeSearchHistoryEntryApi, clearSearchHistoryApi,
 } from "../lib/api";
 import {
@@ -148,7 +148,6 @@ interface AccountContextType {
 	completeBattle: (battleId: string) => Promise<void>;
 	completeRiskScenario: (scenarioId: string) => Promise<void>;
 	completeMoodScenario: (scenarioId: string) => Promise<void>;
-	completeChallenge: (challengeId: string, xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, sharesToSell?: number) => Promise<{ sellValue: number; price: number; sharesToSell: number; remaining: number }>;
 	initSandboxCash: () => Promise<void>;
@@ -259,11 +258,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await completeActivity("mood", scenarioId);
 	}, []);
 
-	const completeChallenge = useCallback(async (challengeId: string, xp: number) => {
-		await completeChallengeApi(challengeId, xp);
-	}, []);
-
-	const initSandboxCash = useCallback(async () => {
+const initSandboxCash = useCallback(async () => {
 		if (account?.sandboxCash !== undefined) return;
 		await sandboxInit();
 	}, [account?.sandboxCash]);
@@ -317,7 +312,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				completeBattle,
 				completeRiskScenario,
 				completeMoodScenario,
-				completeChallenge,
 				addToSandbox,
 				sellFromSandbox,
 				initSandboxCash,

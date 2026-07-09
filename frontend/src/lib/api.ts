@@ -579,13 +579,6 @@ export function completeDailyActivityApi(dayKey: string, activityId: string, xp?
 	});
 }
 
-export function completeChallengeApi(challengeId: string, xp?: number) {
-	return apiRequest<{ ok: boolean; xp?: number }>("/api/playground/complete-challenge", {
-		method: "POST",
-		body: JSON.stringify({ challengeId, xp }),
-	});
-}
-
 export function addSkillXp(skill: string, xp: number) {
 	return apiRequest<{ ok: boolean; xp: number }>("/api/playground/skill-xp", {
 		method: "POST",

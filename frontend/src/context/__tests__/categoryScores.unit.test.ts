@@ -28,7 +28,6 @@ vi.mock("@/lib/api", () => ({
 	sandboxTierUpgrade: vi.fn().mockResolvedValue({ ok: true }),
 	completeActivity: vi.fn().mockResolvedValue(undefined),
 	completeDailyActivityApi: vi.fn().mockResolvedValue(undefined),
-	completeChallengeApi: vi.fn().mockResolvedValue(undefined),
 	addSkillXp: vi.fn().mockResolvedValue(undefined),
 	addSearchHistoryEntry: vi.fn().mockResolvedValue(undefined),
 	removeSearchHistoryEntry: vi.fn().mockResolvedValue(undefined),
