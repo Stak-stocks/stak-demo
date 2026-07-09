@@ -8,7 +8,7 @@ import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
 
-const GEN_MODEL = "gemini-2.5-flash";
+const GEN_MODEL = "gemini-3.5-flash";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — fresh content each day
 
 

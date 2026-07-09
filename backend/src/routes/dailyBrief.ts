@@ -114,7 +114,7 @@ async function fetchMarketHolidays(): Promise<Set<string>> {
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -239,7 +239,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -333,7 +333,7 @@ No financial advice. No disclaimers. Just describe what happened clearly.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -519,7 +519,7 @@ CRITICAL RULES:
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -717,7 +717,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 		for (const key of keys) {
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+					`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -887,7 +887,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
