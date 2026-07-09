@@ -68,7 +68,7 @@ export function getGeminiKeys(): string[] {
 
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
 
-export const GEMINI_MODEL = "gemini-3.5-flash";
+export const GEMINI_MODEL = "gemini-2.5-flash";
 
 // Use the lite model for high-volume article simplification — faster and cheaper
 const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
