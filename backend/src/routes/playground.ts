@@ -506,24 +506,25 @@ playgroundRouter.post("/complete-activity", authMiddleware, async (req: Authenti
 		try {
 			await client.query("BEGIN");
 
-			const existing = await client.query<{ completed: boolean }>(
-				`SELECT completed FROM activity_progress WHERE uid = $1 AND kind = $2 AND item_id = $3`,
-				[uid, kind, itemId],
+			// Atomic check-and-complete: DO UPDATE only fires when completed=false,
+			// so RETURNING is empty when already done. Eliminates the SELECT + INSERT
+			// two-step race where concurrent requests could both read completed=false
+			// and both award XP.
+			const result = await client.query<{ uid: string }>(
+				`INSERT INTO activity_progress (uid, kind, item_id, completed, completed_at, xp_earned)
+				 VALUES ($1, $2, $3, true, now(), $4)
+				 ON CONFLICT (uid, kind, item_id) DO UPDATE
+				   SET completed = true, completed_at = now(), xp_earned = EXCLUDED.xp_earned
+				   WHERE activity_progress.completed = false
+				 RETURNING uid`,
+				[uid, kind, itemId, xp],
 			);
 
-			if (existing.rows[0]?.completed) {
+			if (result.rows.length === 0) {
 				await client.query("ROLLBACK");
 				res.json({ newlyCompleted: false });
 				return;
 			}
-
-			await client.query(
-				`INSERT INTO activity_progress (uid, kind, item_id, completed, completed_at, xp_earned)
-				 VALUES ($1, $2, $3, true, now(), $4)
-				 ON CONFLICT (uid, kind, item_id) DO UPDATE
-				   SET completed = true, completed_at = now(), xp_earned = $4`,
-				[uid, kind, itemId, xp],
-			);
 
 			if (xp > 0) {
 				await client.query(
@@ -713,7 +714,11 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			res.status(400).json({ error: `skill must be one of: ${[...VALID_SKILLS].join(", ")}` });
 			return;
 		}
-		const xp = Math.min(Math.max(1, Math.floor(Number(rawXp) || 0)), 5);
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 5);
+		if (xp <= 0) {
+			res.status(400).json({ error: "xp must be positive" });
+			return;
+		}
 
 		const client = await pgPool.connect();
 		try {

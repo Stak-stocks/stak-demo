@@ -230,6 +230,19 @@ function App() {
 			if (deckOrder?.length) {
 				updateDeckOrder([]).catch(() => {});
 			}
+			// Set synchronous client-side order immediately so deck isn't blank while
+			// the server call resolves (~200ms cold, ~10ms when 5-min cache is warm).
+			const tagScores = account.tagScores ?? {};
+			order = [...allBrands]
+				.map((b) => ({
+					brand: b,
+					score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
+				}))
+				.sort((a, b) => b.score - a.score)
+				.map(({ brand }) => brand);
+			setRecommendedOrder(order);
+			// Then refine with server-computed order (personalised + freshness signals
+			// computed from live market data, cached per uid for 5 min).
 			const tickerMap = new Map(allBrands.map((b) => [b.ticker, b]));
 			getSortedRecommendations()
 				.then((data) => {
@@ -238,18 +251,7 @@ function App() {
 					const missing = allBrands.filter((b) => !sortedSet.has(b.ticker));
 					setRecommendedOrder([...sorted, ...missing]);
 				})
-				.catch(() => {
-					// Fall back to client-side scoring on network error
-					const tagScores = account.tagScores ?? {};
-					order = [...allBrands]
-						.map((b) => ({
-							brand: b,
-							score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
-						}))
-						.sort((a, b) => b.score - a.score)
-						.map(({ brand }) => brand);
-					setRecommendedOrder(order);
-				});
+				.catch(() => {}); // initial client-side order already set — keep it on error
 			return; // don't persist — will always recompute on load
 		}
 
