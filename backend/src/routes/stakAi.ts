@@ -87,13 +87,23 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 					continue;
 				}
 				if (!res.ok) {
-					console.warn(`[Stak AI] Gemini error ${res.status} on key ...${key.slice(-4)} — trying next`);
+					const body = await res.text().catch(() => "(unreadable)");
+					console.warn(`[Stak AI] Gemini error ${res.status} on key ...${key.slice(-4)}: ${body.slice(0, 400)}`);
 					continue;
 				}
-				const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+				const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]; promptFeedback?: { blockReason?: string } };
+				if (data?.promptFeedback?.blockReason) {
+					console.warn(`[Stak AI] Gemini blocked prompt on key ...${key.slice(-4)}: ${data.promptFeedback.blockReason}`);
+					continue;
+				}
 				const text = data?.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "";
+				if (!text) {
+					const finishReason = data?.candidates?.[0]?.finishReason ?? "unknown";
+					console.warn(`[Stak AI] Gemini empty response on key ...${key.slice(-4)}, finishReason: ${finishReason}`);
+					continue;
+				}
 				if (GEMINI_REFUSAL_RE.test(text.trim())) {
-					console.warn(`[Stak AI] Gemini returned refusal on key ...${key.slice(-4)} — trying next`);
+					console.warn(`[Stak AI] Gemini refusal on key ...${key.slice(-4)}: "${text.trim().slice(0, 120)}"`);
 					continue;
 				}
 				return text.trim();
