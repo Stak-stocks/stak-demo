@@ -21,6 +21,7 @@ import { recommendationsRouter } from "./routes/recommendations.js";
 import { dailyBriefRouter } from "./routes/dailyBrief.js";
 import { playgroundRouter } from "./routes/playground.js";
 import { brandAdminRouter } from "./routes/brandAdmin.js";
+import { stakAiRouter } from "./routes/stakAi.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 const app = express();
@@ -86,6 +87,7 @@ app.use("/api/admin/brands", brandAdminRouter);
 app.use("/api/recommendations", authLimiter, recommendationsRouter);
 app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 app.use("/api/playground", authLimiter, playgroundRouter);
+app.use("/api/stak-ai", authLimiter, stakAiRouter);
 
 // Convenience redirect: /analytics → /analytics.html
 app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));

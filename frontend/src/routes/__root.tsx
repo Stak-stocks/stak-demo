@@ -10,6 +10,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
+import { StakAiChat } from "@/components/StakAiChat";
 import type { BrandProfile } from "@stak/shared";
 import { getEasternDateKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -260,6 +261,8 @@ function Root() {
 		/>
 
 		{briefOpen && <DailyBriefModal onClose={() => setBriefOpen(false)} source={briefSource} />}
+
+		{isLoggedIn && !isAuthPage && <StakAiChat />}
 
 		</div>
 	);

@@ -1,0 +1,693 @@
+<title>Stak AI — Feature Scope</title>
+<style>
+  :root {
+    --bg:             #f7f9fc;
+    --surface:        #ffffff;
+    --surface-2:      #f0f4f9;
+    --border:         rgba(15,23,42,0.09);
+    --text:           #0d1526;
+    --muted:          #60748f;
+    --accent:         #5a5ff2;
+    --accent-2:       #7c3aed;
+    --accent-soft:    rgba(90,95,242,0.07);
+    --accent-border:  rgba(90,95,242,0.18);
+    --good:           #0d8a5c;
+    --bad:            #94a3b8;
+    --ff:             -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --ff-mono:        'SF Mono', 'Cascadia Code', 'Fira Code', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:            #08101e;
+      --surface:       #0e1828;
+      --surface-2:     #152033;
+      --border:        rgba(200,220,255,0.08);
+      --text:          #e4ecf7;
+      --muted:         #7a90a8;
+      --accent:        #818cf8;
+      --accent-2:      #a78bfa;
+      --accent-soft:   rgba(129,140,248,0.09);
+      --accent-border: rgba(129,140,248,0.2);
+      --good:          #2dd4a4;
+      --bad:           #475569;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:            #08101e;
+    --surface:       #0e1828;
+    --surface-2:     #152033;
+    --border:        rgba(200,220,255,0.08);
+    --text:          #e4ecf7;
+    --muted:         #7a90a8;
+    --accent:        #818cf8;
+    --accent-2:      #a78bfa;
+    --accent-soft:   rgba(129,140,248,0.09);
+    --accent-border: rgba(129,140,248,0.2);
+    --good:          #2dd4a4;
+    --bad:           #475569;
+  }
+  :root[data-theme="light"] {
+    --bg:            #f7f9fc;
+    --surface:       #ffffff;
+    --surface-2:     #f0f4f9;
+    --border:        rgba(15,23,42,0.09);
+    --text:          #0d1526;
+    --muted:         #60748f;
+    --accent:        #5a5ff2;
+    --accent-2:      #7c3aed;
+    --accent-soft:   rgba(90,95,242,0.07);
+    --accent-border: rgba(90,95,242,0.18);
+    --good:          #0d8a5c;
+    --bad:           #94a3b8;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--ff);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+  }
+
+  /* ── HEADER ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 100px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.4rem;
+  }
+
+  .badge-gem {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: clamp(2.1rem, 5vw, 2.9rem);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
+    text-wrap: balance;
+    margin-bottom: 0.85rem;
+  }
+
+  .lead {
+    font-size: 1.02rem;
+    color: var(--muted);
+    max-width: 56ch;
+    line-height: 1.72;
+    margin-bottom: 1.25rem;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .meta-row span { display: flex; align-items: center; gap: 0.35rem; }
+  .meta-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); opacity: 0.5; }
+
+  /* ── SECTION ── */
+  section { margin-bottom: 3rem; }
+
+  .eyebrow {
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.65rem;
+  }
+
+  section > h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.9rem;
+    text-wrap: balance;
+  }
+
+  .rule {
+    height: 1px;
+    background: var(--border);
+    margin: 2.75rem 0;
+  }
+
+  /* ── PILLARS ── */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 0.9rem;
+  }
+
+  .pillar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.15rem 1.25rem;
+  }
+
+  .pillar-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    margin-bottom: 0.65rem;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .pillar h3 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.38rem;
+  }
+
+  .pillar p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.57;
+  }
+
+  .mono-tag {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-size: 0.67rem;
+    font-family: var(--ff-mono);
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    padding: 0.12rem 0.42rem;
+    border-radius: 4px;
+  }
+
+  /* ── CONTEXT TABLE ── */
+  .ctx-grid {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .ctx-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ctx-row:last-child { border-bottom: none; }
+
+  .ctx-row > div { padding: 0.72rem 1rem; font-size: 0.82rem; line-height: 1.5; }
+
+  .ctx-key {
+    font-weight: 600;
+    font-size: 0.76rem;
+    color: var(--muted);
+    background: var(--surface-2);
+    display: flex;
+    align-items: flex-start;
+    padding-top: 0.8rem;
+  }
+
+  .ctx-val { background: var(--surface); color: var(--text); }
+
+  code {
+    font-family: var(--ff-mono);
+    font-size: 0.78em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.05em 0.35em;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  /* ── UI CARDS ── */
+  .ui-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .ui-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .ui-card-head {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ui-card ul {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .ui-card li {
+    font-size: 0.8rem;
+    line-height: 1.48;
+    list-style: none;
+    padding-left: 1rem;
+    position: relative;
+    color: var(--text);
+  }
+
+  .ui-card li::before {
+    content: '–';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ── PROMPT ROWS ── */
+  .prompt-list { display: flex; flex-direction: column; gap: 0.45rem; }
+
+  .prompt-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.81rem;
+    color: var(--text);
+  }
+
+  .prompt-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--muted);
+  }
+
+  .prompt-source {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── GUARDRAILS ── */
+  .guardrails { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .guardrail {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+  }
+
+  .g-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: var(--accent);
+    font-family: var(--ff-mono);
+    margin-top: 1px;
+  }
+
+  .guardrail p { font-size: 0.82rem; line-height: 1.5; color: var(--text); }
+  .guardrail p strong { font-weight: 700; }
+
+  /* ── COST TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.81rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  thead th {
+    padding: 0.6rem 1rem;
+    text-align: left;
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--accent-soft); }
+
+  td.good { color: var(--good); font-weight: 700; }
+
+  td.crossed {
+    color: var(--bad);
+    text-decoration: line-through;
+    text-decoration-color: var(--bad);
+  }
+
+  .note {
+    font-size: 0.73rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    line-height: 1.55;
+  }
+
+  /* ── STACK ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+
+  .chip {
+    font-family: var(--ff-mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.28rem 0.65rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+  }
+
+  .chip.hi {
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 580px) {
+    .pillars { grid-template-columns: 1fr; }
+    .ui-pair { grid-template-columns: 1fr; }
+    .ctx-row { grid-template-columns: 1fr; }
+    .ctx-key { border-bottom: none; padding-bottom: 0.2rem; }
+    .prompt-source { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header style="margin-bottom:3.25rem">
+    <div class="badge"><div class="badge-gem"></div>Feature Scope · v1</div>
+    <h1>Stak AI</h1>
+    <p class="lead">A personalized financial education assistant embedded across the app. Ask anything about your stocks, research brands, and learn investing concepts — powered by Gemini 2.5 Flash and built around each user's own Stak.</p>
+    <div class="meta-row">
+      <span><div class="meta-dot"></div>Entry: floating button</span>
+      <span><div class="meta-dot"></div>Model: Gemini 2.5 Flash</span>
+      <span><div class="meta-dot"></div>Storage: Postgres</span>
+      <span><div class="meta-dot"></div>20 msgs / user / day</span>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section>
+    <div class="eyebrow">How it works</div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-mark">✦</div>
+        <h3>AI Model</h3>
+        <p>Gemini 2.5 Flash with no Google Search grounding. Live market data is injected from our own cached stock endpoint — keeps latency low and cost minimal.</p>
+        <div class="mono-tag">gemini-2.5-flash</div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-mark">↗</div>
+        <h3>Live Market Data</h3>
+        <p>When a user mentions any brand or ticker, the backend self-calls <code>/api/stock/:ticker</code> for fresh price, change%, P/E, beta, and market cap — injected into the conversation before the AI responds.</p>
+        <div class="mono-tag">333 brands covered</div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-mark">◎</div>
+        <h3>Personalization</h3>
+        <p>Every conversation is seeded with the user's Stak (with purchase prices), financial familiarity level, top interest tags, and the current ET date. The AI calibrates its explanation depth automatically.</p>
+        <div class="mono-tag">per-user context</div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-mark">▣</div>
+        <h3>Persistent History</h3>
+        <p>Full conversation history stored in Postgres across two new tables. Users can resume any of their last 20 conversations, and prior messages are replayed as context when they return to a thread.</p>
+        <div class="mono-tag">stak_ai_conversations · stak_ai_messages</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- WHAT IT KNOWS -->
+  <section>
+    <div class="eyebrow">What it knows about the user</div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;max-width:58ch">Injected into every conversation as a system context turn before any user message is sent to Gemini.</p>
+    <div class="ctx-grid">
+      <div class="ctx-row">
+        <div class="ctx-key">Their Stak</div>
+        <div class="ctx-val">All saved brands with ticker symbols and the price when they added it — e.g. <em>"Nike (NKE) — added at $85.20"</em>. Gives the AI direct awareness of what they track and at what cost basis.</div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-key">Financial familiarity</div>
+        <div class="ctx-val">Beginner / intermediate / advanced — set during onboarding. The AI adjusts explanation depth and vocabulary to match.</div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-key">Top interest tags</div>
+        <div class="ctx-val">Top 3 weighted tags derived from swipe history (e.g. Tech, Fashion, Food & Beverage). Used to frame answers and generate personalized starter prompts.</div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-key">Live stock data</div>
+        <div class="ctx-val">If the user's message mentions any brand or ticker from the full 333-brand catalog (not just their Stak), we fetch live price data and inject it as a separate turn before their question. The AI is told to use those exact numbers.</div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-key">Today's date (ET)</div>
+        <div class="ctx-val">Injected so the AI reasons correctly about market sessions, earnings timing, and relative references like "this week" or "today" — without drifting into wrong timezone assumptions.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- UI -->
+  <section>
+    <div class="eyebrow">UI &amp; entry point</div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;max-width:58ch">A floating sparkles button sits fixed to the bottom-right of every in-app screen, above the bottom nav. Tapping opens a full-screen overlay with two distinct states.</p>
+
+    <div class="ui-pair">
+      <div class="ui-card">
+        <div class="ui-card-head">Landing state · no messages yet</div>
+        <ul>
+          <li>Large "Stak AI" heading and subtitle</li>
+          <li>Search-bar style input near the top</li>
+          <li>Four personalized "Try asking" rows with icons and chevrons</li>
+          <li>Tapping any prompt sends it immediately</li>
+          <li>History and new-chat controls in the top bar</li>
+        </ul>
+      </div>
+      <div class="ui-card">
+        <div class="ui-card-head">Chat state · active conversation</div>
+        <ul>
+          <li>Full message thread — user right, AI left with sparkle avatar</li>
+          <li>AI messages render bold text and bullet lists</li>
+          <li>Animated three-dot indicator while waiting</li>
+          <li>Textarea pinned to bottom, Enter to send</li>
+          <li>Optimistic append with automatic rollback on error</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="eyebrow" style="margin-bottom:0.6rem">Personalized starter prompts</div>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">Computed at render time from each user's actual data. Shown on the landing state — tapping sends immediately.</p>
+    <div class="prompt-list">
+      <div class="prompt-item">
+        <div class="prompt-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        Why did Nike move today?
+        <span class="prompt-source">→ first Stak brand</span>
+      </div>
+      <div class="prompt-item">
+        <div class="prompt-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v2"/><path d="M2 12h10"/><path d="M2 17h5"/><path d="M2 7h3"/></svg>
+        </div>
+        What's happening in Tech stocks?
+        <span class="prompt-source">→ top interest tag</span>
+      </div>
+      <div class="prompt-item">
+        <div class="prompt-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        What should I check before buying?
+        <span class="prompt-source">→ always shown</span>
+      </div>
+      <div class="prompt-item">
+        <div class="prompt-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        What changed since I saved Nike?
+        <span class="prompt-source">→ first Stak brand</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- GUARDRAILS -->
+  <section>
+    <div class="eyebrow">Guardrails &amp; limits</div>
+    <div class="guardrails">
+      <div class="guardrail">
+        <div class="g-badge">✕</div>
+        <p><strong>No buy / sell / hold recommendations.</strong> The system prompt explicitly prohibits directional advice. Any investment-adjacent response includes "for educational purposes only, not financial advice."</p>
+      </div>
+      <div class="guardrail">
+        <div class="g-badge">20</div>
+        <p><strong>20 messages per user per day.</strong> Enforced in Postgres using a per-user ET day boundary. The 429 response surfaces as an in-app toast. Resets at midnight ET.</p>
+      </div>
+      <div class="guardrail">
+        <div class="g-badge">↺</div>
+        <p><strong>Gemini refusal filter.</strong> Responses matching the known Gemini refusal pattern are caught and retried on the next available API key before surfacing an error — same shared filter used across all AI routes.</p>
+      </div>
+      <div class="guardrail">
+        <div class="g-badge">⇄</div>
+        <p><strong>Key rotation with concurrency limit.</strong> Cycles through multiple Gemini API keys with 429-aware fallback. A shared concurrency limiter prevents request pile-ups under load.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- COST -->
+  <section>
+    <div class="eyebrow">Cost estimate</div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;max-width:60ch">The original design used Gemini's Google Search grounding tool. We removed it — live data is instead injected from our own cached Yahoo Finance endpoint, at no additional cost per call.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Daily active users</th>
+            <th>Avg msgs / user / day</th>
+            <th>Monthly messages</th>
+            <th>With Search grounding</th>
+            <th>Current</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>50 DAU</td>
+            <td>3</td>
+            <td>4,500</td>
+            <td class="crossed">~$263 / mo</td>
+            <td class="good">~$0.77 / mo</td>
+          </tr>
+          <tr>
+            <td>100 DAU</td>
+            <td>3</td>
+            <td>9,000</td>
+            <td class="crossed">~$525 / mo</td>
+            <td class="good">~$1.53 / mo</td>
+          </tr>
+          <tr>
+            <td>500 DAU</td>
+            <td>3</td>
+            <td>45,000</td>
+            <td class="crossed">~$2,625 / mo</td>
+            <td class="good">~$7.65 / mo</td>
+          </tr>
+          <tr>
+            <td>1,000 DAU</td>
+            <td>3</td>
+            <td>90,000</td>
+            <td class="crossed">~$5,250 / mo</td>
+            <td class="good">~$15.30 / mo</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">~$0.00017 per message (Gemini 2.5 Flash at avg 800 input / 400 output tokens). Google Search grounding was $35 per 1,000 calls regardless of token count.</p>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- STACK -->
+  <section>
+    <div class="eyebrow">Tech stack</div>
+    <div class="chips">
+      <span class="chip hi">gemini-2.5-flash</span>
+      <span class="chip">Postgres (Supabase)</span>
+      <span class="chip">Express / Cloud Run</span>
+      <span class="chip">React + Tailwind</span>
+      <span class="chip">Yahoo Finance (cached)</span>
+      <span class="chip">lucide-react</span>
+    </div>
+  </section>
+
+</div>
