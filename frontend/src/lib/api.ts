@@ -29,7 +29,12 @@ async function apiRequest<T>(
 	});
 
 	if (!response.ok) {
-		throw new Error(`API error: ${response.status} ${response.statusText}`);
+		let message = `API error: ${response.status} ${response.statusText}`;
+		try {
+			const body = await response.json() as { error?: string };
+			if (body.error) message = body.error;
+		} catch { /* ignore parse failure */ }
+		throw new Error(message);
 	}
 
 	return response.json();
@@ -466,6 +471,36 @@ export function getRecommendationDebug(limit = 50) {
 		returnedCount: number;
 		stocks: RecommendationDebugStock[];
 	}>(`/api/recommendations/debug?limit=${limit}`);
+}
+
+// Stak AI
+export interface StakAiConversation {
+	id: string;
+	title: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface StakAiMessage {
+	id: number;
+	role: "user" | "assistant";
+	content: string;
+	created_at: string;
+}
+
+export function sendStakAiMessage(message: string, conversationId?: string) {
+	return apiRequest<{ response: string; conversationId: string }>("/api/stak-ai/chat", {
+		method: "POST",
+		body: JSON.stringify({ message, conversationId }),
+	});
+}
+
+export function getStakAiConversations() {
+	return apiRequest<{ conversations: StakAiConversation[] }>("/api/stak-ai/conversations");
+}
+
+export function getStakAiMessages(conversationId: string) {
+	return apiRequest<{ messages: StakAiMessage[] }>(`/api/stak-ai/conversations/${conversationId}/messages`);
 }
 
 export async function generatePlaygroundQuestions(
