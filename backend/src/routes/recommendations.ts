@@ -2,7 +2,7 @@ import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, getEasternDateKey } from "@stak/shared";
+import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, type StakTicker, getEasternDateKey } from "@stak/shared";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
@@ -25,15 +25,17 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 	return null;
 }
 
-// Tickers we compute freshness signals for — covers nearly all top-ranked deck cards
-const WATCH_TICKERS = [
+// Tickers we compute freshness signals for — covers nearly all top-ranked deck cards.
+// Must be a subset of StakTicker (i.e. in STAK_WEIGHTED_STOCK_TAGS / the brand catalog)
+// so the freshness boost actually lands on brands users can see in their deck.
+const WATCH_TICKERS: StakTicker[] = [
 	"AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX",
-	"AVGO", "AMD", "INTC", "QCOM", "ORCL", "ADBE", "CRM", "CSCO",
+	"AVGO", "AMD", "INTC", "QCOM", "ORCL", "ADBE", "CRM",
 	"UBER", "ABNB", "DASH", "SPOT", "SNAP", "PINS", "RDDT", "COIN",
 	"HOOD", "RBLX", "PLTR", "DUOL", "CRWD", "SNOW", "DDOG", "NET",
 	"SHOP", "PYPL", "SQ", "V", "MA", "JPM", "GS", "BAC",
 	"WMT", "COST", "TGT", "HD", "MCD", "SBUX", "NKE", "LULU",
-	"DIS", "CMCSA", "RIVN", "F", "GM", "LLY", "ABBV", "PANW",
+	"DIS", "RIVN", "F", "GM", "LLY", "ABBV", "PANW",
 ];
 const WATCH_TICKER_SET = new Set<string>(WATCH_TICKERS);
 

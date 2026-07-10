@@ -41,7 +41,7 @@ export { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl, 
 export type { BrandProfile, BrandSummary, BrandIdentity, VibeMetric, FinancialMetric, NewsArticle } from "./brands/types";
 
 export { STAK_WEIGHTED_STOCK_TAGS, ACTION_POINTS } from "./stockTags";
-export type { StakStockTagConfig, WeightedLearningTag } from "./stockTags";
+export type { StakStockTagConfig, WeightedLearningTag, StakTicker } from "./stockTags";
 
 export { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES } from "./peerGroups";
 export type { PeerLookupIndex } from "./peerGroups";

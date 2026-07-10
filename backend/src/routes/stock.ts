@@ -128,8 +128,6 @@ const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
 const TICKER_MAP: Record<string, string> = {
-	"OR.PA": "LRLCY",
-	OR: "LRLCY",
 	"MC.PA": "LVMUY",
 };
 

@@ -2279,7 +2279,7 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
     ]
   },
   {
-    "ticker": "OR",
+    "ticker": "LRLCY",
     "sourceSection": "Popular",
     "primaryCategory": "apparel_beauty",
     "displayTags": [
@@ -3932,35 +3932,6 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
     ]
   },
   {
-    "ticker": "BRKB",
-    "sourceSection": "Finance",
-    "primaryCategory": "private_equity",
-    "displayTags": [
-      "Private Markets",
-      "Financials",
-      "Alternative Assets",
-      "Markets"
-    ],
-    "learningTags": [
-      {
-        "tag": "financials",
-        "weight": 1.0,
-      },
-      {
-        "tag": "private_equity",
-        "weight": 1.0,
-      },
-      {
-        "tag": "alternative_assets",
-        "weight": 1.0,
-      },
-      {
-        "tag": "markets",
-        "weight": 0.75,
-      }
-    ]
-  },
-  {
     "ticker": "OMF",
     "sourceSection": "Finance",
     "primaryCategory": "bank",
@@ -4839,7 +4810,7 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
     ]
   },
   {
-    "ticker": "MATCH",
+    "ticker": "MTCH",
     "sourceSection": "Tech",
     "primaryCategory": "social_media",
     "displayTags": [
@@ -6375,35 +6346,6 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
   },
   {
     "ticker": "LULU",
-    "sourceSection": "Consumer",
-    "primaryCategory": "apparel_beauty",
-    "displayTags": [
-      "Consumer Brand",
-      "Apparel/Beauty",
-      "Retail",
-      "Familiar Brand"
-    ],
-    "learningTags": [
-      {
-        "tag": "consumer_brand",
-        "weight": 1.0,
-      },
-      {
-        "tag": "apparel_beauty",
-        "weight": 1.0,
-      },
-      {
-        "tag": "retail",
-        "weight": 1.0,
-      },
-      {
-        "tag": "familiar_brand",
-        "weight": 0.75,
-      }
-    ]
-  },
-  {
-    "ticker": "TPR",
     "sourceSection": "Consumer",
     "primaryCategory": "apparel_beauty",
     "displayTags": [
@@ -9525,39 +9467,6 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
     ]
   },
   {
-    "ticker": "PARA",
-    "sourceSection": "New additions",
-    "primaryCategory": "streaming_media",
-    "displayTags": [
-      "Streaming",
-      "Entertainment",
-      "Consumer Brand",
-      "Subscriptions"
-    ],
-    "learningTags": [
-      {
-        "tag": "streaming",
-        "weight": 1.0,
-      },
-      {
-        "tag": "entertainment",
-        "weight": 0.75,
-      },
-      {
-        "tag": "consumer_brand",
-        "weight": 1.0,
-      },
-      {
-        "tag": "subscription",
-        "weight": 0.75,
-      },
-      {
-        "tag": "media",
-        "weight": 1.0,
-      }
-    ]
-  },
-  {
     "ticker": "LCID",
     "sourceSection": "New additions",
     "primaryCategory": "auto_ev",
@@ -10337,7 +10246,45 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
         "weight": 0.75,
       }
     ]
+  },
+  {
+    "ticker": "SPCE",
+    "sourceSection": "New additions",
+    "primaryCategory": "space_airmobility",
+    "displayTags": [
+      "Space/Air Mobility",
+      "Speculative",
+      "High Growth",
+      "Innovation"
+    ],
+    "learningTags": [
+      {
+        "tag": "space",
+        "weight": 1.0,
+      },
+      {
+        "tag": "air_mobility",
+        "weight": 0.75,
+      },
+      {
+        "tag": "speculative",
+        "weight": 1.0,
+      },
+      {
+        "tag": "high_growth",
+        "weight": 0.75,
+      },
+      {
+        "tag": "innovation",
+        "weight": 0.75,
+      }
+    ]
   }
 ] as const;
+
+/** Union of every ticker string present in STAK_WEIGHTED_STOCK_TAGS.
+ *  Use this as the single source of truth when typing peer-group maps or
+ *  freshness-signal lists — TypeScript will error on any stale ticker. */
+export type StakTicker = (typeof STAK_WEIGHTED_STOCK_TAGS)[number]["ticker"];
 
 export const ACTION_POINTS = { save: 5, right_swipe: 5, learn_more: 3, pass: -1, left_swipe: -1, skip: 0, remove_from_watchlist: -5 } as const;
