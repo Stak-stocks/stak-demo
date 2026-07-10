@@ -283,7 +283,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		if (mentionedBrands.length > 0) {
 			const [priceResults, newsResults] = await Promise.all([
 				Promise.allSettled(mentionedBrands.map((b) => fetchLiveStockContext(b.ticker).then((ctx) => ({ brand: b, ctx })))),
-				Promise.allSettled(mentionedBrands.map((b) => getCompanyNews(b.ticker, 5, b.name).then((articles) => ({ brand: b, articles })))),
+				Promise.allSettled(mentionedBrands.map((b) => getCompanyNews(b.ticker, 24, b.name).then((articles) => ({ brand: b, articles })))),
 			]);
 			for (const f of priceResults) {
 				if (f.status === "fulfilled" && f.value.ctx) {
