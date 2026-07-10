@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
+import { getCompanyNews } from "../services/finnhubService.js";
 import { getEasternDateKey } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile } from "@stak/shared";
@@ -79,7 +80,6 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							contents,
-							tools: [{ googleSearch: {} }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
 						}),
 						signal: AbortSignal.timeout(30000),
@@ -279,13 +279,21 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		// Detect mentioned brands from full catalog — not just Stak, so any brand works
 		const mentionedBrands = detectMentionedBrands(message.trim(), brands as BrandProfile[]);
 		const liveDataLines: string[] = [];
+		const newsLines: string[] = [];
 		if (mentionedBrands.length > 0) {
-			const fetches = await Promise.allSettled(
-				mentionedBrands.map((b) => fetchLiveStockContext(b.ticker).then((ctx) => ({ brand: b, ctx }))),
-			);
-			for (const f of fetches) {
+			const [priceResults, newsResults] = await Promise.all([
+				Promise.allSettled(mentionedBrands.map((b) => fetchLiveStockContext(b.ticker).then((ctx) => ({ brand: b, ctx })))),
+				Promise.allSettled(mentionedBrands.map((b) => getCompanyNews(b.ticker, 5, b.name).then((articles) => ({ brand: b, articles })))),
+			]);
+			for (const f of priceResults) {
 				if (f.status === "fulfilled" && f.value.ctx) {
 					liveDataLines.push(`• ${f.value.brand.name} (${f.value.brand.ticker}): ${f.value.ctx}`);
+				}
+			}
+			for (const f of newsResults) {
+				if (f.status === "fulfilled" && f.value.articles.length > 0) {
+					const headlines = f.value.articles.slice(0, 5).map((a) => `  - ${a.headline}`).join("\n");
+					newsLines.push(`${f.value.brand.name} (${f.value.brand.ticker}) recent headlines:\n${headlines}`);
 				}
 			}
 		}
@@ -301,15 +309,18 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			})),
 		];
 
-		// Inject live market data as a separate turn before the user's question
-		if (liveDataLines.length > 0) {
+		// Inject live price + recent news headlines before the user's question
+		if (liveDataLines.length > 0 || newsLines.length > 0) {
+			const parts: string[] = [];
+			if (liveDataLines.length > 0) parts.push(`Live market data:\n${liveDataLines.join("\n")}`);
+			if (newsLines.length > 0) parts.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
 			contents.push({
 				role: "user",
-				parts: [{ text: `Live market data right now:\n${liveDataLines.join("\n")}\n\nUse these exact numbers when answering the question below.` }],
+				parts: [{ text: `${parts.join("\n\n")}\n\nUse this context when answering the question below.` }],
 			});
 			contents.push({
 				role: "model",
-				parts: [{ text: "Got it — I have the live market data and will use those exact figures." }],
+				parts: [{ text: "Got it — I have the live data and recent news and will use them in my answer." }],
 			});
 		}
 
