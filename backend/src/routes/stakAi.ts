@@ -217,7 +217,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 	}
 
 	const DAILY_AI_LIMIT = 20;
-	const MAX_MESSAGE_CHARS = 500;
+	const MAX_MESSAGE_CHARS = 150;
 
 	if (message.trim().length > MAX_MESSAGE_CHARS) {
 		res.status(400).json({ error: `Message too long — please keep it under ${MAX_MESSAGE_CHARS} characters.` });
