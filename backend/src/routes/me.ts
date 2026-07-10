@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { getEasternDateKey } from "@stak/shared";
-import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 
 export const meRouter = Router();
 
@@ -336,5 +336,105 @@ meRouter.put("/deck-order", authMiddleware, async (req: AuthenticatedRequest, re
 	} catch (error) {
 		console.error("Error saving deck order:", error);
 		res.status(500).json({ error: "Failed to save deck order" });
+	}
+});
+
+// ── Search history ─────────────────────────────────────────────────────────────
+const MAX_SEARCH_HISTORY = 20;
+
+// POST /api/me/search-history — add entry, dedup case-insensitively, enforce cap
+// Replaces 4 sequential Supabase client→Postgres round-trips with one server request.
+meRouter.post("/search-history", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { query } = req.body as { query?: string };
+		const trimmed = (query ?? "").trim();
+		if (!trimmed) {
+			res.status(400).json({ error: "query required" });
+			return;
+		}
+		const lower = trimmed.toLowerCase();
+
+		await ensureUserRow(uid, req.user!.email);
+
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+			await client.query(
+				`DELETE FROM search_history WHERE uid = $1 AND LOWER(query) = $2`,
+				[uid, lower],
+			);
+			await client.query(
+				`INSERT INTO search_history (uid, query, at) VALUES ($1, $2, now())`,
+				[uid, trimmed],
+			);
+			await client.query(
+				`DELETE FROM search_history WHERE uid = $1 AND query NOT IN (
+				   SELECT query FROM search_history WHERE uid = $1 ORDER BY at DESC LIMIT $2
+				 )`,
+				[uid, MAX_SEARCH_HISTORY],
+			);
+			await client.query("COMMIT");
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error adding search history:", error);
+		res.status(500).json({ error: "Failed to add search history" });
+	}
+});
+
+// DELETE /api/me/search-history/:query — remove one entry (case-insensitive)
+meRouter.delete("/search-history/:query", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const query = decodeURIComponent(req.params.query as string).trim();
+		await pgQuery(
+			`DELETE FROM search_history WHERE uid = $1 AND LOWER(query) = LOWER($2)`,
+			[uid, query],
+		);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error removing search history entry:", error);
+		res.status(500).json({ error: "Failed to remove search history entry" });
+	}
+});
+
+// DELETE /api/me/search-history — clear all entries
+meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		await pgQuery(`DELETE FROM search_history WHERE uid = $1`, [uid]);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error clearing search history:", error);
+		res.status(500).json({ error: "Failed to clear search history" });
+	}
+});
+
+// PATCH /api/me/stak/:brandId/price — backfill priceAtSave only if currently null
+meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const brandId = req.params.brandId as string;
+		const { price } = req.body as { price?: unknown };
+		if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
+			res.status(400).json({ error: "price must be a positive number" });
+			return;
+		}
+		await pgQuery(
+			`UPDATE stak_brands SET price_at_save = $1
+			 WHERE uid = $2 AND brand_id = $3 AND price_at_save IS NULL`,
+			[price, uid, brandId],
+		);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error patching stak price:", error);
+		res.status(500).json({ error: "Failed to patch stak price" });
 	}
 });

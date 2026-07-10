@@ -2,7 +2,7 @@ import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, getEasternDateKey } from "@stak/shared";
+import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, type StakTicker, getEasternDateKey } from "@stak/shared";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
@@ -25,15 +25,17 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 	return null;
 }
 
-// Tickers we compute freshness signals for — covers nearly all top-ranked deck cards
-const WATCH_TICKERS = [
+// Tickers we compute freshness signals for — covers nearly all top-ranked deck cards.
+// Must be a subset of StakTicker (i.e. in STAK_WEIGHTED_STOCK_TAGS / the brand catalog)
+// so the freshness boost actually lands on brands users can see in their deck.
+const WATCH_TICKERS: StakTicker[] = [
 	"AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX",
-	"AVGO", "AMD", "INTC", "QCOM", "ORCL", "ADBE", "CRM", "CSCO",
+	"AVGO", "AMD", "INTC", "QCOM", "ORCL", "ADBE", "CRM",
 	"UBER", "ABNB", "DASH", "SPOT", "SNAP", "PINS", "RDDT", "COIN",
 	"HOOD", "RBLX", "PLTR", "DUOL", "CRWD", "SNOW", "DDOG", "NET",
 	"SHOP", "PYPL", "SQ", "V", "MA", "JPM", "GS", "BAC",
 	"WMT", "COST", "TGT", "HD", "MCD", "SBUX", "NKE", "LULU",
-	"DIS", "CMCSA", "RIVN", "F", "GM", "LLY", "ABBV", "PANW",
+	"DIS", "RIVN", "F", "GM", "LLY", "ABBV", "PANW",
 ];
 const WATCH_TICKER_SET = new Set<string>(WATCH_TICKERS);
 
@@ -278,6 +280,48 @@ recommendationsRouter.get("/debug", authMiddleware, async (req: AuthenticatedReq
 		});
 	} catch (error) {
 		console.error("Error computing recommendation debug:", error);
+		res.status(500).json({ error: "Failed to compute recommendations" });
+	}
+});
+
+// GET /api/recommendations — authenticated, returns brand IDs sorted by personalised score.
+// Used by the Discover page for the initial deck order for users with 20+ swipes,
+// replacing the client-side O(N) scoring loop. Cached per uid for 5 min.
+recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const limit = Math.min(Number(req.query.limit ?? 334), 334);
+
+		const cacheKey = `recommendations:sorted:${uid}:v1`;
+		const cached = await cacheGet<string[]>(cacheKey);
+		if (cached) {
+			res.json({ brandIds: cached });
+			return;
+		}
+
+		const tagResult = await pgQuery<{ tag_scores: Record<string, number> | null }>(
+			`SELECT tag_scores FROM users WHERE uid = $1`,
+			[uid],
+		);
+		const tagScores: Record<string, number> = (tagResult.rows[0]?.tag_scores as Record<string, number>) ?? {};
+
+		const [earningsTickers, todayThemes, freshness] = await Promise.all([
+			getUpcomingEarningsTickers(),
+			getTodayThemes(),
+			getFreshnessSignals(),
+		]);
+
+		const stocks = STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[];
+		const tickers = stocks
+			.map((stock) => computeScore(stock, tagScores, earningsTickers, freshness, todayThemes))
+			.sort((a, b) => b.finalScore - a.finalScore)
+			.slice(0, limit)
+			.map((s) => s.ticker);
+
+		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
+		res.json({ tickers });
+	} catch (error) {
+		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });
 	}
 });

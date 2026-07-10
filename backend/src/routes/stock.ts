@@ -128,8 +128,6 @@ const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
 const TICKER_MAP: Record<string, string> = {
-	"OR.PA": "LRLCY",
-	OR: "LRLCY",
 	"MC.PA": "LVMUY",
 };
 
@@ -410,6 +408,50 @@ async function fetchYahooExtended(symbol: string): Promise<YahooExtended | null>
 		return null;
 	}
 }
+
+// ── Batch quotes ─────────────────────────────────────────────────────────────
+// GET /api/stock/batch-quotes?tickers=AAPL,TSLA,...
+// Returns { quotes: Record<ticker, { price, change, changePercent }> }
+// Reuses the same quote:fb:{symbol} Redis cache as the single-stock endpoint,
+// so requests from WatchRow and from individual stock views share one cache layer.
+stockRouter.get("/batch-quotes", async (req, res) => {
+	const raw = (req.query.tickers as string | undefined) ?? "";
+	const tickers = raw.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean).slice(0, 50);
+
+	if (tickers.length === 0) {
+		res.json({ quotes: {} });
+		return;
+	}
+
+	try {
+		const results = await Promise.all(
+			tickers.map(async (symbol) => {
+				const fbKey = `quote:fb:${symbol}`;
+				let raw = await cacheGet<Record<string, number>>(fbKey);
+				if (!raw) {
+					raw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+					if (raw) await cacheSet(fbKey, raw, QUOTE_TTL_MS);
+				}
+				if (!raw || typeof raw.c !== "number") return [symbol, null] as const;
+				return [symbol, {
+					price: Math.round(raw.c * 100) / 100,
+					change: Math.round((raw.d ?? 0) * 100) / 100,
+					changePercent: Math.round((raw.dp ?? 0) * 100) / 100,
+				}] as const;
+			}),
+		);
+
+		const quotes: Record<string, { price: number; change: number; changePercent: number }> = {};
+		for (const [ticker, quote] of results) {
+			if (quote) quotes[ticker] = quote;
+		}
+
+		res.json({ quotes });
+	} catch (e) {
+		console.error("[stock] batch-quotes error:", e);
+		res.status(500).json({ error: "Failed to fetch batch quotes" });
+	}
+});
 
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
 

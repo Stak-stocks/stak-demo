@@ -239,61 +239,6 @@ export async function updateLastBriefDateSupabase(date: string): Promise<void> {
 	await supabase.from("users").update({ last_brief_date: date }).not("uid", "is", null);
 }
 
-// Must match AccountContext.tsx's MAX_SEARCH_HISTORY -- duplicated rather than
-// imported to avoid a circular import (AccountContext.tsx already imports from this
-// module for the read-side subscription).
-const MAX_SEARCH_HISTORY = 20;
-
-export async function addSearchHistorySupabase(query: string): Promise<void> {
-	const trimmed = query.trim();
-	if (!trimmed) return;
-	const lower = trimmed.toLowerCase();
-
-	// Firestore's version dedupes case-insensitively, but (uid, query) is an exact-match
-	// PK here -- "Apple" and "apple" would otherwise coexist as two rows. Remove any
-	// case-insensitive match before inserting the new exact-case entry.
-	const { data: existing } = await supabase.from("search_history").select("query, at");
-	const toRemove = (existing ?? []).filter((e) => e.query.toLowerCase() === lower).map((e) => e.query);
-	if (toRemove.length > 0) {
-		await supabase.from("search_history").delete().in("query", toRemove);
-	}
-
-	await supabase.from("search_history").insert({ query: trimmed, at: new Date().toISOString() });
-
-	// Enforce the same MAX_SEARCH_HISTORY cap Firestore's .slice(0, MAX) applied --
-	// trim anything beyond the most recent N.
-	const { data: all } = await supabase.from("search_history").select("query, at").order("at", { ascending: false });
-	const overflow = (all ?? []).slice(MAX_SEARCH_HISTORY).map((e) => e.query);
-	if (overflow.length > 0) {
-		await supabase.from("search_history").delete().in("query", overflow);
-	}
-}
-
-export async function removeSearchHistoryEntrySupabase(query: string): Promise<void> {
-	const lower = query.toLowerCase();
-	const { data: existing } = await supabase.from("search_history").select("query");
-	const toRemove = (existing ?? []).filter((e) => e.query.toLowerCase() === lower).map((e) => e.query);
-	if (toRemove.length > 0) {
-		await supabase.from("search_history").delete().in("query", toRemove);
-	}
-}
-
-export async function clearSearchHistorySupabase(): Promise<void> {
-	await supabase.from("search_history").delete().not("uid", "is", null);
-}
-
-// completeLesson/completeEarningsScenario/completeBattle/completeRiskScenario/
-// completeMoodScenario all route through this one RPC (kind differs, only lessons
-// pass xp) -- see the activity_completion_rpcs migration for why this needs to be an
-// RPC rather than a direct write (atomicity around the already-completed check).
-export async function completeActivitySupabase(kind: "lesson" | "earnings" | "battle" | "risk" | "mood", itemId: string, xp = 0): Promise<void> {
-	await supabase.rpc("complete_activity", { p_kind: kind, p_item_id: itemId, p_xp: xp });
-}
-
-export async function addXpSupabase(xp: number): Promise<void> {
-	await supabase.rpc("add_xp", { p_amount: xp });
-}
-
 export async function markPlaygroundOnboardedSupabase(): Promise<void> {
 	await supabase.rpc("mark_playground_onboarded");
 }
@@ -302,14 +247,4 @@ export async function saveGeneratedLessonHistorySupabase(entry: { topic: string;
 	await supabase.rpc("save_generated_lesson_history", { p_topic: entry.topic, p_title: entry.title, p_angle: entry.angle });
 }
 
-export async function completeDailyActivitySupabase(dayKey: string, activityId: string, xp: number, activityType?: string): Promise<void> {
-	await supabase.rpc("complete_daily_activity", { p_day_key: dayKey, p_activity_id: activityId, p_xp: xp, p_activity_type: activityType ?? null });
-}
 
-export async function completeChallengeSupabase(challengeId: string, xp: number, today: string): Promise<void> {
-	await supabase.rpc("complete_challenge", { p_challenge_id: challengeId, p_xp: xp, p_today: today });
-}
-
-export async function addPracticeSkillXpSupabase(skill: string, xp: number): Promise<void> {
-	await supabase.rpc("add_practice_skill_xp", { p_skill: skill, p_xp: xp });
-}

@@ -1,4 +1,5 @@
 import { STAK_WEIGHTED_STOCK_TAGS } from "./stockTags";
+import type { StakTicker } from "./stockTags";
 import type { BrandProfile } from "./brands/index";
 
 /**
@@ -9,8 +10,11 @@ import type { BrandProfile } from "./brands/index";
  * crypto-miners grouped because they trade as a basket despite different
  * underlying businesses. Checked first; getPeerTickers() below is the fallback
  * for any ticker (new or old) that isn't a key here.
+ *
+ * Typed against StakTicker so TypeScript will error on any stale or misspelled
+ * ticker the next time stockTags.ts is updated.
  */
-export const MANUAL_PEER_OVERRIDES: Record<string, string[]> = {
+export const MANUAL_PEER_OVERRIDES: Partial<Record<StakTicker, StakTicker[]>> = {
 
   // ── MEGA-CAP TECH ──────────────────────────────────────────────────────────
   "AAPL":  ["MSFT", "GOOGL", "META", "AMZN", "NVDA"],
@@ -253,18 +257,17 @@ export const MANUAL_PEER_OVERRIDES: Record<string, string[]> = {
   "CAKE":  ["BLMN", "EAT", "TXRH", "MCD", "CMG"],
 
   // ── FASHION / LIFESTYLE ────────────────────────────────────────────────────
-  "NKE":   ["LULU", "TPR", "ULTA", "ELF", "OR"],
-  "LULU":  ["NKE", "PTON", "TPR", "ULTA", "ELF"],
-  "TPR":   ["NKE", "LULU", "ELF", "ULTA", "OR"],
-  "WRBY":  ["ULTA", "ELF", "LULU", "TPR", "ETSY"],
+  "NKE":   ["LULU", "WRBY", "ULTA", "ELF", "LRLCY"],
+  "LULU":  ["NKE", "PTON", "WRBY", "ULTA", "ELF"],
+  "WRBY":  ["ULTA", "ELF", "LULU", "NKE", "ETSY"],
   "PTON":  ["NKE", "LULU", "NFLX", "DASH", "HIMS"],
 
   // ── BEAUTY / COSMETICS ─────────────────────────────────────────────────────
-  "ULTA":  ["ELF", "OR", "EL", "COTY", "LULU"],
-  "ELF":   ["ULTA", "OR", "EL", "COTY", "LULU"],
-  "OR":    ["EL", "ELF", "ULTA", "COTY", "NKE"],
-  "EL":    ["OR", "ELF", "ULTA", "COTY"],
-  "COTY":  ["OR", "EL", "ELF", "ULTA", "TPR"],
+  "ULTA":  ["ELF", "LRLCY", "EL", "COTY", "LULU"],
+  "ELF":   ["ULTA", "LRLCY", "EL", "COTY", "LULU"],
+  "LRLCY": ["EL", "ELF", "ULTA", "COTY", "NKE"],
+  "EL":    ["LRLCY", "ELF", "ULTA", "COTY"],
+  "COTY":  ["LRLCY", "EL", "ELF", "ULTA", "LULU"],
 
   // ── TRAVEL / HOSPITALITY ───────────────────────────────────────────────────
   "ABNB":  ["MAR", "HLT", "UBER", "LYFT"],
