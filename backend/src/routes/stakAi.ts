@@ -80,7 +80,6 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							contents,
-							tools: [{ googleSearch: {} }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
 						}),
 						signal: AbortSignal.timeout(30000),
