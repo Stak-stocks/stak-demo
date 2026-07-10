@@ -52,10 +52,13 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		if (!data.quote) return null;
 
 		const { price, changePercent, marketState } = data.quote;
-		const sign = changePercent >= 0 ? "+" : "";
-		const sessionLabel: Record<string, string> = { PRE: "pre-market", PREPRE: "pre-market", POST: "after-hours", POSTPOST: "after-hours", CLOSED: "closed" };
-		const session = marketState && sessionLabel[marketState] ? ` (${sessionLabel[marketState]})` : "";
-		const parts = [`$${price.toFixed(2)}`, `${sign}${changePercent.toFixed(2)}% today${session}`];
+		const isOpen = marketState === "REGULAR";
+		const direction = Math.abs(changePercent) < 0.1 ? "flat" : changePercent > 0 ? `up ${changePercent.toFixed(2)}%` : `down ${Math.abs(changePercent).toFixed(2)}%`;
+		const priceStr = `$${price.toFixed(2)}`;
+		const movement = isOpen
+			? `is ${direction} today, trading at ${priceStr}`
+			: `closed at ${priceStr}, ${direction === "flat" ? "flat" : direction} today`;
+		const parts = [movement];
 		if (data.metrics.peRatio != null) parts.push(`P/E ${data.metrics.peRatio.toFixed(1)}`);
 		if (data.metrics.marketCap) parts.push(`mkt cap ${data.metrics.marketCap}`);
 		if (data.metrics.beta != null) parts.push(`beta ${data.metrics.beta.toFixed(2)}`);
