@@ -2357,6 +2357,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
+
+	// Daily XP cap for Skill Drills — blocks infinite-XP glitch from replaying same questions
+	const DAILY_DRILL_XP_CAP = 50;
+	const _drillXpLsKey = `stak:drill:xp:${_drillDayKey}`;
+	const _drillIdxLsKey = `stak:drill:idx:${_drillDayKey}`;
+	const [drillXpToday, setDrillXpToday] = useState(() => {
+		try { return Number(localStorage.getItem(_drillXpLsKey) ?? 0); } catch { return 0; }
+	});
+
 	// Freeze tier at session start — prevents mid-session refetch if user earns XP
 	// Use full 1-5 tier scale to match backend difficulty settings
 	const _drillTier = useMemo(() => {
@@ -2412,9 +2421,22 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		return [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
 	}, [genNextStepData]);
 
-	// Scenario indices — start at today's date offset so each day begins from a different scenario
-	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 30);
-	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
+	// Scenario indices — persisted in localStorage per day so re-entering doesn't repeat questions.
+	// Falls back to today's date-based offset on first open of the day.
+	const [sentimentIdx, setSentimentIdx] = useState(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "null");
+			if (saved && typeof saved.sentiment === "number") return saved.sentiment;
+		} catch {}
+		return (_todayOffset + 5) % 30;
+	});
+	const [nextStepIdx, setNextStepIdx] = useState(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "null");
+			if (saved && typeof saved.nextStep === "number") return saved.nextStep;
+		} catch {}
+		return (_todayOffset + 3) % 21;
+	});
 
 	const currentRoundType = getRoundType(sessionIdx);
 	// Guard against empty pool — PRACTICE_TICKERS is non-empty so this only fires in dev
@@ -2432,14 +2454,29 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 
 	// ── Award XP helper — ref guard prevents double-fire on rapid taps ───────────
 	const xpAwardedThisRound = useRef(false);
+	const drillXpTodayRef = useRef(drillXpToday);
+	drillXpTodayRef.current = drillXpToday;
 	const awardXp = (xp: number, skill: string, isCorrectRound: boolean) => {
 		if (xpAwardedThisRound.current) return; // block double-tap
+		if (drillXpTodayRef.current >= DAILY_DRILL_XP_CAP) {
+			// Daily cap hit — still count the answer but award no XP
+			if (isCorrectRound) setCorrectCount(c => c + 1);
+			xpAwardedThisRound.current = true;
+			return;
+		}
 		xpAwardedThisRound.current = true;
-		showXp(xp);
-		setSessionXp(prev => prev + xp);
-		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + xp }));
+		const remaining = DAILY_DRILL_XP_CAP - drillXpTodayRef.current;
+		const actualXp = Math.min(xp, remaining);
+		setDrillXpToday(prev => {
+			const next = prev + actualXp;
+			try { localStorage.setItem(_drillXpLsKey, String(next)); } catch {}
+			return next;
+		});
+		showXp(actualXp);
+		setSessionXp(prev => prev + actualXp);
+		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + actualXp }));
 		if (isCorrectRound) setCorrectCount(c => c + 1);
-		addPracticeSkillXp(skill, xp).catch(() => {});
+		addPracticeSkillXp(skill, actualXp).catch(() => {});
 	};
 
 	// ── Advance to next round ────────────────────────────────────────────────────
@@ -2524,10 +2561,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							Back to Playground
 						</button>
 						<button type="button" onClick={() => {
+							// Use random offsets so "Practice Again" gives different questions
+							const newSentIdx = Math.floor(Math.random() * allSentimentScenarios.length);
+							const newNsIdx = Math.floor(Math.random() * allNextStepScenarios.length);
+							setSentimentIdx(newSentIdx);
+							setNextStepIdx(newNsIdx);
+							try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setSentimentIdx((_todayOffset + 5) % 30); setNextStepIdx((_todayOffset + 3) % 21);
 							setSessionStarted(false);
 						}}
 							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
@@ -2664,7 +2706,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
 					</div>
 					<button type="button"
-						onClick={() => { setSentimentIdx(i => i + 1); advanceRound(); }}
+						onClick={() => {
+							const next = sentimentIdx + 1;
+							setSentimentIdx(next);
+							try {
+								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, sentiment: next }));
+							} catch {}
+							advanceRound();
+						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}>
 						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
@@ -2750,7 +2800,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{sc.explanation}</p>
 					</div>
 					<button type="button"
-						onClick={() => { setNextStepIdx(i => i + 1); advanceRound(); }}
+						onClick={() => {
+							const next = nextStepIdx + 1;
+							setNextStepIdx(next);
+							try {
+								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, nextStep: next }));
+							} catch {}
+							advanceRound();
+						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
 						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}

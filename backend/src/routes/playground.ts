@@ -255,33 +255,34 @@ DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-earn-${dayKey}-1",
-  "company": "Nike",
-  "ticker": "NKE",
+  "company": "McDonald's",
+  "ticker": "MCD",
   "context": "2-3 sentences giving real context for THIS report — segment-level trends, valuation level heading in, or analyst/market sentiment. Do NOT include guidance here; that goes in forwardGuidance.",
-  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided next-quarter revenue to $11.8B, below the $12.4B analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
-  "revenueExpected": "$12.4B",
-  "epsExpected": "$0.84",
-  "revenueActual": "$12.3B",
-  "epsActual": "$0.85",
-  "stockContext": "Up 8% YTD",
-  "peRatio": "28x",
-  "stockSetupLabel": "Fairly valued",
-  "question": "Given this report, what do you predict happened to Nike's stock?",
+  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided same-store sales growth of 2%, below the 3.5% analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
+  "revenueExpected": "$6.6B",
+  "epsExpected": "$3.10",
+  "revenueActual": "$6.5B",
+  "epsActual": "$3.15",
+  "stockContext": "Near 52-week high",
+  "peRatio": "24x",
+  "stockSetupLabel": "Priced for consistency",
+  "question": "Given this report, what do you predict happened to McDonald's stock?",
   "options": [
-    {"id": "a", "text": "Up 5%+ — beats on revenue and EPS"},
-    {"id": "b", "text": "Flat — meets expectations"},
-    {"id": "c", "text": "Down 3-5% — misses one key metric"},
-    {"id": "d", "text": "Down 10%+ — major miss and guidance cut"}
+    {"id": "a", "text": "Up 4%+ — EPS beat drives rally"},
+    {"id": "b", "text": "Flat — results in line with expectations"},
+    {"id": "c", "text": "Down 2-4% — revenue miss and weak guidance"},
+    {"id": "d", "text": "Down 8%+ — major miss across all metrics"}
   ],
   "correctId": "c",
-  "stockMove": "-4%",
-  "outcome": "1 sentence describing how the stock actually reacted (e.g. 'Nike fell 6% after hours despite the EPS beat.').",
+  "stockMove": "-3%",
+  "outcome": "1 sentence describing how the stock actually reacted.",
   "explanation": "2-3 sentences explaining WHY the market reacted this way — the key lesson.",
-  "keyTakeaway": "One punchy sentence summing up what this scenario teaches (e.g. 'A stock priced for perfection needs a perfect report — not just a good one.').",
-  "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector (e.g. 'Watch China revenue and gross margin guidance — these are the swing factors for Nike.').",
+  "keyTakeaway": "One punchy sentence summing up what this scenario teaches.",
+  "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a scenario for the example company (McDonald's / MCD) used in the schema above — it is a placeholder only
 - Use real companies and plausible earnings scenarios
 - revenueActual, epsActual, forwardGuidance, context, and stockContext are ALL shown to the player BEFORE they answer — the player already knows the full picture: beat/miss size, stock run-up, and what management said about next quarter
 - The correct answer must be derivable from the combination of actuals, context, AND forwardGuidance — not from the numbers alone (that would reduce every scenario to "beat = up, miss = down", which teaches nothing)
