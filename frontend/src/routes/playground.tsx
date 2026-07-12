@@ -2365,7 +2365,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
 
 
-	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
 
 	const _drillUid = account?.uid ?? "";
@@ -2384,6 +2383,31 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const xp = account.totalXp ?? 0;
 		_setDrillTier(xpToTier(xp));
 	}, [account]);
+
+	// Seen-scenario sets — stored server-side so they persist across devices.
+	// Declared BEFORE the memos that read them to avoid temporal dead zone.
+	const seenSentRef = useRef<Set<string>>(new Set());
+	const seenNextRef = useRef<Set<string>>(new Set());
+	// Bumped to 1 after seen sets load — triggers pool memos to recompute once with real data.
+	const [_seenVersion, _setSeenVersion] = useState(0);
+
+	// Fetch seen hashes + xpToday from server once uid is known
+	const { data: drillSeenData } = useQuery({
+		queryKey: ["drill-seen", _drillUid],
+		queryFn: getDrillSeen,
+		enabled: !!_drillUid,
+		staleTime: Infinity,
+		gcTime: 24 * 60 * 60 * 1000,
+	});
+	const _drillSeenLoaded = useRef(false);
+	useEffect(() => {
+		if (!drillSeenData || _drillSeenLoaded.current) return;
+		_drillSeenLoaded.current = true;
+		seenSentRef.current = new Set(drillSeenData.sentiment);
+		seenNextRef.current = new Set(drillSeenData.nextstep);
+		if (drillSeenData.xpToday > 0) setDrillXpToday(drillSeenData.xpToday);
+		_setSeenVersion(1);
+	}, [drillSeenData]);
 
 	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools.
 	// Disabled until _drillTier is set — ensures tier is correct even on cold page load.
@@ -2414,8 +2438,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	}
 	const _drillShuffleSeed = `${_drillUid}:${_drillDayKey}`;
 
-	// Merge static + generated pools (dedup by scenario text), unseen first, then shuffle each group.
-	// _seenVersion in deps ensures this recomputes once after seen sets load from localStorage.
+	// Merge static + generated pools, unseen first. Pure — no side effects.
+	// _seenVersion in deps ensures recompute once after seen sets load from server.
 	const allSentimentScenarios = useMemo(() => {
 		const VALID_SENTIMENTS = ["Bullish","Bearish","Mixed"];
 		const extras = Array.isArray(genSentimentData) ? genSentimentData
@@ -2435,13 +2459,11 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
 		const seenSet = seenSentRef.current;
 		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
-		// Static pool exhausted — switch to Gemini-only (avoidLine keeps them fresh daily)
 		if (unseen.length === 0) {
-			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":sent");
-			// Gemini unavailable too — reset static and start over
-			seenSentRef.current = new Set();
-			void saveDrillSeen("sentiment", []);
-			return seededShuffle(merged, _drillShuffleSeed + ":sent");
+			// Static exhausted — Gemini-only while available, else show full pool (reset happens in effect)
+			return extras.length > 0
+				? seededShuffle(extras, _drillShuffleSeed + ":sent")
+				: seededShuffle(merged, _drillShuffleSeed + ":sent");
 		}
 		return seededShuffle(unseen, _drillShuffleSeed + ":sent");
 	}, [genSentimentData, _drillShuffleSeed, _seenVersion, _drillUid]);
@@ -2457,45 +2479,37 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
 		const seenSet = seenNextRef.current;
 		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
-		// Static pool exhausted — switch to Gemini-only
 		if (unseen.length === 0) {
-			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":next");
-			// Gemini unavailable too — reset static and start over
-			seenNextRef.current = new Set();
-			void saveDrillSeen("nextstep", []);
-			return seededShuffle(merged, _drillShuffleSeed + ":next");
+			return extras.length > 0
+				? seededShuffle(extras, _drillShuffleSeed + ":next")
+				: seededShuffle(merged, _drillShuffleSeed + ":next");
 		}
 		return seededShuffle(unseen, _drillShuffleSeed + ":next");
-	}, [genNextStepData]);
+	}, [genNextStepData, _drillShuffleSeed, _seenVersion, _drillUid]);
+
+	// Reset server seen-set when pool is fully exhausted and Gemini is unavailable.
+	// Runs in effect (not memo) to avoid side effects in pure computation.
+	useEffect(() => {
+		const sentExhausted = allSentimentScenarios.length > 0 &&
+			allSentimentScenarios.every(s => seenSentRef.current.has(s.scenario.slice(0, 60)));
+		if (sentExhausted && seenSentRef.current.size > 0) {
+			seenSentRef.current = new Set();
+			void saveDrillSeen("sentiment", []);
+		}
+	}, [allSentimentScenarios]);
+
+	useEffect(() => {
+		const nextExhausted = allNextStepScenarios.length > 0 &&
+			allNextStepScenarios.every(s => seenNextRef.current.has(s.scenario.slice(0, 60)));
+		if (nextExhausted && seenNextRef.current.size > 0) {
+			seenNextRef.current = new Set();
+			void saveDrillSeen("nextstep", []);
+		}
+	}, [allNextStepScenarios]);
 
 	// Scenario indices — start at 0; useEffect loads persisted position once uid ready
 	const [sentimentIdx, setSentimentIdx] = useState(0);
 	const [nextStepIdx, setNextStepIdx] = useState(0);
-
-	// Seen-scenario sets — stored server-side so they persist across devices.
-	// Refs so pool memos don't recompute mid-session (only recompute once on initial load).
-	const seenSentRef = useRef<Set<string>>(new Set());
-	const seenNextRef = useRef<Set<string>>(new Set());
-	// Bumped to 1 after seen sets load from server — triggers pool memos to recompute once.
-	const [_seenVersion, _setSeenVersion] = useState(0);
-
-	// Fetch seen hashes from server once uid is known
-	const { data: drillSeenData } = useQuery({
-		queryKey: ["drill-seen", _drillUid],
-		queryFn: getDrillSeen,
-		enabled: !!_drillUid,
-		staleTime: Infinity,
-		gcTime: 24 * 60 * 60 * 1000,
-	});
-	const _drillSeenLoaded = useRef(false);
-	useEffect(() => {
-		if (!drillSeenData || _drillSeenLoaded.current) return;
-		_drillSeenLoaded.current = true;
-		seenSentRef.current = new Set(drillSeenData.sentiment);
-		seenNextRef.current = new Set(drillSeenData.nextstep);
-		if (drillSeenData.xpToday > 0) setDrillXpToday(drillSeenData.xpToday);
-		_setSeenVersion(1);
-	}, [drillSeenData]);
 
 	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
 	const drillStateLoadedRef = useRef(false);
