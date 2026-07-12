@@ -25,7 +25,11 @@ function detectMentionedBrands(message: string, allBrands: BrandProfile[]): Bran
 	const lower = message.toLowerCase();
 	return allBrands
 		.filter((b) => {
-			if (lower.includes(b.name.toLowerCase())) return true;
+			// Word-boundary + regex-escaped match (case-insensitive) so "apple pie" still
+			// detects Apple — the AI ignores irrelevant context — but "snapple" doesn't,
+			// and "Amazon.com" isn't treated as a wildcard pattern.
+			const nameEscaped = b.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			if (new RegExp(`\\b${nameEscaped}\\b`, "i").test(message)) return true;
 			// Only match tickers 2+ chars; require word boundaries so "F" doesn't
 			// fire inside "after", "the", etc.
 			if (b.ticker.length >= 2) {
@@ -222,7 +226,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		const countResult = await pgQuery<{ count: string }>(
 			`SELECT COUNT(*) as count FROM stak_ai_messages
 			 WHERE uid = $1 AND role = 'user'
-			 AND created_at >= (CURRENT_DATE AT TIME ZONE 'America/New_York')`,
+			 AND (created_at AT TIME ZONE 'America/New_York')::date = (NOW() AT TIME ZONE 'America/New_York')::date`,
 			[uid],
 		);
 		const todayCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
@@ -251,7 +255,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 				[uid],
 			),
 			pgQuery<{ role: string; content: string }>(
-				`SELECT role, content FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 40`,
+				`SELECT role, content FROM (SELECT role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 40) sub ORDER BY created_at ASC`,
 				[conversationId],
 			),
 		]);
@@ -261,14 +265,19 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		const familiarity = (preferences as { familiarity?: string }).familiarity ?? null;
 		const isResearchCohort = userResult.rows[0]?.research_cohort ?? false;
 
-		// Auto-flag first 50 Stak AI users atomically (single UPDATE with subquery avoids race condition)
+		// Auto-flag first 50 Stak AI users atomically. Awaited (not fire-and-forget) so
+		// a newly-enrolled user's very first message still gets logged.
+		let justEnrolled = false;
 		if (!isResearchCohort) {
-			pgQuery(
+			const enrollResult = await pgQuery<{ uid: string }>(
 				`UPDATE users SET research_cohort = true WHERE uid = $1
-				 AND (SELECT COUNT(*) FROM users WHERE research_cohort = true) < 50`,
+				 AND (SELECT COUNT(*) FROM users WHERE research_cohort = true) < 50
+				 RETURNING uid`,
 				[uid],
-			).catch(() => {});
+			).catch(() => ({ rows: [] as { uid: string }[] }));
+			justEnrolled = enrollResult.rows.length > 0;
 		}
+		const effectiveCohort = isResearchCohort || justEnrolled;
 
 		// Resolve brand IDs → full BrandProfile objects with purchase price
 		const stakBrands = stakResult.rows
@@ -354,7 +363,9 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			return;
 		}
 
-		// Create conversation now that we have a successful exchange (both sides exist)
+		// Create conversation now that we have a successful exchange (both sides exist).
+		// Track whether we just created it so we can clean up if the message insert fails.
+		let newlyCreated = false;
 		if (!conversationId) {
 			const result = await pgQuery<{ id: string }>(
 				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
@@ -362,19 +373,27 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			);
 			conversationId = result.rows[0]?.id ?? null;
 			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
+			newlyCreated = true;
 		}
 
-		await pgQuery(
-			`INSERT INTO stak_ai_messages (conversation_id, uid, role, content) VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4)`,
-			[conversationId, uid, message.trim(), aiResponse],
-		);
+		try {
+			await pgQuery(
+				`INSERT INTO stak_ai_messages (conversation_id, uid, role, content) VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4)`,
+				[conversationId, uid, message.trim(), aiResponse],
+			);
+		} catch (e) {
+			if (newlyCreated) {
+				pgQuery(`DELETE FROM stak_ai_conversations WHERE id = $1`, [conversationId]).catch(() => {});
+			}
+			throw e;
+		}
 		await pgQuery(
 			`UPDATE stak_ai_conversations SET updated_at = now() WHERE id = $1`,
 			[conversationId],
 		);
 
 		// Log context for research cohort users (fire-and-forget — never blocks the response)
-		if (isResearchCohort && conversationId) {
+		if (effectiveCohort && conversationId) {
 			pgQuery(
 				`INSERT INTO stak_ai_research_log
 				 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response)

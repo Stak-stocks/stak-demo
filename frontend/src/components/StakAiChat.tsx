@@ -152,7 +152,7 @@ export function StakAiChat() {
 		return [
 			{ icon: TrendingUp, text: firstName ? `Why did ${firstName} move today?` : "Why did a stock move today?" },
 			{ icon: Newspaper,  text: tagLabel ? `What's happening in ${tagLabel} stocks?` : "Is this news bullish or bearish?" },
-			{ icon: BookOpen,   text: "What should I check before buying?" },
+			{ icon: BookOpen,   text: "What is a P/E ratio and why does it matter?" },
 			{ icon: Star,       text: firstName ? `What changed since I saved ${firstName}?` : "What's moving the market today?" },
 		];
 	})();
