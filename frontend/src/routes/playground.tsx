@@ -15,7 +15,7 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, getDrillSeen, saveDrillSeen, type ChartRange } from "@/lib/api";
 // getTodayKey here is aliased -- @/data/playgroundData also exports a (different,
 // no-9am-offset) getTodayKey already imported above for daily-content resets; this
 // one is specifically the 9am-local-reset version used for streak display.
@@ -2442,9 +2442,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		// Static pool exhausted — switch to Gemini-only (avoidLine keeps them fresh daily)
 		if (unseen.length === 0) {
 			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":sent");
-			// Gemini unavailable too — last resort: reset static and start over
+			// Gemini unavailable too — reset static and start over
 			seenSentRef.current = new Set();
-			try { localStorage.removeItem(`stak:drill:seen:sent:${_drillUid}`); } catch {}
+			void saveDrillSeen("sentiment", []);
 			return seededShuffle(merged, _drillShuffleSeed + ":sent");
 		}
 		return seededShuffle(unseen, _drillShuffleSeed + ":sent");
@@ -2464,8 +2464,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		// Static pool exhausted — switch to Gemini-only
 		if (unseen.length === 0) {
 			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":next");
+			// Gemini unavailable too — reset static and start over
 			seenNextRef.current = new Set();
-			try { localStorage.removeItem(`stak:drill:seen:next:${_drillUid}`); } catch {}
+			void saveDrillSeen("nextstep", []);
 			return seededShuffle(merged, _drillShuffleSeed + ":next");
 		}
 		return seededShuffle(unseen, _drillShuffleSeed + ":next");
@@ -2475,12 +2476,29 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [sentimentIdx, setSentimentIdx] = useState(0);
 	const [nextStepIdx, setNextStepIdx] = useState(0);
 
-	// Seen-scenario sets — persisted cross-session so unseen scenarios always come first.
-	// Stored as refs so pool memos don't recompute mid-session (only recompute on mount).
+	// Seen-scenario sets — stored server-side so they persist across devices.
+	// Refs so pool memos don't recompute mid-session (only recompute once on initial load).
 	const seenSentRef = useRef<Set<string>>(new Set());
 	const seenNextRef = useRef<Set<string>>(new Set());
-	// Bumped to 1 after seen sets load — triggers pool memos to recompute once with real seen data.
+	// Bumped to 1 after seen sets load from server — triggers pool memos to recompute once.
 	const [_seenVersion, _setSeenVersion] = useState(0);
+
+	// Fetch seen hashes from server once uid is known
+	const { data: drillSeenData } = useQuery({
+		queryKey: ["drill-seen", _drillUid],
+		queryFn: getDrillSeen,
+		enabled: !!_drillUid,
+		staleTime: Infinity,
+		gcTime: 24 * 60 * 60 * 1000,
+	});
+	const _drillSeenLoaded = useRef(false);
+	useEffect(() => {
+		if (!drillSeenData || _drillSeenLoaded.current) return;
+		_drillSeenLoaded.current = true;
+		seenSentRef.current = new Set(drillSeenData.sentiment);
+		seenNextRef.current = new Set(drillSeenData.nextstep);
+		_setSeenVersion(1);
+	}, [drillSeenData]);
 
 	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
 	const drillStateLoadedRef = useRef(false);
@@ -2505,15 +2523,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				setSessionStarted(true);
 			}
 		} catch {}
-		try {
-			const sentKeys = JSON.parse(localStorage.getItem(`stak:drill:seen:sent:${_drillUid}`) ?? "[]");
-			seenSentRef.current = new Set(sentKeys);
-		} catch {}
-		try {
-			const nextKeys = JSON.parse(localStorage.getItem(`stak:drill:seen:next:${_drillUid}`) ?? "[]");
-			seenNextRef.current = new Set(nextKeys);
-		} catch {}
-		_setSeenVersion(1);
 	}, [_drillUid, _drillDayKey]);
 
 	const currentRoundType = getRoundType(sessionIdx);
@@ -2793,9 +2802,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const shown = allSentimentScenarios[sentimentIdx % allSentimentScenarios.length];
 							if (shown) {
-								const key = shown.scenario.slice(0, 60);
-								seenSentRef.current.add(key);
-								try { localStorage.setItem(`stak:drill:seen:sent:${_drillUid}`, JSON.stringify([...seenSentRef.current])); } catch {}
+								seenSentRef.current.add(shown.scenario.slice(0, 60));
+								void saveDrillSeen("sentiment", [...seenSentRef.current]);
 							}
 							const next = sentimentIdx + 1;
 							setSentimentIdx(next);
@@ -2889,9 +2897,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const shown = allNextStepScenarios[nextStepIdx % allNextStepScenarios.length];
 							if (shown) {
-								const key = shown.scenario.slice(0, 60);
-								seenNextRef.current.add(key);
-								try { localStorage.setItem(`stak:drill:seen:next:${_drillUid}`, JSON.stringify([...seenNextRef.current])); } catch {}
+								seenNextRef.current.add(shown.scenario.slice(0, 60));
+								void saveDrillSeen("nextstep", [...seenNextRef.current]);
 							}
 							const next = nextStepIdx + 1;
 							setNextStepIdx(next);

@@ -586,6 +586,17 @@ export function addSkillXp(skill: string, xp: number) {
 	});
 }
 
+export function getDrillSeen() {
+	return apiRequest<{ sentiment: string[]; nextstep: string[] }>("/api/playground/drill-seen");
+}
+
+export function saveDrillSeen(type: "sentiment" | "nextstep", hashes: string[]) {
+	return apiRequest<{ ok: boolean }>("/api/playground/drill-seen", {
+		method: "POST",
+		body: JSON.stringify({ type, hashes }),
+	});
+}
+
 // Batch stock quotes for the watchlist
 export function getBatchQuotes(tickers: string[]) {
 	return apiRequest<{ quotes: Record<string, { price: number; change: number; changePercent: number }> }>(

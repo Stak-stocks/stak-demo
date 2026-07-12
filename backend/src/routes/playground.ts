@@ -737,6 +737,50 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 });
 
 // ── Admin: clear a user's generated content cache ─────────────────────────────
+// GET /api/playground/drill-seen
+// Returns the user's seen drill scenario hashes for both types.
+playgroundRouter.get("/drill-seen", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const uid = req.user!.uid;
+	try {
+		const result = await pgQuery<{ type: string; payload: string[] }>(
+			`SELECT type, payload FROM playground_cache WHERE uid = $1 AND type IN ('drill_seen_sentiment', 'drill_seen_nextstep') AND date = '9999-12-31'`,
+			[uid],
+		);
+		const sentiment = result.rows.find(r => r.type === "drill_seen_sentiment")?.payload ?? [];
+		const nextstep  = result.rows.find(r => r.type === "drill_seen_nextstep")?.payload ?? [];
+		res.json({ sentiment, nextstep });
+	} catch (e) {
+		console.error("[playground] drill-seen GET error:", e);
+		res.status(500).json({ error: "Failed to fetch seen drills" });
+	}
+});
+
+// POST /api/playground/drill-seen
+// Overwrites the seen hashes for one drill type. Passing [] resets it (pool exhausted).
+playgroundRouter.post("/drill-seen", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const uid = req.user!.uid;
+	const { type, hashes } = req.body as { type?: string; hashes?: unknown };
+	if (type !== "sentiment" && type !== "nextstep") {
+		res.status(400).json({ error: "type must be 'sentiment' or 'nextstep'" }); return;
+	}
+	if (!Array.isArray(hashes)) {
+		res.status(400).json({ error: "hashes must be an array" }); return;
+	}
+	const pgType = `drill_seen_${type}`;
+	try {
+		await pgQuery(
+			`INSERT INTO playground_cache (uid, type, date, payload)
+			 VALUES ($1, $2, '9999-12-31', $3::jsonb)
+			 ON CONFLICT (uid, type, date) DO UPDATE SET payload = EXCLUDED.payload`,
+			[uid, pgType, JSON.stringify(hashes)],
+		);
+		res.json({ ok: true });
+	} catch (e) {
+		console.error("[playground] drill-seen POST error:", e);
+		res.status(500).json({ error: "Failed to save seen drills" });
+	}
+});
+
 // DELETE /api/playground/cache?uid=&dayKey=&type=&adminKey=
 // Clears both Redis and Postgres so content is regenerated fresh on next load.
 playgroundRouter.delete("/cache", async (req, res) => {
