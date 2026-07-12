@@ -17,6 +17,7 @@ import { computeTopDisplayCategory } from "@stak/shared";
 import type { PeerMetrics } from "@/lib/api";
 import { WATCH_LIST_LIMIT } from "@/lib/constants";
 import { useAccount } from "@/context/AccountContext";
+import type { PassedEntry } from "@/context/AccountContext";
 import { EarningsCalendarButton } from "@/components/EarningsCalendar";
 
 export const Route = createFileRoute("/my-stak")({
@@ -384,7 +385,7 @@ function fmtPeerMetric(key: MetricKey, peerData: PeerMetrics | undefined): strin
 }
 
 function MyStakPage() {
-	const { account, accountLoading, updateStak } = useAccount();
+	const { account, accountLoading, updateStak, updatePassedBrands } = useAccount();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [earningsCalendarOpen, setEarningsCalendarOpen] = useState(false);
@@ -629,6 +630,16 @@ function MyStakPage() {
 		e.stopPropagation();
 		const updatedIds = (account?.stakBrandIds ?? []).filter((id) => id !== brand.id);
 		updateStak(updatedIds).catch(() => {});
+		// Record as a 1-day pass so the brand re-queues to the bottom of Discover
+		// instead of jumping to the top due to high tag-score affinity.
+		// We refresh the timestamp without incrementing count so it doesn't count
+		// toward the 5-pass permanent-hide threshold.
+		const existing: PassedEntry[] = account?.passedBrands ?? [];
+		const prev = existing.find((e) => e.id === brand.id);
+		const updatedPassed = prev
+			? existing.map((e) => e.id === brand.id ? { ...e, at: Date.now() } : e)
+			: [...existing, { id: brand.id, at: Date.now(), count: 0 }];
+		updatePassedBrands(updatedPassed).catch(() => {});
 		// Invalidate brief so personalization reflects the removed brand immediately
 		queryClient.invalidateQueries({ queryKey: ["daily-brief"] });
 		recordEngagement("removed_from_stak", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
