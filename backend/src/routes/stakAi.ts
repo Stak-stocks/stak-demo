@@ -242,8 +242,8 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 
 		// Fetch user context + history in parallel
 		const [userResult, stakResult, historyResult] = await Promise.all([
-			pgQuery<{ tag_scores: Record<string, number> | null; preferences: Record<string, unknown> | null }>(
-				`SELECT tag_scores, preferences FROM users WHERE uid = $1`,
+			pgQuery<{ tag_scores: Record<string, number> | null; preferences: Record<string, unknown> | null; research_cohort: boolean }>(
+				`SELECT tag_scores, preferences, research_cohort FROM users WHERE uid = $1`,
 				[uid],
 			),
 			pgQuery<{ brand_id: string; price_at_save: number | null }>(
@@ -259,6 +259,16 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		const tagScores = userResult.rows[0]?.tag_scores ?? {};
 		const preferences = userResult.rows[0]?.preferences ?? {};
 		const familiarity = (preferences as { familiarity?: string }).familiarity ?? null;
+		const isResearchCohort = userResult.rows[0]?.research_cohort ?? false;
+
+		// Auto-flag first 50 Stak AI users atomically (single UPDATE with subquery avoids race condition)
+		if (!isResearchCohort) {
+			pgQuery(
+				`UPDATE users SET research_cohort = true WHERE uid = $1
+				 AND (SELECT COUNT(*) FROM users WHERE research_cohort = true) < 50`,
+				[uid],
+			).catch(() => {});
+		}
 
 		// Resolve brand IDs → full BrandProfile objects with purchase price
 		const stakBrands = stakResult.rows
@@ -281,21 +291,6 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			.map(([k]) => k);
 
 		const easternDate = getEasternDateKey();
-
-		// Auto-flag first 50 Stak AI users as research cohort (fire-and-forget)
-		pgQuery<{ research_cohort: boolean }>(
-			`SELECT research_cohort FROM users WHERE uid = $1`, [uid],
-		).then((r) => {
-			if (!r.rows[0]?.research_cohort) {
-				pgQuery<{ count: string }>(
-					`SELECT COUNT(*) as count FROM users WHERE research_cohort = true`,
-				).then((c) => {
-					if (parseInt(c.rows[0]?.count ?? "0", 10) < 50) {
-						pgQuery(`UPDATE users SET research_cohort = true WHERE uid = $1`, [uid]).catch(() => {});
-					}
-				}).catch(() => {});
-			}
-		}).catch(() => {});
 
 		// Detect mentioned brands from full catalog — not just Stak, so any brand works
 		const mentionedBrands = detectMentionedBrands(message.trim(), brands as BrandProfile[]);
@@ -379,26 +374,22 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		);
 
 		// Log context for research cohort users (fire-and-forget — never blocks the response)
-		pgQuery<{ research_cohort: boolean }>(
-			`SELECT research_cohort FROM users WHERE uid = $1`, [uid],
-		).then((r) => {
-			if (r.rows[0]?.research_cohort) {
-				pgQuery(
-					`INSERT INTO stak_ai_research_log
-					 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response)
-					 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-					[
-						uid,
-						conversationId,
-						message.trim(),
-						mentionedBrands.map((b) => b.ticker),
-						JSON.stringify(newsHeadlinesLog),
-						JSON.stringify(liveContextLog),
-						aiResponse,
-					],
-				).catch((e) => console.warn("[Stak AI] research log write failed:", e));
-			}
-		}).catch(() => {});
+		if (isResearchCohort && conversationId) {
+			pgQuery(
+				`INSERT INTO stak_ai_research_log
+				 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				[
+					uid,
+					conversationId,
+					message.trim(),
+					mentionedBrands.map((b) => b.ticker),
+					JSON.stringify(newsHeadlinesLog),
+					JSON.stringify(liveContextLog),
+					aiResponse,
+				],
+			).catch((e) => console.warn("[Stak AI] research log write failed:", e));
+		}
 
 		res.json({ response: aiResponse, conversationId });
 	} catch (e) {
