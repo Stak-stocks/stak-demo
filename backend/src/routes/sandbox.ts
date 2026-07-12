@@ -2,10 +2,11 @@ import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { pgQuery, pgPool } from "../lib/postgres.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
+import { xpToTier, SANDBOX_BUDGETS } from "@stak/shared";
+import { FINNHUB_BASE } from "../services/finnhubService.js";
 
 export const sandboxRouter = Router();
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 async function getLivePrice(symbol: string): Promise<number | null> {
 	const keys = getFinnhubKeys();
@@ -23,19 +24,7 @@ async function getLivePrice(symbol: string): Promise<number | null> {
 	return null;
 }
 
-// Mirrors xp_to_sandbox_tier() and sandbox_budget_for_tier() SQL functions exactly.
-function xpToSandboxTier(xp: number): number {
-	if (xp >= 7500) return 5;
-	if (xp >= 3500) return 4;
-	if (xp >= 1500) return 3;
-	if (xp >= 500) return 2;
-	return 1;
-}
 
-function sandboxBudgetForTier(tier: number): number {
-	const budgets: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
-	return budgets[tier] ?? 1000;
-}
 
 // POST /api/sandbox/init — set starting cash/tier if sandbox_cash is NULL
 sandboxRouter.post("/init", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -46,8 +35,8 @@ sandboxRouter.post("/init", authMiddleware, async (req: AuthenticatedRequest, re
 			[uid],
 		);
 		const xp = rows[0]?.total_xp ?? 0;
-		const tier = xpToSandboxTier(xp);
-		const budget = sandboxBudgetForTier(tier);
+		const tier = xpToTier(xp);
+		const budget = SANDBOX_BUDGETS[tier] ?? 1000;
 
 		await pgQuery(
 			`INSERT INTO playground_state (uid, sandbox_cash, sandbox_tier)
@@ -201,7 +190,7 @@ sandboxRouter.post("/sell", authMiddleware, async (req: AuthenticatedRequest, re
 				? Math.round(Number(shares) * 1000) / 1000
 				: existingShares;
 
-			if (sharesToSell <= 0 || sharesToSell > existingShares + 0.001) {
+			if (!Number.isFinite(sharesToSell) || sharesToSell <= 0 || sharesToSell > existingShares + 0.001) {
 				await client.query("ROLLBACK");
 				res.status(422).json({ error: "Invalid shares quantity" });
 				return;
@@ -253,8 +242,8 @@ sandboxRouter.post("/reset", authMiddleware, async (req: AuthenticatedRequest, r
 			[uid],
 		);
 		const xp = rows[0]?.total_xp ?? 0;
-		const tier = xpToSandboxTier(xp);
-		const budget = sandboxBudgetForTier(tier);
+		const tier = xpToTier(xp);
+		const budget = SANDBOX_BUDGETS[tier] ?? 1000;
 
 		// Both writes in a transaction so portfolio and cash never disagree mid-reset
 		const client = await pgPool.connect();
@@ -328,7 +317,7 @@ sandboxRouter.post("/tier-upgrade", authMiddleware, async (req: AuthenticatedReq
 				return;
 			}
 
-			const currentTier = xpToSandboxTier(row.total_xp ?? 0);
+			const currentTier = xpToTier(row.total_xp ?? 0);
 			const storedTier = row.sandbox_tier;
 
 			if (storedTier === null) {
@@ -347,7 +336,8 @@ sandboxRouter.post("/tier-upgrade", authMiddleware, async (req: AuthenticatedReq
 				return;
 			}
 
-			const increase = sandboxBudgetForTier(currentTier) - sandboxBudgetForTier(storedTier);
+			const safePrevTier = (storedTier >= 1 && storedTier <= 5 ? storedTier : 1) as keyof typeof SANDBOX_BUDGETS;
+			const increase = SANDBOX_BUDGETS[currentTier] - (SANDBOX_BUDGETS[safePrevTier] ?? 1000);
 			await client.query(
 				`UPDATE playground_state
 				 SET sandbox_cash = ROUND(sandbox_cash + $1, 2), sandbox_tier = $2

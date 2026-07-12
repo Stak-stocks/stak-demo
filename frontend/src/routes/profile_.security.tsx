@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { ChevronLeft, Lock, Shield, Eye, EyeOff, KeyRound, Mail } from "lucide-react";
@@ -22,10 +22,10 @@ function SecurityPage() {
 	const touchStartX = useRef(0);
 	const touchStartY = useRef(0);
 
-	if (!appUser) {
-		navigate({ to: "/login" });
-		return null;
-	}
+	useEffect(() => {
+		if (!appUser) navigate({ to: "/login" });
+	}, [appUser, navigate]);
+	if (!appUser) return null;
 
 	const isGoogle = appUser.provider === "google.com";
 	const userEmail = appUser.email;

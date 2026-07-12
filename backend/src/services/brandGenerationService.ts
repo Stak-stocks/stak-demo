@@ -1,5 +1,5 @@
-import { getGeminiKeys, GEMINI_MODEL } from "./geminiService.js";
-import { getFinnhubKeys } from "./finnhubService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "./geminiService.js";
+import { getFinnhubKeys, FINNHUB_BASE } from "./finnhubService.js";
 import { getHeroImage } from "./ipoService.js";
 import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, formatMarketCap, type BrandProfile, type VibeMetric } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -38,7 +38,7 @@ async function fetchCompanyProfile(ticker: string): Promise<FinnhubProfile> {
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
 
 	for (const key of keys) {
-		const res = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(ticker)}&token=${key}`);
+		const res = await fetch(`${FINNHUB_BASE}/stock/profile2?symbol=${encodeURIComponent(ticker)}&token=${key}`);
 		if (res.status === 429) continue;
 		if (!res.ok) throw new Error(`Finnhub profile error for ${ticker}: ${res.status}`);
 		const data = await res.json() as FinnhubProfile;
@@ -62,7 +62,7 @@ async function fetchMetrics(ticker: string): Promise<FinnhubMetrics> {
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
 
 	for (const key of keys) {
-		const res = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(ticker)}&metric=all&token=${key}`);
+		const res = await fetch(`${FINNHUB_BASE}/stock/metric?symbol=${encodeURIComponent(ticker)}&metric=all&token=${key}`);
 		if (res.status === 429) continue;
 		if (!res.ok) throw new Error(`Finnhub metrics error for ${ticker}: ${res.status}`);
 		const data = await res.json() as { metric?: FinnhubMetrics };
@@ -163,10 +163,11 @@ async function callGemini(prompt: string): Promise<GeminiBrandFields> {
 			if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
+						signal: AbortSignal.timeout(20000),
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
@@ -226,7 +227,7 @@ export async function generateBrandDraft(tickerInput: string): Promise<BrandDraf
 			revenueGrowth: { ...METRIC_META.revenueGrowth, value: metrics.revenueGrowthTTMYoy != null ? `${metrics.revenueGrowthTTMYoy.toFixed(1)}%` : "N/A", culturalTranslation: gemini.financialsCulturalTranslation.revenueGrowth },
 			profitMargin:  { ...METRIC_META.profitMargin,  value: metrics.netProfitMarginTTM != null ? `${metrics.netProfitMarginTTM.toFixed(1)}%` : "N/A",  culturalTranslation: gemini.financialsCulturalTranslation.profitMargin },
 			beta:          { ...METRIC_META.beta,          value: metrics.beta != null ? metrics.beta.toFixed(2) : "N/A",                                   culturalTranslation: gemini.financialsCulturalTranslation.beta },
-			dividendYield: { ...METRIC_META.dividendYield, value: metrics.dividendYieldIndicatedAnnual != null ? `${metrics.dividendYieldIndicatedAnnual.toFixed(2)}%` : "0%", culturalTranslation: gemini.financialsCulturalTranslation.dividendYield },
+			dividendYield: { ...METRIC_META.dividendYield, value: metrics.dividendYieldIndicatedAnnual != null ? `${metrics.dividendYieldIndicatedAnnual.toFixed(2)}%` : "N/A", culturalTranslation: gemini.financialsCulturalTranslation.dividendYield },
 		},
 		logo: profile.logo || undefined,
 		interestCategories: gemini.interestCategories,

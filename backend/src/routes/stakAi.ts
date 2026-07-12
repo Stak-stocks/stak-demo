@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
-import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
+import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
 import { getEasternDateKey } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -78,7 +78,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 		for (const key of keys) {
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },

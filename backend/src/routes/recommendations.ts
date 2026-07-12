@@ -3,12 +3,11 @@ import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, type StakTicker, getEasternDateKey } from "@stak/shared";
-import { getFinnhubKeys } from "../services/finnhubService.js";
+import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 async function finnhubGet(path: string): Promise<unknown | null> {
 	const keys = getFinnhubKeys();
@@ -319,7 +318,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 			.map((s) => s.ticker);
 
 		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
-		res.json({ tickers });
+		res.json({ brandIds: tickers });
 	} catch (error) {
 		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });

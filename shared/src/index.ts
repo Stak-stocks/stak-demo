@@ -1,4 +1,4 @@
-export { TIER_XP, TIER_THRESHOLDS, xpToTier, ACTIVITY_TYPES } from "./tierConfig";
+export { TIER_XP, TIER_THRESHOLDS, xpToTier, ACTIVITY_TYPES, SANDBOX_BUDGETS, ACTIVITY_XP_CAP } from "./tierConfig";
 export type { TierNumber, ActivityType } from "./tierConfig";
 
 export { computeRecommendationScore, THEME_TAG_MAP } from "./recommendationScoring";

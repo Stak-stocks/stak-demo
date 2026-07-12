@@ -12,7 +12,7 @@ import {
 	INTEREST_TO_BRANDS,
 } from "@/data/onboarding";
 import type { BrandIdentity } from "@stak/shared";
-import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl } from "@stak/shared";
+import { getBrandLogoUrl, getBrandFallbackLogoUrl, getBrandUltimateFallbackUrl, getEasternDateKey } from "@stak/shared";
 import { useBrandsList } from "@/hooks/useBrandsList";
 
 export const Route = createFileRoute("/onboarding")({
@@ -86,7 +86,7 @@ function OnboardingPage() {
 	const getStepFromHash = () => {
 		const hash = window.location.hash.replace("#", "");
 		const n = parseInt(hash, 10);
-		return n >= 1 && n <= 5 ? n : 1;
+		return n >= 0 && n <= 5 ? n : 0;
 	};
 
 	const [step, setStep] = useState(getStepFromHash);
@@ -740,7 +740,7 @@ function BuildingStep({
 		// Errors are swallowed so the animation always completes.
 		updatePreferences(prefs).catch(() => { });
 		updateDeckOrder([]).catch(() => { });
-		const _nd = new Date(); updateLastBriefDate(`${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,"0")}-${String(_nd.getDate()).padStart(2,"0")}`).catch(() => {});
+		updateLastBriefDate(getEasternDateKey()).catch(() => {});
 
 		// Critical write — backend sets onboardingCompleted. If this fails the root
 		// guard will redirect back to /onboarding; the user can just re-tap "Get started"

@@ -9,12 +9,11 @@ import {
 	type Mood, type MarketData, type DeckDef, MOOD_DECKS,
 } from "../services/marketMood.js";
 import { getISOWeek } from "../services/streakService.js";
-import { getFinnhubKeys } from "../services/finnhubService.js";
-import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
+import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
+import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 
 export const dailyBriefRouter = Router();
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 async function finnhubGet(path: string): Promise<unknown | null> {
 	const keys = getFinnhubKeys();
@@ -114,7 +113,7 @@ async function fetchMarketHolidays(): Promise<Set<string>> {
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -239,7 +238,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -333,7 +332,7 @@ No financial advice. No disclaimers. Just describe what happened clearly.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -519,7 +518,7 @@ CRITICAL RULES:
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -717,7 +716,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 		for (const key of keys) {
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -887,7 +886,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { getGeminiKeys, GEMINI_MODEL } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import type { AuthenticatedRequest } from "../authMiddleware.js";
-import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
+import { TIER_XP, ACTIVITY_TYPES, ACTIVITY_XP_CAP, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
@@ -71,7 +71,7 @@ async function callGemini(prompt: string): Promise<string | null> {
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -194,6 +194,8 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 				else if (type === "earnings" && typeof r.company === "string") recent.push(r.company);
 				else if (type === "risk" && typeof r.optionA === "string") recent.push(String(r.optionA).slice(0, 50));
 				else if (type === "mood" && typeof r.event === "string") recent.push(String(r.event).replace(/^[^\w]*/, "").slice(0, 60));
+				else if ((type === "drill_sentiment" || type === "drill_nextstep") && typeof r.scenario === "string")
+					recent.push(String(r.scenario).slice(0, 60));
 			}
 		}
 		if (recent.length > 0)
@@ -225,17 +227,18 @@ DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
   "id": "gen-battle-${dayKey}-1",
-  "tickerA": "AAPL",
-  "nameA": "Apple",
-  "tickerB": "MSFT",
-  "nameB": "Microsoft",
-  "category": "Tech",
+  "tickerA": "COST",
+  "nameA": "Costco",
+  "tickerB": "WMT",
+  "nameB": "Walmart",
+  "category": "Retail",
   "metricLabel": "Revenue Growth",
   "higherWins": true,
   "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins.",
   "xp": ${TIER_XP[tier]?.battle ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a matchup using the example companies (Costco / COST or Walmart / WMT) — they are placeholders only
 - Use companies that are genuinely comparable (same sector/industry)
 - The explanation must describe BOTH companies' fundamentals on the metric — not declare a winner
 - The live winner is determined by real-time data, not by the explanation
@@ -308,13 +311,14 @@ Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-risk-${dayKey}-1",
   "prompt": "Which stock carries more risk?",
-  "optionA": "Procter & Gamble (PG) — consumer staples giant",
+  "optionA": "A utility company with regulated pricing",
   "optionB": "A small biotech with a single drug in Phase 2 trials",
   "riskierOption": "B",
   "explanation": "2-3 sentences explaining why one option is riskier, citing specific risk factors.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a scenario using the example options verbatim (utility company or the specific biotech description above) — they are placeholders only
 - Each week use DIFFERENT companies and industries — rotate across tech, healthcare, energy, retail, finance, industrials
 - Vary the type of risk each scenario tests (volatility, liquidity, concentration, leverage, business model risk, regulatory risk)
 - Explanations must be accurate and teach real risk concepts
@@ -483,7 +487,8 @@ Rules:
 // backend caps the XP values and the client never controls the XP amount.
 
 const XP_CAP: Record<string, number> = {
-	lesson: 50, earnings: 50, battle: 50, risk: 50, mood: 50,
+	lesson: ACTIVITY_XP_CAP, earnings: ACTIVITY_XP_CAP, battle: ACTIVITY_XP_CAP,
+	risk: ACTIVITY_XP_CAP, mood: ACTIVITY_XP_CAP,
 };
 const VALID_KINDS = new Set(["lesson", "earnings", "battle", "risk", "mood"]);
 
@@ -565,7 +570,7 @@ playgroundRouter.post("/complete-daily", authMiddleware, async (req: Authenticat
 			res.status(400).json({ error: "activityId required" });
 			return;
 		}
-		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 50);
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), ACTIVITY_XP_CAP);
 
 		const client = await pgPool.connect();
 		try {
@@ -646,8 +651,7 @@ const VALID_SKILLS = new Set([
 	"peers", "portfolio", "awareness", "fundamentals", "macro",
 ]);
 
-// 50 XP/day per user across all devices — enforced via Redis so it's device-agnostic
-const DAILY_SKILL_XP_CAP = 50;
+const DAILY_SKILL_XP_CAP = ACTIVITY_XP_CAP;
 
 // POST /api/playground/skill-xp — records Skill Drill XP per-skill and in total.
 // xp per call is clamped to 5 (correct=3, wrong=1 — nothing higher is valid).

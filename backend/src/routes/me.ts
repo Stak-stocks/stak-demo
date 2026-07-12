@@ -158,15 +158,37 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		}
 
 		await ensureUserRow(uid, req.user!.email);
-		await pgQuery(`delete from stak_brands where uid = $1`, [uid]);
-		if (brandIds.length > 0) {
-			const now = new Date().toISOString();
-			const placeholders = brandIds.map((_: string, i: number) => `($1, $${i + 2}, $${brandIds.length + i + 2})`).join(", ");
-			const params: unknown[] = [uid, ...brandIds, ...brandIds.map(() => now)];
-			await pgQuery(
-				`insert into stak_brands (uid, brand_id, saved_at) values ${placeholders}`,
-				params,
+		const client = await pgPool.connect();
+		try {
+			await client.query("BEGIN");
+			// Preserve existing price_at_save so "since you saved" isn't wiped on every watchlist edit
+			const existing = await client.query<{ brand_id: string; price_at_save: number | null }>(
+				`select brand_id, price_at_save from stak_brands where uid = $1`,
+				[uid],
 			);
+			const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
+			await client.query(`delete from stak_brands where uid = $1`, [uid]);
+			if (brandIds.length > 0) {
+				const now = new Date().toISOString();
+				const rowPlaceholders: string[] = [];
+				const params: unknown[] = [uid];
+				let pIdx = 2;
+				for (const brandId of brandIds as string[]) {
+					rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
+					params.push(brandId, now, savedPrices.get(brandId) ?? null);
+					pIdx += 3;
+				}
+				await client.query(
+					`insert into stak_brands (uid, brand_id, saved_at, price_at_save) values ${rowPlaceholders.join(", ")}`,
+					params,
+				);
+			}
+			await client.query("COMMIT");
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
 		}
 
 		res.json({ brandIds });
@@ -207,19 +229,29 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 		}
 
 		await ensureUserRow(uid, req.user!.email);
-		await pgQuery(`delete from passed_brands where uid = $1`, [uid]);
-		if (entries.length > 0) {
-			const values = (entries as { id: string; at: number }[]).map(
-				(e, i) => `($1, $${i * 2 + 2}, to_timestamp($${i * 2 + 3}::bigint / 1000.0))`
-			).join(", ");
-			const params: unknown[] = [uid];
-			for (const e of entries as { id: string; at: number }[]) {
-				params.push(e.id, e.at);
+		const passedClient = await pgPool.connect();
+		try {
+			await passedClient.query("BEGIN");
+			await passedClient.query(`delete from passed_brands where uid = $1`, [uid]);
+			if (entries.length > 0) {
+				const values = (entries as { id: string; at: number }[]).map(
+					(e, i) => `($1, $${i * 2 + 2}, to_timestamp($${i * 2 + 3}::bigint / 1000.0))`
+				).join(", ");
+				const params: unknown[] = [uid];
+				for (const e of entries as { id: string; at: number }[]) {
+					params.push(e.id, e.at);
+				}
+				await passedClient.query(
+					`insert into passed_brands (uid, brand_id, last_passed_at) values ${values}`,
+					params,
+				);
 			}
-			await pgQuery(
-				`insert into passed_brands (uid, brand_id, last_passed_at) values ${values}`,
-				params,
-			);
+			await passedClient.query("COMMIT");
+		} catch (e) {
+			await passedClient.query("ROLLBACK");
+			throw e;
+		} finally {
+			passedClient.release();
 		}
 
 		res.json({ entries });

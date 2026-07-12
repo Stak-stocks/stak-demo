@@ -32,7 +32,7 @@ function SentimentBadge({ sentiment }: Readonly<{ sentiment: NewsArticle["sentim
 		);
 	}
 	return (
-		<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500 dark:bg-zinc-700/50 dark:dark:text-zinc-400 text-zinc-600">
+		<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500 dark:bg-zinc-700/50 dark:text-zinc-400 text-zinc-600">
 			<Minus className="w-3 h-3" />
 			Neutral
 		</span>
@@ -58,7 +58,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 			href={article.url}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="block bg-white dark:bg-surface-1/50 border border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 rounded-2xl p-5 shadow-sm dark:shadow-none hover:border-orange-400/50 dark:hover:border-orange-500/40 transition-all group"
+			className="block bg-white dark:bg-surface-1/50 border border-zinc-200 dark:border-slate-700/50 border-slate-200 rounded-2xl p-5 shadow-sm dark:shadow-none hover:border-orange-400/50 dark:hover:border-orange-500/40 transition-all group"
 		>
 			{article.image && (
 				<div className="w-full h-40 rounded-xl overflow-hidden mb-4 bg-zinc-100 dark:bg-slate-800">
@@ -78,7 +78,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 						<span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide bg-blue-500/15 text-blue-400 uppercase">
 						{article.type}
 					</span>
-				<span className="text-xs font-semibold text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 uppercase tracking-wide">
+				<span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 text-zinc-600 uppercase tracking-wide">
 						{article.source}
 					</span>
 					<span className="text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-500">{date}</span>
@@ -90,12 +90,12 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 				{article.headline}
 			</h3>
 
-			<p className="text-sm text-zinc-600 dark:dark:text-zinc-300 text-zinc-700 leading-relaxed">
+			<p className="text-sm text-zinc-600 dark:text-zinc-300 text-zinc-700 leading-relaxed">
 				{article.explanation}
 			</p>
 
-			<div className="mt-3 pt-3 border-t border-zinc-100 dark:dark:border-slate-700/50 border-slate-200">
-				<p className="text-xs text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
+			<div className="mt-3 pt-3 border-t border-zinc-100 dark:border-slate-700/50 border-slate-200">
+				<p className="text-xs text-zinc-500 dark:text-zinc-400 text-zinc-600">
 					<span className="font-semibold text-orange-600 dark:text-orange-400">Why it matters: </span>
 					{article.whyItMatters}
 				</p>
@@ -111,7 +111,7 @@ function NewsCard({ article }: Readonly<{ article: NewsArticle }>) {
 
 function SkeletonCard() {
 	return (
-		<div className="bg-white dark:bg-surface-1/50 border border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 rounded-2xl p-5 shadow-sm dark:shadow-none">
+		<div className="bg-white dark:bg-surface-1/50 border border-zinc-200 dark:border-slate-700/50 border-slate-200 rounded-2xl p-5 shadow-sm dark:shadow-none">
 			<div className="w-full h-40 rounded-xl bg-zinc-200 dark:bg-zinc-700/50 mb-4 animate-pulse" />
 			<div className="flex items-center justify-between mb-3">
 				<div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-700/50 rounded animate-pulse" />
@@ -192,7 +192,7 @@ function FeedPage() {
 				{/* Header */}
 				<div className="mb-4">
 					<h1 className="text-[22px] font-extrabold text-foreground">Market News</h1>
-					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mt-0.5">Simplified for you · last 7 days</p>
+					<p className="text-sm text-zinc-500 dark:text-zinc-400 text-zinc-600 mt-0.5">Simplified for you · last 7 days</p>
 				</div>
 
 				{/* Search bar */}
@@ -232,7 +232,7 @@ function FeedPage() {
 				{isSearching && (
 					<>
 						<div className="mb-4 flex items-center justify-between">
-							<p className="text-sm font-semibold text-zinc-700 dark:dark:text-zinc-300 text-zinc-700">
+							<p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 text-zinc-700">
 								Results for <span className="text-orange-500">"{activeQuery}"</span>
 							</p>
 							<button
@@ -253,7 +253,7 @@ function FeedPage() {
 						{searchError && !searchLoading && (
 							<div className="flex flex-col items-center justify-center py-16 text-center">
 								<div className="text-4xl mb-3">😕</div>
-								<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 text-sm">
+								<p className="text-zinc-500 dark:text-zinc-400 text-zinc-600 text-sm">
 									Couldn't fetch results. Try again.
 								</p>
 							</div>
@@ -264,7 +264,7 @@ function FeedPage() {
 								{(searchData?.articles ?? []).length === 0 ? (
 									<div className="flex flex-col items-center justify-center py-16 text-center">
 										<div className="text-4xl mb-3">🔍</div>
-										<p className="text-zinc-600 dark:dark:text-zinc-300 text-zinc-700 font-medium mb-1">No results found</p>
+										<p className="text-zinc-600 dark:text-zinc-300 text-zinc-700 font-medium mb-1">No results found</p>
 										<p className="dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 text-sm">
 											Try a different keyword or stock ticker.
 										</p>
@@ -296,7 +296,7 @@ function FeedPage() {
 								<h3 className="text-lg font-semibold text-foreground mb-2">
 									Couldn't load news
 								</h3>
-								<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mb-6 max-w-xs">
+								<p className="text-sm text-zinc-500 dark:text-zinc-400 text-zinc-600 mb-6 max-w-xs">
 									Something went wrong fetching the latest market news. Refresh the page to try again.
 								</p>
 							</div>
@@ -307,7 +307,7 @@ function FeedPage() {
 								{allArticles.length === 0 ? (
 									<div className="text-center py-20">
 										<div className="text-5xl mb-4">🗞️</div>
-										<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">No news available right now.</p>
+										<p className="text-zinc-500 dark:text-zinc-400 text-zinc-600">No news available right now.</p>
 									</div>
 								) : (
 									<div className="space-y-4">
@@ -322,7 +322,7 @@ function FeedPage() {
 										<button
 											type="button"
 											onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, MAX_ARTICLES))}
-											className="px-6 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 text-zinc-700 dark:dark:text-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:hover:bg-slate-800 text-sm font-semibold transition-colors"
+											className="px-6 py-2.5 rounded-xl border border-zinc-300 dark:border-slate-600 text-zinc-700 dark:text-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:hover:bg-slate-800 text-sm font-semibold transition-colors"
 										>
 											Load more stories...
 										</button>

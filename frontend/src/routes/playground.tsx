@@ -8,7 +8,8 @@ import { useAccount } from "@/context/AccountContext";
 import {
 	LESSON_CATEGORIES, getDailyPack, getTodayKey,
 	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
-	type WatchlistSlotType, type DailyActivity,
+	xpToTier, TIER_THRESHOLDS, SHARED_TIER_XP, SANDBOX_BUDGETS, ACTIVITY_XP_CAP,
+	type TierNumber, type WatchlistSlotType, type DailyActivity,
 	type Lesson, type LessonCategory,
 	type BattleMatchup, type EarningsScenario, type RiskScenario, type MoodScenario,
 } from "@/data/playgroundData";
@@ -381,12 +382,6 @@ function PlaygroundPage() {
 		};
 	}, [featuredLessonData?.lesson]);
 
-	// Find next incomplete lesson from today's pack for "Continue Learning"
-	const nextLesson = useMemo(() => {
-		const dailyLessonIds = dailyPack.activities.filter(a => a.type === "lesson").map(a => a.id);
-		return mergedLessons.find(l => dailyLessonIds.includes(l.id) && !dailyCompleted.has(l.id));
-	}, [dailyPack.activities, dailyCompleted]);
-
 	// Onboarding gate
 	if (showOnboarding) {
 		return (
@@ -480,13 +475,19 @@ function PlaygroundPage() {
 	}
 
 	// ── Level system ─────────────────────────────────────────────────────────
-	const LEVELS = [
-		{ min: 0,     max: 499,   name: "Beginner",  color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"      },
-		{ min: 500,   max: 1499,  name: "Learner",   color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"        },
-		{ min: 1500,  max: 3499,  name: "Investor",  color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"        },
-		{ min: 3500,  max: 7499,  name: "Analyst",   color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500"    },
-		{ min: 7500,  max: 99999, name: "Expert",    color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"     },
-	];
+	const LEVEL_STYLES: Record<TierNumber, { color: string; bg: string; bar: string }> = {
+		1: { color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"   },
+		2: { color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"     },
+		3: { color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"     },
+		4: { color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500" },
+		5: { color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"  },
+	};
+	const LEVELS = ([1, 2, 3, 4, 5] as const).map(t => ({
+		min: TIER_THRESHOLDS[t],
+		max: t < 5 ? TIER_THRESHOLDS[(t + 1) as TierNumber] - 1 : 99999,
+		name: SHARED_TIER_XP[t].label,
+		...LEVEL_STYLES[t],
+	}));
 	const currentLevel = [...LEVELS].reverse().find(l => totalXp >= l.min) ?? LEVELS[0]!;
 	const nextLevel = LEVELS.find(l => l.min > totalXp);
 	const levelPct = nextLevel
@@ -898,16 +899,15 @@ function LessonPlayer({
 			// Level-up toast
 			const prevXp = account?.totalXp ?? 0;
 			const newXp = prevXp + lesson.xp;
-			const LEVEL_THRESHOLDS = [500, 1500, 3500, 7500];
-			const crossed = LEVEL_THRESHOLDS.find(t => prevXp < t && newXp >= t);
-			if (crossed) {
-				const levelDefs: Record<number, { name: string; emoji: string; bar: string }> = {
-					500:  { name: "Learner",  emoji: "📚", bar: "from-blue-400 to-blue-500"     },
-					1500: { name: "Investor", emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
-					3500: { name: "Analyst",  emoji: "🔬", bar: "from-violet-400 to-purple-500" },
-					7500: { name: "Expert",   emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
-				};
-				const lv = levelDefs[crossed]!;
+			const LEVEL_UP_UI: Record<2|3|4|5, { emoji: string; bar: string }> = {
+				2: { emoji: "📚", bar: "from-blue-400 to-blue-500"     },
+				3: { emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
+				4: { emoji: "🔬", bar: "from-violet-400 to-purple-500" },
+				5: { emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
+			};
+			const crossedTier = ([2, 3, 4, 5] as const).find(t => prevXp < TIER_THRESHOLDS[t] && newXp >= TIER_THRESHOLDS[t]);
+			if (crossedTier) {
+				const lv = { name: SHARED_TIER_XP[crossedTier].label, ...LEVEL_UP_UI[crossedTier] };
 				import("sonner").then(({ toast }) => toast.custom(() => (
 					<div className="flex items-center gap-[12px] rounded-[14px] border border-violet-500/30 bg-violet-500/[0.1] px-[14px] py-[12px] shadow-lg overflow-hidden relative">
 						<div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${lv.bar}`} />
@@ -1071,12 +1071,14 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	const [selected, setSelected] = useState<"A" | "B" | null>(null);
 	const { showXp, XPFloat } = useXpFloat();
 	const xpAwarded = useRef(false);
+	const liveWinnerRef = useRef<"A" | "B" | null>(null);
 	const handlePick = (side: "A" | "B") => {
 		if (selected || alreadyWon) return;
 		setSelected(side);
-		// Resolve winner after a short delay; retry up to 3s if stock data hasn't loaded yet
+		// Resolve winner after a short delay; retry up to 3s if stock data hasn't loaded yet.
+		// Read from ref so retries always see the latest value even if data arrived after click.
 		const resolve = (attempt: number) => {
-			const winner = liveWinner;
+			const winner = liveWinnerRef.current;
 			if (winner) {
 				const won = side === winner;
 				onResult?.(won);
@@ -1124,6 +1126,7 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	const liveWinner: "A" | "B" | null = numA != null && numB != null
 		? (battle.higherWins ? (numA >= numB ? "A" : "B") : (numA <= numB ? "A" : "B"))
 		: null;
+	liveWinnerRef.current = liveWinner;
 
 	// When already won: auto-reveal the answer once live data resolves
 	useEffect(() => {
@@ -2362,34 +2365,36 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// account?.uid may be undefined on mount (still loading), so keys are computed each render
 	// and the initial localStorage read is deferred to a useEffect that fires once uid resolves.
 	const _drillUid = account?.uid ?? "";
-	const DAILY_DRILL_XP_CAP = 50;
+	const DAILY_DRILL_XP_CAP = ACTIVITY_XP_CAP;
 	const _drillXpLsKey = _drillUid ? `stak:drill:xp:${_drillUid}:${_drillDayKey}` : null;
 	const _drillIdxLsKey = _drillUid ? `stak:drill:idx:${_drillUid}:${_drillDayKey}` : null;
 	// Start at 0 / date-offset defaults; useEffect below loads real values once uid is ready
 	const [drillXpToday, setDrillXpToday] = useState(0);
 
-	// Freeze tier at session start — prevents mid-session refetch if user earns XP
-	// Use full 1-5 tier scale to match backend difficulty settings
-	const _drillTier = useMemo(() => {
-		const xp = account?.totalXp ?? 0;
-		if (xp >= 7500) return 5;
-		if (xp >= 3500) return 4;
-		if (xp >= 1500) return 3;
-		if (xp >= 500)  return 2;
-		return 1;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []); // intentionally empty — freeze at mount, don't change mid-session
+	// Freeze tier once account loads — prevents mid-session refetch if user earns XP,
+	// but also ensures we don't lock in tier 1 on cold load before account is available.
+	const [_drillTier, _setDrillTier] = useState<number | null>(null);
+	const _drillTierFrozen = useRef(false);
+	useEffect(() => {
+		if (_drillTierFrozen.current || !account) return;
+		_drillTierFrozen.current = true;
+		const xp = account.totalXp ?? 0;
+		_setDrillTier(xpToTier(xp));
+	}, [account]);
 
-	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools
+	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools.
+	// Disabled until _drillTier is set — ensures tier is correct even on cold page load.
 	const { data: genSentimentData } = useQuery({
-		queryKey: ["playground-gen", _drillDayKey, _drillTier, "drill_sentiment"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier, "drill_sentiment", 10),
+		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_sentiment"],
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_sentiment", 10),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
+		enabled: _drillTier !== null,
 	});
 	const { data: genNextStepData } = useQuery({
-		queryKey: ["playground-gen", _drillDayKey, _drillTier, "drill_nextstep"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier, "drill_nextstep", 8),
+		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_nextstep"],
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_nextstep", 8),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
+		enabled: _drillTier !== null,
 	});
 
 	// Merge static + generated pools (dedup by scenario text)
@@ -2481,7 +2486,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		setSessionXp(prev => prev + actualXp);
 		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + actualXp }));
 		if (isCorrectRound) setCorrectCount(c => c + 1);
-		addPracticeSkillXp(skill, actualXp).catch(() => {});
+		addPracticeSkillXp(skill, actualXp).then(serverXp => {
+			const diff = actualXp - serverXp;
+			if (diff > 0) {
+				setDrillXpToday(prev => Math.max(0, prev - diff));
+				setSessionXp(prev => Math.max(0, prev - diff));
+				setSessionSkillXp(prev => ({ ...prev, [skill]: Math.max(0, (prev[skill] ?? 0) - diff) }));
+				if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(Math.max(0, drillXpTodayRef.current - diff))); } catch {}
+			}
+		}).catch(() => {});
 	};
 
 	// ── Advance to next round ────────────────────────────────────────────────────
@@ -2572,6 +2585,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							setSentimentIdx(newSentIdx);
 							setNextStepIdx(newNsIdx);
 							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
+							xpAwardedThisRound.current = false;
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
@@ -3374,11 +3388,7 @@ function Sparkline({ prices, positive }: { prices: number[]; positive: boolean }
 
 // ── Sandbox Portfolio ─────────────────────────────────────────
 
-const SANDBOX_BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
-const sandboxBudgetForXp = (xp: number) => {
-	const tier = xp >= 7500 ? 5 : xp >= 3500 ? 4 : xp >= 1500 ? 3 : xp >= 500 ? 2 : 1;
-	return SANDBOX_BUDGET_BY_TIER[tier]!;
-};
+const sandboxBudgetForXp = (xp: number) => SANDBOX_BUDGETS[xpToTier(xp)];
 const SANDBOX_MAX_POSITIONS = 10;
 
 // Category display config for portfolio themes

@@ -1,7 +1,7 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getEasternDateKey } from "@stak/shared";
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
+export const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 /** Collect all configured Finnhub API keys (FINNHUB_API_KEY, FINNHUB_API_KEY_2, FINNHUB_API_KEY_3) */
 export function getFinnhubKeys(): string[] {
@@ -159,18 +159,6 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 	return hasFinance; // sports article only survives if it also has financial content
 }
 
-/**
- * Stricter filter for search results: the article must contain at least one
- * financial term or macro signal, not just "not be about sports".
- * Prevents lifestyle, politics, or entertainment results from appearing.
- */
-function isFinanciallyRelevant(article: FinnhubArticle): boolean {
-	const text = `${article.headline} ${article.summary}`.toLowerCase();
-	return (
-		FINANCIAL_TERMS.some((t) => text.includes(t)) ||
-		MACRO_SIGNALS.some((t) => text.includes(t))
-	);
-}
 
 const MARKET_CACHE_KEY = "market:all";
 

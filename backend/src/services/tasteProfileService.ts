@@ -47,8 +47,10 @@ export async function updateUserTasteProfile(
 		deltas[lt.tag] = actionPoints * lt.weight;
 	}
 
-	await pgQuery(
-		`select update_user_taste_profile($1, $2::jsonb)`,
-		[uid, JSON.stringify(deltas)],
-	);
+	try {
+		await pgQuery(
+			`select update_user_taste_profile($1, $2::jsonb)`,
+			[uid, JSON.stringify(deltas)],
+		);
+	} catch { /* fire-and-forget — never break the caller */ }
 }

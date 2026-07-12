@@ -93,8 +93,6 @@ function ProfilePage() {
 	const hasTagScores = Object.keys(tagScores).length > 0;
 
 	// Badges — all badges with progress tracking
-	const maxTagScore = Math.max(0, ...Object.values(tagScores));
-	const categoriesEngaged = Object.keys(tagScores).length;
 	const hasStaked = stakBrands.length >= 1;
 
 	const allBadges = [
@@ -280,7 +278,7 @@ function ProfilePage() {
 								<item.icon className={`w-4 h-4 ${item.iconColor}`} />
 							</div>
 							<span className="flex-1 text-left text-sm font-medium">{item.label}</span>
-							<ChevronRight className="w-4 h-4 dark:text-zinc-300 text-zinc-700 dark:text-zinc-600" />
+							<ChevronRight className="w-4 h-4 text-zinc-700 dark:text-zinc-600" />
 						</button>
 					))}
 

@@ -74,13 +74,19 @@ function Root() {
 	const stakTickers = useStakTickers();
 	useEffect(() => {
 		if (!appUser || stakTickers.length === 0) return;
-		for (const tab of ["today", "tomorrow", "week"] as const) {
+		for (const tab of ["today", "tomorrow"] as const) {
 			queryClient.prefetchQuery({
 				queryKey: ["market-earnings", tab, stakTickers],
 				queryFn: () => getMarketEarnings(tab, stakTickers),
 				staleTime: 10 * 60 * 1000,
 			});
 		}
+		// "week" tab uses a different key format in my-stak.tsx
+		queryClient.prefetchQuery({
+			queryKey: ["market-earnings-week", stakTickers],
+			queryFn: () => getMarketEarnings("week", stakTickers),
+			staleTime: 10 * 60 * 1000,
+		});
 	}, [queryClient, stakTickers, appUser]);
 
 	const handleAddToStak = useCallback(async (brand: BrandProfile) => {

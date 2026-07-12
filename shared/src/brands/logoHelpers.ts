@@ -19,7 +19,7 @@ const BRAND_DOMAINS: Record<string, string> = {
 	amat: "appliedmaterials.com", abnb: "airbnb.com", lyft: "lyft.com", ddog: "datadoghq.com",
 	snow: "snowflake.com", mdb: "mongodb.com", panw: "paloaltonetworks.com",
 	crwd: "crowdstrike.com", zm: "zoom.us", pltr: "palantir.com", hon: "honeywell.com",
-	or: "loreal.com", el: "esteelauder.com", elf: "elfcosmetics.com", ulta: "ulta.com",
+	or: "loreal.com", lrlcy: "loreal.com", el: "esteelauder.com", elf: "elfcosmetics.com", ulta: "ulta.com",
 	coty: "coty.com",
 	// Finance
 	jpm: "jpmorganchase.com", gs: "goldmansachs.com", ms: "morganstanley.com",
@@ -168,7 +168,7 @@ const TV_LOGO_SLUGS: Record<string, string> = {
 	intu: "intuit", amat: "applied-materials", abnb: "airbnb", lyft: "lyft",
 	ddog: "datadog", snow: "snowflake", mdb: "mongodb", panw: "palo-alto-networks",
 	crwd: "crowdstrike", zm: "zoom-video-communications", pltr: "palantir",
-	hon: "honeywell", or: "l-oreal", el: "estee-lauder", elf: "e-l-f-beauty",
+	hon: "honeywell", or: "l-oreal", lrlcy: "l-oreal", el: "estee-lauder", elf: "e-l-f-beauty",
 	ulta: "ulta-beauty", coty: "coty",
 	// Finance
 	jpm: "jpmorgan-chase", gs: "goldman-sachs", ms: "morgan-stanley",
