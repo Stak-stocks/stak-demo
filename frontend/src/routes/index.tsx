@@ -230,16 +230,33 @@ function App() {
 			if (deckOrder?.length) {
 				updateDeckOrder([]).catch(() => {});
 			}
+
+			// Re-queued brands (expired passes, count < 5) always go to the bottom.
+			// Without this they jump near the top because tagScores still reflect past
+			// engagement with their categories (e.g. a brand just removed from Stak).
+			const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+			const requeuedIds = new Set(
+				(account.passedBrands ?? [])
+					.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
+					.map((e) => e.id),
+			);
+			const pushToBottom = (arr: BrandSummary[]) => [
+				...arr.filter((b) => !requeuedIds.has(b.id)),
+				...arr.filter((b) => requeuedIds.has(b.id)),
+			];
+
 			// Set synchronous client-side order immediately so deck isn't blank while
 			// the server call resolves (~200ms cold, ~10ms when 5-min cache is warm).
 			const tagScores = account.tagScores ?? {};
-			order = [...allBrands]
-				.map((b) => ({
-					brand: b,
-					score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
-				}))
-				.sort((a, b) => b.score - a.score)
-				.map(({ brand }) => brand);
+			order = pushToBottom(
+				[...allBrands]
+					.map((b) => ({
+						brand: b,
+						score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
+					}))
+					.sort((a, b) => b.score - a.score)
+					.map(({ brand }) => brand),
+			);
 			setRecommendedOrder(order);
 			// Then refine with server-computed order (personalised + freshness signals
 			// computed from live market data, cached per uid for 5 min).
@@ -249,7 +266,7 @@ function App() {
 					const sorted = (data.brandIds ?? []).map((t) => tickerMap.get(t)).filter(Boolean) as BrandSummary[];
 					const sortedSet = new Set(data.brandIds ?? []);
 					const missing = allBrands.filter((b) => !sortedSet.has(b.ticker));
-					setRecommendedOrder([...sorted, ...missing]);
+					setRecommendedOrder(pushToBottom([...sorted, ...missing]));
 				})
 				.catch(() => {}); // initial client-side order already set — keep it on error
 			return; // don't persist — will always recompute on load
@@ -345,7 +362,7 @@ function App() {
 		const lockedInOrder = [filtered[0], filtered[1], filtered[2]].filter(Boolean);
 
 		// Score and sort all remaining brands (including ones not yet in recommendedOrder)
-		const sortedRest = allBrands
+		const scored = allBrands
 			.filter((b) => !lockedIds.has(b.id))
 			.map((b) => ({
 				brand: b,
@@ -356,7 +373,19 @@ function App() {
 			.sort((a, b) => b.score - a.score)
 			.map(({ brand }) => brand);
 
-		setRecommendedOrder([...lockedInOrder, ...sortedRest]);
+		// Re-queued brands (expired passes, count < 5) go to the bottom, same as Phase B.
+		// Without this, they'd jump near the top because users have high tag-score affinity
+		// for categories they previously engaged with.
+		const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+		const requeuedIds = new Set(
+			passedEntriesRef.current
+				.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
+				.map((e) => e.id),
+		);
+		const normalRest = scored.filter((b) => !requeuedIds.has(b.id));
+		const requeuedRest = scored.filter((b) => requeuedIds.has(b.id));
+
+		setRecommendedOrder([...lockedInOrder, ...normalRest, ...requeuedRest]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [account?.tagScores, todayThemes]);
 
@@ -385,6 +414,14 @@ function App() {
 		} else {
 			const updated = [...swipedBrands, brand];
 			setSwipedBrands(updated);
+			// Saving a brand resets its pass history so future removals don't inherit
+			// stale pass counts from before the user actively chose to save it.
+			if (passedBrandIds.has(brand.id) || passedEntriesRef.current.some((e) => e.id === brand.id)) {
+				setPassedBrandIds((prev) => { const s = new Set(prev); s.delete(brand.id); return s; });
+				const clearedEntries = passedEntriesRef.current.filter((e) => e.id !== brand.id);
+				passedEntriesRef.current = clearedEntries;
+				updatePassedBrands(clearedEntries).catch(() => {});
+			}
 			const cachedPrice = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])?.quote?.price ?? null;
 			saveToStak(brand.id, cachedPrice).catch((e) => {
 				console.error("Failed to save stak:", e);
@@ -414,6 +451,19 @@ function App() {
 			pendingBrand,
 		];
 		setSwipedBrands(updated);
+		// Hide the swapped-out brand immediately and re-queue it to the bottom (1-day pass).
+		// Refresh timestamp only — don't increment count toward the 5-pass permanent-hide threshold.
+		setPassedBrandIds((prev) => new Set([...prev, brandToRemove.id]));
+		const existingEntries = passedEntriesRef.current;
+		const prevEntry = existingEntries.find((e) => e.id === brandToRemove.id);
+		const updatedPassed = prevEntry
+			? existingEntries.map((e) => e.id === brandToRemove.id ? { ...e, at: Date.now() } : e)
+			: [...existingEntries, { id: brandToRemove.id, at: Date.now(), count: 0 }];
+		// Also clear the incoming brand's pass history — saving it resets the slate.
+		const afterClear = updatedPassed.filter((e) => e.id !== pendingBrand.id);
+		passedEntriesRef.current = afterClear;
+		setPassedBrandIds((prev) => { const s = new Set(prev); s.delete(pendingBrand.id); return s; });
+		updatePassedBrands(afterClear).catch(() => {});
 		const cachedSwapPrice = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", pendingBrand.ticker])?.quote?.price ?? null;
 		updateStak(updated.map((b) => b.id)).catch((e) => {
 			console.error("Failed to save stak:", e);

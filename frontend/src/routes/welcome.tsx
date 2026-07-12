@@ -380,7 +380,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", right: "-108.2%", bottom: "-179.01%", width: "auto", height: "auto", maxWidth: "none" }} />
 			</div>
 
-			<NavBar onLogin={onLogin} onSignup={onSignup} onScrollTo={onScrollTo} />
+			<NavBar onSignup={onSignup} onScrollTo={onScrollTo} />
 
 			{/* Hero text */}
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
