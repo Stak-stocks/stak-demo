@@ -4236,7 +4236,7 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 											<Tooltip
 												contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
 												labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
-												formatter={(v: number) => [v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`, "P/L"]}
+												formatter={(v: number) => [<span style={{ color: v >= 0 ? "#34d399" : "#f87171" }}>{v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`}</span>, "P/L"]}
 												labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
 											/>
 											<Area type="monotone" dataKey="pnl" stroke={chartColor} strokeWidth={2} fill="url(#portfolioFill)" dot={false} activeDot={{ r: 4, fill: chartColor }} />
