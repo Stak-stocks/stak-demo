@@ -432,8 +432,9 @@ Rules:
 		prompt = `Generate ${rawCount} "Bullish, Bearish, or Mixed?" skill drill scenarios for a ${tierLabel}-level investing student.
 Each shows a company or market event and the user classifies it.
 
+DAY: ${dayKey} — use this seed to vary your output. Different day = different scenarios.
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-drill-sent-1",
@@ -452,8 +453,9 @@ Rules:
 		prompt = `Generate ${rawCount} "What Should You Check Next?" skill drill scenarios for a ${tierLabel}-level investing student.
 Each shows a stock situation and asks what the investor should investigate first.
 
+DAY: ${dayKey} — use this seed to vary your output. Different day = different scenarios.
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-drill-next-1",

@@ -2393,18 +2393,32 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// Disabled until _drillTier is set — ensures tier is correct even on cold page load.
 	const { data: genSentimentData } = useQuery({
 		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_sentiment"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_sentiment", 10),
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_sentiment", 5),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
 		enabled: _drillTier !== null,
 	});
 	const { data: genNextStepData } = useQuery({
 		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_nextstep"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_nextstep", 8),
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_nextstep", 5),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
 		enabled: _drillTier !== null,
 	});
 
-	// Merge static + generated pools (dedup by scenario text)
+	// Deterministic per-user-per-day shuffle — same order within a day (resumable),
+	// different order each day so the user sees different scenarios.
+	function seededShuffle<T>(arr: T[], seed: string): T[] {
+		let h = seed.split("").reduce((acc, c) => (Math.imul(31, acc) + c.charCodeAt(0)) | 0, 0x9e3779b9);
+		const next = () => { h = (Math.imul(h ^ (h >>> 16), 0x45d9f3b)) | 0; return (h >>> 0) / 0x100000000; };
+		const out = [...arr];
+		for (let i = out.length - 1; i > 0; i--) {
+			const j = Math.floor(next() * (i + 1));
+			[out[i], out[j]] = [out[j]!, out[i]!];
+		}
+		return out;
+	}
+	const _drillShuffleSeed = `${_drillUid}:${_drillDayKey}`;
+
+	// Merge static + generated pools (dedup by scenario text), then shuffle for today
 	const allSentimentScenarios = useMemo(() => {
 		const VALID_SENTIMENTS = ["Bullish","Bearish","Mixed"];
 		const extras = Array.isArray(genSentimentData) ? genSentimentData
@@ -2421,8 +2435,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			.filter((r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } => r !== null)
 		: [];
 		const seen = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		return [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
-	}, [genSentimentData]);
+		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
+		return seededShuffle(merged, _drillShuffleSeed + ":sent");
+	}, [genSentimentData, _drillShuffleSeed]);
 
 	const allNextStepScenarios = useMemo(() => {
 		const extras = Array.isArray(genNextStepData) ? genNextStepData.filter(
@@ -2432,12 +2447,13 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				Array.isArray((r as Record<string,unknown>).options)
 		) : [];
 		const seen = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		return [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
+		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
+		return seededShuffle(merged, _drillShuffleSeed + ":next");
 	}, [genNextStepData]);
 
 	// Scenario indices — default to date-offset; useEffect loads persisted position once uid ready
-	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 30);
-	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
+	const [sentimentIdx, setSentimentIdx] = useState(0);
+	const [nextStepIdx, setNextStepIdx] = useState(0);
 
 	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
 	const drillStateLoadedRef = useRef(false);

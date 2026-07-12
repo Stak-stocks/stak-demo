@@ -341,26 +341,16 @@ export function getDailyChallenge(dateKey: string): DailyChallenge {
 // ── Sandbox practice tickers ──────────────────────────────────────────────────
 
 export const PRACTICE_TICKERS = [
-	{ ticker: "AAPL",  name: "Apple",           prompt: "High-margin hardware and software company with massive buybacks. Premium brand with strong loyalty." },
-	{ ticker: "TSLA",  name: "Tesla",            prompt: "EV pioneer with high growth, high valuation, and volatile earnings. Elon Musk drives both the brand and the swings." },
-	{ ticker: "NVDA",  name: "NVIDIA",           prompt: "AI chip leader seeing unprecedented demand. Revenue and margins have exploded. Valuation is stretched by historical standards." },
-	{ ticker: "META",  name: "Meta",             prompt: "Ad-revenue giant with strong AI infrastructure. Trades at a reasonable multiple for its growth rate." },
-	{ ticker: "NFLX",  name: "Netflix",          prompt: "Streaming leader with improving margins from ad-tier and password sharing crackdown. Subscriber growth stabilising." },
-	{ ticker: "COIN",  name: "Coinbase",         prompt: "Crypto exchange with revenue highly tied to market cycle. Volatile but the largest regulated US crypto platform." },
-	{ ticker: "PLTR",  name: "Palantir",         prompt: "AI data platform for government and enterprise. Revenue growing but expensive — P/E is very high." },
-	{ ticker: "SHOP",  name: "Shopify",          prompt: "E-commerce infrastructure for SMBs. Strong revenue growth but profitability has been inconsistent." },
-	{ ticker: "SBUX",  name: "Starbucks",        prompt: "Global coffee brand facing operational challenges. High dividend yield but growth has slowed." },
-	{ ticker: "RBLX",  name: "Roblox",           prompt: "Gaming platform for young users. Revenue growing, but profitability distant and competition intense." },
-	{ ticker: "MSFT",  name: "Microsoft",        prompt: "Cloud, AI, Office, and Xbox. One of the most diversified mega-cap tech companies with a growing dividend." },
-	{ ticker: "AMZN",  name: "Amazon",           prompt: "E-commerce and AWS cloud in one. AWS is the profit engine; retail is the customer flywheel." },
-	{ ticker: "GOOGL", name: "Alphabet",         prompt: "Search, YouTube, and Google Cloud. Advertising is 80% of revenue — rate-sensitive to ad market cycles." },
-	{ ticker: "DDOG",  name: "Datadog",          prompt: "Cloud monitoring and observability platform. High growth, improving profitability, beloved by DevOps teams." },
-	{ ticker: "CRWD",  name: "CrowdStrike",      prompt: "AI-powered cybersecurity platform. Subscription model with high retention and rapid growth." },
-	{ ticker: "DUOL",  name: "Duolingo",         prompt: "Language-learning app with strong DAU growth and subscription revenue. High P/E on future profitability hopes." },
-	{ ticker: "HOOD",  name: "Robinhood",        prompt: "Commission-free trading app diversifying into crypto, retirement, and credit. Revenue tied to trading activity." },
-	{ ticker: "ASTS",  name: "AST SpaceMobile",  prompt: "Pre-revenue satellite broadband startup. Massive upside if execution succeeds; high risk of dilution and failure." },
-	{ ticker: "AMD",   name: "AMD",              prompt: "Semiconductor company gaining share from Intel in CPUs and competing with NVIDIA in AI chips. Strong execution." },
-	{ ticker: "NKE",   name: "Nike",             prompt: "Global sportswear leader facing brand challenges. Dividend payer undergoing operational restructuring." },
+	{ ticker: "AAPL",  name: "Apple",     prompt: "High-margin hardware and software company with massive buybacks. Premium brand with strong loyalty." },
+	{ ticker: "TSLA",  name: "Tesla",     prompt: "EV pioneer with high growth, high valuation, and volatile earnings. Elon Musk drives both the brand and the swings." },
+	{ ticker: "NVDA",  name: "NVIDIA",    prompt: "AI chip leader seeing unprecedented demand. Revenue and margins have exploded. Valuation is stretched by historical standards." },
+	{ ticker: "META",  name: "Meta",      prompt: "Ad-revenue giant with strong AI infrastructure. Trades at a reasonable multiple for its growth rate." },
+	{ ticker: "NFLX",  name: "Netflix",   prompt: "Streaming leader with improving margins from ad-tier and password sharing crackdown. Subscriber growth stabilising." },
+	{ ticker: "MSFT",  name: "Microsoft", prompt: "Cloud, AI, Office, and Xbox. One of the most diversified mega-cap tech companies with a growing dividend." },
+	{ ticker: "AMZN",  name: "Amazon",    prompt: "E-commerce and AWS cloud in one. AWS is the profit engine; retail is the customer flywheel." },
+	{ ticker: "GOOGL", name: "Alphabet",  prompt: "Search, YouTube, and Google Cloud. Advertising is 80% of revenue — rate-sensitive to ad market cycles." },
+	{ ticker: "SBUX",  name: "Starbucks", prompt: "Global coffee brand facing operational challenges. High dividend yield but growth has slowed." },
+	{ ticker: "COIN",  name: "Coinbase",  prompt: "Crypto exchange with revenue highly tied to market cycle. Volatile but the largest regulated US crypto platform." },
 ];
 
 // ── Build Your First Watchlist game ──────────────────────────────────────────
