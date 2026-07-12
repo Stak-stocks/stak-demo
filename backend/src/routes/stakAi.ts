@@ -220,18 +220,19 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		return;
 	}
 
-	const DAILY_AI_LIMIT = 20;
+	const WINDOW_LIMIT = 5;
+	const WINDOW_HOURS = 6;
 	try {
-		// Per-user daily cap — count user messages sent today (ET day boundary)
+		// Per-user rolling cap — 5 messages per 6-hour window
 		const countResult = await pgQuery<{ count: string }>(
 			`SELECT COUNT(*) as count FROM stak_ai_messages
 			 WHERE uid = $1 AND role = 'user'
-			 AND (created_at AT TIME ZONE 'America/New_York')::date = (NOW() AT TIME ZONE 'America/New_York')::date`,
+			 AND created_at >= NOW() - INTERVAL '${WINDOW_HOURS} hours'`,
 			[uid],
 		);
-		const todayCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
-		if (todayCount >= DAILY_AI_LIMIT) {
-			res.status(429).json({ error: `You've reached the daily limit of ${DAILY_AI_LIMIT} Stak AI messages. Come back tomorrow!` });
+		const windowCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
+		if (windowCount >= WINDOW_LIMIT) {
+			res.status(429).json({ error: `You've used your ${WINDOW_LIMIT} Stak AI messages for this window. Try again in ${WINDOW_HOURS} hours!` });
 			return;
 		}
 		// Validate existing conversation ownership (don't create yet — wait for successful AI response)
