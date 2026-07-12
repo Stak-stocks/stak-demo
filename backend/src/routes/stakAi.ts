@@ -282,10 +282,27 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 
 		const easternDate = getEasternDateKey();
 
+		// Auto-flag first 50 Stak AI users as research cohort (fire-and-forget)
+		pgQuery<{ research_cohort: boolean }>(
+			`SELECT research_cohort FROM users WHERE uid = $1`, [uid],
+		).then((r) => {
+			if (!r.rows[0]?.research_cohort) {
+				pgQuery<{ count: string }>(
+					`SELECT COUNT(*) as count FROM users WHERE research_cohort = true`,
+				).then((c) => {
+					if (parseInt(c.rows[0]?.count ?? "0", 10) < 50) {
+						pgQuery(`UPDATE users SET research_cohort = true WHERE uid = $1`, [uid]).catch(() => {});
+					}
+				}).catch(() => {});
+			}
+		}).catch(() => {});
+
 		// Detect mentioned brands from full catalog — not just Stak, so any brand works
 		const mentionedBrands = detectMentionedBrands(message.trim(), brands as BrandProfile[]);
 		const liveDataLines: string[] = [];
 		const newsLines: string[] = [];
+		const liveContextLog: Record<string, string> = {};
+		const newsHeadlinesLog: { ticker: string; headline: string }[] = [];
 		if (mentionedBrands.length > 0) {
 			const [priceResults, newsResults] = await Promise.all([
 				Promise.allSettled(mentionedBrands.map((b) => fetchLiveStockContext(b.ticker).then((ctx) => ({ brand: b, ctx })))),
@@ -294,12 +311,16 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			for (const f of priceResults) {
 				if (f.status === "fulfilled" && f.value.ctx) {
 					liveDataLines.push(`• ${f.value.brand.name} (${f.value.brand.ticker}): ${f.value.ctx}`);
+					liveContextLog[f.value.brand.ticker] = f.value.ctx;
 				}
 			}
 			for (const f of newsResults) {
 				if (f.status === "fulfilled" && f.value.articles.length > 0) {
 					const headlines = f.value.articles.slice(0, 5).map((a) => `  - ${a.headline}`).join("\n");
 					newsLines.push(`${f.value.brand.name} (${f.value.brand.ticker}) recent headlines:\n${headlines}`);
+					for (const a of f.value.articles.slice(0, 5)) {
+						newsHeadlinesLog.push({ ticker: f.value.brand.ticker, headline: a.headline });
+					}
 				}
 			}
 		}
@@ -356,6 +377,28 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			`UPDATE stak_ai_conversations SET updated_at = now() WHERE id = $1`,
 			[conversationId],
 		);
+
+		// Log context for research cohort users (fire-and-forget — never blocks the response)
+		pgQuery<{ research_cohort: boolean }>(
+			`SELECT research_cohort FROM users WHERE uid = $1`, [uid],
+		).then((r) => {
+			if (r.rows[0]?.research_cohort) {
+				pgQuery(
+					`INSERT INTO stak_ai_research_log
+					 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response)
+					 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+					[
+						uid,
+						conversationId,
+						message.trim(),
+						mentionedBrands.map((b) => b.ticker),
+						JSON.stringify(newsHeadlinesLog),
+						JSON.stringify(liveContextLog),
+						aiResponse,
+					],
+				).catch((e) => console.warn("[Stak AI] research log write failed:", e));
+			}
+		}).catch(() => {});
 
 		res.json({ response: aiResponse, conversationId });
 	} catch (e) {
