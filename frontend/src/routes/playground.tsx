@@ -2368,14 +2368,10 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
 
-	// uid-scoped localStorage keys so two users on the same device don't share state.
-	// account?.uid may be undefined on mount (still loading), so keys are computed each render
-	// and the initial localStorage read is deferred to a useEffect that fires once uid resolves.
 	const _drillUid = account?.uid ?? "";
 	const DAILY_DRILL_XP_CAP = ACTIVITY_XP_CAP;
-	const _drillXpLsKey = _drillUid ? `stak:drill:xp:${_drillUid}:${_drillDayKey}` : null;
 	const _drillIdxLsKey = _drillUid ? `stak:drill:idx:${_drillUid}:${_drillDayKey}` : null;
-	// Start at 0 / date-offset defaults; useEffect below loads real values once uid is ready
+	// Seeded from server (drill-seen response) — no localStorage
 	const [drillXpToday, setDrillXpToday] = useState(0);
 
 	// Freeze tier once account loads — prevents mid-session refetch if user earns XP,
@@ -2497,6 +2493,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		_drillSeenLoaded.current = true;
 		seenSentRef.current = new Set(drillSeenData.sentiment);
 		seenNextRef.current = new Set(drillSeenData.nextstep);
+		if (drillSeenData.xpToday > 0) setDrillXpToday(drillSeenData.xpToday);
 		_setSeenVersion(1);
 	}, [drillSeenData]);
 
@@ -2505,10 +2502,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	useEffect(() => {
 		if (!_drillUid || drillStateLoadedRef.current) return;
 		drillStateLoadedRef.current = true;
-		try {
-			const xp = Number(localStorage.getItem(`stak:drill:xp:${_drillUid}:${_drillDayKey}`) ?? 0);
-			if (xp > 0) setDrillXpToday(xp);
-		} catch {}
 		try {
 			const saved = JSON.parse(localStorage.getItem(`stak:drill:idx:${_drillUid}:${_drillDayKey}`) ?? "null");
 			if (saved && typeof saved.sentiment === "number") setSentimentIdx(saved.sentiment);
@@ -2554,22 +2547,18 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		xpAwardedThisRound.current = true;
 		const remaining = DAILY_DRILL_XP_CAP - drillXpTodayRef.current;
 		const actualXp = Math.min(xp, remaining);
-		setDrillXpToday(prev => {
-			const next = prev + actualXp;
-			if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(next)); } catch {}
-			return next;
-		});
+		setDrillXpToday(prev => prev + actualXp);
 		showXp(actualXp);
 		setSessionXp(prev => prev + actualXp);
 		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + actualXp }));
 		if (isCorrectRound) setCorrectCount(c => c + 1);
-		addPracticeSkillXp(skill, actualXp).then(serverXp => {
+		// Server enforces the real cap and returns xpToday — sync local state to server truth
+		addPracticeSkillXp(skill, actualXp).then(({ xp: serverXp, xpToday: serverXpToday }) => {
 			const diff = actualXp - serverXp;
 			if (diff > 0) {
-				setDrillXpToday(prev => Math.max(0, prev - diff));
+				setDrillXpToday(Math.max(0, serverXpToday ?? drillXpTodayRef.current - diff));
 				setSessionXp(prev => Math.max(0, prev - diff));
 				setSessionSkillXp(prev => ({ ...prev, [skill]: Math.max(0, (prev[skill] ?? 0) - diff) }));
-				if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(Math.max(0, drillXpTodayRef.current - diff))); } catch {}
 			}
 		}).catch(() => {});
 	};

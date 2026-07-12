@@ -154,7 +154,7 @@ interface AccountContextType {
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
 	completeDailyActivity: (dayKey: string, activityId: string, xp: number, activityType?: string) => Promise<void>;
-	addPracticeSkillXp: (skill: string, xp: number) => Promise<number>;
+	addPracticeSkillXp: (skill: string, xp: number) => Promise<{ xp: number; xpToday: number }>;
 	markPlaygroundOnboarded: () => Promise<void>;
 	saveGeneratedLessonHistory: (entry: { topic: string; title: string; angle: string }) => Promise<void>;
 }
@@ -287,10 +287,10 @@ const initSandboxCash = useCallback(async () => {
 		await saveGeneratedLessonHistorySupabase(entry);
 	}, []);
 
-	const addPracticeSkillXp = useCallback(async (skill: string, xp: number): Promise<number> => {
-		if (xp <= 0) return 0;
+	const addPracticeSkillXp = useCallback(async (skill: string, xp: number): Promise<{ xp: number; xpToday: number }> => {
+		if (xp <= 0) return { xp: 0, xpToday: 0 };
 		const result = await addSkillXp(skill, xp);
-		return result.xp;
+		return { xp: result.xp, xpToday: result.xpToday ?? 0 };
 	}, []);
 
 	const markSandboxMilestone = useCallback(async (value: number) => {

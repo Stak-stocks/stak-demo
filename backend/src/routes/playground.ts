@@ -705,7 +705,8 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			return;
 		}
 		const actualXp = Math.min(xp, DAILY_SKILL_XP_CAP - earnedToday);
-		await cacheSet(capKey, earnedToday + actualXp, 25 * 60 * 60 * 1000);
+		const xpToday = earnedToday + actualXp;
+		await cacheSet(capKey, xpToday, 25 * 60 * 60 * 1000);
 
 		const client = await pgPool.connect();
 		try {
@@ -723,7 +724,7 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			);
 
 			await client.query("COMMIT");
-			res.json({ ok: true, xp: actualXp });
+			res.json({ ok: true, xp: actualXp, xpToday });
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;
@@ -742,13 +743,19 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 playgroundRouter.get("/drill-seen", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	const uid = req.user!.uid;
 	try {
-		const result = await pgQuery<{ type: string; payload: string[] }>(
-			`SELECT type, payload FROM playground_cache WHERE uid = $1 AND type IN ('drill_seen_sentiment', 'drill_seen_nextstep') AND date = '9999-12-31'`,
-			[uid],
-		);
-		const sentiment = result.rows.find(r => r.type === "drill_seen_sentiment")?.payload ?? [];
-		const nextstep  = result.rows.find(r => r.type === "drill_seen_nextstep")?.payload ?? [];
-		res.json({ sentiment, nextstep });
+		const [seenResult, xpToday] = await Promise.all([
+			pgQuery<{ type: string; payload: string[] }>(
+				`SELECT type, payload FROM playground_cache WHERE uid = $1 AND type IN ('drill_seen_sentiment', 'drill_seen_nextstep') AND date = '9999-12-31'`,
+				[uid],
+			),
+			(async () => {
+				const today = getEasternDateKey(new Date());
+				return (await cacheGet<number>(`practice:dailycap:${uid}:${today}`)) ?? 0;
+			})(),
+		]);
+		const sentiment = seenResult.rows.find(r => r.type === "drill_seen_sentiment")?.payload ?? [];
+		const nextstep  = seenResult.rows.find(r => r.type === "drill_seen_nextstep")?.payload ?? [];
+		res.json({ sentiment, nextstep, xpToday });
 	} catch (e) {
 		console.error("[playground] drill-seen GET error:", e);
 		res.status(500).json({ error: "Failed to fetch seen drills" });
