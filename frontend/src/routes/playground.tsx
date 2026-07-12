@@ -2634,7 +2634,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setSessionStarted(false);
+							setSessionStarted(true);
 						}}
 							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
 							Practice Again
