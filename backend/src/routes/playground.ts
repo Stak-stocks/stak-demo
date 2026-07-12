@@ -199,14 +199,14 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 			}
 		}
 		if (recent.length > 0)
-			avoidLine = `\nAVOID REPEATING THESE RECENTLY COVERED TOPICS: ${recent.slice(0, 30).join(" | ")}\n`;
+			avoidLine = `\nBANNED — you MUST NOT use any of the following recently covered companies/topics (already seen by this user — you MUST choose completely different ones): ${recent.slice(0, 30).join(", ")}. This is a hard requirement that overrides all other instructions.\n`;
 	} catch { /* history unavailable — proceed without exclusions */ }
 
 	const tierLabel = ["", "Beginner", "Learner", "Investor", "Analyst", "Expert"][tier] ?? "Intermediate";
 
 	// Explicit difficulty guidance per tier — used across all prompt types
 	const DIFFICULTY_GUIDE: Record<number, string> = {
-		1: `BEGINNER level: Use only well-known household brands (Apple, Nike, Netflix, Tesla). Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
+		1: `BEGINNER level: Use only well-known household brands recognisable to everyday consumers. Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
 		2: `LEARNER level: Use well-known companies and introduce basic metrics (P/E ratio, revenue growth, dividend yield). One or two wrong options should be plausible to someone new. Topics: valuation basics, earnings beats/misses, sector categories, simple risk concepts.`,
 		3: `INVESTOR level: Assume familiarity with P/E, EPS, revenue growth, market cap, beta. Use moderately complex scenarios with plausible distractors that require real understanding to eliminate. Topics: comparing companies on metrics, reading earnings context, sector rotation, basic macro.`,
 		4: `ANALYST level: Assume solid investing knowledge. Use nuanced scenarios where multiple answers seem reasonable — only someone who deeply understands the concept can distinguish the best answer. Topics: advanced valuation, guidance vs actuals, macro impact on sectors, portfolio construction principles.`,
@@ -221,8 +221,8 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
@@ -252,9 +252,8 @@ predict how the stock reacted. The lesson being taught is that stock reaction do
 1:1 — guidance, valuation, segment trends, and "priced in" expectations all matter too.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-earn-${dayKey}-1",
@@ -304,8 +303,8 @@ Rules:
 Each scenario presents two investment options and asks which is riskier.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must produce DIFFERENT companies, industries, and risk types from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
@@ -328,8 +327,8 @@ Rules:
 Each scenario presents a real-world macro event and asks how markets would react.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT macro events and economic topics from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
@@ -363,8 +362,8 @@ Rules:
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT concepts and topics from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
 
