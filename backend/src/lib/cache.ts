@@ -80,3 +80,15 @@ export async function cacheSet(key: string, data: unknown, ttlMs: number): Promi
 
 	mem.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
+
+export async function cacheDelete(key: string): Promise<void> {
+	if (redis) {
+		try {
+			await redis.del(PREFIX + key);
+			return;
+		} catch {
+			// Redis error — fall through to memory
+		}
+	}
+	mem.delete(key);
+}

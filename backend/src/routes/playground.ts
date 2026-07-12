@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
-import { cacheGet, cacheSet } from "../lib/cache.js";
+import { cacheGet, cacheSet, cacheDelete } from "../lib/cache.js";
 import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import type { AuthenticatedRequest } from "../authMiddleware.js";
@@ -268,7 +268,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "stockContext": "Near 52-week high",
   "peRatio": "24x",
   "stockSetupLabel": "Priced for consistency",
-  "question": "Given this report, what do you predict happened to McDonald's stock?",
+  "question": "What do you predict happened to McDonald's stock after this report?",
   "options": [
     {"id": "a", "text": "Up 4%+ — EPS beat drives rally"},
     {"id": "b", "text": "Flat — results in line with expectations"},
@@ -283,6 +283,28 @@ Return a JSON array of exactly ${rawCount} objects:
   "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
+
+VARY THE QUESTION FORMAT across the ${rawCount} scenarios — do not use the same format twice in a row. Choose one per scenario:
+
+FORMAT A — REACTION PREDICTION: ask what the stock did; options are movement ranges
+  question: "What do you predict happened to [Company]'s stock after this report?"
+  options: 4 movement ranges matching the plausible outcomes — one must align with stockMove (e.g. "Up 5%+ — strong beat", "Up 1-3% — modest relief", "Flat — as expected", "Down 3-7% — guidance concerns", "Down 10%+ — major miss")
+
+FORMAT B — KEY DRIVER: ask what caused the reaction; options are scenario-specific market dynamics
+  question: "What was the primary driver of [Company]'s stock [direction] after earnings?"
+  options: 4 specific factors relevant to this scenario — e.g. "Guidance cut overshadowed the EPS beat", "Revenue deceleration spooked growth investors", "Priced-in expectations set the bar too high", "Strong segment data validated the bull case"
+
+FORMAT C — DISCONNECT: highlight a surprising reaction; ask what explains it
+  question: "[Company] beat [metric] by X% but the stock [fell/rose] Y%. What best explains this?"
+  options: 4 investing concepts explaining the disconnect — e.g. "Management cut next-quarter guidance below consensus", "The stock was trading at 45x forward earnings heading in", "One-time gains inflated reported EPS", "Revenue growth decelerated despite the headline beat"
+
+FORMAT D — INVESTOR FOCUS: ask what signal most matters to a long-term investor
+  question: "Which signal from [Company]'s report should concern a long-term investor most?"
+  options: 4 data points or narrative elements from this specific scenario — e.g. "Gross margin contracted 200bps despite revenue growth", "Management lowered full-year revenue guidance by 5%", "EPS beat was driven by a tax benefit, not operations", "International revenue declined for the first time in 3 years"
+
+For FORMAT A: the correctId must match the stockMove direction and magnitude.
+For FORMATS B/C/D: generate options specific to this scenario; correctId is the most accurate explanation. stockMove is still required (shown in the reveal) but is not one of the options.
+
 Rules:
 - IMPORTANT: Do NOT generate a scenario for the example company (McDonald's / MCD) used in the schema above — it is a placeholder only
 - Use real companies and plausible earnings scenarios
@@ -707,5 +729,30 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 	} catch (e) {
 		console.error("[playground] skill-xp error:", e);
 		res.status(500).json({ error: "Failed to record skill XP" });
+	}
+});
+
+// ── Admin: clear a user's generated content cache ─────────────────────────────
+// DELETE /api/playground/cache?uid=&dayKey=&type=&adminKey=
+// Clears both Redis and Postgres so content is regenerated fresh on next load.
+playgroundRouter.delete("/cache", async (req, res) => {
+	const { uid, dayKey, type, adminKey } = req.query as Record<string, string>;
+	if (!adminKey || adminKey !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	if (!uid || !dayKey || !type) {
+		res.status(400).json({ error: "uid, dayKey, and type are required" });
+		return;
+	}
+	const pgType = `${type}_v8`;
+	const cacheKey = `playground:gen:v8:${uid}:${dayKey}:${type}`;
+	try {
+		await cacheDelete(cacheKey);
+		await pgQuery(`DELETE FROM playground_cache WHERE uid = $1 AND type = $2 AND date = $3`, [uid, pgType, dayKey]);
+		res.json({ ok: true, cleared: { redis: cacheKey, postgres: { uid, type: pgType, date: dayKey } } });
+	} catch (e) {
+		console.error("[playground] cache clear error:", e);
+		res.status(500).json({ error: "Failed to clear cache" });
 	}
 });
