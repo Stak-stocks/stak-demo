@@ -2358,16 +2358,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
 
-	// uid-scoped localStorage keys so two users on the same device don't share state
-	const _drillUid = account?.uid ?? "anon";
-	// Daily XP cap for Skill Drills — backend is the source of truth (Redis, device-agnostic).
-	// Frontend tracks locally too so misleading XP floats stop even before the backend confirms.
+	// uid-scoped localStorage keys so two users on the same device don't share state.
+	// account?.uid may be undefined on mount (still loading), so keys are computed each render
+	// and the initial localStorage read is deferred to a useEffect that fires once uid resolves.
+	const _drillUid = account?.uid ?? "";
 	const DAILY_DRILL_XP_CAP = 50;
-	const _drillXpLsKey = `stak:drill:xp:${_drillUid}:${_drillDayKey}`;
-	const _drillIdxLsKey = `stak:drill:idx:${_drillUid}:${_drillDayKey}`;
-	const [drillXpToday, setDrillXpToday] = useState(() => {
-		try { return Number(localStorage.getItem(_drillXpLsKey) ?? 0); } catch { return 0; }
-	});
+	const _drillXpLsKey = _drillUid ? `stak:drill:xp:${_drillUid}:${_drillDayKey}` : null;
+	const _drillIdxLsKey = _drillUid ? `stak:drill:idx:${_drillUid}:${_drillDayKey}` : null;
+	// Start at 0 / date-offset defaults; useEffect below loads real values once uid is ready
+	const [drillXpToday, setDrillXpToday] = useState(0);
 
 	// Freeze tier at session start — prevents mid-session refetch if user earns XP
 	// Use full 1-5 tier scale to match backend difficulty settings
@@ -2424,22 +2423,25 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		return [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
 	}, [genNextStepData]);
 
-	// Scenario indices — persisted in localStorage per day so re-entering doesn't repeat questions.
-	// Falls back to today's date-based offset on first open of the day.
-	const [sentimentIdx, setSentimentIdx] = useState(() => {
+	// Scenario indices — default to date-offset; useEffect loads persisted position once uid ready
+	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 30);
+	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
+
+	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
+	const drillStateLoadedRef = useRef(false);
+	useEffect(() => {
+		if (!_drillUid || drillStateLoadedRef.current) return;
+		drillStateLoadedRef.current = true;
 		try {
-			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "null");
-			if (saved && typeof saved.sentiment === "number") return saved.sentiment;
+			const xp = Number(localStorage.getItem(`stak:drill:xp:${_drillUid}:${_drillDayKey}`) ?? 0);
+			if (xp > 0) setDrillXpToday(xp);
 		} catch {}
-		return (_todayOffset + 5) % 30;
-	});
-	const [nextStepIdx, setNextStepIdx] = useState(() => {
 		try {
-			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "null");
-			if (saved && typeof saved.nextStep === "number") return saved.nextStep;
+			const saved = JSON.parse(localStorage.getItem(`stak:drill:idx:${_drillUid}:${_drillDayKey}`) ?? "null");
+			if (saved && typeof saved.sentiment === "number") setSentimentIdx(saved.sentiment);
+			if (saved && typeof saved.nextStep === "number") setNextStepIdx(saved.nextStep);
 		} catch {}
-		return (_todayOffset + 3) % 21;
-	});
+	}, [_drillUid, _drillDayKey]);
 
 	const currentRoundType = getRoundType(sessionIdx);
 	// Guard against empty pool — PRACTICE_TICKERS is non-empty so this only fires in dev
@@ -2472,7 +2474,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const actualXp = Math.min(xp, remaining);
 		setDrillXpToday(prev => {
 			const next = prev + actualXp;
-			try { localStorage.setItem(_drillXpLsKey, String(next)); } catch {}
+			if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(next)); } catch {}
 			return next;
 		});
 		showXp(actualXp);
@@ -2569,7 +2571,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							const newNsIdx = Math.floor(Math.random() * allNextStepScenarios.length);
 							setSentimentIdx(newSentIdx);
 							setNextStepIdx(newNsIdx);
-							try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
+							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
 							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
@@ -2712,7 +2714,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const next = sentimentIdx + 1;
 							setSentimentIdx(next);
-							try {
+							if (_drillIdxLsKey) try {
 								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
 								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, sentiment: next }));
 							} catch {}
@@ -2806,7 +2808,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const next = nextStepIdx + 1;
 							setNextStepIdx(next);
-							try {
+							if (_drillIdxLsKey) try {
 								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
 								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, nextStep: next }));
 							} catch {}

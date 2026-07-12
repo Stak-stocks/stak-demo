@@ -175,11 +175,11 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 		const cutoffDate = (() => {
 			const d = new Date();
 			d.setDate(d.getDate() - 14);
-			return d.toISOString().split("T")[0]!;
+			return getEasternDateKey(d);
 		})();
 		const historyResult = await pgQuery<{ payload: unknown[] }>(
 			`select payload from playground_cache where uid = $1 and type = $2 and date >= $3 order by date desc`,
-			[uid, type, cutoffDate],
+			[uid, pgType, cutoffDate],
 		);
 		const recent: string[] = [];
 		for (const row of historyResult.rows) {
@@ -667,8 +667,8 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			return;
 		}
 
-		// Check and update daily cap in Redis (25h TTL covers any timezone offset)
-		const today = new Date().toISOString().split("T")[0]!;
+		// Check and update daily cap in Redis — use ET date to match frontend's dayKey
+		const today = getEasternDateKey(new Date());
 		const capKey = `practice:dailycap:${uid}:${today}`;
 		const earnedToday = (await cacheGet<number>(capKey)) ?? 0;
 		if (earnedToday >= DAILY_SKILL_XP_CAP) {
