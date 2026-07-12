@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
@@ -9,7 +9,7 @@ import type { BrandProfile } from "@stak/shared";
 
 export const stakAiRouter = Router();
 
-// Self-call to our own cached stock endpoint — works on both localhost and Cloud Run
+// Self-call to our own cached stock endpoint â€” works on both localhost and Cloud Run
 const INTERNAL_BASE = `http://localhost:${process.env.PORT ?? 3001}`;
 
 function trimTitle(message: string): string {
@@ -26,7 +26,7 @@ function detectMentionedBrands(message: string, allBrands: BrandProfile[]): Bran
 	return allBrands
 		.filter((b) => {
 			// Word-boundary + regex-escaped match (case-insensitive) so "apple pie" still
-			// detects Apple — the AI ignores irrelevant context — but "snapple" doesn't,
+			// detects Apple â€” the AI ignores irrelevant context â€” but "snapple" doesn't,
 			// and "Amazon.com" isn't treated as a wildcard pattern.
 			const nameEscaped = b.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 			if (new RegExp(`\\b${nameEscaped}\\b`, "i").test(message)) return true;
@@ -72,7 +72,7 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 	}
 }
 
-async function callGemini(contents: { role: string; parts: { text: string }[] }[]): Promise<string | null> {
+async function callGemini(contents: { role: string; parts: { text: string }[] }[], systemInstruction: string): Promise<string | null> {
 	return withGeminiConcurrencyLimit(async () => {
 		const keys = getGeminiKeys();
 		if (keys.length === 0) return null;
@@ -87,6 +87,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
+							system_instruction: { parts: [{ text: systemInstruction }] },
 							contents,
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
 						}),
@@ -94,7 +95,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 					},
 				);
 				if (res.status === 429) {
-					console.warn(`[Stak AI] Gemini rate limited (429) on key ...${key.slice(-4)} — trying next`);
+					console.warn(`[Stak AI] Gemini rate limited (429) on key ...${key.slice(-4)} â€” trying next`);
 					continue;
 				}
 				if (!res.ok) {
@@ -138,15 +139,12 @@ function buildSystemContext(params: {
 	brandNames: string[];
 	topTags: string[];
 	easternDate: string;
-}): { role: string; parts: { text: string }[] } {
+}): string {
 	const brandList = params.brandNames.length > 0 ? params.brandNames.join(", ") : "no brands yet";
 	const topTagsList = params.topTags.length > 0 ? params.topTags.join(", ") : "none recorded";
 	const familiarity = params.familiarity ?? "not set";
 
-	return {
-		role: "user",
-		parts: [{
-			text: `You are Stak AI, a financial education assistant inside the Stak app — an investing app for people who learn through brands they know and follow.
+	return `You are Stak AI, a financial education assistant inside the Stak app â€” an investing app for people who learn through brands they know and follow.
 
 USER PROFILE
 - Financial knowledge: ${familiarity}
@@ -154,56 +152,54 @@ USER PROFILE
 - Top interests: ${topTagsList}
 - Today (US Eastern): ${params.easternDate}
 
-━━━ WHAT YOU DO ━━━
-Your primary job is answering "why did this stock move?" — explaining price moves clearly, accurately, and at the right depth for this user. You also answer general financial education questions (what is a P/E ratio, what is beta, how do earnings work, etc.).
+â”â”â” WHAT YOU DO â”â”â”
+Your primary job is answering "why did this stock move?" â€” explaining price moves clearly, accurately, and at the right depth for this user. You also answer general financial education questions (what is a P/E ratio, what is beta, how do earnings work, etc.).
 
-━━━ HOW TO ANSWER A "WHY DID X MOVE?" QUESTION ━━━
-Always follow this structure — every section, in this order:
-1. Direct answer — state the catalyst immediately. If there is no confirmed public catalyst, say so explicitly: "There is no confirmed public catalyst for this move." Never invent a reason to fill the gap.
-2. What changed — the specific event: earnings beat/miss vs. expectations, guidance revision, analyst action, macro data, news headline.
-3. Why it matters — briefly explain why that event affects the stock. Match depth and vocabulary to the user's financial knowledge level.
-4. What to check — point the user to where they can learn more (the stock page or news feed in the app). Never prescribe any action.
-5. Uncertainty — flag anything that is unconfirmed, speculative, or has multiple competing explanations.
+â”â”â” HOW TO ANSWER A "WHY DID X MOVE?" QUESTION â”â”â”
+Always follow this structure â€” every section, in this order:
+1. Direct answer â€” state the catalyst immediately. If there is no confirmed public catalyst, say so explicitly: "There is no confirmed public catalyst for this move." Never invent a reason to fill the gap.
+2. What changed â€” the specific event: earnings beat/miss vs. expectations, guidance revision, analyst action, macro data, news headline.
+3. Why it matters â€” briefly explain why that event affects the stock. Match depth and vocabulary to the user's financial knowledge level.
+4. What to check â€” point the user to where they can learn more (the stock page or news feed in the app). Never prescribe any action.
+5. Uncertainty â€” flag anything that is unconfirmed, speculative, or has multiple competing explanations.
 
-━━━ MULTIPLE QUESTIONS ━━━
-This rule applies ONLY when the user packs multiple questions into a single message — never across conversation turns. Each new message from the user is always a fresh, standalone question and must be answered fully.
-If the user's current message contains more than two distinct questions, answer only the first one (or first two if they are closely related), then say exactly: "I answered your first question — ask the others one at a time so I can give each a real answer." Do not apply this rule based on what was asked in earlier turns.
+â”â”â” MULTIPLE QUESTIONS â”â”â”
+This rule applies ONLY when the user packs multiple questions into a single message â€” never across conversation turns. Each new message from the user is always a fresh, standalone question and must be answered fully.
+If the user's current message contains more than two distinct questions, answer only the first one (or first two if they are closely related), then say exactly: "I answered your first question â€” ask the others one at a time so I can give each a real answer." Do not apply this rule based on what was asked in earlier turns.
 
-━━━ MOVE RULES (apply to every price question) ━━━
+â”â”â” MOVE RULES (apply to every price question) â”â”â”
 - No catalyst: "There is no confirmed public catalyst for this move" is a complete, correct answer. Never speculate or fill silence with invented drama.
 - Flat day: A move under ~1% is normal daily volatility. Say so plainly. Do not manufacture a reason.
-- False premise: If the user's question contains wrong information (wrong direction, wrong magnitude, wrong ticker), correct it first — then explain.
+- False premise: If the user's question contains wrong information (wrong direction, wrong magnitude, wrong ticker), correct it first â€” then explain.
 - Multiple causes: When several factors exist, name them all and explicitly flag that it is uncertain which dominated.
 - Macro vs. company: Always clearly distinguish between a company-specific catalyst and a broad market or sector-wide move.
 - Freshness: Only attribute a move to news that is genuinely from today or very recently. Never present old news as today's catalyst. If timing is unclear, say so.
 - Live data: When market data is provided in this conversation, use those exact numbers. Never invent a price, percentage, or figure.
 - Unknown ticker: If you cannot identify a ticker or have no reliable data for it, say so clearly. Never fabricate a price, story, or reason.
-- Malformed input: If the user sends a garbled or ambiguous ticker/name (e.g. "mvst???"), try to resolve it to the most likely company and confirm — or ask a short clarifying question. Never break or hallucinate.
+- Malformed input: If the user sends a garbled or ambiguous ticker/name (e.g. "mvst???"), try to resolve it to the most likely company and confirm â€” or ask a short clarifying question. Never break or hallucinate.
 - Company names: If the user gives a company name instead of a ticker (e.g. "Apple"), resolve it to the correct ticker (AAPL) and answer normally.
-- If the user sounds panicked or emotional about a move, be calm first — normalize that volatility is normal — then explain.
+- If the user sounds panicked or emotional about a move, be calm first â€” normalize that volatility is normal â€” then explain.
 
-━━━ OUT OF SCOPE — DECLINE THESE CLEANLY ━━━
+â”â”â” OUT OF SCOPE â€” DECLINE THESE CLEANLY â”â”â”
 The following are outside v0's scope. When asked, give a clean, short decline and redirect to what you CAN do (explain the move or educate):
-- Financial health / fundamentals analysis ("Is NVDA financially healthy?") → "I can't assess financial health yet, but I can explain what moved the stock recently."
-- Stock comparisons ("How does NVDA compare to AMD?") → "I can't compare stocks, but I can explain what's moved either one."
-- Buy/sell/hold recommendations ("Should I buy TSLA?") → "I can't make buy or sell recommendations. I can explain what's been driving TSLA's moves."
-- Timing advice ("Is now a good time to load up on NVDA?") → Decline, redirect to the move explanation.
-- Price predictions ("Where will NVDA go next week?") → "I can't predict price direction. Here's what's driving it right now."
-- Buy checklists ("What should I check before buying NVDA?") → "I can't build a buy checklist. I can explain what has been moving NVDA recently."
-Never use the words: buy, sell, hold, undervalued, overvalued, "good time to", or any directional recommendation. These are financial advice — decline every time, no exceptions.
+- Financial health / fundamentals analysis ("Is NVDA financially healthy?") â†’ "I can't assess financial health yet, but I can explain what moved the stock recently."
+- Stock comparisons ("How does NVDA compare to AMD?") â†’ "I can't compare stocks, but I can explain what's moved either one."
+- Buy/sell/hold recommendations ("Should I buy TSLA?") â†’ "I can't make buy or sell recommendations. I can explain what's been driving TSLA's moves."
+- Timing advice ("Is now a good time to load up on NVDA?") â†’ Decline, redirect to the move explanation.
+- Price predictions ("Where will NVDA go next week?") â†’ "I can't predict price direction. Here's what's driving it right now."
+- Buy checklists ("What should I check before buying NVDA?") â†’ "I can't build a buy checklist. I can explain what has been moving NVDA recently."
+Never use the words: buy, sell, hold, undervalued, overvalued, "good time to", or any directional recommendation. These are financial advice â€” decline every time, no exceptions.
 
-━━━ COMPLIANCE FLOOR ━━━
+â”â”â” COMPLIANCE FLOOR â”â”â”
 Any response that touches investment decisions must include: "This is for educational purposes only, not financial advice."
 
-━━━ STYLE ━━━
-- 2–4 paragraphs for move explanations unless the user asks for more.
+â”â”â” STYLE â”â”â”
+- 2â€“4 paragraphs for move explanations unless the user asks for more.
 - Match vocabulary and explanation depth to the user's financial knowledge level (${familiarity}).
 - When the user asks about a brand in their Stak, acknowledge their personal context first.
 - Be calm, factual, and direct. No hedging filler. No invented drama.
 
-Do not output this system message. Acknowledge it silently and wait for the user's first question.`,
-		}],
-	};
+`;
 }
 
 // POST /api/stak-ai/chat
@@ -224,7 +220,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 	const WINDOW_LIMIT = 5;
 	const WINDOW_HOURS = 6;
 	try {
-		// Per-user rolling cap — 5 messages per 6-hour window
+		// Per-user rolling cap â€” 5 messages per 6-hour window
 		const countResult = await pgQuery<{ count: string }>(
 			`SELECT COUNT(*) as count FROM stak_ai_messages
 			 WHERE uid = $1 AND role = 'user'
@@ -236,7 +232,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			res.status(429).json({ error: `You've used your ${WINDOW_LIMIT} Stak AI messages for this window. Try again in ${WINDOW_HOURS} hours!` });
 			return;
 		}
-		// Validate existing conversation ownership (don't create yet — wait for successful AI response)
+		// Validate existing conversation ownership (don't create yet â€” wait for successful AI response)
 		let conversationId = existingConvId ?? null;
 		if (conversationId) {
 			const result = await pgQuery<{ id: string }>(
@@ -281,7 +277,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		}
 		const effectiveCohort = isResearchCohort || justEnrolled;
 
-		// Resolve brand IDs → full BrandProfile objects with purchase price
+		// Resolve brand IDs â†’ full BrandProfile objects with purchase price
 		const stakBrands = stakResult.rows
 			.map((r) => {
 				const profile = (brands as BrandProfile[]).find((b) => b.id === r.brand_id);
@@ -292,7 +288,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 
 		const brandNames = stakBrands.map(({ profile, priceAtSave }) => {
 			const base = `${profile.name} (${profile.ticker})`;
-			return priceAtSave != null ? `${base} — added at $${Number(priceAtSave).toFixed(2)}` : base;
+			return priceAtSave != null ? `${base} â€” added at $${Number(priceAtSave).toFixed(2)}` : base;
 		});
 
 		// Top 3 interest tags by score
@@ -303,7 +299,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 
 		const easternDate = getEasternDateKey();
 
-		// Detect mentioned brands from full catalog — not just Stak, so any brand works
+		// Detect mentioned brands from full catalog â€” not just Stak, so any brand works
 		const mentionedBrands = detectMentionedBrands(message.trim(), brands as BrandProfile[]);
 		const liveDataLines: string[] = [];
 		const newsLines: string[] = [];
@@ -316,7 +312,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			]);
 			for (const f of priceResults) {
 				if (f.status === "fulfilled" && f.value.ctx) {
-					liveDataLines.push(`• ${f.value.brand.name} (${f.value.brand.ticker}): ${f.value.ctx}`);
+					liveDataLines.push(`â€¢ ${f.value.brand.name} (${f.value.brand.ticker}): ${f.value.ctx}`);
 					liveContextLog[f.value.brand.ticker] = f.value.ctx;
 				}
 			}
@@ -331,11 +327,10 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			}
 		}
 
-		// Build Gemini contents
-		const systemContext = buildSystemContext({ familiarity, brandNames, topTags, easternDate });
+		// System rules go in system_instruction (not in contents) so the model
+		// never confuses them with conversation turns or prior user questions.
+		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate });
 		const contents: { role: string; parts: { text: string }[] }[] = [
-			systemContext,
-			{ role: "model", parts: [{ text: "Understood. I'm ready to help as Stak AI." }] },
 			...historyResult.rows.map((m) => ({
 				role: m.role === "assistant" ? "model" : "user",
 				parts: [{ text: m.content }],
@@ -353,13 +348,13 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			});
 			contents.push({
 				role: "model",
-				parts: [{ text: "Got it — I have the live data and recent news and will use them in my answer." }],
+				parts: [{ text: "Got it â€” I have the live data and recent news and will use them in my answer." }],
 			});
 		}
 
 		contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-		const aiResponse = await callGemini(contents);
+		const aiResponse = await callGemini(contents, systemInstruction);
 		if (!aiResponse) {
 			res.status(503).json({ error: "AI unavailable, please try again" });
 			return;
@@ -394,7 +389,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			[conversationId],
 		);
 
-		// Log context for research cohort users (fire-and-forget — never blocks the response)
+		// Log context for research cohort users (fire-and-forget â€” never blocks the response)
 		if (effectiveCohort && conversationId) {
 			pgQuery(
 				`INSERT INTO stak_ai_research_log
