@@ -2358,10 +2358,13 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
 
-	// Daily XP cap for Skill Drills — blocks infinite-XP glitch from replaying same questions
+	// uid-scoped localStorage keys so two users on the same device don't share state
+	const _drillUid = account?.uid ?? "anon";
+	// Daily XP cap for Skill Drills — backend is the source of truth (Redis, device-agnostic).
+	// Frontend tracks locally too so misleading XP floats stop even before the backend confirms.
 	const DAILY_DRILL_XP_CAP = 50;
-	const _drillXpLsKey = `stak:drill:xp:${_drillDayKey}`;
-	const _drillIdxLsKey = `stak:drill:idx:${_drillDayKey}`;
+	const _drillXpLsKey = `stak:drill:xp:${_drillUid}:${_drillDayKey}`;
+	const _drillIdxLsKey = `stak:drill:idx:${_drillUid}:${_drillDayKey}`;
 	const [drillXpToday, setDrillXpToday] = useState(() => {
 		try { return Number(localStorage.getItem(_drillXpLsKey) ?? 0); } catch { return 0; }
 	});

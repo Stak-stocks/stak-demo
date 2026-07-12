@@ -640,10 +640,18 @@ playgroundRouter.post("/complete-daily", authMiddleware, async (req: Authenticat
 	}
 });
 
-const VALID_SKILLS = new Set(["fundamentals", "valuation", "earnings", "risk", "macro"]);
+// All skills the frontend Skill Drills can send — must stay in sync with playground.tsx awardXp calls
+const VALID_SKILLS = new Set([
+	"valuation", "growth", "profitability", "risk", "news", "earnings",
+	"peers", "portfolio", "awareness", "fundamentals", "macro",
+]);
 
-// POST /api/playground/skill-xp — TypeScript replica of add_practice_skill_xp() SQL RPC
-// xp is capped at 5 per call (practice awards 1 correct, 3 wrong — any higher is invalid).
+// 50 XP/day per user across all devices — enforced via Redis so it's device-agnostic
+const DAILY_SKILL_XP_CAP = 50;
+
+// POST /api/playground/skill-xp — records Skill Drill XP per-skill and in total.
+// xp per call is clamped to 5 (correct=3, wrong=1 — nothing higher is valid).
+// Daily cap enforced server-side via Redis so replay on any device doesn't bypass it.
 playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
@@ -659,6 +667,17 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			return;
 		}
 
+		// Check and update daily cap in Redis (25h TTL covers any timezone offset)
+		const today = new Date().toISOString().split("T")[0]!;
+		const capKey = `practice:dailycap:${uid}:${today}`;
+		const earnedToday = (await cacheGet<number>(capKey)) ?? 0;
+		if (earnedToday >= DAILY_SKILL_XP_CAP) {
+			res.json({ ok: true, xp: 0, capReached: true });
+			return;
+		}
+		const actualXp = Math.min(xp, DAILY_SKILL_XP_CAP - earnedToday);
+		await cacheSet(capKey, earnedToday + actualXp, 25 * 60 * 60 * 1000);
+
 		const client = await pgPool.connect();
 		try {
 			await client.query("BEGIN");
@@ -666,16 +685,16 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			await client.query(
 				`INSERT INTO practice_skills (uid, skill, xp) VALUES ($1, $2, $3)
 				 ON CONFLICT (uid, skill) DO UPDATE SET xp = practice_skills.xp + $3`,
-				[uid, skill, xp],
+				[uid, skill, actualXp],
 			);
 			await client.query(
 				`INSERT INTO playground_state (uid, total_xp) VALUES ($1, $2)
 				 ON CONFLICT (uid) DO UPDATE SET total_xp = playground_state.total_xp + $2`,
-				[uid, xp],
+				[uid, actualXp],
 			);
 
 			await client.query("COMMIT");
-			res.json({ ok: true, xp });
+			res.json({ ok: true, xp: actualXp });
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;
