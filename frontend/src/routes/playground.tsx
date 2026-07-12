@@ -1233,7 +1233,7 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	);
 }
 
-function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string) => void; isGenerating?: boolean }) {
+function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = battlesPool ?? [];
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 	// Seed local results from Firestore dailyCompleted so state survives navigation
@@ -1250,12 +1250,15 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 	const handleBattleResult = (battleId: string, won: boolean) => {
 		setResults(r => ({ ...r, [battleId]: won ? "win" : "loss" }));
-		// completeDailyActivity is the single XP source — BattleDetail no longer calls addXp directly
-		if (won && dayKey && dailyCompleted && !dailyCompleted.has(battleId) && onDailyComplete) {
+		if (won) {
 			const battle = pool.find(b => b.id === battleId);
-			if (battle) onDailyComplete(dayKey, battleId, battle.xp, "battle");
+			const xp = battle?.xp ?? 0;
+			// onBattleWon is the single XP source — it writes to activity_progress.xp_earned.
+			// onDailyComplete gets xp:0 (checkmark only) to avoid double-counting.
+			if (dayKey && dailyCompleted && !dailyCompleted.has(battleId) && onDailyComplete)
+				onDailyComplete(dayKey, battleId, 0, "battle");
+			onBattleWon?.(battleId, xp);
 		}
-		if (won) onBattleWon?.(battleId);
 	};
 
 	if (activeBattleId) {
@@ -1311,7 +1314,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = earningsPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -1507,10 +1510,12 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 										setCompletedIds(prev => new Set([...prev, scenario.id]));
 										if (correct) {
 											showXp(scenario.xp);
-											onEarningsScenarioCorrect?.(scenario.id);
+											// onEarningsScenarioCorrect is the XP source — writes xp_earned to activity_progress.
+											// onDailyComplete gets xp:0 (checkmark only) to avoid double-counting.
+											onEarningsScenarioCorrect?.(scenario.id, scenario.xp);
 										}
 										if (dayKey && !alreadyAttempted && onDailyComplete)
-											onDailyComplete(dayKey, scenario.id, correct ? scenario.xp : 0, "earnings");
+											onDailyComplete(dayKey, scenario.id, 0, "earnings");
 									}
 								} : undefined}
 								disabled={phase === "outcome"}
@@ -1655,7 +1660,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
-function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect, isGenerating }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect, isGenerating }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = riskPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1760,9 +1765,10 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 		const isCorrect = selected === scenario.riskierOption;
 		if (isCorrect) {
 			setSessionCorrect(prev => new Set([...prev, scenario.id]));
+			// onRiskCorrect is the XP source; onDailyComplete gets xp:0 (checkmark only).
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onDailyComplete)
-				onDailyComplete(dayKey, scenario.id, scenario.xp, "risk");
-			onRiskCorrect?.(scenario.id);
+				onDailyComplete(dayKey, scenario.id, 0, "risk");
+			onRiskCorrect?.(scenario.id, scenario.xp);
 		}
 		// Wrong answers are NOT marked complete — user can re-enter and retry them.
 		// The pack is now stable for the day so retrying won't cause a "new set" to appear.
@@ -1838,7 +1844,7 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = moodPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1939,9 +1945,10 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 		const isRight = selected === scenario.correctId;
 		if (isRight) {
 			setSessionCorrectMood(prev => new Set([...prev, scenario.id]));
+			// onMoodCorrect is the XP source; onDailyComplete gets xp:0 (checkmark only).
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onDailyComplete)
-				onDailyComplete(dayKey, scenario.id, scenario.xp, "mood");
-			onMoodCorrect?.(scenario.id);
+				onDailyComplete(dayKey, scenario.id, 0, "mood");
+			onMoodCorrect?.(scenario.id, scenario.xp);
 		}
 		// Wrong answers are NOT marked complete — user can re-enter and retry them.
 		if (index < visibleMood.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }

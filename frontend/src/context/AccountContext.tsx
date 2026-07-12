@@ -144,10 +144,10 @@ interface AccountContextType {
 	clearSearchHistory: () => Promise<void>;
 	updateLastBriefDate: (date: string) => Promise<void>;
 	completeLesson: (lessonId: string, xp: number) => Promise<void>;
-	completeEarningsScenario: (scenarioId: string) => Promise<void>;
-	completeBattle: (battleId: string) => Promise<void>;
-	completeRiskScenario: (scenarioId: string) => Promise<void>;
-	completeMoodScenario: (scenarioId: string) => Promise<void>;
+	completeEarningsScenario: (scenarioId: string, xp: number) => Promise<void>;
+	completeBattle: (battleId: string, xp: number) => Promise<void>;
+	completeRiskScenario: (scenarioId: string, xp: number) => Promise<void>;
+	completeMoodScenario: (scenarioId: string, xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, sharesToSell?: number) => Promise<{ sellValue: number; price: number; sharesToSell: number; remaining: number }>;
 	initSandboxCash: () => Promise<void>;
@@ -242,20 +242,20 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await completeActivity("lesson", lessonId, xp);
 	}, []);
 
-	const completeEarningsScenario = useCallback(async (scenarioId: string) => {
-		await completeActivity("earnings", scenarioId);
+	const completeEarningsScenario = useCallback(async (scenarioId: string, xp: number) => {
+		await completeActivity("earnings", scenarioId, xp);
 	}, []);
 
-	const completeBattle = useCallback(async (battleId: string) => {
-		await completeActivity("battle", battleId);
+	const completeBattle = useCallback(async (battleId: string, xp: number) => {
+		await completeActivity("battle", battleId, xp);
 	}, []);
 
-	const completeRiskScenario = useCallback(async (scenarioId: string) => {
-		await completeActivity("risk", scenarioId);
+	const completeRiskScenario = useCallback(async (scenarioId: string, xp: number) => {
+		await completeActivity("risk", scenarioId, xp);
 	}, []);
 
-	const completeMoodScenario = useCallback(async (scenarioId: string) => {
-		await completeActivity("mood", scenarioId);
+	const completeMoodScenario = useCallback(async (scenarioId: string, xp: number) => {
+		await completeActivity("mood", scenarioId, xp);
 	}, []);
 
 const initSandboxCash = useCallback(async () => {
