@@ -2468,6 +2468,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			const saved = JSON.parse(localStorage.getItem(`stak:drill:idx:${_drillUid}:${_drillDayKey}`) ?? "null");
 			if (saved && typeof saved.sentiment === "number") setSentimentIdx(saved.sentiment);
 			if (saved && typeof saved.nextStep === "number") setNextStepIdx(saved.nextStep);
+			if (saved && typeof saved.round === "number" && saved.round > 0) {
+				setStockIdx(saved.round);
+				setSessionIdx(saved.round);
+				setSessionStarted(true);
+			}
+			if (saved?.done === true) {
+				setShowSummary(true);
+				setSessionStarted(true);
+			}
 		} catch {}
 	}, [_drillUid, _drillDayKey]);
 
@@ -2521,18 +2530,31 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	};
 
 	// ── Advance to next round ────────────────────────────────────────────────────
-	const advanceRound = () => {
+	const advanceRound = (nextSentimentIdx?: number, nextNextStepIdx?: number) => {
 		const nextSession = sessionIdx + 1;
 		const nextStockIdx = stockIdx + 1;
 
-		// Show summary after going through all stocks
+		// Show summary after going through all stocks — mark done in localStorage
 		if (nextStockIdx >= stockList.length) {
 			setShowSummary(true);
+			if (_drillIdxLsKey) try {
+				const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+				localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, done: true }));
+			} catch {}
 			return;
 		}
 
 		setSessionIdx(nextSession);
 		setStockIdx(nextStockIdx);
+
+		// Persist round so user can resume if they close the app
+		if (_drillIdxLsKey) try {
+			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+			const update: Record<string, unknown> = { ...saved, round: nextStockIdx };
+			if (nextSentimentIdx !== undefined) update.sentiment = nextSentimentIdx;
+			if (nextNextStepIdx !== undefined) update.nextStep = nextNextStepIdx;
+			localStorage.setItem(_drillIdxLsKey, JSON.stringify(update));
+		} catch {}
 
 		// Reset round state
 		xpAwardedThisRound.current = false;
@@ -2602,12 +2624,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							Back to Playground
 						</button>
 						<button type="button" onClick={() => {
-							// Use random offsets so "Practice Again" gives different questions
-							const newSentIdx = Math.floor(Math.random() * allSentimentScenarios.length);
-							const newNsIdx = Math.floor(Math.random() * allNextStepScenarios.length);
+							// Advance indices so "Practice Again" shows the next set of scenarios
+							const newSentIdx = sentimentIdx + 1;
+							const newNsIdx = nextStepIdx + 1;
 							setSentimentIdx(newSentIdx);
 							setNextStepIdx(newNsIdx);
-							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
+							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx, round: 0 })); } catch {}
 							xpAwardedThisRound.current = false;
 							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
 							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
@@ -2751,11 +2773,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const next = sentimentIdx + 1;
 							setSentimentIdx(next);
-							if (_drillIdxLsKey) try {
-								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
-								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, sentiment: next }));
-							} catch {}
-							advanceRound();
+							advanceRound(next, undefined);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}>
@@ -2845,11 +2863,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						onClick={() => {
 							const next = nextStepIdx + 1;
 							setNextStepIdx(next);
-							if (_drillIdxLsKey) try {
-								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
-								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, nextStep: next }));
-							} catch {}
-							advanceRound();
+							advanceRound(undefined, next);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
