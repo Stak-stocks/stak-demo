@@ -2439,14 +2439,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
 		const seenSet = seenSentRef.current;
 		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
-		const alreadySeen = merged.filter(s => seenSet.has(s.scenario.slice(0, 60)));
-		// If all seen, reset so user cycles through again
+		// Static pool exhausted — switch to Gemini-only (avoidLine keeps them fresh daily)
 		if (unseen.length === 0) {
+			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":sent");
+			// Gemini unavailable too — last resort: reset static and start over
 			seenSentRef.current = new Set();
 			try { localStorage.removeItem(`stak:drill:seen:sent:${_drillUid}`); } catch {}
 			return seededShuffle(merged, _drillShuffleSeed + ":sent");
 		}
-		return [...seededShuffle(unseen, _drillShuffleSeed + ":sent"), ...seededShuffle(alreadySeen, _drillShuffleSeed + ":sent:seen")];
+		return seededShuffle(unseen, _drillShuffleSeed + ":sent");
 	}, [genSentimentData, _drillShuffleSeed, _seenVersion, _drillUid]);
 
 	const allNextStepScenarios = useMemo(() => {
@@ -2460,13 +2461,14 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
 		const seenSet = seenNextRef.current;
 		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
-		const alreadySeen = merged.filter(s => seenSet.has(s.scenario.slice(0, 60)));
+		// Static pool exhausted — switch to Gemini-only
 		if (unseen.length === 0) {
+			if (extras.length > 0) return seededShuffle(extras, _drillShuffleSeed + ":next");
 			seenNextRef.current = new Set();
 			try { localStorage.removeItem(`stak:drill:seen:next:${_drillUid}`); } catch {}
 			return seededShuffle(merged, _drillShuffleSeed + ":next");
 		}
-		return [...seededShuffle(unseen, _drillShuffleSeed + ":next"), ...seededShuffle(alreadySeen, _drillShuffleSeed + ":next:seen")];
+		return seededShuffle(unseen, _drillShuffleSeed + ":next");
 	}, [genNextStepData]);
 
 	// Scenario indices — start at 0; useEffect loads persisted position once uid ready
