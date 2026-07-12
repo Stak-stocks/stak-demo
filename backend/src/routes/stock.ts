@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
-import { getFinnhubKeys } from "../services/finnhubService.js";
-import { getConsensusEarningsDate } from "../services/earningsConsensus.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
+import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
+import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
@@ -9,7 +9,6 @@ import { getYahooCrumb } from "../lib/yahooAuth.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 // Collapse concurrent requests for the same path into a single outgoing fetch.
 // Without this, 8 simultaneous requests for /quote?symbol=AAPL each try all 3 keys
@@ -628,7 +627,7 @@ async function fetchGeminiEarningsDates(
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -680,7 +679,7 @@ async function fetchFMPEarningsCalendar(from: string, to: string, ttlMs = 30 * 6
 
 	for (const apiKey of keys) {
 		try {
-			const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
+			const url = `${FMP_BASE}/earnings-calendar?from=${from}&to=${to}&apikey=${apiKey}`;
 			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 			if (!res.ok) continue;
 			const data = await res.json() as FMPEntry[] | { message?: string };
@@ -722,7 +721,7 @@ async function fetchFMPIncomeStatementEps(
 	const cached = await cacheGet<Filing>(redisCacheKey);
 	const filing: Filing | null = cached ?? await (async () => {
 		try {
-			const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${apiKey}`;
+			const url = `${FMP_BASE}/income-statement?symbol=${encodeURIComponent(symbol)}&period=quarter&limit=1&apikey=${apiKey}`;
 			const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
 			if (!res.ok) return null;
 			const data = await res.json() as Array<{ eps?: number | null; filingDate?: string }>;
@@ -1066,7 +1065,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 			const timeout = setTimeout(() => controller.abort(), 15000);
 			try {
 				const gemRes = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -1178,7 +1177,7 @@ Rules:
 		const timeout = setTimeout(() => controller.abort(), 20000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -1415,7 +1414,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 		const timeout = setTimeout(() => controller.abort(), 8000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -1542,7 +1541,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 		const timeout = setTimeout(() => controller.abort(), 15000);
 		try {
 			const gemRes = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

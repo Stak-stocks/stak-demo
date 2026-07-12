@@ -5,7 +5,7 @@ import type { ActivityType } from "@stak/shared";
 import { generatePlaygroundQuestions } from "@/lib/api";
 import type { DailyPack, DailyActivity, Lesson, LessonCategory } from "@/data/playgroundData";
 import type { BattleMatchup, EarningsScenario, RiskScenario, MoodScenario } from "@/data/playgroundData";
-import { TIER_COUNTS, TIER_XP } from "@/data/playgroundData";
+import { TIER_COUNTS } from "@/data/playgroundData";
 
 const VALID_CATEGORIES = new Set<LessonCategory>([
 	"Stock Basics", "Market Basics", "Valuation", "Earnings", "Risk", "Dividends", "Sectors",
@@ -22,15 +22,16 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 
 	const queries = useQueries({
 		queries: ACTIVITY_TYPES.map(type => ({
-			queryKey: ["playground-gen", uid, dayKey, type],
+			queryKey: ["playground-gen", uid, dayKey, tier, type],
 			queryFn: async () => {
 				// localStorage cache — same content across page refreshes within the day
-				const lsKey = `stak:gen:v5:${uid}:${dayKey}:${type}`;
+				const lsKey = `stak:gen:v5:${uid}:${dayKey}:${tier}:${type}`;
 				try {
 					const hit = localStorage.getItem(lsKey);
 					if (hit) return JSON.parse(hit) as unknown[];
 				} catch { /* ignore */ }
-				const count = Math.min((counts[type as keyof typeof counts] ?? 3) + GEN_COUNT_BUFFER, 10);
+				const countKey = type === "lesson" ? "lessons" : type === "battle" ? "battles" : type;
+				const count = Math.min((counts[countKey as keyof typeof counts] ?? 3) + GEN_COUNT_BUFFER, 10);
 				const result = await generatePlaygroundQuestions(dayKey, tier, type, count);
 				try { localStorage.setItem(lsKey, JSON.stringify(result)); } catch { /* ignore */ }
 				return result;
@@ -208,8 +209,6 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 	// Build the pack entirely from Gemini content
 	const pack = useMemo((): DailyPack => {
 		const { battles, earnings, risk, mood, lessons } = generated;
-		const xpRates = TIER_XP[tier] ?? TIER_XP[1]!;
-
 		const activities: DailyActivity[] = [
 			...battles.slice(0, counts.battles).map(b => ({
 				id: b.id, type: "battle" as ActivityType,
@@ -233,7 +232,6 @@ export function useDailyContent(shellPack: DailyPack, uid: string, dayKey: strin
 			})),
 		];
 
-		void xpRates;
 		const totalXp = activities.reduce((sum, a) => sum + a.xp, 0);
 		return { ...shellPack, activities, totalXp };
 	}, [shellPack, generated, counts, tier]);

@@ -26,6 +26,12 @@ export function xpToTier(totalXp: number): TierNumber {
 	return 1;
 }
 
+/** Starting sandbox cash per tier — single source of truth for frontend + backend. */
+export const SANDBOX_BUDGETS = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 } as const;
+
+/** Max XP awardable per activity call — enforced both client-side and server-side. */
+export const ACTIVITY_XP_CAP = 50;
+
 /** Core activity types shared between frontend and backend. */
 export const ACTIVITY_TYPES = ["lesson", "battle", "earnings", "risk", "mood"] as const;
 export type ActivityType = typeof ACTIVITY_TYPES[number];

@@ -17,8 +17,8 @@ import { getYahooCrumb, invalidateYahooCrumb } from "../lib/yahooAuth.js";
 import { getEarningsBeatMissFromWeb } from "./geminiService.js";
 import { getCompanyNews } from "./finnhubService.js";
 import { getEasternDateKey } from "@stak/shared";
+import { FMP_BASE } from "./earningsConsensus.js";
 
-const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
 
 // Shared with news.ts's extractEarningsSignal (same keyword list, same purpose: spotting
@@ -347,7 +347,7 @@ export async function getConsensusEarningsResult(
 	// Gemini caches by symbol without a date, so a cached result from a different quarter
 	// should not influence the vote for the quarter we're currently fact-checking.
 	const geminiDateOk =
-		!geminiRaw.date || daysDiff(geminiRaw.date, reportDate) <= 45;
+		!!geminiRaw.date && daysDiff(geminiRaw.date, reportDate) <= 45;
 	const geminiStatus: BeatMiss =
 		geminiDateOk && (geminiRaw.result === "beat" || geminiRaw.result === "miss")
 			? geminiRaw.result

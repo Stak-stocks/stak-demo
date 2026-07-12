@@ -69,6 +69,8 @@ export function getGeminiKeys(): string[] {
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
+export const geminiUrl = (model: string, key: string) =>
+	`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
 // Use the lite model for high-volume article simplification — faster and cheaper
 const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
@@ -83,7 +85,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 		const timeout = setTimeout(() => controller.abort(), SIMPLIFY_TIMEOUT_MS);
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${SIMPLIFY_MODEL}:generateContent?key=${key}`,
+				geminiUrl(SIMPLIFY_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -259,10 +261,11 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
+					signal: AbortSignal.timeout(15000),
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
@@ -308,7 +311,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
  * Used when keyword matching in news.ts can't determine the outcome.
  */
 export async function classifyEarnings(headline: string, summary: string): Promise<EarningsOutcome> {
-	const cacheKey = headline.slice(0, 80);
+	const cacheKey = `classify:${headline.slice(0, 80)}`;
 	const cached = await cacheGet<EarningsOutcome>(cacheKey);
 	if (cached) return cached;
 
@@ -330,10 +333,11 @@ Return ONLY one of these exact strings: beat, miss, none`;
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
+					signal: AbortSignal.timeout(15000),
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
@@ -414,7 +418,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 			const timeout = setTimeout(() => controller.abort(), 2500);
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },

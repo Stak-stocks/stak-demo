@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { getGeminiKeys, GEMINI_MODEL } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import type { AuthenticatedRequest } from "../authMiddleware.js";
-import { TIER_XP, ACTIVITY_TYPES, getEasternDateKey } from "@stak/shared";
+import { TIER_XP, ACTIVITY_TYPES, ACTIVITY_XP_CAP, getEasternDateKey } from "@stak/shared";
 import type { TierNumber } from "@stak/shared";
 
 export const playgroundRouter = Router();
@@ -71,7 +71,7 @@ async function callGemini(prompt: string): Promise<string | null> {
 	for (const key of keys) {
 		try {
 			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+				geminiUrl(GEMINI_MODEL, key),
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -175,11 +175,11 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 		const cutoffDate = (() => {
 			const d = new Date();
 			d.setDate(d.getDate() - 14);
-			return d.toISOString().split("T")[0]!;
+			return getEasternDateKey(d);
 		})();
 		const historyResult = await pgQuery<{ payload: unknown[] }>(
 			`select payload from playground_cache where uid = $1 and type = $2 and date >= $3 order by date desc`,
-			[uid, type, cutoffDate],
+			[uid, pgType, cutoffDate],
 		);
 		const recent: string[] = [];
 		for (const row of historyResult.rows) {
@@ -194,6 +194,8 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 				else if (type === "earnings" && typeof r.company === "string") recent.push(r.company);
 				else if (type === "risk" && typeof r.optionA === "string") recent.push(String(r.optionA).slice(0, 50));
 				else if (type === "mood" && typeof r.event === "string") recent.push(String(r.event).replace(/^[^\w]*/, "").slice(0, 60));
+				else if ((type === "drill_sentiment" || type === "drill_nextstep") && typeof r.scenario === "string")
+					recent.push(String(r.scenario).slice(0, 60));
 			}
 		}
 		if (recent.length > 0)
@@ -225,17 +227,18 @@ DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
   "id": "gen-battle-${dayKey}-1",
-  "tickerA": "AAPL",
-  "nameA": "Apple",
-  "tickerB": "MSFT",
-  "nameB": "Microsoft",
-  "category": "Tech",
+  "tickerA": "COST",
+  "nameA": "Costco",
+  "tickerB": "WMT",
+  "nameB": "Walmart",
+  "category": "Retail",
   "metricLabel": "Revenue Growth",
   "higherWins": true,
   "explanation": "2-3 sentences explaining BOTH companies' positions on this metric — what drives each company's number. Do NOT say which one wins.",
   "xp": ${TIER_XP[tier]?.battle ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a matchup using the example companies (Costco / COST or Walmart / WMT) — they are placeholders only
 - Use companies that are genuinely comparable (same sector/industry)
 - The explanation must describe BOTH companies' fundamentals on the metric — not declare a winner
 - The live winner is determined by real-time data, not by the explanation
@@ -255,33 +258,34 @@ DIFFICULTY REQUIREMENTS: ${difficultyGuide}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-earn-${dayKey}-1",
-  "company": "Nike",
-  "ticker": "NKE",
+  "company": "McDonald's",
+  "ticker": "MCD",
   "context": "2-3 sentences giving real context for THIS report — segment-level trends, valuation level heading in, or analyst/market sentiment. Do NOT include guidance here; that goes in forwardGuidance.",
-  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided next-quarter revenue to $11.8B, below the $12.4B analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
-  "revenueExpected": "$12.4B",
-  "epsExpected": "$0.84",
-  "revenueActual": "$12.3B",
-  "epsActual": "$0.85",
-  "stockContext": "Up 8% YTD",
-  "peRatio": "28x",
-  "stockSetupLabel": "Fairly valued",
-  "question": "Given this report, what do you predict happened to Nike's stock?",
+  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided same-store sales growth of 2%, below the 3.5% analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
+  "revenueExpected": "$6.6B",
+  "epsExpected": "$3.10",
+  "revenueActual": "$6.5B",
+  "epsActual": "$3.15",
+  "stockContext": "Near 52-week high",
+  "peRatio": "24x",
+  "stockSetupLabel": "Priced for consistency",
+  "question": "Given this report, what do you predict happened to McDonald's stock?",
   "options": [
-    {"id": "a", "text": "Up 5%+ — beats on revenue and EPS"},
-    {"id": "b", "text": "Flat — meets expectations"},
-    {"id": "c", "text": "Down 3-5% — misses one key metric"},
-    {"id": "d", "text": "Down 10%+ — major miss and guidance cut"}
+    {"id": "a", "text": "Up 4%+ — EPS beat drives rally"},
+    {"id": "b", "text": "Flat — results in line with expectations"},
+    {"id": "c", "text": "Down 2-4% — revenue miss and weak guidance"},
+    {"id": "d", "text": "Down 8%+ — major miss across all metrics"}
   ],
   "correctId": "c",
-  "stockMove": "-4%",
-  "outcome": "1 sentence describing how the stock actually reacted (e.g. 'Nike fell 6% after hours despite the EPS beat.').",
+  "stockMove": "-3%",
+  "outcome": "1 sentence describing how the stock actually reacted.",
   "explanation": "2-3 sentences explaining WHY the market reacted this way — the key lesson.",
-  "keyTakeaway": "One punchy sentence summing up what this scenario teaches (e.g. 'A stock priced for perfection needs a perfect report — not just a good one.').",
-  "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector (e.g. 'Watch China revenue and gross margin guidance — these are the swing factors for Nike.').",
+  "keyTakeaway": "One punchy sentence summing up what this scenario teaches.",
+  "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a scenario for the example company (McDonald's / MCD) used in the schema above — it is a placeholder only
 - Use real companies and plausible earnings scenarios
 - revenueActual, epsActual, forwardGuidance, context, and stockContext are ALL shown to the player BEFORE they answer — the player already knows the full picture: beat/miss size, stock run-up, and what management said about next quarter
 - The correct answer must be derivable from the combination of actuals, context, AND forwardGuidance — not from the numbers alone (that would reduce every scenario to "beat = up, miss = down", which teaches nothing)
@@ -307,13 +311,14 @@ Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-risk-${dayKey}-1",
   "prompt": "Which stock carries more risk?",
-  "optionA": "Procter & Gamble (PG) — consumer staples giant",
+  "optionA": "A utility company with regulated pricing",
   "optionB": "A small biotech with a single drug in Phase 2 trials",
   "riskierOption": "B",
   "explanation": "2-3 sentences explaining why one option is riskier, citing specific risk factors.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
 Rules:
+- IMPORTANT: Do NOT generate a scenario using the example options verbatim (utility company or the specific biotech description above) — they are placeholders only
 - Each week use DIFFERENT companies and industries — rotate across tech, healthcare, energy, retail, finance, industrials
 - Vary the type of risk each scenario tests (volatility, liquidity, concentration, leverage, business model risk, regulatory risk)
 - Explanations must be accurate and teach real risk concepts
@@ -482,7 +487,8 @@ Rules:
 // backend caps the XP values and the client never controls the XP amount.
 
 const XP_CAP: Record<string, number> = {
-	lesson: 50, earnings: 50, battle: 50, risk: 50, mood: 50,
+	lesson: ACTIVITY_XP_CAP, earnings: ACTIVITY_XP_CAP, battle: ACTIVITY_XP_CAP,
+	risk: ACTIVITY_XP_CAP, mood: ACTIVITY_XP_CAP,
 };
 const VALID_KINDS = new Set(["lesson", "earnings", "battle", "risk", "mood"]);
 
@@ -564,7 +570,7 @@ playgroundRouter.post("/complete-daily", authMiddleware, async (req: Authenticat
 			res.status(400).json({ error: "activityId required" });
 			return;
 		}
-		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), 50);
+		const xp = Math.min(Math.max(0, Math.floor(Number(rawXp) || 0)), ACTIVITY_XP_CAP);
 
 		const client = await pgPool.connect();
 		try {
@@ -639,10 +645,17 @@ playgroundRouter.post("/complete-daily", authMiddleware, async (req: Authenticat
 	}
 });
 
-const VALID_SKILLS = new Set(["fundamentals", "valuation", "earnings", "risk", "macro"]);
+// All skills the frontend Skill Drills can send — must stay in sync with playground.tsx awardXp calls
+const VALID_SKILLS = new Set([
+	"valuation", "growth", "profitability", "risk", "news", "earnings",
+	"peers", "portfolio", "awareness", "fundamentals", "macro",
+]);
 
-// POST /api/playground/skill-xp — TypeScript replica of add_practice_skill_xp() SQL RPC
-// xp is capped at 5 per call (practice awards 1 correct, 3 wrong — any higher is invalid).
+const DAILY_SKILL_XP_CAP = ACTIVITY_XP_CAP;
+
+// POST /api/playground/skill-xp — records Skill Drill XP per-skill and in total.
+// xp per call is clamped to 5 (correct=3, wrong=1 — nothing higher is valid).
+// Daily cap enforced server-side via Redis so replay on any device doesn't bypass it.
 playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
@@ -658,6 +671,17 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			return;
 		}
 
+		// Check and update daily cap in Redis — use ET date to match frontend's dayKey
+		const today = getEasternDateKey(new Date());
+		const capKey = `practice:dailycap:${uid}:${today}`;
+		const earnedToday = (await cacheGet<number>(capKey)) ?? 0;
+		if (earnedToday >= DAILY_SKILL_XP_CAP) {
+			res.json({ ok: true, xp: 0, capReached: true });
+			return;
+		}
+		const actualXp = Math.min(xp, DAILY_SKILL_XP_CAP - earnedToday);
+		await cacheSet(capKey, earnedToday + actualXp, 25 * 60 * 60 * 1000);
+
 		const client = await pgPool.connect();
 		try {
 			await client.query("BEGIN");
@@ -665,16 +689,16 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			await client.query(
 				`INSERT INTO practice_skills (uid, skill, xp) VALUES ($1, $2, $3)
 				 ON CONFLICT (uid, skill) DO UPDATE SET xp = practice_skills.xp + $3`,
-				[uid, skill, xp],
+				[uid, skill, actualXp],
 			);
 			await client.query(
 				`INSERT INTO playground_state (uid, total_xp) VALUES ($1, $2)
 				 ON CONFLICT (uid) DO UPDATE SET total_xp = playground_state.total_xp + $2`,
-				[uid, xp],
+				[uid, actualXp],
 			);
 
 			await client.query("COMMIT");
-			res.json({ ok: true, xp });
+			res.json({ ok: true, xp: actualXp });
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;

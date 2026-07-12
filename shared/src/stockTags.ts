@@ -688,21 +688,21 @@ export const STAK_WEIGHTED_STOCK_TAGS: StakStockTagConfig[] = [
   {
     "ticker": "IONQ",
     "sourceSection": "Popular",
-    "primaryCategory": "space_airmobility",
+    "primaryCategory": "tech",
     "displayTags": [
-      "Space/Air Mobility",
+      "Quantum Computing",
       "Speculative",
       "High Growth",
       "Innovation"
     ],
     "learningTags": [
       {
-        "tag": "space",
+        "tag": "quantum_computing",
         "weight": 1.0,
       },
       {
-        "tag": "air_mobility",
-        "weight": 1.0,
+        "tag": "tech",
+        "weight": 0.75,
       },
       {
         "tag": "speculative",

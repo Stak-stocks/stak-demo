@@ -1,7 +1,7 @@
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
-import { getFinnhubKeys } from "./finnhubService.js";
-import { getGeminiKeys, GEMINI_MODEL } from "./geminiService.js";
+import { getFinnhubKeys, FINNHUB_BASE } from "./finnhubService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "./geminiService.js";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -92,10 +92,17 @@ async function fetchRecentIPOs(daysBack = 3): Promise<FinnhubIPOEntry[]> {
 	const from = new Date();
 	from.setDate(from.getDate() - daysBack);
 
-	const url = `https://finnhub.io/api/v1/calendar/ipo?from=${formatDate(from)}&to=${formatDate(to)}&token=${keys[0]}`;
-
-	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Finnhub IPO calendar error: ${res.status}`);
+	let res: Response | null = null;
+	for (const key of keys) {
+		const r = await fetch(
+			`${FINNHUB_BASE}/calendar/ipo?from=${formatDate(from)}&to=${formatDate(to)}&token=${key}`,
+			{ signal: AbortSignal.timeout(10000) },
+		);
+		if (r.status === 429) continue;
+		res = r;
+		break;
+	}
+	if (!res || !res.ok) throw new Error(`Finnhub IPO calendar error: ${res?.status ?? "all keys rate-limited"}`);
 
 	const data = await res.json();
 	const ipos: FinnhubIPOEntry[] = data.ipoCalendar ?? [];
@@ -107,7 +114,7 @@ async function fetchCompanyProfile(symbol: string): Promise<FinnhubProfile> {
 
 	for (const key of keys) {
 		const res = await fetch(
-			`https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${key}`,
+			`${FINNHUB_BASE}/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${key}`,
 		);
 		if (res.status === 429) continue;
 		if (!res.ok) throw new Error(`Finnhub profile error for ${symbol}: ${res.status}`);
@@ -150,10 +157,11 @@ async function tryGeminiKey(key: string, prompt: string): Promise<GeneratedBrand
 		if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
 
 		const res = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+			geminiUrl(GEMINI_MODEL, key),
 			{
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
+				signal: AbortSignal.timeout(20000),
 				body: JSON.stringify({
 					contents: [{ parts: [{ text: prompt }] }],
 					generationConfig: { thinkingConfig: { thinkingBudget: 0 },
@@ -395,7 +403,7 @@ const POPULAR_TICKERS: string[] = [
 ];
 
 function getPopularSymbols(): FinnhubSymbol[] {
-	return POPULAR_TICKERS.map((ticker) => ({
+	return [...new Set(POPULAR_TICKERS)].map((ticker) => ({
 		symbol: ticker,
 		description: ticker,
 		type: "Common Stock",
@@ -407,7 +415,7 @@ async function fetchAllUSSymbols(): Promise<FinnhubSymbol[]> {
 	if (keys.length === 0) throw new Error("No FINNHUB_API_KEY configured");
 
 	const res = await fetch(
-		`https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${keys[0]}`,
+		`${FINNHUB_BASE}/stock/symbol?exchange=US&token=${keys[0]}`,
 	);
 	if (!res.ok) throw new Error(`Finnhub symbols error: ${res.status}`);
 
@@ -482,7 +490,7 @@ export async function seedAllStocks(limit = 1000, usePopularOnly = true): Promis
 
 		await setSeedStatus({ status: "running", total: symbols.length, processed, added, skipped, errors, limit, startedAt: now, recentErrors });
 
-		if (i % 50 === 0) {
+		if (processed > 0 && processed % 50 < BATCH_SIZE) {
 			console.log(`[Seed] Progress: ${processed}/${symbols.length} (added=${added}, skip=${skipped}, err=${errors})`);
 		}
 

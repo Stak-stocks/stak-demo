@@ -180,7 +180,7 @@ export function BrandContextModal({ brand, open, onClose, onAddToStak }: BrandCo
 		staleTime: 30 * 60 * 1000,
 		retry: 0,
 	});
-	const isMktClosed = !!(briefData as { marketClosed?: boolean } | undefined)?.marketClosed;
+	const isMktClosed = briefData?.marketClosed ?? false;
 	const lastCloseRef = getLastCloseRef();
 
 	const pctForMove = stockData?.quote?.changePercent;

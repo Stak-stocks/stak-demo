@@ -320,7 +320,7 @@ function CtaButton({
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  NAVIGATION BAR                                                      */
 /* ═══════════════════════════════════════════════════════════════════ */
-function NavBar({ onSignup, onScrollTo }: { onLogin: () => void; onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function NavBar({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	return (
 		<div
 			style={{

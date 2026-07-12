@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
-import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL } from "../services/geminiService.js";
+import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
 import { getEasternDateKey } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -52,9 +52,13 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		if (!data.quote) return null;
 
 		const { price, changePercent, marketState } = data.quote;
-		const sign = changePercent >= 0 ? "+" : "";
-		const session = marketState && marketState !== "REGULAR" ? ` (${marketState} session)` : "";
-		const parts = [`$${price.toFixed(2)}`, `${sign}${changePercent.toFixed(2)}% today${session}`];
+		const isOpen = marketState === "REGULAR";
+		const direction = Math.abs(changePercent) < 0.1 ? "flat" : changePercent > 0 ? `up ${changePercent.toFixed(2)}%` : `down ${Math.abs(changePercent).toFixed(2)}%`;
+		const priceStr = `$${price.toFixed(2)}`;
+		const movement = isOpen
+			? `is ${direction} today, trading at ${priceStr}`
+			: `closed at ${priceStr}, ${direction === "flat" ? "flat" : direction} today`;
+		const parts = [movement];
 		if (data.metrics.peRatio != null) parts.push(`P/E ${data.metrics.peRatio.toFixed(1)}`);
 		if (data.metrics.marketCap) parts.push(`mkt cap ${data.metrics.marketCap}`);
 		if (data.metrics.beta != null) parts.push(`beta ${data.metrics.beta.toFixed(2)}`);
@@ -74,7 +78,7 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 		for (const key of keys) {
 			try {
 				const res = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+					geminiUrl(GEMINI_MODEL, key),
 					{
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -157,6 +161,9 @@ Always follow this structure — every section, in this order:
 4. What to check — point the user to where they can learn more (the stock page or news feed in the app). Never prescribe any action.
 5. Uncertainty — flag anything that is unconfirmed, speculative, or has multiple competing explanations.
 
+━━━ MULTIPLE QUESTIONS ━━━
+If the user asks more than one question in a single message, answer every one of them. Address each stock or topic separately, in the order asked. Do not stop after the first.
+
 ━━━ MOVE RULES (apply to every price question) ━━━
 - No catalyst: "There is no confirmed public catalyst for this move" is a complete, correct answer. Never speculate or fill silence with invented drama.
 - Flat day: A move under ~1% is normal daily volatility. Say so plainly. Do not manufacture a reason.
@@ -210,6 +217,12 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 	}
 
 	const DAILY_AI_LIMIT = 20;
+	const MAX_MESSAGE_CHARS = 150;
+
+	if (message.trim().length > MAX_MESSAGE_CHARS) {
+		res.status(400).json({ error: `Message too long — please keep it under ${MAX_MESSAGE_CHARS} characters.` });
+		return;
+	}
 
 	try {
 		// Per-user daily cap — count user messages sent today (ET day boundary)

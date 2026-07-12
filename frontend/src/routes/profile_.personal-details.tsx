@@ -42,10 +42,10 @@ function PersonalDetailsPage() {
 	const touchStartX = useRef(0);
 	const touchStartY = useRef(0);
 
-	if (!appUser) {
-		navigate({ to: "/login" });
-		return null;
-	}
+	useEffect(() => {
+		if (!appUser) navigate({ to: "/login" });
+	}, [appUser, navigate]);
+	if (!appUser) return null;
 
 	const displayName = savedName || "STAK User";
 	const isGoogle = appUser.provider === "google.com";
