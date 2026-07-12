@@ -2418,7 +2418,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	}
 	const _drillShuffleSeed = `${_drillUid}:${_drillDayKey}`;
 
-	// Merge static + generated pools (dedup by scenario text), then shuffle for today
+	// Merge static + generated pools (dedup by scenario text), unseen first, then shuffle each group.
+	// _seenVersion in deps ensures this recomputes once after seen sets load from localStorage.
 	const allSentimentScenarios = useMemo(() => {
 		const VALID_SENTIMENTS = ["Bullish","Bearish","Mixed"];
 		const extras = Array.isArray(genSentimentData) ? genSentimentData
@@ -2434,10 +2435,19 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			})
 			.filter((r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } => r !== null)
 		: [];
-		const seen = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
-		return seededShuffle(merged, _drillShuffleSeed + ":sent");
-	}, [genSentimentData, _drillShuffleSeed]);
+		const dedupKey = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
+		const seenSet = seenSentRef.current;
+		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
+		const alreadySeen = merged.filter(s => seenSet.has(s.scenario.slice(0, 60)));
+		// If all seen, reset so user cycles through again
+		if (unseen.length === 0) {
+			seenSentRef.current = new Set();
+			try { localStorage.removeItem(`stak:drill:seen:sent:${_drillUid}`); } catch {}
+			return seededShuffle(merged, _drillShuffleSeed + ":sent");
+		}
+		return [...seededShuffle(unseen, _drillShuffleSeed + ":sent"), ...seededShuffle(alreadySeen, _drillShuffleSeed + ":sent:seen")];
+	}, [genSentimentData, _drillShuffleSeed, _seenVersion, _drillUid]);
 
 	const allNextStepScenarios = useMemo(() => {
 		const extras = Array.isArray(genNextStepData) ? genNextStepData.filter(
@@ -2446,14 +2456,29 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				typeof (r as Record<string,unknown>).scenario === "string" &&
 				Array.isArray((r as Record<string,unknown>).options)
 		) : [];
-		const seen = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
-		return seededShuffle(merged, _drillShuffleSeed + ":next");
+		const dedupKey = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
+		const seenSet = seenNextRef.current;
+		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
+		const alreadySeen = merged.filter(s => seenSet.has(s.scenario.slice(0, 60)));
+		if (unseen.length === 0) {
+			seenNextRef.current = new Set();
+			try { localStorage.removeItem(`stak:drill:seen:next:${_drillUid}`); } catch {}
+			return seededShuffle(merged, _drillShuffleSeed + ":next");
+		}
+		return [...seededShuffle(unseen, _drillShuffleSeed + ":next"), ...seededShuffle(alreadySeen, _drillShuffleSeed + ":next:seen")];
 	}, [genNextStepData]);
 
-	// Scenario indices — default to date-offset; useEffect loads persisted position once uid ready
+	// Scenario indices — start at 0; useEffect loads persisted position once uid ready
 	const [sentimentIdx, setSentimentIdx] = useState(0);
 	const [nextStepIdx, setNextStepIdx] = useState(0);
+
+	// Seen-scenario sets — persisted cross-session so unseen scenarios always come first.
+	// Stored as refs so pool memos don't recompute mid-session (only recompute on mount).
+	const seenSentRef = useRef<Set<string>>(new Set());
+	const seenNextRef = useRef<Set<string>>(new Set());
+	// Bumped to 1 after seen sets load — triggers pool memos to recompute once with real seen data.
+	const [_seenVersion, _setSeenVersion] = useState(0);
 
 	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
 	const drillStateLoadedRef = useRef(false);
@@ -2478,6 +2503,15 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				setSessionStarted(true);
 			}
 		} catch {}
+		try {
+			const sentKeys = JSON.parse(localStorage.getItem(`stak:drill:seen:sent:${_drillUid}`) ?? "[]");
+			seenSentRef.current = new Set(sentKeys);
+		} catch {}
+		try {
+			const nextKeys = JSON.parse(localStorage.getItem(`stak:drill:seen:next:${_drillUid}`) ?? "[]");
+			seenNextRef.current = new Set(nextKeys);
+		} catch {}
+		_setSeenVersion(1);
 	}, [_drillUid, _drillDayKey]);
 
 	const currentRoundType = getRoundType(sessionIdx);
@@ -2623,22 +2657,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
 							Back to Playground
 						</button>
-						<button type="button" onClick={() => {
-							// Advance indices so "Practice Again" shows the next set of scenarios
-							const newSentIdx = sentimentIdx + 1;
-							const newNsIdx = nextStepIdx + 1;
-							setSentimentIdx(newSentIdx);
-							setNextStepIdx(newNsIdx);
-							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx, round: 0 })); } catch {}
-							xpAwardedThisRound.current = false;
-							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
-							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
-							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setSessionStarted(true);
-						}}
-							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
-							Practice Again
-						</button>
 					</div>
 				</div>
 			</div>
@@ -2771,6 +2789,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					</div>
 					<button type="button"
 						onClick={() => {
+							const shown = allSentimentScenarios[sentimentIdx % allSentimentScenarios.length];
+							if (shown) {
+								const key = shown.scenario.slice(0, 60);
+								seenSentRef.current.add(key);
+								try { localStorage.setItem(`stak:drill:seen:sent:${_drillUid}`, JSON.stringify([...seenSentRef.current])); } catch {}
+							}
 							const next = sentimentIdx + 1;
 							setSentimentIdx(next);
 							advanceRound(next, undefined);
@@ -2861,6 +2885,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					</div>
 					<button type="button"
 						onClick={() => {
+							const shown = allNextStepScenarios[nextStepIdx % allNextStepScenarios.length];
+							if (shown) {
+								const key = shown.scenario.slice(0, 60);
+								seenNextRef.current.add(key);
+								try { localStorage.setItem(`stak:drill:seen:next:${_drillUid}`, JSON.stringify([...seenNextRef.current])); } catch {}
+							}
 							const next = nextStepIdx + 1;
 							setNextStepIdx(next);
 							advanceRound(undefined, next);
