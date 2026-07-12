@@ -580,9 +580,20 @@ export function completeDailyActivityApi(dayKey: string, activityId: string, xp?
 }
 
 export function addSkillXp(skill: string, xp: number) {
-	return apiRequest<{ ok: boolean; xp: number }>("/api/playground/skill-xp", {
+	return apiRequest<{ ok: boolean; xp: number; xpToday: number }>("/api/playground/skill-xp", {
 		method: "POST",
 		body: JSON.stringify({ skill, xp }),
+	});
+}
+
+export function getDrillSeen() {
+	return apiRequest<{ sentiment: string[]; nextstep: string[]; xpToday: number }>("/api/playground/drill-seen");
+}
+
+export function saveDrillSeen(type: "sentiment" | "nextstep", hashes: string[]) {
+	return apiRequest<{ ok: boolean }>("/api/playground/drill-seen", {
+		method: "POST",
+		body: JSON.stringify({ type, hashes }),
 	});
 }
 

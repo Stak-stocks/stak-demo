@@ -183,11 +183,42 @@ function App() {
 		setPassedBrandIds(new Set(active.map((e) => e.id)));
 	}, [account]);
 
-	// Ref keeps the latest passed entries for use in stable callbacks
+	// Ref keeps the latest passed entries for use in stable callbacks.
+	// Only syncs from account on first load — after that, local swipe actions
+	// own the ref so server round-trips can't overwrite optimistic updates.
 	const passedEntriesRef = useRef<PassedEntry[]>(account?.passedBrands ?? []);
+	const passedEntriesInitRef = useRef(false);
 	useEffect(() => {
-		passedEntriesRef.current = account?.passedBrands ?? [];
+		if (passedEntriesInitRef.current) return;
+		if (account?.passedBrands) {
+			passedEntriesInitRef.current = true;
+			passedEntriesRef.current = account.passedBrands;
+		}
 	}, [account?.passedBrands]);
+
+	// Mid-session pass expiry: when a 1-day pass window closes, requeue the
+	// brand to the bottom of the deck without waiting for a route remount.
+	useEffect(() => {
+		if (!passedInitialized.current) return;
+		const tempPasses = passedEntriesRef.current.filter(e => (e.count ?? 0) < 5);
+		if (tempPasses.length === 0) return;
+		const now = Date.now();
+		const nextExpiry = Math.min(...tempPasses.map(e => e.at + 24 * 60 * 60 * 1000));
+		const delay = nextExpiry - now;
+		const removeExpired = () => {
+			const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+			setPassedBrandIds(prev => {
+				const next = new Set(prev);
+				for (const e of passedEntriesRef.current) {
+					if ((e.count ?? 0) < 5 && e.at <= oneDayAgo) next.delete(e.id);
+				}
+				return next;
+			});
+		};
+		if (delay <= 0) { removeExpired(); return; }
+		const timer = setTimeout(removeExpired, delay);
+		return () => clearTimeout(timer);
+	}, [passedBrandIds]);
 
 	// ── Deck order — reactive init so it always reads correct Firestore state ──
 	// Lazy useState would capture account at mount time; if preferences arrive

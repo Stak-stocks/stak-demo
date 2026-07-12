@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
-import { cacheGet, cacheSet } from "../lib/cache.js";
+import { cacheGet, cacheSet, cacheDelete } from "../lib/cache.js";
 import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import type { AuthenticatedRequest } from "../authMiddleware.js";
@@ -199,14 +199,14 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 			}
 		}
 		if (recent.length > 0)
-			avoidLine = `\nAVOID REPEATING THESE RECENTLY COVERED TOPICS: ${recent.slice(0, 30).join(" | ")}\n`;
+			avoidLine = `\nBANNED — you MUST NOT use any of the following recently covered companies/topics (already seen by this user — you MUST choose completely different ones): ${recent.slice(0, 30).join(", ")}. This is a hard requirement that overrides all other instructions.\n`;
 	} catch { /* history unavailable — proceed without exclusions */ }
 
 	const tierLabel = ["", "Beginner", "Learner", "Investor", "Analyst", "Expert"][tier] ?? "Intermediate";
 
 	// Explicit difficulty guidance per tier — used across all prompt types
 	const DIFFICULTY_GUIDE: Record<number, string> = {
-		1: `BEGINNER level: Use only well-known household brands (Apple, Nike, Netflix, Tesla). Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
+		1: `BEGINNER level: Use only well-known household brands recognisable to everyday consumers. Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
 		2: `LEARNER level: Use well-known companies and introduce basic metrics (P/E ratio, revenue growth, dividend yield). One or two wrong options should be plausible to someone new. Topics: valuation basics, earnings beats/misses, sector categories, simple risk concepts.`,
 		3: `INVESTOR level: Assume familiarity with P/E, EPS, revenue growth, market cap, beta. Use moderately complex scenarios with plausible distractors that require real understanding to eliminate. Topics: comparing companies on metrics, reading earnings context, sector rotation, basic macro.`,
 		4: `ANALYST level: Assume solid investing knowledge. Use nuanced scenarios where multiple answers seem reasonable — only someone who deeply understands the concept can distinguish the best answer. Topics: advanced valuation, guidance vs actuals, macro impact on sectors, portfolio construction principles.`,
@@ -221,8 +221,8 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 Generate ${rawCount} stock battle matchups. Each matchup compares two real publicly-traded companies on a single metric.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must feature DIFFERENT company pairs, sectors, and metrics from any other week. Rotate across tech, healthcare, consumer, finance, energy, industrials.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects with this schema:
 [{
@@ -252,9 +252,8 @@ predict how the stock reacted. The lesson being taught is that stock reaction do
 1:1 — guidance, valuation, segment trends, and "priced in" expectations all matter too.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must use DIFFERENT companies and earnings situations from any other week. Rotate industries: tech, retail, healthcare, finance, consumer, energy.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-earn-${dayKey}-1",
@@ -269,7 +268,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "stockContext": "Near 52-week high",
   "peRatio": "24x",
   "stockSetupLabel": "Priced for consistency",
-  "question": "Given this report, what do you predict happened to McDonald's stock?",
+  "question": "What do you predict happened to McDonald's stock after this report?",
   "options": [
     {"id": "a", "text": "Up 4%+ — EPS beat drives rally"},
     {"id": "b", "text": "Flat — results in line with expectations"},
@@ -284,6 +283,30 @@ Return a JSON array of exactly ${rawCount} objects:
   "watchNextTime": "One sentence on what investors should track in future earnings for this company or sector.",
   "xp": ${TIER_XP[tier]?.lab ?? 5}
 }]
+
+VARY THE QUESTION FORMAT across the ${rawCount} scenarios — do not use the same format twice in a row. Choose one per scenario:
+
+FORMAT A — REACTION PREDICTION: ask what the stock did; options are movement ranges
+  question: "What do you predict happened to [Company]'s stock after this report?"
+  options: 4 movement ranges matching the plausible outcomes — one must align with stockMove (e.g. "Up 5%+ — strong beat", "Up 1-3% — modest relief", "Flat — as expected", "Down 3-7% — guidance concerns", "Down 10%+ — major miss")
+
+FORMAT B — KEY DRIVER: ask what caused the reaction; options are scenario-specific market dynamics
+  question: "What was the primary driver of [Company]'s stock [direction] after earnings?"
+  options: 4 specific factors relevant to this scenario — e.g. "Guidance cut overshadowed the EPS beat", "Revenue deceleration spooked growth investors", "Priced-in expectations set the bar too high", "Strong segment data validated the bull case"
+
+FORMAT C — DISCONNECT: highlight a surprising reaction; ask what explains it
+  USE ONLY when the scenario has a genuine disconnect (e.g. EPS beat but stock fell, or miss but stock rallied). Do NOT force this format when the reaction was fully expected.
+  question: "[Company] beat [metric] by X% but the stock [fell/rose] Y%. What best explains this?"
+  options: 4 investing concepts explaining the disconnect — e.g. "Management cut next-quarter guidance below consensus", "The stock was trading at 45x forward earnings heading in", "One-time gains inflated reported EPS", "Revenue growth decelerated despite the headline beat"
+
+FORMAT D — INVESTOR FOCUS: ask what signal most matters to a long-term investor
+  USE ONLY when the scenario contains at least one genuine warning sign or nuance worth noticing (guidance cut, margin pressure, decelerating growth, one-time items, etc.). For scenarios that are straightforwardly positive across all metrics, prefer Format A or B instead.
+  question: "Which signal from [Company]'s report should most concern a long-term investor?"
+  options: 4 data points or narrative elements from this specific scenario — e.g. "Gross margin contracted 200bps despite revenue growth", "Management lowered full-year revenue guidance by 5%", "EPS beat was driven by a tax benefit, not operations", "International revenue declined for the first time in 3 years"
+
+For FORMAT A: the correctId must match the stockMove direction and magnitude.
+For FORMATS B/C/D: generate options specific to this scenario; correctId is the most accurate explanation. stockMove is still required (shown in the reveal) but is not one of the options.
+
 Rules:
 - IMPORTANT: Do NOT generate a scenario for the example company (McDonald's / MCD) used in the schema above — it is a placeholder only
 - Use real companies and plausible earnings scenarios
@@ -304,8 +327,8 @@ Rules:
 Each scenario presents two investment options and asks which is riskier.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must produce DIFFERENT companies, industries, and risk types from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
@@ -328,8 +351,8 @@ Rules:
 Each scenario presents a real-world macro event and asks how markets would react.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT macro events and economic topics from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Return a JSON array of exactly ${rawCount} objects:
 [{
@@ -363,8 +386,8 @@ Rules:
 Generate ${rawCount} lessons covering ${TIER_TOPICS[tier] ?? "investing fundamentals"}.
 
 DAY: ${dayKey} — use this as a seed for variety. Each day must cover DIFFERENT concepts and topics from any other week.
-${avoidLine}
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
+${avoidLine}
 
 Each lesson must cover a DIFFERENT topic. Categories available: ${CATEGORIES.join(", ")}.
 
@@ -409,8 +432,9 @@ Rules:
 		prompt = `Generate ${rawCount} "Bullish, Bearish, or Mixed?" skill drill scenarios for a ${tierLabel}-level investing student.
 Each shows a company or market event and the user classifies it.
 
+DAY: ${dayKey} — use this seed to vary your output. Different day = different scenarios.
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-drill-sent-1",
@@ -429,8 +453,9 @@ Rules:
 		prompt = `Generate ${rawCount} "What Should You Check Next?" skill drill scenarios for a ${tierLabel}-level investing student.
 Each shows a stock situation and asks what the investor should investigate first.
 
+DAY: ${dayKey} — use this seed to vary your output. Different day = different scenarios.
 DIFFICULTY REQUIREMENTS: ${difficultyGuide}
-
+${avoidLine}
 Return a JSON array of exactly ${rawCount} objects:
 [{
   "id": "gen-drill-next-1",
@@ -680,7 +705,8 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			return;
 		}
 		const actualXp = Math.min(xp, DAILY_SKILL_XP_CAP - earnedToday);
-		await cacheSet(capKey, earnedToday + actualXp, 25 * 60 * 60 * 1000);
+		const xpToday = earnedToday + actualXp;
+		await cacheSet(capKey, xpToday, 25 * 60 * 60 * 1000);
 
 		const client = await pgPool.connect();
 		try {
@@ -698,7 +724,7 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 			);
 
 			await client.query("COMMIT");
-			res.json({ ok: true, xp: actualXp });
+			res.json({ ok: true, xp: actualXp, xpToday });
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;
@@ -708,5 +734,80 @@ playgroundRouter.post("/skill-xp", authMiddleware, async (req: AuthenticatedRequ
 	} catch (e) {
 		console.error("[playground] skill-xp error:", e);
 		res.status(500).json({ error: "Failed to record skill XP" });
+	}
+});
+
+// ── Admin: clear a user's generated content cache ─────────────────────────────
+// GET /api/playground/drill-seen
+// Returns the user's seen drill scenario hashes for both types.
+playgroundRouter.get("/drill-seen", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const uid = req.user!.uid;
+	try {
+		const [seenResult, xpToday] = await Promise.all([
+			pgQuery<{ type: string; payload: string[] }>(
+				`SELECT type, payload FROM playground_cache WHERE uid = $1 AND type IN ('drill_seen_sentiment', 'drill_seen_nextstep') AND date = '9999-12-31'`,
+				[uid],
+			),
+			(async () => {
+				const today = getEasternDateKey(new Date());
+				return (await cacheGet<number>(`practice:dailycap:${uid}:${today}`)) ?? 0;
+			})(),
+		]);
+		const sentiment = seenResult.rows.find(r => r.type === "drill_seen_sentiment")?.payload ?? [];
+		const nextstep  = seenResult.rows.find(r => r.type === "drill_seen_nextstep")?.payload ?? [];
+		res.json({ sentiment, nextstep, xpToday });
+	} catch (e) {
+		console.error("[playground] drill-seen GET error:", e);
+		res.status(500).json({ error: "Failed to fetch seen drills" });
+	}
+});
+
+// POST /api/playground/drill-seen
+// Overwrites the seen hashes for one drill type. Passing [] resets it (pool exhausted).
+playgroundRouter.post("/drill-seen", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const uid = req.user!.uid;
+	const { type, hashes } = req.body as { type?: string; hashes?: unknown };
+	if (type !== "sentiment" && type !== "nextstep") {
+		res.status(400).json({ error: "type must be 'sentiment' or 'nextstep'" }); return;
+	}
+	if (!Array.isArray(hashes)) {
+		res.status(400).json({ error: "hashes must be an array" }); return;
+	}
+	const pgType = `drill_seen_${type}`;
+	try {
+		await pgQuery(
+			`INSERT INTO playground_cache (uid, type, date, payload)
+			 VALUES ($1, $2, '9999-12-31', $3::jsonb)
+			 ON CONFLICT (uid, type, date) DO UPDATE SET payload = EXCLUDED.payload`,
+			[uid, pgType, JSON.stringify(hashes)],
+		);
+		res.json({ ok: true });
+	} catch (e) {
+		console.error("[playground] drill-seen POST error:", e);
+		res.status(500).json({ error: "Failed to save seen drills" });
+	}
+});
+
+// DELETE /api/playground/cache?uid=&dayKey=&type=&adminKey=
+// Clears both Redis and Postgres so content is regenerated fresh on next load.
+playgroundRouter.delete("/cache", async (req, res) => {
+	const { uid, dayKey, type, adminKey } = req.query as Record<string, string>;
+	if (!adminKey || adminKey !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	if (!uid || !dayKey || !type) {
+		res.status(400).json({ error: "uid, dayKey, and type are required" });
+		return;
+	}
+	const pgType = `${type}_v8`;
+	const cacheKey = `playground:gen:v8:${uid}:${dayKey}:${type}`;
+	try {
+		await cacheDelete(cacheKey);
+		await pgQuery(`DELETE FROM playground_cache WHERE uid = $1 AND type = $2 AND date = $3`, [uid, pgType, dayKey]);
+		res.json({ ok: true, cleared: { redis: cacheKey, postgres: { uid, type: pgType, date: dayKey } } });
+	} catch (e) {
+		console.error("[playground] cache clear error:", e);
+		res.status(500).json({ error: "Failed to clear cache" });
 	}
 });

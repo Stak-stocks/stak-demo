@@ -15,7 +15,7 @@ import {
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, type ChartRange } from "@/lib/api";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, getDrillSeen, saveDrillSeen, type ChartRange } from "@/lib/api";
 // getTodayKey here is aliased -- @/data/playgroundData also exports a (different,
 // no-9am-offset) getTodayKey already imported above for daily-content resets; this
 // one is specifically the 9am-local-reset version used for streak display.
@@ -1233,7 +1233,7 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 	);
 }
 
-function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string) => void; isGenerating?: boolean }) {
+function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBattleIds, dayLabel, battlesPool, onBattleWon, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyBattleIds?: string[]; dayLabel?: string; battlesPool?: BattleMatchup[]; onBattleWon?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = battlesPool ?? [];
 	const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 	// Seed local results from Firestore dailyCompleted so state survives navigation
@@ -1250,12 +1250,15 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 	const handleBattleResult = (battleId: string, won: boolean) => {
 		setResults(r => ({ ...r, [battleId]: won ? "win" : "loss" }));
-		// completeDailyActivity is the single XP source — BattleDetail no longer calls addXp directly
-		if (won && dayKey && dailyCompleted && !dailyCompleted.has(battleId) && onDailyComplete) {
+		if (won) {
 			const battle = pool.find(b => b.id === battleId);
-			if (battle) onDailyComplete(dayKey, battleId, battle.xp, "battle");
+			const xp = battle?.xp ?? 0;
+			// onBattleWon is the single XP source — it writes to activity_progress.xp_earned.
+			// onDailyComplete gets xp:0 (checkmark only) to avoid double-counting.
+			if (dayKey && dailyCompleted && !dailyCompleted.has(battleId) && onDailyComplete)
+				onDailyComplete(dayKey, battleId, 0, "battle");
+			onBattleWon?.(battleId, xp);
 		}
-		if (won) onBattleWon?.(battleId);
 	};
 
 	if (activeBattleId) {
@@ -1311,7 +1314,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 
 // ── Earnings Lab ──────────────────────────────────────────────────────────
 
-function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyEarningsIds, dayLabel, earningsPool, onEarningsScenarioCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyEarningsIds?: string[]; dayLabel?: string; earningsPool?: EarningsScenario[]; onEarningsScenarioCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = earningsPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -1507,10 +1510,12 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 										setCompletedIds(prev => new Set([...prev, scenario.id]));
 										if (correct) {
 											showXp(scenario.xp);
-											onEarningsScenarioCorrect?.(scenario.id);
+											// onEarningsScenarioCorrect is the XP source — writes xp_earned to activity_progress.
+											// onDailyComplete gets xp:0 (checkmark only) to avoid double-counting.
+											onEarningsScenarioCorrect?.(scenario.id, scenario.xp);
 										}
 										if (dayKey && !alreadyAttempted && onDailyComplete)
-											onDailyComplete(dayKey, scenario.id, correct ? scenario.xp : 0, "earnings");
+											onDailyComplete(dayKey, scenario.id, 0, "earnings");
 									}
 								} : undefined}
 								disabled={phase === "outcome"}
@@ -1655,7 +1660,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 // ── Risk Lab ─────────────────────────────────────────────────────────────
 
-function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect, isGenerating }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, onDailyComplete, riskPool, onRiskCorrect, isGenerating }: { onBack: () => void; dailyRiskIds?: string[]; dayLabel?: string; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; riskPool?: RiskScenario[]; onRiskCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = riskPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1760,9 +1765,10 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 		const isCorrect = selected === scenario.riskierOption;
 		if (isCorrect) {
 			setSessionCorrect(prev => new Set([...prev, scenario.id]));
+			// onRiskCorrect is the XP source; onDailyComplete gets xp:0 (checkmark only).
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onDailyComplete)
-				onDailyComplete(dayKey, scenario.id, scenario.xp, "risk");
-			onRiskCorrect?.(scenario.id);
+				onDailyComplete(dayKey, scenario.id, 0, "risk");
+			onRiskCorrect?.(scenario.id, scenario.xp);
 		}
 		// Wrong answers are NOT marked complete — user can re-enter and retry them.
 		// The pack is now stable for the day so retrying won't cause a "new set" to appear.
@@ -1838,7 +1844,7 @@ function RiskLabView({ onBack, dailyRiskIds, dayLabel, dayKey, dailyCompleted, o
 
 // ── Market Mood Simulator ────────────────────────────────────────────────
 
-function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string) => void; isGenerating?: boolean }) {
+function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyMoodIds, dayLabel, moodPool, onMoodCorrect, isGenerating }: { onBack: () => void; dayKey?: string; dailyCompleted?: Set<string>; onDailyComplete?: (wk: string, id: string, xp: number, type?: string) => void; dailyMoodIds?: string[]; dayLabel?: string; moodPool?: MoodScenario[]; onMoodCorrect?: (id: string, xp: number) => void; isGenerating?: boolean }) {
 	const pool = moodPool ?? [];
 	const { showXp, XPFloat } = useXpFloat();
 	const [index, setIndex] = useState(0);
@@ -1939,9 +1945,10 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 		const isRight = selected === scenario.correctId;
 		if (isRight) {
 			setSessionCorrectMood(prev => new Set([...prev, scenario.id]));
+			// onMoodCorrect is the XP source; onDailyComplete gets xp:0 (checkmark only).
 			if (dayKey && !dailyCompleted?.has(scenario.id) && onDailyComplete)
-				onDailyComplete(dayKey, scenario.id, scenario.xp, "mood");
-			onMoodCorrect?.(scenario.id);
+				onDailyComplete(dayKey, scenario.id, 0, "mood");
+			onMoodCorrect?.(scenario.id, scenario.xp);
 		}
 		// Wrong answers are NOT marked complete — user can re-enter and retry them.
 		if (index < visibleMood.length - 1) { setIndex(i => i + 1); setSelected(null); setCorrect(c => isRight ? c + 1 : c); }
@@ -2358,17 +2365,12 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 	const [otherCorrect, setOtherCorrect] = useState<boolean>(false);
 
 
-	// Use weekly key for Skill Drills — large pool so weekly Gemini refresh is sufficient
 	const _drillDayKey = useMemo(() => getTodayKey(), []);
 
-	// uid-scoped localStorage keys so two users on the same device don't share state.
-	// account?.uid may be undefined on mount (still loading), so keys are computed each render
-	// and the initial localStorage read is deferred to a useEffect that fires once uid resolves.
 	const _drillUid = account?.uid ?? "";
 	const DAILY_DRILL_XP_CAP = ACTIVITY_XP_CAP;
-	const _drillXpLsKey = _drillUid ? `stak:drill:xp:${_drillUid}:${_drillDayKey}` : null;
 	const _drillIdxLsKey = _drillUid ? `stak:drill:idx:${_drillUid}:${_drillDayKey}` : null;
-	// Start at 0 / date-offset defaults; useEffect below loads real values once uid is ready
+	// Seeded from server (drill-seen response) — no localStorage
 	const [drillXpToday, setDrillXpToday] = useState(0);
 
 	// Freeze tier once account loads — prevents mid-session refetch if user earns XP,
@@ -2382,22 +2384,62 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		_setDrillTier(xpToTier(xp));
 	}, [account]);
 
+	// Seen-scenario sets — stored server-side so they persist across devices.
+	// Declared BEFORE the memos that read them to avoid temporal dead zone.
+	const seenSentRef = useRef<Set<string>>(new Set());
+	const seenNextRef = useRef<Set<string>>(new Set());
+	// Bumped to 1 after seen sets load — triggers pool memos to recompute once with real data.
+	const [_seenVersion, _setSeenVersion] = useState(0);
+
+	// Fetch seen hashes + xpToday from server once uid is known
+	const { data: drillSeenData } = useQuery({
+		queryKey: ["drill-seen", _drillUid],
+		queryFn: getDrillSeen,
+		enabled: !!_drillUid,
+		staleTime: Infinity,
+		gcTime: 24 * 60 * 60 * 1000,
+	});
+	const _drillSeenLoaded = useRef(false);
+	useEffect(() => {
+		if (!drillSeenData || _drillSeenLoaded.current) return;
+		_drillSeenLoaded.current = true;
+		seenSentRef.current = new Set(drillSeenData.sentiment);
+		seenNextRef.current = new Set(drillSeenData.nextstep);
+		if (drillSeenData.xpToday > 0) setDrillXpToday(drillSeenData.xpToday);
+		_setSeenVersion(1);
+	}, [drillSeenData]);
+
 	// Fetch generated drill scenarios daily (cached 24h) to supplement static pools.
 	// Disabled until _drillTier is set — ensures tier is correct even on cold page load.
 	const { data: genSentimentData } = useQuery({
 		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_sentiment"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_sentiment", 10),
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_sentiment", 5),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
 		enabled: _drillTier !== null,
 	});
 	const { data: genNextStepData } = useQuery({
 		queryKey: ["playground-gen", _drillUid, _drillDayKey, _drillTier, "drill_nextstep"],
-		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_nextstep", 8),
+		queryFn: () => generatePlaygroundQuestions(_drillDayKey, _drillTier!, "drill_nextstep", 5),
 		staleTime: 24 * 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000, retry: 1,
 		enabled: _drillTier !== null,
 	});
 
-	// Merge static + generated pools (dedup by scenario text)
+	// Deterministic per-user-per-day shuffle — same order within a day (resumable),
+	// different order each day so the user sees different scenarios.
+	function seededShuffle<T>(arr: T[], seed: string): T[] {
+		let h = seed.split("").reduce((acc, c) => (Math.imul(31, acc) + c.charCodeAt(0)) | 0, 0x9e3779b9);
+		const next = () => { h = (Math.imul(h ^ (h >>> 16), 0x45d9f3b)) | 0; return (h >>> 0) / 0x100000000; };
+		const out = [...arr];
+		for (let i = out.length - 1; i > 0; i--) {
+			const j = Math.floor(next() * (i + 1));
+			[out[i], out[j]] = [out[j]!, out[i]!];
+		}
+		return out;
+	}
+	const _drillShuffleSeed = `${_drillUid}:${_drillDayKey}`;
+
+	// Merge static + generated pools, unseen first. Pure — no side effects.
+	// _seenVersion in deps ensures recompute once after seen sets load from server.
 	const allSentimentScenarios = useMemo(() => {
 		const VALID_SENTIMENTS = ["Bullish","Bearish","Mixed"];
 		const extras = Array.isArray(genSentimentData) ? genSentimentData
@@ -2413,9 +2455,18 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 			})
 			.filter((r): r is { scenario: string; correct: "Bullish"|"Bearish"|"Mixed"; explanation: string } => r !== null)
 		: [];
-		const seen = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		return [...SENTIMENT_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
-	}, [genSentimentData]);
+		const dedupKey = new Set(SENTIMENT_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		const merged = [...SENTIMENT_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
+		const seenSet = seenSentRef.current;
+		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
+		if (unseen.length === 0) {
+			// Static exhausted — Gemini-only while available, else show full pool (reset happens in effect)
+			return extras.length > 0
+				? seededShuffle(extras, _drillShuffleSeed + ":sent")
+				: seededShuffle(merged, _drillShuffleSeed + ":sent");
+		}
+		return seededShuffle(unseen, _drillShuffleSeed + ":sent");
+	}, [genSentimentData, _drillShuffleSeed, _seenVersion, _drillUid]);
 
 	const allNextStepScenarios = useMemo(() => {
 		const extras = Array.isArray(genNextStepData) ? genNextStepData.filter(
@@ -2424,13 +2475,41 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 				typeof (r as Record<string,unknown>).scenario === "string" &&
 				Array.isArray((r as Record<string,unknown>).options)
 		) : [];
-		const seen = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
-		return [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !seen.has(e.scenario.slice(0,30)))];
-	}, [genNextStepData]);
+		const dedupKey = new Set(NEXT_STEP_SCENARIOS.map(s => s.scenario.slice(0,30)));
+		const merged = [...NEXT_STEP_SCENARIOS, ...extras.filter(e => !dedupKey.has(e.scenario.slice(0,30)))];
+		const seenSet = seenNextRef.current;
+		const unseen = merged.filter(s => !seenSet.has(s.scenario.slice(0, 60)));
+		if (unseen.length === 0) {
+			return extras.length > 0
+				? seededShuffle(extras, _drillShuffleSeed + ":next")
+				: seededShuffle(merged, _drillShuffleSeed + ":next");
+		}
+		return seededShuffle(unseen, _drillShuffleSeed + ":next");
+	}, [genNextStepData, _drillShuffleSeed, _seenVersion, _drillUid]);
 
-	// Scenario indices — default to date-offset; useEffect loads persisted position once uid ready
-	const [sentimentIdx, setSentimentIdx] = useState(() => (_todayOffset + 5) % 30);
-	const [nextStepIdx, setNextStepIdx] = useState(() => (_todayOffset + 3) % 21);
+	// Reset server seen-set when pool is fully exhausted and Gemini is unavailable.
+	// Runs in effect (not memo) to avoid side effects in pure computation.
+	useEffect(() => {
+		const sentExhausted = allSentimentScenarios.length > 0 &&
+			allSentimentScenarios.every(s => seenSentRef.current.has(s.scenario.slice(0, 60)));
+		if (sentExhausted && seenSentRef.current.size > 0) {
+			seenSentRef.current = new Set();
+			void saveDrillSeen("sentiment", []);
+		}
+	}, [allSentimentScenarios]);
+
+	useEffect(() => {
+		const nextExhausted = allNextStepScenarios.length > 0 &&
+			allNextStepScenarios.every(s => seenNextRef.current.has(s.scenario.slice(0, 60)));
+		if (nextExhausted && seenNextRef.current.size > 0) {
+			seenNextRef.current = new Set();
+			void saveDrillSeen("nextstep", []);
+		}
+	}, [allNextStepScenarios]);
+
+	// Scenario indices — start at 0; useEffect loads persisted position once uid ready
+	const [sentimentIdx, setSentimentIdx] = useState(0);
+	const [nextStepIdx, setNextStepIdx] = useState(0);
 
 	// Load persisted drill state from localStorage once uid resolves (avoids stale "anon" reads)
 	const drillStateLoadedRef = useRef(false);
@@ -2438,13 +2517,18 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		if (!_drillUid || drillStateLoadedRef.current) return;
 		drillStateLoadedRef.current = true;
 		try {
-			const xp = Number(localStorage.getItem(`stak:drill:xp:${_drillUid}:${_drillDayKey}`) ?? 0);
-			if (xp > 0) setDrillXpToday(xp);
-		} catch {}
-		try {
 			const saved = JSON.parse(localStorage.getItem(`stak:drill:idx:${_drillUid}:${_drillDayKey}`) ?? "null");
 			if (saved && typeof saved.sentiment === "number") setSentimentIdx(saved.sentiment);
 			if (saved && typeof saved.nextStep === "number") setNextStepIdx(saved.nextStep);
+			if (saved && typeof saved.round === "number" && saved.round > 0) {
+				setStockIdx(saved.round);
+				setSessionIdx(saved.round);
+				setSessionStarted(true);
+			}
+			if (saved?.done === true) {
+				setShowSummary(true);
+				setSessionStarted(true);
+			}
 		} catch {}
 	}, [_drillUid, _drillDayKey]);
 
@@ -2477,39 +2561,48 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		xpAwardedThisRound.current = true;
 		const remaining = DAILY_DRILL_XP_CAP - drillXpTodayRef.current;
 		const actualXp = Math.min(xp, remaining);
-		setDrillXpToday(prev => {
-			const next = prev + actualXp;
-			if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(next)); } catch {}
-			return next;
-		});
+		setDrillXpToday(prev => prev + actualXp);
 		showXp(actualXp);
 		setSessionXp(prev => prev + actualXp);
 		setSessionSkillXp(prev => ({ ...prev, [skill]: (prev[skill] ?? 0) + actualXp }));
 		if (isCorrectRound) setCorrectCount(c => c + 1);
-		addPracticeSkillXp(skill, actualXp).then(serverXp => {
+		// Server enforces the real cap and returns xpToday — sync local state to server truth
+		addPracticeSkillXp(skill, actualXp).then(({ xp: serverXp, xpToday: serverXpToday }) => {
 			const diff = actualXp - serverXp;
 			if (diff > 0) {
-				setDrillXpToday(prev => Math.max(0, prev - diff));
+				setDrillXpToday(Math.max(0, serverXpToday ?? drillXpTodayRef.current - diff));
 				setSessionXp(prev => Math.max(0, prev - diff));
 				setSessionSkillXp(prev => ({ ...prev, [skill]: Math.max(0, (prev[skill] ?? 0) - diff) }));
-				if (_drillXpLsKey) try { localStorage.setItem(_drillXpLsKey, String(Math.max(0, drillXpTodayRef.current - diff))); } catch {}
 			}
 		}).catch(() => {});
 	};
 
 	// ── Advance to next round ────────────────────────────────────────────────────
-	const advanceRound = () => {
+	const advanceRound = (nextSentimentIdx?: number, nextNextStepIdx?: number) => {
 		const nextSession = sessionIdx + 1;
 		const nextStockIdx = stockIdx + 1;
 
-		// Show summary after going through all stocks
+		// Show summary after going through all stocks — mark done in localStorage
 		if (nextStockIdx >= stockList.length) {
 			setShowSummary(true);
+			if (_drillIdxLsKey) try {
+				const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+				localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, done: true }));
+			} catch {}
 			return;
 		}
 
 		setSessionIdx(nextSession);
 		setStockIdx(nextStockIdx);
+
+		// Persist round so user can resume if they close the app
+		if (_drillIdxLsKey) try {
+			const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
+			const update: Record<string, unknown> = { ...saved, round: nextStockIdx };
+			if (nextSentimentIdx !== undefined) update.sentiment = nextSentimentIdx;
+			if (nextNextStepIdx !== undefined) update.nextStep = nextNextStepIdx;
+			localStorage.setItem(_drillIdxLsKey, JSON.stringify(update));
+		} catch {}
 
 		// Reset round state
 		xpAwardedThisRound.current = false;
@@ -2577,22 +2670,6 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
 							Back to Playground
-						</button>
-						<button type="button" onClick={() => {
-							// Use random offsets so "Practice Again" gives different questions
-							const newSentIdx = Math.floor(Math.random() * allSentimentScenarios.length);
-							const newNsIdx = Math.floor(Math.random() * allNextStepScenarios.length);
-							setSentimentIdx(newSentIdx);
-							setNextStepIdx(newNsIdx);
-							if (_drillIdxLsKey) try { localStorage.setItem(_drillIdxLsKey, JSON.stringify({ sentiment: newSentIdx, nextStep: newNsIdx })); } catch {}
-							xpAwardedThisRound.current = false;
-							setSessionIdx(0); setStockIdx(0); setShowSummary(false);
-							setSessionXp(0); setSessionSkillXp({}); setCorrectCount(0);
-							setOtherPhase("question"); setOtherSelected(null); setOtherCorrect(false);
-							setSessionStarted(false);
-						}}
-							className="w-full h-[44px] rounded-[12px] font-medium text-[14px] border border-foreground/10 dark:text-slate-400 text-slate-500 active:opacity-80">
-							Practice Again
 						</button>
 					</div>
 				</div>
@@ -2726,13 +2803,14 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					</div>
 					<button type="button"
 						onClick={() => {
+							const shown = allSentimentScenarios[sentimentIdx % allSentimentScenarios.length];
+							if (shown) {
+								seenSentRef.current.add(shown.scenario.slice(0, 60));
+								void saveDrillSeen("sentiment", [...seenSentRef.current]);
+							}
 							const next = sentimentIdx + 1;
 							setSentimentIdx(next);
-							if (_drillIdxLsKey) try {
-								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
-								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, sentiment: next }));
-							} catch {}
-							advanceRound();
+							advanceRound(next, undefined);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}>
@@ -2820,13 +2898,14 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					</div>
 					<button type="button"
 						onClick={() => {
+							const shown = allNextStepScenarios[nextStepIdx % allNextStepScenarios.length];
+							if (shown) {
+								seenNextRef.current.add(shown.scenario.slice(0, 60));
+								void saveDrillSeen("nextstep", [...seenNextRef.current]);
+							}
 							const next = nextStepIdx + 1;
 							setNextStepIdx(next);
-							if (_drillIdxLsKey) try {
-								const saved = JSON.parse(localStorage.getItem(_drillIdxLsKey) ?? "{}");
-								localStorage.setItem(_drillIdxLsKey, JSON.stringify({ ...saved, nextStep: next }));
-							} catch {}
-							advanceRound();
+							advanceRound(undefined, next);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
 						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
