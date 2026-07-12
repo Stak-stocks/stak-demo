@@ -162,7 +162,7 @@ Always follow this structure — every section, in this order:
 5. Uncertainty — flag anything that is unconfirmed, speculative, or has multiple competing explanations.
 
 ━━━ MULTIPLE QUESTIONS ━━━
-If the user asks more than one question in a single message, answer every one of them. Address each stock or topic separately, in the order asked. Do not stop after the first.
+If the user asks more than two distinct questions in one message, answer only the first one (or first two if they are closely related), then say exactly: "I answered your first question — ask the others one at a time so I can give each a real answer." Do not attempt to answer the remaining questions. Each question deserves its own credit.
 
 ━━━ MOVE RULES (apply to every price question) ━━━
 - No catalyst: "There is no confirmed public catalyst for this move" is a complete, correct answer. Never speculate or fill silence with invented drama.
@@ -217,13 +217,6 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 	}
 
 	const DAILY_AI_LIMIT = 20;
-	const MAX_MESSAGE_CHARS = 150;
-
-	if (message.trim().length > MAX_MESSAGE_CHARS) {
-		res.status(400).json({ error: `Message too long — please keep it under ${MAX_MESSAGE_CHARS} characters.` });
-		return;
-	}
-
 	try {
 		// Per-user daily cap — count user messages sent today (ET day boundary)
 		const countResult = await pgQuery<{ count: string }>(
