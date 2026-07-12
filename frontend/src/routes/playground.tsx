@@ -250,6 +250,17 @@ function restorePlaygroundState(): { view: ActiveView; lessonId: string | null }
 	}
 }
 
+function seededShuffle<T>(arr: T[], seed: string): T[] {
+	let h = seed.split("").reduce((acc, c) => (Math.imul(31, acc) + c.charCodeAt(0)) | 0, 0x9e3779b9);
+	const next = () => { h = (Math.imul(h ^ (h >>> 16), 0x45d9f3b)) | 0; return (h >>> 0) / 0x100000000; };
+	const out = [...arr];
+	for (let i = out.length - 1; i > 0; i--) {
+		const j = Math.floor(next() * (i + 1));
+		[out[i], out[j]] = [out[j]!, out[i]!];
+	}
+	return out;
+}
+
 function PlaygroundPage() {
 	const { account, accountLoading, completeDailyActivity, completeEarningsScenario, completeBattle, completeRiskScenario, completeMoodScenario, markPlaygroundOnboarded } = useAccount();
 	const restored = useMemo(restorePlaygroundState, []);
@@ -2424,19 +2435,9 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		enabled: _drillTier !== null,
 	});
 
-	// Deterministic per-user-per-day shuffle — same order within a day (resumable),
-	// different order each day so the user sees different scenarios.
-	function seededShuffle<T>(arr: T[], seed: string): T[] {
-		let h = seed.split("").reduce((acc, c) => (Math.imul(31, acc) + c.charCodeAt(0)) | 0, 0x9e3779b9);
-		const next = () => { h = (Math.imul(h ^ (h >>> 16), 0x45d9f3b)) | 0; return (h >>> 0) / 0x100000000; };
-		const out = [...arr];
-		for (let i = out.length - 1; i > 0; i--) {
-			const j = Math.floor(next() * (i + 1));
-			[out[i], out[j]] = [out[j]!, out[i]!];
-		}
-		return out;
-	}
-	const _drillShuffleSeed = `${_drillUid}:${_drillDayKey}`;
+	// Empty string when uid not yet loaded — memos that depend on this will recompute once uid arrives,
+	// but won't produce a stable shuffled order until then (both are falsy-guarded in pool memos).
+	const _drillShuffleSeed = _drillUid ? `${_drillUid}:${_drillDayKey}` : "";
 
 	// Merge static + generated pools, unseen first. Pure — no side effects.
 	// _seenVersion in deps ensures recompute once after seen sets load from server.
@@ -3634,19 +3635,19 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 		const now = new Date().toISOString();
 
 		// No investments → single flat point (triggers "buy first stock" state)
-		if (investedTotal <= 0) return [{ ts: now, value: totalPortfolioValue }];
+		if (investedTotal <= 0) return [{ ts: now, value: totalPortfolioValue, pnl: 0 }];
 
 		const tickerPts = tickers.map((t, i) => ({ ticker: t, points: portfolioChartQueries[i]?.data?.prices ?? [] }));
 		const base = tickerPts.reduce((best, t) => t.points.length > best.points.length ? t : best, { ticker: "", points: [] as { ts: string; close: number }[] });
 
-		if (base.points.length === 0) return [{ ts: now, value: totalPortfolioValue }];
+		if (base.points.length === 0) return [{ ts: now, value: totalPortfolioValue, pnl: 0 }];
 
 		// Cost-basis total = what the portfolio was worth at first purchase (flat before that)
 		const flatStartVal = Math.round((sandboxCash + investedTotal) * 100) / 100;
 
 		const mapped = base.points.map(point => {
 			const pointMs = new Date(point.ts).getTime();
-			if (pointMs < portfolioStartMs) return { ts: point.ts, value: flatStartVal };
+			if (pointMs < portfolioStartMs) return { ts: point.ts, value: flatStartVal, pnl: 0 };
 			let value = sandboxCash;
 			tickers.forEach((ticker, i) => {
 				const h = holdings.find(h => h.ticker === ticker);
@@ -3658,11 +3659,12 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 				}
 				value += h.shares * (price ?? h.entry.priceAtAdd ?? h.currentPrice ?? 0);
 			});
-			return { ts: point.ts, value: Math.round(value * 100) / 100 };
+			const rounded = Math.round(value * 100) / 100;
+			return { ts: point.ts, value: rounded, pnl: Math.round((rounded - flatStartVal) * 100) / 100 };
 		});
 		// Always append the live portfolio value so the chart ends at the current price,
 		// not at the last closed bar (which can be hours old for 1W/1M ranges).
-		mapped.push({ ts: now, value: Math.round(totalPortfolioValue * 100) / 100 });
+		mapped.push({ ts: now, value: Math.round(totalPortfolioValue * 100) / 100, pnl: Math.round(totalDollarPnl * 100) / 100 });
 		return mapped;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [tickers, sandboxCash, investedTotal, totalPortfolioValue, portfolioChartRange, portfolioChartLoading, portfolioStartMs]);
@@ -4203,9 +4205,9 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 					};
 					return (
 						<div className="mt-[16px] mb-[20px]">
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[2px] font-medium">Portfolio Value</p>
-							<p className="text-[38px] font-extrabold leading-none mb-[2px]">
-								${totalPortfolioValue.toFixed(2)}
+							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[2px] font-medium">Total P/L</p>
+							<p className={`text-[38px] font-extrabold leading-none mb-[2px] ${totalDollarPnl > 0 ? "text-emerald-400" : totalDollarPnl < 0 ? "text-rose-400" : "text-foreground"}`}>
+								{totalDollarPnl > 0 ? `+$${totalDollarPnl.toFixed(2)}` : totalDollarPnl < 0 ? `-$${Math.abs(totalDollarPnl).toFixed(2)}` : "$0.00"}
 							</p>
 							{(() => {
 								const PLABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
@@ -4234,10 +4236,10 @@ function SandboxView({ onBack }: { onBack: () => void }) {
 											<Tooltip
 												contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
 												labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
-												formatter={(v: number) => [`$${v.toFixed(2)}`, "Portfolio"]}
+												formatter={(v: number) => [v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`, "P/L"]}
 												labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
 											/>
-											<Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2} fill="url(#portfolioFill)" dot={false} activeDot={{ r: 4, fill: chartColor }} />
+											<Area type="monotone" dataKey="pnl" stroke={chartColor} strokeWidth={2} fill="url(#portfolioFill)" dot={false} activeDot={{ r: 4, fill: chartColor }} />
 										</AreaChart>
 									</ResponsiveContainer>
 								</div>
