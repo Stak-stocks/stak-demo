@@ -295,11 +295,13 @@ FORMAT B — KEY DRIVER: ask what caused the reaction; options are scenario-spec
   options: 4 specific factors relevant to this scenario — e.g. "Guidance cut overshadowed the EPS beat", "Revenue deceleration spooked growth investors", "Priced-in expectations set the bar too high", "Strong segment data validated the bull case"
 
 FORMAT C — DISCONNECT: highlight a surprising reaction; ask what explains it
+  USE ONLY when the scenario has a genuine disconnect (e.g. EPS beat but stock fell, or miss but stock rallied). Do NOT force this format when the reaction was fully expected.
   question: "[Company] beat [metric] by X% but the stock [fell/rose] Y%. What best explains this?"
   options: 4 investing concepts explaining the disconnect — e.g. "Management cut next-quarter guidance below consensus", "The stock was trading at 45x forward earnings heading in", "One-time gains inflated reported EPS", "Revenue growth decelerated despite the headline beat"
 
 FORMAT D — INVESTOR FOCUS: ask what signal most matters to a long-term investor
-  question: "Which signal from [Company]'s report should concern a long-term investor most?"
+  USE ONLY when the scenario contains at least one genuine warning sign or nuance worth noticing (guidance cut, margin pressure, decelerating growth, one-time items, etc.). For scenarios that are straightforwardly positive across all metrics, prefer Format A or B instead.
+  question: "Which signal from [Company]'s report should most concern a long-term investor?"
   options: 4 data points or narrative elements from this specific scenario — e.g. "Gross margin contracted 200bps despite revenue growth", "Management lowered full-year revenue guidance by 5%", "EPS beat was driven by a tax benefit, not operations", "International revenue declined for the first time in 3 years"
 
 For FORMAT A: the correctId must match the stockMove direction and magnitude.
