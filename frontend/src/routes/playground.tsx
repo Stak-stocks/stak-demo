@@ -1176,8 +1176,13 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 						const isWinner = selected && liveWinner === side;
 						let cls = "border-foreground/10 bg-surface-1";
 						if (selected) {
-							if (isWinner) cls = "border-emerald-500/50 bg-emerald-500/[0.08]";
-							else cls = "border-foreground/10 bg-surface-1 opacity-50";
+							if (liveWinner) {
+								if (isWinner) cls = "border-emerald-500/50 bg-emerald-500/[0.08]";
+								else cls = "border-foreground/10 bg-surface-1 opacity-50";
+							} else {
+								// Live data unavailable — highlight selected, dim the other
+								cls = isSelected ? "border-blue-500/60 bg-blue-500/10" : "border-foreground/10 bg-surface-1 opacity-50";
+							}
 						} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
 						return (
 							<button key={side} type="button" onClick={() => handlePick(side)}
@@ -1217,10 +1222,21 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 								</div>
 							</div>
 						)}
+						{liveWinner ? (
+							<div className={`rounded-[12px] border px-[14px] py-[12px] ${selected === liveWinner ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-rose-500/30 bg-rose-500/[0.07]"}`}>
+								<p className={`text-[13px] font-bold ${selected === liveWinner ? "text-emerald-400" : "text-rose-400"}`}>
+									{selected === liveWinner ? "You got it right! ✓" : "Not this time — see why below."}
+								</p>
+							</div>
+						) : (
+							<div className="rounded-[12px] border border-foreground/10 bg-surface-1 px-[14px] py-[12px] text-center">
+								<p className="text-[12px] dark:text-slate-400 text-slate-500">Loading live data…</p>
+							</div>
+						)}
 						<div className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[16px] mb-[12px]">
 							<p className="text-[13px] font-bold mb-[6px]">Here's the story 📊</p>
 							<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{battle.explanation}</p>
-							{!alreadyWon && <p className="text-[12px] text-amber-400 font-semibold mt-[10px]">+{battle.xp} XP</p>}
+							{!alreadyWon && liveWinner && selected === liveWinner && <p className="text-[12px] text-amber-400 font-semibold mt-[10px]">+{battle.xp} XP</p>}
 						</div>
 						<div className="space-y-[8px]">
 							<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#f43f5e,#e11d48)" }}>
