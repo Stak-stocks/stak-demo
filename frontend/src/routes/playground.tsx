@@ -2348,7 +2348,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		stocksInitialized.current = true;
 		setStocks([...pool].sort(() => Math.random() - 0.5));
 	}, [allBrandsList, pool]);
-	const stockList = stocks.length > 0 ? stocks : pool;
+	const stockList = (stocks.length > 0 ? stocks : pool).slice(0, 10);
 
 	// ── Round sequence ───────────────────────────────────────────────────────────
 	const ROUND_SEQUENCE: RoundType[] = ["sentiment", "nextstep", "sentiment", "nextstep", "sentiment", "nextstep"];
