@@ -13,6 +13,16 @@ type ErrorBoundaryProps = JSX.IntrinsicElements["div"] & {
 	children: React.ReactNode;
 };
 
+function isStaleBundleError(error: Error): boolean {
+	const msg = error.message ?? "";
+	return (
+		msg.includes("not a valid JavaScript MIME type") ||
+		msg.includes("Failed to fetch dynamically imported module") ||
+		msg.includes("Importing a module script failed") ||
+		msg.includes("error loading dynamically imported module")
+	);
+}
+
 export class ErrorBoundary extends React.Component<
 	ErrorBoundaryProps,
 	ErrorBoundaryState
@@ -27,11 +37,23 @@ export class ErrorBoundary extends React.Component<
 	}
 
 	static getDerivedStateFromError(error: Error) {
+		// Stale-bundle error: old JS chunk URL returns HTML after a deploy.
+		// Auto-reload once to pick up the fresh index.html with correct chunk URLs.
+		// sessionStorage guard prevents an infinite reload loop if the server is broken.
+		if (isStaleBundleError(error)) {
+			const key = "stak:stale-bundle-reload";
+			if (!sessionStorage.getItem(key)) {
+				sessionStorage.setItem(key, "1");
+				window.location.reload();
+				return { hasError: false };
+			}
+		}
 		// cloneNode happens in componentDidCatch where we have `this`
 		return { hasError: true, error };
 	}
 
 	componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+		if (isStaleBundleError(error)) return; // reload already triggered
 		this.clonedStage = this.normalContainer?.cloneNode(true) as HTMLDivElement ?? null;
 		this.setState({ hasError: true, error, errorInfo });
 	}
