@@ -208,10 +208,12 @@ function App() {
 		const removeExpired = () => {
 			const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 			setPassedBrandIds(prev => {
+				const toRemove = passedEntriesRef.current.filter(
+					e => (e.count ?? 0) < 5 && e.at <= oneDayAgo && prev.has(e.id),
+				);
+				if (toRemove.length === 0) return prev; // bail out — nothing to remove, keep same reference
 				const next = new Set(prev);
-				for (const e of passedEntriesRef.current) {
-					if ((e.count ?? 0) < 5 && e.at <= oneDayAgo) next.delete(e.id);
-				}
+				for (const e of toRemove) next.delete(e.id);
 				return next;
 			});
 		};
@@ -430,7 +432,7 @@ function App() {
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	};
 
-	const handleSwipeRight = (brand: BrandSummary) => {
+	const handleSwipeRight = useCallback((brand: BrandSummary) => {
 		if (swipedBrands.find((b) => b.id === brand.id)) return;
 		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
 		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
@@ -459,7 +461,7 @@ function App() {
 				toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });
 			});
 		}
-	};
+	}, [swipedBrands, passedBrandIds, queryClient, updatePassedBrands, saveToStak]);
 
 	// Search adds: enforce limit cross-device via AccountContext
 	const handleAddFromSearch = (brand: BrandSummary) => {
@@ -588,6 +590,26 @@ function App() {
 	const streakCount = (account?.lastStreakDate === todayKey || account?.lastStreakDate === yesterdayKey)
 		? (account?.streakCount ?? 0) : 0;
 
+	// Stable brands array for SwipeableCardStack — prevents deck from recreating on every
+	// unrelated render (e.g. when swapPickerOpen or pendingBrand changes).
+	const filteredBrands = useMemo(
+		() => recommendedOrder.filter(
+			(brand) =>
+				!swipedBrands.some((b) => b.id === brand.id) &&
+				!passedBrandIds.has(brand.id),
+		),
+		[recommendedOrder, swipedBrands, passedBrandIds],
+	);
+
+	const todayStart = new Date();
+	todayStart.setHours(0, 0, 0, 0);
+	const todayMs = todayStart.getTime();
+	const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
+	const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
+	const todayDateKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}`;
+	const todaySwipes = account?.dailySwipeState?.date === todayDateKey ? (account.dailySwipeState.count ?? 0) : 0;
+	const todaySkipped = Math.max(0, todaySwipes - todayPassed - todaySaved);
+
 	return (
 		<div className="bg-background text-foreground">
 			{/* Top bar */}
@@ -624,48 +646,23 @@ function App() {
 
 			<div className="max-w-7xl mx-auto px-[18px] pt-8 pb-2 sm:pb-4">
 				<div className="relative flex flex-col items-center">
-				{(() => {
-					const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-					const todayMs = todayStart.getTime();
-					const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
-					// Was `todaySwipes - todayPassed`, which silently counted skips (upward
-					// swipe -- onSkip just increments the swipe count, no save/pass outcome)
-					// as "Saved" since they're neither a tracked save nor a tracked pass.
-					// Count genuine saves directly instead.
-					const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
-					// Skips have no per-action persisted record (unlike saves/passes above) --
-					// only their contribution to the swipe-limit count is tracked. Recover the
-					// count as the remainder: total swipes minus the two categories that ARE
-					// tracked directly.
-					const todayDateKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,"0")}-${String(todayStart.getDate()).padStart(2,"0")}`;
-					const todaySwipes = account?.dailySwipeState?.date === todayDateKey ? (account.dailySwipeState.count ?? 0) : 0;
-					const todaySkipped = Math.max(0, todaySwipes - todayPassed - todaySaved);
-					return (
-						<SwipeableCardStack
-							brands={[
-								...recommendedOrder,
-							].filter(
-								(brand) =>
-									!swipedBrands.some((b) => b.id === brand.id) &&
-									!passedBrandIds.has(brand.id),
-							)}
-							onLearnMore={handleLearnMore}
-							onSwipeRight={handleSwipeRight}
-							onSwipeLeft={handleSwipeLeft}
-							onSwipe={handleSwipe}
-							hasReachedLimit={hasReachedLimit}
-							onIncrement={bumpOptimistic}
-							onSwipeRecorded={reportSwipeResult}
-							onSkip={incrementSwipe}
-							stakSize={account?.stakBrandIds?.length ?? 0}
-							loading={recommendedOrder.length === 0 && !hasReachedLimit}
-							onStreakUpdate={handleStreakUpdate}
-							initialSavedCount={todaySaved}
-							initialPassedCount={todayPassed}
-							initialSkippedCount={todaySkipped}
-						/>
-					);
-				})()}
+				<SwipeableCardStack
+						brands={filteredBrands}
+						onLearnMore={handleLearnMore}
+						onSwipeRight={handleSwipeRight}
+						onSwipeLeft={handleSwipeLeft}
+						onSwipe={handleSwipe}
+						hasReachedLimit={hasReachedLimit}
+						onIncrement={bumpOptimistic}
+						onSwipeRecorded={reportSwipeResult}
+						onSkip={incrementSwipe}
+						stakSize={account?.stakBrandIds?.length ?? 0}
+						loading={recommendedOrder.length === 0 && !hasReachedLimit}
+						onStreakUpdate={handleStreakUpdate}
+						initialSavedCount={todaySaved}
+						initialPassedCount={todayPassed}
+						initialSkippedCount={todaySkipped}
+					/>
 
 			</div>
 
