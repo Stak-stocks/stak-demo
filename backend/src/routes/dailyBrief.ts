@@ -217,13 +217,19 @@ const SESSION_TONE: Record<Session, string> = {
 	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
-async function searchMarketDrivers(today: string, skipSearch: boolean): Promise<string | null> {
-	const cacheKey = `daily-brief:drivers:v1:${today}`;
+async function searchMarketDrivers(today: string, skipSearch: boolean, session: Session): Promise<string | null> {
+	const cacheKey = `daily-brief:drivers:v2:${today}:${session}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
 	// Skip on weekends/holidays (no session happened) — but still run after normal weekday close
 	if (skipSearch) return null;
+
+	const sessionContext = {
+		open:   "Markets are opening. Focus on pre-market catalysts and what to watch for today.",
+		midday: "Markets are mid-session. Focus on what has happened so far today.",
+		close:  "Markets are at or near close. Focus on confirmed results and any after-hours developments. If a scheduled earnings report has NOT yet been officially released according to your search results, describe it as upcoming or expected — do NOT write in past tense about unconfirmed results.",
+	}[session];
 
 	const prompt = `Search the web for what is driving US stock markets today (${today}). Look for:
 - Federal Reserve / FOMC rate decisions or statements
@@ -232,7 +238,14 @@ async function searchMarketDrivers(today: string, skipSearch: boolean): Promise<
 - Geopolitical events, tariffs, or trade news affecting markets
 - Oil, bond yields, or currency moves causing broad market shifts
 
+${sessionContext}
+
+IMPORTANT: Only use past tense for events that have been officially announced and confirmed by your search results. If an earnings report or data release is scheduled but the actual results are not yet published, describe it as expected or upcoming — never invent past-tense results for unconfirmed events.
+
 Return a factual 3-4 sentence paragraph summarising the 1-3 most significant things happening today. Include real numbers where available (e.g. "CPI came in at 3.1% vs 3.0% expected"). Plain text only, no markdown. If markets are closed or nothing significant is happening, return an empty string.`;
+
+	// Close session uses a shorter TTL so after-hours earnings (often 4:30–6pm) are picked up sooner
+	const ttl = session === "close" ? 2 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -254,7 +267,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 			const text = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text?.trim();
 			if (!text || GEMINI_REFUSAL_RE.test(text)) continue;
-			await cacheSet(cacheKey, text, 6 * 60 * 60 * 1000);
+			await cacheSet(cacheKey, text, ttl);
 			return text;
 		} catch {
 			continue;
@@ -1026,7 +1039,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const today = getEasternDateKey();
 		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
-		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's");
+		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session);
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),

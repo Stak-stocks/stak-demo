@@ -576,19 +576,20 @@ function PlaygroundPage() {
 					const textCls = isMarketDay ? "text-violet-400" : "text-amber-400";
 					const iconBgCls = isMarketDay ? "bg-violet-500/15 text-violet-400" : "bg-amber-500/15 text-amber-400";
 					// Compare the viewer's own local calendar date (not a fixed timezone) against
-					// the CT-anchored day this lesson was generated for. Using the viewer's own
-					// date — rather than a fixed "before 9am CT" check — means someone on, say,
+					// the ET-anchored day this lesson was generated for. Using the viewer's own
+					// date — rather than a fixed "before 9:30am ET" check — means someone on, say,
 					// Pacific time doesn't see "Yesterday's" two hours before their own midnight
-					// just because Chicago's calendar already flipped.
-					const isStaleWindow = isMarketDay && getLocalDateKey() !== getMarketDayKey();
+					// just because ET's calendar already flipped.
+					const isStaleWindow = getLocalDateKey() !== getMarketDayKey();
 					const label = isMarketDay
 						? (isStaleWindow ? "Market Moment · Yesterday's Big Release" : "Market Moment · Today's Big Release")
-						: isTradingDay ? "Featured Today · Quick Concept" : "Featured Today · Weekend Prep";
-					const meta = account?.lessonProgress?.[featuredTodayLesson.id]?.completed
-						? "Completed ✓"
+						: isTradingDay ? (isStaleWindow ? "Featured Yesterday · Quick Concept" : "Featured Today · Quick Concept") : "Featured Today · Weekend Prep";
+					const completed = account?.lessonProgress?.[featuredTodayLesson.id]?.completed;
+					const meta = completed
+						? (isStaleWindow ? "Done yesterday ✓" : "Completed ✓")
 						: isMarketDay
 							? (isStaleWindow ? "3 min · +25 XP · Major event yesterday" : "3 min · +25 XP · Major event today")
-							: isTradingDay ? "3 min · +25 XP · Today's quick concept" : "3 min · +25 XP · Prep for the week ahead";
+							: isTradingDay ? (isStaleWindow ? "3 min · +25 XP · Yesterday's quick concept" : "3 min · +25 XP · Today's quick concept") : "3 min · +25 XP · Prep for the week ahead";
 					return (
 						<div className="mb-[20px]">
 							<p className="text-[11px] font-semibold uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[10px]">{label}</p>
