@@ -301,9 +301,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Product audit (2026-09-05): the link opens the reset flow.
 				onForgot = { navController.navigate(StakRoutes.FORGOT_PASSWORD) },
 				onSignIn = {
-					// Signed in = the demo account with its authored history
-					// (product audit, 2026-09-05); remembered across launches.
-					com.stak.demo.data.Session.signIn(demo = true)
+					// Real Supabase account - not demo content. Portfolio data
+					// loads from the backend once Phase 3 is live.
+					com.stak.demo.data.Session.signIn(demo = false)
 					navController.navigate(StakRoutes.MAIN) {
 						popUpTo(0) { inclusive = true }
 					}
