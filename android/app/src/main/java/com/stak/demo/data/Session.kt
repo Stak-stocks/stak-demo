@@ -34,6 +34,7 @@ object Session {
 	private const val KEY_JOINED = "joined"
 
 	private var prefs: SharedPreferences? = null
+	private var appContext: Context? = null
 
 	var signedIn by mutableStateOf(false)
 		private set
@@ -60,6 +61,7 @@ object Session {
 		if (prefs != null) return
 		val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 		prefs = p
+		appContext = context.applicationContext
 		StakStore.init(context)
 		signedIn = p.getBoolean(KEY_SIGNED_IN, false)
 		resumedSignedIn = signedIn
@@ -135,6 +137,11 @@ object Session {
 		UserProfile.joined = "July 2026"
 		token = null
 		prefs?.edit()?.clear()?.apply()
+		// Clear the Supabase SDK's persisted session so it cannot auto-refresh
+		// a stale token after logout. Server-side revocation happens separately
+		// via AuthViewModel.signOut() which is best-effort (fire-and-forget).
+		appContext?.getSharedPreferences("supabase_auth", Context.MODE_PRIVATE)
+			?.edit()?.clear()?.apply()
 		applyAccount()
 	}
 

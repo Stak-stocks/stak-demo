@@ -74,6 +74,12 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun signOut() {
+        viewModelScope.launch {
+            runCatching { supabase.auth.signOut() }
+        }
+    }
+
     fun resetState() {
         _uiState.value = AuthUiState.Idle
     }

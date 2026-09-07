@@ -49,6 +49,8 @@ import com.stak.demo.ui.simulate.SimBuySpecSaver
 import com.stak.demo.ui.simulate.SimPortfolioScreen
 import com.stak.demo.ui.simulate.SimulateScreen
 import com.stak.demo.ui.news.NewsScreen
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.stak.demo.ui.onboarding.AuthViewModel
 import com.stak.demo.ui.onboarding.CreateAccountScreen
 import com.stak.demo.ui.onboarding.SplashScreen
 import com.stak.demo.ui.onboarding.SignInScreen
@@ -528,6 +530,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				}
 			},
 		) {
+			val authVm: AuthViewModel = hiltViewModel()
 			ProfileScreen(
 				onBack = { navController.popBackStack() },
 				// Product audit (2026-09-05): the rows open their settings pages.
@@ -538,6 +541,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					navController.navigate(StakRoutes.SIGN_IN) {
 						popUpTo(0) { inclusive = true }
 					}
+					// Best-effort: revoke the Supabase refresh token server-side.
+					// The persisted session is already cleared by Session.signOut().
+					authVm.signOut()
 				},
 			)
 		}
