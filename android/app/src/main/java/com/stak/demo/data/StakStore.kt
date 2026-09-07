@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import android.content.Context
 import android.content.SharedPreferences

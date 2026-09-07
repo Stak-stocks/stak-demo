@@ -1,4 +1,4 @@
-package com.stak.demo.ui.news
+﻿package com.stak.demo.ui.news
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.fractionalSpacedBy
@@ -101,7 +101,7 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 				// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
 				Text(
 					// Product audit (2026-09-05): today's date, on the authored line.
-					text = com.stak.demo.ui.StakClock.todayLong(),
+					text = com.stak.demo.data.StakClock.todayLong(),
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = News.Muted,
 				)
@@ -510,7 +510,7 @@ private fun NewsSection(
 						)
 						Spacer(modifier = Modifier.weight(1f))
 						// Only for stocks the user holds (user, 2026-08-23).
-						if (com.stak.demo.ui.MyStakHoldings.holdsAny(row.relatedTickers)) NewsTag(text = "In your STAK")
+						if (com.stak.demo.data.MyStakHoldings.holdsAny(row.relatedTickers)) NewsTag(text = "In your STAK")
 					}
 					Text(
 						text = row.headline,

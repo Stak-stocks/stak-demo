@@ -1,4 +1,4 @@
-package com.stak.demo
+﻿package com.stak.demo
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
@@ -10,6 +10,6 @@ class StakApp : Application() {
 		// Persisted session: restores sign-in state + profile before the
 		// splash decides where to go. Lives here, not in a composable's
 		// remember {} - composition must not mutate app state (audit 2026-09-04).
-		com.stak.demo.ui.Session.init(this)
+		com.stak.demo.data.Session.init(this)
 	}
 }

@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,8 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
@@ -43,7 +49,7 @@ import com.stak.demo.ui.theme.StakColors
  */
 @Composable
 fun SignInScreen(
-	onBack: () -> Unit,
+	viewModel: AuthViewModel = hiltViewModel(),
 	/** "Forgot password?" -> the reset flow (product audit, 2026-09-05). */
 	onForgot: () -> Unit = {},
 	onSignIn: () -> Unit,
@@ -60,14 +66,20 @@ fun SignInScreen(
 	val passwordError = if (password.isEmpty()) "Enter your password" else null
 	val filled = email.isNotBlank() && password.isNotEmpty()
 
+	val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+	// Navigate once Supabase auth succeeds; reset VM state so re-entry is clean.
+	LaunchedEffect(uiState) {
+		if (uiState is AuthUiState.Success) {
+			onSignIn()
+			viewModel.resetState()
+		}
+	}
+
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		AuthWatermark()
 
 		Artboard {
-			Row(modifier = Modifier.fillMaxWidth().padding(start = (20 * u).dp, top = (10 * u).dp, bottom = (4 * u).dp)) {
-				AuthBackCircle(onClick = onBack)
-			}
-
 			Column(
 				verticalArrangement = Arrangement.spacedBy((14 * u).dp),
 				modifier = Modifier
@@ -122,10 +134,24 @@ fun SignInScreen(
 				verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 				modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 			) {
-				AuthCta(text = "Sign in", enabled = filled, onClick = {
+				val isLoading = uiState is AuthUiState.Loading
+				AuthCta(text = "Sign in", enabled = filled && !isLoading, onClick = {
 					attempted = true
-					if (emailError == null && passwordError == null) onSignIn()
+					if (emailError == null && passwordError == null) {
+						viewModel.signIn(email, password)
+					}
 				})
+				if (isLoading) {
+					CircularProgressIndicator(color = Auth.LinkTeal, modifier = Modifier.size((24 * u).dp))
+				}
+				if (uiState is AuthUiState.Error) {
+					Text(
+						text = (uiState as AuthUiState.Error).message,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, textAlign = TextAlign.Center),
+						color = Auth.ErrorRed,
+						modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp),
+					)
+				}
 				AuthSwitchRow(prefix = "New to STAK?", link = "Create account", onClick = onCreateAccount)
 			}
 		}

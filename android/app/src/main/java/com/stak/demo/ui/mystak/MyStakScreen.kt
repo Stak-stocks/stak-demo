@@ -1,4 +1,4 @@
-package com.stak.demo.ui.mystak
+﻿package com.stak.demo.ui.mystak
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
@@ -169,23 +169,23 @@ fun MyStakScreen(onOpenCollection: (String) -> Unit, onStartSwiping: () -> Unit)
 					)
 				}
 				// Product audit (2026-09-05): a new account has no read yet.
-				val empty = com.stak.demo.ui.MyStakHoldings.count == 0
+				val empty = com.stak.demo.data.MyStakHoldings.count == 0
 				Text(
-					text = if (empty) "Your read starts with your first save." else if (com.stak.demo.ui.Session.demoAccount) "You lean into growth and tech." else com.stak.demo.ui.StakInsights.readHeadline(),
+					text = if (empty) "Your read starts with your first save." else if (com.stak.demo.data.Session.demoAccount) "You lean into growth and tech." else com.stak.demo.data.StakInsights.readHeadline(),
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Color.White,
 				)
 				// Authored insight copy - user, 2026-09-04 (CHINEDU 06 · My STAK 1:3155): the authored look wins over a store-derived count.
 				Text(
 					// A new account reads its own saves (product audit, 2026-09-05).
-					text = if (empty) "Save stocks from the Discover deck and STAK will read your taste from them." else if (com.stak.demo.ui.Session.demoAccount) "Six of your fourteen picks are tech or AI names. Your STAK skews high-growth, with a small hedge in real estate." else com.stak.demo.ui.StakInsights.readBody(),
+					text = if (empty) "Save stocks from the Discover deck and STAK will read your taste from them." else if (com.stak.demo.data.Session.demoAccount) "Six of your fourteen picks are tech or AI names. Your STAK skews high-growth, with a small hedge in real estate." else com.stak.demo.data.StakInsights.readBody(),
 					// Codex parity audit (2026-09-04): 1:3155 sets the body at 13.
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Body,
 				)
 			}
 			PortfolioSummary()
-			if (com.stak.demo.ui.MyStakHoldings.count > 0) {
+			if (com.stak.demo.data.MyStakHoldings.count > 0) {
 				SectionHeader("Breakdown")
 				AllocationCard()
 			}
@@ -326,9 +326,9 @@ private fun PortfolioSummary() {
 	var range by rememberSaveable { mutableStateOf("3M") }
 	// Product audit (2026-09-05): a new account has no performance yet, and
 	// once it saves, its week is its own stocks' - not the demo's +4.9%.
-	val empty = com.stak.demo.ui.MyStakHoldings.count == 0
-	val demo = com.stak.demo.ui.Session.demoAccount
-	val weekPct = if (demo) 4.9 else com.stak.demo.ui.StakInsights.weekChangePct()
+	val empty = com.stak.demo.data.MyStakHoldings.count == 0
+	val demo = com.stak.demo.data.Session.demoAccount
+	val weekPct = if (demo) 4.9 else com.stak.demo.data.StakInsights.weekChangePct()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((14 * u).dp),
 		modifier = Modifier
@@ -344,7 +344,7 @@ private fun PortfolioSummary() {
 				color = Muted,
 			)
 			Text(
-				text = if (empty) "—" else if (demo) "+4.9%" else com.stak.demo.ui.StakInsights.signedPct(weekPct),
+				text = if (empty) "—" else if (demo) "+4.9%" else com.stak.demo.data.StakInsights.signedPct(weekPct),
 				// 1:3239 tracking -0.44 - exact-design audit 2026-09-04.
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (44 * u).sp, lineHeight = (55 * u).sp, letterSpacing = (-0.44 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
@@ -352,7 +352,7 @@ private fun PortfolioSummary() {
 			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 				Text(
 					// Authored summary copy; the store's count is not what the frame shows - user, 2026-09-04 (CHINEDU 06 · My STAK 1:3155): the authored look wins.
-					text = if (empty) "No stocks yet" else if (demo) "Across 14 stocks" else "Across " + heldCountLabel(com.stak.demo.ui.MyStakHoldings.count),
+					text = if (empty) "No stocks yet" else if (demo) "Across 14 stocks" else "Across " + heldCountLabel(com.stak.demo.data.MyStakHoldings.count),
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = if (empty) Muted else if (weekPct < 0) Red else Green,
 				)
@@ -379,7 +379,7 @@ private fun PortfolioSummary() {
 			)
 		} else {
 			// A new account's line follows its own week (product audit, 2026-09-05).
-			val line = if (demo) series!! else com.stak.demo.ui.StakInsights.scaled(series ?: SERIES_3M, weekPct)
+			val line = if (demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, weekPct)
 			RangeChart(series = line, tint = Teal, modifier = chartModifier)
 		}
 		Row(
@@ -411,20 +411,20 @@ private fun PortfolioSummary() {
 		}
 		Box(modifier = Modifier.fillMaxWidth().height((1 * u).dp).background(Track))
 		// The demo's authored TSLA / SNOW; a new account's own best and worst, once it holds two (product audit, 2026-09-05).
-		val duo = if (demo) null else com.stak.demo.ui.StakInsights.bestWorst()
+		val duo = if (demo) null else com.stak.demo.data.StakInsights.bestWorst()
 		if (!empty && (demo || duo != null)) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
 				Text("Best this week", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 					Text(if (demo) "TSLA" else duo!!.first.ticker, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
-					Text(if (demo) "+3.4%" else com.stak.demo.ui.StakInsights.signedPct(com.stak.demo.ui.StakInsights.changePct(duo!!.first)), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (demo || duo!!.first.up) Green else Red)
+					Text(if (demo) "+3.4%" else com.stak.demo.data.StakInsights.signedPct(com.stak.demo.data.StakInsights.changePct(duo!!.first)), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (demo || duo!!.first.up) Green else Red)
 				}
 			}
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
 				Text("Worst", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 					Text(if (demo) "SNOW" else duo!!.second.ticker, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
-					Text(if (demo) "-0.5%" else com.stak.demo.ui.StakInsights.signedPct(com.stak.demo.ui.StakInsights.changePct(duo!!.second)), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (!demo && duo!!.second.up) Green else Red)
+					Text(if (demo) "-0.5%" else com.stak.demo.data.StakInsights.signedPct(com.stak.demo.data.StakInsights.changePct(duo!!.second)), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (!demo && duo!!.second.up) Green else Red)
 				}
 			}
 		}
@@ -453,7 +453,7 @@ private fun AllocationCard() {
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
-		if (com.stak.demo.ui.Session.demoAccount) {
+		if (com.stak.demo.data.Session.demoAccount) {
 			Image(painterResource(R.drawable.ms_donut), null, modifier = Modifier.size((150 * u).dp))
 			Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.fillMaxWidth()) {
 				SectorBar("Tech & AI", "42% · 6 stocks", Teal, (132 * u).dp)
@@ -465,7 +465,7 @@ private fun AllocationCard() {
 			}
 		} else {
 			// A new account's ring and bars come from its own saves (product audit, 2026-09-05).
-			val buckets = com.stak.demo.ui.StakInsights.buckets(com.stak.demo.ui.MyStakHoldings.tickers)
+			val buckets = com.stak.demo.data.StakInsights.buckets(com.stak.demo.data.MyStakHoldings.tickers)
 			DonutRing(buckets.map { it.share }, buckets.map { bucketColor(it.id) }, Modifier.size((150 * u).dp))
 			Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.fillMaxWidth()) {
 				buckets.forEach { b ->

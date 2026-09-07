@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

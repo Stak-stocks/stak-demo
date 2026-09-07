@@ -1,4 +1,4 @@
-package com.stak.demo.ui.simulate
+﻿package com.stak.demo.ui.simulate
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
@@ -218,7 +218,7 @@ fun PickDetailScreen(
 					} else {
 						// A new account's pick draws its own move - flat until the price moves (product audit, 2026-09-05).
 						val pct = (p.gainPct.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) * (if (p.up) 1 else -1)
-						val line = if (PaperPortfolio.demo) series!! else com.stak.demo.ui.StakInsights.scaled(series ?: SERIES_3M, pct)
+						val line = if (PaperPortfolio.demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, pct)
 						RangeChart(series = line, tint = Sim.Teal, modifier = chartModifier)
 					}
 					Row(

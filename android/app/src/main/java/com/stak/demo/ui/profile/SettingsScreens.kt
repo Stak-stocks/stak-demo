@@ -1,4 +1,4 @@
-package com.stak.demo.ui.profile
+﻿package com.stak.demo.ui.profile
 
 import android.content.Intent
 import android.net.Uri
@@ -36,8 +36,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.stak.demo.ui.Session
-import com.stak.demo.ui.UserProfile
+import com.stak.demo.data.Session
+import com.stak.demo.data.UserProfile
 import com.stak.demo.ui.onboarding.AuthBackCircle
 import com.stak.demo.ui.onboarding.PermissionCard
 import com.stak.demo.ui.onboarding.figmaUnit

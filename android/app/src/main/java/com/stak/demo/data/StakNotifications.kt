@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +16,7 @@ object StakNotifications {
 	private val DEMO = listOf(
 		Item("nvda-up", "NVDA is up 4.2% today", "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", "2h"),
 		Item("deck-ready", "Your deck is ready", "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", "8h"),
-		Item("weekly-recap", "Weekly recap", "You’re up +1.9% this week and #47 on the board. Nice.", "1d"),
+		Item("weekly-recap", "Weekly recap", "You're up +1.9% this week and #47 on the board. Nice.", "1d"),
 	)
 
 	private fun welcome(): List<Item> = listOf(

@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -25,8 +25,8 @@ fun RiskScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 		// Product audit (2026-09-05): nothing pre-selected; the answer IS the
 		// risk style the reveal and Profile show.
 		onContinue = { choice ->
-			com.stak.demo.ui.UserProfile.risk = choice
-			com.stak.demo.ui.UserProfile.riskStyle = TasteModel.riskStyle(choice)
+			com.stak.demo.data.UserProfile.risk = choice
+			com.stak.demo.data.UserProfile.riskStyle = TasteModel.riskStyle(choice)
 			onContinue()
 		},
 	)

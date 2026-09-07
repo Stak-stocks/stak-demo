@@ -1,4 +1,4 @@
-package com.stak.demo.ui.inbox
+﻿package com.stak.demo.ui.inbox
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +25,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.stak.demo.ui.StakNotifications
+import com.stak.demo.data.StakNotifications
 import com.stak.demo.ui.profile.SettingsLinkRow
 import com.stak.demo.ui.profile.SettingsScaffold
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX

@@ -9,11 +9,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -116,13 +119,17 @@ internal fun MatrixQuizScreen(
 
 			Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.padding(top = (4 * u).dp)) {
 				options.chunked(2).forEachIndexed { rowIndex, row ->
-					Row(horizontalArrangement = Arrangement.spacedBy((13 * u).dp)) {
+					Row(
+						horizontalArrangement = Arrangement.spacedBy((13 * u).dp),
+						modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+					) {
 						row.forEachIndexed { colIndex, option ->
 							val index = rowIndex * 2 + colIndex
 							MatrixCard(
 								option = option,
 								selected = selected == index,
 								onClick = { selected = index },
+								modifier = Modifier.weight(1f).fillMaxHeight(),
 							)
 						}
 					}
@@ -141,15 +148,15 @@ internal fun MatrixQuizScreen(
 }
 
 @Composable
-private fun MatrixCard(option: MatrixOption, selected: Boolean, onClick: () -> Unit) {
+private fun MatrixCard(option: MatrixOption, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
 	val u = figmaUnit()
 	val shape = RoundedCornerShape((16.85 * u).dp)
 	Column(
 		// Authored interior (1:597): content top-anchored at 15.27; the icon
 		// at its per-option dy; the text block 21 below the icon. Never
 		// vertically centered - row 2 reads lower by design.
-		modifier = Modifier
-			.size((163.18 * u).dp, (155.81 * u).dp)
+		modifier = modifier
+			.heightIn(min = (155.81 * u).dp)
 			.background(Auth.InputBg, shape)
 			.then(if (selected) Modifier.border((0.53 * u).dp, Auth.LinkTeal, shape) else Modifier)
 			.clickable(

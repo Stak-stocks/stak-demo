@@ -1,4 +1,4 @@
-package com.stak.demo.ui.home
+﻿package com.stak.demo.ui.home
 
 /**
  * "Why this matters to you" data source (CHINEDU 1:1176).
@@ -26,9 +26,9 @@ object WhyThisMattersFeed {
 
 	/** The current summary - the served personalized copy once the backend exists. */
 	fun body(): String = when {
-		com.stak.demo.ui.MyStakHoldings.count == 0 -> EMPTY_BODY
-		com.stak.demo.ui.Session.demoAccount -> DEMO_BODY
+		com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
+		com.stak.demo.data.Session.demoAccount -> DEMO_BODY
 		// A new account's saves against today's stories (product audit, 2026-09-05).
-		else -> com.stak.demo.ui.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
+		else -> com.stak.demo.data.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
 	}
 }

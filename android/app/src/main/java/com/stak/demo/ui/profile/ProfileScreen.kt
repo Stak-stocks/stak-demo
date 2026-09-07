@@ -1,4 +1,4 @@
-package com.stak.demo.ui.profile
+﻿package com.stak.demo.ui.profile
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.background
@@ -92,7 +92,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				) {
 					// The picked photo when one exists; else the live initial of
 					// the display name ("H" was hardcoded - audit 2026-08-25).
-					val photo = com.stak.demo.ui.UserProfile.photoUri
+					val photo = com.stak.demo.data.UserProfile.photoUri
 					if (photo != null) {
 						coil.compose.AsyncImage(
 							model = photo,
@@ -102,19 +102,19 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 						)
 					} else {
 						Text(
-							text = com.stak.demo.ui.UserProfile.greetingName.take(1).uppercase(),
+							text = com.stak.demo.data.UserProfile.greetingName.take(1).uppercase(),
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (22 * u).sp, lineHeight = (28 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = Color(0xFF9EADC7),
 						)
 					}
 				}
 				Text(
-					text = com.stak.demo.ui.UserProfile.greetingName,
+					text = com.stak.demo.data.UserProfile.greetingName,
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (20 * u).sp, lineHeight = (25 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Color.White,
 				)
 				Text(
-					text = "Paper investor · joined ${com.stak.demo.ui.UserProfile.joined}",
+					text = "Paper investor · joined ${com.stak.demo.data.UserProfile.joined}",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
 				)
@@ -140,8 +140,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				// The demo account keeps the authored chips at their pinned widths; a
 				// new account's chips come from its onboarding answers and hug their
 				// labels (product audit, 2026-09-05).
-				val profile = com.stak.demo.ui.UserProfile
-				val chips: List<Pair<String, Int?>> = if (com.stak.demo.ui.Session.demoAccount) {
+				val profile = com.stak.demo.data.UserProfile
+				val chips: List<Pair<String, Int?>> = if (com.stak.demo.data.Session.demoAccount) {
 					listOf("Tech Curious" to 97, "High Growth" to 94, "Consumer Brands" to 125)
 				} else {
 					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks, profile.goal, profile.risk).map { it to null }

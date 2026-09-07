@@ -1,4 +1,4 @@
-package com.stak.demo.ui.simulate
+﻿package com.stak.demo.ui.simulate
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -141,7 +141,7 @@ internal object PaperPortfolio {
 		baseHoldings = positions.sumOf { it.stake }
 		// The persisted ledger (buys, sells, cash) wins over the seed - product
 		// audit 2026-09-05; the seed baseline above is what value grows from.
-		com.stak.demo.ui.StakStore.getString("portfolio")?.let { runCatching { restore(org.json.JSONObject(it)) } }
+		com.stak.demo.data.StakStore.getString("portfolio")?.let { runCatching { restore(org.json.JSONObject(it)) } }
 	}
 
 	// ---- persistence ------------------------------------------------------------------------
@@ -154,7 +154,7 @@ internal object PaperPortfolio {
 		o.put("realized", org.json.JSONArray().also { arr ->
 			realized.forEach { r -> arr.put(org.json.JSONObject().put("badge", r.badge).put("ticker", r.ticker).put("sub", r.sub).put("amount", r.amount).put("up", r.up)) }
 		})
-		com.stak.demo.ui.StakStore.putString("portfolio", o.toString())
+		com.stak.demo.data.StakStore.putString("portfolio", o.toString())
 	}
 
 	private fun specJson(s: PickSpec): org.json.JSONObject = org.json.JSONObject()

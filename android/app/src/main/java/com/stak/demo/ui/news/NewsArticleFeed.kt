@@ -1,4 +1,4 @@
-package com.stak.demo.ui.news
+﻿package com.stak.demo.ui.news
 
 import com.stak.demo.R
 
@@ -44,7 +44,7 @@ object NewsArticleFeed {
 	 * (product audit, 2026-09-05: a one-stock account was shown Apple).
 	 */
 	fun yourStocksTile(): Article? {
-		val held = com.stak.demo.ui.MyStakHoldings.tickers
+		val held = com.stak.demo.data.MyStakHoldings.tickers
 		val apple = article(APPLE)
 		if (apple.relatedTickers.any { it in held }) return apple
 		return ARTICLES.firstOrNull { it.id != MARKET_TILE && it.relatedTickers.any { t -> t in held } }
@@ -139,7 +139,7 @@ object NewsArticleFeed {
 			// The AUTHORED byline (1:1495) and the For You row (1:1228).
 			source = "Bloomberg",
 			age = "2d",
-			sourceMeta = com.stak.demo.ui.StakClock.byline("2d", "3 min read"),
+			sourceMeta = com.stak.demo.data.StakClock.byline("2d", "3 min read"),
 			thumbRes = R.drawable.news_thumb_aapl,
 			relatedTickers = listOf("AAPL"),
 		),
@@ -160,7 +160,7 @@ object NewsArticleFeed {
 			"Two indexes, two very different stories about the same economy.",
 			"The Dow tracks 30 large, established companies, so it can rise even when tech-heavy indexes fall. A split like this usually means money is rotating, not leaving.",
 			listOf("Markets", "Stocks"),
-			"Reuters", "1d", com.stak.demo.ui.StakClock.byline("1d", "3 min read"),
+			"Reuters", "1d", com.stak.demo.data.StakClock.byline("1d", "3 min read"),
 			// STRICT stock news (user, 2026-08-25): an index story counts
 			// only through the stocks it is about - the chip names.
 			null, listOf("NVDA", "MU"),
@@ -187,7 +187,7 @@ object NewsArticleFeed {
 			"The beat quiets the market's biggest worry about the company.",
 			"Alphabet is Google's parent company. Most of its profit comes from ads on search and YouTube, so ad growth is the number that moves the stock.",
 			listOf("Alphabet", "Tech"),
-			"Reuters", "1d", com.stak.demo.ui.StakClock.byline("1d", "3 min read"),
+			"Reuters", "1d", com.stak.demo.data.StakClock.byline("1d", "3 min read"),
 			null, listOf("GOOGL"),
 			// Google-search-screen b-roll (Pexels, real-time 30fps, verified).
 			media = NewsMedia.Video(url = "https://pdl-iphone-cnbc-com.akamaized.net/7000419539/ece420f0-8608-11f1-a1f3-a9f987e334ee/1784750819-47326244087-hd_L.mp4", posterUrl = "https://image.cnbcfm.com/api/v1/image/108338938-cbot_googl_earnings_1.jpg?v=1784767875&w=1280&h=720", sourceLink = "https://www.cnbc.com/video/2026/07/22/alphabet-beats-on-q2-revenue-posts-82-percent-year-over-year-jump-in-google-cloud-revenue.html"),
@@ -214,7 +214,7 @@ object NewsArticleFeed {
 			// (806-byte near-black texture, unlike the real sibling photos);
 			// the user chose to keep it until the backend serves story
 			// images (2026-08-25). Not a loading bug.
-			"Reuters", "3d", com.stak.demo.ui.StakClock.byline("3d", "2 min read"),
+			"Reuters", "3d", com.stak.demo.data.StakClock.byline("3d", "2 min read"),
 			// The oil thumb asset was a flat-grey placeholder (2026-09-02) -
 			// null lets the row serve the story's real newscast poster.
 			null, listOf("XOM"),
@@ -240,7 +240,7 @@ object NewsArticleFeed {
 			"Their guidance will set the tone for the whole tape.",
 			"Earnings season is when companies report results and give guidance. For the largest names, that guidance moves entire indexes, not just their own stock.",
 			listOf("Tech", "Earnings"),
-			"Bloomberg", "1d", com.stak.demo.ui.StakClock.byline("1d", "3 min read"),
+			"Bloomberg", "1d", com.stak.demo.data.StakClock.byline("1d", "3 min read"),
 			// STRICT stock news: the earnings week is about these stocks.
 			null, listOf("MSFT", "GOOGL"),
 			// Stock-trend-screen b-roll (Mixkit, verified direct stream).
@@ -266,7 +266,7 @@ object NewsArticleFeed {
 			"Every point of cloud margin flows almost straight to operating income.",
 			"Cloud margin measures what a cloud business keeps after its costs. For big tech, small margin changes move billions in profit.",
 			listOf("Amazon", "Tech"),
-			"Reuters", "2h", com.stak.demo.ui.StakClock.byline("2h", "3 min read"),
+			"Reuters", "2h", com.stak.demo.data.StakClock.byline("2h", "3 min read"),
 			null, listOf("AMZN"),
 			// Server-racks b-roll (Pexels, verified direct stream).
 			media = NewsMedia.Video(url = "https://pdl-iphone-cnbc-com.akamaized.net/7000402916/0a2a7740-0215-11f1-8ce3-3d87008d7586/1770242470-43852144172-hd_L.mp4", posterUrl = "https://image.cnbcfm.com/api/v1/image/108261644-17702424741770242470-43852144172-1080pnbcnews.jpg?v=1770242473", sourceLink = "https://www.cnbc.com/video/2026/02/04/aws-in-focus-for-amazon-earnings.html"),
@@ -288,7 +288,7 @@ object NewsArticleFeed {
 			"This week it became a passenger.",
 			"When a leader stock pauses, gains often spread to smaller related companies. Investors call this rotation, and it can signal a rally maturing rather than ending.",
 			listOf("Nvidia", "Tech"),
-			"Reuters", "2d", com.stak.demo.ui.StakClock.byline("2d", "3 min read"),
+			"Reuters", "2d", com.stak.demo.data.StakClock.byline("2d", "3 min read"),
 			R.drawable.news_thumb_nvda, listOf("NVDA"),
 			// NVIDIA RTX graphics-card b-roll (Pexels, real-time 30fps, verified).
 			media = NewsMedia.Video(url = "https://pdl-iphone-cnbc-com.akamaized.net/7000396229/a2927310-c652-11f0-afc8-d79487fce04e/1763671856-42633094871-hd_L.mp4", posterUrl = "https://image.cnbcfm.com/api/v1/image/108229488-17636718631763671856-42633094871-1080pnbcnews.jpg?v=1763671862&w=1280&h=720", sourceLink = "https://www.cnbc.com/video/2025/11/20/dan-ives-nvidia-put-up-a-masterpiece-quarter-and-threw-ai-bubble-out-the-window.html"),
@@ -310,7 +310,7 @@ object NewsArticleFeed {
 			"The market has changed the question it is asking.",
 			"Deliveries count how many cars were handed to customers; margin is what each sale earns after costs. A company can sell more cars and still make less money.",
 			listOf("Tesla", "Tech"),
-			"CNBC", "2d", com.stak.demo.ui.StakClock.byline("2d", "3 min read"),
+			"CNBC", "2d", com.stak.demo.data.StakClock.byline("2d", "3 min read"),
 			R.drawable.news_thumb_tsla, listOf("TSLA"),
 			// Tesla Model X b-roll (Pexels, real-time 30fps, verified).
 			media = NewsMedia.Video(url = "https://video.twimg.com/amplify_video/1477968621418823684/vid/640x360/RK2UN9LzxttCiyIs.mp4?tag=14", posterUrl = "https://pbs.twimg.com/media/FILMuTvXMAAk1hK.jpg", sourceLink = "https://x.com/SquawkCNBC/status/1477968728969072641"),
@@ -335,7 +335,7 @@ object NewsArticleFeed {
 			"The clearest winner of the week's rotation.",
 			"When one company dominates a hot market, buyers often fund a second supplier to keep prices honest. Investors call it the challenger trade.",
 			listOf("AMD", "Chips"),
-			"Reuters", "2d", com.stak.demo.ui.StakClock.byline("2d", "2 min read"),
+			"Reuters", "2d", com.stak.demo.data.StakClock.byline("2d", "2 min read"),
 			R.drawable.news_thumb_jobs, listOf("AMD"),
 			// Motherboard-chips b-roll (Mixkit, verified direct stream).
 			media = NewsMedia.Video(url = "https://pdl-iphone-cnbc-com.akamaized.net/7000412105/899c3ab0-494e-11f1-8d98-6dd8be25c276/1778073695-45746068381-hd_L.mp4", posterUrl = "https://image.cnbcfm.com/api/v1/image/108302924-1778073838912-1778073695-45746068381-hd.jpg?v=1778073840&w=1280&h=720", sourceLink = "https://www.cnbc.com/video/2026/05/06/amd-ceo-lisa-su-agents-are-driving-tremendous-demand-in-the-ai-cycle.html"),
@@ -357,7 +357,7 @@ object NewsArticleFeed {
 			"The sector's cheapest names are the AI trade's new leadership.",
 			"Memory chips store the data AI systems work on. Demand from AI data centers has turned a boom-and-bust commodity business into a growth story, at least for now.",
 			listOf("Chips", "Tech"),
-			"Bloomberg", "2d", com.stak.demo.ui.StakClock.byline("2d", "3 min read"),
+			"Bloomberg", "2d", com.stak.demo.data.StakClock.byline("2d", "3 min read"),
 			R.drawable.news_thumb_chips, listOf("MU"),
 			// Chip-fab engineer b-roll (Mixkit, verified direct stream).
 			media = NewsMedia.Video(url = "https://voa-video-ns.akamaized.net/pangeavideo/2024/04/0/01/01000000-0aff-0242-4978-08dc5a5cdef2_480p.mp4?cb=eddaa30b3", posterUrl = "https://gdb.voanews.com/89efc172-826e-45dd-ad20-df3a903817f7_w1080_h608.jpg", sourceLink = "https://www.voanews.com/a/7566533.html"),
@@ -381,7 +381,7 @@ object NewsArticleFeed {
 			"The rivalry the sport has waited a decade for.",
 			"Wimbledon is tennis's oldest major tournament, played on grass in London each July.",
 			listOf("Sports", "Tennis"),
-			"AP", "5h", com.stak.demo.ui.StakClock.byline("5h", "2 min read"),
+			"AP", "5h", com.stak.demo.data.StakClock.byline("5h", "2 min read"),
 			media = NewsMedia.Video(url = "https://archive.org/download/BBCNEWS_20250713_200000_BBC_News/BBCNEWS_20250713_200000_BBC_News.mp4?t=706/838&ignore=x.mp4", posterUrl = "https://archive.org/download/BBCNEWS_20250713_200000_BBC_News/BBCNEWS_20250713_200000_BBC_News.thumbs/BBCNEWS_20250713_200000_BBC_News_000777.jpg", sourceLink = "https://archive.org/details/BBCNEWS_20250713_200000_BBC_News"),
 		),
 	)
@@ -431,7 +431,7 @@ object NewsArticleFeed {
 	 * new stock moves its story from Markets into For You instantly.
 	 */
 	fun forYou(): List<Article> {
-		val held = com.stak.demo.ui.MyStakHoldings.tickers
+		val held = com.stak.demo.data.MyStakHoldings.tickers
 		val curated = FOR_YOU.mapNotNull { id -> ARTICLES.firstOrNull { it.id == id } }
 		val rest = ARTICLES.filter { a -> curated.none { it.id == a.id } }
 		return (curated + rest)

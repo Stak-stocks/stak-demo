@@ -1,7 +1,7 @@
-package com.stak.demo.ui.mystak
+﻿package com.stak.demo.ui.mystak
 
 import com.stak.demo.R
-import com.stak.demo.ui.MyStakHoldings
+import com.stak.demo.data.MyStakHoldings
 
 /**
  * The My STAK collection catalogue - what every chip on the Overview

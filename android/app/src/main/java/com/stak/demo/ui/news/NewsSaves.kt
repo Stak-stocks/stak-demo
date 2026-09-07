@@ -1,9 +1,9 @@
-package com.stak.demo.ui.news
+﻿package com.stak.demo.ui.news
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.stak.demo.ui.StakStore
+import com.stak.demo.data.StakStore
 
 /**
  * The stories the user saved (bookmark / Add to STAK), shared by every

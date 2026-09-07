@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -56,13 +56,13 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	val context = LocalContext.current
 	val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
 		notifications = granted
-		com.stak.demo.ui.UserProfile.notificationsOn = granted
+		com.stak.demo.data.UserProfile.notificationsOn = granted
 		onContinue()
 	}
 	fun allowAndContinue() {
 		val needsAsk = notifications && android.os.Build.VERSION.SDK_INT >= 33 &&
 			androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-		com.stak.demo.ui.UserProfile.notificationsOn = notifications
+		com.stak.demo.data.UserProfile.notificationsOn = notifications
 		if (needsAsk) askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS) else onContinue()
 	}
 	var accountSecurity by rememberSaveable { mutableStateOf(true) }
@@ -121,7 +121,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 			modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 		) {
 			AuthCta(text = "Allow and continue", onClick = { allowAndContinue() })
-			AuthSecondaryButton(text = "Not now", onClick = { com.stak.demo.ui.UserProfile.notificationsOn = false; onContinue() })
+			AuthSecondaryButton(text = "Not now", onClick = { com.stak.demo.data.UserProfile.notificationsOn = false; onContinue() })
 		}
 	}
 }

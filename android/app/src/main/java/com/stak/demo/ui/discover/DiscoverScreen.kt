@@ -1,4 +1,4 @@
-package com.stak.demo.ui.discover
+﻿package com.stak.demo.ui.discover
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Canvas
@@ -213,7 +213,7 @@ internal object DeckSession {
 
 	/** Today's run, if one was saved; otherwise a fresh deck. */
 	fun load() {
-		val store = com.stak.demo.ui.StakStore
+		val store = com.stak.demo.data.StakStore
 		if (store.getString("deck.day") == today()) {
 			seenState.intValue = store.getInt("deck.seen", 0)
 			savedState.value = store.getSet("deck.saved") ?: emptySet()
@@ -226,7 +226,7 @@ internal object DeckSession {
 	}
 
 	private fun persist() {
-		val store = com.stak.demo.ui.StakStore
+		val store = com.stak.demo.data.StakStore
 		store.putString("deck.day", today())
 		store.putInt("deck.seen", seenState.intValue)
 		store.putSet("deck.saved", savedState.value)
@@ -404,12 +404,19 @@ internal fun DiscoverScreen(
 			val frontCard = DECK[seen % DECK.size]
 			// Deck — a fixed composition: every dimension scales by the 390dp
 			// artboard unit so proportions match the frame on any device.
-			Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).fillMaxWidth()) {
+			// Deck, swipe hint, and buttons are direct children of the root Column
+			// so weight(1f) on the deck Box only competes with the fixed-height header —
+			// no inner Column can accidentally swallow the hint/button space.
 				Box(
 					modifier = Modifier
 						.padding(horizontal = (20 * u).dp)
 						.fillMaxWidth()
-						.height((484.65 * u).dp)
+						// Flexible deck height: takes remaining space in the column
+						// so the swipe hint and buttons below are always visible.
+						// The deck card content is top-anchored (offsets from top),
+						// so extra or reduced height at the bottom doesn't affect
+						// the authored card layout.
+						.weight(1f)
 						// UNCLIPPED and above its siblings: a dragged or flying
 						// card stays WHOLE past the deck bounds (user, 2026-09-02
 						// "i noticed a cut") - it passes over the hint/CTA zone
@@ -421,10 +428,13 @@ internal fun DiscoverScreen(
 							// queued snapTo can lag the finger on starved frames.
 							var dragTotal = 0f
 							var maxVel = 0f
+							// 8dp dead-zone so tap-and-hold micro-movements don't
+							// visually displace the card before an intentional swipe.
+							val deadZonePx = with(density) { (8 * u).dp.toPx() }
 							detectVerticalDragGestures(
 								onDragStart = { dragTotal = 0f; maxVel = 0f },
 								onDragEnd = {
-									val committed = dragTotal
+									val committed = (dragTotal - deadZonePx).coerceAtLeast(0f)
 									val flung = maxVel > 1.2f
 									scope.launch {
 										// Commit on distance OR on a fling - a fast short
@@ -477,8 +487,7 @@ internal fun DiscoverScreen(
 								maxVel = maxOf(maxVel, dragAmount / dt)
 								change.consume()
 								dragTotal = (dragTotal + dragAmount).coerceAtLeast(0f)
-								val target = dragTotal
-								scope.launch { topOffset.snapTo(target) }
+								scope.launch { topOffset.snapTo((dragTotal - deadZonePx).coerceAtLeast(0f)) }
 							}
 						},
 				) {
@@ -534,7 +543,7 @@ internal fun DiscoverScreen(
 					// 2026-09-04). Saving still lands the pick in My STAK.
 					FrontDeckCard(
 						card = frontCard,
-						onSave = { savedCards = savedCards + frontCard.symbol; com.stak.demo.ui.MyStakHoldings.add(frontCard.symbol); savedToast = true },
+						onSave = { savedCards = savedCards + frontCard.symbol; com.stak.demo.data.MyStakHoldings.add(frontCard.symbol); savedToast = true },
 						saved = frontCard.symbol in savedCards,
 						u = u,
 						modifier = Modifier
@@ -579,6 +588,7 @@ internal fun DiscoverScreen(
 				Column(
 					horizontalAlignment = Alignment.CenterHorizontally,
 					verticalArrangement = Arrangement.spacedBy((5 * u).dp),
+					modifier = Modifier.align(Alignment.CenterHorizontally).zIndex(2f),
 				) {
 					Column(verticalArrangement = Arrangement.spacedBy((1 * u).dp), modifier = Modifier.alpha(0.5f)) {
 						GestureChevron(u)
@@ -591,7 +601,7 @@ internal fun DiscoverScreen(
 					)
 				}
 				Spacer(modifier = Modifier.height((19 * u).dp))
-				Row(horizontalArrangement = Arrangement.spacedBy((36 * u).dp)) {
+				Row(horizontalArrangement = Arrangement.spacedBy((36 * u).dp), modifier = Modifier.align(Alignment.CenterHorizontally).zIndex(2f)) {
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier
@@ -640,7 +650,6 @@ internal fun DiscoverScreen(
 					}
 				}
 				Spacer(modifier = Modifier.height((19 * u).dp))
-			}
 			}
 		}
 		// Saved toast (frame 1:1796) - the pill sits at the authored x 111
@@ -749,7 +758,7 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 		modifier = Modifier
 			.fillMaxWidth()
 			.clip(RoundedCornerShape((22 * u).dp))
-			.background(Brush.verticalGradient(0f to card.cardTop, 1f to Color(0xFF0C1526)))
+			.background(Brush.verticalGradient(0f to card.cardTop, 0.9f to Color(0xFF0C1526), 1f to Color(0x000C1526)))
 			.padding(top = (4 * u).dp, bottom = (4 * u).dp),
 	) {
 		Box(

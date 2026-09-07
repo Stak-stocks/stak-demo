@@ -1,4 +1,4 @@
-package com.stak.demo.navigation
+﻿package com.stak.demo.navigation
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -116,7 +116,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					// Returning user (signed in before) goes straight to Home;
 					// a first-time user is taken to create an account
 					// (user, 2026-08-23).
-					val next = if (com.stak.demo.ui.Session.signedIn) StakRoutes.MAIN else StakRoutes.createAccount(via = "dissolve")
+					val next = if (com.stak.demo.data.Session.signedIn) StakRoutes.MAIN else StakRoutes.createAccount(via = "dissolve")
 					navController.navigate(next) {
 						popUpTo(StakRoutes.SPLASH) { inclusive = true }
 					}
@@ -241,7 +241,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			},
 		) {
 			CreateAccountScreen(
-				onBack = { navController.navigate(StakRoutes.intro(via = "back")) },
 				onCreateAccount = { navController.navigate(StakRoutes.intro(via = "forward")) },
 				onSignIn = { navController.navigate(StakRoutes.SIGN_IN) },
 			)
@@ -258,7 +257,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onProceed = {
 					// Account created - a NEW account, empty until the user saves
 					// and buys (product audit, 2026-09-05); remembered across launches.
-					com.stak.demo.ui.Session.signIn(demo = false)
+					com.stak.demo.data.Session.signIn(demo = false)
 					navController.navigate(StakRoutes.MAIN) {
 						popUpTo(0) { inclusive = true }
 					}
@@ -301,23 +300,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			SignInScreen(
 				// Product audit (2026-09-05): the link opens the reset flow.
 				onForgot = { navController.navigate(StakRoutes.FORGOT_PASSWORD) },
-				onBack = {
-					// B21 aftermath: after Log out, sign in is the whole
-					// stack — a bare pop would blank the NavHost, so the
-					// authored Back -> Sign up (1:879 Motion) plays as a
-					// replacing navigate instead.
-					if (navController.previousBackStackEntry != null) {
-						navController.popBackStack()
-					} else {
-						navController.navigate(StakRoutes.createAccount(via = "back")) {
-							popUpTo(StakRoutes.SIGN_IN) { inclusive = true }
-						}
-					}
-				},
 				onSignIn = {
 					// Signed in = the demo account with its authored history
 					// (product audit, 2026-09-05); remembered across launches.
-					com.stak.demo.ui.Session.signIn(demo = true)
+					com.stak.demo.data.Session.signIn(demo = true)
 					navController.navigate(StakRoutes.MAIN) {
 						popUpTo(0) { inclusive = true }
 					}
@@ -547,7 +533,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
 				onLogOut = {
-					com.stak.demo.ui.Session.signOut()
+					com.stak.demo.data.Session.signOut()
 					// B21: the session ends and the whole stack clears.
 					navController.navigate(StakRoutes.SIGN_IN) {
 						popUpTo(0) { inclusive = true }
@@ -677,7 +663,7 @@ private fun MainShell(
 	}
 	// First run shows only in the session that signed in / created the
 	// account; a launch that resumed a saved session lands on Home Main.
-	var homeFirstRun by rememberSaveable { mutableStateOf(!com.stak.demo.ui.Session.resumedSignedIn) }
+	var homeFirstRun by rememberSaveable { mutableStateOf(!com.stak.demo.data.Session.resumedSignedIn) }
 	// Codex audit (2026-09-04): the Discover ticket serves the FRONT card's
 	// stock (NVDA / AAPL / GOOGL into the 1:1970 template) - the raised spec
 	// IS the open flag; null = no ticket.

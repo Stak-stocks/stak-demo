@@ -1,4 +1,4 @@
-package com.stak.demo.ui.simulate
+﻿package com.stak.demo.ui.simulate
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Canvas
@@ -304,14 +304,14 @@ private fun savedStakRows(): List<SavedStak> {
 	if (PaperPortfolio.demo) {
 		return listOf(
 			// Authored 4 and 2 days before the frame's July 4, kept as ages (product audit, 2026-09-05).
-			SavedStak(PLTR_BUY, savedStakSub("PLTR", com.stak.demo.ui.StakClock.savedLabel(4) + " · not in portfolio yet")),
-			SavedStak(COST_BUY, savedStakSub("COST", com.stak.demo.ui.StakClock.savedLabel(2) + " · not in portfolio yet")),
+			SavedStak(PLTR_BUY, savedStakSub("PLTR", com.stak.demo.data.StakClock.savedLabel(4) + " · not in portfolio yet")),
+			SavedStak(COST_BUY, savedStakSub("COST", com.stak.demo.data.StakClock.savedLabel(2) + " · not in portfolio yet")),
 		)
 	}
 	val tickets = listOf(com.stak.demo.ui.discover.NVDA_BUY, com.stak.demo.ui.discover.AAPL_BUY, com.stak.demo.ui.discover.GOOGL_BUY, PLTR_BUY, COST_BUY)
-	return tickets.filter { it.symbol in com.stak.demo.ui.MyStakHoldings.tickers }
+	return tickets.filter { it.symbol in com.stak.demo.data.MyStakHoldings.tickers }
 		.take(2)
-		.map { SavedStak(it, savedStakSub(it.symbol, com.stak.demo.ui.StakClock.savedLabel(0) + " · not in portfolio yet")) }
+		.map { SavedStak(it, savedStakSub(it.symbol, com.stak.demo.data.StakClock.savedLabel(0) + " · not in portfolio yet")) }
 }
 
 /** The card an empty section shows a new account (CardBg r14, Sora title, Geist body, optional teal link). */
@@ -445,7 +445,7 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 		} else {
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
 			val pct = PaperPortfolio.allTimeGain / PaperPortfolio.PAPER_START * 100
-			val line = if (PaperPortfolio.demo) series!! else com.stak.demo.ui.StakInsights.scaled(series ?: SERIES_3M, pct)
+			val line = if (PaperPortfolio.demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, pct)
 			RangeChart(series = line, tint = Sim.Teal, modifier = chartModifier)
 		}
 		Row(
@@ -579,7 +579,7 @@ private fun InsightCard() {
 		}
 		Text(
 			// The demo's authored insight; a new account reads its own picks (product audit, 2026-09-05).
-			text = if (PaperPortfolio.demo) "Three chip stocks drove 70% of your gains this month. Your taste has a type." else com.stak.demo.ui.StakInsights.simInsight(),
+			text = if (PaperPortfolio.demo) "Three chip stocks drove 70% of your gains this month. Your taste has a type." else com.stak.demo.data.StakInsights.simInsight(),
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Sim.Body,
 		)
@@ -734,7 +734,7 @@ private fun SimAllocationCard() {
 			}
 		} else {
 			// A new account's ring and bars come from its own picks (product audit, 2026-09-05).
-			val buckets = com.stak.demo.ui.StakInsights.buckets(PaperPortfolio.positions.map { it.spec.symbol })
+			val buckets = com.stak.demo.data.StakInsights.buckets(PaperPortfolio.positions.map { it.spec.symbol })
 			DonutRing(buckets.map { it.share }, buckets.map { simBucketColor(it.id) }, Modifier.size((150 * u).dp))
 			Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.fillMaxWidth()) {
 				buckets.forEach { b ->

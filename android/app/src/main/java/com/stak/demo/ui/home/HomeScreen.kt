@@ -1,4 +1,4 @@
-package com.stak.demo.ui.home
+﻿package com.stak.demo.ui.home
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -175,7 +176,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 					contentDescription = "Notifications",
 					modifier = Modifier.size((35 * u).dp),
 				)
-				if (com.stak.demo.ui.StakNotifications.hasUnread) {
+				if (com.stak.demo.data.StakNotifications.hasUnread) {
 					Box(
 						modifier = Modifier
 							.offset(x = (23.333 * u).dp, y = (8.75 * u).dp)
@@ -198,7 +199,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			) {
 				// The picked photo when one exists (Codex audit 2026-09-04),
 				// as on the Profile hub; else the authored glyph (118:1633).
-				val photo = com.stak.demo.ui.UserProfile.photoUri
+				val photo = com.stak.demo.data.UserProfile.photoUri
 				if (photo != null) {
 					coil.compose.AsyncImage(
 						model = photo,
@@ -229,7 +230,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			}
 		}
 		Text(
-			text = "$greeting, ${com.stak.demo.ui.UserProfile.greetingName}",
+			text = "$greeting, ${com.stak.demo.data.UserProfile.greetingName}",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
@@ -485,7 +486,7 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
-			.height((91 * u).dp)
+			.heightIn(min = (91 * u).dp)
 			// Shaped background, no clip needed — the visible ball never
 			// reaches the card edges, only transparent padding overhangs.
 			.clickable(

@@ -7,13 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
-
 }
-
-// The Firebase config is per developer / CI (git-ignored; see google-services.json.example):
-// the Google Services plugin only applies when the file is present, so a clean checkout
-// still builds (Copilot review, PR #166).
-if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 // Release signing (audit 2026-09-04). The upload key is NOT in the repo:
 // fill android/keystore.properties (git-ignored; template in
@@ -28,10 +22,17 @@ fun signingValue(key: String, env: String): String? =
     keystoreProps.getProperty(key)?.takeIf { it.isNotBlank() } ?: System.getenv(env)?.takeIf { it.isNotBlank() }
 val releaseStoreFile = signingValue("storeFile", "STAK_KEYSTORE_FILE")
 
+// Supabase credentials: add these to android/local.properties (git-ignored):
+//   supabase.url=https://YOUR_PROJECT_REF.supabase.co
+//   supabase.anon_key=YOUR_ANON_KEY
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.stak.demo"
-    compileSdk = 35
-
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.stak.demo"
@@ -41,6 +42,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SUPABASE_URL", "\"${localProps.getProperty("supabase.url", "")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProps.getProperty("supabase.anon_key", "")}\"")
     }
 
     signingConfigs {
@@ -57,7 +61,7 @@ android {
         release {
             // Signed when a keystore is configured (see the top of this file).
             signingConfig = signingConfigs.findByName("release")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -67,7 +71,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-
     }
 
     kotlinOptions {
@@ -75,6 +78,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -96,11 +100,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    // Supabase Auth
+    implementation("io.github.jan-tennert.supabase:auth-kt:3.1.4")
+    implementation("io.ktor:ktor-client-android:3.0.3")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -115,12 +117,14 @@ dependencies {
     // unreliable inside Compose - silent surface/prepare failures).
     implementation("androidx.media3:media3-exoplayer:1.4.1")
 
+    // Splash screen
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
     // Local settings
     implementation("androidx.datastore:datastore-preferences:1.1.4")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

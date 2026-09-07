@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import com.stak.demo.ui.mystak.COLLECTIONS
 import com.stak.demo.ui.mystak.CollStock

@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -23,6 +23,7 @@ object Session {
 	private const val KEY_PICKS = "brand_picks"
 	private const val KEY_GOAL = "goal_answer"
 	private const val KEY_RISK_ANSWER = "risk_answer"
+	private const val KEY_JWT = "jwt_token"
 	private const val KEY_NOTIF = "notifications_on"
 	private const val KEY_PRICE_ALERTS = "pref_price_alerts"
 	private const val KEY_DAILY_DECK = "pref_daily_deck"
@@ -35,6 +36,10 @@ object Session {
 	private var prefs: SharedPreferences? = null
 
 	var signedIn by mutableStateOf(false)
+		private set
+
+	/** Supabase JWT access token — stored for authenticated API calls. Null until first real sign-in. */
+	var token: String? = null
 		private set
 
 	/** True when this launch started already signed in - the returning-user path. */
@@ -73,6 +78,7 @@ object Session {
 		UserProfile.linkedGoogle = p.getBoolean(KEY_LINKED_GOOGLE, false)
 		UserProfile.linkedApple = p.getBoolean(KEY_LINKED_APPLE, false)
 		UserProfile.joined = p.getString(KEY_JOINED, "July 2026") ?: "July 2026"
+		token = p.getString(KEY_JWT, null)
 		applyAccount()
 	}
 
@@ -99,6 +105,12 @@ object Session {
 		com.stak.demo.ui.news.NewsSaves.load()
 	}
 
+	/** Stores the Supabase JWT for authenticated API calls. */
+	fun setToken(jwt: String) {
+		token = jwt
+		persist()
+	}
+
 	/** Profile edits after sign-in (name/photo) stay with the session. */
 	fun saveProfile() = persist()
 
@@ -121,6 +133,7 @@ object Session {
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false
 		UserProfile.joined = "July 2026"
+		token = null
 		prefs?.edit()?.clear()?.apply()
 		applyAccount()
 	}
@@ -143,6 +156,7 @@ object Session {
 			?.putBoolean(KEY_LINKED_GOOGLE, UserProfile.linkedGoogle)
 			?.putBoolean(KEY_LINKED_APPLE, UserProfile.linkedApple)
 			?.putString(KEY_JOINED, UserProfile.joined)
+			?.putString(KEY_JWT, token)
 			?.apply()
 	}
 }

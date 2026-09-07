@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.background
@@ -105,7 +105,7 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 			) {
 				// Product audit (2026-09-05): the bars come from the user's picks and
 				// answers, not fixed copy.
-				val profile = com.stak.demo.ui.UserProfile
+				val profile = com.stak.demo.data.UserProfile
 				TasteModel.bars(profile.brandPicks, profile.goal, profile.risk).forEach { bar ->
 					Column(verticalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 						Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -158,7 +158,7 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 						color = StakColors.Muted,
 					)
 					Text(
-						text = com.stak.demo.ui.UserProfile.riskStyle,
+						text = com.stak.demo.data.UserProfile.riskStyle,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
 						color = StakColors.TextPrimary,
 					)
@@ -218,7 +218,7 @@ internal fun RiskStyleSheet(onDismiss: () -> Unit) {
 				TasteModel.RISK_STEP_AWAY to ("Step away for now" to "Big drops make me uncomfortable"),
 				TasteModel.RISK_SELL_SOME to ("Sell some, reduce risk" to "I’d rather protect part of my money"),
 			).forEach { (index, copy) ->
-				val selected = com.stak.demo.ui.UserProfile.riskStyle == TasteModel.riskStyle(index) && (com.stak.demo.ui.UserProfile.risk == index || com.stak.demo.ui.UserProfile.risk < 0)
+				val selected = com.stak.demo.data.UserProfile.riskStyle == TasteModel.riskStyle(index) && (com.stak.demo.data.UserProfile.risk == index || com.stak.demo.data.UserProfile.risk < 0)
 				Row(
 					verticalAlignment = Alignment.CenterVertically,
 					modifier = Modifier
@@ -226,9 +226,9 @@ internal fun RiskStyleSheet(onDismiss: () -> Unit) {
 						.background(StakColors.Bg, RoundedCornerShape((12 * u).dp))
 						.border((1 * u).dp, if (selected) Color(0x8069B3CA) else Color(0x1AFFFFFF), RoundedCornerShape((12 * u).dp))
 						.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
-							com.stak.demo.ui.UserProfile.risk = index
-							com.stak.demo.ui.UserProfile.riskStyle = TasteModel.riskStyle(index)
-							com.stak.demo.ui.Session.saveProfile()
+							com.stak.demo.data.UserProfile.risk = index
+							com.stak.demo.data.UserProfile.riskStyle = TasteModel.riskStyle(index)
+							com.stak.demo.data.Session.saveProfile()
 							onDismiss()
 						}
 						.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),

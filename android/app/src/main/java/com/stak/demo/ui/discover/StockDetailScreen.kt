@@ -1,4 +1,4 @@
-package com.stak.demo.ui.discover
+﻿package com.stak.demo.ui.discover
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.fractionalSpacedBy
@@ -253,7 +253,7 @@ fun StockDetailScreen(
 						DetailCta("Practice buy") { showBuy = true }
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
-						DetailSecondary("Unsave") { com.stak.demo.ui.MyStakHoldings.remove(f.symbol); onBack() }
+						DetailSecondary("Unsave") { com.stak.demo.data.MyStakHoldings.remove(f.symbol); onBack() }
 					} else if (saved) {
 						// A saved stock reads the same from every entry: the authored
 						// saved block (16:1012) - Practice buy + Unsave. The "Saved to
@@ -265,7 +265,7 @@ fun StockDetailScreen(
 						DetailSecondary("Unsave") {
 							saved = false
 							DeckSession.saved = DeckSession.saved - f.symbol
-							com.stak.demo.ui.MyStakHoldings.remove(f.symbol)
+							com.stak.demo.data.MyStakHoldings.remove(f.symbol)
 						}
 					} else {
 						DetailCta("Save") { showSuccess = true }
@@ -296,13 +296,13 @@ fun StockDetailScreen(
 				onViewInMyStak = {
 					saved = true
 					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.ui.MyStakHoldings.add(f.symbol)
+					com.stak.demo.data.MyStakHoldings.add(f.symbol)
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
 					saved = true
 					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.ui.MyStakHoldings.add(f.symbol)
+					com.stak.demo.data.MyStakHoldings.add(f.symbol)
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
 			)
@@ -882,8 +882,8 @@ private fun CompareRow(label: String, a: String, m: String, g: String, header: B
  * since is this week's change once a day has passed.
  */
 private fun sinceSavedFor(f: DetailFacts): Triple<String, String, Boolean> {
-	val demo = com.stak.demo.ui.Session.demoAccount
-	val days = if (demo) null else com.stak.demo.ui.MyStakHoldings.daysSinceSaved(f.symbol)
+	val demo = com.stak.demo.data.Session.demoAccount
+	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(f.symbol)
 	val move = f.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
 	val up = !f.change.contains('\u25BC') && !f.change.trimStart().startsWith("-")
 	return when {
@@ -954,7 +954,7 @@ private data class DetailCompare(val label: String, val a: String, val b: String
  * stock's volatility; TasteModel.riskStyle is the user's answer.
  */
 private fun riskFitFor(f: DetailFacts): Pair<String, String> {
-	val style = com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.ui.UserProfile.risk)
+	val style = com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.data.UserProfile.risk)
 	val highVol = f.riskPillX > 170f
 	val lowVol = f.riskPillX < 120f
 	val first = f.riskCopy.substringBefore(". ") + "."
@@ -1031,7 +1031,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.8% at yesterday’s close",
 		newsSignal = "Foldable iPhone reports point to a premium fall lineup.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(26)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(26)}.",
 		newsSources = listOf("Yahoo · 13h ago" to "Neutral", "CNN · 1h ago" to "Neutral"),
 		newsHeadline = "The rally leaves Apple about 4 percent shy of the market-cap crown",
 		newsHeadline2 = "Apple's services arm posts another record quarter as the iPhone cycle steadies",
@@ -1072,7 +1072,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +2.1% at yesterday’s close",
 		newsSignal = "Blackwell demand keeps outrunning supply into the fall.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(54)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(54)}.",
 		newsSources = listOf("Reuters · 2h ago" to "Bullish", "CNBC · 9h ago" to "Neutral"),
 		newsHeadline = "Nvidia lags the chip rally it kicked off as orders pile up",
 		newsHeadline2 = "Nvidia's data-center backlog stretches into next year, analysts say",
@@ -1113,7 +1113,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.6% at yesterday’s close",
 		newsSignal = "A blowout ad quarter pushed the stock to fresh highs.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(18)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(18)}.",
 		newsSources = listOf("Bloomberg · 5h ago" to "Bullish", "Yahoo · 1d ago" to "Neutral"),
 		newsHeadline = "Alphabet jumps after a blowout ad quarter as cloud accelerates",
 		newsHeadline2 = "Alphabet lifts its capex plan again as Gemini demand outruns capacity",
@@ -1160,7 +1160,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.3% at yesterday’s close",
 		newsSignal = "Azure growth and Copilot seat counts are the numbers to watch this week.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(117)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(117)}.",
 		newsSources = listOf("Bloomberg · 4h ago" to "Bullish", "Reuters · 11h ago" to "Neutral"),
 		newsHeadline = "Tech earnings week: what to watch",
 		newsHeadline2 = "Microsoft's Azure growth holds as Copilot seats climb",
@@ -1201,7 +1201,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +1.6% at yesterday’s close",
 		newsSignal = "The AI rotation is lifting AMD as buyers look past the most crowded chip names.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(123)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(123)}.",
 		newsSources = listOf("CNBC · 3h ago" to "Bullish", "Yahoo · 8h ago" to "Neutral"),
 		newsHeadline = "AMD rides the AI rotation to a yearly high",
 		newsHeadline2 = "AMD lands another hyperscaler for its MI-series chips",
@@ -1242,7 +1242,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.4% at yesterday’s close",
 		newsSignal = "Trading desks and card spending keep the bank ahead of a softer loan market.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("Reuters · 6h ago" to "Bullish", "WSJ · 1d ago" to "Neutral"),
 		newsHeadline = "JPMorgan tops estimates again as trading and card spending hold up",
 		newsHeadline2 = "JPMorgan lifts its net-interest income outlook for the year",
@@ -1283,7 +1283,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.5% at yesterday’s close",
 		newsSignal = "Cross-border travel volume keeps payment growth running in double digits.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(116)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(116)}.",
 		newsSources = listOf("Bloomberg · 7h ago" to "Bullish", "CNBC · 1d ago" to "Neutral"),
 		newsHeadline = "Visa keeps growing at a double-digit clip as cross-border spending holds",
 		newsHeadline2 = "Visa's cross-border volumes climb as travel stays strong",
@@ -1324,7 +1324,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.7% at yesterday’s close",
 		newsSignal = "A reopening deal calendar is refilling the investment-banking pipeline.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(103)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(103)}.",
 		newsSources = listOf("Reuters · 5h ago" to "Neutral", "FT · 14h ago" to "Bullish"),
 		newsHeadline = "Goldman rides a deal-making rebound as advisory fees climb",
 		newsHeadline2 = "Goldman's IPO pipeline fills up as issuers return",
@@ -1365,7 +1365,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +2.3% at yesterday’s close",
 		newsSignal = "Battery attach rates are climbing as home-storage demand builds ahead of credit changes.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(116)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(116)}.",
 		newsSources = listOf("Yahoo · 3h ago" to "Neutral", "CNBC · 9h ago" to "Bullish"),
 		newsHeadline = "Enphase bounces as battery orders pick up in a shaky solar market",
 		newsHeadline2 = "Enphase guides to a rebound as installers work through inventory",
@@ -1406,7 +1406,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.6% at yesterday’s close",
 		newsSignal = "Data-center power deals are adding to a renewables backlog that already runs for years.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(111)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(111)}.",
 		newsSources = listOf("Reuters · 8h ago" to "Bullish", "Bloomberg · 1d ago" to "Neutral"),
 		newsHeadline = "NextEra signs more data-center power deals as its renewables backlog swells",
 		newsHeadline2 = "NextEra's storage build-out hits a record quarter",
@@ -1447,7 +1447,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.4% at yesterday’s close",
 		newsSignal = "Tariff rulings on imported panels keep swinging the stock week to week.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(118)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(118)}.",
 		newsSources = listOf("Reuters · 4h ago" to "Neutral", "WSJ · 12h ago" to "Bullish"),
 		newsHeadline = "First Solar slips as a tariff ruling clouds the outlook for imported panels",
 		newsHeadline2 = "First Solar books more U.S. capacity as tariffs bite imports",
@@ -1488,7 +1488,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.3% at yesterday’s close",
 		newsSignal = "Warehouse leasing is firming as tenants sign again after a slow stretch.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(103)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(103)}.",
 		newsSources = listOf("Bloomberg · 6h ago" to "Neutral", "Reuters · 1d ago" to "Bullish"),
 		newsHeadline = "Prologis lifts its outlook as warehouse leasing steadies",
 		newsHeadline2 = "Prologis leases fill faster as e-commerce demand firms",
@@ -1529,7 +1529,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.2% at yesterday’s close",
 		newsSignal = "Monthly dividend hikes keep coming as rate-cut hopes lift REITs.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(122)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(122)}.",
 		newsSources = listOf("Yahoo · 5h ago" to "Neutral", "CNBC · 1d ago" to "Bullish"),
 		newsHeadline = "Realty Income raises its monthly dividend again as rate hopes lift REITs",
 		newsHeadline2 = "Realty Income adds another European portfolio to its rent roll",
@@ -1570,7 +1570,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +1.1% at yesterday’s close",
 		newsSignal = "The weight-loss pill is heading toward a decision that could open a much larger market.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(118)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(118)}.",
 		newsSources = listOf("Reuters · 2h ago" to "Bullish", "CNBC · 10h ago" to "Neutral"),
 		newsHeadline = "Eli Lilly climbs as its oral weight-loss pill nears a decision",
 		newsHeadline2 = "Lilly's weight-loss pill moves closer to a filing",
@@ -1611,7 +1611,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.0% at yesterday’s close",
 		newsSignal = "Medical-cost trends are still running hot, and the new CEO is resetting expectations.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("WSJ · 4h ago" to "Bearish", "Reuters · 9h ago" to "Neutral"),
 		newsHeadline = "UnitedHealth slides again as medical costs keep climbing",
 		newsHeadline2 = "UnitedHealth trims its outlook as medical costs stay high",
@@ -1652,7 +1652,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.4% at yesterday’s close",
 		newsSignal = "New drug launches are offsetting the Stelara patent cliff faster than expected.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("Reuters · 7h ago" to "Neutral", "Bloomberg · 1d ago" to "Bullish"),
 		newsHeadline = "J&J raises its forecast as new drugs outrun the Stelara patent cliff",
 		newsHeadline2 = "J&J's oncology pipeline carries the quarter",
@@ -1693,7 +1693,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.4% at yesterday’s close",
 		newsSignal = "Cost cuts are holding up profit while the post-Covid revenue reset plays out.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(123)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(123)}.",
 		newsSources = listOf("Yahoo · 6h ago" to "Neutral", "Reuters · 1d ago" to "Neutral"),
 		newsHeadline = "Pfizer leans on cost cuts as Covid sales keep fading",
 		newsHeadline2 = "Pfizer pushes deeper into obesity with a new deal",
@@ -1734,7 +1734,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.5% at yesterday’s close",
 		newsSignal = "Membership renewals and monthly sales are still running ahead of the rest of retail.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(83)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(83)}.",
 		newsSources = listOf("CNBC · 5h ago" to "Bullish", "Bloomberg · 1d ago" to "Neutral"),
 		newsHeadline = "Costco posts another strong sales month as memberships keep renewing",
 		newsHeadline2 = "Costco's membership renewals hit a fresh high",
@@ -1775,7 +1775,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.6% at yesterday’s close",
 		newsSignal = "The turnaround is showing up in wholesale orders before it shows up in sales.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(88)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(88)}.",
 		newsSources = listOf("WSJ · 3h ago" to "Neutral", "CNBC · 12h ago" to "Bearish"),
 		newsHeadline = "Nike slips as tariff costs weigh on a turnaround that is only starting",
 		newsHeadline2 = "Nike's turnaround shows early signs in running",

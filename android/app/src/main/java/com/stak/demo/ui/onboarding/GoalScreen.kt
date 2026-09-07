@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -23,6 +23,6 @@ fun GoalScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 		onBack = onBack,
 		// Product audit (2026-09-05): nothing pre-selected; the answer shapes
 		// the taste reveal and the Profile chips.
-		onContinue = { choice -> com.stak.demo.ui.UserProfile.goal = choice; onContinue() },
+		onContinue = { choice -> com.stak.demo.data.UserProfile.goal = choice; onContinue() },
 	)
 }

@@ -1,4 +1,4 @@
-package com.stak.demo.ui
+package com.stak.demo.data
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter

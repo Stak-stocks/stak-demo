@@ -1,4 +1,4 @@
-package com.stak.demo.ui.news
+﻿package com.stak.demo.ui.news
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.fractionalSpacedBy
@@ -185,7 +185,7 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 	val successArticle = successId?.let { NewsArticleFeed.article(it) } ?: current
 	fun save(target: NewsArticleFeed.Article) {
 		NewsSaves.add(target.id)
-		target.ticker?.let { com.stak.demo.ui.MyStakHoldings.add(it) }
+		target.ticker?.let { com.stak.demo.data.MyStakHoldings.add(it) }
 	}
 
 	// The hero's fullscreen player renders here, over everything in this

@@ -1,3 +1,26 @@
+# Ktor + Supabase
+-keep class io.ktor.** { *; }
+-keepclassmembers class io.ktor.** { *; }
+-keep class io.github.jan.supabase.** { *; }
+-keepclassmembers class io.github.jan.supabase.** { *; }
+-keep class io.github.jan.supabase.auth.** { *; }
+
+# Kotlin serialization (used internally by Supabase)
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keep class **$$serializer { *; }
+-keepclassmembers class ** { *** Companion; }
+
+# Kotlin
+-keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+-dontwarn kotlinx.**
+
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.

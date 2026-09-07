@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.text.BasicTextField
-import com.stak.demo.ui.capitalizeWords
+import com.stak.demo.data.capitalizeWords
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -238,8 +238,9 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit) {
 
 		Column(modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp)) {
 			AuthCta(text = "Proceed to home", enabled = name.isNotBlank(), onClick = {
-				com.stak.demo.ui.UserProfile.displayName = name.trim().capitalizeWords()
-				com.stak.demo.ui.UserProfile.photoUri = photoUri
+				com.stak.demo.data.UserProfile.displayName = name.trim().capitalizeWords()
+				com.stak.demo.data.UserProfile.photoUri = photoUri
+				com.stak.demo.data.Session.saveProfile()
 				onProceed()
 			})
 		}
