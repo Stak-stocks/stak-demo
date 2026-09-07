@@ -100,8 +100,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
-    // Supabase Auth
+    // Supabase
     implementation("io.github.jan-tennert.supabase:auth-kt:3.1.4")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.4")
     implementation("io.ktor:ktor-client-android:3.0.3")
 
     // Networking

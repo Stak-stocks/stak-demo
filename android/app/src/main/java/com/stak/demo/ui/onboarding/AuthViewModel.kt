@@ -2,7 +2,9 @@
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stak.demo.data.ProfileRepository
 import com.stak.demo.data.Session
+import com.stak.demo.data.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
@@ -16,12 +18,14 @@ sealed interface AuthUiState {
     data object Idle : AuthUiState
     data object Loading : AuthUiState
     data class Error(val message: String) : AuthUiState
-    data object Success : AuthUiState
+    /** onboardingComplete: false → route to onboarding; true → route to MAIN. */
+    data class Success(val onboardingComplete: Boolean = true) : AuthUiState
 }
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val supabase: SupabaseClient,
+    private val profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -35,11 +39,15 @@ class AuthViewModel @Inject constructor(
                     this.email = email.trim()
                     this.password = password
                 }
-                supabase.auth.currentSessionOrNull()?.accessToken
+                val token = supabase.auth.currentSessionOrNull()?.accessToken
+                // Null (network error / missing row) defaults to true so a
+                // returning user with a flaky connection still reaches MAIN.
+                val onboardingComplete = profileRepository.getOnboardingComplete() ?: true
+                token to onboardingComplete
             }.fold(
-                onSuccess = { token ->
+                onSuccess = { (token, onboardingComplete) ->
                     if (token != null) Session.setToken(token)
-                    _uiState.value = AuthUiState.Success
+                    _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->
                     _uiState.value = AuthUiState.Error(friendlyError(e))
@@ -61,7 +69,8 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { token ->
                     if (token != null) {
                         Session.setToken(token)
-                        _uiState.value = AuthUiState.Success
+                        // New users always go through onboarding.
+                        _uiState.value = AuthUiState.Success(onboardingComplete = false)
                     } else {
                         // Email confirmation is enabled in the Supabase dashboard.
                         _uiState.value = AuthUiState.Error("Check your email to confirm your account, then sign in.")
@@ -71,6 +80,26 @@ class AuthViewModel @Inject constructor(
                     _uiState.value = AuthUiState.Error(friendlyError(e))
                 },
             )
+        }
+    }
+
+    /**
+     * Saves the completed onboarding profile to Supabase. Fire-and-forget —
+     * the UI proceeds immediately; a save failure only affects cross-device
+     * onboarding routing, not the current device's local state.
+     */
+    fun saveProfile() {
+        viewModelScope.launch {
+            runCatching {
+                profileRepository.upsertProfile(
+                    displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
+                    brandPicks = UserProfile.brandPicks.toList(),
+                    goalAnswer = UserProfile.goal,
+                    riskAnswer = UserProfile.risk,
+                    riskStyle = UserProfile.riskStyle,
+                    onboardingCompleted = true,
+                )
+            }
         }
     }
 

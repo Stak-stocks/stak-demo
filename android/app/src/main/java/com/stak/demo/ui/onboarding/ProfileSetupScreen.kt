@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -61,7 +62,11 @@ private const val NAME_MAX = 20
  * "Proceed to home" CTA.
  */
 @Composable
-fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit) {
+fun ProfileSetupScreen(
+    viewModel: AuthViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+    onProceed: () -> Unit,
+) {
 	val u = figmaUnit()
 	// The frame arrives with "Nedu" typed (avatar "N", counter 4 / 20) - user, 2026-09-04 (CHINEDU 01 · Onboarding 1:793): the exact frame wins.
 	// Product audit (2026-09-05): a real first run starts with an empty name
@@ -241,6 +246,9 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit) {
 				com.stak.demo.data.UserProfile.displayName = name.trim().capitalizeWords()
 				com.stak.demo.data.UserProfile.photoUri = photoUri
 				com.stak.demo.data.Session.saveProfile()
+				// Fire-and-forget: save profile to Supabase in the background.
+				// The UI proceeds immediately; failure only affects cross-device routing.
+				viewModel.saveProfile()
 				onProceed()
 			})
 		}

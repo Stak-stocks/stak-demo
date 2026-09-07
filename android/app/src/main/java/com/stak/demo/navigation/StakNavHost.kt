@@ -310,6 +310,13 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 						popUpTo(0) { inclusive = true }
 					}
 				},
+				// Supabase account exists but onboarding was never finished —
+				// send them through from the start (intro screen).
+				onOnboardingRequired = {
+					navController.navigate(StakRoutes.intro(via = "forward")) {
+						popUpTo(0) { inclusive = true }
+					}
+				},
 				onCreateAccount = {
 					navController.navigate(StakRoutes.createAccount(via = "dissolve")) {
 						popUpTo(StakRoutes.CREATE_ACCOUNT) { inclusive = true }

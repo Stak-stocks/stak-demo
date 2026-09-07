@@ -53,6 +53,8 @@ fun SignInScreen(
 	/** "Forgot password?" -> the reset flow (product audit, 2026-09-05). */
 	onForgot: () -> Unit = {},
 	onSignIn: () -> Unit,
+	/** Called instead of onSignIn when the user exists but hasn't finished onboarding. */
+	onOnboardingRequired: () -> Unit = onSignIn,
 	onCreateAccount: () -> Unit,
 ) {
 	val u = figmaUnit()
@@ -68,10 +70,11 @@ fun SignInScreen(
 
 	val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-	// Navigate once Supabase auth succeeds; reset VM state so re-entry is clean.
+	// Navigate once Supabase auth succeeds; route based on onboarding state.
 	LaunchedEffect(uiState) {
 		if (uiState is AuthUiState.Success) {
-			onSignIn()
+			if ((uiState as AuthUiState.Success).onboardingComplete) onSignIn()
+			else onOnboardingRequired()
 			viewModel.resetState()
 		}
 	}
