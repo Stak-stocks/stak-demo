@@ -56,7 +56,7 @@ private const val INVITE = "invite"
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}, onGoLive: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val context = androidx.compose.ui.platform.LocalContext.current
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
@@ -132,8 +132,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					color = Color.White,
 				)
 				Text(
-					// A live account reads "Live investor" (FigJam Go live boards, 2026-09-14).
-					text = "${if (com.stak.demo.ui.live.LiveAccount.isLive) "Live investor" else "Paper investor"} · joined ${com.stak.demo.ui.UserProfile.joined}",
+					text = "Paper investor · joined ${com.stak.demo.ui.UserProfile.joined}",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
 				)
@@ -216,8 +215,6 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					color = if (gain >= 0) Green else Color(0xFFE5484D),
 				)
 			}
-			// Go live (FigJam Go live boards, 2026-09-14): the real-money account's entry, status-aware.
-			com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
 			// Settings card.
 			Column(
 				modifier = Modifier

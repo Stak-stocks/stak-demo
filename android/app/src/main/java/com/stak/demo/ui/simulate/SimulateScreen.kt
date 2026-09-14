@@ -127,8 +127,6 @@ internal fun SimulateScreen(
 	onPracticeBuy: ((BuySpec) -> Unit)? = null,
 	// B14 (1:3964 Motion): "All saved staks ›" hops to the My STAK tab.
 	onOpenMyStak: () -> Unit = {},
-	/** The Go live banner (FigJam Go live boards, 2026-09-14): "Setup and cash only. Trading runs in Simulate." */
-	onGoLive: () -> Unit = {},
 	/** The empty state's "Go to Discover" (a new account has nothing saved yet). */
 	onOpenDiscover: () -> Unit = {},
 ) {
@@ -225,7 +223,6 @@ internal fun SimulateScreen(
 					}
 				}
 				HowItWorksCard()
-				com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
 				SectionHeader("Your portfolio")
 				// Codex audit (2026-09-04): the first three held positions, from
 				// the shared PaperPortfolio - a fresh buy lands at the top.

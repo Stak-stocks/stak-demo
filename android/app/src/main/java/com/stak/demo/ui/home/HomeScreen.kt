@@ -91,7 +91,7 @@ private object Home {
  */
 /** `onOpenStock` / `onSearch`: the board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onGoLive: () -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -123,9 +123,6 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					TrendingStrip(onOpenStock = onOpenStock)
 					Spacer(modifier = Modifier.height((12 * u).dp))
 					SavedPeekCard(onOpenStock = onOpenSavedStock, onOpenMyStak = onOpenMyStak, onOpenDeck = onOpenDeck)
-					Spacer(modifier = Modifier.height((12 * u).dp))
-					// "Real money after Go live" hangs off the Home page on the board (FigJam, 2026-09-14).
-					com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
 					Spacer(modifier = Modifier.height((20 * u).dp))
 					// First run keeps room for the scrim pill.
 					if (firstRun) Spacer(modifier = Modifier.height((140 * u).dp))

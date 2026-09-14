@@ -56,8 +56,5 @@ object StakRoutes {
 	const val ORDER_CONFIRMATION = "order-confirmation/{symbol}"
 	fun orderConfirmation(symbol: String) = "order-confirmation/$symbol"
 	const val ADD_CASH = "add-cash"
-	/** Go live (FigJam Go live boards, 2026-09-14): the identity + funding walk, and the real-money account home. */
-	const val GO_LIVE = "live/go"
-	const val LIVE_ACCOUNT = "live/account"
 	const val SEARCH = "search"
 }

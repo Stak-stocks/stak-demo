@@ -351,7 +351,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 			}
 		}
 		// Account-aware (review 2026-09-14): Sign in always restores the demo persona; a created account's state is not re-enterable after log out.
-		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves, paper portfolio and Go live progress for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
+		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
 	}
 }
 

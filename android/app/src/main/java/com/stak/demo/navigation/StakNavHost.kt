@@ -451,8 +451,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onSearch = { navController.navigate(StakRoutes.SEARCH) { launchSingleTop = true } },
 				// A held stock opens the saved flavour of Stock Detail (review 2026-09-14).
 				onOpenSavedStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
-				// Live = the account home, otherwise the Go live walk (FigJam Go live boards, 2026-09-14).
-				onGoLive = { navController.navigate(if (com.stak.demo.ui.live.LiveAccount.isLive) StakRoutes.LIVE_ACCOUNT else StakRoutes.GO_LIVE) { launchSingleTop = true } },
 			)
 		}
 		composable(
@@ -466,9 +464,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
 			StockDetailScreen(
-				// A filled live order's "View account" (FigJam Go live boards, 2026-09-14).
-				// One account page: LIVE_ACCOUNT > STOCK_DETAIL > View account returns to it instead of stacking a copy.
-				onViewLiveAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) { popUpTo(StakRoutes.LIVE_ACCOUNT) { inclusive = true }; launchSingleTop = true } },
 				onBack = { navController.popBackStack() },
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
 				// B5 (1:2382 Motion): Practice buy leaves the detail and
@@ -511,9 +506,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
 			StockDetailScreen(
-				// A filled live order's "View account" (FigJam Go live boards, 2026-09-14).
-				// One account page: LIVE_ACCOUNT > STOCK_DETAIL > View account returns to it instead of stacking a copy.
-				onViewLiveAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) { popUpTo(StakRoutes.LIVE_ACCOUNT) { inclusive = true }; launchSingleTop = true } },
 				onBack = { navController.popBackStack() },
 				// Codex parity audit (2026-09-04): the tapped tile's ticker,
 				// same as the Discover deck's Learn more (STOCK_DETAIL above).
@@ -620,7 +612,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onBack = { navController.popBackStack() },
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
-				onGoLive = { navController.navigate(if (com.stak.demo.ui.live.LiveAccount.isLive) StakRoutes.LIVE_ACCOUNT else StakRoutes.GO_LIVE) { launchSingleTop = true } },
 				onLogOut = {
 					com.stak.demo.ui.Session.signOut()
 					// B21: the session ends and the whole stack clears.
@@ -641,26 +632,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				if (navController.currentBackStackEntry?.destination?.route == StakRoutes.EDIT_PROFILE) navController.popBackStack()
 			}
 			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
-		}
-		composable(StakRoutes.GO_LIVE) {
-			// Go live (FigJam Go live boards, 2026-09-14): resumes at the account's step.
-			com.stak.demo.ui.live.GoLiveFlow(
-				onBack = { navController.popBackStack() },
-				onOpenAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) { popUpTo(StakRoutes.GO_LIVE) { inclusive = true }; launchSingleTop = true } },
-			)
-		}
-		composable(
-			StakRoutes.LIVE_ACCOUNT,
-			// Mirrors MAIN (A3/A2): pushing or popping an Instant route (Stock Detail) must not move this page.
-			exitTransition = { if (targetState.destination.route in INSTANT_ROUTES) ExitTransition.None else null },
-			popEnterTransition = { popEnterFor(shellPop.value, initialState.destination.route in INSTANT_ROUTES) },
-		) {
-			com.stak.demo.ui.live.LiveAccountScreen(
-				onBack = { navController.popBackStack() },
-				// "Find a stock" lands on the Discover deck.
-				onFindStock = { popToShell(PopStyle.INSTANT, MainTab.Discover) },
-				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
-			)
 		}
 		composable(
 			StakRoutes.SEARCH,
@@ -784,8 +755,6 @@ private fun MainShell(
 	onViewSimPortfolio: () -> Unit,
 	/** Home's search circle (FigJam Home board, 2026-09-14). */
 	onSearch: () -> Unit = {},
-	/** The Go live banners on Home and Simulate (FigJam Go live boards, 2026-09-14). */
-	onGoLive: () -> Unit = {},
 	/** A held stock's saved-flavour Stock Detail (review 2026-09-14). */
 	onOpenSavedStock: (String) -> Unit = onOpenStock,
 ) {
@@ -888,7 +857,6 @@ private fun MainShell(
 							// The board-only sections: a stock opens its detail, the circle opens Search.
 							onOpenStock = onOpenStock,
 							onSearch = onSearch,
-							onGoLive = onGoLive,
 							onOpenSavedStock = onOpenSavedStock,
 						)
 						MainTab.News -> NewsScreen(onOpenArticle = onOpenArticle)
@@ -909,7 +877,6 @@ private fun MainShell(
 							// B14 (1:3964 Motion): All saved staks -> My STAK tab.
 							onOpenMyStak = { switchTab(MainTab.MySTAK) },
 							onOpenDiscover = { switchTab(MainTab.Discover) },
-							onGoLive = onGoLive,
 						)
 						MainTab.MySTAK -> MyStakScreen(
 							onOpenCollection = onOpenCollection,

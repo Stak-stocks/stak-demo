@@ -131,8 +131,6 @@ object Session {
 		com.stak.demo.ui.discover.DeckSession.load()
 		StakNotifications.load()
 		com.stak.demo.ui.news.NewsSaves.load()
-		// The real-money account (FigJam Go live boards, 2026-09-14).
-		com.stak.demo.ui.live.LiveAccount.load()
 	}
 
 	/** Profile edits after sign-in (name/photo) stay with the session. */
