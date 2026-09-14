@@ -191,7 +191,7 @@ internal fun SimulateScreen(
 			) {
 				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 				// chooses its balance, name and strategy before its first trade.
-				if (PaperPortfolio.needsSetup) PortfolioSetupCard(onDone = {})
+				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
 				ScoreHero(onOpenLeaderboard = onOpenLeaderboard)
 				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
@@ -422,7 +422,7 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		}
 		Text(
-			text = "${PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on $" + String.format(java.util.Locale.US, "%,.0f", PaperPortfolio.PAPER_START) + " paper · ${PaperPortfolio.pickCountText}",
+			text = "${PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)} paper · ${PaperPortfolio.pickCountText}",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Sim.Muted,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
@@ -475,7 +475,7 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		} else {
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			val pct = PaperPortfolio.allTimeGain / PaperPortfolio.PAPER_START * 100
+			val pct = PaperPortfolio.allTimeGain / PaperPortfolio.paperStart * 100
 			val line = if (PaperPortfolio.demo) series!! else com.stak.demo.ui.StakInsights.scaled(series ?: SERIES_3M, pct)
 			RangeChart(series = line, tint = Sim.Teal, modifier = chartModifier)
 		}

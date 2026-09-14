@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -38,7 +37,6 @@ import com.stak.demo.ui.profile.SettingsScaffold
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
-import com.stak.demo.ui.theme.StakColors
 
 /**
  * The Go live screens' shared pieces (FigJam Go live boards, 2026-09-14). No
@@ -191,6 +189,9 @@ internal fun LiveSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.(
 @Composable
 internal fun GoLiveBanner(onOpen: () -> Unit) {
 	val u = figmaUnit()
+	// "You can leave this page. The result shows on your Profile.": every host of the banner runs the
+	// demo verifier too - resolveReview is a no-op once resolved (review 2026-09-14).
+	if (LiveAccount.status == LiveStatus.REVIEW) AfterDelay(key = "review", millis = 2200) { LiveAccount.resolveReview() }
 	val (kicker, title, body) = when (LiveAccount.status) {
 		LiveStatus.LIVE -> Triple("REAL MONEY ON", "Your live account", "${LiveAccount.usd(LiveAccount.cash)} available · ${LiveAccount.holdings.size} ${if (LiveAccount.holdings.size == 1) "holding" else "holdings"}")
 		LiveStatus.REVIEW -> Triple("GO LIVE", "Identity under review", "We’re checking your details. This usually takes a moment.")
@@ -234,10 +235,4 @@ internal fun AfterDelay(key: Any?, millis: Long, block: () -> Unit) {
 		kotlinx.coroutines.delay(millis)
 		block()
 	}
-}
-
-/** The overlay's dismiss target as a BoxScope helper for hosts that stack it. */
-@Composable
-internal fun BoxScope.LiveOverlay(visible: Boolean, content: @Composable () -> Unit) {
-	if (visible) content()
 }

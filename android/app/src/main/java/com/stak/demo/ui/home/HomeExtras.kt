@@ -83,6 +83,7 @@ internal fun TrendingStrip(onOpenStock: (String) -> Unit) {
 }
 
 /** A peek at the user's saves - up to three tickers and See all; empty accounts are pointed at the deck. */
+/** The rows are held by construction, so they open the saved (My STAK) flavour of Stock Detail (review 2026-09-14). */
 @Composable
 internal fun SavedPeekCard(onOpenStock: (String) -> Unit, onOpenMyStak: () -> Unit, onOpenDeck: () -> Unit) {
 	val u = figmaUnit()

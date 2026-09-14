@@ -31,6 +31,9 @@ import com.stak.demo.ui.profile.SettingsChip
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 
+/** The instant withdrawal's fee - one figure for the label, the row and the confirmation. */
+private const val INSTANT_FEE = 0.015
+
 /** The account page's modes: the home, the deposit steps and the withdrawal steps (FigJam: Fund account, Withdraw). */
 private object Mode {
 	const val HOME = "home"
@@ -59,15 +62,20 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 	var txId by rememberSaveable { mutableStateOf("") }
 	var method by rememberSaveable { mutableStateOf(0) }
 
-	// The demo market fills any market order still pending when the page opens.
+	// The demo market catches up when the page opens: every pending order gets its fill chance
+	// (waiting limits stay open) and anything left processing by an interrupted page lands (review 2026-09-14).
 	AfterDelay(key = "fills", millis = 1500) {
-		LiveAccount.orders.filter { it.status == "pending" && it.type == "market" }.forEach { LiveAccount.fill(it.id) }
+		LiveAccount.fillPending()
+		LiveAccount.settleProcessing()
 	}
 
+	// Leaving a page that owns a settle timer lands the transaction now - the wait is cosmetic.
+	val leave: () -> Unit = { LiveAccount.settle(txId); mode = Mode.HOME }
 	val back: () -> Unit = {
 		when (mode) {
 			Mode.HOME -> onBack()
 			Mode.WITHDRAW_METHOD -> mode = Mode.WITHDRAW_AMOUNT
+			Mode.DEPOSIT_PROCESSING, Mode.WITHDRAW_DONE -> leave()
 			else -> mode = Mode.HOME
 		}
 	}
@@ -87,7 +95,7 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 					LiveRow("In stocks", LiveAccount.usd(LiveAccount.holdingsValue))
 					if (LiveAccount.pendingBuyCash > 0.0) LiveRow("Reserved for pending buys", LiveAccount.usd(LiveAccount.pendingBuyCash), Live.Amber)
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth().padding(top = (6 * u).dp)) {
-						Column(modifier = Modifier.weight(1f)) { LiveSecondary("Add funds") { custom = false; amount = 100.0; mode = Mode.DEPOSIT } }
+						Column(modifier = Modifier.weight(1f)) { LiveSecondary("Add funds") { custom = false; amount = 100.0; text = ""; mode = Mode.DEPOSIT } }
 						Column(modifier = Modifier.weight(1f)) { LiveSecondary("Withdraw") { custom = false; amount = minOf(50.0, LiveAccount.cash); text = ""; mode = Mode.WITHDRAW_AMOUNT } }
 					}
 				}
@@ -164,7 +172,7 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 					LiveTitle("Add funds")
 					LiveBody("From ${LiveAccount.bankName} ••${LiveAccount.bankLast4}.")
 				}
-				AmountChips(presets = listOf(50.0, 100.0, 500.0), selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true })
+				AmountChips(presets = listOf(50.0, 100.0, 500.0), selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true; amount = text.toDoubleOrNull() ?: 0.0 })
 				if (custom) AuthInput(value = text, onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' }.take(9); amount = text.toDoubleOrNull() ?: 0.0 }, placeholder = "Amount in USD", keyboardType = KeyboardType.Decimal)
 				LiveRow("You add", LiveAccount.usd(amount))
 				AuthCta(text = "Confirm deposit", enabled = amount > 0.0, onClick = { txId = LiveAccount.deposit(amount); mode = Mode.DEPOSIT_PROCESSING })
@@ -191,7 +199,7 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 					LiveTitle("Withdraw")
 					LiveBody("Up to ${LiveAccount.usd(LiveAccount.cash)} of cash. Money in stocks has to be sold first.")
 				}
-				AmountChips(presets = listOf(25.0, 50.0, 100.0).filter { it <= LiveAccount.cash }, selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true })
+				AmountChips(presets = listOf(25.0, 50.0, 100.0).filter { it <= LiveAccount.cash }, selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true; amount = text.toDoubleOrNull() ?: 0.0 })
 				if (custom) AuthInput(value = text, onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' }.take(9); amount = text.toDoubleOrNull() ?: 0.0 }, placeholder = "Amount in USD", keyboardType = KeyboardType.Decimal, error = if (amount > LiveAccount.cash) "More than your cash available" else null)
 				LiveRow("You withdraw", LiveAccount.usd(amount))
 				AuthCta(text = "Continue", enabled = amount > 0.0 && amount <= LiveAccount.cash, onClick = { mode = Mode.WITHDRAW_METHOD })
@@ -202,13 +210,14 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 					LiveTitle("Where to send it")
 					LiveBody("Standard transfers are free and take 1–3 business days; instant goes to your debit card in minutes for a small fee.")
 				}
-				val methods = listOf("Standard · ${LiveAccount.bankName} ••${LiveAccount.bankLast4} · free", "Instant · debit card · 1.5% fee")
+				val methods = listOf("Standard · ${LiveAccount.bankName} ••${LiveAccount.bankLast4} · free", "Instant · debit card · ${String.format(java.util.Locale.US, "%.1f", INSTANT_FEE * 100)}% fee")
 				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
 					SettingsChip(label = "Standard", selected = method == 0) { method = 0 }
 					SettingsChip(label = "Instant", selected = method == 1) { method = 1 }
 				}
 				LiveCaption(methods[method])
-				LiveRow("You receive", LiveAccount.usd(if (method == 1) amount * 0.985 else amount))
+				if (method == 1) LiveRow("Instant fee", "-" + LiveAccount.usd(amount * INSTANT_FEE))
+				LiveRow("You receive", LiveAccount.usd(if (method == 1) amount * (1 - INSTANT_FEE) else amount))
 				AuthCta(text = "Confirm withdrawal", onClick = {
 					val id = LiveAccount.withdraw(amount, if (method == 1) "Instant · debit card" else "Standard · ${LiveAccount.bankName} ••${LiveAccount.bankLast4}")
 					if (id != null) { txId = id; mode = Mode.WITHDRAW_DONE }
@@ -216,12 +225,13 @@ internal fun LiveAccountScreen(onBack: () -> Unit, onFindStock: () -> Unit, onOp
 			}
 			else -> {
 				AfterDelay(key = txId, millis = 2500) { LiveAccount.settle(txId) }
+				val net = if (method == 1) amount * (1 - INSTANT_FEE) else amount
 				LiveCard {
 					LiveKicker("CONFIRMED", color = Live.Green)
-					LiveTitle("${LiveAccount.usd(amount)} on its way")
-					LiveBody(if (method == 1) "Your debit card should have it in minutes." else "Expect it at ${LiveAccount.bankName} in 1–3 business days.")
+					LiveTitle("${LiveAccount.usd(net)} on its way")
+					LiveBody(if (method == 1) "Your debit card should have it in minutes. ${LiveAccount.usd(amount)} left your account, ${LiveAccount.usd(amount * INSTANT_FEE)} of it the instant fee." else "Expect it at ${LiveAccount.bankName} in 1–3 business days.")
 				}
-				AuthCta(text = "Done", onClick = { mode = Mode.HOME })
+				AuthCta(text = "Done", onClick = leave)
 			}
 		}
 	}

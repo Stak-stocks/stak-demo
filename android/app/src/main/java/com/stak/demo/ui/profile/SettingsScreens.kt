@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -297,7 +298,8 @@ internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit)
 			.clip(RoundedCornerShape((14 * u).dp))
 			.background(if (selected) Color(0x2639C5CB) else Color(0xFF10182B))
 			.then(if (selected) Modifier.border((1 * u).dp, Color(0xFF2C9DBC), RoundedCornerShape((14 * u).dp)) else Modifier)
-			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
+			// A radio-style choice for TalkBack: "5%, selected" (review 2026-09-14).
+			.selectable(selected = selected, interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick)
 			.padding(horizontal = (12 * u).dp, vertical = (6 * u).dp),
 	) {
 		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (selected) Teal else Muted)
@@ -348,7 +350,8 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 				}
 			}
 		}
-		Caption("Log out from the Profile page keeps everything for next time.")
+		// Account-aware (review 2026-09-14): Sign in always restores the demo persona; a created account's state is not re-enterable after log out.
+		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves, paper portfolio and Go live progress for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
 	}
 }
 

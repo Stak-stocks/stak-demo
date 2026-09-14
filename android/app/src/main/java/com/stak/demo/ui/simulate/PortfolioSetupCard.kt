@@ -36,8 +36,17 @@ import com.stak.demo.ui.theme.Sora
 /** The three starting balances the board's "Choose balance" offers. */
 internal val SETUP_BALANCES = listOf(1_000.0, 10_000.0, 100_000.0)
 
-/** The strategies the board's "Strategy" step offers; the label doubles as the persisted value. */
-internal val SETUP_STRATEGIES = listOf("Cautious", "Balanced", "Bold")
+/** One strategy the board's "Strategy" step offers - the label is the persisted value, the blurb its one-line read. */
+internal data class SetupStrategy(val label: String, val blurb: String)
+
+internal val SETUP_STRATEGIES = listOf(
+	SetupStrategy("Cautious", "Small stakes, steady names. Aim to beat a savings account."),
+	SetupStrategy("Balanced", "A mix of steady and growth picks. The default most people start on."),
+	SetupStrategy("Bold", "Bigger swings on high-growth picks. Expect bumps."),
+)
+private const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
+private val DEFAULT_BALANCE = SETUP_BALANCES.indexOf(10_000.0)
+private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == "Balanced" }
 
 /**
  * Portfolio setup (FigJam Simulate board, 2026-09-14: Portfolio setup -> Choose
@@ -46,11 +55,11 @@ internal val SETUP_STRATEGIES = listOf("Cautious", "Balanced", "Bold")
  * set up. Mirrors ios Simulate/PortfolioSetupCard.swift.
  */
 @Composable
-internal fun PortfolioSetupCard(onDone: () -> Unit) {
+internal fun PortfolioSetupCard() {
 	val u = figmaUnit()
-	var balance by rememberSaveable { mutableIntStateOf(1) }
+	var balance by rememberSaveable { mutableIntStateOf(DEFAULT_BALANCE) }
 	var name by rememberSaveable { mutableStateOf("") }
-	var strategy by rememberSaveable { mutableIntStateOf(1) }
+	var strategy by rememberSaveable { mutableIntStateOf(DEFAULT_STRATEGY) }
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Sim.CardBg).padding((16 * u).dp),
@@ -73,7 +82,7 @@ internal fun PortfolioSetupCard(onDone: () -> Unit) {
 			cursorBrush = SolidColor(Sim.Teal),
 			decorationBox = { inner ->
 				Box(contentAlignment = Alignment.CenterStart) {
-					if (name.isEmpty()) Text("My first portfolio", style = style, color = Sim.Muted)
+					if (name.isEmpty()) Text(DEFAULT_PORTFOLIO_NAME, style = style, color = Sim.Muted)
 					inner()
 				}
 			},
@@ -87,14 +96,10 @@ internal fun PortfolioSetupCard(onDone: () -> Unit) {
 
 		Text("Strategy", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
 		Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
-			SETUP_STRATEGIES.forEachIndexed { i, s -> SettingsChip(label = s, selected = strategy == i) { strategy = i } }
+			SETUP_STRATEGIES.forEachIndexed { i, s -> SettingsChip(label = s.label, selected = strategy == i) { strategy = i } }
 		}
 		Text(
-			when (strategy) {
-				0 -> "Small stakes, steady names. Aim to beat a savings account."
-				2 -> "Bigger swings on high-growth picks. Expect bumps."
-				else -> "A mix of steady and growth picks. The default most people start on."
-			},
+			SETUP_STRATEGIES[strategy].blurb,
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Sim.Muted,
 		)
@@ -107,8 +112,7 @@ internal fun PortfolioSetupCard(onDone: () -> Unit) {
 				.background(Sim.DarkCta)
 				.border((0.36 * u).dp, Sim.CtaBorder, RoundedCornerShape((6 * u).dp))
 				.clickable {
-					PaperPortfolio.setup(SETUP_BALANCES[balance], name.trim().ifEmpty { "My first portfolio" }, SETUP_STRATEGIES[strategy])
-					onDone()
+					PaperPortfolio.setup(SETUP_BALANCES[balance], name.trim().ifEmpty { DEFAULT_PORTFOLIO_NAME }, SETUP_STRATEGIES[strategy].label)
 				}
 				.padding(vertical = (14 * u).dp),
 		) {

@@ -1232,7 +1232,7 @@ private fun PracticeBuyContent(
 							.background(if (sel) Disc.AmountSelBg else Disc.AmountBg)
 							.border(if (sel) (0.5 * u).dp else (1 * u).dp, if (sel) Disc.AmountSelBorder else Disc.AmountBorder, RoundedCornerShape((10 * u).dp))
 							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
-								onLimit(if (limit) (limitText.toDoubleOrNull() ?: spec.price) else null)
+								onLimit(if (limit) (limitText.toDoubleOrNull()?.takeIf { it > 0.0 } ?: spec.price) else null)
 							}
 							.padding(vertical = (8 * u).dp),
 					) {
@@ -1575,8 +1575,10 @@ internal fun DiscoverBuyFlow(
 			} else {
 				// Review 2026-09-04: "You now hold" is the whole holding after the
 				// fill - a top-up shows the summed shares, not just this order's.
-				val heldShares = com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares
-				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = heldShares), primary = filledPrimary, secondary = filledSecondary, pendingLimit = placedLimit)
+				// A placed limit reserves cash, not a holding: "Reserved for" shows what the stake buys AT the limit (review 2026-09-14).
+				val placed = placedLimit
+				val receiptShares = if (placed != null) String.format(java.util.Locale.US, "%.4f", amount / placed) else (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares)
+				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = receiptShares), primary = filledPrimary, secondary = filledSecondary, pendingLimit = placedLimit)
 			}
 		}
 	}

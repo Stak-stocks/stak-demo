@@ -165,22 +165,10 @@ fun SimPortfolioScreen(
 							trailing = { SellPill(onClick = { onOpenPick(p.ticker) }) },
 						)
 					}
-					// 1:4605 gk (exact-design audit 2026-09-04): the kicker sits 4 below the box top (13 in a 17), not centred.
-					Box(
-						contentAlignment = Alignment.BottomStart,
-						modifier = Modifier.fillMaxWidth().height((17 * u).dp).padding(start = (2 * u).dp),
-					) {
-						Text(
-							text = "SOLD · REALIZED",
-							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, letterSpacing = (0.9 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-							color = Sim.Faint,
-						)
-					}
+					PortfolioKicker("SOLD · REALIZED")
 					PaperPortfolio.realized.forEach { r ->
 						RealizedRow(r.badge, r.ticker, r.sub, r.amount, r.up)
 					}
-					OpenOrdersSection()
-					TradeHistorySection(filter = historyChip, onFilter = { historyChip = it })
 					Text(
 						text = "Sell a pick and the cash returns to your balance, gain or loss.",
 						// 1:4621 (exact-design audit 2026-09-04): centre-aligned across the full column, so a wrap stays centred.
@@ -189,6 +177,10 @@ fun SimPortfolioScreen(
 						modifier = Modifier.fillMaxWidth(),
 					)
 				}
+				// FigJam "Order pending -> cancel" (review 2026-09-14): a first-move limit order has no
+				// position or realized row yet, so these live outside the empty-state branch. Both self-hide when empty.
+				OpenOrdersSection()
+				TradeHistorySection(filter = historyChip, onFilter = { historyChip = it })
 			}
 		}
 		// The unwired in-page host keeps the frame's NVDA (1:4698 / 73:855).

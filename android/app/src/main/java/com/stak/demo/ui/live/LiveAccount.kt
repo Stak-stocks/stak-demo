@@ -80,7 +80,8 @@ internal object LiveAccount {
 	val isLive: Boolean get() = status == LiveStatus.LIVE
 	val bankLinked: Boolean get() = bankLast4.isNotEmpty()
 	val holdingsValue: Double get() = holdings.sumOf { it.value }
-	val accountValue: Double get() = cash + holdingsValue
+	/** Cash, stock and the cash pending buys have reserved - a reservation is not a loss (review 2026-09-14). */
+	val accountValue: Double get() = cash + holdingsValue + pendingBuyCash
 	/** Cash the pending buys have not spent yet. */
 	val pendingBuyCash: Double get() = orders.filter { it.isBuy && it.status == "pending" }.sumOf { it.amount }
 
@@ -96,6 +97,8 @@ internal object LiveAccount {
 		cash = 0.0
 		holdings = emptyList(); orders = emptyList(); transactions = emptyList()
 		StakStore.getString("live")?.let { runCatching { restore(JSONObject(it)) } }
+		// A deposit or withdrawal left processing by a killed app lands at the next launch (review 2026-09-14).
+		settleProcessing()
 	}
 
 	// ---- identity --------------------------------------------------------------------------
@@ -162,20 +165,33 @@ internal object LiveAccount {
 	// ---- trading ---------------------------------------------------------------------------
 	fun holding(symbol: String): LiveHolding? = holdings.firstOrNull { it.symbol == symbol }
 
+	/** Shares already promised to pending sells of the symbol (review 2026-09-14: two sells could over-credit cash). */
+	fun pendingSellShares(symbol: String): Double = orders.filter { !it.isBuy && it.status == "pending" && it.symbol == symbol }.sumOf { it.shares }
+
+	/** What a new sell may still take: the holding minus the pending sells. */
+	fun availableShares(symbol: String): Double = (holding(symbol)?.shares ?: 0.0) - pendingSellShares(symbol)
+
 	fun canBuy(amount: Double): Boolean = amount > 0.0 && amount <= cash
 
-	/** Places an order; a market order (or a limit at/above the price) is pending until `fill` runs, a lower limit stays open. */
+	/** Places an order; a market order is pending until `fill` runs; a buy limit under today's price or a sell limit over it stays open. A sell within half a cent of the available position sells it all. */
 	fun place(side: String, symbol: String, badge: String, name: String, amount: Double, price: Double, type: String, limit: Double?): LiveOrder? {
 		if (price <= 0.0 || amount <= 0.0) return null
-		val shares = amount / price
+		var shares = amount / price
+		var stake = amount
 		if (side == "BUY") {
 			if (!canBuy(amount)) return null
 			cash -= amount
 		} else {
-			val held = holding(symbol) ?: return null
-			if (shares > held.shares + 1e-9) return null
+			if (holding(symbol) == null) return null
+			val available = availableShares(symbol)
+			// Within half a cent of the whole available position = sell all: the fill zeroes it cleanly
+			// (the ticket rounds its presets to cents - review 2026-09-14).
+			val sellAll = amount >= available * price - 0.005
+			if (!sellAll && shares > available + 1e-9) return null
+			if (sellAll) { shares = available; stake = available * price }
+			if (shares <= 0.0) return null
 		}
-		val order = LiveOrder(newId("ord"), side, symbol, badge, name, amount, shares, price, type, limit, "pending", today())
+		val order = LiveOrder(newId("ord"), side, symbol, badge, name, stake, shares, price, type, limit, "pending", today())
 		orders = listOf(order) + orders
 		persist()
 		return order
@@ -184,7 +200,9 @@ internal object LiveAccount {
 	/** The demo market fills a pending order at its price: holdings and cash update (FigJam: Order filled -> holdings update). */
 	fun fill(orderId: String) {
 		val o = orders.firstOrNull { it.id == orderId && it.status == "pending" } ?: return
-		if (o.type == "limit" && o.limit != null && o.isBuy && o.limit < o.price) return // still waiting for its price
+		// A buy limit under today's price or a sell limit over it is still waiting for its price (review 2026-09-14).
+		val waiting = o.type == "limit" && o.limit != null && (if (o.isBuy) o.limit < o.price else o.limit > o.price)
+		if (waiting) return
 		if (o.isBuy) {
 			val held = holding(o.symbol)
 			holdings = if (held == null) {
@@ -203,6 +221,12 @@ internal object LiveAccount {
 		orders = orders.map { if (it.id == orderId) it.copy(status = "filled") else it }
 		persist()
 	}
+
+	/** The demo market catches up: every pending order gets its fill chance (waiting limits stay open). */
+	fun fillPending() { orders.filter { it.status == "pending" }.map { it.id }.forEach { fill(it) } }
+
+	/** Anything still processing from an interrupted page lands now: deposits credit cash, withdrawals just flip to done. */
+	fun settleProcessing() { transactions.filter { it.status == "processing" }.map { it.id }.forEach { settle(it) } }
 
 	fun cancel(orderId: String) {
 		val o = orders.firstOrNull { it.id == orderId && it.status == "pending" } ?: return

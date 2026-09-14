@@ -101,6 +101,8 @@ internal fun GoLiveFlow(onBack: () -> Unit, onOpenAccount: () -> Unit) {
 			Step.SSN -> step = Step.ADDRESS
 			Step.AGREE -> step = Step.SSN
 			Step.FUNDS -> if (depositId.isEmpty()) step = Step.BANK else onBack()
+			// Leaving Processing lands the deposit now - the wait is cosmetic (review 2026-09-14).
+			Step.PROCESSING -> { LiveAccount.settle(depositId); onBack() }
 			else -> onBack()
 		}
 	}
@@ -242,7 +244,7 @@ internal fun GoLiveFlow(onBack: () -> Unit, onOpenAccount: () -> Unit) {
 			}
 			Step.FUNDS -> {
 				StepHeader("FUNDING", "Add funds", "From ${LiveAccount.bankName} ••${LiveAccount.bankLast4}. Deposits usually clear in a moment here; 1–3 business days for real.")
-				AmountChips(presets = listOf(50.0, 100.0, 500.0), selected = fundAmount, onSelect = { fundAmount = it; fundCustom = false }, customOn = fundCustom, onCustom = { fundCustom = true })
+				AmountChips(presets = listOf(50.0, 100.0, 500.0), selected = fundAmount, onSelect = { fundAmount = it; fundCustom = false }, customOn = fundCustom, onCustom = { fundCustom = true; fundAmount = fundText.toDoubleOrNull() ?: 0.0 })
 				if (fundCustom) {
 					AuthInput(value = fundText, onValueChange = { fundText = it.filter { c -> c.isDigit() || c == '.' }.take(9); fundAmount = fundText.toDoubleOrNull() ?: 0.0 }, placeholder = "Amount in USD", keyboardType = KeyboardType.Decimal)
 				}

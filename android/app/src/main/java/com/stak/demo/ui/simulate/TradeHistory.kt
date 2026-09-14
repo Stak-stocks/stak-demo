@@ -39,6 +39,7 @@ import java.util.Locale
  * Both borrow the SOLD · REALIZED kicker and row language (1:4605 / 1:4607).
  * Mirrors ios Simulate/TradeHistory.swift.
  */
+/** 1:4605 gk (exact-design audit 2026-09-04): the kicker sits 4 below the box top (13 in a 17), not centred - the one source for SOLD · REALIZED, OPEN ORDERS and TRADE HISTORY. */
 @Composable
 internal fun PortfolioKicker(text: String) {
 	val u = figmaUnit()

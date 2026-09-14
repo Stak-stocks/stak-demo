@@ -3,7 +3,6 @@ package com.stak.demo.ui.live
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -54,13 +53,24 @@ internal fun LiveOrderFlow(symbol: String, badge: String, name: String, price: D
 	var limitText by rememberSaveable { mutableStateOf("") }
 	var orderId by rememberSaveable { mutableStateOf("") }
 	val held = LiveAccount.holding(symbol)
-	val heldValue = held?.let { it.shares * price } ?: 0.0
+	// What a sell may still take: the holding minus shares already promised to pending sells (review 2026-09-14).
+	val available = LiveAccount.availableShares(symbol)
+	val heldValue = available * price
 	val limit = if (limitOn) (limitText.toDoubleOrNull()?.takeIf { it > 0.0 } ?: price) else null
 	val shares = if (price > 0.0) amount / price else 0.0
 	val valid = amount > 0.0 && if (side == "BUY") LiveAccount.canBuy(amount) else amount <= heldValue + 0.005
+	// A buy limit under today's price or a sell limit over it waits on the account instead of filling.
+	val waits = limitOn && (if (side == "BUY") (limit ?: price) < price else (limit ?: price) > price)
 
-	androidx.activity.compose.BackHandler { if (stage == Stage.REVIEW) stage = Stage.TICKET else onClose() }
-	LiveSheet(onDismiss = { if (stage == Stage.PENDING) Unit else onClose() }) {
+	// Back mirrors the scrim: while the market is filling, the sheet stays (review 2026-09-14).
+	androidx.activity.compose.BackHandler {
+		when (stage) {
+			Stage.REVIEW -> stage = Stage.TICKET
+			Stage.PENDING -> Unit
+			else -> onClose()
+		}
+	}
+	LiveSheet(onDismiss = { if (stage != Stage.PENDING) onClose() }) {
 		when (stage) {
 			Stage.TICKET -> {
 				Text(if (side == "BUY") "Buy $symbol" else "Sell $symbol", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp), color = Color.White)
@@ -71,11 +81,11 @@ internal fun LiveOrderFlow(symbol: String, badge: String, name: String, price: D
 						SettingsChip(label = "Buy", selected = side == "BUY") { side = "BUY"; amount = 25.0; custom = false }
 						SettingsChip(label = "Sell", selected = side == "SELL") { side = "SELL"; amount = minOf(25.0, heldValue); custom = false }
 					}
-					LiveCaption("You hold ${LiveAccount.sharesText(held.shares)} sh worth ${LiveAccount.usd(heldValue)}.")
+					LiveCaption(if (available < held.shares - 1e-9) "You hold ${LiveAccount.sharesText(held.shares)} sh; ${LiveAccount.sharesText(available)} sh (${LiveAccount.usd(heldValue)}) are free to sell." else "You hold ${LiveAccount.sharesText(held.shares)} sh worth ${LiveAccount.usd(heldValue)}.")
 				}
 				LiveRow("Cash available", LiveAccount.usd(LiveAccount.cash))
 				val presets = if (side == "BUY") listOf(10.0, 25.0, 50.0, 100.0) else listOf(heldValue / 2, heldValue).map { Math.round(it * 100) / 100.0 }.distinct()
-				AmountChips(presets = presets, selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true })
+				AmountChips(presets = presets, selected = amount, onSelect = { amount = it; custom = false }, customOn = custom, onCustom = { custom = true; amount = text.toDoubleOrNull() ?: 0.0 })
 				if (custom) AuthInput(value = text, onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' }.take(9); amount = text.toDoubleOrNull() ?: 0.0 }, placeholder = "Amount in USD", keyboardType = KeyboardType.Decimal, error = if (!valid && amount > 0.0) (if (side == "BUY") "More than your cash available" else "More than you hold") else null)
 				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
 					SettingsChip(label = "Market", selected = !limitOn) { limitOn = false }
@@ -83,7 +93,7 @@ internal fun LiveOrderFlow(symbol: String, badge: String, name: String, price: D
 				}
 				if (limitOn) {
 					AuthInput(value = limitText, onValueChange = { limitText = it.filter { c -> c.isDigit() || c == '.' }.take(9) }, placeholder = "Limit price (today ${LiveAccount.usd(price)})", keyboardType = KeyboardType.Decimal)
-					LiveCaption(if ((limit ?: price) >= price || side == "SELL") "Fills at the market when your price is met - right away at today’s price." else "Below today’s price: the order waits on your account until $symbol gets there.")
+					LiveCaption(if (!waits) "Fills right away at today’s price - your limit is already met." else if (side == "BUY") "Below today’s price: the order waits on your account until $symbol gets there." else "Above today’s price: the order waits on your account until $symbol gets there.")
 				}
 				LiveRow("You ${if (side == "BUY") "get" else "sell"}", "${LiveAccount.sharesText(shares)} sh")
 				AuthCta(text = "Review order", enabled = valid, onClick = { stage = Stage.REVIEW })
@@ -102,7 +112,7 @@ internal fun LiveOrderFlow(symbol: String, badge: String, name: String, price: D
 					val o = LiveAccount.place(side, symbol, badge, name, amount, price, if (limitOn) "limit" else "market", limit)
 					if (o != null) {
 						orderId = o.id
-						stage = if (limitOn && side == "BUY" && (limit ?: price) < price) Stage.OPEN else Stage.PENDING
+						stage = if (waits) Stage.OPEN else Stage.PENDING
 					}
 				})
 				LiveSecondary("Back", onClick = { stage = Stage.TICKET })
@@ -119,7 +129,7 @@ internal fun LiveOrderFlow(symbol: String, badge: String, name: String, price: D
 				Text("Order placed", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp), color = Color.White)
 				StockLine(badge, symbol, name, price, change)
 				LiveStatusPill("pending")
-				LiveBody("Waits for $symbol at ${LiveAccount.usd(limit ?: price)} or below. ${LiveAccount.usd(amount)} is reserved; cancel any time from your account.")
+				LiveBody(if (side == "BUY") "Waits for $symbol at ${LiveAccount.usd(limit ?: price)} or below. ${LiveAccount.usd(amount)} is reserved; cancel any time from your account." else "Waits for $symbol at ${LiveAccount.usd(limit ?: price)} or above. ${LiveAccount.sharesText(shares)} sh are set aside; cancel any time from your account.")
 				AuthCta(text = "View account", onClick = onViewAccount)
 				LiveSecondary("Done", onClick = onClose)
 			}
@@ -151,6 +161,5 @@ private fun StockLine(badge: String, symbol: String, name: String, price: Double
 			Text(LiveAccount.usd(price), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
 			Text(change, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = if (change.startsWith("▼")) Live.Red else Live.Green)
 		}
-		Spacer(modifier = Modifier)
 	}
 }

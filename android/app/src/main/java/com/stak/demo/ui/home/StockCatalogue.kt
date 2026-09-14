@@ -13,16 +13,8 @@ import com.stak.demo.ui.mystak.CollStock
 internal object StockCatalogue {
 	val all: List<CollStock> by lazy { COLLECTIONS.flatMap { it.stocks }.distinctBy { it.ticker } }
 
-	fun find(ticker: String): CollStock? = all.firstOrNull { it.ticker == ticker }
-
-	/** "▲ 2.4%" -> 2.4, "▼ 0.4%" -> -0.4. */
-	fun movePct(stock: CollStock): Double {
-		val n = stock.change.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
-		return if (stock.up) n else -n
-	}
-
-	/** The day's biggest movers, either direction - the Trending strip. */
-	fun trending(limit: Int = 6): List<CollStock> = all.sortedByDescending { kotlin.math.abs(movePct(it)) }.take(limit)
+	/** The day's biggest movers, either direction - the Trending strip; the collection sort reads the same rule. */
+	fun trending(limit: Int = 6): List<CollStock> = all.sortedByDescending { kotlin.math.abs(com.stak.demo.ui.StakInsights.changePct(it)) }.take(limit)
 
 	/** Ticker or company match, case-insensitive, for the Search page. */
 	fun search(query: String): List<CollStock> {

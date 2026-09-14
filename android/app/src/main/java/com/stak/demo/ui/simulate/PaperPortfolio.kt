@@ -100,11 +100,16 @@ internal object PaperPortfolio {
 	var setupDone by mutableStateOf(false)
 		private set
 
-	/** The setup card shows until the account has set up or traded. */
-	val needsSetup: Boolean get() = !demo && !setupDone && trades.isEmpty()
+	/**
+	 * The setup card shows until the account has set up or touched its ledger - a trade, a held
+	 * position (a pre-2026-09-14 ledger has positions but no trade log) or a reserved limit order
+	 * (placeLimit records no trade). Review 2026-09-14: setup() must never rebase cash under a reservation.
+	 */
+	val needsSetup: Boolean get() = !demo && !setupDone && untouched
+	private val untouched: Boolean get() = trades.isEmpty() && positions.isEmpty() && openOrders.isEmpty()
 
 	fun setup(balance: Double, name: String, strategy: String) {
-		if (demo || trades.isNotEmpty()) return
+		if (!needsSetup) return
 		paperStart = balance
 		cash = balance
 		baseValue = balance
@@ -206,7 +211,9 @@ internal object PaperPortfolio {
 		baseHoldings = positions.sumOf { it.stake }
 		// The persisted ledger (buys, sells, cash) wins over the seed - product
 		// audit 2026-09-05; the seed baseline above is what value grows from.
-		com.stak.demo.ui.StakStore.getString("portfolio")?.let { runCatching { restore(org.json.JSONObject(it)) } }
+		// A demo ledger persisted before the trade log existed (no "trades" key) reseeds once with its
+		// authored history; the next persist() rewrites it in the current shape (review 2026-09-14).
+		com.stak.demo.ui.StakStore.getString("portfolio")?.let { runCatching { val o = org.json.JSONObject(it); if (!(demo && !o.has("trades"))) restore(o) } }
 	}
 
 	private fun seedTrades(): List<Trade> {
@@ -327,7 +334,8 @@ internal object PaperPortfolio {
 	 * holds until prices move - the demo serves no live prices.
 	 */
 	val portfolioValue: Double
-		get() = baseValue + (cash - baseCash) + (positions.sumOf { it.stake } - baseHoldings)
+		// A reserved limit stake is still the account's money until it fills or is cancelled (review 2026-09-14).
+		get() = baseValue + (cash - baseCash) + (positions.sumOf { it.stake } - baseHoldings) + openOrders.sumOf { it.amount }
 
 	val pickCount: Int get() = positions.size
 

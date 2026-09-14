@@ -70,13 +70,16 @@ private enum class SearchFilter(val label: String) { ALL("All"), STOCKS("Stocks"
  * its Stock Detail, a story its article. An empty query shows the day's movers
  * and the user's saves. Mirrors ios Home/SearchView.swift.
  */
+/** `onOpenSavedStock`: a held stock opens the saved (My STAK) flavour of Stock Detail, like its collection tile (review 2026-09-14). */
 @Composable
-fun SearchScreen(onBack: () -> Unit, onOpenStock: (String) -> Unit, onOpenArticle: (String) -> Unit) {
+fun SearchScreen(onBack: () -> Unit, onOpenStock: (String) -> Unit, onOpenArticle: (String) -> Unit, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = figmaUnit()
 	var query by rememberSaveable { mutableStateOf("") }
 	var filter by rememberSaveable { mutableStateOf(SearchFilter.ALL) }
 	val focus = remember { FocusRequester() }
-	LaunchedEffect(Unit) { focus.requestFocus() }
+	// The field takes focus once per page life - not again on every pop back from a result (review 2026-09-14).
+	var focusedOnce by rememberSaveable { mutableStateOf(false) }
+	LaunchedEffect(Unit) { if (!focusedOnce) { focusedOnce = true; focus.requestFocus() } }
 
 	val held = MyStakHoldings.tickers
 	val q = query.trim()
@@ -119,7 +122,7 @@ fun SearchScreen(onBack: () -> Unit, onOpenStock: (String) -> Unit, onOpenArticl
 						"✕",
 						style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp),
 						color = Muted,
-						modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) { query = "" },
+						modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClickLabel = "Clear search") { query = "" },
 					)
 				}
 			}
@@ -136,23 +139,23 @@ fun SearchScreen(onBack: () -> Unit, onOpenStock: (String) -> Unit, onOpenArticl
 			val showNews = filter == SearchFilter.ALL || filter == SearchFilter.NEWS
 			val showSaved = filter == SearchFilter.SAVED
 			if (showStocks && stocks.isNotEmpty()) {
-				Kicker(if (q.isEmpty()) "TRENDING TODAY" else "STOCKS")
-				ResultCard { stocks.forEach { StockRow(it, saved = it.ticker in held) { onOpenStock(it.ticker) } } }
+				SectionKicker(if (q.isEmpty()) "TRENDING TODAY" else "STOCKS")
+				ResultCard { stocks.forEach { s -> StockRow(s, saved = s.ticker in held) { if (s.ticker in held) onOpenSavedStock(s.ticker) else onOpenStock(s.ticker) } } }
 			}
 			if (showSaved) {
-				Kicker("IN YOUR STAK")
+				SectionKicker("IN YOUR STAK")
 				if (saved.isEmpty()) {
 					EmptyLine(if (q.isEmpty()) "Nothing saved yet. Swipe the deck to start." else "None of your saves match “$q”.")
 				} else {
-					ResultCard { saved.forEach { StockRow(it, saved = true) { onOpenStock(it.ticker) } } }
+					ResultCard { saved.forEach { StockRow(it, saved = true) { onOpenSavedStock(it.ticker) } } }
 				}
 			}
 			if (showNews) {
 				if (stories.isNotEmpty()) {
-					Kicker("NEWS")
+					SectionKicker("NEWS")
 					ResultCard { stories.forEach { StoryRow(it) { onOpenArticle(it.id) } } }
-				} else if (q.isNotEmpty() && filter == SearchFilter.NEWS) {
-					EmptyLine("No stories match “$q”.")
+				} else if (filter == SearchFilter.NEWS) {
+					EmptyLine(if (q.isEmpty()) "Type to search stories." else "No stories match “$q”.")
 				}
 			}
 			if (q.isNotEmpty() && filter == SearchFilter.ALL && stocks.isEmpty() && stories.isEmpty()) {
@@ -165,11 +168,6 @@ fun SearchScreen(onBack: () -> Unit, onOpenStock: (String) -> Unit, onOpenArticl
 	}
 }
 
-@Composable
-private fun Kicker(text: String) {
-	val u = figmaUnit()
-	Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Muted)
-}
 
 @Composable
 private fun EmptyLine(text: String) {

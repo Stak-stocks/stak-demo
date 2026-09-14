@@ -211,7 +211,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				}
 				val gain = com.stak.demo.ui.simulate.PaperPortfolio.allTimeGain
 				Text(
-					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on $10,000 paper",
+					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on ${com.stak.demo.ui.simulate.PaperPortfolio.wholeUsd(com.stak.demo.ui.simulate.PaperPortfolio.paperStart)} paper",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = if (gain >= 0) Green else Color(0xFFE5484D),
 				)

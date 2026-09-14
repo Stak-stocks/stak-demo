@@ -57,6 +57,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -89,7 +91,7 @@ private object Home {
  */
 /** `onOpenStock` / `onSearch`: the board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onGoLive: () -> Unit = {}) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onGoLive: () -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -120,7 +122,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					Spacer(modifier = Modifier.height((20 * u).dp))
 					TrendingStrip(onOpenStock = onOpenStock)
 					Spacer(modifier = Modifier.height((12 * u).dp))
-					SavedPeekCard(onOpenStock = onOpenStock, onOpenMyStak = onOpenMyStak, onOpenDeck = onOpenDeck)
+					SavedPeekCard(onOpenStock = onOpenSavedStock, onOpenMyStak = onOpenMyStak, onOpenDeck = onOpenDeck)
 					Spacer(modifier = Modifier.height((12 * u).dp))
 					// "Real money after Go live" hangs off the Home page on the board (FigJam, 2026-09-14).
 					com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
@@ -181,7 +183,8 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onSearch: () 
 						indication = com.stak.demo.ui.theme.PressDim,
 						onClickLabel = "Search",
 						onClick = onSearch,
-					),
+					)
+					.semantics { contentDescription = "Search" },
 			) {
 				SearchGlyph(size = (16 * u).dp, tint = Color(0xFFAEAEAE))
 			}
