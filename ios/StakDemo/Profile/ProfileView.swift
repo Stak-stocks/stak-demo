@@ -24,7 +24,11 @@ private let tasteChips = [
 	TasteChip(label: "Consumer Brands", width: 125)
 ]
 
-private let settingsRows = ["Notifications", "Appearance", "Linked accounts", "Help & support"]
+// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14).
+private let settingsRows = ["Notifications", "Appearance", "Linked accounts", "App settings", "Help & support", "Invite a friend"]
+private let inviteRow = "Invite a friend"
+/// The invite line the share sheet carries (FigJam: Your profile -> Invite a friend).
+private let inviteText = "Join me on STAK \u{2014} swipe stocks you actually understand and practise with paper money. https://stak.app"
 
 /// 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
 /// Home nav circle (prototype: Push Right 300ms). Avatar block, the
@@ -43,6 +47,9 @@ struct ProfileView: View {
 	var onOpenSetting: (SettingsKind) -> Void = { _ in }
 	/// The avatar and the name open the edit page (user, 2026-09-07).
 	var onEditProfile: () -> Void = {}
+	/// Go live (FigJam Go live boards, 2026-09-14): the real-money account's entry, status-aware.
+	var onGoLive: () -> Void = {}
+	@ObservedObject private var liveAccount = LiveAccount.shared
 	/// The paper stats card reads the live ledger (product audit, 2026-09-05).
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 
@@ -93,7 +100,8 @@ struct ProfileView: View {
 							Text(profile.greetingName)
 								.font(StakFont.sora(20 * u, .semiBold))
 								.foregroundStyle(StakColors.textPrimary)
-							Text("Paper investor · joined \(profile.joined)")
+							// A live account reads "Live investor" (FigJam Go live boards, 2026-09-14).
+							Text("\(liveAccount.isLive ? "Live investor" : "Paper investor") · joined \(profile.joined)")
 								.font(StakFont.geist(12 * u))
 								.foregroundStyle(StakColors.muted)
 							}
@@ -152,7 +160,7 @@ struct ProfileView: View {
 						.frame(maxWidth: .infinity)
 						// Stat columns sit at the top of the 40u row (171:1013 items-start), not centred - exact-design audit 2026-09-04.
 						.frame(height: 40 * u, alignment: .top)
-						Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on $10,000 paper")
+						Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
 							.font(StakFont.geist(12 * u, .medium))
 							.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))
 					}
@@ -160,11 +168,13 @@ struct ProfileView: View {
 					.padding(14 * u)
 					.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 
+					GoLiveBanner(onOpen: onGoLive)
+
 					// Settings card.
 					VStack(spacing: 0) {
 						ForEach(settingsRows, id: \.self) { label in
 							Button {
-								onOpenSetting(SettingsKind(row: label))
+								if label == inviteRow { share(inviteText) } else { onOpenSetting(SettingsKind(row: label)) }
 							} label: {
 								HStack {
 									Text(label)
@@ -218,6 +228,17 @@ struct ProfileView: View {
 	}
 }
 
+/// The system share sheet over the key window (the hub is not inside a NavigationStack, so ShareLink has no host bar).
+private func share(_ text: String) {
+	let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+	guard let root = scene?.keyWindow?.rootViewController else { return }
+	var top = root
+	while let presented = top.presentedViewController { top = presented }
+	let sheet = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+	sheet.popoverPresentationController?.sourceView = top.view
+	top.present(sheet, animated: true)
+}
+
 /// One stat column — Sora SemiBold 16 value over a Geist 11 muted label.
 private struct ProfileStat: View {
 	let value: String
@@ -243,6 +264,7 @@ extension SettingsKind {
 		case "Notifications": self = .notifications
 		case "Appearance": self = .appearance
 		case "Linked accounts": self = .linked
+		case "App settings": self = .app
 		default: self = .help
 		}
 	}

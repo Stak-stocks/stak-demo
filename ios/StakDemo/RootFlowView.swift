@@ -9,6 +9,8 @@ enum FlowScreen: Hashable {
 	case createAccount
 	case signIn
 	case forgotPassword
+	/// Email verification between an email sign-up and 01 Welcome (FigJam entry flow, 2026-09-14).
+	case verifyEmail(email: String)
 	case welcome
 	case brandPicks
 	case swipeTutorial
@@ -100,6 +102,11 @@ struct RootFlowView: View {
 						anim = .pushLeft
 						stack = [.createAccount, .signIn]
 						withAnimation(FlowAnim.pushLeft.animation) { phase = .flow }
+					}, onAccountDeleted: {
+						// The account is gone (Session.deleteAccount ran): Create account, dissolved in.
+						anim = .dissolve
+						stack = [.createAccount]
+						withAnimation(FlowAnim.dissolve.animation) { phase = .flow }
 					})
 					if relocked {
 						LockGateView { withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
@@ -141,9 +148,26 @@ struct RootFlowView: View {
 			CreateAccountView(
 				onBack: { push(.welcome, .pushLeft) },
 				onCreateAccount: { push(.welcome, .pushRight) },
-				onSignIn: { push(.signIn, .dissolve) }
+				onSignIn: { push(.signIn, .dissolve) },
+				// FigJam entry flow (2026-09-14): an email sign-up verifies the address first.
+				onVerifyEmail: { email in push(.verifyEmail(email: email), .pushRight) }
 			)
 			.id(FlowScreen.createAccount)
+		case .verifyEmail(let email):
+			EmailVerificationView(
+				email: email,
+				onBack: { pop() },
+				// "Yes" -> the investor quiz starts at 01 Welcome; the verification page
+				// leaves the stack so Back from 01 lands on Create account as before.
+				onVerified: {
+					anim = .pushRight
+					withAnimation(FlowAnim.pushRight.animation) {
+						stack.removeLast()
+						stack.append(.welcome)
+					}
+				}
+			)
+			.id(screen)
 		case .signIn:
 			SignInView(
 				// Prototype (sign-in frame): back circle returns to sign up

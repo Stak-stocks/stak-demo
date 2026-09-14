@@ -66,6 +66,7 @@ final class Session: ObservableObject {
 			p.priceAlerts = prefs["priceAlerts"] as? Bool ?? true
 			p.dailyDeck = prefs["dailyDeck"] as? Bool ?? true
 			p.marketNews = prefs["marketNews"] as? Bool ?? false
+			p.priceThreshold = prefs["priceThreshold"] as? Int ?? 3
 			// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 			// value that build stored reads as Dark, so the Appearance page always shows a choice.
 			p.appearance = (prefs["appearance"] as? String) == "system" ? "system" : "dark"
@@ -83,6 +84,8 @@ final class Session: ObservableObject {
 		DeckSession.shared.load()
 		StakNotifications.shared.load()
 		NewsSaves.shared.load()
+		// The real-money account (FigJam Go live boards, 2026-09-14).
+		LiveAccount.shared.load()
 	}
 
 	/// Sign-in CTA or account creation (09 Proceed) - remembered across launches.
@@ -125,6 +128,15 @@ final class Session: ObservableObject {
 		persist()
 	}
 
+	/// Delete account (FigJam Profile board, 2026-09-14: App settings -> Delete / log
+	/// out): everything this account kept on the phone - saves, paper ledger, deck
+	/// progress, inbox, live-account state - is wiped, then the session ends. The
+	/// demo persona's authored history reseeds on its next sign-in. Mirrors Android.
+	func deleteAccount() {
+		StakStore.clearAccount(demo: demoAccount)
+		signOut()
+	}
+
 	/// Log out: forget the session and the profile; next launch asks to sign in.
 	func signOut() {
 		signedIn = false
@@ -143,6 +155,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.priceAlerts = true
 		UserProfile.shared.dailyDeck = true
 		UserProfile.shared.marketNews = false
+		UserProfile.shared.priceThreshold = 3
 		UserProfile.shared.appearance = "dark"
 		UserProfile.shared.linkedGoogle = false
 		UserProfile.shared.linkedApple = false
@@ -179,7 +192,7 @@ final class Session: ObservableObject {
 		d.set(UserProfile.shared.joined, forKey: Self.keyJoined)
 		d.set(firstRunPending, forKey: Self.keyFirstRun)
 		let p = UserProfile.shared
-		d.set(["priceAlerts": p.priceAlerts, "dailyDeck": p.dailyDeck, "marketNews": p.marketNews, "appearance": p.appearance, "linkedGoogle": p.linkedGoogle, "linkedApple": p.linkedApple] as [String: Any], forKey: Self.keyPrefs)
+		d.set(["priceAlerts": p.priceAlerts, "dailyDeck": p.dailyDeck, "marketNews": p.marketNews, "priceThreshold": p.priceThreshold, "appearance": p.appearance, "linkedGoogle": p.linkedGoogle, "linkedApple": p.linkedApple] as [String: Any], forKey: Self.keyPrefs)
 		Self.savePhoto(UserProfile.shared.photoData)
 	}
 

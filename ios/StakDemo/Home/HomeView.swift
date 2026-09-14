@@ -93,6 +93,13 @@ struct HomeView: View {
 	var onOpenNews: () -> Void = {}
 	var onOpenMyStak: () -> Void = {}
 	var onOpenDeck: () -> Void = {}
+	/// The board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14).
+	var onOpenStock: (String) -> Void = { _ in }
+	/// A saved stock opens the My STAK flavour of Stock Detail (review 2026-09-14).
+	var onOpenSavedStock: (String) -> Void = { _ in }
+	var onSearch: () -> Void = {}
+	/// "Real money after Go live" hangs off the Home page on the board (FigJam, 2026-09-14).
+	var onGoLive: () -> Void = {}
 
 	var body: some View {
 		let u = figmaUnit
@@ -102,7 +109,7 @@ struct HomeView: View {
 				// content — the greeting block lives inside scroll content.
 				ScrollView {
 					VStack(spacing: 0) {
-						TopNav(onProfile: onProfile, onBell: onBell)
+						TopNav(onProfile: onProfile, onBell: onBell, onSearch: onSearch)
 							.padding(.horizontal, 17 * u)
 						Spacer().frame(height: 21 * u)
 						VStack(spacing: 0) {
@@ -111,9 +118,20 @@ struct HomeView: View {
 							WhyThisMattersCard(onOpenMyStak: onOpenMyStak)
 							Spacer().frame(height: 20 * u)
 							DeckBanner(onOpenDeck: onOpenDeck)
-							// Authored scroll content (118:1634) ends exactly at the
-							// banner's bottom edge — no trailing gap. First run keeps
-							// room for the scrim pill.
+							// The board's Trending stocks and Saved peek follow the authored
+							// stack (FigJam Home board, 2026-09-14); first run keeps them under
+							// the scrim, so the pill still sits on the frame's geometry.
+							// Grouped: a ViewBuilder block takes ten children at most (Swift 5.9).
+							Group {
+								Spacer().frame(height: 20 * u)
+								TrendingStrip(onOpenStock: onOpenStock)
+								Spacer().frame(height: 12 * u)
+								SavedPeekCard(onOpenStock: onOpenSavedStock, onOpenMyStak: onOpenMyStak, onOpenDeck: onOpenDeck)
+								Spacer().frame(height: 12 * u)
+								GoLiveBanner(onOpen: onGoLive)
+								Spacer().frame(height: 20 * u)
+							}
+							// First run keeps room for the scrim pill.
 							if firstRun {
 								Spacer().frame(height: 140 * u)
 							}
@@ -143,6 +161,8 @@ struct HomeView: View {
 private struct TopNav: View {
 	let onProfile: () -> Void
 	var onBell: () -> Void = {}
+	/// Search (FigJam Home board, 2026-09-14) - a nav circle like the profile's, left of the authored bell.
+	var onSearch: () -> Void = {}
 	@ObservedObject var profile = UserProfile.shared
 	@ObservedObject var notifications = StakNotifications.shared
 	/// Time-of-day in the user's own timezone (device clock); re-read every
@@ -163,6 +183,16 @@ private struct TopNav: View {
 					.frame(width: 78.16 * u, height: 14.98 * u)
 					.accessibilityLabel("STAK")
 				Spacer()
+				Button(action: onSearch) {
+					ZStack {
+						Circle().fill(Home.navCircle)
+						SearchGlyph(size: 16 * u, tint: Color(argb: 0xFFAEAEAE))
+					}
+					.frame(width: 35 * u, height: 35 * u)
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("Search")
+				Spacer().frame(width: 4 * u)
 				// Bell + stateful unread dot (151:1207): the authored badge
 				// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 				// notifications exist and clears once they're opened and read.

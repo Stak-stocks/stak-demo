@@ -435,6 +435,9 @@ enum NewsArticleFeed {
 		return pool.filter { $0.category == "Markets" } + pool.filter { $0.category != "Markets" }
 	}
 
+	/// Every story the Search page may list - the strict stock-news pool (FigJam Home board, 2026-09-14).
+	static func searchable() -> [Article] { articles.filter(isStockNews) }
+
 	/// The article page's READ NEXT rows - two other row-presented stories.
 	static func readNext(excluding: String) -> [Article] {
 		Array(articles.filter { isStockNews($0) && $0.thumb != nil && $0.id != excluding }.prefix(2))

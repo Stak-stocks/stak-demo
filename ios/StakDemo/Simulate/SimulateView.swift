@@ -49,6 +49,8 @@ struct SimulateView: View {
 	/// When the shell hosts the ticket (1:4232: the sheet covers the tab bar),
 	/// it raises it here with the tapped row's spec.
 	var onPracticeBuy: ((BuySpec) -> Void)? = nil
+	/// The Go live banner (FigJam Go live boards, 2026-09-14): "Setup and cash only. Trading runs in Simulate."
+	var onGoLive: () -> Void = {}
 
 	/// The locally hosted ticket's spec (nil = no ticket).
 	@State private var buy: BuySpec? = nil
@@ -93,7 +95,13 @@ struct SimulateView: View {
 
 				ScrollView(showsIndicators: false) {
 					VStack(spacing: 18 * u) {
-						ScoreHero(onOpenLeaderboard: onOpenLeaderboard)
+						Group {
+							// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
+							// chooses its balance, name and strategy before its first trade.
+							if portfolio.needsSetup { PortfolioSetupCard() }
+							ScoreHero(onOpenLeaderboard: onOpenLeaderboard)
+							if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
+						}
 						sectionHeader("Saved staks")
 						let savedRows = savedStakRows()
 						if savedRows.isEmpty {
@@ -117,7 +125,11 @@ struct SimulateView: View {
 								PickDuo(kicker: "WORST PICK", pct: worst.row.pct, pctColor: worst.row.up ? Sim.green : Sim.red, badge: worst.row.badge, ticker: worst.row.ticker, sub: "\(PaperPortfolio.gainLabel(PaperPortfolio.amount(worst.row.amount))) on \(worst.spec.stakeBasis)", action: { onOpenPick(worst.row.ticker) })
 							}
 						}
-						HowItWorksCard()
+						// Grouped: a ViewBuilder block takes ten children at most (Swift 5.9).
+						Group {
+							HowItWorksCard()
+							GoLiveBanner(onOpen: onGoLive)
+						}
 						sectionHeader("Your portfolio")
 						// Codex audit (2026-09-04): the ledger's first three rows - a
 						// fresh buy lands at the top (1:3898 authored NVDA/TSLA/MSFT
@@ -284,7 +296,8 @@ private struct ScoreHero: View {
 						.padding(.leading, 8 * u)
 						.padding(.bottom, 8 * u)
 				}
-				Text("\(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on $10,000 paper · \(portfolio.pickCountText)")
+				// The base is the account's own start ($1,000 / $100,000 after Portfolio setup; review 2026-09-14).
+				Text("\(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper · \(portfolio.pickCountText)")
 					.font(StakFont.geist(12 * u, .light))
 					.foregroundStyle(Sim.muted)
 				HStack(spacing: 6 * u) {
@@ -314,7 +327,7 @@ private struct ScoreHero: View {
 			// Authored: ranks→chart gap is exactly the column's 11 (1:3935);
 			// the chart bleeds outside the 20u text padding.
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u, move: portfolio.demo ? nil : portfolio.allTimeGain / PaperPortfolio.paperStart * 100)
+			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u, move: portfolio.demo ? nil : portfolio.allTimeGain / portfolio.paperStart * 100)
 				.frame(maxWidth: .infinity)
 			HStack(spacing: 37 * u) {
 				ForEach(["1D", "1W", "1M", "3M", "YTD", "1Y"], id: \.self) { label in

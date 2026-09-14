@@ -10,6 +10,8 @@ struct CreateAccountView: View {
 	let onBack: () -> Void
 	let onCreateAccount: () -> Void
 	let onSignIn: () -> Void
+	/// The email path goes through Email verification first (FigJam entry flow, 2026-09-14); Google / Apple skip it via `onCreateAccount`.
+	var onVerifyEmail: (String) -> Void = { _ in }
 
 	@State private var email = ""
 	@State private var password = ""
@@ -74,7 +76,7 @@ struct CreateAccountView: View {
 				VStack(spacing: 12 * u) {
 					AuthCta(text: "Create account", enabled: filled, action: {
 						attempted = true
-						if emailError == nil && passwordError == nil && confirmError == nil { onCreateAccount() }
+						if emailError == nil && passwordError == nil && confirmError == nil { onVerifyEmail(email.trimmingCharacters(in: .whitespaces)) }
 					})
 					AuthSwitchRow(prefix: "Already have an account?", link: "Sign in", action: onSignIn)
 					Text("By continuing you agree to the Terms and Privacy Policy.")

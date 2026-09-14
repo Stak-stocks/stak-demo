@@ -23,9 +23,26 @@ final class PaperPortfolio: ObservableObject {
 	static let shared = PaperPortfolio()
 
 	/// Authored (1:3898): "$10,000 paper", "+$240.00 all time", "Cash available $8,800.00".
-	static let paperStart = 10000.0
+	static let defaultPaperStart = 10000.0
+	/// Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
+	/// Strategy). A NEW account picks its starting balance before its first trade;
+	/// the demo persona is the authored $10,000 portfolio. Persisted with the
+	/// ledger. Mirrors android PaperPortfolio.paperStart & co.
+	@Published private(set) var paperStart = PaperPortfolio.defaultPaperStart
+	@Published private(set) var portfolioName = ""
+	@Published private(set) var strategy = ""
+	@Published private(set) var setupDone = false
+	/// Every buy and sell, newest first (FigJam: Trade history).
+	@Published private(set) var trades: [Trade] = []
+	/// Limit orders waiting for their price, newest first (FigJam: Order pending).
+	@Published private(set) var openOrders: [OpenOrder] = []
+	/// The setup card shows until the account has set up or touched its ledger - a trade, a held
+	/// position (a pre-2026-09-14 ledger has positions but no trade log) or a reserved limit order
+	/// (placeLimit records no trade). Review 2026-09-14: setup() must never rebase cash under a reservation.
+	var needsSetup: Bool { !demo && !setupDone && untouched }
+	private var untouched: Bool { trades.isEmpty && positions.isEmpty && openOrders.isEmpty }
 	/// All-time gain = today's value over the paper start (the demo's authored $240 falls out of its $10,240).
-	var allTimeGain: Double { portfolioValue - PaperPortfolio.paperStart }
+	var allTimeGain: Double { portfolioValue - paperStart }
 	@Published var cash: Double = 8800
 
 	/// The authored demo account, or a fresh one (product audit, 2026-09-05; mirrors Android).
@@ -37,7 +54,7 @@ final class PaperPortfolio: ObservableObject {
 	var rank: Int? { demo ? PaperPortfolio.weekRank : nil }
 	var weekUp: Bool { demo ? true : allTimeGain >= 0 }
 	var weekGainText: String { demo ? PaperPortfolio.weekGain : PaperPortfolio.signedWhole(allTimeGain) }
-	var weekPctText: String { demo ? PaperPortfolio.weekPct : PaperPortfolio.signedPct(allTimeGain / PaperPortfolio.paperStart * 100) }
+	var weekPctText: String { demo ? PaperPortfolio.weekPct : PaperPortfolio.signedPct(allTimeGain / paperStart * 100) }
 	/// "12 picks" is authored for the demo (its rows list six); a new account counts its own.
 	var pickCountLabel: Int { demo ? 12 + (positions.count - PaperPortfolio.authoredRows.count) : positions.count }
 
@@ -48,6 +65,14 @@ final class PaperPortfolio: ObservableObject {
 	func reset(demo: Bool) {
 		self.demo = demo
 		newStake = 0
+		paperStart = PaperPortfolio.defaultPaperStart
+		portfolioName = demo ? "Hamza\u{2019}s paper" : ""
+		strategy = demo ? "Balanced" : ""
+		setupDone = demo
+		openOrders = []
+		// The persona's authored history as a trade log: a buy per seeded row on its
+		// picked day, a sell per realized row (undated seeds order by their rows).
+		trades = demo ? PaperPortfolio.seedTrades() : []
 		if demo {
 			cash = 8800
 			positions = PaperPortfolio.authoredRows.compactMap { row in
@@ -60,19 +85,33 @@ final class PaperPortfolio: ObservableObject {
 			baseValue = 10240
 			baseCash = 8800
 		} else {
-			cash = PaperPortfolio.paperStart
+			cash = PaperPortfolio.defaultPaperStart
 			positions = []
 			realized = []
-			baseValue = PaperPortfolio.paperStart
-			baseCash = PaperPortfolio.paperStart
+			baseValue = PaperPortfolio.defaultPaperStart
+			baseCash = PaperPortfolio.defaultPaperStart
 		}
 		// The persisted ledger (buys, sells, cash) wins over the seed - product audit
 		// 2026-09-05; the seed baseline above is what value grows from.
-		if let data = StakStore.data("portfolio"), let saved = try? JSONDecoder().decode(Ledger.self, from: data) {
+		// A demo ledger persisted before the trade log existed reseeds once (its rows were the
+		// authored seed anyway) and is rewritten in the current shape by the next persist();
+		// a new account's ledger always restores (review 2026-09-14).
+		if let data = StakStore.data("portfolio"), let saved = try? JSONDecoder().decode(Ledger.self, from: data), !(demo && saved.trades == nil) {
 			positions = saved.positions
 			realized = saved.realized
 			cash = saved.cash
 			newStake = saved.newStake
+			// Fields the FigJam Simulate work added (2026-09-14) - a ledger persisted before them keeps its defaults.
+			if let start = saved.paperStart {
+				paperStart = start
+				baseValue = demo ? 10240 : start
+				baseCash = demo ? 8800 : start
+			}
+			if let name = saved.name { portfolioName = name }
+			if let strategy = saved.strategy { self.strategy = strategy }
+			if let done = saved.setupDone { setupDone = done }
+			if let trades = saved.trades { self.trades = trades }
+			if let orders = saved.orders { openOrders = orders }
 		}
 	}
 
@@ -81,11 +120,68 @@ final class PaperPortfolio: ObservableObject {
 		let newStake: Double
 		let positions: [Position]
 		let realized: [Realized]
+		// Optional so an older ledger still decodes (FigJam Simulate board, 2026-09-14).
+		var paperStart: Double? = nil
+		var name: String? = nil
+		var strategy: String? = nil
+		var setupDone: Bool? = nil
+		var trades: [Trade]? = nil
+		var orders: [OpenOrder]? = nil
 	}
 
 	private func persist() {
-		let ledger = Ledger(cash: cash, newStake: newStake, positions: positions, realized: realized)
+		let ledger = Ledger(cash: cash, newStake: newStake, positions: positions, realized: realized, paperStart: paperStart, name: portfolioName, strategy: strategy, setupDone: setupDone, trades: trades, orders: openOrders)
 		if let data = try? JSONEncoder().encode(ledger) { StakStore.set(data, for: "portfolio") }
+	}
+
+	/// Portfolio setup: only before the first trade, never for the demo persona.
+	func setup(balance: Double, name: String, strategy: String) {
+		guard needsSetup else { return }
+		paperStart = balance
+		cash = balance
+		baseValue = balance
+		baseCash = balance
+		portfolioName = name
+		self.strategy = strategy
+		setupDone = true
+		persist()
+	}
+
+	/// The persona's authored history as a trade log (sells first, then the seeded buys).
+	private static func seedTrades() -> [Trade] {
+		let buys: [Trade] = authoredRows.compactMap { row in
+			guard let spec = PickSpecs.all.first(where: { $0.symbol == row.ticker }) else { return nil }
+			let afterPicked = row.sub.components(separatedBy: "Picked ").last ?? row.sub
+			let day = afterPicked.components(separatedBy: " \u{00B7}").first ?? afterPicked
+			return Trade(side: "BUY", symbol: row.ticker, badge: row.badge, amount: amount(spec.stakeBasis), shares: Double(spec.shares) ?? 0, price: amount(spec.priceThen), day: day, epochDay: 0)
+		}
+		let sells = [
+			Trade(side: "SELL", symbol: "SHOP", badge: "S", amount: 112.0, shares: 1.4, price: 80.0, day: "May 30", epochDay: 0),
+			Trade(side: "SELL", symbol: "COIN", badge: "C", amount: 92.0, shares: 0.5, price: 184.0, day: "Jun 15", epochDay: 0)
+		]
+		return sells + buys
+	}
+
+	private func recordTrade(side: String, symbol: String, badge: String, amount: Double, shares: Double, price: Double) {
+		trades.insert(Trade(side: side, symbol: symbol, badge: badge, amount: amount, shares: shares, price: price, day: PaperPortfolio.today(), epochDay: Int(Date().timeIntervalSince1970 / 86400)), at: 0)
+	}
+
+	/// A limit order under today's price (FigJam: Market or limit; Order pending): the stake is reserved from cash until it fills or is cancelled.
+	@discardableResult
+	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double) -> Bool {
+		guard canBuy(amount), limit > 0 else { return false }
+		cash -= amount
+		openOrders.insert(OpenOrder(id: "\(spec.symbol)-\(Int(Date().timeIntervalSince1970 * 1000))", symbol: spec.symbol, badge: spec.badge, name: spec.name, amount: amount, limit: limit, change: spec.change, day: PaperPortfolio.today()), at: 0)
+		persist()
+		return true
+	}
+
+	/// Cancelling an open order releases its reserved stake.
+	func cancelOrder(_ id: String) {
+		guard let order = openOrders.first(where: { $0.id == id }) else { return }
+		openOrders.removeAll { $0.id == id }
+		cash += order.amount
+		persist()
 	}
 
 	static func signedWhole(_ value: Double) -> String { (value < 0 ? "-$" : "+$") + wholeDollars(abs(value)).replacingOccurrences(of: "$", with: "") }
@@ -107,6 +203,37 @@ final class PaperPortfolio: ObservableObject {
 		var id: String { spec.symbol }
 	}
 
+	/// One ledger event - a buy or a sell (FigJam Simulate board, 2026-09-14: Trade
+	/// history -> Trade log). `amount` is the cash that moved, `day` the "Sep 14" it
+	/// moved on, `epochDay` for ordering (0 = an authored, undated seed row).
+	struct Trade: Identifiable, Codable {
+		let side: String
+		let symbol: String
+		let badge: String
+		let amount: Double
+		let shares: Double
+		let price: Double
+		let day: String
+		let epochDay: Int
+		/// Per-process row identity for ForEach only - never persisted (an explicit key set keeps
+		/// the decoder off it, so no "immutable property will not be decoded" warning).
+		let id = UUID()
+		var isBuy: Bool { side == "BUY" }
+		private enum CodingKeys: String, CodingKey { case side, symbol, badge, amount, shares, price, day, epochDay }
+	}
+
+	/// A limit order waiting for its price (FigJam: Buy order -> Market or limit; Order pending).
+	struct OpenOrder: Identifiable, Codable {
+		let id: String
+		let symbol: String
+		let badge: String
+		let name: String
+		let amount: Double
+		let limit: Double
+		let change: String
+		let day: String
+	}
+
 	/// A SOLD · REALIZED row (1:4496).
 	struct Realized: Identifiable, Codable {
 		let badge: String
@@ -114,8 +241,9 @@ final class PaperPortfolio: ObservableObject {
 		let sub: String
 		let amount: String
 		let up: Bool
-		/// A ticker can be sold more than once - rows carry their own identity.
+		/// A ticker can be sold more than once - rows carry their own identity (never persisted).
 		let id = UUID()
+		private enum CodingKeys: String, CodingKey { case badge, ticker, sub, amount, up }
 	}
 
 	/// The authored six rows (1:4496) in the authored order - the tickers
@@ -147,8 +275,9 @@ final class PaperPortfolio: ObservableObject {
 	/// $10,240.00 until prices move.
 	private var newStake = 0.0
 
-	/// The authored $10,240.00 (1:3898) plus whatever cash moved since.
-	var portfolioValue: Double { baseValue + (cash - baseCash) + newStake }
+	/// The authored $10,240.00 (1:3898) plus whatever cash moved since. A reserved limit
+	/// stake stays the account's money until it fills or is cancelled (review 2026-09-14).
+	var portfolioValue: Double { baseValue + (cash - baseCash) + newStake + openOrders.reduce(0) { $0 + $1.amount } }
 	var pickCount: Int { positions.count }
 
 	func holds(_ symbol: String) -> Bool {
@@ -170,7 +299,9 @@ final class PaperPortfolio: ObservableObject {
 		let price = spec.price
 		cash -= amount
 		newStake += amount
-		let newShares = amount / price
+		// A zero quote never divides (mirrors PaperPortfolio.kt).
+		let newShares = price > 0 ? amount / price : 0
+		recordTrade(side: "BUY", symbol: spec.symbol, badge: spec.badge, amount: amount, shares: newShares, price: price)
 		if let i = positions.firstIndex(where: { $0.spec.symbol == spec.symbol }) {
 			let held = positions[i]
 			let grown = held.spec.holding(
@@ -220,6 +351,7 @@ final class PaperPortfolio: ObservableObject {
 		let held = positions[i]
 		let spec = held.spec
 		let stake = PaperPortfolio.amount(spec.stakeValue)
+		recordTrade(side: "SELL", symbol: symbol, badge: spec.badge, amount: stake * p, shares: (Double(spec.shares) ?? 0) * p, price: PaperPortfolio.amount(spec.priceNow))
 		let sub = "Sold \(PaperPortfolio.today()) · \(spec.up ? "profit banked" : "loss realized")"
 		if p >= 0.999 {
 			positions.remove(at: i)

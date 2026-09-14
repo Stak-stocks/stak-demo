@@ -978,9 +978,15 @@ struct PracticeBuySheet: View {
 	/// passes them last.
 	var amount: Double = 25
 	var onAmount: (Double) -> Void = { _ in }
+	/// Market or limit (FigJam Simulate board, 2026-09-14): a limit price under
+	/// today's waits as an open order. Declared last - memberwise order.
+	var limitPrice: Double? = nil
+	var onLimit: (Double?) -> Void = { _ in }
 
 	@State private var selected = 1   // the authored $25 pill (1:1970); DiscoverBuyFlow opens at 25
 	@State private var customText = ""
+	@State private var limitText = ""
+	private var isLimit: Bool { limitPrice != nil }
 
 	/// A pill selects its stake; Custom re-applies whatever valid amount
 	/// its field already holds (else the last pill value stands).
@@ -1077,6 +1083,53 @@ struct PracticeBuySheet: View {
 						.onChange(of: customText) { applyCustom() }
 					}
 				}
+				// Market or limit (FigJam Simulate board, 2026-09-14). 1:1970 authors a
+				// market ticket only; the row borrows the pills' chrome.
+				VStack(alignment: .leading, spacing: 8 * u) {
+					HStack(spacing: 8 * u) {
+						ForEach([("Market", false), ("Limit", true)], id: \.0) { label, limit in
+							let sel = isLimit == limit
+							Button { onLimit(limit ? (Double(limitText).flatMap { $0 > 0 ? $0 : nil } ?? spec.price) : nil) } label: {
+								Text(label)
+									.font(StakFont.geist(12 * u, .medium))
+									.foregroundStyle(sel ? Disc.amountSelInk : Disc.amountInk)
+									.frame(maxWidth: .infinity)
+									.padding(.vertical, 8 * u)
+									.background(sel ? Disc.amountSelBg : Disc.amountBg, in: RoundedRectangle(cornerRadius: 10 * u))
+									.overlay(
+										RoundedRectangle(cornerRadius: 10 * u)
+											.strokeBorder(sel ? Disc.amountSelBorder : Disc.amountBorder, lineWidth: sel ? 0.5 * u : 1 * u)
+									)
+							}
+							.buttonStyle(.pressDim)
+						}
+					}
+					if isLimit {
+						HStack(spacing: 4 * u) {
+							Text("Limit $")
+								.font(StakFont.geist(12 * u, .medium))
+								.foregroundStyle(Disc.amountInk)
+							TextField(String(format: "%.2f", spec.price), text: $limitText)
+								.keyboardType(.decimalPad)
+								// Digits and one point, nine characters at most; empty means today's price.
+								.onChange(of: limitText) { _, new in
+									let clean = String(new.filter { $0.isNumber || $0 == "." }.prefix(9))
+									if clean != new { limitText = clean; return }
+									onLimit(Double(clean).flatMap { $0 > 0 ? $0 : nil } ?? spec.price)
+								}
+								.textFieldStyle(.plain)
+								.font(StakFont.geist(12 * u, .medium))
+								.foregroundStyle(Disc.amountInk)
+						}
+						.padding(.horizontal, 12 * u)
+						.padding(.vertical, 8 * u)
+						.background(Disc.amountBg, in: RoundedRectangle(cornerRadius: 10 * u))
+						.overlay(RoundedRectangle(cornerRadius: 10 * u).strokeBorder(Disc.amountSelBorder, lineWidth: 0.5 * u))
+						Text((limitPrice ?? 0) >= spec.price ? "At or above today\u{2019}s price - fills right away." : "Below today\u{2019}s price - waits as an open order until \(spec.symbol) gets there.")
+							.font(StakFont.geist(11 * u))
+							.foregroundStyle(Disc.muted)
+					}
+				}
 				// Authored: chips → shares line is a 24 gap (14 + 10).
 				HStack(alignment: .bottom, spacing: 6 * u) {
 					Text("You get")
@@ -1093,7 +1146,7 @@ struct PracticeBuySheet: View {
 				.padding(.top, 10 * u)
 				VStack(spacing: 16 * u) {
 					// Confirm only with a stake the cash covers (Codex review, PR #167).
-					SheetCta(text: "Confirm practice buy", action: onConfirm)
+					SheetCta(text: isLimit && (limitPrice ?? 0) < spec.price ? "Place limit order" : "Confirm practice buy", action: onConfirm)
 						.disabled(!PaperPortfolio.shared.canBuy(amount))
 						.opacity(PaperPortfolio.shared.canBuy(amount) ? 1 : 0.5)
 					SheetSecondary(text: secondary, action: onDismiss)
@@ -1113,6 +1166,8 @@ struct OrderFilledSheet: View {
 	/// Authored per-CTA exits (85:1205); nil falls back to onDismiss.
 	var onPrimary: (() -> Void)? = nil
 	var onSecondary: (() -> Void)? = nil
+	/// A limit order under today's price is placed, not filled (FigJam: Order pending). Declared last - memberwise order.
+	var pendingLimit: Double? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -1121,13 +1176,13 @@ struct OrderFilledSheet: View {
 				Image("IcSheetCheck")
 					.resizable()
 					.frame(width: 47 * u, height: 47 * u)
-				Text("Order filled")
+				Text(pendingLimit != nil ? "Order placed" : "Order filled")
 					.font(StakFont.sora(18 * u, .semiBold))
 					.foregroundStyle(Color.white)
 				SheetStockRow(spec: spec)
 				// Authored status line (85:1407): Geist 12 / lh 18, left-aligned, 14 below
 				// the stock row - exact-design audit 2026-09-04 (was 14).
-				Text("Filled instantly · paper order")
+				Text(pendingLimit.map { "Waits for \(spec.symbol) at \(PaperPortfolio.money($0)) or below · paper order" } ?? "Filled instantly · paper order")
 					.font(StakFont.geist(12 * u))
 					.stakLineHeight(18 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(Disc.body)
@@ -1142,7 +1197,7 @@ struct OrderFilledSheet: View {
 					Spacer()
 				}
 				HStack(alignment: .bottom, spacing: 6 * u) {
-					Text("You now hold")
+					Text(pendingLimit != nil ? "Reserved for" : "You now hold")
 						.font(StakFont.geist(12 * u))
 						.foregroundStyle(Disc.muted)
 					Text(spec.shares)
@@ -1188,6 +1243,10 @@ struct DiscoverBuyFlow: View {
 	/// ticket AT this amount, so "You get", the cash after and "You now
 	/// hold" agree (1:1970 / 85:1205).
 	@State private var amount: Double = 25
+	/// Market or limit (FigJam Simulate board, 2026-09-14): a limit under today's
+	/// price is placed as an open order and the receipt says so.
+	@State private var limitPrice: Double? = nil
+	@State private var placedLimit: Double? = nil
 	/// Codex audit (2026-09-04): the cash on hand when the ticket opened -
 	/// read once, so the receipt's cash after (85:1205) holds still after
 	/// the buy lands in PaperPortfolio.
@@ -1201,18 +1260,34 @@ struct DiscoverBuyFlow: View {
 					// Codex audit (2026-09-04): every host (Discover, Simulate, Stock
 					// Detail) fills through here, so the paper buy lands once, before
 					// the host's onFilled.
-					PracticeBuySheet(spec: live, onConfirm: { guard !filled, PaperPortfolio.shared.canBuy(amount) else { return }; PaperPortfolio.shared.buy(spec, amount: amount); filled = true; onFilled() }, onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 })
+					PracticeBuySheet(
+						spec: live,
+						onConfirm: {
+							guard !filled, PaperPortfolio.shared.canBuy(amount) else { return }
+							if let limit = limitPrice, limit < spec.price {
+								// Below today's price: an open order, no fill yet (FigJam: Order pending).
+								if PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit) { placedLimit = limit; filled = true }
+							} else {
+								PaperPortfolio.shared.buy(spec, amount: amount); filled = true; onFilled()
+							}
+						},
+						onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 },
+						limitPrice: limitPrice, onLimit: { limitPrice = $0 }
+					)
 						.transition(.opacity)
 				} else {
 					// Review (2026-09-04): "You now hold" is the FULL holding after the
 					// buy - a top-up shows the position's shares, not the ticket's.
-					let held = PaperPortfolio.shared.pickSpec(spec.symbol)?.shares ?? live.shares
+					// A pending limit (review 2026-09-14) reserves `amount` of cash: "Reserved for" shows
+					// what the stake buys AT the limit, not today's price or the existing holding.
+					let held = placedLimit.map { PaperPortfolio.shares(amount / $0) } ?? (PaperPortfolio.shared.pickSpec(spec.symbol)?.shares ?? live.shares)
 					OrderFilledSheet(
 						spec: BuySpec(
 							title: live.title, badge: live.badge, name: live.name, priceLine: live.priceLine, change: live.change,
 							cashBefore: live.cashBefore, cashAfter: live.cashAfter, shares: held, symbol: live.symbol
 						),
-						onDismiss: onClose, primary: filledPrimary, secondary: filledSecondary, onPrimary: onFilledPrimary, onSecondary: onFilledSecondary
+						onDismiss: onClose, primary: filledPrimary, secondary: filledSecondary, onPrimary: onFilledPrimary, onSecondary: onFilledSecondary,
+						pendingLimit: placedLimit
 					)
 					.transition(.opacity)
 				}

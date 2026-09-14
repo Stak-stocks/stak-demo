@@ -11,6 +11,11 @@ private enum PushedPage: Identifiable, Equatable {
 	/// 09 Profile setup as the hub's edit page (user, 2026-09-07).
 	case editProfile
 	case notifications
+	/// Home · Search (FigJam Home board, 2026-09-14).
+	case search
+	/// Go live (FigJam Go live boards, 2026-09-14): the identity + funding walk, and the real-money account home.
+	case goLive
+	case liveAccount
 	case settings(SettingsKind)
 	case simPortfolio
 	/// Codex parity audit (2026-09-04): carries the tapped pick's ticker
@@ -26,6 +31,9 @@ private enum PushedPage: Identifiable, Equatable {
 		case .profile: return "profile"
 		case .editProfile: return "editProfile"
 		case .notifications: return "notifications"
+		case .search: return "search"
+		case .goLive: return "goLive"
+		case .liveAccount: return "liveAccount"
 		case .settings(let kind): return "settings-\(kind.rawValue)"
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
@@ -87,6 +95,8 @@ private enum NavStyle {
 /// and cross-tab edges retarget `tab` before the pop reveals the shell.
 struct MainTabsView: View {
 	var onLogOut: () -> Void = {}
+	/// Delete account (FigJam Profile board, 2026-09-14): the session is gone, the app returns to Create account.
+	var onAccountDeleted: () -> Void = {}
 	@State private var tab = MainTab.home
 	// First run (1:958) is for a FIRST-TIME user only: the account was created
 	// here and the run has not been completed yet. An active/returning user -
@@ -174,7 +184,12 @@ struct MainTabsView: View {
 							onBell: { push(.notifications) },
 							onOpenNews: { endFirstRun(); switchTab(.news) },
 							onOpenMyStak: { endFirstRun(); switchTab(.myStak) },
-							onOpenDeck: { endFirstRun(); switchTab(.discover) }
+							onOpenDeck: { endFirstRun(); switchTab(.discover) },
+							// The board-only sections: a stock opens its detail, the circle opens Search.
+							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
+							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
+							onSearch: { push(.search) },
+							onGoLive: { openGoLive() }
 						)
 					case .news:
 						// Authored (1:1228): Story tile -> News detail unsaved, Instant.
@@ -207,7 +222,8 @@ struct MainTabsView: View {
 							// Authored (1:3964): All saved staks -> the My STAK tab.
 							onOpenMyStak: { switchTab(.myStak) },
 							onOpenDiscover: { switchTab(.discover) },
-							onPracticeBuy: { simulateBuy = $0 }
+							onPracticeBuy: { simulateBuy = $0 },
+							onGoLive: { openGoLive() }
 						)
 					}
 				}
@@ -297,7 +313,9 @@ struct MainTabsView: View {
 				onPracticeBuyToSimulate: { pop(.instant, all: true, landing: .simulate) },
 				// Authored (1:2579): the open state's tab bar SWAPs - pop the
 				// detail instantly and land on the tapped tab.
-				onTab: { pop(.instant, all: true, landing: $0) }
+				onTab: { pop(.instant, all: true, landing: $0) },
+				// A filled live order's "View account" (FigJam Go live boards, 2026-09-14).
+				onViewLiveAccount: { push(.liveAccount) }
 			)
 		case .collection(let id):
 			CollectionView(
@@ -318,7 +336,25 @@ struct MainTabsView: View {
 			ProfileView(onBack: { pop() }, onLogOut: onLogOut, onOpenSetting: { kind in push(.settings(kind)) }, onEditProfile: {
 				// Two fingers on the block must not stack two edit pages (review 2026-09-07).
 				if pushed.last?.page != .editProfile { push(.editProfile) }
+			}, onGoLive: { openGoLive() })
+		case .goLive:
+			// Go live (FigJam Go live boards, 2026-09-14): resumes at the account's step.
+			GoLiveFlow(onBack: { pop() }, onOpenAccount: {
+				// The walk is over: the account home takes its place on the stack with the house
+				// forward push - mirrors Android's navigate(LIVE_ACCOUNT) { popUpTo(GO_LIVE) { inclusive = true } }.
+				// Guarded so a second tap during the slide cannot swap a page that is no longer on top.
+				guard pushed.last?.page == .goLive else { return }
+				navStyle = .forwardPush
+				parkedShift = pageWidth
+				withAnimation(FlowAnim.pushRight.animation) { pushed[pushed.count - 1] = PushedEntry(page: .liveAccount) }
 			})
+		case .liveAccount:
+			LiveAccountView(
+				onBack: { pop() },
+				// "Find a stock" lands on the Discover deck.
+				onFindStock: { pop(.instant, all: true, landing: .discover) },
+				onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) }
+			)
 		case .editProfile:
 			// House push in, house back out; Save pops back to the hub, which
 			// observes UserProfile and re-renders the avatar block. Pops only while
@@ -327,8 +363,16 @@ struct MainTabsView: View {
 			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
 		case .notifications:
 			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
+		case .search:
+			// Home · Search (FigJam Home board, 2026-09-14): stocks open their detail, stories their article.
+			SearchView(
+				onBack: { pop() },
+				onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
+				onOpenArticle: { id in pushInstant(.newsDetail(article: id)) },
+				onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) }
+			)
 		case .settings(let kind):
-			SettingsView(kind: kind, onBack: { pop() })
+			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:
 			SimPortfolioView(
 				// Authored (1:4496): Back -> Simulate home, Instant; rows and
@@ -426,6 +470,11 @@ struct MainTabsView: View {
 				if !pushed.isEmpty { pushed.removeLast() }
 			}
 		}
+	}
+
+	/// Live = the account home, otherwise the Go live walk (FigJam Go live boards, 2026-09-14).
+	private func openGoLive() {
+		push(LiveAccount.shared.isLive ? .liveAccount : .goLive)
 	}
 
 	/// Pick detail's Backs always land on Portfolio (1:4631): pop when it

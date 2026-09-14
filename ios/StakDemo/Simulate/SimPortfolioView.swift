@@ -16,7 +16,20 @@ struct SimPortfolioView: View {
 
 	@State private var showSell = false
 	@State private var showClosed = false
+	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
+	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
+	// fresh buy sits at the top), Worst = smallest gain first.
+	@State private var sortChip = 0
+	@State private var historyChip = 0
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+
+	private var sortedPositions: [PaperPortfolio.Position] {
+		switch sortChip {
+		case 0: return portfolio.positions.sorted { PaperPortfolio.amount($0.row.amount) > PaperPortfolio.amount($1.row.amount) }
+		case 2: return portfolio.positions.sorted { PaperPortfolio.amount($0.row.amount) < PaperPortfolio.amount($1.row.amount) }
+		default: return portfolio.positions
+		}
+	}
 
 	var body: some View {
 		let u = figmaUnit
@@ -60,11 +73,11 @@ struct SimPortfolioView: View {
 							EmptyStateCard(title: "No picks yet", text: "Your first practice buy lands here with its live gain.")
 						} else {
 							HStack(spacing: 8 * u) {
-								FilterChip(label: "Top gainers", selected: true)
-								FilterChip(label: "Newest", selected: false)
-								FilterChip(label: "Worst", selected: false)
+								FilterChip(label: "Top gainers", selected: sortChip == 0) { sortChip = 0 }
+								FilterChip(label: "Newest", selected: sortChip == 1) { sortChip = 1 }
+								FilterChip(label: "Worst", selected: sortChip == 2) { sortChip = 2 }
 							}
-							ForEach(portfolio.positions) { position in
+							ForEach(sortedPositions) { position in
 								let p = position.row
 								PortfolioRow(
 									badge: p.badge, ticker: p.ticker, sub: p.sub,
@@ -97,6 +110,11 @@ struct SimPortfolioView: View {
 								.multilineTextAlignment(.center)
 								.frame(maxWidth: .infinity)
 						}
+						// FigJam "Order pending -> cancel": a first-move limit order has no position or
+						// realized row yet, so these live outside the empty-state branch (review
+						// 2026-09-14). Both self-hide when empty.
+						OpenOrdersSection()
+						TradeHistorySection(filter: $historyChip)
 					}
 					.padding(.horizontal, 20 * u)
 					.padding(.top, 6 * u)
@@ -130,16 +148,20 @@ struct SimPortfolioView: View {
 private struct FilterChip: View {
 	let label: String
 	let selected: Bool
+	let action: () -> Void
 
 	var body: some View {
 		let u = figmaUnit
-		Text(label)
-			.font(StakFont.geist(12 * u, .medium))
-			.foregroundStyle(selected ? Sim.teal : Sim.muted)
-			.padding(.horizontal, 12 * u)
-			.padding(.vertical, 6 * u)
-			// Selected chip is fill-only (1:4519) — no teal hairline.
-			.background(selected ? Sim.tealTint : Sim.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
+		Button(action: action) {
+			Text(label)
+				.font(StakFont.geist(12 * u, .medium))
+				.foregroundStyle(selected ? Sim.teal : Sim.muted)
+				.padding(.horizontal, 12 * u)
+				.padding(.vertical, 6 * u)
+				// Selected chip is fill-only (1:4519) — no teal hairline.
+				.background(selected ? Sim.tealTint : Sim.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
+		}
+		.buttonStyle(.pressDim)
 	}
 }
 
