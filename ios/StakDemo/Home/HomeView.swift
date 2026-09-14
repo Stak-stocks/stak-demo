@@ -98,8 +98,6 @@ struct HomeView: View {
 	/// A saved stock opens the My STAK flavour of Stock Detail (review 2026-09-14).
 	var onOpenSavedStock: (String) -> Void = { _ in }
 	var onSearch: () -> Void = {}
-	/// "Real money after Go live" hangs off the Home page on the board (FigJam, 2026-09-14).
-	var onGoLive: () -> Void = {}
 
 	var body: some View {
 		let u = figmaUnit
@@ -127,8 +125,6 @@ struct HomeView: View {
 								TrendingStrip(onOpenStock: onOpenStock)
 								Spacer().frame(height: 12 * u)
 								SavedPeekCard(onOpenStock: onOpenSavedStock, onOpenMyStak: onOpenMyStak, onOpenDeck: onOpenDeck)
-								Spacer().frame(height: 12 * u)
-								GoLiveBanner(onOpen: onGoLive)
 								Spacer().frame(height: 20 * u)
 							}
 							// First run keeps room for the scrim pill.

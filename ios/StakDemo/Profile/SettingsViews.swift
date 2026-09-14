@@ -477,7 +477,7 @@ private struct AppSettingsView: View {
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			// Only the demo persona's state survives a log out - a created account signs back in as a new one (review 2026-09-14).
-			Caption(text: Session.shared.demoAccount ? "Log out from the Profile page keeps your saves, paper portfolio and Go live progress for the next sign-in." : "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
+			Caption(text: Session.shared.demoAccount ? "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." : "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
 		}
 	}
 }

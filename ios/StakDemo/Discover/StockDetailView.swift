@@ -31,13 +31,8 @@ struct StockDetailView: View {
 	var onKeepExploring: (() -> Void)? = nil
 	var onPracticeBuyToSimulate: (() -> Void)? = nil
 	var onTab: ((MainTab) -> Void)? = nil
-	/// A filled live order's "View account" (FigJam Go live boards, 2026-09-14). Declared last.
-	var onViewLiveAccount: () -> Void = {}
 
 	@State private var saved: Bool
-	/// Stock Detail · Buy -> Account live? (FigJam): a live account gets the real order ticket, else the practice one.
-	@State private var showLiveOrder = false
-	@ObservedObject private var liveAccount = LiveAccount.shared
 	@State private var showSuccess = false
 	@State private var showBuy = false
 	/// Hoisted from AnalystCard - drives the 1:2579 tab bar and the fold
@@ -53,8 +48,7 @@ struct StockDetailView: View {
 		onViewInMyStak: (() -> Void)? = nil,
 		onKeepExploring: (() -> Void)? = nil,
 		onPracticeBuyToSimulate: (() -> Void)? = nil,
-		onTab: ((MainTab) -> Void)? = nil,
-		onViewLiveAccount: @escaping () -> Void = {}
+		onTab: ((MainTab) -> Void)? = nil
 	) {
 		self.onBack = onBack
 		self.fromMyStak = fromMyStak
@@ -63,7 +57,6 @@ struct StockDetailView: View {
 		self.onKeepExploring = onKeepExploring
 		self.onPracticeBuyToSimulate = onPracticeBuyToSimulate
 		self.onTab = onTab
-		self.onViewLiveAccount = onViewLiveAccount
 		// Codex audit (2026-09-04): saved follows the holdings store, like the deck card.
 		// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 		// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -76,7 +69,6 @@ struct StockDetailView: View {
 	var body: some View {
 		let u = figmaUnit
 		let f = detailFactsFor(symbol)
-		let live = liveAccount.isLive
 		// Authored (1:2579): ONLY the Discover-entry open state composes the
 		// shell tab bar (an authored inconsistency - matched per frame).
 		let showsBar = !fromMyStak && analystOpen && onTab != nil
@@ -156,7 +148,7 @@ struct StockDetailView: View {
 
 						VStack(spacing: 10 * u) {
 							if fromMyStak {
-								DetailCta(text: live ? "Buy" : "Practice buy") { if live { showLiveOrder = true } else { showBuy = true } }
+								DetailCta(text: "Practice buy") { showBuy = true }
 								// Codex audit (2026-09-04): Unsave drops the stock from the
 								// store so the Collection page and every count follow, then
 								// the authored Back -> Collection, Instant (16:1012).
@@ -173,7 +165,7 @@ struct StockDetailView: View {
 								// My STAK" outline button was never in a frame (user, 2026-09-05).
 								// Unsave drops the stock from this run's saves and the holdings
 								// store and stays on the page with the Save CTA back. Mirrors android.
-								DetailCta(text: live ? "Buy" : "Practice buy", action: { if live { showLiveOrder = true } else { practiceBuy() } })
+								DetailCta(text: "Practice buy", action: practiceBuy)
 								DetailSecondary(text: "Unsave") {
 									saved = false
 									DeckSession.shared.saved.remove(f.symbol)
@@ -183,7 +175,7 @@ struct StockDetailView: View {
 								// Authored (1:2382 -> 92:969, SMART_ANIMATE 350): the
 								// save-success sheet scale-fades in like the News one.
 								DetailCta(text: "Save") { withAnimation(.easeOut(duration: 0.35)) { showSuccess = true } }
-								DetailSecondary(text: live ? "Buy" : "Practice buy", action: { if live { showLiveOrder = true } else { practiceBuy() } })
+								DetailSecondary(text: "Practice buy", action: practiceBuy)
 							}
 						}
 						.padding(.horizontal, 20 * u)
@@ -247,19 +239,6 @@ struct StockDetailView: View {
 					// Authored (1:3423): the ticket's secondary -> detail,
 					// DISSOLVE 300.
 					onTicketSecondary: { withAnimation(.easeOut(duration: 0.3)) { showBuy = false } }
-				)
-				.transition(.opacity)
-			}
-			if showLiveOrder {
-				// The live order ticket over the page (FigJam: Order ticket -> review -> pending -> filled).
-				LiveOrderFlow(
-					symbol: f.symbol,
-					badge: f.sheetBadge,
-					name: f.sheetName,
-					price: Double(f.price.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")) ?? 0,
-					change: f.change.replacingOccurrences(of: " today", with: ""),
-					onClose: { showLiveOrder = false },
-					onViewAccount: { showLiveOrder = false; onViewLiveAccount() }
 				)
 				.transition(.opacity)
 			}

@@ -49,8 +49,6 @@ struct SimulateView: View {
 	/// When the shell hosts the ticket (1:4232: the sheet covers the tab bar),
 	/// it raises it here with the tapped row's spec.
 	var onPracticeBuy: ((BuySpec) -> Void)? = nil
-	/// The Go live banner (FigJam Go live boards, 2026-09-14): "Setup and cash only. Trading runs in Simulate."
-	var onGoLive: () -> Void = {}
 
 	/// The locally hosted ticket's spec (nil = no ticket).
 	@State private var buy: BuySpec? = nil
@@ -125,11 +123,7 @@ struct SimulateView: View {
 								PickDuo(kicker: "WORST PICK", pct: worst.row.pct, pctColor: worst.row.up ? Sim.green : Sim.red, badge: worst.row.badge, ticker: worst.row.ticker, sub: "\(PaperPortfolio.gainLabel(PaperPortfolio.amount(worst.row.amount))) on \(worst.spec.stakeBasis)", action: { onOpenPick(worst.row.ticker) })
 							}
 						}
-						// Grouped: a ViewBuilder block takes ten children at most (Swift 5.9).
-						Group {
-							HowItWorksCard()
-							GoLiveBanner(onOpen: onGoLive)
-						}
+						HowItWorksCard()
 						sectionHeader("Your portfolio")
 						// Codex audit (2026-09-04): the ledger's first three rows - a
 						// fresh buy lands at the top (1:3898 authored NVDA/TSLA/MSFT

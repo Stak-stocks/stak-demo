@@ -84,8 +84,6 @@ final class Session: ObservableObject {
 		DeckSession.shared.load()
 		StakNotifications.shared.load()
 		NewsSaves.shared.load()
-		// The real-money account (FigJam Go live boards, 2026-09-14).
-		LiveAccount.shared.load()
 	}
 
 	/// Sign-in CTA or account creation (09 Proceed) - remembered across launches.

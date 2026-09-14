@@ -47,9 +47,6 @@ struct ProfileView: View {
 	var onOpenSetting: (SettingsKind) -> Void = { _ in }
 	/// The avatar and the name open the edit page (user, 2026-09-07).
 	var onEditProfile: () -> Void = {}
-	/// Go live (FigJam Go live boards, 2026-09-14): the real-money account's entry, status-aware.
-	var onGoLive: () -> Void = {}
-	@ObservedObject private var liveAccount = LiveAccount.shared
 	/// The paper stats card reads the live ledger (product audit, 2026-09-05).
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 
@@ -100,8 +97,7 @@ struct ProfileView: View {
 							Text(profile.greetingName)
 								.font(StakFont.sora(20 * u, .semiBold))
 								.foregroundStyle(StakColors.textPrimary)
-							// A live account reads "Live investor" (FigJam Go live boards, 2026-09-14).
-							Text("\(liveAccount.isLive ? "Live investor" : "Paper investor") · joined \(profile.joined)")
+							Text("Paper investor · joined \(profile.joined)")
 								.font(StakFont.geist(12 * u))
 								.foregroundStyle(StakColors.muted)
 							}
@@ -167,8 +163,6 @@ struct ProfileView: View {
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(14 * u)
 					.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-
-					GoLiveBanner(onOpen: onGoLive)
 
 					// Settings card.
 					VStack(spacing: 0) {
