@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,9 @@ object SettingsKind {
 	const val APPEARANCE = "appearance"
 	const val LINKED = "linked"
 	const val HELP = "help"
+	/** App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account. */
+	const val APP = "app"
+	const val PASSWORD = "password"
 }
 
 /** The hub's header (back circle + centred title) over a dark page. */
@@ -120,12 +124,15 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
 	}
 }
 
+/** `onOpen` pushes a sibling settings page (App settings -> Appearance / Change password); `onAccountDeleted` leaves the signed-out app on Create account. */
 @Composable
-fun SettingsScreen(kind: String, onBack: () -> Unit) {
+fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = {}, onAccountDeleted: () -> Unit = {}) {
 	when (kind) {
 		SettingsKind.NOTIFICATIONS -> NotificationSettingsScreen(onBack)
 		SettingsKind.APPEARANCE -> AppearanceScreen(onBack)
 		SettingsKind.LINKED -> LinkedAccountsScreen(onBack)
+		SettingsKind.APP -> AppSettingsScreen(onBack, onOpen, onAccountDeleted)
+		SettingsKind.PASSWORD -> ChangePasswordScreen(onBack)
 		else -> HelpSupportScreen(onBack)
 	}
 }
@@ -153,7 +160,20 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 				)
 			}
 		}
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than 3%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile() }
+		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile() }
+		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
+		Column(
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((14 * u).dp)).background(com.stak.demo.ui.onboarding.Auth.InputBg).padding((16 * u).dp),
+		) {
+			Text("Price threshold", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Color.White)
+			Text("Only moves at least this big get a nudge.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = com.stak.demo.ui.onboarding.Auth.SubtitleGray)
+			Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
+				listOf(1, 3, 5, 10).forEach { pct ->
+					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile() }
+				}
+			}
+		}
 		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile() }
 		PermissionCard("Market news", "The stories behind the moves, a few times a week.", UserProfile.marketNews) { UserProfile.marketNews = !UserProfile.marketNews; Session.saveProfile() }
 		Caption("You can change these any time.")
@@ -226,6 +246,15 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
 				runCatching { context.startActivity(intent) }
 			}
+			// Contact / report and the legal links (FigJam Profile board, 2026-09-14).
+			SettingsLinkRow(label = "Report a problem") {
+				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app"))
+					.putExtra(Intent.EXTRA_SUBJECT, "STAK problem report")
+					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\nApp version $version")
+				runCatching { context.startActivity(intent) }
+			}
+			SettingsLinkRow(label = "Terms of service") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))) } }
+			SettingsLinkRow(label = "Privacy policy") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) } }
 			// A value row - nothing to open behind it (product audit, 2026-09-05).
 			SettingsLinkRow(label = "Version", value = version, chevron = false) {}
 		}
@@ -251,6 +280,114 @@ private fun FaqRow(question: String, answer: String) {
 		}
 		AnimatedVisibility(visible = open) {
 			Text(answer, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body, modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (12 * u).dp))
+		}
+	}
+}
+
+/** Where the legal pages live - the landing site's routes. */
+private const val TERMS_URL = "https://stak.app/terms"
+private const val PRIVACY_URL = "https://stak.app/privacy"
+
+/** A small selectable chip - the notification threshold, the portfolio setup's balances. */
+@Composable
+internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit) {
+	val u = figmaUnit()
+	Box(
+		modifier = Modifier
+			.clip(RoundedCornerShape((14 * u).dp))
+			.background(if (selected) Color(0x2639C5CB) else Color(0xFF10182B))
+			.then(if (selected) Modifier.border((1 * u).dp, Color(0xFF2C9DBC), RoundedCornerShape((14 * u).dp)) else Modifier)
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
+			.padding(horizontal = (12 * u).dp, vertical = (6 * u).dp),
+	) {
+		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (selected) Teal else Muted)
+	}
+}
+
+/**
+ * App settings (FigJam Profile board, 2026-09-14: Dark mode, Biometric login,
+ * Change password, Delete / log out). Dark mode opens the Appearance page;
+ * Biometric login is the 08 Permissions "Account security" switch, now
+ * changeable after onboarding; Delete account wipes this account's state on
+ * the phone and signs out (Log out stays on the hub). Mirrors ios
+ * AppSettingsView.
+ */
+@Composable
+private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAccountDeleted: () -> Unit) {
+	val u = figmaUnit()
+	var confirmDelete by rememberSaveable { mutableStateOf(false) }
+	SettingsPage(title = "App settings", onBack = onBack) {
+		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
+			SettingsLinkRow(label = "Dark mode", value = if (UserProfile.appearance == "system") "Match system" else "On") { onOpen(SettingsKind.APPEARANCE) }
+			SettingsLinkRow(label = "Change password") { onOpen(SettingsKind.PASSWORD) }
+		}
+		PermissionCard("Biometric login", "Unlock STAK with your fingerprint, face or phone PIN whenever you come back.", UserProfile.accountLock) { UserProfile.accountLock = !UserProfile.accountLock; Session.saveProfile() }
+		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
+			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete }
+			AnimatedVisibility(visible = confirmDelete) {
+				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
+					Text(
+						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
+						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Body,
+					)
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							.fillMaxWidth()
+							.height((44 * u).dp)
+							.clip(RoundedCornerShape((6 * u).dp))
+							.background(Color(0x33E5484D))
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
+								Session.deleteAccount()
+								onAccountDeleted()
+							},
+					) {
+						Text("Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
+					}
+				}
+			}
+		}
+		Caption("Log out from the Profile page keeps everything for next time.")
+	}
+}
+
+/**
+ * Change password (FigJam Profile board, 2026-09-14). The demo has no auth
+ * backend: the new password must pass the sign-up rules and match its
+ * confirmation, then the page flips into its "Password updated" state.
+ */
+@Composable
+private fun ChangePasswordScreen(onBack: () -> Unit) {
+	val u = figmaUnit()
+	var current by rememberSaveable { mutableStateOf("") }
+	var next by rememberSaveable { mutableStateOf("") }
+	var confirm by rememberSaveable { mutableStateOf("") }
+	var show by rememberSaveable { mutableStateOf(false) }
+	var attempted by rememberSaveable { mutableStateOf(false) }
+	var updated by rememberSaveable { mutableStateOf(false) }
+	val currentError = if (current.isEmpty()) "Enter your current password" else null
+	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next) ?: if (next == current) "Choose a password you haven\u2019t used" else null
+	val confirmError = com.stak.demo.ui.onboarding.AuthRules.confirmError(next, confirm)
+	SettingsPage(title = "Change password", onBack = onBack) {
+		if (updated) {
+			Column(
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
+			) {
+				Text("Password updated", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
+				Text("Use it the next time you sign in. Sessions on other phones were signed out.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+			}
+			com.stak.demo.ui.onboarding.AuthCta(text = "Done", onClick = onBack)
+		} else {
+			com.stak.demo.ui.onboarding.AuthInput(value = current, onValueChange = { current = it }, placeholder = "Current password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) currentError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) nextError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
+			Caption("At least ${com.stak.demo.ui.onboarding.AuthRules.PASSWORD_MIN} characters.")
+			com.stak.demo.ui.onboarding.AuthCta(text = "Update password", enabled = current.isNotEmpty() && next.isNotEmpty() && confirm.isNotEmpty(), onClick = {
+				attempted = true
+				if (currentError == null && nextError == null && confirmError == null) updated = true
+			})
 		}
 	}
 }

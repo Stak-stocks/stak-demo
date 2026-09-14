@@ -45,6 +45,8 @@ private val Green = Color(0xFF2FD08A)
 private val ChipBg = Color(0xFF1A2333)
 private val ChipBorder = Color(0xFF2C9DBC)
 private val ChipInk = Color(0xFF7FD4E8)
+/** The hub row that opens the share sheet instead of a settings page. */
+private const val INVITE = "invite"
 
 /**
  * 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
@@ -54,8 +56,9 @@ private val ChipInk = Color(0xFF7FD4E8)
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}, onGoLive: () -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val context = androidx.compose.ui.platform.LocalContext.current
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(
 			modifier = Modifier
@@ -129,7 +132,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					color = Color.White,
 				)
 				Text(
-					text = "Paper investor · joined ${com.stak.demo.ui.UserProfile.joined}",
+					// A live account reads "Live investor" (FigJam Go live boards, 2026-09-14).
+					text = "${if (com.stak.demo.ui.live.LiveAccount.isLive) "Live investor" else "Paper investor"} · joined ${com.stak.demo.ui.UserProfile.joined}",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
 				)
@@ -212,6 +216,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					color = if (gain >= 0) Green else Color(0xFFE5484D),
 				)
 			}
+			// Go live (FigJam Go live boards, 2026-09-14): the real-money account's entry, status-aware.
+			com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
 			// Settings card.
 			Column(
 				modifier = Modifier
@@ -220,7 +226,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					.background(CardBg)
 					.padding(vertical = (4 * u).dp),
 			) {
-				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, "Linked accounts" to SettingsKind.LINKED, "Help & support" to SettingsKind.HELP).forEach { (label, kind) ->
+				// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14).
+				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, "Linked accounts" to SettingsKind.LINKED, "App settings" to SettingsKind.APP, "Help & support" to SettingsKind.HELP, "Invite a friend" to INVITE).forEach { (label, kind) ->
 					Row(
 						verticalAlignment = Alignment.CenterVertically,
 						modifier = Modifier
@@ -229,7 +236,16 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 							.clickable(
 								interactionSource = remember { MutableInteractionSource() },
 								indication = com.stak.demo.ui.theme.PressDim,
-							) { onOpenSetting(kind) }
+							) {
+								if (kind == INVITE) {
+									// The system share sheet with the invite line (FigJam: Your profile -> Invite a friend).
+									val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practise with paper money. https://stak.app")
+									runCatching { context.startActivity(android.content.Intent.createChooser(send, "Invite a friend")) }
+								} else {
+									onOpenSetting(kind)
+								}
+							}
 							.padding(horizontal = (14 * u).dp),
 					) {
 						Text(

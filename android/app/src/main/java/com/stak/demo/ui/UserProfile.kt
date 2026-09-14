@@ -35,6 +35,8 @@ object UserProfile {
 	var priceAlerts by mutableStateOf(true)
 	var dailyDeck by mutableStateOf(true)
 	var marketNews by mutableStateOf(false)
+	/** Price-alert threshold in percent (FigJam Profile board, 2026-09-14: "Price threshold"); the authored copy's 3 by default. */
+	var priceThreshold by mutableStateOf(3)
 	var appearance by mutableStateOf("dark")
 	var linkedGoogle by mutableStateOf(false)
 	var linkedApple by mutableStateOf(false)

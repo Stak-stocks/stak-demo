@@ -127,6 +127,8 @@ internal fun SimulateScreen(
 	onPracticeBuy: ((BuySpec) -> Unit)? = null,
 	// B14 (1:3964 Motion): "All saved staks ›" hops to the My STAK tab.
 	onOpenMyStak: () -> Unit = {},
+	/** The Go live banner (FigJam Go live boards, 2026-09-14): "Setup and cash only. Trading runs in Simulate." */
+	onGoLive: () -> Unit = {},
 	/** The empty state's "Go to Discover" (a new account has nothing saved yet). */
 	onOpenDiscover: () -> Unit = {},
 ) {
@@ -187,7 +189,11 @@ internal fun SimulateScreen(
 					.padding(horizontal = (20 * u).dp)
 					.padding(top = (18 * u).dp, bottom = (26 * u).dp),
 			) {
+				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
+				// chooses its balance, name and strategy before its first trade.
+				if (PaperPortfolio.needsSetup) PortfolioSetupCard(onDone = {})
 				ScoreHero(onOpenLeaderboard = onOpenLeaderboard)
+				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
 				val savedRows = savedStakRows()
 				if (savedRows.isEmpty()) {
@@ -219,6 +225,7 @@ internal fun SimulateScreen(
 					}
 				}
 				HowItWorksCard()
+				com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
 				SectionHeader("Your portfolio")
 				// Codex audit (2026-09-04): the first three held positions, from
 				// the shared PaperPortfolio - a fresh buy lands at the top.

@@ -279,6 +279,24 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onBack = { navController.navigate(StakRoutes.intro(via = "back")) },
 				onCreateAccount = { navController.navigate(StakRoutes.intro(via = "forward")) },
 				onSignIn = { navController.navigate(StakRoutes.SIGN_IN) },
+				// FigJam entry flow (2026-09-14): an email sign-up verifies the address first.
+				onVerifyEmail = { email -> navController.navigate(StakRoutes.verifyEmail(email)) },
+			)
+		}
+		composable(
+			StakRoutes.VERIFY_EMAIL,
+			arguments = listOf(navArgument("email") { defaultValue = "" }),
+		) { entry ->
+			com.stak.demo.ui.onboarding.EmailVerificationScreen(
+				email = entry.arguments?.getString("email").orEmpty(),
+				onBack = { navController.popBackStack() },
+				// "Yes" -> the investor quiz starts at 01 Welcome; the verification page
+				// leaves the stack so Back from 01 lands on Create account as before.
+				onVerified = {
+					navController.navigate(StakRoutes.intro(via = "forward")) {
+						popUpTo(StakRoutes.VERIFY_EMAIL) { inclusive = true }
+					}
+				},
 			)
 		}
 		composable(StakRoutes.PERMISSIONS) {
@@ -426,6 +444,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 						launchSingleTop = true
 					}
 				},
+				onSearch = { navController.navigate(StakRoutes.SEARCH) },
+				// Live = the account home, otherwise the Go live walk (FigJam Go live boards, 2026-09-14).
+				onGoLive = { navController.navigate(if (com.stak.demo.ui.live.LiveAccount.isLive) StakRoutes.LIVE_ACCOUNT else StakRoutes.GO_LIVE) },
 			)
 		}
 		composable(
@@ -439,6 +460,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
 			StockDetailScreen(
+				// A filled live order's "View account" (FigJam Go live boards, 2026-09-14).
+				onViewLiveAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) },
 				onBack = { navController.popBackStack() },
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
 				// B5 (1:2382 Motion): Practice buy leaves the detail and
@@ -481,6 +504,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
 			StockDetailScreen(
+				// A filled live order's "View account" (FigJam Go live boards, 2026-09-14).
+				onViewLiveAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) },
 				onBack = { navController.popBackStack() },
 				// Codex parity audit (2026-09-04): the tapped tile's ticker,
 				// same as the Discover deck's Learn more (STOCK_DETAIL above).
@@ -587,6 +612,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onBack = { navController.popBackStack() },
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
+				onGoLive = { navController.navigate(if (com.stak.demo.ui.live.LiveAccount.isLive) StakRoutes.LIVE_ACCOUNT else StakRoutes.GO_LIVE) },
 				onLogOut = {
 					com.stak.demo.ui.Session.signOut()
 					// B21: the session ends and the whole stack clears.
@@ -608,6 +634,29 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			}
 			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
 		}
+		composable(StakRoutes.GO_LIVE) {
+			// Go live (FigJam Go live boards, 2026-09-14): resumes at the account's step.
+			com.stak.demo.ui.live.GoLiveFlow(
+				onBack = { navController.popBackStack() },
+				onOpenAccount = { navController.navigate(StakRoutes.LIVE_ACCOUNT) { popUpTo(StakRoutes.GO_LIVE) { inclusive = true } } },
+			)
+		}
+		composable(StakRoutes.LIVE_ACCOUNT) {
+			com.stak.demo.ui.live.LiveAccountScreen(
+				onBack = { navController.popBackStack() },
+				// "Find a stock" lands on the Discover deck.
+				onFindStock = { popToShell(PopStyle.INSTANT, MainTab.Discover) },
+				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
+			)
+		}
+		composable(StakRoutes.SEARCH) {
+			// Home · Search (FigJam Home board, 2026-09-14): stocks open their detail, stories their article.
+			com.stak.demo.ui.home.SearchScreen(
+				onBack = { navController.popBackStack() },
+				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
+				onOpenArticle = { id -> navController.navigate(StakRoutes.newsDetail(id)) },
+			)
+		}
 		composable(StakRoutes.NOTIFICATIONS) {
 			com.stak.demo.ui.inbox.NotificationsScreen(
 				onBack = { navController.popBackStack() },
@@ -618,6 +667,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.profile.SettingsScreen(
 				kind = entry.arguments?.getString("kind") ?: com.stak.demo.ui.profile.SettingsKind.HELP,
 				onBack = { navController.popBackStack() },
+				onOpen = { kind -> navController.navigate(StakRoutes.settings(kind)) },
+				// Delete account (FigJam Profile board, 2026-09-14): the session is gone, the stack clears to Create account.
+				onAccountDeleted = {
+					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
+				},
 			)
 		}
 		composable(
@@ -709,6 +763,10 @@ private fun MainShell(
 	onOpenSimPick: (String) -> Unit,
 	onOpenLeaderboard: () -> Unit,
 	onViewSimPortfolio: () -> Unit,
+	/** Home's search circle (FigJam Home board, 2026-09-14). */
+	onSearch: () -> Unit = {},
+	/** The Go live banners on Home and Simulate (FigJam Go live boards, 2026-09-14). */
+	onGoLive: () -> Unit = {},
 ) {
 	var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
 	// A1: one-shot switch style - read by the AnimatedContent spec and
@@ -806,6 +864,10 @@ private fun MainShell(
 							onOpenNews = { endFirstRun(); switchTab(MainTab.News) },
 							onOpenMyStak = { endFirstRun(); switchTab(MainTab.MySTAK) },
 							onOpenDeck = { endFirstRun(); switchTab(MainTab.Discover) },
+							// The board-only sections: a stock opens its detail, the circle opens Search.
+							onOpenStock = onOpenStock,
+							onSearch = onSearch,
+							onGoLive = onGoLive,
 						)
 						MainTab.News -> NewsScreen(onOpenArticle = onOpenArticle)
 						MainTab.Discover -> DiscoverScreen(
@@ -825,6 +887,7 @@ private fun MainShell(
 							// B14 (1:3964 Motion): All saved staks -> My STAK tab.
 							onOpenMyStak = { switchTab(MainTab.MySTAK) },
 							onOpenDiscover = { switchTab(MainTab.Discover) },
+							onGoLive = onGoLive,
 						)
 						MainTab.MySTAK -> MyStakScreen(
 							onOpenCollection = onOpenCollection,

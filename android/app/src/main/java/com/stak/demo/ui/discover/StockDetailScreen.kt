@@ -102,9 +102,14 @@ fun StockDetailScreen(
 	// B9 (1:2579): the Discover-entry OPEN state composes the shell tab
 	// bar; each tab pops the detail Instant and lands on that tab.
 	onTab: ((MainTab) -> Unit)? = null,
+	/** A filled live order's "View account" (FigJam Go live boards, 2026-09-14). */
+	onViewLiveAccount: () -> Unit = {},
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val f = detailFactsFor(symbol)
+	// Stock Detail · Buy -> Account live? (FigJam): a live account gets the real order ticket, else the practice one.
+	var showLiveOrder by rememberSaveable { mutableStateOf(false) }
+	val live = com.stak.demo.ui.live.LiveAccount.isLive
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even
@@ -245,13 +250,15 @@ fun StockDetailScreen(
 							modifier = Modifier.width((260 * u).dp),
 						)
 					}
+					// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
+					LessonCard(lesson = StockLessons.lessonFor(f.symbol))
 				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (4 * u).dp, bottom = (16 * u).dp),
 				) {
 					if (fromMyStak) {
-						DetailCta("Practice buy") { showBuy = true }
+						DetailCta(if (live) "Buy" else "Practice buy") { if (live) showLiveOrder = true else showBuy = true }
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
 						// Unsave clears this run's deck save too (Codex review, PR #167 mirror).
@@ -263,7 +270,7 @@ fun StockDetailScreen(
 						// "something is off when I saved my stock"). Unsave here drops
 						// the stock from this run's saves and the holdings store and
 						// stays on the page with the Save CTA back.
-						DetailCta("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
+						DetailCta(if (live) "Buy" else "Practice buy") { if (live) showLiveOrder = true else if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 						DetailSecondary("Unsave") {
 							saved = false
 							DeckSession.saved = DeckSession.saved - f.symbol
@@ -278,7 +285,7 @@ fun StockDetailScreen(
 							com.stak.demo.ui.MyStakHoldings.add(f.symbol)
 							showSuccess = true
 						}
-						DetailSecondary("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
+						DetailSecondary(if (live) "Buy" else "Practice buy") { if (live) showLiveOrder = true else if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 					}
 				}
 			}
@@ -290,6 +297,18 @@ fun StockDetailScreen(
 		}
 		// System Back dismisses the overlay like the scrim does (Codex review, PR #166).
 		androidx.activity.compose.BackHandler(enabled = showSuccess) { showSuccess = false }
+		if (showLiveOrder) {
+			// The live order ticket over the page (FigJam: Order ticket -> review -> pending -> filled).
+			com.stak.demo.ui.live.LiveOrderFlow(
+				symbol = f.symbol,
+				badge = f.sheetBadge,
+				name = f.sheetName,
+				price = f.price.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0,
+				change = f.change.substringBefore(" today"),
+				onClose = { showLiveOrder = false },
+				onViewAccount = { showLiveOrder = false; onViewLiveAccount() },
+			)
+		}
 		// B6: the save-success sheet enters like the News one - scale
 		// 0.92 -> 1 + fade - at the authored 350 ease-out (92:969).
 		AnimatedVisibility(

@@ -17,6 +17,9 @@ object StakRoutes {
 	/** Sign up — `via` = "back" when sign-in's post-logout back circle re-opens it (B21). */
 	const val CREATE_ACCOUNT = "onboarding/create-account?via={via}"
 	fun createAccount(via: String) = "onboarding/create-account?via=$via"
+	/** Email verification between an email sign-up and 01 Welcome (FigJam entry flow, 2026-09-14) - `email` is the address the code went to. */
+	const val VERIFY_EMAIL = "auth/verify-email?email={email}"
+	fun verifyEmail(email: String) = "auth/verify-email?email=" + android.net.Uri.encode(email)
 	const val PERMISSIONS = "onboarding/permissions"
 	const val PROFILE_SETUP = "onboarding/profile-setup"
 	const val MAIN = "main" // bottom-tab shell (Home/News/Discover/My STAK/Simulate)
@@ -53,5 +56,8 @@ object StakRoutes {
 	const val ORDER_CONFIRMATION = "order-confirmation/{symbol}"
 	fun orderConfirmation(symbol: String) = "order-confirmation/$symbol"
 	const val ADD_CASH = "add-cash"
+	/** Go live (FigJam Go live boards, 2026-09-14): the identity + funding walk, and the real-money account home. */
+	const val GO_LIVE = "live/go"
+	const val LIVE_ACCOUNT = "live/account"
 	const val SEARCH = "search"
 }

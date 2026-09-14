@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -51,6 +56,11 @@ private val Muted = Color(0xFF819ABB)
 private val Faint = Color(0xFF5C6B85)
 private val Green = Color(0xFF2FD08A)
 private val RedDown = Color(0xFFE5484D)
+/** The collection page's sort keys (FigJam Watchlist board, 2026-09-14). */
+private const val SORT_NEWEST = "newest"
+private const val SORT_AZ = "az"
+private const val SORT_MOVERS = "movers"
+
 private val BadgeInk = Color(0xFF9EADC7)
 
 /**
@@ -75,7 +85,15 @@ fun CollectionScreen(
 	val c = collection(collectionId)
 	// Codex audit (2026-09-04): the page shows what the holdings store
 	// holds of this collection - Unsave on a tile's Stock Detail drops it.
-	val held = c.held()
+	// Sort (FigJam Watchlist board, 2026-09-14): newest save first, A-Z, or the
+	// day's biggest movers; Remove = a long press on a tile, confirmed inline.
+	var sort by rememberSaveable { mutableStateOf(SORT_NEWEST) }
+	var removing by rememberSaveable { mutableStateOf<String?>(null) }
+	val held = when (sort) {
+		SORT_AZ -> c.held().sortedBy { it.ticker }
+		SORT_MOVERS -> c.held().sortedByDescending { kotlin.math.abs(com.stak.demo.ui.StakInsights.changePct(it)) }
+		else -> c.held().sortedWith(compareBy<CollStock> { com.stak.demo.ui.MyStakHoldings.daysSinceSaved(it.ticker) ?: Int.MAX_VALUE }.thenBy { c.stocks.indexOf(it) })
+	}
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -146,6 +164,40 @@ fun CollectionScreen(
 					color = Color(0xFFC8D2E0),
 				)
 			}
+			if (held.size > 1) {
+				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+					listOf(SORT_NEWEST to "Newest", SORT_AZ to "A\u2013Z", SORT_MOVERS to "Top movers").forEach { (key, label) ->
+						com.stak.demo.ui.profile.SettingsChip(label = label, selected = sort == key) { sort = key }
+					}
+				}
+			}
+			removing?.let { ticker ->
+				Row(
+					verticalAlignment = Alignment.CenterVertically,
+					horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+					modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((12 * u).dp)).background(CardBg).padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),
+				) {
+					Text("Remove $ticker from My STAK?", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, modifier = Modifier.weight(1f))
+					Text(
+						"Keep",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+						color = Muted,
+						modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) { removing = null },
+					)
+					Text(
+						"Remove",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+						color = RedDown,
+						modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
+							// The same three stores Stock Detail's Unsave clears.
+							com.stak.demo.ui.discover.DeckSession.saved = com.stak.demo.ui.discover.DeckSession.saved - ticker
+							com.stak.demo.ui.MyStakHoldings.remove(ticker)
+							com.stak.demo.ui.news.NewsSaves.removeStories(ticker)
+							removing = null
+						},
+					)
+				}
+			}
 			// Authored tiles are 139 tall (1:3333) and the grid gap 10: pinned, with
 			// fractional gaps, so the rows stop drifting (+2.5 by row 3 on StakTest,
 			// 2026-09-05, from per-text and per-gap px rounding).
@@ -163,6 +215,7 @@ fun CollectionScreen(
 									stock = stock,
 									// B11: the tile opens ITS ticker, not always AAPL.
 									onClick = { onOpenStock(stock.ticker) },
+									onLongClick = { removing = stock.ticker },
 									modifier = Modifier.weight(1f).fillMaxSize(),
 								)
 							} else {
@@ -186,8 +239,9 @@ fun CollectionScreen(
 }
 
 /** A stock card; a null onClick is the inert height reference beside a lone Add tile. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun StockTile(stock: CollStock, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun StockTile(stock: CollStock, onClick: (() -> Unit)?, onLongClick: (() -> Unit)? = null, modifier: Modifier = Modifier) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val interaction = remember { MutableInteractionSource() }
 	Column(
@@ -196,7 +250,8 @@ private fun StockTile(stock: CollStock, onClick: (() -> Unit)?, modifier: Modifi
 			.clip(RoundedCornerShape((16 * u).dp))
 			.background(CardBg)
 			.then(
-				if (onClick != null) Modifier.clickable(interactionSource = interaction, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick) else Modifier,
+				// A long press offers Remove (FigJam Watchlist board, 2026-09-14).
+				if (onClick != null) Modifier.combinedClickable(interactionSource = interaction, indication = com.stak.demo.ui.theme.PressDim, onLongClickLabel = "Remove from My STAK", onLongClick = onLongClick, onClick = onClick) else Modifier,
 			)
 			.padding((14 * u).dp),
 	) {

@@ -28,6 +28,7 @@ object Session {
 	private const val KEY_PRICE_ALERTS = "pref_price_alerts"
 	private const val KEY_DAILY_DECK = "pref_daily_deck"
 	private const val KEY_MARKET_NEWS = "pref_market_news"
+	private const val KEY_PRICE_THRESHOLD = "pref_price_threshold"
 	private const val KEY_APPEARANCE = "pref_appearance"
 	private const val KEY_LINKED_GOOGLE = "linked_google"
 	private const val KEY_LINKED_APPLE = "linked_apple"
@@ -84,6 +85,7 @@ object Session {
 		UserProfile.priceAlerts = p.getBoolean(KEY_PRICE_ALERTS, true)
 		UserProfile.dailyDeck = p.getBoolean(KEY_DAILY_DECK, true)
 		UserProfile.marketNews = p.getBoolean(KEY_MARKET_NEWS, false)
+		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, 3)
 		// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 		// value that build stored reads as Dark, so the Appearance page always shows a choice.
 		UserProfile.appearance = p.getString(KEY_APPEARANCE, "dark").let { if (it == "system") "system" else "dark" }
@@ -129,6 +131,8 @@ object Session {
 		com.stak.demo.ui.discover.DeckSession.load()
 		StakNotifications.load()
 		com.stak.demo.ui.news.NewsSaves.load()
+		// The real-money account (FigJam Go live boards, 2026-09-14).
+		com.stak.demo.ui.live.LiveAccount.load()
 	}
 
 	/** Profile edits after sign-in (name/photo) stay with the session. */
@@ -139,6 +143,17 @@ object Session {
 		if (!firstRunPending) return
 		firstRunPending = false
 		persist()
+	}
+
+	/**
+	 * Delete account (FigJam Profile board, 2026-09-14: App settings -> Delete / log
+	 * out): everything this account kept on the phone - saves, paper ledger, deck
+	 * progress, inbox, live-account state - is wiped, then the session ends. The
+	 * demo persona's authored history reseeds on its next sign-in.
+	 */
+	fun deleteAccount() {
+		StakStore.clearAccount(demo = demoAccount)
+		signOut()
 	}
 
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
@@ -158,6 +173,7 @@ object Session {
 		UserProfile.priceAlerts = true
 		UserProfile.dailyDeck = true
 		UserProfile.marketNews = false
+		UserProfile.priceThreshold = 3
 		UserProfile.appearance = "dark"
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false
@@ -181,6 +197,7 @@ object Session {
 			?.putBoolean(KEY_PRICE_ALERTS, UserProfile.priceAlerts)
 			?.putBoolean(KEY_DAILY_DECK, UserProfile.dailyDeck)
 			?.putBoolean(KEY_MARKET_NEWS, UserProfile.marketNews)
+			?.putInt(KEY_PRICE_THRESHOLD, UserProfile.priceThreshold)
 			?.putString(KEY_APPEARANCE, UserProfile.appearance)
 			?.putBoolean(KEY_LINKED_GOOGLE, UserProfile.linkedGoogle)
 			?.putBoolean(KEY_LINKED_APPLE, UserProfile.linkedApple)

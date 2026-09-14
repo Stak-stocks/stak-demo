@@ -1095,9 +1095,14 @@ private fun PracticeBuyContent(
 	secondary: String = "Not yet",
 	amount: Double,
 	onAmount: (Double) -> Unit,
+	/** Market or limit (FigJam Simulate board, 2026-09-14): a limit price under today's waits as an open order. */
+	limitPrice: Double? = null,
+	onLimit: (Double?) -> Unit = {},
 ) {
 	var selected by rememberSaveable { mutableIntStateOf(listOf(10.0, 25.0, 50.0, 100.0).indexOf(amount).let { if (it >= 0) it else AMOUNT_PILLS.lastIndex }) }
 	var custom by rememberSaveable { mutableStateOf("") }
+	var limitText by rememberSaveable { mutableStateOf("") }
+	val isLimit = limitPrice != null
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.fillMaxWidth()) {
 		Text(
@@ -1213,6 +1218,63 @@ private fun PracticeBuyContent(
 				)
 			}
 		}
+		// Market or limit (FigJam Simulate board, 2026-09-14). 1:1970 authors a
+		// market ticket only; the row borrows the pills' chrome.
+		Column(verticalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+			Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+				listOf("Market" to false, "Limit" to true).forEach { (label, limit) ->
+					val sel = isLimit == limit
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							.weight(1f)
+							.clip(RoundedCornerShape((10 * u).dp))
+							.background(if (sel) Disc.AmountSelBg else Disc.AmountBg)
+							.border(if (sel) (0.5 * u).dp else (1 * u).dp, if (sel) Disc.AmountSelBorder else Disc.AmountBorder, RoundedCornerShape((10 * u).dp))
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
+								onLimit(if (limit) (limitText.toDoubleOrNull() ?: spec.price) else null)
+							}
+							.padding(vertical = (8 * u).dp),
+					) {
+						Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (sel) Disc.AmountSelInk else Disc.AmountInk)
+					}
+				}
+			}
+			if (isLimit) {
+				BasicTextField(
+					value = limitText,
+					onValueChange = { raw ->
+						val text = raw.filter { it.isDigit() || it == '.' }.take(9)
+						limitText = text
+						onLimit(text.toDoubleOrNull()?.takeIf { it > 0.0 } ?: spec.price)
+					},
+					singleLine = true,
+					keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+					textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, color = Disc.AmountInk, lineHeightStyle = FIGMA_LINE_BOX),
+					cursorBrush = SolidColor(Disc.AmountSelBorder),
+					decorationBox = { inner ->
+						Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((4 * u).dp)) {
+							Text("Limit $", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Disc.AmountInk)
+							Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.weight(1f)) {
+								if (limitText.isEmpty()) Text(String.format(java.util.Locale.US, "%.2f", spec.price), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Disc.Muted)
+								inner()
+							}
+						}
+					},
+					modifier = Modifier
+						.fillMaxWidth()
+						.clip(RoundedCornerShape((10 * u).dp))
+						.background(Disc.AmountBg)
+						.border((0.5 * u).dp, Disc.AmountSelBorder, RoundedCornerShape((10 * u).dp))
+						.padding(horizontal = (12 * u).dp, vertical = (8 * u).dp),
+				)
+				Text(
+					if ((limitPrice ?: 0.0) >= spec.price) "At or above today\u2019s price - fills right away." else "Below today\u2019s price - waits as an open order until ${spec.symbol} gets there.",
+					style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Disc.Muted,
+				)
+			}
+		}
 		Row(
 			horizontalArrangement = Arrangement.spacedBy((6 * u).dp, Alignment.CenterHorizontally),
 			verticalAlignment = Alignment.Bottom,
@@ -1237,7 +1299,7 @@ private fun PracticeBuyContent(
 		}
 		Column(verticalArrangement = Arrangement.spacedBy((16 * u).dp), modifier = Modifier.fillMaxWidth()) {
 			// Confirm only with a stake the cash covers (Codex review, PR #166).
-			SheetCta(text = "Confirm practice buy", onClick = onConfirm, enabled = com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount))
+			SheetCta(text = if (isLimit && (limitPrice ?: 0.0) < spec.price) "Place limit order" else "Confirm practice buy", onClick = onConfirm, enabled = com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount))
 			SheetSecondary(text = secondary, onClick = onDismiss)
 		}
 	}
@@ -1245,7 +1307,7 @@ private fun PracticeBuyContent(
 
 /** "Order filled" sheet content (frame 85:1205, sheet 85:1394). */
 @Composable
-private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, spec: BuySpec = NVDA_BUY, primary: String = "View in My STAK", secondary: String = "Keep exploring") {
+private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, spec: BuySpec = NVDA_BUY, primary: String = "View in My STAK", secondary: String = "Keep exploring", pendingLimit: Double? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		horizontalAlignment = Alignment.CenterHorizontally,
@@ -1254,7 +1316,8 @@ private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, s
 	) {
 		Image(painterResource(R.drawable.ic_sheet_check), null, modifier = Modifier.size((47 * u).dp))
 		Text(
-			text = "Order filled",
+			// A limit order under today's price is placed, not filled (FigJam: Order pending).
+			text = if (pendingLimit != null) "Order placed" else "Order filled",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp, lineHeight = (23 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
@@ -1262,7 +1325,7 @@ private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, s
 		// Authored status line (85:1407): Geist 12 / lh 18, left-aligned, 14 below
 		// the stock row - exact-design audit 2026-09-04 (was 14).
 		Text(
-			text = "Filled instantly · paper order",
+			text = if (pendingLimit != null) "Waits for ${spec.symbol} at ${com.stak.demo.ui.simulate.PaperPortfolio.usd(pendingLimit)} or below · paper order" else "Filled instantly · paper order",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Disc.Body,
 			modifier = Modifier.fillMaxWidth(),
@@ -1286,7 +1349,7 @@ private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, s
 			modifier = Modifier.fillMaxWidth().padding(top = (10 * u).dp),
 		) {
 			Text(
-				text = "You now hold",
+				text = if (pendingLimit != null) "Reserved for" else "You now hold",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Disc.Muted,
 			)
@@ -1462,6 +1525,10 @@ internal fun DiscoverBuyFlow(
 	// default; both sheets read spec.withAmount(amount), so "You get",
 	// "Cash available" after and "You now hold" follow the pills.
 	var amount by rememberSaveable { mutableDoubleStateOf(25.0) }
+	// Market or limit (FigJam Simulate board, 2026-09-14): a limit under today's
+	// price is placed as an open order and the receipt says so.
+	var limitPrice by rememberSaveable { mutableStateOf<Double?>(null) }
+	var placedLimit by rememberSaveable { mutableStateOf<Double?>(null) }
 	// Codex audit (2026-09-04, Simulate): "Cash available" is the live paper
 	// cash, snapshotted as the ticket opens - Confirm moves the cash into
 	// the position, so the receipt's after must stay "before - amount".
@@ -1486,18 +1553,30 @@ internal fun DiscoverBuyFlow(
 					// Every host's Confirm (Discover, Simulate, Stock Detail) fills
 					// the order into the shared paper portfolio, then tells the host.
 					// The order is checked again at confirm (Codex review, PR #166) - nothing fills past the cash on hand.
-					onConfirm = { if (!filled && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) { filled = true; com.stak.demo.ui.simulate.PaperPortfolio.buy(spec, amount); onFilled() } },
+					onConfirm = {
+						if (!filled && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
+							val limit = limitPrice
+							if (limit != null && limit < spec.price) {
+								// Below today's price: an open order, no fill yet (FigJam: Order pending).
+								if (com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(spec, amount, limit)) { placedLimit = limit; filled = true }
+							} else {
+								filled = true; com.stak.demo.ui.simulate.PaperPortfolio.buy(spec, amount); onFilled()
+							}
+						}
+					},
 					onDismiss = onClose,
 					spec = live,
 					secondary = ticketSecondary,
 					amount = amount,
 					onAmount = { amount = it },
+					limitPrice = limitPrice,
+					onLimit = { limitPrice = it },
 				)
 			} else {
 				// Review 2026-09-04: "You now hold" is the whole holding after the
 				// fill - a top-up shows the summed shares, not just this order's.
 				val heldShares = com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares
-				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = heldShares), primary = filledPrimary, secondary = filledSecondary)
+				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = heldShares), primary = filledPrimary, secondary = filledSecondary, pendingLimit = placedLimit)
 			}
 		}
 	}

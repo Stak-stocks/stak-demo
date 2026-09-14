@@ -77,6 +77,11 @@ fun SimPortfolioScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	var showSell by rememberSaveable { mutableStateOf(false) }
 	var showClosed by rememberSaveable { mutableStateOf(false) }
+	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
+	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
+	// fresh buy sits at the top), Worst = smallest gain first.
+	var sortChip by rememberSaveable { mutableStateOf(0) }
+	var historyChip by rememberSaveable { mutableStateOf(0) }
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -135,13 +140,18 @@ fun SimPortfolioScreen(
 					EmptyStateCard(title = "No picks yet", body = "Your first practice buy lands here with its live gain.")
 				} else {
 					Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
-						FilterChip("Top gainers", selected = true)
-						FilterChip("Newest", selected = false)
-						FilterChip("Worst", selected = false)
+						FilterChip("Top gainers", selected = sortChip == 0) { sortChip = 0 }
+						FilterChip("Newest", selected = sortChip == 1) { sortChip = 1 }
+						FilterChip("Worst", selected = sortChip == 2) { sortChip = 2 }
 					}
 					// Codex audit (2026-09-04): the live positions - a fresh buy sits
 					// at the top, a sold one drops to SOLD · REALIZED below.
-					PaperPortfolio.positions.forEach { pos ->
+					val rows = when (sortChip) {
+						0 -> PaperPortfolio.positions.sortedByDescending { it.gainDollars }
+						2 -> PaperPortfolio.positions.sortedBy { it.gainDollars }
+						else -> PaperPortfolio.positions
+					}
+					rows.forEach { pos ->
 						val p = pos.row
 						PortfolioRow(
 							badge = p.badge, ticker = p.ticker, sub = p.sub,
@@ -169,6 +179,8 @@ fun SimPortfolioScreen(
 					PaperPortfolio.realized.forEach { r ->
 						RealizedRow(r.badge, r.ticker, r.sub, r.amount, r.up)
 					}
+					OpenOrdersSection()
+					TradeHistorySection(filter = historyChip, onFilter = { historyChip = it })
 					Text(
 						text = "Sell a pick and the cash returns to your balance, gain or loss.",
 						// 1:4621 (exact-design audit 2026-09-04): centre-aligned across the full column, so a wrap stays centred.
@@ -200,12 +212,13 @@ fun SimPortfolioScreen(
 }
 
 @Composable
-private fun FilterChip(label: String, selected: Boolean) {
+private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(
 		modifier = Modifier
 			.clip(RoundedCornerShape((14 * u).dp))
 			.background(if (selected) Sim.TealTint else Sim.CardBg)
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
 			.padding(horizontal = (12 * u).dp, vertical = (6 * u).dp),
 	) {
 		Text(

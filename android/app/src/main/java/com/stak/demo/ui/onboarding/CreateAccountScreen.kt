@@ -59,8 +59,9 @@ import com.stak.demo.ui.theme.StakColors
  * (password with a Show/Hide toggle); sharp-cornered 51dp gradient CTA
  * (#a6e4f7 → #5da8bf → #3c98b4) with white Geist Medium label.
  */
+/** `onVerifyEmail`: the email path goes through Email verification first (FigJam entry flow, 2026-09-14); Google / Apple skip it via `onCreateAccount`. */
 @Composable
-fun CreateAccountScreen(onBack: () -> Unit, onCreateAccount: () -> Unit, onSignIn: () -> Unit) {
+fun CreateAccountScreen(onBack: () -> Unit, onCreateAccount: () -> Unit, onSignIn: () -> Unit, onVerifyEmail: (String) -> Unit = { onCreateAccount() }) {
 	val u = figmaUnit()
 	var email by rememberSaveable { mutableStateOf("") }
 	var password by rememberSaveable { mutableStateOf("") }
@@ -138,7 +139,7 @@ fun CreateAccountScreen(onBack: () -> Unit, onCreateAccount: () -> Unit, onSignI
 			) {
 				AuthCta(text = "Create account", enabled = filled, onClick = {
 					attempted = true
-					if (emailError == null && passwordError == null && confirmError == null) onCreateAccount()
+					if (emailError == null && passwordError == null && confirmError == null) onVerifyEmail(email.trim())
 				})
 				AuthSwitchRow(prefix = "Already have an account?", link = "Sign in", onClick = onSignIn)
 				Text(

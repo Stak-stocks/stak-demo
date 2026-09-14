@@ -87,8 +87,9 @@ private object Home {
  * (prototype: Swap overlay · Instant). The tab bar itself lives in the
  * MainShell so the other tabs share it.
  */
+/** `onOpenStock` / `onSearch`: the board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onGoLive: () -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -102,7 +103,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState()),
 			) {
-				TopNav(onProfile = onProfile, onBell = onBell, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
+				TopNav(onProfile = onProfile, onBell = onBell, onSearch = onSearch, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
 				Spacer(modifier = Modifier.height((21 * u).dp))
 				Column(
 					horizontalAlignment = Alignment.CenterHorizontally,
@@ -113,9 +114,18 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					WhyThisMattersCard(onOpenMyStak = onOpenMyStak)
 					Spacer(modifier = Modifier.height((20 * u).dp))
 					DeckBanner(onOpenDeck = onOpenDeck)
-					// Authored scroll content (118:1634) ends exactly at the
-					// banner's bottom edge - no trailing gap. First run keeps
-					// room for the scrim pill.
+					// The board's Trending stocks and Saved peek follow the authored
+					// stack (FigJam Home board, 2026-09-14); first run keeps them under
+					// the scrim, so the pill still sits on the frame's geometry.
+					Spacer(modifier = Modifier.height((20 * u).dp))
+					TrendingStrip(onOpenStock = onOpenStock)
+					Spacer(modifier = Modifier.height((12 * u).dp))
+					SavedPeekCard(onOpenStock = onOpenStock, onOpenMyStak = onOpenMyStak, onOpenDeck = onOpenDeck)
+					Spacer(modifier = Modifier.height((12 * u).dp))
+					// "Real money after Go live" hangs off the Home page on the board (FigJam, 2026-09-14).
+					com.stak.demo.ui.live.GoLiveBanner(onOpen = onGoLive)
+					Spacer(modifier = Modifier.height((20 * u).dp))
+					// First run keeps room for the scrim pill.
 					if (firstRun) Spacer(modifier = Modifier.height((140 * u).dp))
 				}
 			}
@@ -137,7 +147,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 
 /** Fixed top nav — logo row with bell/profile circles + greeting (Figma 131px block). */
 @Composable
-private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Modifier = Modifier) {
+private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onSearch: () -> Unit = {}, modifier: Modifier = Modifier) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		// Scrolls with the content (118:1633); authored side inset 17.
@@ -159,6 +169,23 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 				modifier = Modifier.size((78.16 * u).dp, (14.98 * u).dp),
 			)
 			Spacer(modifier = Modifier.weight(1f))
+			// Search (FigJam Home board, 2026-09-14) - a nav circle like the
+			// profile's, left of the authored bell.
+			Box(
+				contentAlignment = Alignment.Center,
+				modifier = Modifier
+					.size((35 * u).dp)
+					.background(Home.NavCircle, CircleShape)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClickLabel = "Search",
+						onClick = onSearch,
+					),
+			) {
+				SearchGlyph(size = (16 * u).dp, tint = Color(0xFFAEAEAE))
+			}
+			Spacer(modifier = Modifier.width((4 * u).dp))
 			// Bell + stateful unread dot (151:1207): the authored badge
 			// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 			// notifications exist and clears once they're opened and read.
