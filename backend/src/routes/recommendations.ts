@@ -4,7 +4,7 @@ import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js"
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, type StakTicker, getEasternDateKey } from "@stak/shared";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
-import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type MarketData } from "../services/marketMood.js";
+import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type DeckDef, type MarketData } from "../services/marketMood.js";
 
 export const recommendationsRouter = Router();
 
@@ -60,15 +60,15 @@ async function getUpcomingEarningsTickers(): Promise<Set<string>> {
 	return new Set(tickers);
 }
 
-/** Returns today's Daily Brief theme IDs derived from market mood. Caches 30 min.
+/** Today's Daily Brief mood decks (id + display title), derived from market mood. Caches 30 min.
  *  Reads cache-only (never calls Finnhub directly) — relies on dailyBrief.ts's live
  *  route having already populated these via getQuoteChange (5-min TTL). Missing
  *  values degrade gracefully: classifyMood treats nulls/zero sector counts as
  *  neutral, resolving to "Mixed" on a fully cold cache — same fallback the old
  *  crude mood model gave for all-null inputs. */
-async function getTodayThemes(): Promise<string[]> {
-	const cacheKey = "recommendations:today-themes:v1";
-	const cached = await cacheGet<string[]>(cacheKey);
+async function getTodayDecks(): Promise<DeckDef[]> {
+	const cacheKey = "recommendations:today-decks:v1";
+	const cached = await cacheGet<DeckDef[]>(cacheKey);
 	if (cached) return cached;
 
 	const [spyDp, qqqDp, vixDp, ...sectorChanges] = await Promise.all([
@@ -90,9 +90,18 @@ async function getTodayThemes(): Promise<string[]> {
 		sectorsGreen, sectorsRed, topSector: null, worstSector: null,
 	};
 	const mood = classifyMood(marketData);
-	const themes = MOOD_DECKS[mood].map((d) => d.id);
-	await cacheSet(cacheKey, themes, 30 * 60 * 1000);
-	return themes;
+	const decks = MOOD_DECKS[mood];
+	await cacheSet(cacheKey, decks, 30 * 60 * 1000);
+	return decks;
+}
+
+async function getTodayThemes(): Promise<string[]> {
+	return (await getTodayDecks()).map((d) => d.id);
+}
+
+/** Display title of today's lead mood deck - the label clients show over the Discover deck. */
+async function getTodayTheme(): Promise<string | null> {
+	return (await getTodayDecks())[0]?.title ?? null;
 }
 
 /** STAK tickers mentioned in Finnhub general news in the last 48h. Cached 2h. */
@@ -294,7 +303,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 		const cacheKey = `recommendations:sorted:${uid}:v1`;
 		const cached = await cacheGet<string[]>(cacheKey);
 		if (cached) {
-			res.json({ brandIds: cached });
+			res.json({ brandIds: cached, theme: await getTodayTheme() });
 			return;
 		}
 
@@ -318,7 +327,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 			.map((s) => s.ticker);
 
 		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
-		res.json({ brandIds: tickers });
+		res.json({ brandIds: tickers, theme: await getTodayTheme() });
 	} catch (error) {
 		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });

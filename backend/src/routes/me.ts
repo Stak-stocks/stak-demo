@@ -1,10 +1,15 @@
 import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { getEasternDateKey } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, getEasternDateKey } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 
 export const meRouter = Router();
+
+// Android holds tickers; stak_brands (shared with web) holds brand ids.
+const ID_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.id]));
+const TICKER_BY_ID = new Map(brands.map((b) => [b.id, b.ticker]));
 
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -131,6 +136,42 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	}
 });
 
+/** Replace the user's saved brands, keeping each existing save's price_at_save. */
+async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void> {
+	const client = await pgPool.connect();
+	try {
+		await client.query("BEGIN");
+		// Preserve existing price_at_save so "since you saved" isn't wiped on every watchlist edit
+		const existing = await client.query<{ brand_id: string; price_at_save: number | null }>(
+			`select brand_id, price_at_save from stak_brands where uid = $1`,
+			[uid],
+		);
+		const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
+		await client.query(`delete from stak_brands where uid = $1`, [uid]);
+		if (brandIds.length > 0) {
+			const now = new Date().toISOString();
+			const rowPlaceholders: string[] = [];
+			const params: unknown[] = [uid];
+			let pIdx = 2;
+			for (const brandId of brandIds) {
+				rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
+				params.push(brandId, now, savedPrices.get(brandId) ?? null);
+				pIdx += 3;
+			}
+			await client.query(
+				`insert into stak_brands (uid, brand_id, saved_at, price_at_save) values ${rowPlaceholders.join(", ")}`,
+				params,
+			);
+		}
+		await client.query("COMMIT");
+	} catch (e) {
+		await client.query("ROLLBACK");
+		throw e;
+	} finally {
+		client.release();
+	}
+}
+
 // GET /api/me/stak — get user's saved brand IDs (requires auth)
 meRouter.get("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
@@ -158,38 +199,7 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		}
 
 		await ensureUserRow(uid, req.user!.email);
-		const client = await pgPool.connect();
-		try {
-			await client.query("BEGIN");
-			// Preserve existing price_at_save so "since you saved" isn't wiped on every watchlist edit
-			const existing = await client.query<{ brand_id: string; price_at_save: number | null }>(
-				`select brand_id, price_at_save from stak_brands where uid = $1`,
-				[uid],
-			);
-			const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
-			await client.query(`delete from stak_brands where uid = $1`, [uid]);
-			if (brandIds.length > 0) {
-				const now = new Date().toISOString();
-				const rowPlaceholders: string[] = [];
-				const params: unknown[] = [uid];
-				let pIdx = 2;
-				for (const brandId of brandIds as string[]) {
-					rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
-					params.push(brandId, now, savedPrices.get(brandId) ?? null);
-					pIdx += 3;
-				}
-				await client.query(
-					`insert into stak_brands (uid, brand_id, saved_at, price_at_save) values ${rowPlaceholders.join(", ")}`,
-					params,
-				);
-			}
-			await client.query("COMMIT");
-		} catch (e) {
-			await client.query("ROLLBACK");
-			throw e;
-		} finally {
-			client.release();
-		}
+		await replaceStakBrands(uid, brandIds as string[]);
 
 		res.json({ brandIds });
 	} catch (error) {
@@ -311,7 +321,7 @@ meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, 
 			[uid],
 		);
 		const row = result.rows[0];
-		res.json({ date: row?.daily_swipe_date ?? "", count: row?.daily_swipe_count ?? 0 });
+		res.json({ date: row?.daily_swipe_date ?? "", count: row?.daily_swipe_count ?? 0, limit: DAILY_SWIPE_LIMIT });
 	} catch (error) {
 		console.error("Error fetching daily swipes:", error);
 		res.status(500).json({ error: "Failed to fetch daily swipes" });
@@ -446,6 +456,49 @@ meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequ
 	} catch (error) {
 		console.error("Error clearing search history:", error);
 		res.status(500).json({ error: "Failed to clear search history" });
+	}
+});
+
+// GET /api/me/android-stocks — the user's saved stocks as tickers. Backed by the
+// same stak_brands list the web uses, so saves are shared across platforms. The
+// legacy preferences.android_stocks list is folded in until the next save migrates it.
+meRouter.get("/android-stocks", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const [saved, legacy] = await Promise.all([
+			pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1 order by saved_at asc`, [uid]),
+			pgQuery<{ preferences: Record<string, unknown> | null }>(`select preferences from users where uid = $1`, [uid]),
+		]);
+		const tickers = saved.rows.map((r) => TICKER_BY_ID.get(r.brand_id)).filter((t): t is string => !!t);
+		const legacyTickers = (legacy.rows[0]?.preferences?.android_stocks as string[] | undefined) ?? [];
+		res.json({ tickers: [...new Set([...tickers, ...legacyTickers])] });
+	} catch (error) {
+		console.error("Error fetching android stocks:", error);
+		res.status(500).json({ error: "Failed to fetch android stocks" });
+	}
+});
+
+// PUT /api/me/android-stocks — replace the saved list (tickers), written to stak_brands.
+meRouter.put("/android-stocks", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { tickers } = req.body as { tickers?: unknown };
+		if (!Array.isArray(tickers) || tickers.some((t) => typeof t !== "string")) {
+			res.status(400).json({ error: "tickers must be an array of strings" });
+			return;
+		}
+		const ids = [...new Set((tickers as string[]).map((t) => ID_BY_TICKER.get(t.toUpperCase())).filter((id): id is string => !!id))];
+		await ensureUserRow(uid, req.user!.email);
+		await replaceStakBrands(uid, ids);
+		// The list now lives in stak_brands; drop the legacy copy so it can't resurrect removed saves.
+		await pgQuery(
+			`update users set preferences = coalesce(preferences, '{}'::jsonb) - 'android_stocks', updated_at = now() where uid = $1`,
+			[uid],
+		);
+		res.json({ tickers: ids.map((id) => TICKER_BY_ID.get(id)) });
+	} catch (error) {
+		console.error("Error saving android stocks:", error);
+		res.status(500).json({ error: "Failed to save android stocks" });
 	}
 });
 
