@@ -57,8 +57,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -89,9 +87,9 @@ private object Home {
  * (prototype: Swap overlay · Instant). The tab bar itself lives in the
  * MainShell so the other tabs share it.
  */
-/** `onOpenStock` / `onSearch`: the board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14). */
+/** `onOpenStock`: the board-only Trending strip and Saved peek (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onSearch: () -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -105,7 +103,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState()),
 			) {
-				TopNav(onProfile = onProfile, onBell = onBell, onSearch = onSearch, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
+				TopNav(onProfile = onProfile, onBell = onBell, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
 				Spacer(modifier = Modifier.height((21 * u).dp))
 				Column(
 					horizontalAlignment = Alignment.CenterHorizontally,
@@ -146,7 +144,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 
 /** Fixed top nav — logo row with bell/profile circles + greeting (Figma 131px block). */
 @Composable
-private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onSearch: () -> Unit = {}, modifier: Modifier = Modifier) {
+private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Modifier = Modifier) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		// Scrolls with the content (118:1633); authored side inset 17.
@@ -168,24 +166,6 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onSearch: () 
 				modifier = Modifier.size((78.16 * u).dp, (14.98 * u).dp),
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			// Search (FigJam Home board, 2026-09-14) - a nav circle like the
-			// profile's, left of the authored bell.
-			Box(
-				contentAlignment = Alignment.Center,
-				modifier = Modifier
-					.size((35 * u).dp)
-					.background(Home.NavCircle, CircleShape)
-					.clickable(
-						interactionSource = remember { MutableInteractionSource() },
-						indication = com.stak.demo.ui.theme.PressDim,
-						onClickLabel = "Search",
-						onClick = onSearch,
-					)
-					.semantics { contentDescription = "Search" },
-			) {
-				SearchGlyph(size = (16 * u).dp, tint = Color(0xFFAEAEAE))
-			}
-			Spacer(modifier = Modifier.width((4 * u).dp))
 			// Bell + stateful unread dot (151:1207): the authored badge
 			// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 			// notifications exist and clears once they're opened and read.

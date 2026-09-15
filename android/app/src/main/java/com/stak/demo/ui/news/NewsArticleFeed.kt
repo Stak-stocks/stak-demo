@@ -448,9 +448,6 @@ object NewsArticleFeed {
 		return pool.filter { it.category == "Markets" } + pool.filter { it.category != "Markets" }
 	}
 
-	/** Every story the Search page may list - the strict stock-news pool (FigJam Home board, 2026-09-14). */
-	fun searchable(): List<Article> = ARTICLES.filter { isStockNews(it) }
-
 	/** The article page's READ NEXT rows - two other row-presented stories. */
 	fun readNext(excluding: String): List<Article> =
 		ARTICLES.filter { isStockNews(it) && it.thumbRes != null && it.id != excluding }.take(2)

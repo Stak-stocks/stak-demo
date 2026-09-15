@@ -448,7 +448,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 						launchSingleTop = true
 					}
 				},
-				onSearch = { navController.navigate(StakRoutes.SEARCH) { launchSingleTop = true } },
 				// A held stock opens the saved flavour of Stock Detail (review 2026-09-14).
 				onOpenSavedStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
 			)
@@ -633,20 +632,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			}
 			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
 		}
-		composable(
-			StakRoutes.SEARCH,
-			// Mirrors MAIN (A3/A2): a result (Stock Detail / article) is an Instant route - the page holds still.
-			exitTransition = { if (targetState.destination.route in INSTANT_ROUTES) ExitTransition.None else null },
-			popEnterTransition = { popEnterFor(shellPop.value, initialState.destination.route in INSTANT_ROUTES) },
-		) {
-			// Home · Search (FigJam Home board, 2026-09-14): stocks open their detail, stories their article.
-			com.stak.demo.ui.home.SearchScreen(
-				onBack = { navController.popBackStack() },
-				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
-				onOpenArticle = { id -> navController.navigate(StakRoutes.newsDetail(id)) },
-				onOpenSavedStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
-			)
-		}
 		composable(StakRoutes.NOTIFICATIONS) {
 			com.stak.demo.ui.inbox.NotificationsScreen(
 				onBack = { navController.popBackStack() },
@@ -753,8 +738,6 @@ private fun MainShell(
 	onOpenSimPick: (String) -> Unit,
 	onOpenLeaderboard: () -> Unit,
 	onViewSimPortfolio: () -> Unit,
-	/** Home's search circle (FigJam Home board, 2026-09-14). */
-	onSearch: () -> Unit = {},
 	/** A held stock's saved-flavour Stock Detail (review 2026-09-14). */
 	onOpenSavedStock: (String) -> Unit = onOpenStock,
 ) {
@@ -854,9 +837,8 @@ private fun MainShell(
 							onOpenNews = { endFirstRun(); switchTab(MainTab.News) },
 							onOpenMyStak = { endFirstRun(); switchTab(MainTab.MySTAK) },
 							onOpenDeck = { endFirstRun(); switchTab(MainTab.Discover) },
-							// The board-only sections: a stock opens its detail, the circle opens Search.
+							// The board-only sections: a stock opens its detail.
 							onOpenStock = onOpenStock,
-							onSearch = onSearch,
 							onOpenSavedStock = onOpenSavedStock,
 						)
 						MainTab.News -> NewsScreen(onOpenArticle = onOpenArticle)
