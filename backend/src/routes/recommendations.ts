@@ -106,11 +106,6 @@ async function getTodayThemes(): Promise<string[]> {
 	return (await getTodayDecks()).map((d) => d.id);
 }
 
-/** Display title of today's lead mood deck - the label clients show over the Discover deck. */
-async function getTodayTheme(): Promise<string | null> {
-	return (await getTodayDecks())[0]?.title ?? null;
-}
-
 /** STAK tickers mentioned in Finnhub general news in the last 48h. Cached 2h. */
 async function getMajorNewsTickers(): Promise<Set<string>> {
 	const cacheKey = "freshness:major-news:v1";
@@ -310,7 +305,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 		const cacheKey = `recommendations:sorted:${uid}:v1`;
 		const cached = await cacheGet<string[]>(cacheKey);
 		if (cached) {
-			res.json({ brandIds: cached, theme: await getTodayTheme(), categories: categoriesFor(cached) });
+			res.json({ brandIds: cached, categories: categoriesFor(cached) });
 			return;
 		}
 
@@ -334,7 +329,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 			.map((s) => s.ticker);
 
 		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
-		res.json({ brandIds: tickers, theme: await getTodayTheme(), categories: categoriesFor(tickers) });
+		res.json({ brandIds: tickers, categories: categoriesFor(tickers) });
 	} catch (error) {
 		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });
