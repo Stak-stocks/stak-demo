@@ -82,35 +82,34 @@ fun MyStakScreen(onOpenCollection: (String) -> Unit, onStartSwiping: () -> Unit)
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(
-			verticalArrangement = Arrangement.spacedBy((4 * u).dp),
-			modifier = Modifier
-				.fillMaxWidth()
-				.background(StakColors.Bg)
-				.statusBarsPadding()
-				.padding(horizontal = (20 * u).dp)
-				.padding(top = (20 * u).dp),
-		) {
-			Text(
-				text = "My STAK",
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Color.White,
-			)
-			Text(
-				text = "Your saved stocks, live.",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Muted,
-			)
-		}
-		Column(
 			horizontalAlignment = Alignment.CenterHorizontally,
 			verticalArrangement = Arrangement.spacedBy((20 * u).dp),
 			modifier = Modifier
 				.weight(1f)
 				.fillMaxWidth()
 				.verticalScroll(rememberScrollState())
-				.padding(horizontal = (20 * u).dp)
-				.padding(top = (20 * u).dp),
+				.padding(horizontal = (20 * u).dp),
 		) {
+			// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+			// "I don't want a fixed top bar"); the 20 item gap is the old top inset.
+			Column(
+				verticalArrangement = Arrangement.spacedBy((4 * u).dp),
+				modifier = Modifier
+					.fillMaxWidth()
+					.statusBarsPadding()
+					.padding(top = (20 * u).dp),
+			) {
+				Text(
+					text = "My STAK",
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Color.White,
+				)
+				Text(
+					text = "Your saved stocks, live.",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Muted,
+				)
+			}
 			SectionHeader("Collections")
 			Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
 				// B10 (1:3180 Motion): the sample card's edge is the TEMPLATE -
@@ -420,7 +419,7 @@ private fun PortfolioSummary() {
 		val duo = if (demo) null else com.stak.demo.ui.StakInsights.bestWorst()
 		if (!empty && (demo || duo != null)) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-				Text("Best this week", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
+				Text("Best", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 					Text(if (demo) "TSLA" else duo!!.first.ticker, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
 					Text(if (demo) "+3.4%" else com.stak.demo.ui.StakInsights.signedPct(com.stak.demo.ui.StakInsights.changePct(duo!!.first)), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (demo || duo!!.first.up) Green else Red)

@@ -137,47 +137,6 @@ internal fun SimulateScreen(
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
-			Row(
-				verticalAlignment = Alignment.CenterVertically,
-				modifier = Modifier
-					.fillMaxWidth()
-					.background(StakColors.Bg)
-					.statusBarsPadding()
-					.padding(horizontal = (20 * u).dp)
-					// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
-					// status bar with no bottom inset - the 18 above the hero is the Main column's own.
-					.padding(top = (8 * u).dp),
-			) {
-				Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-					Text(
-						text = "Simulate",
-						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Color.White,
-					)
-					Text(
-						text = "Pick from your saves. Paper money does the talking.",
-						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Sim.Muted,
-					)
-				}
-				Spacer(modifier = Modifier.weight(1f))
-				// Codex audit (2026-09-04): the clock (1:3918 "btn" / icon/clock)
-				// is the pick history - it opens the portfolio page, where the
-				// SOLD · REALIZED rows live. Same plumbing as AuthBackCircle.
-				Box(
-					contentAlignment = Alignment.Center,
-					modifier = Modifier
-						.size((40 * u).dp)
-						.background(Sim.CardBg, CircleShape)
-						.clickable(
-							interactionSource = remember { MutableInteractionSource() },
-							indication = com.stak.demo.ui.theme.PressDim,
-							onClick = onOpenPortfolio,
-						),
-				) {
-					Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
-				}
-			}
 			Column(
 				verticalArrangement = Arrangement.spacedBy((18 * u).dp),
 				modifier = Modifier
@@ -185,8 +144,49 @@ internal fun SimulateScreen(
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState())
 					.padding(horizontal = (20 * u).dp)
-					.padding(top = (18 * u).dp, bottom = (26 * u).dp),
+					.padding(bottom = (26 * u).dp),
 			) {
+				// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+				// "I don't want a fixed top bar"); the 18 item gap is the old top inset.
+				Row(
+					verticalAlignment = Alignment.CenterVertically,
+					modifier = Modifier
+						.fillMaxWidth()
+						.statusBarsPadding()
+						// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
+						// status bar with no bottom inset - the 18 above the hero is the Main column's own.
+						.padding(top = (8 * u).dp),
+				) {
+					Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
+						Text(
+							text = "Simulate",
+							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Color.White,
+						)
+						Text(
+							text = "Pick from your saves. Paper money does the talking.",
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Sim.Muted,
+						)
+					}
+					Spacer(modifier = Modifier.weight(1f))
+					// Codex audit (2026-09-04): the clock (1:3918 "btn" / icon/clock)
+					// is the pick history - it opens the portfolio page, where the
+					// SOLD · REALIZED rows live. Same plumbing as AuthBackCircle.
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							.size((40 * u).dp)
+							.background(Sim.CardBg, CircleShape)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								onClick = onOpenPortfolio,
+							),
+					) {
+						Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
+					}
+				}
 				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 				// chooses its balance, name and strategy before its first trade.
 				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
