@@ -114,7 +114,7 @@ class DiscoverViewModel @Inject constructor(
                     val recs = recsDeferred.await()
                     recs?.theme?.takeIf { it.isNotBlank() }?.let { _deckLabel.value = "TODAY · ${it.uppercase()}" }
                     passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
-                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty())
+                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
                     val quotes = if (picks.isNotEmpty()) {
                         runCatching { repository.batchQuotes(picks.map { it.ticker }) }.getOrNull()?.quotes ?: emptyMap()
                     } else emptyMap()
@@ -154,10 +154,16 @@ class DiscoverViewModel @Inject constructor(
      * back, as on web), capped at the daily limit. Pinned per day so a relaunch or a
      * refreshed ranking doesn't reshuffle a deck the user is part-way through.
      */
-    private fun todaysPicks(brands: List<BrandSummaryDto>, ranked: List<String>, limit: Int, passed: Map<String, Long>): List<BrandSummaryDto> {
+    private fun todaysPicks(
+        brands: List<BrandSummaryDto>,
+        ranked: List<String>,
+        limit: Int,
+        passed: Map<String, Long>,
+        categories: Map<String, String>,
+    ): List<BrandSummaryDto> {
         val byTicker = brands.associateBy { it.ticker }
         val key = todayKey()
-        if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getBoolean(PICKS_RANKED_KEY, false)) {
+        if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION) {
             val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
             if (pinned.isNotEmpty()) return pinned
         }
@@ -166,13 +172,13 @@ class DiscoverViewModel @Inject constructor(
         val held = MyStakHoldings.tickers
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         val eligible = ordered.filter { it.ticker !in held && (passed[it.id] ?: 0L) <= dayAgo }
-        val picks = (eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }).take(limit)
+        val picks = withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
         // Only a real personalised ranking is pinned. A fallback order (ranking
         // unavailable - offline, or an expired session) must not decide the whole day.
         if (ranked.isNotEmpty()) {
             StakStore.putString(PICKS_DAY_KEY, key)
             StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
-            StakStore.putBoolean(PICKS_RANKED_KEY, true)
+            StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
         }
         return picks
     }
@@ -272,7 +278,33 @@ private const val FALLBACK_DAILY_LIMIT = 10
 private const val DEFAULT_DECK_LABEL = "TODAY'S DECK"
 private const val PICKS_DAY_KEY = "deck.picks.day"
 private const val PICKS_KEY = "deck.picks"
-private const val PICKS_RANKED_KEY = "deck.picks.ranked"
+/** Bump when the picking rules change, so a deck pinned under the old rules is re-picked. */
+private const val PICKS_VERSION = 2
+private const val PICKS_VERSION_KEY = "deck.picks.version"
+private const val MAX_PER_CATEGORY = 3
+
+/**
+ * The top [limit] brands with at most [MAX_PER_CATEGORY] per primary category, so
+ * one strong interest (every chip stock) can't fill the whole deck. Capped-out
+ * brands fill in, in rank order, only when other categories run out.
+ */
+private fun withCategoryCap(ordered: List<BrandSummaryDto>, categories: Map<String, String>, limit: Int): List<BrandSummaryDto> {
+    val perCategory = mutableMapOf<String, Int>()
+    val picks = mutableListOf<BrandSummaryDto>()
+    val overflow = mutableListOf<BrandSummaryDto>()
+    for (brand in ordered) {
+        if (picks.size == limit) break
+        val category = categories[brand.ticker] ?: brand.ticker
+        val count = perCategory[category] ?: 0
+        if (count < MAX_PER_CATEGORY) {
+            picks += brand
+            perCategory[category] = count + 1
+        } else {
+            overflow += brand
+        }
+    }
+    return picks + overflow.take(limit - picks.size)
+}
 
 private fun brandLogoUrl(brand: BrandSummaryDto): String? =
     brand.logo ?: brand.domain?.let { "https://cdn.brandfetch.io/$it/w/400/h/400" }

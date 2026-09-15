@@ -8,6 +8,13 @@ import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type DeckDef, type MarketData } 
 
 export const recommendationsRouter = Router();
 
+// Primary category per ticker, sent with the ranking so clients can keep a deck varied.
+const CATEGORY_BY_TICKER: Record<string, string> = Object.fromEntries(
+	(STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[]).map((s) => [s.ticker, s.primaryCategory]),
+);
+const categoriesFor = (tickers: string[]) =>
+	Object.fromEntries(tickers.flatMap((t) => (CATEGORY_BY_TICKER[t] ? [[t, CATEGORY_BY_TICKER[t]]] : [])));
+
 
 async function finnhubGet(path: string): Promise<unknown | null> {
 	const keys = getFinnhubKeys();
@@ -303,7 +310,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 		const cacheKey = `recommendations:sorted:${uid}:v1`;
 		const cached = await cacheGet<string[]>(cacheKey);
 		if (cached) {
-			res.json({ brandIds: cached, theme: await getTodayTheme() });
+			res.json({ brandIds: cached, theme: await getTodayTheme(), categories: categoriesFor(cached) });
 			return;
 		}
 
@@ -327,7 +334,7 @@ recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest,
 			.map((s) => s.ticker);
 
 		await cacheSet(cacheKey, tickers, 5 * 60 * 1000); // 5 min
-		res.json({ brandIds: tickers, theme: await getTodayTheme() });
+		res.json({ brandIds: tickers, theme: await getTodayTheme(), categories: categoriesFor(tickers) });
 	} catch (error) {
 		console.error("Error computing sorted recommendations:", error);
 		res.status(500).json({ error: "Failed to compute recommendations" });
