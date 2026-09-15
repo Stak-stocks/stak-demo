@@ -25,14 +25,18 @@ enum StakInsights {
 		"realestate": "Real Estate", "health": "Healthcare", "consumer": "Consumer"
 	]
 
-	/// The collections the user holds stocks in, biggest first.
+	/// The collections the user holds stocks in, biggest first - the Other collection (uncatalogued saves) included (Codex review, PR #167).
 	static func heldGroups() -> [(StakCollection, [CollStock])] {
 		let holdings = MyStakHoldings.shared.tickers
-		return StakCollections.all
-			.map { ($0, $0.held(in: holdings)) }
+		var groups = StakCollections.all.map { ($0, $0.held(in: holdings)) }
+		if let other = StakCollections.other(holdings: holdings) { groups.append((other, other.stocks)) }
+		return groups
 			.filter { !$0.1.isEmpty }
 			.sorted { $0.1.count > $1.1.count }
 	}
+
+	/// "tech and AI names" for a catalogued group; "stocks you found yourself" for the Other collection.
+	private static func themeNames(_ id: String) -> String { theme[id].map { "\($0) names" } ?? "stocks you found yourself" }
 
 	static func heldStocks() -> [CollStock] { heldGroups().flatMap { $0.1 } }
 
@@ -66,7 +70,7 @@ enum StakInsights {
 		guard let top = heldGroups().first else {
 			return MyStakHoldings.shared.count > 0 ? "Your saves sit outside the six collections." : "Your read starts with your first save."
 		}
-		return "You lean into \(theme[top.0.id] ?? top.0.name)."
+		return "You lean into \(theme[top.0.id] ?? "stocks you found yourself")."
 	}
 
 	static func readBody() -> String {
@@ -76,16 +80,16 @@ enum StakInsights {
 			return MyStakHoldings.shared.count > 0 ? "Save a stock from one of the collections and STAK will read your taste from it."
 				: "Save stocks from the Discover deck and STAK will read your taste from them."
 		}
-		let themeName = theme[top.0.id] ?? top.0.name
+		let themeName = theme[top.0.id]
 		if total == 1 {
-			return "\(top.1[0].ticker) is your first save, a \(themeName) name. Save a few more and STAK will read the pattern."
+			return "\(top.1[0].ticker) is your first save\(themeName.map { ", a \($0) name" } ?? ""). Save a few more and STAK will read the pattern."
 		}
-		let lead = "\(word(top.1.count).capitalizedFirst) of your \(word(total)) picks are \(themeName) names."
+		let lead = "\(word(top.1.count).capitalizedFirst) of your \(word(total)) picks are \(themeNames(top.0.id))."
 		if groups.count > 1 {
 			let second = groups[1]
-			return lead + " \(word(second.1.count).capitalizedFirst) more \(second.1.count == 1 ? "sits" : "sit") in \(theme[second.0.id] ?? second.0.name)."
+			return lead + " \(word(second.1.count).capitalizedFirst) more \(second.1.count == 1 ? "sits" : "sit") \(theme[second.0.id].map { "in \($0)" } ?? "outside the six collections")."
 		}
-		return lead + " Your STAK is all \(themeName) for now."
+		return lead + " Your STAK is all \(themeName ?? "your own finds") for now."
 	}
 
 	private static func word(_ n: Int) -> String {

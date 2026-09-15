@@ -123,8 +123,12 @@ struct RootFlowView: View {
 			}
 		}
 		.onChange(of: scenePhase) { _, next in
-			// Leaving the active state locks a protected account at once.
-			if next == .background, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
+			// Leaving the active state locks a protected account at once - .inactive too
+			// (Control Center, the app switcher, a system interruption), so the promise
+			// "authenticate whenever you come back" holds (Codex review, PR #167). The
+			// gate's own Face ID prompt also makes the scene inactive: relocked is
+			// already true then, so this is a no-op until the unlock clears it.
+			if next != .active, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 	}

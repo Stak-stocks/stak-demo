@@ -853,13 +853,30 @@ private func detailFactsFor(_ symbol: String) -> DetailFacts {
 	if let designed = detailFacts[symbol] { return designed }
 	var f = detailFacts["AAPL"]!
 	f.symbol = symbol
-	guard NewsArticleFeed.hasStockFacts(symbol) else { f.title = symbol; return f }
+	let badge = String(symbol.prefix(1))
+	// Every order-related field follows the requested ticker (Codex review, PR #167):
+	// the inherited AAPL buySpec used to add Apple to the paper portfolio for an AMZN page.
+	guard NewsArticleFeed.hasStockFacts(symbol) else {
+		f.title = symbol
+		f.sheetBadge = badge
+		f.sheetName = symbol
+		let b = f.buySpec
+		f.buySpec = BuySpec(title: "Buy \(symbol)?", badge: badge, name: symbol, priceLine: b.priceLine, change: b.change, cashBefore: b.cashBefore, cashAfter: b.cashAfter, shares: b.shares, symbol: symbol)
+		return f
+	}
 	let sf = NewsArticleFeed.stockFacts(symbol)
 	var pct = sf.change.filter { $0.isNumber || $0 == "." }
 	if pct.isEmpty { pct = "0.0" }
+	let move = (sf.up ? "\u{25B2} " : "\u{25BC} ") + pct + "%"
 	f.title = "\(symbol) · \(sf.name)"
 	f.price = sf.price
-	f.change = (sf.up ? "\u{25B2} " : "\u{25BC} ") + pct + "% today"
+	f.change = move + " today"
+	f.sheetBadge = badge
+	f.sheetName = sf.shortName
+	f.sheetPrice = "\(sf.price) today"
+	f.sheetChange = move
+	// The ticket recomputes cash and shares from the chosen amount (withAmount).
+	f.buySpec = BuySpec(title: "Buy \(symbol)?", badge: badge, name: sf.name, priceLine: "\(sf.price) today", change: move, cashBefore: "$0.00", cashAfter: "$0.00", shares: "0.0000", symbol: symbol)
 	return f
 }
 
@@ -902,11 +919,11 @@ private struct DetailFacts {
 	let peerA: String
 	let peerB: String
 	let compareRows: [DetailCompareRow]
-	let sheetBadge: String
-	let sheetName: String
-	let sheetPrice: String
-	let sheetChange: String
-	let buySpec: BuySpec
+	var sheetBadge: String
+	var sheetName: String
+	var sheetPrice: String
+	var sheetChange: String
+	var buySpec: BuySpec
 }
 
 private let detailFacts: [String: DetailFacts] = [
