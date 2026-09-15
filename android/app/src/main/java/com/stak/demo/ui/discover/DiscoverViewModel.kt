@@ -112,7 +112,6 @@ class DiscoverViewModel @Inject constructor(
 
                 brandsResult.onSuccess { res ->
                     val recs = recsDeferred.await()
-                    recs?.theme?.takeIf { it.isNotBlank() }?.let { _deckLabel.value = "TODAY · ${it.uppercase()}" }
                     passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
                     val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
                     val quotes = if (picks.isNotEmpty()) {
@@ -165,7 +164,10 @@ class DiscoverViewModel @Inject constructor(
         val key = todayKey()
         if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION) {
             val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
-            if (pinned.isNotEmpty()) return pinned
+            if (pinned.isNotEmpty()) {
+                _deckLabel.value = StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(pinned, categories)
+                return pinned
+            }
         }
         val rankedSet = ranked.toSet()
         val ordered = ranked.mapNotNull { byTicker[it] } + brands.filter { it.ticker !in rankedSet }
@@ -173,13 +175,16 @@ class DiscoverViewModel @Inject constructor(
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         val eligible = ordered.filter { it.ticker !in held && (passed[it.id] ?: 0L) <= dayAgo }
         val picks = withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
+        val label = deckLabelFor(picks, categories)
         // Only a real personalised ranking is pinned. A fallback order (ranking
         // unavailable - offline, or an expired session) must not decide the whole day.
         if (ranked.isNotEmpty()) {
             StakStore.putString(PICKS_DAY_KEY, key)
             StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
             StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
+            StakStore.putString(PICKS_LABEL_KEY, label)
         }
+        _deckLabel.value = label
         return picks
     }
 
@@ -281,6 +286,7 @@ private const val PICKS_KEY = "deck.picks"
 /** Bump when the picking rules change, so a deck pinned under the old rules is re-picked. */
 private const val PICKS_VERSION = 2
 private const val PICKS_VERSION_KEY = "deck.picks.version"
+private const val PICKS_LABEL_KEY = "deck.picks.label"
 private const val MAX_PER_CATEGORY = 3
 
 /**
@@ -305,6 +311,85 @@ private fun withCategoryCap(ordered: List<BrandSummaryDto>, categories: Map<Stri
     }
     return picks + overflow.take(limit - picks.size)
 }
+
+/**
+ * "TODAY · CHIPS, E-COMMERCE & MORE": the deck's own leading categories, so the
+ * label always describes the cards under it. Ties keep rank order.
+ */
+private fun deckLabelFor(picks: List<BrandSummaryDto>, categories: Map<String, String>): String {
+    val names = picks.mapNotNull { categories[it.ticker]?.let(::categoryName) }
+    if (names.isEmpty()) return DEFAULT_DECK_LABEL
+    val counts = names.groupingBy { it }.eachCount()
+    val top = names.distinct().sortedByDescending { counts.getValue(it) }
+    val text = when (top.size) {
+        1 -> top[0]
+        2 -> "${top[0]} & ${top[1]}"
+        else -> "${top[0]}, ${top[1]} & more"
+    }
+    return "TODAY · ${text.uppercase()}"
+}
+
+private fun categoryName(id: String): String =
+    CATEGORY_NAMES[id] ?: id.split('_').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+
+/** Short display names for the backend's primary categories; related ids share a name so they count together. */
+private val CATEGORY_NAMES = mapOf(
+    "enterprise_software" to "Software",
+    "semiconductor" to "Chips",
+    "semiconductor_equipment" to "Chips",
+    "restaurant" to "Restaurants",
+    "bank" to "Banks",
+    "retail" to "Retail",
+    "insurance" to "Insurance",
+    "energy_oilgas" to "Energy",
+    "ecommerce_marketplace" to "E-commerce",
+    "fintech_payments" to "Fintech",
+    "consumer_staples" to "Staples",
+    "industrial" to "Industrials",
+    "capital_markets" to "Markets",
+    "asset_manager" to "Asset Managers",
+    "financial_data" to "Financial Data",
+    "healthcare_pharma" to "Pharma",
+    "apparel_beauty" to "Fashion",
+    "streaming_media" to "Streaming",
+    "beverage" to "Drinks",
+    "cybersecurity" to "Cybersecurity",
+    "space_airmobility" to "Space",
+    "social_media" to "Social Media",
+    "travel_rideshare" to "Travel",
+    "aerospace_defense" to "Defense",
+    "medical_devices" to "MedTech",
+    "reit" to "Real Estate",
+    "casino_entertainment" to "Casinos",
+    "gaming" to "Gaming",
+    "crypto_fintech" to "Crypto",
+    "payment_network" to "Payments",
+    "utilities" to "Utilities",
+    "metals_mining" to "Mining",
+    "auto_ev" to "EVs",
+    "clean_energy" to "Clean Energy",
+    "health_insurance" to "Health Insurers",
+    "biotech" to "Biotech",
+    "transport_logistics" to "Logistics",
+    "airline" to "Airlines",
+    "consumer_tech" to "Consumer Tech",
+    "database_data" to "Data",
+    "automation_ai" to "AI",
+    "private_equity" to "Private Equity",
+    "auto_legacy" to "Autos",
+    "telecom" to "Telecom",
+    "mega_cap_tech" to "Big Tech",
+    "etf_index" to "Index Funds",
+    "home_retail" to "Home Retail",
+    "default_tech" to "Tech",
+    "tech" to "Tech",
+    "adtech" to "Ad Tech",
+    "meme_stock" to "Meme Stocks",
+    "default_consumer" to "Consumer",
+    "default_finance" to "Finance",
+    "digital_health" to "Digital Health",
+    "food_beverage_growth" to "Food",
+)
 
 private fun brandLogoUrl(brand: BrandSummaryDto): String? =
     brand.logo ?: brand.domain?.let { "https://cdn.brandfetch.io/$it/w/400/h/400" }

@@ -124,7 +124,6 @@ data class SwipeResponse(
 data class TipResponse(val tip: String = "")
 data class RecommendationsResponse(
     val brandIds: List<String> = emptyList(),
-    val theme: String? = null,
     val categories: Map<String, String>? = null,
 )
 data class EngagementEventRequest(

@@ -436,6 +436,8 @@ internal fun DiscoverScreen(
 				}
 				Text(
 					text = deckLabel,
+					maxLines = 1,
+					overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, letterSpacing = ((if (atEnd) 0.8 else 0.9) * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = if (atEnd) Disc.Muted else Disc.Faint,
 					modifier = Modifier.padding(start = ((if (atEnd) 0 else 2) * u).dp),
