@@ -41,7 +41,11 @@ object UserProfile {
 
 	/** The name as the app addresses the user - always capitalized. */
 	val greetingName: String
-		get() = displayName.ifBlank { "Hamza" }.capitalizeWords()
+		get() = when {
+			displayName.isNotBlank() -> displayName.capitalizeWords()
+			Session.demoAccount -> "Hamza"
+			else -> "there"
+		}
 
 	/**
 	 * BACKEND CONTRACT (user, 2026-08-22): the app sends the device's IANA

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
@@ -50,8 +51,11 @@ fun CreateAccountScreen(
 	viewModel: AuthViewModel = hiltViewModel(),
 	onCreateAccount: () -> Unit,
 	onSignIn: () -> Unit,
+	/** Google sign-in for a user who already completed onboarding — skip straight to main. */
+	onAlreadySignedIn: () -> Unit = onCreateAccount,
 ) {
 	val u = figmaUnit()
+	val context = LocalContext.current
 	var email by rememberSaveable { mutableStateOf("") }
 	var password by rememberSaveable { mutableStateOf("") }
 	var confirm by rememberSaveable { mutableStateOf("") }
@@ -66,10 +70,12 @@ fun CreateAccountScreen(
 
 	val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-	// Navigate into onboarding once the Supabase account is created and JWT is stored.
+	// Navigate once Supabase auth succeeds. Google sign-in for a returning user
+	// goes straight to main; new accounts and email sign-up always go to onboarding.
 	LaunchedEffect(uiState) {
 		if (uiState is AuthUiState.Success) {
-			onCreateAccount()
+			val success = uiState as AuthUiState.Success
+			if (success.onboardingComplete) onAlreadySignedIn() else onCreateAccount()
 			viewModel.resetState()
 		}
 	}
@@ -101,8 +107,7 @@ fun CreateAccountScreen(
 				}
 				Spacer(modifier = Modifier.height((4 * u).dp))
 
-				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = onCreateAccount)
-				SocialPill(text = "Continue with Apple", iconRes = R.drawable.ic_apple_logo, onClick = onCreateAccount)
+				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = { viewModel.signInWithGoogle(context) })
 
 				AuthOrDivider()
 

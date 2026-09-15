@@ -1,0 +1,76 @@
+package com.stak.demo.ui.news
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.stak.demo.data.DailyBriefResponse
+import com.stak.demo.data.MyStakHoldings
+import com.stak.demo.data.NewsArticleDto
+import com.stak.demo.data.Session
+import com.stak.demo.data.StockRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class NewsViewModel @Inject constructor(
+    private val repository: StockRepository,
+) : ViewModel() {
+    private val _liveNews = MutableStateFlow<List<NewsArticleDto>>(emptyList())
+    val liveNews: StateFlow<List<NewsArticleDto>> = _liveNews
+
+    private val _dailyBrief = MutableStateFlow<DailyBriefResponse?>(null)
+    val dailyBrief: StateFlow<DailyBriefResponse?> = _dailyBrief
+
+    private val _forYouNews = MutableStateFlow<List<NewsArticleDto>>(emptyList())
+    val forYouNews: StateFlow<List<NewsArticleDto>> = _forYouNews
+
+    init {
+        fetchNews()
+        fetchForYouNews()
+        if (Session.token != null) fetchDailyBrief()
+    }
+
+    private fun fetchNews() {
+        viewModelScope.launch {
+            runCatching { repository.getMarketNews() }
+                .onSuccess { _liveNews.value = it.articles }
+        }
+    }
+
+    private fun fetchDailyBrief() {
+        viewModelScope.launch {
+            runCatching { repository.getDailyBrief() }
+                .onSuccess { _dailyBrief.value = it }
+                .onFailure { _dailyBrief.value = DailyBriefResponse(mood = "calm") } // exit loading state; "calm" keeps Market Mood visible
+        }
+    }
+
+    // Called from NewsScreen on each entry so new holdings from Discover are picked up.
+    fun refreshForYou() { fetchForYouNews() }
+
+    private fun fetchForYouNews() {
+        val held = MyStakHoldings.tickers.toList()
+        if (held.isEmpty()) return
+        viewModelScope.launch {
+            val allArticles = coroutineScope {
+                held.map { ticker ->
+                    async {
+                        runCatching { repository.getCompanyNews(ticker) }
+                            .getOrNull()?.articles.orEmpty()
+                            .map { it.copy(ticker = ticker) }
+                    }
+                }.awaitAll().flatten()
+            }
+            val seen = mutableSetOf<String>()
+            _forYouNews.value = allArticles
+                .filter { it.url.isNotBlank() && seen.add(it.url) }
+                .sortedByDescending { it.datetime }
+                .take(10)
+        }
+    }
+}

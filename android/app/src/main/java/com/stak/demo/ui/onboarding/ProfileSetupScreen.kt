@@ -241,16 +241,25 @@ fun ProfileSetupScreen(
 			)
 		}
 
+		var isSaving by rememberSaveable { mutableStateOf(false) }
 		Column(modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp)) {
-			AuthCta(text = "Proceed to home", enabled = name.isNotBlank(), onClick = {
-				com.stak.demo.data.UserProfile.displayName = name.trim().capitalizeWords()
-				com.stak.demo.data.UserProfile.photoUri = photoUri
-				com.stak.demo.data.Session.saveProfile()
-				// Fire-and-forget: save profile to Supabase in the background.
-				// The UI proceeds immediately; failure only affects cross-device routing.
-				viewModel.saveProfile()
-				onProceed()
-			})
+			AuthCta(
+				text = if (isSaving) "Saving…" else "Proceed to home",
+				enabled = name.isNotBlank() && !isSaving,
+				onClick = {
+					isSaving = true
+					scope.launch {
+						com.stak.demo.data.UserProfile.displayName = name.trim().capitalizeWords()
+						com.stak.demo.data.UserProfile.photoUri = photoUri
+						com.stak.demo.data.Session.saveProfile()
+						// Await the backend save before navigating — fire-and-forget was
+						// unreliable because the ViewModel scope was cancelled when the nav
+						// stack cleared mid-request, leaving onboarding_completed = false.
+						viewModel.saveProfile()
+						onProceed()
+					}
+				},
+			)
 		}
 	}
 }

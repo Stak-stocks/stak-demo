@@ -41,6 +41,10 @@ import com.stak.demo.ui.discover.StockDetailScreen
 import com.stak.demo.ui.home.HomeScreen
 import com.stak.demo.ui.mystak.CollectionScreen
 import com.stak.demo.ui.mystak.MyStakScreen
+import com.stak.demo.ui.news.DailyBriefDetailScreen
+import com.stak.demo.ui.news.DailyBriefHolder
+import com.stak.demo.ui.news.LiveNewsDetailScreen
+import com.stak.demo.ui.news.LiveNewsHolder
 import com.stak.demo.ui.news.NewsDetailScreen
 import com.stak.demo.ui.profile.ProfileScreen
 import com.stak.demo.ui.simulate.LeaderboardScreen
@@ -49,7 +53,9 @@ import com.stak.demo.ui.simulate.SimBuySpecSaver
 import com.stak.demo.ui.simulate.SimPortfolioScreen
 import com.stak.demo.ui.simulate.SimulateScreen
 import com.stak.demo.ui.news.NewsScreen
+import com.stak.demo.ui.news.NewsViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.ui.onboarding.AuthViewModel
 import com.stak.demo.ui.onboarding.CreateAccountScreen
 import com.stak.demo.ui.onboarding.SplashScreen
@@ -115,9 +121,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			SplashScreen(
 				onContinue = {
-					// Returning user (signed in before) goes straight to Home;
-					// a first-time user is taken to create an account
-					// (user, 2026-08-23).
 					val next = if (com.stak.demo.data.Session.signedIn) StakRoutes.MAIN else StakRoutes.createAccount(via = "dissolve")
 					navController.navigate(next) {
 						popUpTo(StakRoutes.SPLASH) { inclusive = true }
@@ -245,6 +248,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			CreateAccountScreen(
 				onCreateAccount = { navController.navigate(StakRoutes.intro(via = "forward")) },
 				onSignIn = { navController.navigate(StakRoutes.SIGN_IN) },
+				onAlreadySignedIn = {
+					com.stak.demo.data.Session.signIn(demo = false)
+					navController.navigate(StakRoutes.MAIN) { popUpTo(0) { inclusive = true } }
+				},
 			)
 		}
 		composable(StakRoutes.PERMISSIONS) {
@@ -272,9 +279,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			enterTransition = {
 				when (initialState.destination.route) {
 					StakRoutes.CREATE_ACCOUNT -> fadeIn(tween(350, easing = EaseOut))
-					// B21 (171:995 Motion): arriving from Log out = the house
-					// BACK push - sign in slides in from the right.
-					StakRoutes.PROFILE -> slideInHorizontally(tween(300, easing = EaseOut)) { it }
+					// B21 (171:995 Motion): arriving from Log out — Profile exits
+					// instantly (no slide) so HomeScreen never flashes; SIGN_IN fades in.
+					StakRoutes.PROFILE -> fadeIn(tween(350, easing = EaseOut))
 					else -> null
 				}
 			},
@@ -303,8 +310,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Product audit (2026-09-05): the link opens the reset flow.
 				onForgot = { navController.navigate(StakRoutes.FORGOT_PASSWORD) },
 				onSignIn = {
-					// Real Supabase account - not demo content. Portfolio data
-					// loads from the backend once Phase 3 is live.
 					com.stak.demo.data.Session.signIn(demo = false)
 					navController.navigate(StakRoutes.MAIN) {
 						popUpTo(0) { inclusive = true }
@@ -363,6 +368,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			MainShell(
 				pendingTab = pendingShellTab,
 				onOpenArticle = { id -> navController.navigate(StakRoutes.newsDetail(id)) },
+				onOpenLiveArticle = { article ->
+					LiveNewsHolder.current = article
+					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
+				},
+				onOpenDailyBrief = { navController.navigate(StakRoutes.NEWS_DAILY_BRIEF_DETAIL) },
 				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
 				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
 				onOpenProfile = { navController.navigate(StakRoutes.PROFILE) },
@@ -527,14 +537,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		}
 		composable(
 			StakRoutes.PROFILE,
-			// B21 (171:995 Motion): Log out leaves with the house BACK push
-			// - the hub slides out left while Sign in arrives from the right.
-			exitTransition = {
-				if (targetState.destination.route == StakRoutes.SIGN_IN) {
-					slideOutHorizontally(tween(300, easing = EaseOut)) { -it }
-				} else {
-					null
-				}
+			// Log out exits instantly so HomeScreen never flashes through during
+		// the transition; SIGN_IN fades in on the other side.
+		exitTransition = {
+				if (targetState.destination.route == StakRoutes.SIGN_IN) ExitTransition.None
+				else null
 			},
 		) {
 			val authVm: AuthViewModel = hiltViewModel()
@@ -543,11 +550,13 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
 				onLogOut = {
-					com.stak.demo.data.Session.signOut()
-					// B21: the session ends and the whole stack clears.
+					// Navigate first so the back-stack is cleared before displayName
+					// is wiped — prevents ProfileScreen from flashing the old name
+					// during the ExitTransition.None window.
 					navController.navigate(StakRoutes.SIGN_IN) {
 						popUpTo(0) { inclusive = true }
 					}
+					com.stak.demo.data.Session.signOut()
 					// Best-effort: revoke the Supabase refresh token server-side.
 					// The persisted session is already cleared by Session.signOut().
 					authVm.signOut()
@@ -564,6 +573,36 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.profile.SettingsScreen(
 				kind = entry.arguments?.getString("kind") ?: com.stak.demo.ui.profile.SettingsKind.HELP,
 				onBack = { navController.popBackStack() },
+			)
+		}
+		composable(
+			StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
+			enterTransition = { EnterTransition.None },
+			exitTransition = { ExitTransition.None },
+			popEnterTransition = { popEnterFor(shellPop.value, instantRoute = true) },
+			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
+		) {
+			DailyBriefDetailScreen(
+				onBack = { navController.popBackStack() },
+				onOpenLiveArticle = { article ->
+					LiveNewsHolder.current = article
+					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
+				},
+			)
+		}
+		composable(
+			StakRoutes.NEWS_LIVE_DETAIL,
+			enterTransition = { EnterTransition.None },
+			exitTransition = { ExitTransition.None },
+			popEnterTransition = { popEnterFor(shellPop.value, instantRoute = true) },
+			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
+		) {
+			LiveNewsDetailScreen(
+				onBack = { navController.popBackStack() },
+				onOpenLiveArticle = { article ->
+					LiveNewsHolder.current = article
+					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
+				},
 			)
 		}
 		composable(
@@ -606,7 +645,7 @@ internal enum class PopStyle { HOUSE_BACK, FORWARD_PUSH, DISSOLVE, INSTANT }
 private val INSTANT_ROUTES = setOf(
 	StakRoutes.STOCK_DETAIL, StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION,
 	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK, StakRoutes.LEADERBOARD,
-	StakRoutes.NEWS_DETAIL,
+	StakRoutes.NEWS_DETAIL, StakRoutes.NEWS_LIVE_DETAIL, StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
 )
 
 /** The pushed page's exit for a pop of the given style. */
@@ -646,6 +685,8 @@ private enum class TabPushStyle { INSTANT, FORWARD_PUSH }
 private fun MainShell(
 	pendingTab: MutableState<MainTab?>,
 	onOpenArticle: (String) -> Unit,
+	onOpenLiveArticle: (com.stak.demo.data.NewsArticleDto) -> Unit,
+	onOpenDailyBrief: () -> Unit,
 	onOpenStock: (String) -> Unit,
 	onOpenCollection: (String) -> Unit,
 	onOpenProfile: () -> Unit,
@@ -656,6 +697,16 @@ private fun MainShell(
 	onOpenLeaderboard: () -> Unit,
 	onViewSimPortfolio: () -> Unit,
 ) {
+	// Create NewsViewModel at shell level so news + brief fetch starts immediately on
+	// app open, regardless of which tab the user is on. NewsScreen's own hiltViewModel()
+	// returns the same instance (same NavBackStackEntry scope).
+	val newsViewModel: NewsViewModel = hiltViewModel()
+	val _shellDailyBrief by newsViewModel.dailyBrief.collectAsStateWithLifecycle()
+	val _shellLiveNews by newsViewModel.liveNews.collectAsStateWithLifecycle()
+	LaunchedEffect(_shellDailyBrief, _shellLiveNews) {
+		DailyBriefHolder.current = _shellDailyBrief
+		DailyBriefHolder.news = _shellLiveNews
+	}
 	var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
 	// A1: one-shot switch style - read by the AnimatedContent spec and
 	// reset once the push settles, so plain SWAP taps stay instant.
@@ -674,9 +725,15 @@ private fun MainShell(
 	LaunchedEffect(pendingTab.value) {
 		pendingTab.value?.let { switchTab(it); pendingTab.value = null }
 	}
-	// First run shows only in the session that signed in / created the
-	// account; a launch that resumed a saved session lands on Home Main.
-	var homeFirstRun by rememberSaveable { mutableStateOf(!com.stak.demo.data.Session.resumedSignedIn) }
+	// First run shows for brand-new sign-ins only. Once dismissed it is
+	// persisted in a separate prefs file (not cleared on sign-out), so
+	// returning users never see the overlay again on subsequent sign-ins.
+	var homeFirstRun by rememberSaveable {
+		mutableStateOf(!com.stak.demo.data.Session.resumedSignedIn && !com.stak.demo.data.Session.homeMainSeenToday)
+	}
+	LaunchedEffect(homeFirstRun) {
+		if (!homeFirstRun) com.stak.demo.data.Session.markHomeMainSeen()
+	}
 	// Codex audit (2026-09-04): the Discover ticket serves the FRONT card's
 	// stock (NVDA / AAPL / GOOGL into the 1:1970 template) - the raised spec
 	// IS the open flag; null = no ticket.
@@ -747,7 +804,11 @@ private fun MainShell(
 							onOpenMyStak = { homeFirstRun = false; switchTab(MainTab.MySTAK) },
 							onOpenDeck = { homeFirstRun = false; switchTab(MainTab.Discover) },
 						)
-						MainTab.News -> NewsScreen(onOpenArticle = onOpenArticle)
+						MainTab.News -> NewsScreen(
+								onOpenArticle = onOpenArticle,
+								onOpenLiveArticle = onOpenLiveArticle,
+								onOpenDailyBrief = onOpenDailyBrief,
+							)
 						MainTab.Discover -> DiscoverScreen(
 							resetKey = discoverResetKey,
 							onLearnMore = onOpenStock,

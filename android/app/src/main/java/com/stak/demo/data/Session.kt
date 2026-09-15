@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
  */
 object Session {
 	private const val PREFS = "stak_session"
+	private const val UI_PREFS = "stak_ui"
+	private const val KEY_HOME_MAIN_DATE = "home_main_date"
 	private const val KEY_SIGNED_IN = "signed_in"
 	private const val KEY_NAME = "display_name"
 	private const val KEY_PHOTO = "photo_uri"
@@ -45,6 +47,11 @@ object Session {
 
 	/** True when this launch started already signed in - the returning-user path. */
 	var resumedSignedIn = false
+		private set
+
+	/** True if the Home First-Run overlay was already dismissed today (date stored in stak_ui
+	 *  prefs, survives sign-out so sign-in/out within the same day skips the overlay). */
+	var homeMainSeenToday = false
 		private set
 
 	/**
@@ -81,6 +88,10 @@ object Session {
 		UserProfile.linkedApple = p.getBoolean(KEY_LINKED_APPLE, false)
 		UserProfile.joined = p.getString(KEY_JOINED, "July 2026") ?: "July 2026"
 		token = p.getString(KEY_JWT, null)
+		val today = java.time.LocalDate.now().toString()
+		homeMainSeenToday = context.applicationContext
+			.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
+			.getString(KEY_HOME_MAIN_DATE, null) == today
 		applyAccount()
 	}
 
@@ -89,8 +100,13 @@ object Session {
 	fun signIn(demo: Boolean) {
 		signedIn = true
 		demoAccount = demo
-		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
-		UserProfile.joined = if (demo) "July 2026" else StakClock.monthYear()
+		if (demo) {
+			UserProfile.joined = "July 2026"
+		} else if (UserProfile.joined.isBlank()) {
+			// Brand-new account (backend date not yet available); use current month.
+			// Returning users have joined already set from MeResponse.createdAt in AuthViewModel.
+			UserProfile.joined = StakClock.monthYear()
+		}
 		persist()
 		// A brand-new account starts from nothing; the demo account keeps
 		// whatever it did last time it was signed in.
@@ -115,6 +131,15 @@ object Session {
 
 	/** Profile edits after sign-in (name/photo) stay with the session. */
 	fun saveProfile() = persist()
+
+	/** Called when the user dismisses the Home First-Run overlay. Records today's date so
+	 *  further sign-ins on the same day skip the overlay; it reappears the next day. */
+	fun markHomeMainSeen() {
+		homeMainSeenToday = true
+		val today = java.time.LocalDate.now().toString()
+		appContext?.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
+			?.edit()?.putString(KEY_HOME_MAIN_DATE, today)?.apply()
+	}
 
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
 	fun signOut() {
@@ -142,7 +167,12 @@ object Session {
 		// via AuthViewModel.signOut() which is best-effort (fire-and-forget).
 		appContext?.getSharedPreferences("supabase_auth", Context.MODE_PRIVATE)
 			?.edit()?.clear()?.apply()
-		applyAccount()
+		// Clear singleton data caches so the next user never sees a previous user's content
+		com.stak.demo.ui.news.DailyBriefHolder.current = null
+		com.stak.demo.ui.news.DailyBriefHolder.news = emptyList()
+		// Do NOT call applyAccount() here — that would reload the demo persona ("Hamza")
+		// and flash it on ProfileScreen before navigation completes. Demo state loads
+		// on the next signIn() call instead.
 	}
 
 	private fun persist() {

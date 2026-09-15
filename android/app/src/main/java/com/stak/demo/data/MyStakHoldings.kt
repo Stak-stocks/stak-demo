@@ -3,6 +3,10 @@ package com.stak.demo.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * The stocks in the user's My STAK (user, 2026-08-23): a story earns the
@@ -22,6 +26,13 @@ import androidx.compose.runtime.setValue
  * Mirrors ios/StakDemo/MyStakHoldings.swift.
  */
 object MyStakHoldings {
+	private var repository: StockRepository? = null
+	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+	fun init(repo: StockRepository) {
+		repository = repo
+	}
+
 	/** The authored demo account's holdings (the frames' 5/3/3/2/4/2 counts). */
 	private val SEED = setOf(
 		"NVDA", "AAPL", "MSFT", "GOOGL", "AMD", // AI & Tech
@@ -40,13 +51,24 @@ object MyStakHoldings {
 
 	/** Product audit (2026-09-05): a NEW account holds nothing until the user saves; the demo account keeps the seed. */
 	fun reset(demo: Boolean) {
-		// The persisted set wins over the seed (product audit, 2026-09-05).
+		// Local prefs restore first — instant, no network wait.
 		tickers = StakStore.getSet("holdings") ?: if (demo) SEED else emptySet()
 		savedAt = StakStore.getString("saved_at")?.split(",")?.mapNotNull { e ->
 			val sym = e.substringBefore("=").trim()
 			val day = e.substringAfter("=", "").toLongOrNull()
 			if (sym.isNotBlank() && day != null) sym to day else null
 		}?.toMap() ?: emptyMap()
+		// Overlay with backend state when authenticated — silently no-ops on failure.
+		if (Session.token != null) {
+			scope.launch {
+				runCatching { repository?.getAndroidStocks() }
+					.onSuccess { resp ->
+						resp ?: return@onSuccess
+						tickers = resp.tickers.toSet().ifEmpty { tickers }
+						persist()
+					}
+			}
+		}
 	}
 
 	private fun persist() {
@@ -68,6 +90,7 @@ object MyStakHoldings {
 		tickers = tickers + sym
 		if (sym !in savedAt) savedAt = savedAt + (sym to java.time.LocalDate.now().toEpochDay())
 		persist()
+		syncToBackend()
 	}
 
 	/** Unsave (Stock Detail from My STAK) - the same bare-symbol normalisation as add. */
@@ -75,6 +98,15 @@ object MyStakHoldings {
 		tickers = tickers - symbolOf(ticker)
 		savedAt = savedAt - symbolOf(ticker)
 		persist()
+		syncToBackend()
+	}
+
+	private fun syncToBackend() {
+		if (Session.token == null) return
+		val snapshot = tickers.toList()
+		scope.launch {
+			runCatching { repository?.putAndroidStocks(snapshot) }
+		}
 	}
 
 	// Deck cards carry "NVDA · NVIDIA Corp" - hold the bare symbol.

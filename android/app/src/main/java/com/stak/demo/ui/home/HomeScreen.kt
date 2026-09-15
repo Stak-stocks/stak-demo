@@ -566,7 +566,7 @@ private fun DeckBanner(onOpenDeck: () -> Unit) {
 				.width((156 * u).dp),
 		) {
 			Text(
-				text = "Take your first deck to build your taste",
+				text = if (com.stak.demo.data.MyStakHoldings.tickers.isNotEmpty()) "Your next pick is a swipe away" else "Take your first deck to build your taste",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.Black,
 			)

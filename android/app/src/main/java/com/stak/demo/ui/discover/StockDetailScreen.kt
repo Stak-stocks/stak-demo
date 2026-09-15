@@ -36,11 +36,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +78,8 @@ private val Green = Color(0xFF2FD08A)
 private val Red = Color(0xFFFF5A6A)
 private val Teal = Color(0xFF69B3CA)
 
+private val BULLISH_ACTIONS = setOf("Buy", "Strong Buy", "Outperform", "Overweight", "Market Outperform")
+
 /**
  * Discover · Stock Detail (CHINEDU 1:2382 folded, 92:969 save success)
  * — reached from the deck's Learn more, serving the TAPPED stock's
@@ -91,6 +96,7 @@ fun StockDetailScreen(
 	// 2026-09-01: the NVIDIA card must open NVIDIA, not AAPL).
 	symbol: String = "AAPL",
 	fromMyStak: Boolean = false,
+	viewModel: StockDetailViewModel = hiltViewModel(),
 	// B5 (1:2382 Motion): the Discover entry's Practice buy leaves the
 	// detail for the Simulate tab; null keeps the in-page ticket.
 	onPracticeBuy: (() -> Unit)? = null,
@@ -104,6 +110,8 @@ fun StockDetailScreen(
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val f = DETAIL_FACTS[symbol] ?: DETAIL_FACTS.getValue("AAPL")
+	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
+	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even
@@ -146,21 +154,23 @@ fun StockDetailScreen(
 					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((17 * u).dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
 				}
 			}
-			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
 				Column(
 					verticalArrangement = Arrangement.spacedBy((4 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp, bottom = (6 * u).dp),
 				) {
+					val displayPrice = liveDetail?.price ?: f.price
+					val displayChange = liveDetail?.change ?: f.change
 					Text(f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
 					Text(
-						f.price,
+						displayPrice,
 						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp),
 						color = Bright,
 					)
 					Text(
-						f.change,
+						displayChange,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-						color = if (f.change.startsWith("▼")) Red else Green,
+						color = if (displayChange.startsWith("▼")) Red else Green,
 					)
 				}
 				val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((345 * u).dp, (76 * u).dp)
@@ -217,9 +227,9 @@ fun StockDetailScreen(
 						SinceYouSavedCard(f)
 					}
 					RiskFitCard(f)
-					NumbersCard(f)
-					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen })
-					NewsSignalCard(f)
+					NumbersCard(f, liveDetail)
+					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
+					NewsSignalCard(f, liveDetail)
 					CompareCard(f)
 					Row(
 						horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
@@ -373,8 +383,18 @@ private fun RiskFitCard(f: DetailFacts) {
 }
 
 @Composable
-private fun NumbersCard(f: DetailFacts) {
+private fun NumbersCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayStats = if (liveDetail != null) {
+		f.stats.mapIndexed { i, st ->
+			when (i) {
+				0 -> liveDetail.peRatioValue?.let { st.copy(value = it) } ?: st
+				1 -> liveDetail.revenueGrowthValue?.let { st.copy(value = it) } ?: st
+				2 -> liveDetail.profitMarginValue?.let { st.copy(value = it) } ?: st
+				else -> st
+			}
+		}
+	} else f.stats
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -386,7 +406,7 @@ private fun NumbersCard(f: DetailFacts) {
 			color = Bright,
 		)
 		Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
-			f.stats.forEach { st ->
+			displayStats.forEach { st ->
 				StatCell(st.label, st.value, st.verdict, if (st.good) Green else Muted, Modifier.weight(1f), border = st.border)
 			}
 		}
@@ -441,8 +461,11 @@ private fun CollapsedCard(title: String, sub: String, subColor: Color) {
 }
 
 @Composable
-private fun NewsSignalCard(f: DetailFacts) {
+private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayNewsClose = liveDetail?.newsClose ?: f.newsClose
+	val displayNewsSignal = liveDetail?.newsSignal ?: f.newsSignal
+	val displayEarnings = liveDetail?.earningsStr ?: f.newsEarnings
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -454,16 +477,16 @@ private fun NewsSignalCard(f: DetailFacts) {
 			color = Bright,
 		)
 		Text(
-			f.newsClose,
+			displayNewsClose,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-			color = Green,
+			color = if (displayNewsClose.startsWith("▼")) Red else Green,
 		)
 		Text(
-			f.newsSignal,
+			displayNewsSignal,
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 			color = Muted,
 		)
-		Text(f.newsEarnings, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+		Text(displayEarnings, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
 		Row(
 			horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
 			modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -665,8 +688,19 @@ private fun Kicker(text: String, weight: FontWeight = FontWeight.Medium) {
 
 /** Analyst view (collapsed 1:2454 / open 1:2651) — caret toggles; state hoisted for B9/B13. */
 @Composable
-private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
+private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayUpside = liveDetail?.upside ?: f.upside
+	val displayTargetLow = liveDetail?.targetLow ?: f.targetLow
+	val displayTargetAvg = liveDetail?.targetAvg ?: f.targetAvg
+	val displayTargetHigh = liveDetail?.targetHigh ?: f.targetHigh
+	val displayMarkerX = liveDetail?.targetMarkerX ?: f.targetMarkerX
+	val displayConsensus = liveDetail?.consensus ?: f.consensus
+	val displayBuyCount = liveDetail?.buyCount ?: f.buyCount
+	val displayHoldCount = liveDetail?.holdCount ?: f.holdCount
+	val displaySellCount = liveDetail?.sellCount ?: f.sellCount
+	val displayBuyBarW = liveDetail?.buyBarW ?: f.buyBarW
+	val displayActions = liveDetail?.actions ?: f.actions
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -690,7 +724,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 		}
 		if (!open) {
 			Text(
-				f.upside,
+				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 				color = Green,
 			)
@@ -700,44 +734,44 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 			// a 14x8 cap - exact-design audit 2026-09-04 (was 13 wide).
 			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
 				Box(modifier = Modifier.width((180 * u).dp).height((8 * u).dp).background(Color(0x8C5DA8BF), RoundedCornerShape((4 * u).dp)))
-				Box(modifier = Modifier.offset(x = (f.targetMarkerX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+				Box(modifier = Modifier.offset(x = (displayMarkerX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
 				Column(verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetLow, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetLow, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 				Spacer(modifier = Modifier.weight(1f))
 				Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("Avg", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetAvg, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetAvg, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 				Spacer(modifier = Modifier.weight(1f))
 				Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("High", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetHigh, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetHigh, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 			}
 			Text(
-				f.upside,
+				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 				color = Green,
 			)
-			Kicker(f.consensus)
+			Kicker(displayConsensus)
 			// 1:2669 authors the consensus track in the card's own #181F30 (the
 			// render shows only the green fill) - exact-design audit 2026-09-04.
 			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Card)) {
-				Box(modifier = Modifier.width((f.buyBarW * u).dp).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
+				Box(modifier = Modifier.width((displayBuyBarW * u).dp).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
-				Text(f.buyCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Green)
+				Text(displayBuyCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Green)
 				Spacer(modifier = Modifier.weight(1f))
-				Text(f.holdCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
+				Text(displayHoldCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
 				Spacer(modifier = Modifier.weight(1f))
-				Text(f.sellCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
+				Text(displaySellCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
 			}
 			Kicker("RECENT ACTIONS")
-			f.actions.forEach { (name, action, target) ->
+			displayActions.forEach { (name, action, target) ->
 				// 1:2676..1:2696 author the rows in the card's own #181F30 (flat in
 				// the render, no darker wells) - exact-design audit 2026-09-04.
 				Row(
@@ -754,7 +788,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 					Text(
 						action,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-						color = if (action == "Buy") Green else Muted,
+						color = if (action in BULLISH_ACTIONS) Green else Muted,
 					)
 					Spacer(modifier = Modifier.width((10 * u).dp))
 					Text(target, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)

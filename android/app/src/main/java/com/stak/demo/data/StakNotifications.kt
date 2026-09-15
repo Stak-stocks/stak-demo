@@ -19,10 +19,14 @@ object StakNotifications {
 		Item("weekly-recap", "Weekly recap", "You're up +1.9% this week and #47 on the board. Nice.", "1d"),
 	)
 
-	private fun welcome(): List<Item> = listOf(
-		Item("welcome", "Welcome to STAK, ${UserProfile.greetingName}", "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", "Just now"),
-		Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", "Just now"),
-	)
+	private fun welcome(): List<Item> {
+		val name = UserProfile.displayName.takeIf { it.isNotBlank() }?.capitalizeWords()
+		val title = if (name != null) "Welcome to STAK, $name" else "Welcome to STAK"
+		return listOf(
+			Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", "Just now"),
+			Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", "Just now"),
+		)
+	}
 
 	var items by mutableStateOf(listOf<Item>())
 		private set

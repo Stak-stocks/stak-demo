@@ -1,17 +1,30 @@
 ﻿package com.stak.demo.ui.onboarding
 
+import android.content.Context
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.stak.demo.BuildConfig
 import com.stak.demo.data.ProfileRepository
 import com.stak.demo.data.Session
+import com.stak.demo.data.StockRepository
 import com.stak.demo.data.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 
 sealed interface AuthUiState {
@@ -26,6 +39,7 @@ sealed interface AuthUiState {
 class AuthViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val profileRepository: ProfileRepository,
+    private val stockRepository: StockRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -40,13 +54,17 @@ class AuthViewModel @Inject constructor(
                     this.password = password
                 }
                 val token = supabase.auth.currentSessionOrNull()?.accessToken
-                // Null (network error / missing row) defaults to true so a
-                // returning user with a flaky connection still reaches MAIN.
-                val onboardingComplete = profileRepository.getOnboardingComplete() ?: true
-                token to onboardingComplete
+                    ?: throw Exception("No session after sign-in")
+                // Set token before calling /api/me so the auth header is included.
+                Session.setToken(token)
+                val me = runCatching { stockRepository.getMe() }.getOrNull()
+                me?.displayName?.takeIf { it.isNotBlank() }?.let { UserProfile.displayName = it }
+                me?.createdAt?.takeIf { it.isNotBlank() }?.let { parseJoinedDate(it)?.let { d -> UserProfile.joined = d } }
+                // Network failure → me is null → assume returning user (mirrors web's .catch → "/").
+                me?.onboardingCompleted ?: true
             }.fold(
-                onSuccess = { (token, onboardingComplete) ->
-                    if (token != null) Session.setToken(token)
+                onSuccess = { onboardingComplete ->
+                    Session.saveProfile()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->
@@ -84,22 +102,24 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Saves the completed onboarding profile to Supabase. Fire-and-forget —
-     * the UI proceeds immediately; a save failure only affects cross-device
-     * onboarding routing, not the current device's local state.
+     * Saves onboarding completion to the backend users table (the single source of truth
+     * checked at every login). Suspend so the caller can await it before navigating away —
+     * fire-and-forget was unreliable because the ViewModel scope was cancelled mid-request
+     * when the nav stack was cleared.
      */
-    fun saveProfile() {
-        viewModelScope.launch {
-            runCatching {
-                profileRepository.upsertProfile(
-                    displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
-                    brandPicks = UserProfile.brandPicks.toList(),
-                    goalAnswer = UserProfile.goal,
-                    riskAnswer = UserProfile.risk,
-                    riskStyle = UserProfile.riskStyle,
-                    onboardingCompleted = true,
-                )
-            }
+    suspend fun saveProfile() {
+        runCatching {
+            stockRepository.putMe(
+                displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
+                onboardingCompleted = true,
+            )
+        }
+    }
+
+    /** Updates display name after onboarding (Edit profile screen). Does not touch onboardingCompleted. */
+    suspend fun updateProfile() {
+        runCatching {
+            stockRepository.putMe(displayName = UserProfile.displayName.takeIf { it.isNotBlank() })
         }
     }
 
@@ -109,9 +129,62 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun signInWithGoogle(context: Context) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                val credentialManager = CredentialManager.create(context)
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                    .setAutoSelectEnabled(false)
+                    .build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                val result = credentialManager.getCredential(context = context, request = request)
+                val googleCred = GoogleIdTokenCredential.createFrom(result.credential.data)
+                supabase.auth.signInWith(IDToken) {
+                    this.idToken = googleCred.idToken
+                    provider = Google
+                }
+                val token = supabase.auth.currentSessionOrNull()?.accessToken
+                    ?: throw Exception("No session after Google sign-in")
+                // Set token before calling /api/me so the auth header is included.
+                Session.setToken(token)
+                val me = runCatching { stockRepository.getMe() }.getOrNull()
+                // Profile name takes priority; Google account name is the fallback for new users.
+                val name = me?.displayName?.takeIf { it.isNotBlank() }
+                    ?: googleCred.displayName?.takeIf { it.isNotBlank() }
+                name?.let { UserProfile.displayName = it }
+                me?.createdAt?.takeIf { it.isNotBlank() }?.let { parseJoinedDate(it)?.let { d -> UserProfile.joined = d } }
+                // Network failure → me is null → assume returning user (mirrors web's .catch → "/").
+                me?.onboardingCompleted ?: true
+            }.fold(
+                onSuccess = { onboardingComplete ->
+                    UserProfile.linkedGoogle = true
+                    Session.saveProfile()
+                    _uiState.value = AuthUiState.Success(onboardingComplete)
+                },
+                onFailure = { e ->
+                    if (e is GetCredentialCancellationException) {
+                        _uiState.value = AuthUiState.Idle
+                    } else {
+                        _uiState.value = AuthUiState.Error(friendlyError(e))
+                    }
+                },
+            )
+        }
+    }
+
     fun resetState() {
         _uiState.value = AuthUiState.Idle
     }
+
+    private fun parseJoinedDate(createdAt: String): String? = runCatching {
+        LocalDate.parse(createdAt.take(10))
+            .format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
+    }.getOrNull()
 
     private fun friendlyError(e: Throwable): String {
         val msg = e.message ?: return "Something went wrong. Try again."

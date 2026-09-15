@@ -24,11 +24,14 @@ object WhyThisMattersFeed {
 	/** A new account with nothing saved yet (product audit, 2026-09-05). */
 	const val EMPTY_BODY = "Save a few stocks and STAK will show how today's news hits them."
 
-	/** The current summary - the served personalized copy once the backend exists. */
-	fun body(): String = when {
-		com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
-		com.stak.demo.data.Session.demoAccount -> DEMO_BODY
-		// A new account's saves against today's stories (product audit, 2026-09-05).
-		else -> com.stak.demo.data.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
+	/** The current summary — backend personalizedImpact when available, else local fallbacks. */
+	fun body(): String {
+		val impact = com.stak.demo.ui.news.DailyBriefHolder.current?.personalizedImpact
+		if (!impact.isNullOrBlank()) return impact
+		return when {
+			com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
+			com.stak.demo.data.Session.demoAccount -> DEMO_BODY
+			else -> com.stak.demo.data.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
+		}
 	}
 }

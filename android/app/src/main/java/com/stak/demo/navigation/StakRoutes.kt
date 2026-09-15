@@ -22,6 +22,10 @@ object StakRoutes {
 	const val MAIN = "main" // bottom-tab shell (Home/News/Discover/My STAK/Simulate)
 	const val NEWS_DETAIL = "news/detail/{articleId}"
 	fun newsDetail(articleId: String) = "news/detail/$articleId"
+	/** Live article detail (For You) — article is passed via LiveNewsHolder, no nav arg needed. */
+	const val NEWS_LIVE_DETAIL = "news/live-detail"
+	/** Full daily brief detail — brief is passed via DailyBriefHolder, no nav arg needed. */
+	const val NEWS_DAILY_BRIEF_DETAIL = "news/daily-brief-detail"
 	/** My STAK collection page - `id` is the tapped chip's catalogue id (Codex parity audit, 2026-09-04). */
 	const val COLLECTION = "mystak/collection/{id}"
 	fun collection(id: String) = "mystak/collection/$id"

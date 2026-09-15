@@ -104,6 +104,7 @@ fun SimPortfolioScreen(
 					.weight(1f)
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState())
+					.navigationBarsPadding()
 					.padding(horizontal = (20 * u).dp)
 					.padding(top = (6 * u).dp, bottom = (26 * u).dp), // 1:4518 pb 26 (exact-design audit 2026-09-04)
 			) {

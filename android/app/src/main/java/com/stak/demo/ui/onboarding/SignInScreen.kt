@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
@@ -58,6 +59,7 @@ fun SignInScreen(
 	onCreateAccount: () -> Unit,
 ) {
 	val u = figmaUnit()
+	val context = LocalContext.current
 	var email by rememberSaveable { mutableStateOf("") }
 	var password by rememberSaveable { mutableStateOf("") }
 	var showPassword by rememberSaveable { mutableStateOf(false) }
@@ -106,8 +108,7 @@ fun SignInScreen(
 				}
 				Spacer(modifier = Modifier.height((4 * u).dp))
 
-				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = onSignIn)
-				SocialPill(text = "Continue with Apple", iconRes = R.drawable.ic_apple_logo, onClick = onSignIn)
+				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = { viewModel.signInWithGoogle(context) })
 
 				AuthOrDivider()
 

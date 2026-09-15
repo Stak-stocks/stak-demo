@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +56,8 @@ private val ChipInk = Color(0xFF7FD4E8)
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}) {
+	// Render nothing once signed out — prevents "Hamza" demo flash during the exit transition frame
+	if (!com.stak.demo.data.Session.signedIn) return
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(
@@ -82,6 +85,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				.weight(1f)
 				.fillMaxWidth()
 				.verticalScroll(rememberScrollState())
+				.navigationBarsPadding()
 				.padding(horizontal = (20 * u).dp)
 				.padding(top = (16 * u).dp, bottom = (40 * u).dp),
 		) {
@@ -102,7 +106,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 						)
 					} else {
 						Text(
-							text = com.stak.demo.data.UserProfile.greetingName.take(1).uppercase(),
+							text = com.stak.demo.data.UserProfile.displayName.firstOrNull()?.uppercase() ?: "",
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (22 * u).sp, lineHeight = (28 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = Color(0xFF9EADC7),
 						)
@@ -117,6 +121,15 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					text = "Paper investor · joined ${com.stak.demo.data.UserProfile.joined}",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
+				)
+				Text(
+					text = "Edit profile",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = ChipInk,
+					modifier = Modifier.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+					) { onOpenSetting(SettingsKind.EDIT_PROFILE) },
 				)
 			}
 			// YOUR TASTE card.

@@ -5,6 +5,8 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Singleton
 class ProfileRepository @Inject constructor(private val supabase: SupabaseClient) {
@@ -42,12 +44,19 @@ class ProfileRepository @Inject constructor(private val supabase: SupabaseClient
      */
     suspend fun getOnboardingComplete(): Boolean? = runCatching {
         val uid = supabase.auth.currentSessionOrNull()?.user?.id ?: return null
-        supabase.from("profiles")
+        val profile = supabase.from("profiles")
             .select {
                 filter { eq("id", uid) }
                 limit(1)
             }
             .decodeSingleOrNull<Profile>()
-            ?.onboardingCompleted
+        // Apply display name whenever we fetch the profile, so sign-in restores the user's name.
+        profile?.displayName?.takeIf { it.isNotBlank() }?.let { name ->
+            withContext(Dispatchers.Main) { UserProfile.displayName = name }
+        }
+        // No row = brand-new user → false (go to onboarding).
+        // Row present = check the flag. Network error throws → getOrNull() → null
+        // (caller treats null as "returning user, skip onboarding").
+        profile?.onboardingCompleted ?: false
     }.getOrNull()
 }

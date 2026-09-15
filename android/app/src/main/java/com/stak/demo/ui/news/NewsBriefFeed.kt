@@ -17,7 +17,7 @@ object NewsBriefFeed {
 	/** Production switch - keep false while reviews compare build vs frame. */
 	const val LIVE = false
 
-	data class Brief(val title: String, val body: String, val source: String)
+	data class Brief(val title: String, val body: String, val source: String, val url: String? = null)
 
 	val DEMO_BRIEFS = listOf(
 		// Authored page-1 copy (1:1264/1:1265), "all time high" hyphenated -

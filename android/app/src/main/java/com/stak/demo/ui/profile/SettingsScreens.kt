@@ -1,9 +1,15 @@
 ﻿package com.stak.demo.ui.profile
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -16,35 +22,54 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.stak.demo.data.Session
 import com.stak.demo.data.UserProfile
+import com.stak.demo.data.capitalizeWords
 import com.stak.demo.ui.onboarding.AuthBackCircle
+import com.stak.demo.ui.onboarding.AuthCta
+import com.stak.demo.ui.onboarding.AuthViewModel
 import com.stak.demo.ui.onboarding.PermissionCard
 import com.stak.demo.ui.onboarding.figmaUnit
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 private val CardBg = Color(0xFF10182B)
 private val Muted = Color(0xFF819ABB)
@@ -63,6 +88,7 @@ object SettingsKind {
 	const val APPEARANCE = "appearance"
 	const val LINKED = "linked"
 	const val HELP = "help"
+	const val EDIT_PROFILE = "edit_profile"
 }
 
 /** The hub's header (back circle + centred title) over a dark page. */
@@ -114,7 +140,7 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
 	SettingsScaffold(title = title, onBack = onBack) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((12 * u).dp),
-			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
+			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
 			content = content,
 		)
 	}
@@ -126,6 +152,7 @@ fun SettingsScreen(kind: String, onBack: () -> Unit) {
 		SettingsKind.NOTIFICATIONS -> NotificationSettingsScreen(onBack)
 		SettingsKind.APPEARANCE -> AppearanceScreen(onBack)
 		SettingsKind.LINKED -> LinkedAccountsScreen(onBack)
+		SettingsKind.EDIT_PROFILE -> EditProfileScreen(onBack)
 		else -> HelpSupportScreen(onBack)
 	}
 }
@@ -134,8 +161,11 @@ fun SettingsScreen(kind: String, onBack: () -> Unit) {
 private fun NotificationSettingsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
+	// Live OS check so the warning card appears if the user revoked the permission in phone Settings
+	// after onboarding, without relying on the stored preference (which is only written at grant time).
+	val osGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
 	SettingsPage(title = "Notifications", onBack = onBack) {
-		if (!UserProfile.notificationsOn) {
+		if (!osGranted) {
 			Column(
 				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
@@ -254,3 +284,152 @@ private fun FaqRow(question: String, answer: String) {
 		}
 	}
 }
+
+private const val EDIT_NAME_MAX = 20
+
+@Composable
+private fun EditProfileScreen(onBack: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val u = figmaUnit()
+	val context = LocalContext.current
+	val scope = rememberCoroutineScope()
+
+	var name by rememberSaveable { mutableStateOf(UserProfile.displayName) }
+	var photoUri by rememberSaveable { mutableStateOf(UserProfile.photoUri) }
+	var avatar by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+	var isSaving by rememberSaveable { mutableStateOf(false) }
+
+	LaunchedEffect(photoUri) {
+		avatar = withContext(Dispatchers.IO) {
+			photoUri?.let { stored ->
+				runCatching {
+					val uri = Uri.parse(stored)
+					val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+					context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+					val opts = BitmapFactory.Options().apply {
+						inSampleSize = maxOf(1, minOf(bounds.outWidth, bounds.outHeight) / 512)
+					}
+					context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+				}.getOrNull()
+			}
+		}
+	}
+
+	val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+		if (uri == null) return@rememberLauncherForActivityResult
+		scope.launch {
+			val copy = withContext(Dispatchers.IO) { copyAvatarEdit(context, uri) }
+			photoUri = copy ?: uri.toString()
+		}
+	}
+
+	SettingsPage(title = "Edit profile", onBack = onBack) {
+		Column(
+			horizontalAlignment = Alignment.CenterHorizontally,
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().padding(vertical = (8 * u).dp),
+		) {
+			Box(
+				modifier = Modifier
+					.size((96 * u).dp)
+					.background(Color(0xFF242B3D), CircleShape)
+					.border((2 * u).dp, Teal, CircleShape)
+					.clip(CircleShape)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+					),
+				contentAlignment = Alignment.Center,
+			) {
+				val bmp = avatar
+				if (bmp != null) {
+					Image(
+						bitmap = bmp.asImageBitmap(),
+						contentDescription = "Profile photo",
+						contentScale = ContentScale.Crop,
+						modifier = Modifier.size((96 * u).dp),
+					)
+				} else {
+					Text(
+						text = name.firstOrNull()?.uppercase() ?: "",
+						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (36 * u).sp),
+						color = Color(0xFF9EADC7),
+					)
+				}
+			}
+			Text(
+				text = "Change photo",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+				color = Teal,
+				modifier = Modifier.clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = com.stak.demo.ui.theme.PressDim,
+					onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+				),
+			)
+		}
+
+		Text(
+			text = "DISPLAY NAME",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (1.2 * u).sp),
+			color = Muted,
+		)
+
+		Row(
+			verticalAlignment = Alignment.CenterVertically,
+			modifier = Modifier
+				.fillMaxWidth()
+				.background(Color(0xFF181F30), RoundedCornerShape((14 * u).dp))
+				.padding((16 * u).dp),
+		) {
+			BasicTextField(
+				value = name,
+				onValueChange = { name = it.take(EDIT_NAME_MAX) },
+				textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, color = StakColors.TextPrimary),
+				singleLine = true,
+				keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+				cursorBrush = SolidColor(StakColors.Accent),
+				modifier = Modifier.weight(1f),
+				decorationBox = { inner ->
+					Box(contentAlignment = Alignment.CenterStart) {
+						if (name.isEmpty()) {
+							Text(
+								text = "Your name",
+								style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp),
+								color = StakColors.Muted,
+							)
+						}
+						inner()
+					}
+				},
+			)
+			Text(
+				text = "${name.length} / $EDIT_NAME_MAX",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+
+		AuthCta(
+			text = if (isSaving) "Saving…" else "Save changes",
+			enabled = name.isNotBlank() && !isSaving,
+			onClick = {
+				isSaving = true
+				scope.launch {
+					UserProfile.displayName = name.trim().capitalizeWords()
+					UserProfile.photoUri = photoUri
+					Session.saveProfile()
+					viewModel.updateProfile()
+					onBack()
+				}
+			},
+		)
+	}
+}
+
+private fun copyAvatarEdit(context: android.content.Context, uri: Uri): String? = runCatching {
+	val file = File(context.filesDir, "avatar.jpg")
+	context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return null
+	Uri.fromFile(file).toString()
+}.getOrNull()
