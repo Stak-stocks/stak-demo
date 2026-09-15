@@ -157,7 +157,7 @@ class DiscoverViewModel @Inject constructor(
     private fun todaysPicks(brands: List<BrandSummaryDto>, ranked: List<String>, limit: Int, passed: Map<String, Long>): List<BrandSummaryDto> {
         val byTicker = brands.associateBy { it.ticker }
         val key = todayKey()
-        if (StakStore.getString(PICKS_DAY_KEY) == key) {
+        if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getBoolean(PICKS_RANKED_KEY, false)) {
             val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
             if (pinned.isNotEmpty()) return pinned
         }
@@ -167,8 +167,13 @@ class DiscoverViewModel @Inject constructor(
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         val eligible = ordered.filter { it.ticker !in held && (passed[it.id] ?: 0L) <= dayAgo }
         val picks = (eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }).take(limit)
-        StakStore.putString(PICKS_DAY_KEY, key)
-        StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
+        // Only a real personalised ranking is pinned. A fallback order (ranking
+        // unavailable - offline, or an expired session) must not decide the whole day.
+        if (ranked.isNotEmpty()) {
+            StakStore.putString(PICKS_DAY_KEY, key)
+            StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
+            StakStore.putBoolean(PICKS_RANKED_KEY, true)
+        }
         return picks
     }
 
@@ -267,6 +272,7 @@ private const val FALLBACK_DAILY_LIMIT = 10
 private const val DEFAULT_DECK_LABEL = "TODAY'S DECK"
 private const val PICKS_DAY_KEY = "deck.picks.day"
 private const val PICKS_KEY = "deck.picks"
+private const val PICKS_RANKED_KEY = "deck.picks.ranked"
 
 private fun brandLogoUrl(brand: BrandSummaryDto): String? =
     brand.logo ?: brand.domain?.let { "https://cdn.brandfetch.io/$it/w/400/h/400" }
