@@ -1,0 +1,26 @@
+.git
+.gitignore
+.gcloudignore
+
+# Android app — not needed for backend build
+android/
+
+# Frontend — not needed for backend build
+frontend/
+frontend/.next/
+
+# Node modules (rebuilt in Docker)
+node_modules/
+backend/node_modules/
+shared/node_modules/
+
+# Dev/local files
+*.local
+*.env.local
+.env
+backend/.env
+
+# Misc
+*.log
+flyer.html
+stak_flyer.jpeg

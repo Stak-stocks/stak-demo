@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings, filterMarketRelevant, type SimplifiedArticle } from "../services/geminiService.js";
 import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 

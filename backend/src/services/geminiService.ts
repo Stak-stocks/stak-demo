@@ -12,6 +12,7 @@ export interface SimplifiedArticle {
 	whyItMatters: string;
 	sentiment: "bullish" | "bearish" | "neutral";
 	type: "macro" | "sector" | "company";
+	ticker: string;
 }
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -66,7 +67,7 @@ export function getGeminiKeys(): string[] {
 	].filter((k): k is string => !!k);
 }
 
-type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
+type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string; ticker: string };
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
 export const geminiUrl = (model: string, key: string) =>
@@ -146,9 +147,12 @@ Return a JSON array with exactly ${articles.length} objects in this format:
   {
     "explanation": "plain English explanation of what happened",
     "whyItMatters": "one sentence on why this could impact stock prices",
-    "sentiment": "bullish" | "bearish" | "neutral"
+    "sentiment": "bullish" | "bearish" | "neutral",
+    "ticker": "PRIMARY_TICKER_OR_EMPTY"
   }
 ]
+
+For "ticker": if the article is specifically about ONE publicly traded US company, return its stock ticker (e.g. "NVDA", "AAPL", "TSLA"). If it is macro/sector news or covers multiple companies, return "".
 
 Articles:
 ${articles.map((a, i) => `${i + 1}. Title: ${a.headline}\nSummary: ${a.summary}`).join("\n\n")}
@@ -191,6 +195,7 @@ export async function simplifyArticles(
 			explanation: article.summary,
 			whyItMatters: "Read more at the source.",
 			sentiment: "neutral",
+			ticker: "",
 		};
 		return {
 			headline: article.headline,
@@ -205,6 +210,7 @@ export async function simplifyArticles(
 				? s.sentiment
 				: "neutral") as "bullish" | "bearish" | "neutral",
 			type: types?.[i] ?? "sector",
+			ticker: typeof s.ticker === "string" ? s.ticker.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 10) : "",
 		};
 	});
 

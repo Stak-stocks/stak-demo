@@ -3,6 +3,8 @@ import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
+import { getBrandLogoUrl, getBrandHeroUrl } from "@stak/shared";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 
 export const brandsRouter = Router();
 
@@ -21,7 +23,7 @@ function toSummary(b: BrandProfile): BrandSummary {
 		name: b.name,
 		bio: b.bio,
 		heroImage: b.heroImage,
-		logo: b.logo,
+		logo: b.logo || getBrandHeroUrl(b.id) || getBrandLogoUrl(b),
 		domain: b.domain,
 		interestCategories: b.interestCategories,
 		vibes: b.vibes,
@@ -68,6 +70,53 @@ brandsRouter.get("/popular", async (_req, res) => {
 	} catch (error) {
 		console.error("Error fetching popular brands:", error);
 		res.status(500).json({ error: "Failed to fetch popular brands" });
+	}
+});
+
+// GET /api/brands/:id/tip — Gemini-generated 2-sentence investment tip (24h cache).
+brandsRouter.get("/:id/tip", async (req, res) => {
+	const brand = brands.find((b) => b.id === req.params.id);
+	if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
+
+	const CACHE_KEY = `brand:v2:${req.params.id}:tip`;
+	const cached = await cacheGet<{ tip: string }>(CACHE_KEY);
+	if (cached) { res.json(cached); return; }
+
+	const keys = getGeminiKeys();
+	if (!keys.length) { res.json({ tip: "" }); return; }
+
+	const prompt = `You write investment tip cards for a finance app for young retail investors.
+Write a TWO-SENTENCE tip for ${brand.name} (${brand.ticker}).
+Each sentence must be under 8 words. Plain language. Punchy. Specific to this stock's nature or risk.
+
+Examples:
+"Chip stocks swing hard. Small stakes, long views."
+"Steady giants move slower. Stable stocks often do."
+"Ad money tracks the economy. Some quarters drift."
+
+Brand: ${brand.name} (${brand.ticker})
+Bio: ${brand.bio}
+Beta: ${brand.financials.beta.value}
+PE: ${brand.financials.peRatio.value}
+Sectors: ${(brand.interestCategories ?? []).slice(0, 3).join(", ")}
+
+Return ONLY the two-sentence tip. Nothing else.`;
+
+	try {
+		const resp = await fetch(geminiUrl(GEMINI_MODEL, keys[0]), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				contents: [{ parts: [{ text: prompt }] }],
+				generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 80 },
+			}),
+		});
+		const data = await resp.json() as any;
+		const tip: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+		if (tip) await cacheSet(CACHE_KEY, { tip }, 24 * 60 * 60 * 1000);
+		res.json({ tip });
+	} catch {
+		res.json({ tip: "" });
 	}
 });
 

@@ -70,6 +70,95 @@ async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string |
 	return { isOpen: false, holiday: null };
 }
 
+interface WhatHappenedResult {
+	whatHappened: Array<{ title: string; body: string }>;
+	contextQuestion: string;
+	watchItems: Array<{ icon: string; label: string; body: string }>;
+}
+
+async function generateWhatHappenedAndContext(
+	session: Session,
+	marketClosed: boolean,
+	dayLabel: string,
+	marketDrivers: string | null,
+	mood: Mood,
+	spyDp: number | null,
+	qqqDp: number | null,
+	diaDp: number | null,
+	topSector: string | null,
+	worstSector: string | null,
+): Promise<WhatHappenedResult> {
+	const today = getEasternDateKey();
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	const cacheKey = `daily-brief:events:v1:${today}:${session}:${safeDay}`;
+	const cached = await cacheGet<WhatHappenedResult>(cacheKey);
+	if (cached) return cached;
+
+	const isToday = dayLabel === "Today's";
+	const timeWord = marketClosed && !isToday ? `on ${dayLabel.replace(/'s$/, "")}` : "today";
+	const context = [
+		spyDp != null ? `S&P 500 ${spyDp >= 0 ? "+" : ""}${spyDp}%` : null,
+		qqqDp != null ? `Nasdaq ${qqqDp >= 0 ? "+" : ""}${qqqDp}%` : null,
+		diaDp != null ? `Dow ${diaDp >= 0 ? "+" : ""}${diaDp}%` : null,
+		topSector ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
+	const driversBlock = marketDrivers ? `What drove markets ${timeWord}:\n${marketDrivers}` : "";
+
+	const prompt = `You are writing content for a Gen Z / millennial stock-learning app. Based on the market data below, return ONLY a JSON object with exactly three fields.
+
+Market data: ${context || "unavailable"}
+${driversBlock}
+Mood: ${mood}
+
+Fields to return:
+
+"whatHappened": array of exactly 3 objects with:
+  - "title": 3–6 word past-tense event label, e.g. "Dow reached a new high"
+  - "body": 1 sentence ≤ 80 chars explaining what happened and why
+Cover the 3 most significant market events ${timeWord}.
+
+"contextQuestion": one "Why…" or "How…" question a young investor might ask about WHY today's market moved this way. ≤ 65 chars. E.g. "Why can the Dow rise while the Nasdaq falls?"
+
+"watchItems": array of exactly 3 objects with:
+  - "icon": single emoji relevant to the item (e.g. 📅 🔬 🔄)
+  - "label": 2–3 word forward-looking topic (e.g. "Fed data", "Chip-sector")
+  - "body": ≤ 50 char phrase describing what to watch for
+
+Return ONLY the raw JSON object, no markdown, no code fences.`;
+
+	const fallback: WhatHappenedResult = { whatHappened: [], contextQuestion: "", watchItems: [] };
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(geminiUrl(GEMINI_MODEL, key), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+				}),
+				signal: AbortSignal.timeout(12000),
+			});
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (!text) continue;
+			const parsed = JSON.parse(text) as WhatHappenedResult;
+			if (Array.isArray(parsed.whatHappened) && parsed.contextQuestion) {
+				const result: WhatHappenedResult = {
+					whatHappened: parsed.whatHappened.slice(0, 3),
+					contextQuestion: parsed.contextQuestion,
+					watchItems: Array.isArray(parsed.watchItems) ? parsed.watchItems.slice(0, 3) : [],
+				};
+				await cacheSet(cacheKey, result, 4 * 60 * 60 * 1000);
+				return result;
+			}
+		} catch { continue; }
+	}
+	return fallback;
+}
+
 // GET /api/daily-brief/market-status — public, no auth required (used by guests too).
 // Lightweight live status check backed by Finnhub's real exchange status, not just
 // the algorithmic holiday calendar — catches unscheduled closures (weather, days of
@@ -260,7 +349,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
 					}),
-					signal: AbortSignal.timeout(20000),
+					signal: AbortSignal.timeout(8000),
 				},
 			);
 			if (!res.ok) continue;
@@ -911,7 +1000,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 							temperature: 0.4,
 						},
 					}),
-					signal: AbortSignal.timeout(25000),
+					signal: AbortSignal.timeout(8000),
 				},
 			);
 			if (!res.ok) continue;
@@ -997,58 +1086,108 @@ const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
 	},
 };
 
+// ── Shared market-data builder (used by both /warm and /) ────────────────────
+
+async function buildSharedMarketData() {
+	const today = getEasternDateKey();
+	const [[spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges], marketStatus] = await Promise.all([
+		Promise.all([
+			getQuoteChange("SPY"), getQuoteChange("QQQ"), getQuoteChange("DIA"),
+			getQuoteChange("IWM"), getQuoteChange("VIX"),
+			...SECTOR_ETFS.map(s => getQuoteChange(s)),
+		]),
+		getMarketStatus(),
+	]);
+
+	let sectorsGreen = 0, sectorsRed = 0;
+	let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
+	let topVal = -Infinity, worstVal = Infinity;
+	SECTOR_ETFS.forEach((sym, i) => {
+		const pct = sectorChanges[i] as number | null;
+		if (pct === null) return;
+		if (pct > 0) sectorsGreen++;
+		else if (pct < 0) sectorsRed++;
+		if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
+		if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
+	});
+	const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
+	const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+
+	const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+	const mood = classifyMood(marketData);
+	return { today, marketData, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+}
+
+// GET /api/daily-brief/warm — pre-generates shared (non-personalized) content on a schedule
+// Called by Cloud Scheduler; protected by WARM_SECRET header so no user auth needed.
+dailyBriefRouter.get("/warm", async (req, res) => {
+	const secret = req.headers["x-warm-secret"];
+	if (!secret || secret !== process.env.WARM_SECRET) {
+		res.status(401).json({ error: "unauthorized" }); return;
+	}
+	try {
+		const { today, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = await buildSharedMarketData();
+		const { session, marketClosed, holiday, dayLabel } = marketStatus;
+
+		// Warm the market drivers search (most expensive — Gemini with Google Search)
+		const marketDrivers = await Promise.race([
+			searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session),
+			new Promise<null>(resolve => setTimeout(() => resolve(null), 8000)),
+		]);
+
+		// Warm the two shared Gemini calls — results stored in their own caches,
+		// so any user request arriving after this finds them ready
+		await Promise.all([
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
+			generateWhatHappenedAndContext(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector),
+		]);
+
+		console.log(`[warm] done — ${today} ${session} mood=${mood} drivers=${!!marketDrivers}`);
+		res.json({ ok: true, today, session, mood, driversFound: !!marketDrivers });
+	} catch (error) {
+		console.error("[warm] error:", error);
+		res.status(500).json({ error: "warm failed" });
+	}
+});
+
 // GET /api/daily-brief
 dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 
-		// Fetch major indices + VIX + sectors in parallel
-		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges] = await Promise.all([
-			getQuoteChange("SPY"),
-			getQuoteChange("QQQ"),
-			getQuoteChange("DIA"),
-			getQuoteChange("IWM"),   // Russell 2000
-			getQuoteChange("VIX"),   // VIX
-			...SECTOR_ETFS.map(s => getQuoteChange(s)),
+		// Fetch shared market data + user profile in parallel
+		const [shared, [userRow, stakResult]] = await Promise.all([
+			buildSharedMarketData(),
+			Promise.all([
+				pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
+				pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
+			]),
 		]);
-		const [userRow, stakResult] = await Promise.all([
-			pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
-			pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
-		]);
+		const { today, marketData, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = shared;
+		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = marketStatus;
 		const tagScores: Record<string, number> = userRow.rows[0]?.tag_scores ?? {};
 		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
 
-		// Build sector summary
-		let sectorsGreen = 0, sectorsRed = 0;
-		let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
-		let topVal = -Infinity, worstVal = Infinity;
-		SECTOR_ETFS.forEach((sym, i) => {
-			const pct = sectorChanges[i] as number | null;
-			if (pct === null) return;
-			if (pct > 0) sectorsGreen++;
-			else if (pct < 0) sectorsRed++;
-			if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
-			if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
-		});
-		const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
-		const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+		// Full-response cache — subsequent requests from the same user in the same session are instant
+		const fullCacheKey = `daily-brief:full:v2:${today}:${session}:${uid}`;
+		const cachedFull = await cacheGet<object>(fullCacheKey);
+		if (cachedFull) { res.json(cachedFull); return; }
 
-		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
-		const mood = classifyMood(marketData);
-		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = await getMarketStatus();
+		// Hard 8s outer timeout so multi-key exhaustion (3 keys × 8s each) can't block for a minute
+		const marketDrivers = await Promise.race([
+			searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session),
+			new Promise<null>(resolve => setTimeout(() => resolve(null), 8000)),
+		]);
 
-		const today = getEasternDateKey();
-		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
-		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session);
-
-		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+		const [{ moodExplanation, plainEnglish }, personalizedImpact, events] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
 			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
+			generateWhatHappenedAndContext(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector),
 		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
 
-		res.json({
+		const response = {
 			mood,
 			session,
 			dayLabel,
@@ -1057,6 +1196,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			moodExplanation,
 			plainEnglish,
 			personalizedImpact,
+			whatHappened: events.whatHappened,
+			contextQuestion: events.contextQuestion,
+			watchItems: events.watchItems,
 			decks,
 			marketSnapshot: {
 				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
@@ -1064,7 +1206,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 				sectorsGreen, sectorsRed, topSector, worstSector,
 			},
 			generatedAt: new Date().toISOString(),
-		});
+		};
+		await cacheSet(fullCacheKey, response, 15 * 60 * 1000); // v2 key — evicts empty results from broken timeout period
+		res.json(response);
 	} catch (error) {
 		console.error("Error generating daily brief:", error);
 		res.status(500).json({ error: "Failed to generate daily brief" });
