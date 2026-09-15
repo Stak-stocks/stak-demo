@@ -129,24 +129,3 @@ struct SavedPeekCard: View {
 		.background(cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
 	}
 }
-
-/// A magnifier drawn from a ring and a handle - no authored glyph exists. Mirrors android SearchGlyph.
-struct SearchGlyph: View {
-	let size: CGFloat
-	let tint: Color
-
-	var body: some View {
-		Canvas { ctx, sz in
-			let s = min(sz.width, sz.height)
-			let stroke = s * 0.12
-			let r = s * 0.32
-			let ring = Path(ellipseIn: CGRect(x: s * 0.42 - r, y: s * 0.42 - r, width: r * 2, height: r * 2))
-			ctx.stroke(ring, with: .color(tint), lineWidth: stroke)
-			var handle = Path()
-			handle.move(to: CGPoint(x: s * 0.66, y: s * 0.66))
-			handle.addLine(to: CGPoint(x: s * 0.92, y: s * 0.92))
-			ctx.stroke(handle, with: .color(tint), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
-		}
-		.frame(width: size, height: size)
-	}
-}

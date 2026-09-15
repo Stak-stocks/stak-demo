@@ -11,8 +11,6 @@ private enum PushedPage: Identifiable, Equatable {
 	/// 09 Profile setup as the hub's edit page (user, 2026-09-07).
 	case editProfile
 	case notifications
-	/// Home · Search (FigJam Home board, 2026-09-14).
-	case search
 	case settings(SettingsKind)
 	case simPortfolio
 	/// Codex parity audit (2026-09-04): carries the tapped pick's ticker
@@ -28,7 +26,6 @@ private enum PushedPage: Identifiable, Equatable {
 		case .profile: return "profile"
 		case .editProfile: return "editProfile"
 		case .notifications: return "notifications"
-		case .search: return "search"
 		case .settings(let kind): return "settings-\(kind.rawValue)"
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
@@ -180,10 +177,9 @@ struct MainTabsView: View {
 							onOpenNews: { endFirstRun(); switchTab(.news) },
 							onOpenMyStak: { endFirstRun(); switchTab(.myStak) },
 							onOpenDeck: { endFirstRun(); switchTab(.discover) },
-							// The board-only sections: a stock opens its detail, the circle opens Search.
+							// The board-only sections: a stock opens its detail.
 							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
-							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
-							onSearch: { push(.search) }
+							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) }
 						)
 					case .news:
 						// Authored (1:1228): Story tile -> News detail unsaved, Instant.
@@ -336,14 +332,6 @@ struct MainTabsView: View {
 			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
 		case .notifications:
 			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
-		case .search:
-			// Home · Search (FigJam Home board, 2026-09-14): stocks open their detail, stories their article.
-			SearchView(
-				onBack: { pop() },
-				onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
-				onOpenArticle: { id in pushInstant(.newsDetail(article: id)) },
-				onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) }
-			)
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:

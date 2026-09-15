@@ -15,17 +15,4 @@ enum StockCatalogue {
 	static func trending(limit: Int = 6) -> [CollStock] {
 		Array(all.sorted { abs(StakInsights.changePct($0)) > abs(StakInsights.changePct($1)) }.prefix(limit))
 	}
-
-	/// Ticker or company match, case-insensitive, for the Search page.
-	static func search(_ query: String) -> [CollStock] {
-		let q = query.trimmingCharacters(in: .whitespaces)
-		if q.isEmpty { return [] }
-		return all
-			.filter { $0.ticker.localizedCaseInsensitiveContains(q) || $0.company.localizedCaseInsensitiveContains(q) }
-			.sorted { a, b in
-				let ap = a.ticker.lowercased().hasPrefix(q.lowercased()) ? 0 : 1
-				let bp = b.ticker.lowercased().hasPrefix(q.lowercased()) ? 0 : 1
-				return ap < bp
-			}
-	}
 }

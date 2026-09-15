@@ -93,11 +93,10 @@ struct HomeView: View {
 	var onOpenNews: () -> Void = {}
 	var onOpenMyStak: () -> Void = {}
 	var onOpenDeck: () -> Void = {}
-	/// The board-only Trending strip, Saved peek and Search (FigJam Home board, 2026-09-14).
+	/// The board-only Trending strip and Saved peek (FigJam Home board, 2026-09-14).
 	var onOpenStock: (String) -> Void = { _ in }
 	/// A saved stock opens the My STAK flavour of Stock Detail (review 2026-09-14).
 	var onOpenSavedStock: (String) -> Void = { _ in }
-	var onSearch: () -> Void = {}
 
 	var body: some View {
 		let u = figmaUnit
@@ -107,7 +106,7 @@ struct HomeView: View {
 				// content — the greeting block lives inside scroll content.
 				ScrollView {
 					VStack(spacing: 0) {
-						TopNav(onProfile: onProfile, onBell: onBell, onSearch: onSearch)
+						TopNav(onProfile: onProfile, onBell: onBell)
 							.padding(.horizontal, 17 * u)
 						Spacer().frame(height: 21 * u)
 						VStack(spacing: 0) {
@@ -157,8 +156,6 @@ struct HomeView: View {
 private struct TopNav: View {
 	let onProfile: () -> Void
 	var onBell: () -> Void = {}
-	/// Search (FigJam Home board, 2026-09-14) - a nav circle like the profile's, left of the authored bell.
-	var onSearch: () -> Void = {}
 	@ObservedObject var profile = UserProfile.shared
 	@ObservedObject var notifications = StakNotifications.shared
 	/// Time-of-day in the user's own timezone (device clock); re-read every
@@ -179,16 +176,6 @@ private struct TopNav: View {
 					.frame(width: 78.16 * u, height: 14.98 * u)
 					.accessibilityLabel("STAK")
 				Spacer()
-				Button(action: onSearch) {
-					ZStack {
-						Circle().fill(Home.navCircle)
-						SearchGlyph(size: 16 * u, tint: Color(argb: 0xFFAEAEAE))
-					}
-					.frame(width: 35 * u, height: 35 * u)
-				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("Search")
-				Spacer().frame(width: 4 * u)
 				// Bell + stateful unread dot (151:1207): the authored badge
 				// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 				// notifications exist and clears once they're opened and read.
