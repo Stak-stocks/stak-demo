@@ -370,6 +370,8 @@ internal fun DiscoverScreen(
 	LaunchedEffect(Unit) { DeckSession.load() }
 
 	val frontCard = remainingDeck.firstOrNull()
+	// Gesture handlers are installed once; read the live front card through this, not a captured value.
+	val currentFront by androidx.compose.runtime.rememberUpdatedState(frontCard)
 
 	var cardShownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
 	LaunchedEffect(frontCard?.symbol) { cardShownAt = System.currentTimeMillis() }
@@ -387,6 +389,8 @@ internal fun DiscoverScreen(
 	}
 
 	fun animateAndCommit(card: DeckCard, isSTAK: Boolean, gestureOffsetPx: Float = 0f) {
+		// A double tap (or any late handler) must not commit the same card twice.
+		if (card.symbol in savedCards || card.symbol in passedCards) return
 		// Travel past the screen edge by a full card width so the card genuinely
 		// leaves the frame rather than stopping just outside it.
 		val flyDistance = screenWidthPx + with(density) { (350 * u).dp.toPx() }
@@ -479,7 +483,7 @@ internal fun DiscoverScreen(
 									val abs = kotlin.math.abs(dragTotal)
 									scope.launch {
 										if (abs > commitPx) {
-											animateAndCommit(frontCard, isSTAK = dragTotal > 0, dragTotal)
+											currentFront?.let { animateAndCommit(it, isSTAK = dragTotal > 0, dragTotal) }
 										} else {
 											swipeOffset.animateTo(0f, tween(260, easing = EaseOut))
 										}
