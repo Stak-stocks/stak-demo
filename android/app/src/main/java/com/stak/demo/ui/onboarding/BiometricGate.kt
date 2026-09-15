@@ -55,6 +55,9 @@ fun BiometricGate(onUnlocked: () -> Unit) {
 		).authenticate(info)
 	}
 	LaunchedEffect(Unit) { prompt() }
+	// Back never leaves the gate (Codex review, PR #166): pushed over a route by the re-lock,
+	// an unhandled Back would pop LOCK and reveal the page beneath. A cancelled prompt re-arms.
+	androidx.activity.compose.BackHandler { if (failed) { failed = false; prompt() } }
 	Box(
 		contentAlignment = Alignment.BottomCenter,
 		modifier = Modifier

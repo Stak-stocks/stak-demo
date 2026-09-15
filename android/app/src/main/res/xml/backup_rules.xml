@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+   Auto Backup (API < 31). The session (stak_session), every per-account state
+   record (stak_state) and the copied avatars are phone-local by promise
+   (Codex review, PR #166) - nothing of the user's leaves the device.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="stak_session.xml"/>
+    <exclude domain="sharedpref" path="stak_state.xml"/>
+    <exclude domain="file" path="."/>
 </full-backup-content>

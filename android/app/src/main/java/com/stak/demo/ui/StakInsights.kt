@@ -1,6 +1,7 @@
 package com.stak.demo.ui
 
 import com.stak.demo.ui.mystak.COLLECTIONS
+import com.stak.demo.ui.mystak.otherCollection
 import com.stak.demo.ui.mystak.CollStock
 import com.stak.demo.ui.mystak.StakCollection
 import com.stak.demo.ui.mystak.held
@@ -31,9 +32,13 @@ internal object StakInsights {
 		"realestate" to "Real Estate", "health" to "Healthcare", "consumer" to "Consumer",
 	)
 
-	/** The collections the user holds stocks in, biggest first. */
+	/** The collections the user holds stocks in, biggest first - the Other collection (uncatalogued saves) included (Codex review, PR #167 mirror). */
 	fun heldGroups(): List<Pair<StakCollection, List<CollStock>>> =
-		COLLECTIONS.map { it to it.held() }.filter { it.second.isNotEmpty() }.sortedByDescending { it.second.size }
+		(COLLECTIONS.map { it to it.held() } + listOfNotNull(otherCollection()?.let { it to it.stocks }))
+			.filter { it.second.isNotEmpty() }.sortedByDescending { it.second.size }
+
+	/** "tech and AI names" for a catalogued group; "stocks you found yourself" for the Other collection. */
+	private fun themeNames(id: String): String = THEME[id]?.let { "$it names" } ?: "stocks you found yourself"
 
 	fun heldStocks(): List<CollStock> = heldGroups().flatMap { it.second }
 
@@ -59,7 +64,7 @@ internal object StakInsights {
 	fun readHeadline(): String {
 		val top = heldGroups().firstOrNull()
 			?: return if (MyStakHoldings.count > 0) "Your saves sit outside the six collections." else "Your read starts with your first save."
-		return "You lean into ${THEME[top.first.id]}."
+		return "You lean into ${THEME[top.first.id] ?: "stocks you found yourself"}."
 	}
 
 	fun readBody(): String {
@@ -69,13 +74,13 @@ internal object StakInsights {
 			?: return if (MyStakHoldings.count > 0) "Save a stock from one of the collections and STAK will read your taste from it."
 			else "Save stocks from the Discover deck and STAK will read your taste from them."
 		val theme = THEME[top.first.id]
-		if (total == 1) return "${top.second.first().ticker} is your first save, a $theme name. Save a few more and STAK will read the pattern."
-		val lead = "${top.second.size.word().cap()} of your ${total.word()} picks are $theme names."
+		if (total == 1) return "${top.second.first().ticker} is your first save${if (theme != null) ", a $theme name" else ""}. Save a few more and STAK will read the pattern."
+		val lead = "${top.second.size.word().cap()} of your ${total.word()} picks are ${themeNames(top.first.id)}."
 		val second = groups.getOrNull(1)
 		val tail = if (second != null) {
-			" ${second.second.size.word().cap()} more ${if (second.second.size == 1) "sits" else "sit"} in ${THEME[second.first.id]}."
+			" ${second.second.size.word().cap()} more ${if (second.second.size == 1) "sits" else "sit"} ${THEME[second.first.id]?.let { "in $it" } ?: "outside the six collections"}."
 		} else {
-			" Your STAK is all $theme for now."
+			" Your STAK is all ${theme ?: "your own finds"} for now."
 		}
 		return lead + tail
 	}

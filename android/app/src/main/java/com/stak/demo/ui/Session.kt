@@ -36,6 +36,8 @@ object Session {
 	private const val KEY_FIRST_RUN = "first_run_pending"
 
 	private var prefs: SharedPreferences? = null
+	/** Where 09 Profile setup copies the picked photo (avatar_*.jpg) - wiped with the session. */
+	private var filesDir: java.io.File? = null
 
 	var signedIn by mutableStateOf(false)
 		private set
@@ -69,6 +71,7 @@ object Session {
 		if (prefs != null) return
 		val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 		prefs = p
+		filesDir = context.applicationContext.filesDir
 		StakStore.init(context)
 		signedIn = p.getBoolean(KEY_SIGNED_IN, false)
 		resumedSignedIn = signedIn
@@ -177,6 +180,9 @@ object Session {
 		UserProfile.linkedApple = false
 		UserProfile.joined = "July 2026"
 		prefs?.edit()?.clear()?.apply()
+		// The copied avatar leaves with the session it belonged to (Codex review, PR #166):
+		// Delete account promised the photo is gone, and a logged-out profile keeps no photo.
+		filesDir?.listFiles()?.filter { it.name.startsWith("avatar_") && it.name.endsWith(".jpg") }?.forEach { it.delete() }
 		applyAccount()
 	}
 

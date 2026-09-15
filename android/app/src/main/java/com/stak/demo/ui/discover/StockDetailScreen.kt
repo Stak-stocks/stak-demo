@@ -1000,14 +1000,26 @@ private fun detailFactsFor(symbol: String): DetailFacts {
 	DETAIL_FACTS[symbol]?.let { return it }
 	val base = DETAIL_FACTS.getValue("AAPL")
 	val feed = com.stak.demo.ui.news.NewsArticleFeed
-	if (!feed.hasStockFacts(symbol)) return base.copy(symbol = symbol, title = symbol)
+	val badge = symbol.take(1)
+	// Every order-related field follows the requested ticker (Codex review, PR #167 mirror):
+	// the inherited AAPL buySpec used to add Apple to the paper portfolio for an AMZN page.
+	if (!feed.hasStockFacts(symbol)) {
+		return base.copy(
+			symbol = symbol, title = symbol, sheetBadge = badge, sheetName = symbol,
+			buySpec = base.buySpec.copy(title = "Buy $symbol?", badge = badge, name = symbol, symbol = symbol),
+		)
+	}
 	val sf = feed.stockFacts(symbol)
 	val pct = sf.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
+	val move = (if (sf.up) "\u25B2 " else "\u25BC ") + pct + "%"
 	return base.copy(
 		symbol = symbol,
 		title = "$symbol · ${sf.name}",
 		price = sf.price,
-		change = (if (sf.up) "\u25B2 " else "\u25BC ") + pct + "% today",
+		change = "$move today",
+		sheetBadge = badge, sheetName = sf.shortName, sheetPrice = "${sf.price} today", sheetChange = move,
+		// The ticket recomputes cash and shares from the chosen amount (withAmount).
+		buySpec = BuySpec("Buy $symbol?", badge, sf.name, "${sf.price} today", move, "$0.00", "$0.00", "0.0000", symbol),
 	)
 }
 
