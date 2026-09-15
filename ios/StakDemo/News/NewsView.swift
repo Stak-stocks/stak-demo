@@ -53,53 +53,56 @@ struct NewsView: View {
 	var body: some View {
 		let u = figmaUnit
 		VStack(spacing: 0) {
-			HStack {
-				VStack(alignment: .leading, spacing: 4 * u) {
-					Text("News")
-						.font(StakFont.sora(26 * u, .semiBold))
-						.foregroundStyle(StakColors.textPrimary)
-					// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
-					// Product audit (2026-09-05): today's date, on the authored line.
-					Text(StakClock.todayLong())
-						.font(StakFont.geist(13 * u))
-						.foregroundStyle(News.muted)
-				}
-				Spacer()
-				Button {
-					searching.toggle()
-					if !searching { query = "" }
-					if searching { DispatchQueue.main.async { searchFocused = true } }
-				} label: {
-					ZStack {
-						Circle().fill(News.cardBg)
-						Image("IcNewsSearch")
-							.resizable()
-							.frame(width: 20 * u, height: 20 * u)
-					}
-					.frame(width: 40 * u, height: 40 * u)
-				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("Search")
-			}
-			.padding(.horizontal, 20 * u)
-			.padding(.top, 22 * u)
-
-			if searching {
-				TextField("Search news", text: $query)
-					.focused($searchFocused)
-					.font(StakFont.geist(13 * u))
-					.foregroundStyle(StakColors.textPrimary)
-					.tint(News.teal)
-					.autocorrectionDisabled()
-					.textInputAutocapitalization(.never)
-					.padding(.horizontal, 16 * u)
-					.padding(.vertical, 13 * u)
-					.background(News.cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
-					.padding(.horizontal, 20 * u)
-					.padding(.top, 12 * u)
-			}
 			ScrollView {
 				VStack(spacing: 22 * u) {
+					// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+					// "I don't want a fixed top bar") - title, date, the search glass and its
+					// field are the column's first item; the 22 item gap is the old top inset.
+					VStack(spacing: 0) {
+					HStack {
+						VStack(alignment: .leading, spacing: 4 * u) {
+							Text("News")
+								.font(StakFont.sora(26 * u, .semiBold))
+								.foregroundStyle(StakColors.textPrimary)
+							// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
+							// Product audit (2026-09-05): today's date, on the authored line.
+							Text(StakClock.todayLong())
+								.font(StakFont.geist(13 * u))
+								.foregroundStyle(News.muted)
+						}
+						Spacer()
+						Button {
+							searching.toggle()
+							if !searching { query = "" }
+							if searching { DispatchQueue.main.async { searchFocused = true } }
+						} label: {
+							ZStack {
+								Circle().fill(News.cardBg)
+								Image("IcNewsSearch")
+									.resizable()
+									.frame(width: 20 * u, height: 20 * u)
+							}
+							.frame(width: 40 * u, height: 40 * u)
+						}
+						.buttonStyle(.pressDim)
+						.accessibilityLabel("Search")
+					}
+					.padding(.top, 22 * u)
+
+					if searching {
+						TextField("Search news", text: $query)
+							.focused($searchFocused)
+							.font(StakFont.geist(13 * u))
+							.foregroundStyle(StakColors.textPrimary)
+							.tint(News.teal)
+							.autocorrectionDisabled()
+							.textInputAutocapitalization(.never)
+							.padding(.horizontal, 16 * u)
+							.padding(.vertical, 13 * u)
+							.background(News.cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
+							.padding(.top, 12 * u)
+					}
+					}
 					if q.isEmpty { MoodMiniRow() }
 					// Designer's call (2026-08-22): today's brief on tap leads to
 					// the News info page (Story tile stays wired per 1:1228).
@@ -129,7 +132,6 @@ struct NewsView: View {
 					}
 				}
 				.padding(.horizontal, 20 * u)
-				.padding(.top, 22 * u)
 				// The Android column ends on a 0dp spacer, which its 22dp
 				// item spacing turns into a 22dp bottom inset.
 				.padding(.bottom, 22 * u)

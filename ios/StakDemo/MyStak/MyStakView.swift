@@ -43,20 +43,20 @@ struct MyStakView: View {
 	var body: some View {
 		let u = figmaUnit
 		VStack(spacing: 0) {
-			VStack(alignment: .leading, spacing: 4 * u) {
-				Text("My STAK")
-					.font(StakFont.sora(26 * u, .semiBold))
-					.foregroundStyle(StakColors.textPrimary)
-				Text("Your saved stocks, live.")
-					.font(StakFont.geist(13 * u))
-					.foregroundStyle(muted)
-			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(.horizontal, 20 * u)
-			.padding(.top, 20 * u)
-
 			ScrollView {
 				VStack(spacing: 20 * u) {
+					// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+					// "I don't want a fixed top bar"); the 20 item gap is the old top inset.
+					VStack(alignment: .leading, spacing: 4 * u) {
+						Text("My STAK")
+							.font(StakFont.sora(26 * u, .semiBold))
+							.foregroundStyle(StakColors.textPrimary)
+						Text("Your saved stocks, live.")
+							.font(StakFont.geist(13 * u))
+							.foregroundStyle(muted)
+					}
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.top, 20 * u)
 					SectionHeader(title: "Collections")
 					collectionsGrid
 					addMoreCta
@@ -71,7 +71,6 @@ struct MyStakView: View {
 					// padding IS the tab bar, so no trailing gap - exact-design audit 2026-09-04.
 				}
 				.padding(.horizontal, 20 * u)
-				.padding(.top, 20 * u)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
@@ -305,7 +304,7 @@ private struct PortfolioSummary: View {
 			if holdings.count > 0 && (Session.shared.demoAccount || duo != nil) {
 				HStack(spacing: 151 * u) {
 				VStack(alignment: .leading, spacing: 3 * u) {
-					Text("Best this week")
+					Text("Best")
 						.font(StakFont.geist(11 * u))
 						.foregroundStyle(faint)
 					HStack(spacing: 6 * u) {

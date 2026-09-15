@@ -60,40 +60,40 @@ struct SimulateView: View {
 		let u = figmaUnit
 		ZStack {
 			VStack(spacing: 0) {
-				HStack {
-					VStack(alignment: .leading, spacing: 3 * u) {
-						Text("Simulate")
-							.font(StakFont.sora(26 * u, .semiBold))
-							.foregroundStyle(Color.white)
-							.frame(height: 33 * u) // 1:3916 line box (exact-design audit 2026-09-04)
-						Text("Pick from your saves. Paper money does the talking.")
-							.font(StakFont.geist(12 * u))
-							.foregroundStyle(Sim.muted)
-							.frame(height: 16 * u) // 1:3917 line box
-					}
-					Spacer()
-					// Codex audit (2026-09-04): the clock (1:3918 "btn") opens the
-					// pick history - SOLD · REALIZED lives on the portfolio page.
-					Button(action: onOpenPortfolio) {
-						ZStack {
-							Circle().fill(Sim.cardBg)
-							Image("IcSimClock")
-								.resizable()
-								.frame(width: 18 * u, height: 18 * u)
-						}
-						.frame(width: 40 * u, height: 40 * u)
-					}
-					.buttonStyle(.pressDim)
-					.accessibilityLabel("History")
-				}
-				.padding(.horizontal, 20 * u)
-				// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
-				// status bar with no bottom inset - the 18 above the hero is the Main column's own.
-				.padding(.top, 8 * u)
-
 				ScrollView(showsIndicators: false) {
 					VStack(spacing: 18 * u) {
 						Group {
+							// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+							// "I don't want a fixed top bar"); the 18 item gap is the old top inset.
+							HStack {
+								VStack(alignment: .leading, spacing: 3 * u) {
+									Text("Simulate")
+										.font(StakFont.sora(26 * u, .semiBold))
+										.foregroundStyle(Color.white)
+										.frame(height: 33 * u) // 1:3916 line box (exact-design audit 2026-09-04)
+									Text("Pick from your saves. Paper money does the talking.")
+										.font(StakFont.geist(12 * u))
+										.foregroundStyle(Sim.muted)
+										.frame(height: 16 * u) // 1:3917 line box
+								}
+								Spacer()
+								// Codex audit (2026-09-04): the clock (1:3918 "btn") opens the
+								// pick history - SOLD · REALIZED lives on the portfolio page.
+								Button(action: onOpenPortfolio) {
+									ZStack {
+										Circle().fill(Sim.cardBg)
+										Image("IcSimClock")
+											.resizable()
+											.frame(width: 18 * u, height: 18 * u)
+									}
+									.frame(width: 40 * u, height: 40 * u)
+								}
+								.buttonStyle(.pressDim)
+								.accessibilityLabel("History")
+							}
+							// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
+							// status bar with no bottom inset - the 18 above the hero is the Main column's own.
+							.padding(.top, 8 * u)
 							// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 							// chooses its balance, name and strategy before its first trade.
 							if portfolio.needsSetup { PortfolioSetupCard() }
@@ -170,7 +170,6 @@ struct SimulateView: View {
 						BoardCard(onOpenLeaderboard: onOpenLeaderboard)
 					}
 					.padding(.horizontal, 20 * u)
-					.padding(.top, 18 * u)
 					.padding(.bottom, 26 * u)
 				}
 			}
