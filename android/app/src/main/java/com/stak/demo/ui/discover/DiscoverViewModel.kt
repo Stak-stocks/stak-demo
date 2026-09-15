@@ -56,19 +56,31 @@ class DiscoverViewModel @Inject constructor(
     val todayStats: StateFlow<Pair<Int, Int>> = _todayStats
 
     private val pendingSwipeJobs = mutableMapOf<String, Job>()
-    private val quickLookCache = mutableMapOf<String, List<com.stak.demo.data.CulturalSectionDto>>()
+    private val quickLookCache = mutableMapOf<String, QuickLookData>()
     private val tipCache = mutableMapOf<String, String>()
     /** brandId -> epoch ms of the last pass. Null until read: PUT replaces the server list, so never write blind. */
     private var passedAt: MutableMap<String, Long>? = null
 
-    /** Quick Look copy for any brand: the cultural-context sections of its full profile (GET /api/brands/:id). */
-    suspend fun fetchQuickLook(brandId: String): List<com.stak.demo.data.CulturalSectionDto>? {
+    /**
+     * Quick Look for any brand: the generated structured overview
+     * (GET /api/brands/:id/quick-look), or the profile's cultural-context
+     * sections when generation isn't available.
+     */
+    suspend fun fetchQuickLook(brandId: String): QuickLookData {
         quickLookCache[brandId]?.let { return it }
-        return runCatching { repository.getBrandProfile(brandId) }
-            .getOrNull()
-            ?.culturalContext?.sections
-            ?.filter { it.heading.isNotBlank() && it.content.isNotBlank() }
-            ?.also { if (it.isNotEmpty()) quickLookCache[brandId] = it }
+        val structured = runCatching {
+            repository.getBrandQuickLook(brandId).quickLook?.takeIf { !it.in10Seconds.isNullOrBlank() }
+        }.getOrNull()
+        val data = if (structured != null) {
+            QuickLookData(structured, emptyList())
+        } else {
+            val sections = runCatching { repository.getBrandProfile(brandId) }.getOrNull()
+                ?.culturalContext?.sections.orEmpty()
+                .filter { it.heading.isNotBlank() && it.content.isNotBlank() }
+            QuickLookData(null, sections)
+        }
+        if (data.structured != null || data.sections.isNotEmpty()) quickLookCache[brandId] = data
+        return data
     }
 
     init {
@@ -125,6 +137,7 @@ class DiscoverViewModel @Inject constructor(
                     }
                     _deck.value = cards
                     prefetchTips(cards)
+                    prefetchQuickLooks(cards)
                 }.onFailure {
                     _deck.value = emptyList()
                     _loadError.value = true
@@ -223,6 +236,13 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    /** Warms each card's Quick Look one at a time, so "Learn more" rarely waits on generation. */
+    private fun prefetchQuickLooks(cards: List<DeckCard>) {
+        viewModelScope.launch {
+            cards.filter { it.brandId.isNotBlank() }.forEach { fetchQuickLook(it.brandId) }
+        }
+    }
+
     private fun prefetchTips(cards: List<DeckCard>) {
         cards.filter { it.brandId.isNotBlank() && !tipCache.containsKey(it.brandId) }.forEach { card ->
             viewModelScope.launch {
@@ -235,6 +255,12 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 }
+
+/** A brand's Quick Look: the generated overview, else the profile's cultural sections. */
+data class QuickLookData(
+    val structured: com.stak.demo.data.QuickLookDto?,
+    val sections: List<com.stak.demo.data.CulturalSectionDto>,
+)
 
 /** Used only when the server can't be reached; /api/me/daily-swipes serves the real value. */
 private const val FALLBACK_DAILY_LIMIT = 10

@@ -80,4 +80,7 @@ interface StockApiService {
 
     @GET("api/swipe")
     suspend fun getSwipes(@Query("since") since: String): SwipeHistoryResponse
+
+    @GET("api/brands/{id}/quick-look")
+    suspend fun getBrandQuickLook(@Path("id") id: String): QuickLookResponse
 }

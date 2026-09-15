@@ -634,7 +634,7 @@ internal fun DiscoverScreen(
 		quickLookCard?.let { card ->
 			QuickLookSheet(
 				card = card,
-				loadSections = { id -> viewModel.fetchQuickLook(id) },
+				loadQuickLook = { id -> viewModel.fetchQuickLook(id) },
 				onPass = {
 					quickLookCard = null
 					animateAndCommit(card, isSTAK = false)
@@ -1639,13 +1639,12 @@ private fun QuickLookSheet(
 	onPass: () -> Unit,
 	onSTAK: () -> Unit,
 	onDismiss: () -> Unit,
-	loadSections: suspend (String) -> List<com.stak.demo.data.CulturalSectionDto>?,
+	loadQuickLook: suspend (String) -> QuickLookData,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	// Every brand's Quick Look is its cultural-context sections from the API.
-	var sections by remember(card.brandId) { mutableStateOf<List<com.stak.demo.data.CulturalSectionDto>?>(null) }
+	var data by remember(card.brandId) { mutableStateOf<QuickLookData?>(null) }
 	LaunchedEffect(card.brandId) {
-		if (card.brandId.isNotBlank()) sections = loadSections(card.brandId).orEmpty()
+		if (card.brandId.isNotBlank()) data = loadQuickLook(card.brandId)
 	}
 	val companyName = card.ticker.substringAfter("· ").trim().ifBlank { card.symbol }
 	val ticker = card.symbol
@@ -1678,59 +1677,85 @@ private fun QuickLookSheet(
 				color = Disc.Muted,
 				modifier = Modifier.padding(bottom = (10 * u).dp),
 			)
-			if (!sections.isNullOrEmpty()) {
+			val ql = data?.structured
+			if (ql != null) {
+				QuickLookIconRow(iconRes = R.drawable.ic_goal_learn, label = "$companyName in 10 seconds", body = ql.in10Seconds, u = u)
+				Spacer(Modifier.height((8 * u).dp))
+				QuickLookIconRow(iconRes = R.drawable.ic_goal_grow, label = "Why now", body = ql.whyNow, u = u)
+				Spacer(Modifier.height((8 * u).dp))
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
+				) {
+					Column(modifier = Modifier.weight(1f)) {
+						QuickLookIconRow(iconRes = R.drawable.ic_risk_plus, label = "The setup", body = ql.setup, u = u)
+					}
+					Column(modifier = Modifier.weight(1f)) {
+						QuickLookIconRow(iconRes = R.drawable.ic_risk_shield, label = "The catch", body = ql.theCatch, u = u, tile = Color(0x33FF5A6A))
+					}
+				}
+				Spacer(Modifier.height((8 * u).dp))
+				QuickLookIconRow(iconRes = R.drawable.ic_risk_eye, label = "What to watch", body = ql.whatToWatch, u = u)
+				KeyThemes(themes = ql.keyThemes, u = u)
+			} else if (!data?.sections.isNullOrEmpty()) {
 				val icons = listOf(R.drawable.ic_goal_learn, R.drawable.ic_goal_grow, R.drawable.ic_risk_plus, R.drawable.ic_risk_shield, R.drawable.ic_risk_eye)
-				sections.orEmpty().forEachIndexed { i, section ->
+				data?.sections.orEmpty().forEachIndexed { i, section ->
 					if (i > 0) Spacer(Modifier.height((8 * u).dp))
 					QuickLookIconRow(iconRes = icons[i % icons.size], label = section.heading, body = section.content, u = u)
 				}
-			} else if (sections == null && card.brandId.isNotBlank()) {
+				KeyThemes(themes = card.categories.map { c -> c.split('_').joinToString(" & ") { it.replaceFirstChar(Char::titlecase) } }, u = u)
+			} else if (data == null && card.brandId.isNotBlank()) {
+				// First open of a brand each day waits on generation - usually a few seconds.
 				Text(
-					text = "Loading…",
+					text = "Putting together today\u2019s overview\u2026",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp),
 					color = Disc.Muted,
 				)
 			} else if (card.headline.isNotBlank()) {
 				QuickLookIconRow(iconRes = R.drawable.ic_goal_learn, label = "About", body = card.headline, u = u)
 			}
-			// Key themes: the brand's interest categories from the catalog (not every brand has them).
-			if (card.categories.isNotEmpty()) {
-				Spacer(Modifier.height((10 * u).dp))
-				Text(
-					text = "KEY THEMES",
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8f * u).sp),
-					color = Disc.Teal,
-					modifier = Modifier.padding(bottom = (5 * u).dp),
-				)
-				FlowRow(
-					horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
-					verticalArrangement = Arrangement.spacedBy((6 * u).dp),
-					modifier = Modifier.fillMaxWidth(),
-				) {
-					card.categories.forEach { category ->
-						Box(
-							modifier = Modifier
-								.clip(RoundedCornerShape(50))
-								.background(Color(0xFF1E2030))
-								.border(1.dp, Color(0xFF3A3A50), RoundedCornerShape(50))
-								.padding(horizontal = (9 * u).dp, vertical = (4 * u).dp),
-						) {
-							Text(
-								text = category.split('_').joinToString(" & ") { it.replaceFirstChar(Char::titlecase) },
-								style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp),
-								color = Disc.Body,
-							)
-						}
-					}
-				}
-			}
 			Spacer(Modifier.height((8 * u).dp))
 		}
 	}
 }
 
+/** Key-theme chips under the Quick Look; renders nothing for an empty list. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float) {
+private fun KeyThemes(themes: List<String>, u: Float) {
+	if (themes.isEmpty()) return
+	Spacer(Modifier.height((10 * u).dp))
+	Text(
+		text = "KEY THEMES",
+		style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8f * u).sp),
+		color = Disc.Teal,
+		modifier = Modifier.padding(bottom = (5 * u).dp),
+	)
+	FlowRow(
+		horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
+		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+		modifier = Modifier.fillMaxWidth(),
+	) {
+		themes.forEach { theme ->
+			Box(
+				modifier = Modifier
+					.clip(RoundedCornerShape(50))
+					.background(Color(0xFF1E2030))
+					.border(1.dp, Color(0xFF3A3A50), RoundedCornerShape(50))
+					.padding(horizontal = (9 * u).dp, vertical = (4 * u).dp),
+			) {
+				Text(
+					text = theme,
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp),
+					color = Disc.Body,
+				)
+			}
+		}
+	}
+}
+
+@Composable
+private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float, tile: Color = Color(0xFF1E2030)) {
 	Row(
 		horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
 		modifier = Modifier.fillMaxWidth(),
@@ -1739,7 +1764,7 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
 			modifier = Modifier
 				.size((28 * u).dp)
 				.clip(RoundedCornerShape((6 * u).dp))
-				.background(Color(0xFF1E2030)),
+				.background(tile),
 			contentAlignment = Alignment.Center,
 		) {
 			Image(

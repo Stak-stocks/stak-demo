@@ -1,5 +1,7 @@
 package com.stak.demo.data
 
+import com.google.gson.annotations.SerializedName
+
 data class BatchQuotesResponse(val quotes: Map<String, BatchQuote?>)
 data class BatchQuote(val price: Double = 0.0, val change: Double = 0.0, val changePercent: Double = 0.0)
 
@@ -134,3 +136,12 @@ data class PassedResponse(val entries: List<PassedEntry> = emptyList())
 data class PassedPutRequest(val entries: List<PassedEntry>)
 data class SwipeRecord(val brandId: String = "", val direction: String = "", val timestamp: String = "")
 data class SwipeHistoryResponse(val swipes: List<SwipeRecord> = emptyList())
+data class QuickLookDto(
+    val in10Seconds: String = "",
+    val whyNow: String = "",
+    val setup: String = "",
+    @SerializedName("catch") val theCatch: String = "",
+    val whatToWatch: String = "",
+    val keyThemes: List<String> = emptyList(),
+)
+data class QuickLookResponse(val quickLook: QuickLookDto? = null)
