@@ -218,7 +218,12 @@ internal fun RiskStyleSheet(onDismiss: () -> Unit) {
 				TasteModel.RISK_STEP_AWAY to ("Step away for now" to "Big drops make me uncomfortable"),
 				TasteModel.RISK_SELL_SOME to ("Sell some, reduce risk" to "I’d rather protect part of my money"),
 			).forEach { (index, copy) ->
-				val selected = com.stak.demo.data.UserProfile.riskStyle == TasteModel.riskStyle(index) && (com.stak.demo.data.UserProfile.risk == index || com.stak.demo.data.UserProfile.risk < 0)
+				// Only an answer the user actually gave is ticked. UserProfile.riskStyle
+				// defaults to "Growth-Oriented" whether or not the question was
+				// answered, so matching on it (with risk < 0 waved through) pre-selected
+				// that option for everyone who skipped - showing them an answer they
+				// never gave, on the screen that reports their answers back.
+				val selected = com.stak.demo.data.UserProfile.risk == index
 				Row(
 					verticalAlignment = Alignment.CenterVertically,
 					modifier = Modifier

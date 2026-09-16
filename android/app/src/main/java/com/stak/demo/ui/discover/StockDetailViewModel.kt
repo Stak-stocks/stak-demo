@@ -6,7 +6,6 @@ import com.stak.demo.data.AnalystAction
 import com.stak.demo.data.AnalystResponse
 import com.stak.demo.data.DailyMoveResponse
 import com.stak.demo.data.EarningsResponse
-import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.CompanyNewsResponse
 import com.stak.demo.data.PeerMetricsResponse
 import com.stak.demo.data.StakClock
@@ -51,8 +50,6 @@ data class LiveDetail(
     val compareRows: List<CompareValues>?,
     /** Each "Numbers that matter" verdict and whether it reads as good, judged against the peer median. */
     val statVerdicts: List<Pair<String, Boolean>>?,
-    /** The brand's own tip, so the line under the page isn't another company's. */
-    val tip: String?,
     val peRatioValue: String?,
     val revenueGrowthValue: String?,
     val profitMarginValue: String?,
@@ -122,12 +119,6 @@ class StockDetailViewModel @Inject constructor(
                 val earningsDef = async { runCatching { repository.getEarnings(symbol) }.getOrNull() }
                 val newsDef = async { runCatching { repository.getCompanyNews(symbol) }.getOrNull() }
                 val peersDef = async { runCatching { repository.getPeerMetrics(symbol) }.getOrNull() }
-                // The brand's own tip, keyed by brand id. A saved stock carries its id
-                // locally; an unsaved one keeps the authored line until the stock
-                // endpoint carries one too.
-                val tipDef = async {
-                    MyStakHoldings.brandIdOf(symbol)?.let { id -> runCatching { repository.getBrandTip(id) }.getOrNull() }
-                }
 
                 // The peer group names the Compare columns; each peer's own metrics
                 // fill them. peer-metrics returns medians for the group, which can't
@@ -148,7 +139,6 @@ class StockDetailViewModel @Inject constructor(
                     peerTickers = peerTickers,
                     peerStocks = peerStocks,
                     peerMedians = peers,
-                    tip = tipDef.await()?.tip?.takeIf { it.isNotBlank() },
                 )
             }.also { _liveDetail.value = it }
         }
@@ -164,7 +154,6 @@ class StockDetailViewModel @Inject constructor(
         peerTickers: List<String> = emptyList(),
         peerStocks: List<StockDetailResponse?> = emptyList(),
         peerMedians: PeerMetricsResponse? = null,
-        tip: String? = null,
     ): LiveDetail? {
         val quote = stockData?.quote ?: return null
         val price = quote.price ?: return null
@@ -272,7 +261,6 @@ class StockDetailViewModel @Inject constructor(
             peerB = peerB,
             compareRows = compareRows,
             statVerdicts = statVerdicts,
-            tip = tip,
             peRatioValue = peStr,
             revenueGrowthValue = revStr,
             profitMarginValue = marginStr,

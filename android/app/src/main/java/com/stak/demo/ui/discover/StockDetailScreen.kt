@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stak.demo.R
@@ -109,7 +111,14 @@ fun StockDetailScreen(
 	onTab: ((MainTab) -> Unit)? = null,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val f = DETAIL_FACTS[symbol] ?: DETAIL_FACTS.getValue("AAPL")
+	// A real account never borrows authored facts - not even for the moment before
+	// its own data lands. They flashed another company's numbers under this stock's
+	// name on every open (user, 2026-09-15). The demo keeps its authored frames.
+	val f = if (com.stak.demo.data.Session.demoAccount) {
+		DETAIL_FACTS[symbol] ?: DETAIL_FACTS.getValue("AAPL")
+	} else {
+		emptyFacts(symbol)
+	}
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
 	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
@@ -258,29 +267,6 @@ fun StockDetailScreen(
 					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
 					NewsSignalCard(f, liveDetail)
 					CompareCard(f, liveDetail, symbol)
-					Row(
-						horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
-						modifier = Modifier
-							.fillMaxWidth()
-							.clip(RoundedCornerShape((12 * u).dp))
-							.background(Card)
-							.padding(horizontal = (12 * u).dp, vertical = (10 * u).dp),
-					) {
-						Text(
-							"TIP",
-							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-							color = Color(0xFF5BD7E4),
-						)
-						Text(
-							liveDetail?.tip ?: f.tip,
-							// Measured exception (2026-09-04): the authored tip (1:2828)
-							// is ONE line in a 260 box - the AAPL copy fits by 6u and the
-							// advance-rounding compensation added 12u. No tracking here.
-							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
-							color = Muted,
-							modifier = Modifier.width((260 * u).dp),
-						)
-					}
 				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -392,12 +378,25 @@ private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 				)
 			}
 		}
-		// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
-		Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
-			Box(modifier = Modifier.offset(x = ((liveDetail?.riskPillX ?: f.riskPillX) * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+		// 1:2382 draws the marker alone, with no track. That reads as decoration;
+		// once the position is real it needs a scale to be read against, and a
+		// midpoint tick for the market itself (beta 1.0), which is what "more" and
+		// "less than the market" are measured from. The offset is a fraction of the
+		// measured width, not a fixed dp: riskPillX is computed against a 375-wide
+		// design and drifted off the track on any other screen.
+		BoxWithConstraints(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
+			val pillWidth = (14 * u).dp
+			val fraction = ((liveDetail?.riskPillX ?: f.riskPillX) / 289f).coerceIn(0f, 1f)
+			Box(modifier = Modifier.fillMaxWidth().height((4 * u).dp).background(Color(0xFF2A3346), RoundedCornerShape((2 * u).dp)))
+			Box(modifier = Modifier.offset(x = (maxWidth - (2 * u).dp) / 2).size((2 * u).dp, (8 * u).dp).background(Color(0xFF3A465E)))
+			Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
 		}
 		Row(modifier = Modifier.fillMaxWidth()) {
 			Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
+			Spacer(modifier = Modifier.weight(1f))
+			// Names what the midpoint tick is, so "moves more than the market" has
+			// something on the scale to point at.
+			Text("Market", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 			Spacer(modifier = Modifier.weight(1f))
 			Text("High", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 		}
@@ -437,11 +436,6 @@ private fun NumbersCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 				StatCell(st.label, st.value, st.verdict, if (st.good) Green else Muted, Modifier.weight(1f), border = st.border)
 			}
 		}
-		Text(
-			"Tap a stat for sector and peer benchmarks",
-			style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp),
-			color = Muted,
-		)
 	}
 }
 
@@ -760,9 +754,15 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			Kicker("PRICE TARGET RANGE", weight = FontWeight.Normal)
 			// 1:2656: a 14 circle at y-3 inside the 8-tall clipped track renders as
 			// a 14x8 cap - exact-design audit 2026-09-04 (was 13 wide).
-			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
-				Box(modifier = Modifier.width((180 * u).dp).height((8 * u).dp).background(Color(0x8C5DA8BF), RoundedCornerShape((4 * u).dp)))
-				Box(modifier = Modifier.offset(x = (displayMarkerX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			// The track was a fixed 180 inside a full-width row whose Low/Avg/High
+			// labels span the whole width, so it stopped two thirds of the way across
+			// and the marker never sat above the Avg it marks. Both now measure from
+			// the row's real width; the marker keeps its 0..166 scale as a fraction.
+			BoxWithConstraints(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
+				val pillWidth = (14 * u).dp
+				val fraction = (displayMarkerX / 166f).coerceIn(0f, 1f)
+				Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp).background(Color(0x8C5DA8BF), RoundedCornerShape((4 * u).dp)))
+				Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
 				Column(verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
@@ -788,8 +788,13 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			Kicker(displayConsensus)
 			// 1:2669 authors the consensus track in the card's own #181F30 (the
 			// render shows only the green fill) - exact-design audit 2026-09-04.
-			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Card)) {
-				Box(modifier = Modifier.width((displayBuyBarW * u).dp).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
+			// The track was painted in the card's own colour, so only the green fill
+			// showed and it read as a line floating in space. The fill was also sized
+			// against a 318 design width inside a full-width box, so its share of the
+			// bar was wrong - a unanimous buy would have run past the end of it.
+			BoxWithConstraints(modifier = Modifier.fillMaxWidth().height((8 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Color(0xFF2A3346))) {
+				val fraction = (displayBuyBarW / 318f).coerceIn(0f, 1f)
+				Box(modifier = Modifier.width(maxWidth * fraction).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
 				Text(displayBuyCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Green)
@@ -811,15 +816,34 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 						.background(Card)
 						.padding(horizontal = (12 * u).dp),
 				) {
-					Text(name, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
-					Spacer(modifier = Modifier.weight(1f))
+					// Fixed columns for the action and the target. Laid out by a weighted
+					// spacer, the action's own width ("Hold" against "Buy") shifted the
+					// price after it, so the targets never lined up down the list.
+					Text(
+						name,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Bright,
+						maxLines = 1,
+						overflow = TextOverflow.Ellipsis,
+						modifier = Modifier.weight(1f),
+					)
 					Text(
 						action,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 						color = if (action in BULLISH_ACTIONS) Green else Muted,
+						maxLines = 1,
+						textAlign = androidx.compose.ui.text.style.TextAlign.End,
+						modifier = Modifier.width((64 * u).dp),
 					)
 					Spacer(modifier = Modifier.width((10 * u).dp))
-					Text(target, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(
+						target,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Bright,
+						maxLines = 1,
+						textAlign = androidx.compose.ui.text.style.TextAlign.End,
+						modifier = Modifier.width((52 * u).dp),
+					)
 				}
 			}
 		}
@@ -1055,14 +1079,38 @@ private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuyS
  * stock's volatility; TasteModel.riskStyle is the user's answer.
  */
 private fun riskFitFor(f: DetailFacts, liveDetail: LiveDetail? = null): Pair<String, String> {
-	val style = com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.data.UserProfile.risk)
-	val highVol = (liveDetail?.riskPillX ?: f.riskPillX) > 170f
-	val lowVol = (liveDetail?.riskPillX ?: f.riskPillX) < 120f
-	val first = (liveDetail?.riskCopy ?: f.riskCopy).substringBefore(". ") + "."
+	val pillX = liveDetail?.riskPillX ?: f.riskPillX
+	val riskCopy = liveDetail?.riskCopy ?: f.riskCopy
+	// 120 and 170 sit either side of the track's midpoint, which is market beta.
+	val stockBand = when {
+		pillX > 170f -> 1
+		pillX < 120f -> -1
+		else -> 0
+	}
+	// An unanswered risk question is not a profile. The old rule read the
+	// onboarding default and told the user a stock matched them on the strength
+	// of an answer they never gave, so this names the stock instead.
+	if (com.stak.demo.data.UserProfile.risk < 0) {
+		val label = when (stockBand) {
+			1 -> "More volatile"
+			-1 -> "Less volatile"
+			else -> "Around market"
+		}
+		return label to riskCopy
+	}
+	// The volatility each style is comfortable with, so every style gets a real
+	// comparison. The old rule tested two combinations and called everything else
+	// a match, which told a Balanced account that every stock matched it.
+	val styleBand = when (com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.data.UserProfile.risk)) {
+		"Growth-Oriented" -> 1
+		"Balanced" -> 0
+		else -> -1
+	}
+	val first = riskCopy.substringBefore(". ").takeIf { it.isNotBlank() }?.plus(".").orEmpty()
 	return when {
-		highVol && (style == "Conservative" || style == "Cautious") -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small."
-		lowVol && style == "Growth-Oriented" -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK."
-		else -> "Matches you" to (liveDetail?.riskCopy ?: f.riskCopy)
+		stockBand > styleBand -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small.".trim()
+		stockBand < styleBand -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK.".trim()
+		else -> "Matches you" to riskCopy
 	}
 }
 
@@ -1102,6 +1150,56 @@ private data class DetailFacts(
 	val sheetPrice: String,
 	val sheetChange: String,
 	val buySpec: BuySpec,
+)
+
+/**
+ * The page with nothing filled in: what a real account shows until its own data
+ * arrives. Every field here is a placeholder, so a value on screen is either
+ * this stock's or visibly absent - never another company's.
+ */
+private fun emptyFacts(symbol: String): DetailFacts = DetailFacts(
+	symbol = symbol,
+	title = symbol,
+	price = "—",
+	change = "",
+	tip = "",
+	// Mid-track until beta says otherwise; the copy stays blank rather than guessing.
+	riskPillX = 145f,
+	riskCopy = "",
+	stats = listOf(
+		DetailStat("P/E ratio", "—", ""),
+		DetailStat("Revenue growth", "—", ""),
+		// No border: the authored highlight marked the one stat a designer judged
+		// notable for that company, which says nothing about this one's numbers.
+		DetailStat("Profit margin", "—", ""),
+	),
+	upside = "",
+	targetLow = "—",
+	targetAvg = "—",
+	targetHigh = "—",
+	targetMarkerX = 0f,
+	consensus = "",
+	buyCount = "",
+	holdCount = "",
+	sellCount = "",
+	buyBarW = 0f,
+	actions = emptyList(),
+	newsClose = "",
+	newsSignal = "",
+	newsEarnings = "",
+	newsSources = emptyList(),
+	newsHeadline = "",
+	newsHeadline2 = "",
+	peersLabel = "",
+	peerA = "—",
+	peerB = "—",
+	compareRows = emptyList(),
+	sheetBadge = symbol.take(1),
+	sheetName = symbol,
+	sheetPrice = "—",
+	sheetChange = "",
+	// Replaced by liveBuySpec() at the call site; this is never the ticket shown.
+	buySpec = BuySpec("Buy $symbol?", symbol.take(1), symbol, "$0.00 today", "▲ 0.0%", "$0.00", "$0.00", "0", symbol),
 )
 
 private val DETAIL_FACTS = mapOf(

@@ -48,6 +48,7 @@ import com.stak.demo.ui.onboarding.AuthBackCircle
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.fractionalSpacedBy
+import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.StakColors
 import java.util.Locale
 import kotlin.math.abs
@@ -185,7 +186,10 @@ fun CollectionScreen(
 				// null is that cell; the two-per-row layout is unchanged.
 				val cells: List<CollStock?> = held + null
 				cells.chunked(2).forEach { row ->
-					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth().height((139 * u).dp)) {
+					// 144, not the authored 139: with every line box pinned the tile's
+					// own content measures 139 exactly, leaving no room for rounding,
+					// and the price's descent was being shaved off the bottom.
+					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth().height((144 * u).dp)) {
 						row.forEach { stock ->
 							if (stock != null) {
 								StockTile(
@@ -247,14 +251,16 @@ private fun StockTile(stock: CollStock, onClick: (() -> Unit)?, modifier: Modifi
 		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
 			Text(
 				stock.ticker,
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp),
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
 			)
-			Text(stock.company, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+			Text(stock.company, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Muted)
 		}
 		Text(
 			stock.price,
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Medium, fontSize = (15 * u).sp),
+			// Pinned line box: the tile's height is fixed at 139, and the default
+			// line box added enough bottom leading to clip the digits' descent.
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Medium, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
 	}
