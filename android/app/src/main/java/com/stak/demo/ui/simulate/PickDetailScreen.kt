@@ -220,8 +220,20 @@ fun PickDetailScreen(
 					} else {
 						// A new account's pick draws its own move - flat until the price moves (product audit, 2026-09-05).
 						val pct = (p.gainPct.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) * (if (p.up) 1 else -1)
-						val line = if (PaperPortfolio.demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, pct)
-						RangeChart(series = line, tint = Sim.Teal, modifier = chartModifier)
+						// The demo keeps its authored line; a real pick draws nothing
+						// rather than a shape scaled from its gain, which is not a
+						// price history and would read as one.
+						if (PaperPortfolio.demo) {
+							RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
+						} else {
+							Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+								Text(
+									"No history yet",
+									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+									color = Sim.Faint,
+								)
+							}
+						}
 					}
 					Row(
 						verticalAlignment = Alignment.CenterVertically,

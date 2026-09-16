@@ -10,6 +10,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.StockRepository
+import com.stak.demo.data.chartFractions
+import com.stak.demo.data.equalWeightIndex
+import com.stak.demo.data.indexedMovePct
 import com.stak.demo.data.categoryArt
 import com.stak.demo.data.categoryColorKey
 import com.stak.demo.data.categoryGroupId
@@ -200,24 +203,8 @@ class MyStakViewModel @Inject constructor(
             .mapNotNull { chart ->
                 chart?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
             }
-        if (series.isEmpty()) return@coroutineScope null
-        val n = series.minOf { it.size }
-        val indexed = (0 until n).map { i ->
-            series.map { s ->
-                val base = s[s.size - n]
-                if (base > 0.0) s[s.size - n + i] / base else 1.0
-            }.average()
-        }
-        val pct = (indexed.last() - 1.0) * 100.0
-        val low = indexed.min()
-        val span = (indexed.max() - low).takeIf { it > 1e-9 }
-        // A line that never moved sits in the middle rather than pinned to the floor.
-        // Inset from the edges: the line is a 2dp stroke centred on the path, so a
-        // high of exactly 1.0 draws half of itself outside the box and reads clipped.
-        val fractions = indexed.map { v ->
-            if (span == null) 0.5f else (EDGE + ((v - low) / span).toFloat() * (1f - 2 * EDGE)).coerceIn(0f, 1f)
-        }
-        fractions to pct
+        val indexed = equalWeightIndex(series) ?: return@coroutineScope null
+        chartFractions(indexed) to indexedMovePct(indexed)
     }
 
     /** The collection behind a chip - the Collection page serves this. */
@@ -290,9 +277,6 @@ class MyStakViewModel @Inject constructor(
     private companion object {
         /** A save with no category the deck ranks on - it still has to show up somewhere. */
         const val OTHER = "Other"
-
-        /** How far the chart line stays clear of the top and bottom of its box. */
-        const val EDGE = 0.08f
     }
 }
 

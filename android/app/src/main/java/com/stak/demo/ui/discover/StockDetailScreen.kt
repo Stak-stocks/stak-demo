@@ -111,6 +111,8 @@ fun StockDetailScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val f = DETAIL_FACTS[symbol] ?: DETAIL_FACTS.getValue("AAPL")
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
+	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
+	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -123,6 +125,10 @@ fun StockDetailScreen(
 	var showBuy by rememberSaveable { mutableStateOf(false) }
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
 	var range by rememberSaveable { mutableStateOf("3M") }
+	// Each pill draws that range's own closes; the demo keeps its authored line.
+	if (!com.stak.demo.data.Session.demoAccount) {
+		LaunchedEffect(symbol, range) { viewModel.selectRange(symbol, range) }
+	}
 	// B9/B13: hoisted Analyst state - the open state carries the tab bar
 	// (Discover entry) and the buy-success "Done" folds the section.
 	var analystOpen by rememberSaveable { mutableStateOf(false) }
@@ -176,16 +182,35 @@ fun StockDetailScreen(
 					)
 				}
 				val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((345 * u).dp, (76 * u).dp)
-				val series = RANGE_SERIES[range]
-				if (series == null) {
-					Image(
-						painter = painterResource(R.drawable.sd_chart_line),
-						contentDescription = null,
-						contentScale = ContentScale.Fit,
-						modifier = chartModifier,
-					)
+				if (com.stak.demo.data.Session.demoAccount) {
+					val series = RANGE_SERIES[range]
+					if (series == null) {
+						Image(
+							painter = painterResource(R.drawable.sd_chart_line),
+							contentDescription = null,
+							contentScale = ContentScale.Fit,
+							modifier = chartModifier,
+						)
+					} else {
+						RangeChart(series = series, tint = Teal, modifier = chartModifier)
+					}
 				} else {
-					RangeChart(series = series, tint = Teal, modifier = chartModifier)
+					// This stock's own closes. A range with no prices draws nothing:
+					// a shape invented to fill the box would read as its real history.
+					val live = chartSeries
+					if (live != null) {
+						RangeChart(series = live, tint = Teal, modifier = chartModifier)
+					} else {
+						Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+							if (chartMissing) {
+								Text(
+									"No price history for this range",
+									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+									color = Muted,
+								)
+							}
+						}
+					}
 				}
 				Spacer(modifier = Modifier.height((40 * u).dp))
 				Row(

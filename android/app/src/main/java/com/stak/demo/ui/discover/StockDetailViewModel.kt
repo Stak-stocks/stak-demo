@@ -13,6 +13,7 @@ import com.stak.demo.data.StakClock
 import com.stak.demo.data.StockDetailResponse
 import com.stak.demo.data.StockMetrics
 import com.stak.demo.data.StockRepository
+import com.stak.demo.data.chartFractions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -77,6 +78,37 @@ class StockDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _liveDetail = MutableStateFlow<LiveDetail?>(null)
     val liveDetail: StateFlow<LiveDetail?> = _liveDetail
+
+    /** This stock's line for the selected range, as fractions of the chart's height. */
+    private val _chartSeries = MutableStateFlow<List<Float>?>(null)
+    val chartSeries: StateFlow<List<Float>?> = _chartSeries
+
+    /** True when the range came back with no prices - draw nothing, don't invent a line. */
+    private val _chartMissing = MutableStateFlow(false)
+    val chartMissing: StateFlow<Boolean> = _chartMissing
+
+    private var chartKey: String? = null
+
+    /**
+     * Draws the chart from this stock's own closes for [range]. The pills' labels
+     * lowercase onto the endpoint's ranges ("3M" -> "3m").
+     */
+    fun selectRange(symbol: String, range: String) {
+        val key = "$symbol:$range"
+        if (chartKey == key) return
+        chartKey = key
+        // Drop the previous line at once: it belongs to another stock or period.
+        _chartSeries.value = null
+        _chartMissing.value = false
+        viewModelScope.launch {
+            val closes = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
+                ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
+            // A slow reply for a range already left behind must not land.
+            if (chartKey != key) return@launch
+            _chartSeries.value = closes?.let(::chartFractions)
+            _chartMissing.value = closes == null
+        }
+    }
 
     fun fetch(symbol: String) {
         viewModelScope.launch {

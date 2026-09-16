@@ -113,6 +113,8 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 					explanation: "Could not simplify this article.",
 					whyItMatters: "Check the original source for details.",
 					sentiment: "neutral",
+					// Empty is what the prompt asks for when no single company is named.
+					ticker: "",
 				}));
 			}
 		} catch (e) {
@@ -170,6 +172,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 		explanation: a.summary,
 		whyItMatters: "Read the full article for more context.",
 		sentiment: "neutral",
+		ticker: "",
 	}));
 }
 

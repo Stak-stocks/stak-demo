@@ -445,8 +445,22 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 		} else {
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
 			val pct = PaperPortfolio.allTimeGain / PaperPortfolio.PAPER_START * 100
-			val line = if (PaperPortfolio.demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, pct)
-			RangeChart(series = line, tint = Sim.Teal, modifier = chartModifier)
+			// The demo keeps its authored line. A real ledger has nothing to draw
+			// from: a position records a cost basis and a current value, but no
+			// entry price and no date except inside its display line, so the value
+			// between then and now is unknown. Better an empty box than a shape
+			// that would read as this portfolio's own past.
+			if (PaperPortfolio.demo) {
+				RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
+			} else {
+				Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+					Text(
+						"No history yet",
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+						color = Sim.Faint,
+					)
+				}
+			}
 		}
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
