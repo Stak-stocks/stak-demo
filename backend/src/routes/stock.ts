@@ -1600,7 +1600,9 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 stockRouter.get("/:symbol/chart", async (req, res) => {
 	const symbol = (req.params["symbol"] as string).toUpperCase();
 	const range = (req.query.range as string) || "1m";
-	const cacheKey = `stock:chart:v3:${symbol}:${range}`;
+	// v4: 1d changed from a midnight-UTC window to Yahoo's own latest session, and a
+	// stale v3 entry would keep serving the empty result the old window produced.
+	const cacheKey = `stock:chart:v4:${symbol}:${range}`;
 	const cached = await cacheGet<{ prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] }>(cacheKey);
 	if (cached) { res.json(cached); return; }
 
@@ -1611,9 +1613,12 @@ stockRouter.get("/:symbol/chart", async (req, res) => {
 	let prePost = false;
 
 	if (range === "1d") {
-		// Start 6 hours before market open to capture pre-market
-		const d = new Date(); d.setHours(0, 0, 0, 0);
-		from = Math.floor(d.getTime() / 1000);
+		// The window comes from Yahoo's own range=1d below (the latest session), so
+		// `from` is only here to keep it assigned. Anchoring 1d to midnight in the
+		// server's timezone - UTC on Cloud Run - asked for a window that holds no
+		// trading at all between 00:00Z and the 13:30Z open, which is every evening
+		// and night in Eastern time: the chart came back empty for every stock.
+		from = now - 2 * 24 * 60 * 60;
 		interval = "5m"; cacheTtl = 5 * 60 * 1000; prePost = true;
 	} else if (range === "1w") {
 		from = now - 7 * 24 * 60 * 60;
@@ -1635,7 +1640,9 @@ stockRouter.get("/:symbol/chart", async (req, res) => {
 
 	try {
 		const prePostParam = prePost ? "&includePrePost=true" : "";
-		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${from}&period2=${now}&interval=${interval}${prePostParam}`;
+		// 1d asks for the most recent session by name; every other range is a window.
+		const window = range === "1d" ? "range=1d" : `period1=${from}&period2=${now}`;
+		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${window}&interval=${interval}${prePostParam}`;
 		const r = await fetch(url, {
 			headers: { "User-Agent": "Mozilla/5.0" },
 			signal: AbortSignal.timeout(10000),

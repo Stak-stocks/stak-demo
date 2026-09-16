@@ -148,12 +148,16 @@ async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void>
 	const client = await pgPool.connect();
 	try {
 		await client.query("BEGIN");
-		// Preserve existing price_at_save so "since you saved" isn't wiped on every watchlist edit
-		const existing = await client.query<{ brand_id: string; price_at_save: number | null }>(
-			`select brand_id, price_at_save from stak_brands where uid = $1`,
+		// Preserve price_at_save AND saved_at so "since you saved" isn't wiped on every
+		// watchlist edit. The price was already kept; saved_at was not, so this rewrote
+		// every save's date on each sync - a stock saved weeks ago reported itself as
+		// saved the moment anything else was added or removed.
+		const existing = await client.query<{ brand_id: string; price_at_save: number | null; saved_at: string | null }>(
+			`select brand_id, price_at_save, saved_at from stak_brands where uid = $1`,
 			[uid],
 		);
 		const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
+		const savedAts = new Map<string, string | null>(existing.rows.map(r => [r.brand_id, r.saved_at]));
 		await client.query(`delete from stak_brands where uid = $1`, [uid]);
 		if (brandIds.length > 0) {
 			const now = new Date().toISOString();
@@ -162,7 +166,8 @@ async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void>
 			let pIdx = 2;
 			for (const brandId of brandIds) {
 				rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
-				params.push(brandId, now, savedPrices.get(brandId) ?? null);
+				// An existing row keeps the date it was first saved; only a new one is "now".
+				params.push(brandId, savedAts.get(brandId) ?? now, savedPrices.get(brandId) ?? null);
 				pIdx += 3;
 			}
 			await client.query(

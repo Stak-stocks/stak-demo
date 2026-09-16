@@ -61,6 +61,8 @@ object MyStakHoldings {
 		val name: String,
 		val category: String?,
 		val savedDay: Long?,
+		/** The exact moment of the save. The day alone can only find a close. */
+		val savedAtSec: Long?,
 		val priceAtSave: Double?,
 	)
 
@@ -96,12 +98,20 @@ object MyStakHoldings {
 					name = s.name.ifBlank { s.ticker },
 					category = s.category,
 					savedDay = s.savedAt?.let(::epochDayOf),
+					savedAtSec = s.savedAt?.let(::epochSecOf),
 					priceAtSave = s.priceAtSave,
 				)
 			}
 		}
 		persist()
 	}
+
+	/** The server's timestamp as epoch seconds - the moment, not just the day. */
+	private fun epochSecOf(iso: String): Long? = runCatching {
+		java.time.Instant.parse(iso).epochSecond
+	}.recoverCatching {
+		java.time.OffsetDateTime.parse(iso).toInstant().epochSecond
+	}.getOrNull()
 
 	/** The server's timestamp as a local epoch day; null when it isn't a date we can read. */
 	private fun epochDayOf(iso: String): Long? = runCatching {
@@ -122,6 +132,7 @@ object MyStakHoldings {
 					put("n", d.name)
 					d.category?.let { put("c", it) }
 					d.savedDay?.let { put("d", it) }
+					d.savedAtSec?.let { put("s", it) }
 					d.priceAtSave?.let { put("p", it) }
 				},
 			)
@@ -142,6 +153,7 @@ object MyStakHoldings {
 					name = o.optString("n", ticker),
 					category = if (o.has("c")) o.getString("c") else null,
 					savedDay = if (o.has("d")) o.getLong("d") else null,
+					savedAtSec = if (o.has("s")) o.getLong("s") else null,
 					priceAtSave = if (o.has("p")) o.getDouble("p") else null,
 				)
 			}.toMap()
@@ -170,6 +182,19 @@ object MyStakHoldings {
 
 	/** What the stock cost when it was saved - the "since you saved" move measures from here. */
 	fun priceAtSave(ticker: String): Double? = details[symbolOf(ticker)]?.priceAtSave
+
+	/**
+	 * The day the save was made, as an epoch day. A save from before prices were
+	 * stamped has no price of its own, but its date is enough to look up what the
+	 * stock actually closed at that day.
+	 */
+	/** The exact moment of the save, in epoch seconds, when the server has told us. */
+	fun savedInstant(ticker: String): Long? = details[symbolOf(ticker)]?.savedAtSec
+
+	fun savedEpochDay(ticker: String): Long? {
+		val sym = symbolOf(ticker)
+		return details[sym]?.savedDay ?: savedAt[sym]
+	}
 
 	/** How many stocks the user holds - the Overview's "Across N stocks". */
 	val count: Int get() = tickers.size

@@ -439,7 +439,10 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRang
 			// points once the market closes).
 			val line = if (demo) series else ui.chartSeries
 			if (line != null) {
-				RangeChart(series = line, tint = Teal, modifier = chartModifier)
+				// The line carries the range's direction: green when the period ends
+				// up, red when it ends down. The demo keeps its authored teal.
+				val tint = if (demo) Teal else if ((movePct ?: 0.0) < 0.0) Red else Green
+				RangeChart(series = line, tint = tint, modifier = chartModifier)
 			} else {
 				// Empty while loading; said plainly once the range is known to have none.
 				Box(contentAlignment = Alignment.Center, modifier = chartModifier) {

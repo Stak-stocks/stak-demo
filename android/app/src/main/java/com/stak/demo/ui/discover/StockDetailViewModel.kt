@@ -6,6 +6,7 @@ import com.stak.demo.data.AnalystAction
 import com.stak.demo.data.AnalystResponse
 import com.stak.demo.data.DailyMoveResponse
 import com.stak.demo.data.EarningsResponse
+import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.CompanyNewsResponse
 import com.stak.demo.data.PeerMetricsResponse
 import com.stak.demo.data.StakClock
@@ -25,6 +26,13 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.abs
+
+/**
+ * A price to measure a save against. [atMoment] is true when it is the price at
+ * the minute of the save, false when it is that day's close - a real price, but a
+ * different moment, which the copy has to distinguish.
+ */
+data class SavedReference(val price: Double, val atMoment: Boolean)
 
 /** One "Compare and learn" row: this stock's value, then each peer's. */
 data class CompareValues(val label: String, val a: String, val b: String, val c: String, val green: Boolean = false)
@@ -84,6 +92,19 @@ class StockDetailViewModel @Inject constructor(
     private val _chartMissing = MutableStateFlow(false)
     val chartMissing: StateFlow<Boolean> = _chartMissing
 
+    /**
+     * The price a save from before stamping is measured against, and whether it is
+     * the actual moment of the save. Recovered from that session's intraday points
+     * when the save is recent enough for them; otherwise the day's close, which is
+     * a real price but a different moment - and the card says so.
+     */
+    private val _savedReference = MutableStateFlow<SavedReference?>(null)
+    val savedReference: StateFlow<SavedReference?> = _savedReference
+
+    /** The move across the selected range, measured from its own first close. */
+    private val _chartPct = MutableStateFlow<Double?>(null)
+    val chartPct: StateFlow<Double?> = _chartPct
+
     private var chartKey: String? = null
 
     /**
@@ -94,21 +115,37 @@ class StockDetailViewModel @Inject constructor(
         val key = "$symbol:$range"
         if (chartKey == key) return
         chartKey = key
-        // Drop the previous line at once: it belongs to another stock or period.
-        _chartSeries.value = null
+        // The previous line belongs to another stock or period, so it goes at once -
+        // replaced by this one's own line when it has been drawn before.
+        val cached = StockDetailCache.chart(symbol, range)
+        _chartSeries.value = cached?.series
+        _chartPct.value = cached?.pct
         _chartMissing.value = false
         viewModelScope.launch {
             val closes = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
                 ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
             // A slow reply for a range already left behind must not land.
             if (chartKey != key) return@launch
-            _chartSeries.value = closes?.let(::chartFractions)
-            _chartMissing.value = closes == null
+            val fractions = closes?.let(::chartFractions)
+            // Measured from the range's own first close, the way the line is drawn -
+            // so the colour and the shape always agree about the direction.
+            val pct = closes?.let { (it.last() - it.first()) / it.first() * 100.0 }
+            _chartSeries.value = fractions
+            _chartPct.value = pct
+            _chartMissing.value = fractions == null
+            if (fractions != null && pct != null) {
+                StockDetailCache.putChart(symbol, range, StockDetailCache.ChartData(fractions, pct))
+            }
         }
     }
 
     fun fetch(symbol: String) {
         viewModelScope.launch {
+            // Show what this stock last showed while its own data is on the way,
+            // instead of a page of placeholders on every re-entry.
+            StockDetailCache.detail(symbol)?.let { _liveDetail.value = it }
+            _savedReference.value =
+                if (MyStakHoldings.priceAtSave(symbol) != null) null else savedReferenceFor(symbol)
             val stockData = runCatching { repository.getStock(symbol) }.getOrNull()
             val pct = stockData?.quote?.changePercent ?: 0.0
 
@@ -140,7 +177,14 @@ class StockDetailViewModel @Inject constructor(
                     peerStocks = peerStocks,
                     peerMedians = peers,
                 )
-            }.also { _liveDetail.value = it }
+            }.also { built ->
+                // A failed fetch leaves what is already on screen alone; assigning
+                // null here wiped a good page back to placeholders on a bad network.
+                if (built != null) {
+                    _liveDetail.value = built
+                    StockDetailCache.putDetail(symbol, built)
+                }
+            }
         }
     }
 
@@ -280,6 +324,36 @@ class StockDetailViewModel @Inject constructor(
             earningsStr = earningsStr,
         )
     }
+
+    /**
+     * What to measure a pre-stamping save against. The exact minute is preferred:
+     * the server records when the save happened, and that session's intraday points
+     * can still be fetched, so the price the user actually saw is recoverable. Only
+     * when it isn't does this fall back to the day's close.
+     */
+    private suspend fun savedReferenceFor(symbol: String): SavedReference? {
+        val instant = MyStakHoldings.savedInstant(symbol)
+        if (instant != null) {
+            val nearest = runCatching { repository.getChart(symbol, "1d") }.getOrNull()
+                ?.prices
+                ?.mapNotNull { p -> epochSecOf(p.ts)?.let { sec -> sec to p.close } }
+                ?.filter { it.second > 0.0 }
+                ?.minByOrNull { kotlin.math.abs(it.first - instant) }
+            // Only when the session actually covers the save; otherwise the "nearest"
+            // point could belong to a different day entirely.
+            if (nearest != null && kotlin.math.abs(nearest.first - instant) <= 60 * 60) {
+                return SavedReference(nearest.second, atMoment = true)
+            }
+        }
+        val day = MyStakHoldings.savedEpochDay(symbol) ?: return null
+        val date = java.time.LocalDate.ofEpochDay(day).toString()
+        val close = runCatching { repository.getChart(symbol, "1y") }.getOrNull()
+            ?.prices?.lastOrNull { it.ts.startsWith(date) }?.close?.takeIf { it > 0.0 }
+        return close?.let { SavedReference(it, atMoment = false) }
+    }
+
+    private fun epochSecOf(ts: String): Long? =
+        runCatching { java.time.Instant.parse(ts).epochSecond }.getOrNull()
 
     /** "11.8%" -> 11.8, so a served percentage can be compared with a peer median. */
     private fun percentValue(s: String?): Double? = s?.trim()?.removeSuffix("%")?.toDoubleOrNull()

@@ -109,13 +109,10 @@ fun CollectionScreen(
 				color = Color.White,
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			// No designed menu yet (Codex audit 2026-09-04) - decorative until the designer draws one.
-			Box(
-				contentAlignment = Alignment.Center,
-				modifier = Modifier.size((40 * u).dp).background(CardBg, CircleShape),
-			) {
-				Image(painterResource(R.drawable.ic_more_dots), contentDescription = null, modifier = Modifier.size((24 * u).dp))
-			}
+			// The menu behind these dots was never designed and they carried no click
+			// handling, so they were a drawing users could tap to no effect. Removed
+			// until there is a menu; the spacer keeps the title centred.
+			Spacer(modifier = Modifier.size((40 * u).dp))
 		}
 		Column(
 			verticalArrangement = Arrangement.spacedBy((20 * u).dp),

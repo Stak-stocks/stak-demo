@@ -122,6 +122,8 @@ fun StockDetailScreen(
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
 	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
+	val chartPct by viewModel.chartPct.collectAsStateWithLifecycle()
+	val savedReference by viewModel.savedReference.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -160,14 +162,11 @@ fun StockDetailScreen(
 					color = Color.White,
 				)
 				Spacer(modifier = Modifier.weight(1f))
-				Box(
-					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((40 * u).dp).background(Card, CircleShape),
-				) {
-					// 1:2382 authors the share glyph WHITE (1.5 strokes); the News page's
-					// asset is its own #AEAEAE - tinted here (StakTest audit, 2026-09-05).
-					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((17 * u).dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
-				}
+				// The share control had no click handling at all - a drawing that took
+				// a tap and did nothing, without even the press dim every real button
+				// here shows. Removed until there is something to share to; the spacer
+				// keeps the title centred against the back circle.
+				Spacer(modifier = Modifier.size((40 * u).dp))
 			}
 			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
 				Column(
@@ -175,7 +174,9 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp, bottom = (6 * u).dp),
 				) {
 					val displayPrice = liveDetail?.price ?: f.price
-					val displayChange = liveDetail?.change ?: f.change
+					// The figure follows the selected pill: a red line for the year above a
+					// green "today" was two periods stacked with nothing to tell them apart.
+					val displayChange = chartPct.let { p -> if (range != "1D" && p != null) rangeChangeText(p, range) else (liveDetail?.change ?: f.change) }
 					// The page names the stock it is showing; the authored title is another
 					// company's whenever this symbol has no authored facts of its own.
 					Text(liveDetail?.name?.let { "$symbol · $it" } ?: f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
@@ -208,7 +209,9 @@ fun StockDetailScreen(
 					// a shape invented to fill the box would read as its real history.
 					val live = chartSeries
 					if (live != null) {
-						RangeChart(series = live, tint = Teal, modifier = chartModifier)
+						// The line's colour is the range's verdict: green where the
+						// period ends above where it started, red where it ends below.
+						RangeChart(series = live, tint = if ((chartPct ?: 0.0) < 0.0) Red else Green, modifier = chartModifier)
 					} else {
 						Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
 							if (chartMissing) {
@@ -260,7 +263,7 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
 				) {
 					if (fromMyStak) {
-						SinceYouSavedCard(f, symbol, liveDetail)
+						SinceYouSavedCard(f, symbol, liveDetail, savedReference)
 					}
 					RiskFitCard(f, liveDetail)
 					NumbersCard(f, liveDetail)
@@ -975,43 +978,65 @@ private fun CompareRow(label: String, a: String, m: String, g: String, header: B
  * the right symbol; a new account reads its own save date, and the move
  * since is this week's change once a day has passed.
  */
-private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?): Triple<String, String, Boolean> {
+private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?): Triple<String, String, Boolean> {
 	val demo = com.stak.demo.data.Session.demoAccount
 	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(symbol)
-	// The move SINCE THE SAVE, measured from the price stamped when it was saved.
-	// The authored copy fell back to this week's change, which answers a different
-	// question - and for a stock with no authored facts it was another company's
-	// change under another company's ticker (audit, 2026-09-15).
-	val savedPct = if (demo) null else sinceSavePct(symbol, liveDetail)
+	// Two references, and they are not the same claim. A stamped price is what the
+	// stock cost at the moment of saving. A save from before stamping existed has
+	// only the close on that day, which is a real price but a different moment - so
+	// the copy says which one it measured from rather than blurring them.
+	val stamped = if (demo) null else com.stak.demo.data.MyStakHoldings.priceAtSave(symbol)?.takeIf { it > 0.0 }
+	val recovered = if (demo) null else savedReference?.takeIf { it.price > 0.0 }
+	// A stamped price and a price recovered for the same minute are the same claim;
+	// a day's close is a real price from a different moment, so it reads differently.
+	val atMoment = stamped != null || recovered?.atMoment == true
+	val reference = stamped ?: recovered?.price
+	val now = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull()
+	val savedPct = if (reference != null && now != null) (now - reference) / reference * 100.0 else null
 	val move = savedPct?.let { String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(it)) }
-		?: f.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
-	val up = savedPct?.let { it >= 0.0 } ?: !f.change.trimStart().startsWith("-")
+	val up = savedPct?.let { it >= 0.0 } ?: true
+	val whenSaved = if (days == 1) "yesterday" else "$days days ago"
 	return when {
 		demo -> Triple("+4.6%", "Saved 5 weeks ago. $symbol is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
 		// null = a save from before the record existed; it reads as recent rather than as the demo's five weeks.
 		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
-		// Say there is nothing to measure rather than borrow a number that answers something else.
-		savedPct == null -> Triple("\u2014", "Saved ${if (days == 1) "yesterday" else "$days days ago"}. STAK has no record of what $symbol cost then, so there's no move to measure yet.", true)
+		savedPct == null -> Triple("\u2014", "Saved $whenSaved. STAK has no record of what $symbol cost then, so there's no move to measure yet.", true)
+		atMoment -> Triple(
+			(if (up) "+" else "-") + move + "%",
+			"Saved $whenSaved. $symbol is ${if (up) "up" else "down"} $move% since you saved it.",
+			up,
+		)
 		else -> Triple(
 			(if (up) "+" else "-") + move + "%",
-			"Saved ${if (days == 1) "yesterday" else "$days days ago"}. $symbol is ${if (up) "up" else "down"} $move% since you saved it.",
+			"Saved $whenSaved, when $symbol closed at " + formatPrice(reference ?: 0.0) + ". It is ${if (up) "up" else "down"} $move% since that close.",
 			up,
 		)
 	}
 }
 
-/** The move since the save: the price stamped then against the live one. */
-private fun sinceSavePct(symbol: String, liveDetail: LiveDetail?): Double? {
-	val at = com.stak.demo.data.MyStakHoldings.priceAtSave(symbol)?.takeIf { it > 0 } ?: return null
-	val now = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull() ?: return null
-	return (now - at) / at * 100.0
+/**
+ * "▼ 15.4% past year" - the selected range's own move, named for its period so
+ * the figure and the line beneath it always describe the same stretch of time.
+ */
+private fun rangeChangeText(pct: Double, range: String): String {
+	val arrow = if (pct < 0) "▼" else "▲"
+	val period = when (range) {
+		"1D" -> "today"
+		"1W" -> "past week"
+		"1M" -> "past month"
+		"3M" -> "past 3 months"
+		"YTD" -> "year to date"
+		else -> "past year"
+	}
+	return "$arrow " + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct)) + "% $period"
 }
+
 
 /** "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry. */
 @Composable
-private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?) {
+private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val since = sinceSavedFor(f, symbol, liveDetail)
+	val since = sinceSavedFor(f, symbol, liveDetail, savedReference)
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
