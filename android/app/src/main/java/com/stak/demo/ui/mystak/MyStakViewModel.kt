@@ -109,26 +109,40 @@ class MyStakViewModel @Inject constructor(
     private var chartJob: Job? = null
 
     /**
-     * Loads only when the saved set has changed since the last load. The Overview
-     * and its Collection pages share one instance, so opening a collection should
-     * show what's already there rather than fetch it again.
+     * Loads when the saved set has changed, or its quotes are over a minute old. The
+     * Overview and its Collection pages share one instance, so opening a collection
+     * straight away shows what's already there rather than fetching it again.
      */
     fun loadIfNeeded() {
         // loadedFor is set when a load STARTS, so this skips one still in flight too.
         // Testing !loading here instead would let the second screen fire a duplicate
         // fetch while the first was still running - the very thing this prevents.
-        if (loadedFor == MyStakHoldings.tickers) return
+        //
+        // But the same holdings are not the same prices. Keyed on the set alone, the
+        // quotes were fetched once and kept all session: a collection read "-0.1%
+        // today" from launch while its only stock, opened fresh, read -0.7% (device
+        // report, 2026-09-16). Past a minute, coming back to the screen reloads them.
+        val fresh = System.currentTimeMillis() - loadedAtMs < QUOTE_FRESH_MS
+        if (loadedFor == MyStakHoldings.tickers && fresh) return
         load()
     }
 
+    private var loadedAtMs = 0L
+
     fun load() {
+        // Claimed before anything suspends. These were only set after the refresh
+        // below returned, so a second screen opening meanwhile saw no load under way
+        // and started its own.
+        loadedFor = MyStakHoldings.tickers
+        loadedAtMs = System.currentTimeMillis()
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
             // The server is the record of what's saved, and it carries each save's
             // category, date and price - the local set alone can't describe a stock.
             MyStakHoldings.refreshFromBackend()
             val tickers = MyStakHoldings.tickers.toList()
-            // Marked before the quotes come back: a failed fetch must not loop.
+            // Re-marked with what the refresh settled on, still before the quotes come
+            // back: a failed fetch must not loop.
             loadedFor = MyStakHoldings.tickers
             if (tickers.isEmpty()) {
                 _ui.value = MyStakUi(loading = false, cardsLeft = cardsLeft())
@@ -316,6 +330,9 @@ class MyStakViewModel @Inject constructor(
     private companion object {
         /** A save with no category the deck ranks on - it still has to show up somewhere. */
         const val OTHER = "Other"
+
+        /** How long a screen's quotes count as current before a return to it reloads them. */
+        const val QUOTE_FRESH_MS = 60_000L
     }
 }
 

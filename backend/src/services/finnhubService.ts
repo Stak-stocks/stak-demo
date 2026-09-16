@@ -131,6 +131,39 @@ const MACRO_SIGNALS = [
 	"national debt", "debt ceiling", "budget deficit",
 ];
 
+/**
+ * Catalogue names that are also everyday headline words - "Price Target",
+ * "Stocks Zoom Higher", "a visa ban". On their own they say nothing about the
+ * company, so these need the ticker. A missing tag only drops a price card; a
+ * wrong one shows the reader a company the story isn't about.
+ */
+const AMBIGUOUS_NAMES = new Set(["target", "block", "snap", "zoom", "visa", "match"]);
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** A legal suffix adds nothing to a mention: "Jack in the Box Inc" is written "Jack in the Box". */
+function bareName(name: string): string {
+	return name.trim().replace(/[,\s]+(inc\.?|corp\.?|corporation|plc|ltd\.?)$/i, "");
+}
+
+function mentionsName(headline: string, name: string): boolean {
+	const n = bareName(name);
+	if (n.length < 3 || AMBIGUOUS_NAMES.has(n.toLowerCase())) return false;
+	return new RegExp(`(^|[^a-z0-9])${escapeRegExp(n)}($|[^a-z0-9])`, "i").test(headline);
+}
+
+function mentionsTicker(headline: string, ticker: string): boolean {
+	const t = escapeRegExp(ticker.trim().toUpperCase());
+	if (!t) return false;
+	// One- and two-letter tickers are ordinary letters and words ("O", "ON", "SO"), so
+	// only an explicit citation counts: "(O)", "NYSE: O", "$O".
+	if (ticker.trim().length <= 2) {
+		return new RegExp(`\\(${t}\\)|\\b(?:NYSE|NASDAQ|Nasdaq)\\s*:\\s*${t}(?![A-Za-z0-9])|\\$${t}(?![A-Za-z0-9])`).test(headline);
+	}
+	// Longer ones as a capitalised whole word, so a title-cased "Net" or "Snow" isn't NET or SNOW.
+	return new RegExp(`(^|[^A-Za-z0-9])${t}($|[^A-Za-z0-9])`).test(headline);
+}
+
 /** Classify an article as macro, company-specific, or sector-level */
 export function classifyArticle(
 	article: FinnhubArticle,
@@ -140,9 +173,13 @@ export function classifyArticle(
 	const headline = article.headline.toLowerCase();
 	const body = `${headline} ${article.summary.toLowerCase()}`;
 
-	// Company: company name or ticker appears in the headline
-	if (companyName && headline.includes(companyName.toLowerCase())) return "company";
-	if (ticker && headline.includes(ticker.toLowerCase())) return "company";
+	// Company: the company is named, or its ticker cited, in the headline. Matched as
+	// whole words. A plain substring test made "googl" match "google" by luck and let
+	// one-letter tickers claim nearly everything - "o" (Realty Income) is in almost
+	// every headline - so a story about Joby or Apple went out labelled as another
+	// company's news, with that company's price card beside it.
+	if (companyName && mentionsName(article.headline, companyName)) return "company";
+	if (ticker && mentionsTicker(article.headline, ticker)) return "company";
 
 	// Macro: strong market-wide signal in headline or summary
 	if (MACRO_SIGNALS.some((s) => body.includes(s))) return "macro";

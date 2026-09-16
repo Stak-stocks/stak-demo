@@ -62,12 +62,18 @@ class NewsViewModel @Inject constructor(
                     async {
                         runCatching { repository.getCompanyNews(ticker) }
                             .getOrNull()?.articles.orEmpty()
-                            .map { it.copy(ticker = ticker) }
+                            // A company query also returns stories that are only near the
+                            // company ("sector"). Stamping the queried ticker on every one
+                            // labelled a Joby story as NVIDIA news, with NVIDIA's price
+                            // beside it; only a story about the company carries its ticker.
+                            .map { it.copy(ticker = if (it.type == "company") ticker else "") }
                     }
                 }.awaitAll().flatten()
             }
             val seen = mutableSetOf<String>()
             _forYouNews.value = allArticles
+                // A story fetched under two holdings keeps the copy that names its company.
+                .sortedByDescending { it.ticker.isNotBlank() }
                 .filter { it.url.isNotBlank() && seen.add(it.url) }
                 .sortedByDescending { it.datetime }
                 .take(10)

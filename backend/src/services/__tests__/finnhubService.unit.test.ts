@@ -62,6 +62,34 @@ describe("classifyArticle", () => {
 		expect(classifyArticle(article, "Tesla", "TSLA")).toBe("company");
 	});
 
+	it("does not match a ticker inside a longer word", () => {
+		// "googl" is a substring of "google"; a story about another company that
+		// merely says "Google" must not become GOOGL company news via the ticker.
+		const article = makeArticle({ headline: "What Happens To Apple Stock If Its Margin Keeps Slipping?" });
+		expect(classifyArticle(article, "Google", "GOOGL")).toBe("sector");
+	});
+
+	it("does not let a one-letter ticker claim ordinary headlines", () => {
+		const article = makeArticle({ headline: "The 1 Metric That Separates Joby From Archer" });
+		expect(classifyArticle(article, "Realty Income", "O")).toBe("sector");
+	});
+
+	it("matches a short ticker only when it is cited explicitly", () => {
+		expect(classifyArticle(makeArticle({ headline: "Realty Income (O) raises its dividend" }), undefined, "O")).toBe("company");
+		expect(classifyArticle(makeArticle({ headline: "Why shares of $V are moving" }), undefined, "V")).toBe("company");
+		expect(classifyArticle(makeArticle({ headline: "Stocks slip on softer data" }), undefined, "ON")).toBe("sector");
+	});
+
+	it("does not treat an everyday word as the company it shares a name with", () => {
+		const article = makeArticle({ headline: "Analyst lifts Nvidia price target ahead of earnings" });
+		expect(classifyArticle(article, "Target", "TGT")).toBe("sector");
+	});
+
+	it("matches a name as a whole word, not inside another word", () => {
+		expect(classifyArticle(makeArticle({ headline: "Metaverse spending cools" }), "Meta", "META")).toBe("sector");
+		expect(classifyArticle(makeArticle({ headline: "Tesla must prove Cybercab is legal to sell" }), "Tesla", "TSLA")).toBe("company");
+	});
+
 	it("returns 'sector' when called with no company info and no macro signal", () => {
 		const article = makeArticle({
 			headline: "AI chips demand remains strong across the industry",

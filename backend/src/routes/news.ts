@@ -3,6 +3,9 @@ import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, typ
 import { simplifyArticles, classifyEarnings, filterMarketRelevant, type SimplifiedArticle } from "../services/geminiService.js";
 import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { brands } from "@stak/shared/brands";
+
+const NAME_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
 const COMPANY_NEWS_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -166,8 +169,13 @@ newsRouter.get("/market", async (_req, res) => {
 newsRouter.get("/company/:symbol", async (req, res) => {
 	const { symbol } = req.params;
 	const ticker = symbol.toUpperCase();
-	const companyName = req.query.name as string | undefined;
-	const cacheKey = `news:company:${ticker}`;
+	// The catalogue knows every Stak stock's name, so a caller that doesn't send one
+	// (Android never did) still gets its articles matched by name: without it a Tesla
+	// headline counted only if it happened to spell out "TSLA", and every Tesla story
+	// came back as sector news.
+	const companyName = NAME_BY_TICKER.get(ticker) ?? (req.query.name as string | undefined);
+	// v2: classified by whole-word name/ticker; v1 entries carry the substring labels.
+	const cacheKey = `news:company:v2:${ticker}`;
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }

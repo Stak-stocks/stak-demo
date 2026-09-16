@@ -101,6 +101,14 @@ class StockDetailViewModel @Inject constructor(
     private val _savedReference = MutableStateFlow<SavedReference?>(null)
     val savedReference: StateFlow<SavedReference?> = _savedReference
 
+    /**
+     * Whether the look-up behind [savedReference] has finished. Null before and after
+     * a failed look-up read the same, so the card said "STAK has no record of what it
+     * cost" for the seconds it was still being fetched (device check, 2026-09-16).
+     */
+    private val _savedReferenceSettled = MutableStateFlow(false)
+    val savedReferenceSettled: StateFlow<Boolean> = _savedReferenceSettled
+
     /** The move across the selected range, measured from its own first close. */
     private val _chartPct = MutableStateFlow<Double?>(null)
     val chartPct: StateFlow<Double?> = _chartPct
@@ -144,8 +152,14 @@ class StockDetailViewModel @Inject constructor(
             // Show what this stock last showed while its own data is on the way,
             // instead of a page of placeholders on every re-entry.
             StockDetailCache.detail(symbol)?.let { _liveDetail.value = it }
-            _savedReference.value =
-                if (MyStakHoldings.priceAtSave(symbol) != null) null else savedReferenceFor(symbol)
+            // Alongside the page, not ahead of it: this is one or two chart requests, and
+            // awaited first it held back the quote - and so the whole page - behind them.
+            _savedReferenceSettled.value = false
+            launch {
+                _savedReference.value =
+                    if (MyStakHoldings.priceAtSave(symbol) != null) null else savedReferenceFor(symbol)
+                _savedReferenceSettled.value = true
+            }
             val stockData = runCatching { repository.getStock(symbol) }.getOrNull()
             val pct = stockData?.quote?.changePercent ?: 0.0
 
@@ -239,10 +253,18 @@ class StockDetailViewModel @Inject constructor(
             Triple(a.firm, a.action, a.priceTarget?.let { "$${ it.toInt() }" } ?: "—")
         }
 
+        // Name the session the move belongs to. This always said "at yesterday's close",
+        // but mid-session the quote's move is today's, still running - and before the
+        // open on a Monday the last close was Friday's, not yesterday's.
+        val session = when (stockData?.quote?.marketState) {
+            "REGULAR" -> "today"
+            "POST", "POSTPOST" -> "at today's close"
+            else -> "at the last close"
+        }
         val newsClosePct = if (pct >= 0.0)
-            "▲ +${String.format(Locale.US, "%.1f", pct)}% at yesterday's close"
+            "▲ +${String.format(Locale.US, "%.1f", pct)}% $session"
         else
-            "▼ ${String.format(Locale.US, "%.1f", abs(pct))}% at yesterday's close"
+            "▼ ${String.format(Locale.US, "%.1f", abs(pct))}% $session"
         val newsSignal = move?.explanation?.takeIf { it.isNotBlank() }
 
         val earningsStr = buildEarningsStr(earnings)
