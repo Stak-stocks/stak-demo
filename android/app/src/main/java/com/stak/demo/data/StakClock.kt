@@ -13,6 +13,24 @@ import java.util.Locale
 object StakClock {
 	private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
+	/**
+	 * Which session a quote's daily move belongs to, in US Eastern time: "today"
+	 * while the market is open, "at today's close" after 4pm, "at yesterday's close"
+	 * before a weekday open, and "at Friday's close" before Monday's open and over the
+	 * weekend. Mirrors the web's getLastCloseRef (frontend/src/lib/utils.ts), so one
+	 * move is described the same way on both. Like the web, it doesn't know holidays.
+	 */
+	fun lastCloseRef(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))): String {
+		val day = now.dayOfWeek
+		if (day == java.time.DayOfWeek.SATURDAY || day == java.time.DayOfWeek.SUNDAY) return "at Friday's close"
+		val minutes = now.hour * 60 + now.minute
+		return when {
+			minutes < 570 -> if (day == java.time.DayOfWeek.MONDAY) "at Friday's close" else "at yesterday's close"
+			minutes < 960 -> "today"
+			else -> "at today's close"
+		}
+	}
+
 	/** "Saturday, July 4" for today. */
 	fun todayLong(): String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.US))
 

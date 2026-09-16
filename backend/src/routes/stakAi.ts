@@ -1,5 +1,6 @@
 ﻿import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
+import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
@@ -28,7 +29,7 @@ function detectMentionedBrands(message: string, allBrands: BrandProfile[]): Bran
 			// Word-boundary + regex-escaped match (case-insensitive) so "apple pie" still
 			// detects Apple â€” the AI ignores irrelevant context â€” but "snapple" doesn't,
 			// and "Amazon.com" isn't treated as a wildcard pattern.
-			const nameEscaped = b.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			const nameEscaped = escapeRegExp(b.name);
 			if (new RegExp(`\\b${nameEscaped}\\b`, "i").test(message)) return true;
 			// Only match tickers 2+ chars; require word boundaries so "F" doesn't
 			// fire inside "after", "the", etc.

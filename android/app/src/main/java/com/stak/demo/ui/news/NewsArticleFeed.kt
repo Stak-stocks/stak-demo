@@ -502,6 +502,36 @@ object NewsArticleFeed {
 		"PLTR" to StockFacts("Palantir Technologies", "Palantir", "$28.40", "+1.10% today", true, "$64.2B", "—", "$27.90–$28.70", "51.3M", "$15.70–$45.20", "—"),
 	)
 
+	/**
+	 * A real account's stock module: the live quote and metrics over the authored
+	 * card, which keeps only the company's name. Every figure the demo table would
+	 * have supplied is either served or "—" - a stand-in number beside a real story
+	 * reads as fact. Volume isn't served at all, so it is always "—".
+	 */
+	fun liveStockFacts(ticker: String, live: com.stak.demo.data.StockDetailResponse?): StockFacts {
+		val authored = STOCK_FACTS[ticker]
+		val q = live?.quote
+		val m = live?.metrics
+		fun money(v: Double) = "$" + String.format(java.util.Locale.US, "%,.2f", v)
+		val pct = q?.changePercent?.takeIf { q.price != null && q.price > 0 }
+		return StockFacts(
+			name = authored?.name ?: live?.name ?: ticker,
+			shortName = authored?.shortName ?: live?.name ?: ticker,
+			price = q?.price?.takeIf { it > 0 }?.let(::money) ?: "—",
+			change = pct?.let {
+				(if (it >= 0) "+" else "-") + String.format(java.util.Locale.US, "%.2f", kotlin.math.abs(it)) + "% " +
+					com.stak.demo.data.StakClock.lastCloseRef()
+			} ?: "",
+			up = (pct ?: 0.0) >= 0.0,
+			marketCap = m?.marketCap?.takeIf { it.isNotBlank() } ?: "—",
+			peRatio = m?.peRatio?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—",
+			dayRange = if (q?.low != null && q.high != null && q.low > 0) "${money(q.low)}–${money(q.high)}" else "—",
+			volume = "—",
+			week52 = if (m?.week52Low != null && m.week52High != null) "${money(m.week52Low)}–${money(m.week52High)}" else "—",
+			divYield = m?.dividendYield?.takeIf { it.isNotBlank() } ?: "—",
+		)
+	}
+
 	/** The served stock module for a ticker - the backend resolves this in production. */
 	fun stockFacts(ticker: String): StockFacts {
 		val facts = STOCK_FACTS[ticker] ?: STOCK_FACTS.getValue("AAPL")

@@ -5,6 +5,8 @@ import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { brands } from "@stak/shared/brands";
 
+// The catalogue's name for each ticker, so an article can be matched to its company
+// without the caller having to send the name.
 const NAME_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
@@ -180,7 +182,11 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const articles = await getCompanyNews(ticker, 24, companyName);
+		// The caller's own name, not the catalogue's: getCompanyNews falls back to NewsAPI
+		// whenever it is given a name and Finnhub comes back empty. Handing it the
+		// catalogue name would turn that fallback on for every Android request, and a
+		// Finnhub outage would spend the NewsAPI quota. The catalogue name only classifies.
+		const articles = await getCompanyNews(ticker, 24, req.query.name as string | undefined);
 
 		if (articles.length === 0) {
 			res.json({ articles: [], earningsSignal: { status: "none", date: null } });

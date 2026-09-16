@@ -67,6 +67,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -184,6 +185,20 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 	var successId by rememberSaveable { mutableStateOf<String?>(null) }
 	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 	val successArticle = successId?.let { NewsArticleFeed.article(it) } ?: current
+	// A real account's stock card and Key stats come from live data; the demo account
+	// keeps the authored table. Fetched per ticker as each story comes on screen.
+	val demo = com.stak.demo.data.Session.demoAccount
+	val stockVm: ArticleStockViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+	val liveStocks by stockVm.stocks.collectAsState()
+	val factsFor: (String) -> NewsArticleFeed.StockFacts = { t ->
+		if (demo) NewsArticleFeed.stockFacts(t) else NewsArticleFeed.liveStockFacts(t, liveStocks[t])
+	}
+	if (!demo) {
+		LaunchedEffect(current.ticker, successId) {
+			current.ticker?.let(stockVm::load)
+			successId?.let { NewsArticleFeed.article(it).ticker }?.let(stockVm::load)
+		}
+	}
 	fun save(target: NewsArticleFeed.Article) {
 		NewsSaves.add(target.id)
 		target.ticker?.let { com.stak.demo.data.MyStakHoldings.add(it) }
@@ -262,6 +277,7 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 							}
 						},
 						onOpenArticle = onOpenArticle,
+						factsFor = factsFor,
 					)
 				}
 			}
@@ -279,7 +295,7 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 			exit = fadeOut(tween(300, easing = EaseOut)),
 		) {
 			SaveSuccessOverlay(
-				facts = NewsArticleFeed.stockFacts(successArticle.ticker ?: "AAPL"),
+				facts = factsFor(successArticle.ticker ?: "AAPL"),
 				onViewInMyStak = { save(successArticle); onViewInMyStak() },
 				onDismiss = { showSuccess = false; save(successArticle) },
 			)
@@ -318,6 +334,7 @@ private fun NewsArticlePage(
 	onSave: () -> Unit,
 	onAddToStak: () -> Unit,
 	onOpenArticle: (String) -> Unit,
+	factsFor: (String) -> NewsArticleFeed.StockFacts,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// The hero clip's player lives at page level: the in-app PiP window
@@ -373,7 +390,7 @@ private fun NewsArticlePage(
 				// article is the section's PLACEHOLDER - each block renders
 				// per story from served data; stock blocks appear whenever
 				// the story has a related ticker).
-				article.ticker?.let { StockCard(saved = saved, ticker = it, facts = NewsArticleFeed.stockFacts(it)) }
+				article.ticker?.let { StockCard(saved = saved, ticker = it, facts = factsFor(it)) }
 				if (article.gist.isNotEmpty()) GistCard(bullets = article.gist)
 				article.paragraphs.getOrNull(0)?.let { Paragraph(it, size = 15.sp, line = 24.sp) }
 				article.paragraphs.getOrNull(1)?.let { Paragraph(it) }
@@ -381,7 +398,7 @@ private fun NewsArticlePage(
 				article.explainer?.let { NewToThisCard(it) }
 				article.paragraphs.drop(2).forEach { Paragraph(it) }
 				SourceRow()
-				article.ticker?.let { KeyStatsCard(facts = NewsArticleFeed.stockFacts(it)) }
+				article.ticker?.let { KeyStatsCard(facts = factsFor(it)) }
 				Divider()
 				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
 					article.tags.getOrNull(0)?.let { ArticleTag(it) }

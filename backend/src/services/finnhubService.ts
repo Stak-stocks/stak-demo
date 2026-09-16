@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { escapeRegExp } from "../lib/regex.js";
 import { getEasternDateKey } from "@stak/shared";
 
 export const FINNHUB_BASE = "https://finnhub.io/api/v1";
@@ -132,32 +133,89 @@ const MACRO_SIGNALS = [
 ];
 
 /**
- * Catalogue names that are also everyday headline words - "Price Target",
- * "Stocks Zoom Higher", "a visa ban". On their own they say nothing about the
- * company, so these need the ticker. A missing tag only drops a price card; a
- * wrong one shows the reader a company the story isn't about.
+ * Names and first words that are also everyday headline words - "Price Target",
+ * "Stocks Zoom Higher", "the Oracle of Omaha", "Nasdaq Slips". On their own they
+ * say nothing about the company, so these need the ticker. A missing tag only
+ * drops a price card; a wrong one shows the reader a company the story isn't about.
  */
-const AMBIGUOUS_NAMES = new Set(["target", "block", "snap", "zoom", "visa", "match"]);
+const AMBIGUOUS_NAMES = new Set([
+	"target", "block", "snap", "zoom", "visa", "match", "nasdaq", "travelers", "oracle",
+	"toast", "strategy", "affirm", "ally", "bumble", "celsius", "chewy", "riot", "upstart",
+	"unity", "monster", "beyond", "lucid", "live",
+]);
 
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/**
+ * First words too common to stand for a company on their own: "General" is not
+ * General Mills, "Home" is not Home Depot. Only a distinctive first word - Ford,
+ * Exxon, JPMorgan, Berkshire - is taken as the company's everyday name.
+ */
+const COMMON_FIRST_WORDS = new Set([
+	"american", "applied", "analog", "arthur", "baker", "bank", "boston", "burlington", "capital",
+	"charles", "citizens", "constellation", "digital", "dollar", "duke", "dutch", "electronic",
+	"eli", "first", "franklin", "general", "global", "hartford", "home", "illinois", "intuitive",
+	"jack", "johnson", "kinder", "las", "lincoln", "marsh", "morgan", "national", "northern",
+	"palo", "papa", "phillips", "plug", "principal", "raymond", "realty", "regions", "rocket",
+	"ross", "royal", "shake", "simon", "southern", "southwest", "state", "super", "texas",
+	"tractor", "union", "united", "vertex", "virgin", "warby", "warner", "wells",
+]);
 
-/** A legal suffix adds nothing to a mention: "Jack in the Box Inc" is written "Jack in the Box". */
-function bareName(name: string): string {
-	return name.trim().replace(/[,\s]+(inc\.?|corp\.?|corporation|plc|ltd\.?)$/i, "");
+/**
+ * Tickers that are also English words. As a capitalised whole word "NOW", "ALL",
+ * "ICE" or "KEY" is as often shouting as a symbol, so these, like the one- and
+ * two-letter tickers, count only when cited: "(ICE)", "NYSE: ICE", "$ICE".
+ */
+const WORD_TICKERS = new Set([
+	"ALL", "AMP", "APP", "ARM", "BEN", "BILL", "BROS", "CAKE", "CART", "CAT", "COIN", "COST",
+	"DASH", "EAT", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
+	"NOW", "PATH", "PLUG", "RIOT", "SAM", "SNOW", "SPOT", "TEAM", "WING",
+]);
+
+/**
+ * The ways a headline names a company, from its catalogue name: the name without
+ * legal and corporate tails ("Deere & Company" -> "Deere & "... -> "Deere"), any
+ * name given in brackets ("Strategy (MicroStrategy)" -> "MicroStrategy"), and a
+ * distinctive first word ("Ford Motor" -> "Ford", "Exxon Mobil" -> "Exxon").
+ * Matching the catalogue string alone lost real stories: "Will Ford's $1B Kentucky
+ * Investment..." never says "Ford Motor".
+ */
+function nameVariants(name: string): string[] {
+	const out = new Set<string>();
+	const bracketed = [...name.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!.trim());
+	let base = name.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().replace(/^the\s+/i, "");
+	const TAIL = /[,\s&]+(inc\.?|corp\.?|corporation|co\.?|company|companies|group|holdings|plc|ltd\.?)$/i;
+	while (TAIL.test(base)) base = base.replace(TAIL, "").trim();
+	for (const n of [base, ...bracketed]) {
+		if (n.length >= 3 && !AMBIGUOUS_NAMES.has(n.toLowerCase())) out.add(n);
+		const words = n.split(" ");
+		const first = words[0]!;
+		if (words.length > 1 && first.length >= 4 && /^[A-Za-z][A-Za-z.'-]*$/.test(first)
+			&& !COMMON_FIRST_WORDS.has(first.toLowerCase()) && !AMBIGUOUS_NAMES.has(first.toLowerCase())) {
+			out.add(first);
+		}
+	}
+	return [...out];
 }
 
+/** Headlines mix straight and curly apostrophes; the catalogue writes straight ones. */
+const normaliseQuotes = (s: string) => s.replace(/[‘’ʼ]/g, "'");
+
 function mentionsName(headline: string, name: string): boolean {
-	const n = bareName(name);
-	if (n.length < 3 || AMBIGUOUS_NAMES.has(n.toLowerCase())) return false;
-	return new RegExp(`(^|[^a-z0-9])${escapeRegExp(n)}($|[^a-z0-9])`, "i").test(headline);
+	const text = normaliseQuotes(headline);
+	return nameVariants(normaliseQuotes(name)).some((n) => {
+		// An all-capitals name ("UPS", "IBM") is a symbol-like word: match it in capitals
+		// only, or "ups and downs" becomes UPS news.
+		const flags = /^[A-Z0-9&.\s-]+$/.test(n) ? "" : "i";
+		return new RegExp(`(^|[^A-Za-z0-9])${escapeRegExp(n)}($|[^A-Za-z0-9])`, flags).test(text);
+	});
 }
 
 function mentionsTicker(headline: string, ticker: string): boolean {
-	const t = escapeRegExp(ticker.trim().toUpperCase());
+	const upper = ticker.trim().toUpperCase();
+	const t = escapeRegExp(upper);
 	if (!t) return false;
-	// One- and two-letter tickers are ordinary letters and words ("O", "ON", "SO"), so
-	// only an explicit citation counts: "(O)", "NYSE: O", "$O".
-	if (ticker.trim().length <= 2) {
+	// One- and two-letter tickers are ordinary letters and words ("O", "ON", "SO"), as
+	// are WORD_TICKERS, so only an explicit citation counts: "(O)", "NYSE: O", "$O".
+	if (upper.length <= 2 || WORD_TICKERS.has(upper)) {
 		return new RegExp(`\\(${t}\\)|\\b(?:NYSE|NASDAQ|Nasdaq)\\s*:\\s*${t}(?![A-Za-z0-9])|\\$${t}(?![A-Za-z0-9])`).test(headline);
 	}
 	// Longer ones as a capitalised whole word, so a title-cased "Net" or "Snow" isn't NET or SNOW.

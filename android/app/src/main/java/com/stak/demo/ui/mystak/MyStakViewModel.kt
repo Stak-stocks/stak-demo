@@ -99,6 +99,9 @@ class MyStakViewModel @Inject constructor(
     /** The holdings the current state was built from, so a second screen doesn't refetch them. */
     private var loadedFor: Set<String>? = null
 
+    /** When the last load started - its quotes' age. */
+    private var loadedAtMs = 0L
+
     /**
      * The holdings the drawn line was built from. Without it the chart was keyed
      * to the range alone, so unsaving a stock left the old percentage under a
@@ -126,8 +129,6 @@ class MyStakViewModel @Inject constructor(
         if (loadedFor == MyStakHoldings.tickers && fresh) return
         load()
     }
-
-    private var loadedAtMs = 0L
 
     fun load() {
         // Claimed before anything suspends. These were only set after the refresh

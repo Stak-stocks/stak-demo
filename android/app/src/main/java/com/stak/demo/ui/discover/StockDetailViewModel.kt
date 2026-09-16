@@ -109,6 +109,10 @@ class StockDetailViewModel @Inject constructor(
     private val _savedReferenceSettled = MutableStateFlow(false)
     val savedReferenceSettled: StateFlow<Boolean> = _savedReferenceSettled
 
+    /** Whether this visit's page fetch has finished, whatever it brought back. */
+    private val _detailSettled = MutableStateFlow(false)
+    val detailSettled: StateFlow<Boolean> = _detailSettled
+
     /** The move across the selected range, measured from its own first close. */
     private val _chartPct = MutableStateFlow<Double?>(null)
     val chartPct: StateFlow<Double?> = _chartPct
@@ -160,6 +164,7 @@ class StockDetailViewModel @Inject constructor(
                     if (MyStakHoldings.priceAtSave(symbol) != null) null else savedReferenceFor(symbol)
                 _savedReferenceSettled.value = true
             }
+            _detailSettled.value = false
             val stockData = runCatching { repository.getStock(symbol) }.getOrNull()
             val pct = stockData?.quote?.changePercent ?: 0.0
 
@@ -198,6 +203,7 @@ class StockDetailViewModel @Inject constructor(
                     _liveDetail.value = built
                     StockDetailCache.putDetail(symbol, built)
                 }
+                _detailSettled.value = true
             }
         }
     }
@@ -255,13 +261,13 @@ class StockDetailViewModel @Inject constructor(
 
         // Name the session the move belongs to. This always said "at yesterday's close",
         // but mid-session the quote's move is today's, still running - and before the
-        // open on a Monday the last close was Friday's, not yesterday's.
-        val session = when (stockData?.quote?.marketState) {
-            "REGULAR" -> "today"
-            "POST", "POSTPOST" -> "at today's close"
-            else -> "at the last close"
-        }
-        val newsClosePct = if (pct >= 0.0)
+        // open on a Monday the last close was Friday's, not yesterday's. Worded by the
+        // clock the web uses, not marketState, which reads CLOSED after hours whenever
+        // Yahoo has no extended data and would have said "the last close" at 5pm.
+        val session = StakClock.lastCloseRef()
+        // No quote, no line: pct falls back to 0 above, and "+0.0%" would state a move.
+        val newsClosePct = if (stockData?.quote?.changePercent == null) null
+        else if (pct >= 0.0)
             "▲ +${String.format(Locale.US, "%.1f", pct)}% $session"
         else
             "▼ ${String.format(Locale.US, "%.1f", abs(pct))}% $session"

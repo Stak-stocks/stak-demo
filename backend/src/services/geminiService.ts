@@ -186,7 +186,10 @@ export async function simplifyArticles(
 
 	const cacheKey = getCacheKey(articles);
 	const cached = await cacheGet<SimplifiedArticle[]>(cacheKey);
-	if (cached) return cached;
+	// The key is the articles alone, but `type` is the caller's classification, not
+	// Gemini's output - so it is laid over the cached copy rather than served from it.
+	// Returning it as cached kept a relabelled story under its old label for 30 minutes.
+	if (cached) return types ? cached.map((c, i) => ({ ...c, type: types[i] ?? c.type })) : cached;
 
 	// Process batches in parallel for speed
 	const batches = chunk(articles, BATCH_SIZE);

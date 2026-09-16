@@ -90,6 +90,39 @@ describe("classifyArticle", () => {
 		expect(classifyArticle(makeArticle({ headline: "Tesla must prove Cybercab is legal to sell" }), "Tesla", "TSLA")).toBe("company");
 	});
 
+	it("recognises a company by the name headlines actually use", () => {
+		const cases: [string, string, string][] = [
+			["Will Ford's $1B Kentucky Investment Boost Manufacturing Efficiency?", "Ford Motor", "F"],
+			["Exxon beats on refining margins", "Exxon Mobil", "XOM"],
+			["Berkshire trims its Apple stake", "Berkshire Hathaway B", "BRK.B"],
+			["MicroStrategy adds more bitcoin", "Strategy (MicroStrategy)", "MSTR"],
+			["Deere cuts its outlook again", "Deere & Company", "DE"],
+			["Hershey raises cocoa-driven prices", "Hershey Company", "HSY"],
+			["McDonald’s value menu lifts traffic", "McDonald's", "MCD"],
+		];
+		for (const [headline, name, ticker] of cases) {
+			expect(classifyArticle(makeArticle({ headline }), name, ticker)).toBe("company");
+		}
+	});
+
+	it("does not take an everyday word or phrase for the company", () => {
+		const cases: [string, string, string][] = [
+			["Nasdaq slips as chip stocks fade", "Nasdaq", "NDAQ"],
+			["Markets ride ups and downs of rate talk", "UPS", "UPS"],
+			["ICE raids spark protests in three cities", "Intercontinental Exchange", "ICE"],
+			["General market breadth improves", "General Mills", "GIS"],
+			["Buy NOW or wait? Strategists split", "ServiceNow", "NOW"],
+		];
+		for (const [headline, name, ticker] of cases) {
+			expect(classifyArticle(makeArticle({ headline }), name, ticker)).toBe("sector");
+		}
+	});
+
+	it("still counts a word-ticker when it is cited", () => {
+		const article = makeArticle({ headline: "Intercontinental Exchange (ICE) posts record volumes" });
+		expect(classifyArticle(article, "Intercontinental Exchange", "ICE")).toBe("company");
+	});
+
 	it("returns 'sector' when called with no company info and no macro signal", () => {
 		const article = makeArticle({
 			headline: "AI chips demand remains strong across the industry",

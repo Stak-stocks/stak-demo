@@ -125,6 +125,7 @@ fun StockDetailScreen(
 	val chartPct by viewModel.chartPct.collectAsStateWithLifecycle()
 	val savedReference by viewModel.savedReference.collectAsStateWithLifecycle()
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
+	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -266,7 +267,7 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
 				) {
 					if (fromMyStak) {
-						SinceYouSavedCard(f, symbol, liveDetail, savedReference, savedReferenceSettled)
+						SinceYouSavedCard(f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled)
 					}
 					RiskFitCard(f, liveDetail)
 					NumbersCard(f, liveDetail)
@@ -997,7 +998,7 @@ private fun CompareRow(label: String, a: String, m: String, g: String, header: B
  * the right symbol; a new account reads its own save date, and the move
  * since is this week's change once a day has passed.
  */
-private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean): Triple<String, String, Boolean> {
+private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean, detailSettled: Boolean): Triple<String, String, Boolean> {
 	val demo = com.stak.demo.data.Session.demoAccount
 	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(symbol)
 	// Two references, and they are not the same claim. A stamped price is what the
@@ -1021,8 +1022,11 @@ private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail
 		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
 		// Still arriving - today's price, or the price to measure against - says only what
 		// is known. "No record" is a finding, and it can't be made before the look-up ends.
-		savedPct == null && (now == null || (stamped == null && !referenceSettled)) ->
+		savedPct == null && ((now == null && !detailSettled) || (stamped == null && !referenceSettled)) ->
 			Triple("\u2014", "Saved $whenSaved.", true)
+		// The page finished without today's price: say so, rather than leave a bare date.
+		savedPct == null && now == null ->
+			Triple("\u2014", "Saved $whenSaved. Today's price isn't available right now, so there's no move to show.", true)
 		savedPct == null -> Triple("\u2014", "Saved $whenSaved. STAK has no record of what $symbol cost then, so there's no move to measure yet.", true)
 		atMoment -> Triple(
 			(if (up) "+" else "-") + move + "%",
@@ -1057,9 +1061,9 @@ private fun rangeChangeText(pct: Double, range: String): String {
 
 /** "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry. */
 @Composable
-private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean) {
+private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean, detailSettled: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val since = sinceSavedFor(f, symbol, liveDetail, savedReference, referenceSettled)
+	val since = sinceSavedFor(f, symbol, liveDetail, savedReference, referenceSettled, detailSettled)
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
@@ -1080,7 +1084,8 @@ private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDe
 			Text(
 				since.first,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-				color = if (since.third) Green else Red,
+				// A dash is no move at all, so it takes neither the up nor the down colour.
+				color = if (since.first == "—") Muted else if (since.third) Green else Red,
 			)
 		}
 		Text(

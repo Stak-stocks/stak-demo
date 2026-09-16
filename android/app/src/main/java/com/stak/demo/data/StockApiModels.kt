@@ -17,6 +17,9 @@ data class StockQuote(
     val changePercent: Double? = null,
     /** PRE, REGULAR, POST, POSTPOST, PREPRE or CLOSED - which session [changePercent] describes. */
     val marketState: String? = null,
+    /** The session's range so far. */
+    val high: Double? = null,
+    val low: Double? = null,
 )
 data class StockMetrics(
     val peRatio: Double? = null,
