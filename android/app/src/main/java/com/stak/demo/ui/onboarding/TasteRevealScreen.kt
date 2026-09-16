@@ -158,7 +158,10 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 						color = StakColors.Muted,
 					)
 					Text(
-						text = com.stak.demo.data.UserProfile.riskStyle,
+						// riskStyle defaults to "Growth-Oriented" whether or not the
+						// question was answered, so an unanswered profile reported a
+						// style the user never chose. Say it's unset instead.
+						text = if (com.stak.demo.data.UserProfile.risk < 0) "Not set yet" else com.stak.demo.data.UserProfile.riskStyle,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
 						color = StakColors.TextPrimary,
 					)

@@ -352,6 +352,10 @@ fun StockDetailScreen(
 @Composable
 private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// Beta decides where the marker sits and what the chip says. Until it lands
+	// there is nothing to place or to claim - the placeholder's mid-track value
+	// would otherwise read as "Around market" for a stock we know nothing about.
+	val known = liveDetail?.riskPillX != null || com.stak.demo.data.Session.demoAccount
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -365,17 +369,19 @@ private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 				color = Bright,
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			Box(
-				modifier = Modifier
-					.clip(RoundedCornerShape((999 * u).dp))
-					.background(Color(0x1F5DA8BF))
-					.padding(horizontal = (10 * u).dp, vertical = (4 * u).dp),
-			) {
-				Text(
-					riskFitFor(f, liveDetail).first,
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-					color = Color(0xFFA6E4F7),
-				)
+			if (known) {
+				Box(
+					modifier = Modifier
+						.clip(RoundedCornerShape((999 * u).dp))
+						.background(Color(0x1F5DA8BF))
+						.padding(horizontal = (10 * u).dp, vertical = (4 * u).dp),
+				) {
+					Text(
+						riskFitFor(f, liveDetail).first,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+						color = Color(0xFFA6E4F7),
+					)
+				}
 			}
 		}
 		// 1:2382 draws the marker alone, with no track. That reads as decoration;
@@ -389,7 +395,9 @@ private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 			val fraction = ((liveDetail?.riskPillX ?: f.riskPillX) / 289f).coerceIn(0f, 1f)
 			Box(modifier = Modifier.fillMaxWidth().height((4 * u).dp).background(Color(0xFF2A3346), RoundedCornerShape((2 * u).dp)))
 			Box(modifier = Modifier.offset(x = (maxWidth - (2 * u).dp) / 2).size((2 * u).dp, (8 * u).dp).background(Color(0xFF3A465E)))
-			Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			if (known) {
+				Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			}
 		}
 		Row(modifier = Modifier.fillMaxWidth()) {
 			Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
