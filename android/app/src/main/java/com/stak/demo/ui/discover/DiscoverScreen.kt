@@ -347,6 +347,13 @@ internal fun DiscoverScreen(
 	// replaces it and restarts the clock. `lastUndo` keeps the content alive
 	// while the toast animates out after `pendingUndo` clears.
 	var pendingUndo by remember { mutableStateOf<Pair<DeckCard, Boolean>?>(null) }
+	// Shown when a save is refused because the Stak is full; clears on its own.
+	var stakFullNotice by remember { mutableStateOf(false) }
+	LaunchedEffect(stakFullNotice) {
+		if (!stakFullNotice) return@LaunchedEffect
+		delay(3000)
+		stakFullNotice = false
+	}
 	var lastUndo by remember { mutableStateOf<Pair<DeckCard, Boolean>?>(null) }
 	LaunchedEffect(pendingUndo) {
 		val undo = pendingUndo ?: return@LaunchedEffect
@@ -397,6 +404,14 @@ internal fun DiscoverScreen(
 	fun animateAndCommit(card: DeckCard, isSTAK: Boolean, gestureOffsetPx: Float = 0f) {
 		// A double tap (or any late handler) must not commit the same card twice.
 		if (card.symbol in savedCards || card.symbol in passedCards) return
+		// A full Stak refuses the save before the card leaves. The server rejects a
+		// 31st stock and the sync swallows the failure, so letting it fly away would
+		// have shown a saved card the server never kept.
+		if (isSTAK && com.stak.demo.data.MyStakHoldings.isFull) {
+			stakFullNotice = true
+			scope.launch { swipeOffset.animateTo(0f, tween(240, easing = EaseOut)) }
+			return
+		}
 		// Travel past the screen edge by a full card width so the card genuinely
 		// leaves the frame rather than stopping just outside it.
 		val flyDistance = screenWidthPx + with(density) { (350 * u).dp.toPx() }
@@ -657,6 +672,31 @@ internal fun DiscoverScreen(
 				},
 				onDismiss = { quickLookCard = null },
 			)
+		}
+		// A refused save answers where the undo toast appears, so the reason lands
+		// where the eye already goes after a swipe.
+		androidx.compose.animation.AnimatedVisibility(
+			visible = stakFullNotice,
+			enter = androidx.compose.animation.slideInVertically(tween(280, easing = EaseOut)) { -it } + fadeIn(tween(200)),
+			exit = androidx.compose.animation.slideOutVertically(tween(220)) { -it } + fadeOut(tween(200)),
+			modifier = Modifier
+				.align(Alignment.TopCenter)
+				.statusBarsPadding()
+				.padding(top = (74 * u).dp)
+				.zIndex(4f),
+		) {
+			Box(
+				modifier = Modifier
+					.clip(RoundedCornerShape((14 * u).dp))
+					.background(Color(0xFF1B2333))
+					.padding(horizontal = (16 * u).dp, vertical = (12 * u).dp),
+			) {
+				Text(
+					"Your STAK is full — remove a stock to save another",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+					color = Color(0xFFD7DEEA),
+				)
+			}
 		}
 		// Undo toast (V1 rule 14): centred under the header. Only the Undo pill
 		// reverts; swiping the toast up dismisses it and keeps the decision.

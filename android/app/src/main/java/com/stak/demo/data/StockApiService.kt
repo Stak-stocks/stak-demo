@@ -15,6 +15,13 @@ interface StockApiService {
     @GET("api/stock/{symbol}")
     suspend fun getStock(@Path("symbol") symbol: String): StockDetailResponse
 
+    /** One line for many holdings, so a range change isn't a request per stock. */
+    @GET("api/stock/portfolio-chart")
+    suspend fun getPortfolioChart(
+        @Query("tickers") tickers: String,
+        @Query("range") range: String,
+    ): PortfolioChartResponse
+
     /** Ranges: 1d, 1w, 1m, 3m, ytd, 1y - the pills' labels, lowercased. */
     @GET("api/stock/{symbol}/chart")
     suspend fun getChart(@Path("symbol") symbol: String, @Query("range") range: String): ChartResponse

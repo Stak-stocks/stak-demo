@@ -92,6 +92,16 @@ data class CompanyNewsResponse(val articles: List<NewsArticleDto> = emptyList())
 data class ChartPoint(val ts: String = "", val close: Double = 0.0, val session: String = "regular")
 data class ChartResponse(val prices: List<ChartPoint> = emptyList())
 
+/**
+ * A set of holdings as one equal-weight line, combined server-side. `indexed`
+ * starts at 1.0; `moves` is each stock's own move across the range.
+ */
+data class PortfolioChartResponse(
+    val indexed: List<Double> = emptyList(),
+    val pct: Double? = null,
+    val moves: Map<String, Double> = emptyMap(),
+)
+
 data class PeerMetricsResponse(
     val ticker: String = "",
     val peerTickers: List<String> = emptyList(),

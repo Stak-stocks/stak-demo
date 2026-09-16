@@ -199,6 +199,15 @@ object MyStakHoldings {
 	/** How many stocks the user holds - the Overview's "Across N stocks". */
 	val count: Int get() = tickers.size
 
+	/**
+	 * How many stocks a Stak holds. Mirrors STAK_CAPACITY in
+	 * shared/src/stakCapacity.ts, which the backend enforces on write.
+	 */
+	const val CAPACITY = 30
+
+	/** True when the Stak cannot take another stock. */
+	val isFull: Boolean get() = tickers.size >= CAPACITY
+
 	/** True when any of the story's related tickers is held. */
 	fun holdsAny(related: List<String>): Boolean = related.any { it in tickers }
 
@@ -207,12 +216,18 @@ object MyStakHoldings {
 	 * the moment of the swipe; passing them stamps what the stock cost when it was
 	 * saved, which is the only honest moment to record it.
 	 */
-	fun add(ticker: String, brandId: String? = null, priceNow: Double? = null) {
+	fun add(ticker: String, brandId: String? = null, priceNow: Double? = null): Boolean {
 		val sym = symbolOf(ticker)
+		if (sym in tickers) return true
+		// The server rejects a save past CAPACITY, and syncToBackend swallows the
+		// failure, so an unrefused save would leave the card looking saved while the
+		// server kept a different list. Refuse it here instead.
+		if (tickers.size >= CAPACITY) return false
 		tickers = tickers + sym
 		if (sym !in savedAt) savedAt = savedAt + (sym to java.time.LocalDate.now().toEpochDay())
 		persist()
 		syncToBackend(brandId, priceNow)
+		return true
 	}
 
 	/** Unsave (Stock Detail from My STAK) - the same bare-symbol normalisation as add. */

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 
@@ -534,6 +534,13 @@ meRouter.put("/android-stocks", authMiddleware, async (req: AuthenticatedRequest
 			return;
 		}
 		const ids = [...new Set((tickers as string[]).map((t) => ID_BY_TICKER.get(t.toUpperCase())).filter((id): id is string => !!id))];
+		// The cap is a rule, not a client habit: the web blocked adds past it while
+		// this accepted any length, so another client could store a Stak the web
+		// would then load over its own capacity.
+		if (ids.length > STAK_CAPACITY) {
+			res.status(400).json({ error: `A Stak holds at most ${STAK_CAPACITY} stocks`, capacity: STAK_CAPACITY });
+			return;
+		}
 		await ensureUserRow(uid, req.user!.email);
 		await replaceStakBrands(uid, ids);
 		// The list now lives in stak_brands; drop the legacy copy so it can't resurrect removed saves.

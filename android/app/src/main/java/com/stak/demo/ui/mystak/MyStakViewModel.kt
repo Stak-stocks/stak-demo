@@ -11,16 +11,12 @@ import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
-import com.stak.demo.data.equalWeightIndex
 import com.stak.demo.data.indexedMovePct
 import com.stak.demo.data.categoryArt
 import com.stak.demo.data.categoryColorKey
 import com.stak.demo.data.categoryGroupId
 import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -90,6 +86,8 @@ class MyStakViewModel @Inject constructor(
         /** The move across that range, equally weighted across the saved stocks. */
         val rangePct: Double? = null,
         val chartRange: String = "3M",
+        /** Each saved stock's move across the selected range, for Best and Worst. */
+        val rangeMoves: Map<String, Double> = emptyMap(),
         /** True when the range came back with no prices - draw nothing, don't invent a line. */
         val chartMissing: Boolean = false,
     )
@@ -174,7 +172,13 @@ class MyStakViewModel @Inject constructor(
     fun selectRange(range: String) {
         if (_ui.value.chartRange == range && _ui.value.chartSeries != null) return
         // Drop the old range's line immediately: it answers a different question.
-        _ui.value = _ui.value.copy(chartRange = range, chartSeries = null, rangePct = null, chartMissing = false)
+        _ui.value = _ui.value.copy(
+            chartRange = range,
+            chartSeries = null,
+            rangePct = null,
+            rangeMoves = emptyMap(),
+            chartMissing = false,
+        )
         viewModelScope.launch {
             val tickers = MyStakHoldings.tickers.toList()
             if (tickers.isEmpty()) return@launch
@@ -182,8 +186,9 @@ class MyStakViewModel @Inject constructor(
             // A slow reply for a range the user has already left must not land.
             if (_ui.value.chartRange != range) return@launch
             _ui.value = _ui.value.copy(
-                chartSeries = built?.first,
-                rangePct = built?.second,
+                chartSeries = built?.series,
+                rangePct = built?.pct,
+                rangeMoves = built?.moves.orEmpty(),
                 // A closed market returns no intraday points; that is missing data,
                 // not a flat portfolio, and it must not fall back to a drawn shape.
                 chartMissing = built == null,
@@ -196,16 +201,20 @@ class MyStakViewModel @Inject constructor(
      * first close before averaging, so a $900 share doesn't drown a $9 one, and the
      * series are aligned on their tails so every stock covers the same window.
      */
-    private suspend fun portfolioSeries(tickers: List<String>, range: String): Pair<List<Float>, Double>? = coroutineScope {
-        val series = tickers
-            .map { t -> async { runCatching { repository.getChart(t, range) }.getOrNull() } }
-            .awaitAll()
-            .mapNotNull { chart ->
-                chart?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
-            }
-        val indexed = equalWeightIndex(series) ?: return@coroutineScope null
-        chartFractions(indexed) to indexedMovePct(indexed)
+    private suspend fun portfolioSeries(tickers: List<String>, range: String): RangeData? {
+        // One request for the whole Stak. Combining it here meant a chart call per
+        // saved stock on every range change - up to a full Stak of them per tap.
+        val resp = runCatching { repository.getPortfolioChart(tickers, range) }.getOrNull()
+        val indexed = resp?.indexed?.takeIf { it.size >= 2 } ?: return null
+        return RangeData(
+            series = chartFractions(indexed),
+            pct = resp.pct ?: indexedMovePct(indexed),
+            moves = resp.moves,
+        )
     }
+
+    /** A range's line, the move across it, and each stock's own move within it. */
+    private data class RangeData(val series: List<Float>, val pct: Double, val moves: Map<String, Double>)
 
     /** The collection behind a chip - the Collection page serves this. */
     fun group(id: String): Group? = _ui.value.groups.firstOrNull { it.id == id }

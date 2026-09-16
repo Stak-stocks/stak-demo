@@ -28,6 +28,8 @@ export { getNYSEHolidays } from "./nyseHolidays";
 
 export { DAILY_SWIPE_LIMIT } from "./swipeLimit";
 
+export { STAK_CAPACITY } from "./stakCapacity";
+
 // The actual `brands` array (~1MB) is intentionally NOT re-exported here.
 // shared/src/brands/index.ts builds it and also re-exports logoHelpers from
 // the same module -- bundlers treat a module as one inseparable unit, so

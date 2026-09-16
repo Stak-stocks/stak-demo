@@ -6,7 +6,7 @@ import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../servic
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 
@@ -453,6 +453,78 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 });
 
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
+
+// ── Portfolio chart ──────────────────────────────────────────────────────────
+// GET /api/stock/portfolio-chart?tickers=A,B,C&range=3m
+//
+// One equal-weight line for a set of holdings. Every client was fetching a chart
+// per stock and combining them itself, so choosing a range cost one request per
+// saved stock - up to STAK_CAPACITY of them, every tap. This does it once and
+// caches the result.
+//
+// Registered above /:symbol on purpose: that route matches a single segment, so
+// it would otherwise capture "portfolio-chart" and look it up as a ticker.
+stockRouter.get("/portfolio-chart", async (req, res) => {
+	const asked = String(req.query.tickers ?? "")
+		.split(",")
+		.map((t) => t.trim().toUpperCase())
+		.filter(Boolean);
+	const tickers = [...new Set(asked)].slice(0, STAK_CAPACITY);
+	const range = (req.query.range as string) || "1m";
+	if (tickers.length === 0) {
+		res.json({ indexed: [], pct: null, moves: {} });
+		return;
+	}
+
+	// v2: built on bad-tick-filtered intraday series; a v1 entry still holds the spike.
+	const cacheKey = `stock:portfolio-chart:v2:${range}:${[...tickers].sort().join(",")}`;
+	const cached = await cacheGet<unknown>(cacheKey);
+	if (cached !== null) {
+		res.json(cached);
+		return;
+	}
+
+	const fetched = await Promise.all(
+		tickers.map(async (ticker) => {
+			const payload = await chartPricesFor(ticker, range);
+			return { ticker, closes: payload.prices.map((p) => p.close).filter((c) => c > 0) };
+		}),
+	);
+	const usable = fetched.filter((s) => s.closes.length >= 2);
+	if (usable.length === 0) {
+		res.json({ indexed: [], pct: null, moves: {} });
+		return;
+	}
+
+	// Each stock indexed to its own first close before averaging, so a $900 share
+	// can't drown a $9 one, and aligned on their tails so all cover one window.
+	const n = Math.min(...usable.map((s) => s.closes.length));
+	const indexed: number[] = [];
+	for (let i = 0; i < n; i++) {
+		let sum = 0;
+		for (const s of usable) {
+			const base = s.closes[s.closes.length - n]!;
+			sum += base > 0 ? s.closes[s.closes.length - n + i]! / base : 1;
+		}
+		indexed.push(Math.round((sum / usable.length) * 10000) / 10000);
+	}
+
+	const moves: Record<string, number> = {};
+	for (const s of usable) {
+		const first = s.closes[s.closes.length - n]!;
+		const last = s.closes[s.closes.length - 1]!;
+		moves[s.ticker] = Math.round(((last - first) / first) * 1000) / 10;
+	}
+
+	const payload = {
+		indexed,
+		pct: Math.round((indexed[indexed.length - 1]! - 1) * 1000) / 10,
+		moves,
+	};
+	// Today's line is still being drawn; the rest are closed and won't change.
+	await cacheSet(cacheKey, payload, range === "1d" ? 5 * 60 * 1000 : 60 * 60 * 1000);
+	res.json(payload);
+});
 
 stockRouter.get("/:symbol", async (req, res) => {
 	const raw = req.params.symbol.toUpperCase();
@@ -1593,18 +1665,45 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 	res.json({ risk: null });
 });
 
+type ChartPayload = { prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] };
+
 // ── Price chart ───────────────────────────────────────────────────────────────
 // GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
 // 1d/1w include pre/after-hours via prePost=true
 
-stockRouter.get("/:symbol/chart", async (req, res) => {
-	const symbol = (req.params["symbol"] as string).toUpperCase();
-	const range = (req.query.range as string) || "1m";
-	// v4: 1d changed from a midnight-UTC window to Yahoo's own latest session, and a
-	// stale v3 entry would keep serving the empty result the old window produced.
-	const cacheKey = `stock:chart:v4:${symbol}:${range}`;
+/**
+ * One symbol's closes for a range, cached. Extracted from the route so the
+ * portfolio line can reuse it instead of a client fetching each stock itself.
+ */
+/**
+ * Drops single-bar bad prints from an intraday series. Yahoo's minute data
+ * carries the occasional bogus close - GOOGL printed 320.74 between two 344.2s,
+ * a 7% collapse and full recovery inside five minutes - and drawn unfiltered it
+ * reads as a real crash the stock never had. A point only goes if it disagrees
+ * with both neighbours *and* those neighbours agree with each other, so a
+ * genuine move, which carries the rest of the series with it, survives.
+ */
+function withoutBadTicks<T extends { close: number }>(points: T[]): T[] {
+	if (points.length < 3) return points;
+	const SPIKE = 0.03;   // a bar this far from both sides is suspect
+	const AGREE = 0.01;   // ...only if the bars either side of it match
+	return points.filter((p, i) => {
+		const prev = points[i - 1];
+		const next = points[i + 1];
+		if (!prev || !next || prev.close <= 0 || next.close <= 0) return true;
+		const offPrev = Math.abs(p.close - prev.close) / prev.close;
+		const offNext = Math.abs(p.close - next.close) / next.close;
+		const neighboursAgree = Math.abs(next.close - prev.close) / prev.close < AGREE;
+		return !(offPrev > SPIKE && offNext > SPIKE && neighboursAgree);
+	});
+}
+
+async function chartPricesFor(symbol: string, range: string): Promise<ChartPayload> {
+	// v5: single-bar bad prints are filtered out of intraday series now, and a v4
+	// entry would keep serving the spike it was cached with.
+	const cacheKey = `stock:chart:v5:${symbol}:${range}`;
 	const cached = await cacheGet<{ prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] }>(cacheKey);
-	if (cached) { res.json(cached); return; }
+	if (cached) return cached as ChartPayload;
 
 	const now = Math.floor(Date.now() / 1000);
 	let from: number;
@@ -1647,7 +1746,7 @@ stockRouter.get("/:symbol/chart", async (req, res) => {
 			headers: { "User-Agent": "Mozilla/5.0" },
 			signal: AbortSignal.timeout(10000),
 		});
-		if (!r.ok) { res.json({ prices: [] }); return; }
+		if (!r.ok) return { prices: [] };
 		const data = await r.json() as {
 			chart?: { result?: Array<{
 				timestamp?: number[];
@@ -1688,10 +1787,21 @@ stockRouter.get("/:symbol/chart", async (req, res) => {
 				session: prePost ? getSession(unixSec) : "regular",
 			});
 		}
-		const payload = { prices };
+		// Intraday only. On a 5m bar a 3% drop that fully recovers is a bad print;
+		// on a daily bar it can be a real scare the stock recovered from the next
+		// morning, and throwing that away would be editing history rather than
+		// cleaning it. prePost is set for exactly the intraday ranges (1d, 1w).
+		const payload = { prices: prePost ? withoutBadTicks(prices) : prices };
 		await cacheSet(cacheKey, payload, cacheTtl);
-		res.json(payload);
+		return payload;
 	} catch {
-		res.json({ prices: [] });
+		return { prices: [] };
 	}
+}
+
+// GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
+stockRouter.get("/:symbol/chart", async (req, res) => {
+	const symbol = (req.params["symbol"] as string).toUpperCase();
+	const range = (req.query.range as string) || "1m";
+	res.json(await chartPricesFor(symbol, range));
 });

@@ -1,9 +1,6 @@
 package com.stak.demo.data
 
 import com.stak.demo.ui.mystak.COLLECTIONS
-import com.stak.demo.ui.mystak.CollStock
-import com.stak.demo.ui.mystak.StakCollection
-import com.stak.demo.ui.mystak.held
 import com.stak.demo.ui.simulate.PaperPortfolio
 import java.util.Locale
 import kotlin.math.abs
@@ -31,51 +28,7 @@ internal object StakInsights {
 		"realestate" to "Real Estate", "health" to "Healthcare", "consumer" to "Consumer",
 	)
 
-	/** The collections the user holds stocks in, biggest first. */
-	fun heldGroups(): List<Pair<StakCollection, List<CollStock>>> =
-		COLLECTIONS.map { it to it.held() }.filter { it.second.isNotEmpty() }.sortedByDescending { it.second.size }
-
-	fun heldStocks(): List<CollStock> = heldGroups().flatMap { it.second }
-
-	/** "▲ 2.4%" -> 2.4, "▼ 0.4%" -> -0.4. */
-	fun changePct(s: CollStock): Double {
-		val v = s.change.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
-		return if (s.up) v else -v
-	}
-
-	/** The week's move across the held stocks - their average change. */
-	fun weekChangePct(): Double = heldStocks().let { if (it.isEmpty()) 0.0 else it.sumOf(::changePct) / it.size }
-
 	fun signedPct(pct: Double): String = (if (pct < 0) "-" else "+") + String.format(Locale.US, "%.1f", abs(pct)) + "%"
-
-	/** Best and worst held stock this week - only meaningful with two or more. */
-	fun bestWorst(): Pair<CollStock, CollStock>? {
-		val held = heldStocks()
-		if (held.size < 2) return null
-		return held.maxBy(::changePct) to held.minBy(::changePct)
-	}
-
-	/** "You lean into tech and AI." */
-	fun readHeadline(): String {
-		val top = heldGroups().firstOrNull() ?: return "Your read starts with your first save."
-		return "You lean into ${THEME[top.first.id]}."
-	}
-
-	fun readBody(): String {
-		val groups = heldGroups()
-		val total = groups.sumOf { it.second.size }
-		val top = groups.firstOrNull() ?: return "Save stocks from the Discover deck and STAK will read your taste from them."
-		val theme = THEME[top.first.id]
-		if (total == 1) return "${top.second.first().ticker} is your first save, a $theme name. Save a few more and STAK will read the pattern."
-		val lead = "${top.second.size.word().cap()} of your ${total.word()} picks are $theme names."
-		val second = groups.getOrNull(1)
-		val tail = if (second != null) {
-			" ${second.second.size.word().cap()} more ${if (second.second.size == 1) "sits" else "sit"} in ${THEME[second.first.id]}."
-		} else {
-			" Your STAK is all $theme for now."
-		}
-		return lead + tail
-	}
 
 	private fun Int.word(): String =
 		listOf("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve").getOrNull(this) ?: toString()

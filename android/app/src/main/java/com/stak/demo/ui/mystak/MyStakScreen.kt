@@ -484,22 +484,31 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRang
 			}
 		}
 		Box(modifier = Modifier.fillMaxWidth().height((1 * u).dp).background(Track))
-		// The demo's authored TSLA / SNOW; a real account's own best and worst today, once two of its stocks have quotes.
+		// The demo's authored TSLA / SNOW. A real account's best and worst describe
+		// the selected range, so the pair matches the line and the figure above them;
+		// today's movers stand in only until that range's prices arrive.
+		val rangeBest = ui.rangeMoves.maxByOrNull { it.value }
+		val rangeWorst = ui.rangeMoves.minByOrNull { it.value }
 		val best = ui.best
 		val worst = ui.worst
-		if (!empty && (demo || (best != null && worst != null))) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+		val bestTicker = rangeBest?.key ?: best?.ticker
+		val worstTicker = rangeWorst?.key ?: worst?.ticker
+		val bestPct = rangeBest?.value ?: best?.changePct
+		val worstPct = rangeWorst?.value ?: worst?.changePct
+		val periodLabel = if (demo) "this week" else "· $range"
+		if (!empty && (demo || (bestTicker != null && worstTicker != null))) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-				Text(if (demo) "Best this week" else "Best today", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
+				Text("Best $periodLabel", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
-					Text(if (demo) "TSLA" else best!!.ticker, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
-					Text(if (demo) "+3.4%" else com.stak.demo.data.StakInsights.signedPct(best!!.changePct ?: 0.0), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (demo || (best!!.changePct ?: 0.0) >= 0) Green else Red)
+					Text(if (demo) "TSLA" else bestTicker.orEmpty(), style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
+					Text(if (demo) "+3.4%" else com.stak.demo.data.StakInsights.signedPct(bestPct ?: 0.0), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (demo || (bestPct ?: 0.0) >= 0) Green else Red)
 				}
 			}
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-				Text("Worst", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
+				Text(if (demo) "Worst" else "Worst $periodLabel", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
-					Text(if (demo) "SNOW" else worst!!.ticker, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
-					Text(if (demo) "-0.5%" else com.stak.demo.data.StakInsights.signedPct(worst!!.changePct ?: 0.0), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (!demo && (worst!!.changePct ?: 0.0) >= 0) Green else Red)
+					Text(if (demo) "SNOW" else worstTicker.orEmpty(), style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White)
+					Text(if (demo) "-0.5%" else com.stak.demo.data.StakInsights.signedPct(worstPct ?: 0.0), style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = if (!demo && (worstPct ?: 0.0) >= 0) Green else Red)
 				}
 			}
 		}

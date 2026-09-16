@@ -134,6 +134,13 @@ fun StockDetailScreen(
 	var saved by rememberSaveable { mutableStateOf(fromMyStak || symbol in DeckSession.saved) }
 	var showSuccess by rememberSaveable { mutableStateOf(false) }
 	var showBuy by rememberSaveable { mutableStateOf(false) }
+	// Shown when Save is refused because the Stak is full; clears on its own.
+	var stakFullNotice by remember { mutableStateOf(false) }
+	LaunchedEffect(stakFullNotice) {
+		if (!stakFullNotice) return@LaunchedEffect
+		kotlinx.coroutines.delay(4000)
+		stakFullNotice = false
+	}
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
 	var range by rememberSaveable { mutableStateOf("3M") }
 	// Each pill draws that range's own closes; the demo keeps its authored line.
@@ -294,7 +301,21 @@ fun StockDetailScreen(
 							com.stak.demo.data.MyStakHoldings.remove(symbol)
 						}
 					} else {
-						DetailCta("Save") { showSuccess = true }
+						// The sheet this opens says "Saved to My STAK" before the save is
+						// attempted, so a full Stak must not reach it - and must say why
+						// rather than leaving the button to do nothing.
+						DetailCta("Save") {
+							if (com.stak.demo.data.MyStakHoldings.isFull) stakFullNotice = true else showSuccess = true
+						}
+						if (stakFullNotice) {
+							Text(
+								"Your STAK is full — remove a stock to save another",
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+								color = Muted,
+								modifier = Modifier.fillMaxWidth(),
+								textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+							)
+						}
 						DetailSecondary("Practice buy") { if (onPracticeBuy != null) onPracticeBuy() else showBuy = true }
 					}
 				}

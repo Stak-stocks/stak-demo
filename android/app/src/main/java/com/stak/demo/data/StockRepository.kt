@@ -12,6 +12,8 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun getAnalyst(symbol: String): AnalystResponse = api.getAnalyst(symbol)
     suspend fun getPeerMetrics(ticker: String): PeerMetricsResponse = api.getPeerMetrics(ticker)
     suspend fun getChart(symbol: String, range: String): ChartResponse = api.getChart(symbol, range)
+    suspend fun getPortfolioChart(tickers: List<String>, range: String): PortfolioChartResponse =
+        api.getPortfolioChart(tickers.joinToString(","), range)
     suspend fun getAnalystActions(symbol: String): List<AnalystAction> = api.getAnalystActions(symbol)
     suspend fun getDailyMove(symbol: String, pct: Double): DailyMoveResponse =
         api.getDailyMove(symbol, pct, sentences = 2)
