@@ -17,6 +17,7 @@ import com.stak.demo.data.categoryColorKey
 import com.stak.demo.data.categoryGroupId
 import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -99,6 +100,15 @@ class MyStakViewModel @Inject constructor(
     private var loadedFor: Set<String>? = null
 
     /**
+     * The holdings the drawn line was built from. Without it the chart was keyed
+     * to the range alone, so unsaving a stock left the old percentage under a
+     * freshly-counted "Across N stocks" - the headline described one set of
+     * stocks and the label beside it another (device audit, 2026-09-16).
+     */
+    private var chartFor: Set<String>? = null
+    private var chartJob: Job? = null
+
+    /**
      * Loads only when the saved set has changed since the last load. The Overview
      * and its Collection pages share one instance, so opening a collection should
      * show what's already there rather than fetch it again.
@@ -162,6 +172,10 @@ class MyStakViewModel @Inject constructor(
                 readHeadline = readHeadline(holdings),
                 readBody = readBody(holdings),
             )
+            // refreshFromBackend above can change what's saved. The line is keyed to
+            // the set it was drawn from, so redraw it rather than leave a percentage
+            // describing stocks the labels no longer count.
+            if (chartFor != MyStakHoldings.tickers) selectRange(_ui.value.chartRange)
         }
     }
 
@@ -170,7 +184,11 @@ class MyStakViewModel @Inject constructor(
      * lowercase onto the endpoint's ranges ("3M" -> "3m").
      */
     fun selectRange(range: String) {
-        if (_ui.value.chartRange == range && _ui.value.chartSeries != null) return
+        val forTickers = MyStakHoldings.tickers
+        // Already drawn for this range AND these holdings, or already on its way.
+        if (_ui.value.chartRange == range && chartFor == forTickers &&
+            (_ui.value.chartSeries != null || chartJob?.isActive == true)
+        ) return
         // Drop the old range's line immediately: it answers a different question.
         _ui.value = _ui.value.copy(
             chartRange = range,
@@ -179,12 +197,15 @@ class MyStakViewModel @Inject constructor(
             rangeMoves = emptyMap(),
             chartMissing = false,
         )
-        viewModelScope.launch {
-            val tickers = MyStakHoldings.tickers.toList()
+        chartFor = forTickers
+        chartJob?.cancel()
+        chartJob = viewModelScope.launch {
+            val tickers = forTickers.toList()
             if (tickers.isEmpty()) return@launch
             val built = portfolioSeries(tickers, range.lowercase())
-            // A slow reply for a range the user has already left must not land.
-            if (_ui.value.chartRange != range) return@launch
+            // A slow reply for a range - or a set of holdings - the user has
+            // already left must not land on top of the current one.
+            if (_ui.value.chartRange != range || chartFor != forTickers) return@launch
             _ui.value = _ui.value.copy(
                 chartSeries = built?.series,
                 rangePct = built?.pct,

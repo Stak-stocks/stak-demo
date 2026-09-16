@@ -373,7 +373,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
 				},
 				onOpenDailyBrief = { navController.navigate(StakRoutes.NEWS_DAILY_BRIEF_DETAIL) },
-				onOpenStock = { symbol -> navController.navigate(StakRoutes.stockDetail(symbol)) },
 				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
 				onOpenProfile = { navController.navigate(StakRoutes.PROFILE) },
 				// Product audit (2026-09-05): the bell opens the inbox.
@@ -394,30 +393,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				},
 			)
 		}
-		composable(
-			StakRoutes.STOCK_DETAIL,
-			// Authored (1:1785 Motion): Learn more -> Stock Detail Unsaved
-			// folded is INSTANT; the unauthored back mirrors it. The save-
-			// success CTAs style their pop through shellPop (A2).
-			enterTransition = { EnterTransition.None },
-			exitTransition = { ExitTransition.None },
-			popEnterTransition = { EnterTransition.None },
-			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
-		) { entry ->
-			StockDetailScreen(
-				onBack = { navController.popBackStack() },
-				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
-				// B5 (1:2382 Motion): Practice buy leaves the detail and
-				// lands on the Simulate tab, Instant.
-				onPracticeBuy = { popToShell(PopStyle.INSTANT, MainTab.Simulate) },
-				// B7/B8 (92:969 Motion): View in My STAK forward-pushes to
-				// the My STAK tab; Keep exploring dissolves back to the deck.
-				onViewInMyStak = { popToShell(PopStyle.FORWARD_PUSH, MainTab.MySTAK) },
-				onKeepExploring = { popToShell(PopStyle.DISSOLVE, MainTab.Discover) },
-				// B9 (1:2579): the open state's tab bar - each tab pops Instant.
-				onTab = { popToShell(PopStyle.INSTANT, it) },
-			)
-		}
+		// The authored "Learn more -> Stock Detail Unsaved" route (1:1785 Motion)
+		// is gone: Learn more opens the Quick Look sheet inline now, and nothing
+		// else reached this destination, so it sat unreachable behind a parameter
+		// no caller invoked. My STAK's own MYSTAK_STOCK route below still serves
+		// StockDetailScreen for a saved stock.
 		composable(
 			StakRoutes.COLLECTION,
 			// Authored (1:3155/1:3333 Motion): every My STAK hop is Instant.
@@ -448,8 +428,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) { entry ->
 			StockDetailScreen(
 				onBack = { navController.popBackStack() },
-				// Codex parity audit (2026-09-04): the tapped tile's ticker,
-				// same as the Discover deck's Learn more (STOCK_DETAIL above).
+				// Codex parity audit (2026-09-04): the tapped tile's ticker.
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
 				fromMyStak = true,
 				// B13 (71:949/71:994 Motion): View in My STAK forward-pushes
@@ -492,8 +471,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
 			PickDetailScreen(
-				// Codex parity audit (2026-09-04): the tapped pick's ticker,
-				// same as the Discover deck's Learn more (STOCK_DETAIL above).
+				// Codex parity audit (2026-09-04): the tapped pick's ticker.
 				symbol = entry.arguments?.getString("symbol") ?: "NVDA",
 				// B17 (1:4631 Motion): both Back buttons land on the
 				// Portfolio, Instant - even from Simulate home. If the
@@ -643,7 +621,7 @@ internal enum class PopStyle { HOUSE_BACK, FORWARD_PUSH, DISSOLVE, INSTANT }
 // them must not move the shell (MAIN exit/popEnter = None). PROFILE is
 // deliberately absent: it keeps the house push both ways (171:995).
 private val INSTANT_ROUTES = setOf(
-	StakRoutes.STOCK_DETAIL, StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION,
+	StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION,
 	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK, StakRoutes.LEADERBOARD,
 	StakRoutes.NEWS_DETAIL, StakRoutes.NEWS_LIVE_DETAIL, StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
 )
@@ -687,7 +665,6 @@ private fun MainShell(
 	onOpenArticle: (String) -> Unit,
 	onOpenLiveArticle: (com.stak.demo.data.NewsArticleDto) -> Unit,
 	onOpenDailyBrief: () -> Unit,
-	onOpenStock: (String) -> Unit,
 	onOpenCollection: (String) -> Unit,
 	onOpenProfile: () -> Unit,
 	onOpenNotifications: () -> Unit,
@@ -811,7 +788,6 @@ private fun MainShell(
 							)
 						MainTab.Discover -> DiscoverScreen(
 							resetKey = discoverResetKey,
-							onLearnMore = onOpenStock,
 							onPracticeBuy = { spec -> discoverBuyGen++; discoverBuyDissolve = false; discoverBuyShown = spec; discoverBuySpec = spec },
 							// B4 (1:2330 Motion): the end-of-deck CTAs are
 							// instant tab hops to Simulate / My STAK.

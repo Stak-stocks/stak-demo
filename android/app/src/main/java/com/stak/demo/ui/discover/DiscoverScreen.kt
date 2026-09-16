@@ -315,7 +315,6 @@ internal val DECK = listOf(
 internal fun DiscoverScreen(
 	resetKey: Int = 0,
 	viewModel: DiscoverViewModel = hiltViewModel(),
-	onLearnMore: (String) -> Unit = {},        // kept for nav compat; Quick Look is now inline
 	onPracticeBuy: (BuySpec) -> Unit = {},      // kept for nav compat; removed from V1 Discover UI
 	onPracticeBuySaves: () -> Unit = {},
 	onReviewSaves: () -> Unit = {},

@@ -46,8 +46,6 @@ object StakRoutes {
 	fun simPick(symbol: String) = "simulate/pick/$symbol"
 	const val LEADERBOARD = "simulate/leaderboard"
 
-	const val STOCK_DETAIL = "stock/{symbol}"
-	fun stockDetail(symbol: String) = "stock/$symbol"
 	const val TRADE_TICKET = "trade/{symbol}"
 	fun tradeTicket(symbol: String) = "trade/$symbol"
 	const val ORDER_CONFIRMATION = "order-confirmation/{symbol}"

@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
@@ -28,6 +29,15 @@ import kotlinx.coroutines.launch
 object MyStakHoldings {
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+	/**
+	 * The save or unsave currently being written to the server. A refresh that
+	 * overtook one read the server's pre-change list and wrote it back over the
+	 * local change, so an unsaved stock reappeared - and the next launch drew the
+	 * chart from that stale set while the labels beside it used the fresh one
+	 * (device audit, 2026-09-16). A read waits for the write in flight.
+	 */
+	private var pendingWrite: Job? = null
 
 	fun init(repo: StockRepository) {
 		repository = repo
@@ -88,6 +98,8 @@ object MyStakHoldings {
 	/** Re-reads the saved list and what the server knows about each save. Silent on failure. */
 	suspend fun refreshFromBackend() {
 		if (Session.token == null) return
+		// Never read the list out from under a save or unsave still being written.
+		runCatching { pendingWrite?.join() }
 		val resp = runCatching { repository?.getAndroidStocks() }.getOrNull() ?: return
 		tickers = resp.tickers.toSet().ifEmpty { tickers }
 		if (resp.saved.isNotEmpty()) {
@@ -241,7 +253,9 @@ object MyStakHoldings {
 	private fun syncToBackend(brandId: String? = null, priceNow: Double? = null) {
 		if (Session.token == null) return
 		val snapshot = tickers.toList()
-		scope.launch {
+		// Held so a refresh can wait for it; each write sends the whole list, so a
+		// later one supersedes anything still in flight.
+		pendingWrite = scope.launch {
 			runCatching { repository?.putAndroidStocks(snapshot) }
 			// The row has to exist before its price can be stamped, so this follows
 			// the PUT rather than racing it - the server only keeps the first value.
