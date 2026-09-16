@@ -614,14 +614,7 @@ private fun LiveNewsSection(
 	}
 }
 
-private fun formatNewsAge(datetime: Long): String {
-	val ageSeconds = System.currentTimeMillis() / 1000 - datetime
-	return when {
-		ageSeconds < 3600 -> "${ageSeconds / 60}m"
-		ageSeconds < 86400 -> "${ageSeconds / 3600}h"
-		else -> "${ageSeconds / 86400}d"
-	}
-}
+private fun formatNewsAge(datetime: Long): String = com.stak.demo.data.StakClock.newsAge(datetime)
 
 /** "For You" / "Markets" — Sora 16 #d3d3d3 header + 60dp-thumb cards. */
 @Composable

@@ -2,6 +2,7 @@ package com.stak.demo.data
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -13,6 +14,10 @@ interface StockApiService {
 
     @GET("api/stock/{symbol}")
     suspend fun getStock(@Path("symbol") symbol: String): StockDetailResponse
+
+    /** Two segments, so it can't be swallowed by the single-segment /api/stock/{symbol}. */
+    @GET("api/stock/peer-metrics/{ticker}")
+    suspend fun getPeerMetrics(@Path("ticker") ticker: String): PeerMetricsResponse
 
     @GET("api/stock/{symbol}/analyst")
     suspend fun getAnalyst(@Path("symbol") symbol: String): AnalystResponse
@@ -38,6 +43,10 @@ interface StockApiService {
 
     @PUT("api/me/android-stocks")
     suspend fun putAndroidStocks(@Body body: AndroidStocksPutRequest): AndroidStocksResponse
+
+    /** Stamps what a stock cost when it was saved; the server keeps the first value only. */
+    @PATCH("api/me/stak/{brandId}/price")
+    suspend fun patchStakPrice(@Path("brandId") brandId: String, @Body body: StakPricePatchRequest): OkResponse
 
     @GET("api/me")
     suspend fun getMe(): MeResponse

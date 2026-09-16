@@ -10,6 +10,7 @@ import com.stak.demo.data.PassedEntry
 import com.stak.demo.data.RecordSwipeRequest
 import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
+import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -328,68 +329,6 @@ private fun deckLabelFor(picks: List<BrandSummaryDto>, categories: Map<String, S
     }
     return "TODAY · ${text.uppercase()}"
 }
-
-private fun categoryName(id: String): String =
-    CATEGORY_NAMES[id] ?: id.split('_').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
-
-/** Short display names for the backend's primary categories; related ids share a name so they count together. */
-private val CATEGORY_NAMES = mapOf(
-    "enterprise_software" to "Software",
-    "semiconductor" to "Chips",
-    "semiconductor_equipment" to "Chips",
-    "restaurant" to "Restaurants",
-    "bank" to "Banks",
-    "retail" to "Retail",
-    "insurance" to "Insurance",
-    "energy_oilgas" to "Energy",
-    "ecommerce_marketplace" to "E-commerce",
-    "fintech_payments" to "Fintech",
-    "consumer_staples" to "Staples",
-    "industrial" to "Industrials",
-    "capital_markets" to "Markets",
-    "asset_manager" to "Asset Managers",
-    "financial_data" to "Financial Data",
-    "healthcare_pharma" to "Pharma",
-    "apparel_beauty" to "Fashion",
-    "streaming_media" to "Streaming",
-    "beverage" to "Drinks",
-    "cybersecurity" to "Cybersecurity",
-    "space_airmobility" to "Space",
-    "social_media" to "Social Media",
-    "travel_rideshare" to "Travel",
-    "aerospace_defense" to "Defense",
-    "medical_devices" to "MedTech",
-    "reit" to "Real Estate",
-    "casino_entertainment" to "Casinos",
-    "gaming" to "Gaming",
-    "crypto_fintech" to "Crypto",
-    "payment_network" to "Payments",
-    "utilities" to "Utilities",
-    "metals_mining" to "Mining",
-    "auto_ev" to "EVs",
-    "clean_energy" to "Clean Energy",
-    "health_insurance" to "Health Insurers",
-    "biotech" to "Biotech",
-    "transport_logistics" to "Logistics",
-    "airline" to "Airlines",
-    "consumer_tech" to "Consumer Tech",
-    "database_data" to "Data",
-    "automation_ai" to "AI",
-    "private_equity" to "Private Equity",
-    "auto_legacy" to "Autos",
-    "telecom" to "Telecom",
-    "mega_cap_tech" to "Big Tech",
-    "etf_index" to "Index Funds",
-    "home_retail" to "Home Retail",
-    "default_tech" to "Tech",
-    "tech" to "Tech",
-    "adtech" to "Ad Tech",
-    "meme_stock" to "Meme Stocks",
-    "default_consumer" to "Consumer",
-    "default_finance" to "Finance",
-    "digital_health" to "Digital Health",
-    "food_beverage_growth" to "Food",
-)
 
 private fun brandLogoUrl(brand: BrandSummaryDto): String? =
     brand.logo ?: brand.domain?.let { "https://cdn.brandfetch.io/$it/w/400/h/400" }

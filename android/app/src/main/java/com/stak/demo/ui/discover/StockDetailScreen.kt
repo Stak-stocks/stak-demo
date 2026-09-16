@@ -118,7 +118,7 @@ fun StockDetailScreen(
 	// though My STAK holds it) applies to the page it opens. The seeded
 	// holdings made every designed card open "Saved" (StakTest walk vs the
 	// 2x export of 1:2382, 2026-09-04 evening). My STAK entry opens saved.
-	var saved by rememberSaveable { mutableStateOf(fromMyStak || f.symbol in DeckSession.saved) }
+	var saved by rememberSaveable { mutableStateOf(fromMyStak || symbol in DeckSession.saved) }
 	var showSuccess by rememberSaveable { mutableStateOf(false) }
 	var showBuy by rememberSaveable { mutableStateOf(false) }
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
@@ -140,7 +140,7 @@ fun StockDetailScreen(
 				AuthBackCircle(onClick = onBack)
 				Spacer(modifier = Modifier.weight(1f))
 				Text(
-					text = f.symbol,
+					text = symbol,
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp),
 					color = Color.White,
 				)
@@ -161,7 +161,9 @@ fun StockDetailScreen(
 				) {
 					val displayPrice = liveDetail?.price ?: f.price
 					val displayChange = liveDetail?.change ?: f.change
-					Text(f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+					// The page names the stock it is showing; the authored title is another
+					// company's whenever this symbol has no authored facts of its own.
+					Text(liveDetail?.name?.let { "$symbol · $it" } ?: f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
 					Text(
 						displayPrice,
 						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp),
@@ -224,13 +226,13 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
 				) {
 					if (fromMyStak) {
-						SinceYouSavedCard(f)
+						SinceYouSavedCard(f, symbol, liveDetail)
 					}
-					RiskFitCard(f)
+					RiskFitCard(f, liveDetail)
 					NumbersCard(f, liveDetail)
 					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
 					NewsSignalCard(f, liveDetail)
-					CompareCard(f)
+					CompareCard(f, liveDetail, symbol)
 					Row(
 						horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
 						modifier = Modifier
@@ -245,7 +247,7 @@ fun StockDetailScreen(
 							color = Color(0xFF5BD7E4),
 						)
 						Text(
-							f.tip,
+							liveDetail?.tip ?: f.tip,
 							// Measured exception (2026-09-04): the authored tip (1:2828)
 							// is ONE line in a 260 box - the AAPL copy fits by 6u and the
 							// advance-rounding compensation added 12u. No tracking here.
@@ -263,7 +265,7 @@ fun StockDetailScreen(
 						DetailCta("Practice buy") { showBuy = true }
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
-						DetailSecondary("Unsave") { com.stak.demo.data.MyStakHoldings.remove(f.symbol); onBack() }
+						DetailSecondary("Unsave") { com.stak.demo.data.MyStakHoldings.remove(symbol); onBack() }
 					} else if (saved) {
 						// A saved stock reads the same from every entry: the authored
 						// saved block (16:1012) - Practice buy + Unsave. The "Saved to
@@ -274,8 +276,8 @@ fun StockDetailScreen(
 						DetailCta("Practice buy") { if (onPracticeBuy != null) onPracticeBuy() else showBuy = true }
 						DetailSecondary("Unsave") {
 							saved = false
-							DeckSession.saved = DeckSession.saved - f.symbol
-							com.stak.demo.data.MyStakHoldings.remove(f.symbol)
+							DeckSession.saved = DeckSession.saved - symbol
+							com.stak.demo.data.MyStakHoldings.remove(symbol)
 						}
 					} else {
 						DetailCta("Save") { showSuccess = true }
@@ -298,21 +300,21 @@ fun StockDetailScreen(
 			// The scrim dismiss is unauthored - it stays instant.
 			exit = ExitTransition.None,
 		) {
-			DetailSavedSheet(
+			DetailSavedSheet(symbol = symbol, liveDetail = liveDetail,
 				f = f,
-				onDone = { showSuccess = false; saved = true; DeckSession.saved = DeckSession.saved + f.symbol },
+				onDone = { showSuccess = false; saved = true; DeckSession.saved = DeckSession.saved + symbol },
 				// B7/B8: both CTAs mark the stock saved, then leave the page
 				// (forward push to My STAK / dissolve back to the deck).
 				onViewInMyStak = {
 					saved = true
-					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.data.MyStakHoldings.add(f.symbol)
+					DeckSession.saved = DeckSession.saved + symbol
+					com.stak.demo.data.MyStakHoldings.add(symbol)
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
 					saved = true
-					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.data.MyStakHoldings.add(f.symbol)
+					DeckSession.saved = DeckSession.saved + symbol
+					com.stak.demo.data.MyStakHoldings.add(symbol)
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
 			)
@@ -325,7 +327,7 @@ fun StockDetailScreen(
 			exit = fadeOut(tween(300, easing = EaseOut)),
 		) {
 			DetailBuyHost(
-				spec = f.buySpec,
+				spec = liveBuySpec(symbol, liveDetail, f),
 				onClose = { showBuy = false },
 				onViewInMyStak = { if (onViewInMyStak != null) onViewInMyStak() else { showBuy = false } },
 				// B13: "Done" also folds the Analyst section - the authored
@@ -337,7 +339,7 @@ fun StockDetailScreen(
 }
 
 @Composable
-private fun RiskFitCard(f: DetailFacts) {
+private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
@@ -359,7 +361,7 @@ private fun RiskFitCard(f: DetailFacts) {
 					.padding(horizontal = (10 * u).dp, vertical = (4 * u).dp),
 			) {
 				Text(
-					riskFitFor(f).first,
+					riskFitFor(f, liveDetail).first,
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 					color = Color(0xFFA6E4F7),
 				)
@@ -367,7 +369,7 @@ private fun RiskFitCard(f: DetailFacts) {
 		}
 		// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
 		Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
-			Box(modifier = Modifier.offset(x = (f.riskPillX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			Box(modifier = Modifier.offset(x = ((liveDetail?.riskPillX ?: f.riskPillX) * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
 		}
 		Row(modifier = Modifier.fillMaxWidth()) {
 			Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
@@ -375,7 +377,7 @@ private fun RiskFitCard(f: DetailFacts) {
 			Text("High", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 		}
 		Text(
-			riskFitFor(f).second,
+			riskFitFor(f, liveDetail).second,
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 			color = Muted,
 		)
@@ -388,9 +390,9 @@ private fun NumbersCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val displayStats = if (liveDetail != null) {
 		f.stats.mapIndexed { i, st ->
 			when (i) {
-				0 -> liveDetail.peRatioValue?.let { st.copy(value = it) } ?: st
-				1 -> liveDetail.revenueGrowthValue?.let { st.copy(value = it) } ?: st
-				2 -> liveDetail.profitMarginValue?.let { st.copy(value = it) } ?: st
+				0 -> st.copy(value = liveDetail.peRatioValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(0)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(0)?.second ?: st.good)
+				1 -> st.copy(value = liveDetail.revenueGrowthValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(1)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(1)?.second ?: st.good)
+				2 -> st.copy(value = liveDetail.profitMarginValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(2)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(2)?.second ?: st.good)
 				else -> st
 			}
 		}
@@ -491,7 +493,7 @@ private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 			horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
 			modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
 		) {
-			f.newsSources.forEachIndexed { i, (src, tag) ->
+			(liveDetail?.newsSources ?: f.newsSources).forEachIndexed { i, (src, tag) ->
 				Column(
 					verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 					modifier = Modifier
@@ -521,7 +523,7 @@ private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 						}
 					}
 					Text(
-						if (i == 0) f.newsHeadline else f.newsHeadline2,
+						liveDetail?.newsHeadlines?.getOrNull(i) ?: if (i == 0) f.newsHeadline else f.newsHeadline2,
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
 						color = Bright,
 						modifier = Modifier.width((173 * u).dp),
@@ -585,7 +587,7 @@ private fun DetailSecondary(text: String, size: Float = 13f, onClick: () -> Unit
 
 /** Saved-to-My-STAK sheet over the detail (92:969) — Apple row variant. */
 @Composable
-private fun DetailSavedSheet(f: DetailFacts, onDone: () -> Unit, onViewInMyStak: () -> Unit = onDone, onKeepExploring: () -> Unit = onDone) {
+private fun DetailSavedSheet(f: DetailFacts, symbol: String = f.symbol, liveDetail: LiveDetail? = null, onDone: () -> Unit, onViewInMyStak: () -> Unit = onDone, onKeepExploring: () -> Unit = onDone) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(modifier = Modifier.fillMaxSize()) {
 		Box(
@@ -633,13 +635,14 @@ private fun DetailSavedSheet(f: DetailFacts, onDone: () -> Unit, onViewInMyStak:
 					.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),
 			) {
 				Box(contentAlignment = Alignment.Center, modifier = Modifier.size((38 * u).dp).background(Color(0xFF242B3D), CircleShape)) {
-					Text(f.sheetBadge, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color(0xFF9EADC7))
+					Text(if (liveDetail?.name != null) symbol.take(1) else f.sheetBadge, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color(0xFF9EADC7))
 				}
 				Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
-					Text(f.sheetName, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
-					Text(f.sheetPrice, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
+					Text(liveDetail?.name ?: f.sheetName, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
+					Text(liveDetail?.price ?: f.sheetPrice, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 				}
-				Text(f.sheetChange, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = if (f.sheetChange.startsWith("▼")) Red else Green)
+				val sheetChange = liveDetail?.change ?: f.sheetChange
+				Text(sheetChange, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = if (sheetChange.startsWith("▼")) Red else Green)
 			}
 			Text(
 				"Watching from today · no money committed",
@@ -800,7 +803,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 
 /** Compare and learn (collapsed 1:2526 / open 1:2719) — peer table. */
 @Composable
-private fun CompareCard(f: DetailFacts) {
+private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: String = f.symbol) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	var open by rememberSaveable { mutableStateOf(false) }
 	// Both states author a 23 gap under the title (1:2526 / 1:2719); the open
@@ -829,7 +832,7 @@ private fun CompareCard(f: DetailFacts) {
 		if (!open) {
 			// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
 			Text(
-				f.peersLabel,
+				liveDetail?.peersLabel ?: f.peersLabel,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp),
 				color = Muted,
 			)
@@ -859,8 +862,8 @@ private fun CompareCard(f: DetailFacts) {
 						)
 					},
 				) {
-					CompareRow("", f.symbol, f.peerA, f.peerB, header = true)
-					f.compareRows.forEach { r ->
+					CompareRow("", symbol, liveDetail?.peerA ?: f.peerA, liveDetail?.peerB ?: f.peerB, header = true)
+					(liveDetail?.compareRows?.map { DetailCompare(it.label, it.a, it.b, it.c, it.green) } ?: f.compareRows).forEach { r ->
 						CompareRow(r.label, r.a, r.b, r.c, valueColor = if (r.green) Green else null)
 					}
 				}
@@ -915,28 +918,43 @@ private fun CompareRow(label: String, a: String, m: String, g: String, header: B
  * the right symbol; a new account reads its own save date, and the move
  * since is this week's change once a day has passed.
  */
-private fun sinceSavedFor(f: DetailFacts): Triple<String, String, Boolean> {
+private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?): Triple<String, String, Boolean> {
 	val demo = com.stak.demo.data.Session.demoAccount
-	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(f.symbol)
-	val move = f.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
-	val up = !f.change.contains('\u25BC') && !f.change.trimStart().startsWith("-")
+	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(symbol)
+	// The move SINCE THE SAVE, measured from the price stamped when it was saved.
+	// The authored copy fell back to this week's change, which answers a different
+	// question - and for a stock with no authored facts it was another company's
+	// change under another company's ticker (audit, 2026-09-15).
+	val savedPct = if (demo) null else sinceSavePct(symbol, liveDetail)
+	val move = savedPct?.let { String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(it)) }
+		?: f.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
+	val up = savedPct?.let { it >= 0.0 } ?: !f.change.trimStart().startsWith("-")
 	return when {
-		demo -> Triple("+4.6%", "Saved 5 weeks ago. ${f.symbol} is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
+		demo -> Triple("+4.6%", "Saved 5 weeks ago. $symbol is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
 		// null = a save from before the record existed; it reads as recent rather than as the demo's five weeks.
-		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. ${f.symbol} hasn't moved since you saved it - check back after a few sessions.", true)
+		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
+		// Say there is nothing to measure rather than borrow a number that answers something else.
+		savedPct == null -> Triple("\u2014", "Saved ${if (days == 1) "yesterday" else "$days days ago"}. STAK has no record of what $symbol cost then, so there's no move to measure yet.", true)
 		else -> Triple(
 			(if (up) "+" else "-") + move + "%",
-			"Saved ${if (days == 1) "yesterday" else "$days days ago"}. ${f.symbol} is ${if (up) "up" else "down"} $move% since, moving with the market this week.",
+			"Saved ${if (days == 1) "yesterday" else "$days days ago"}. $symbol is ${if (up) "up" else "down"} $move% since you saved it.",
 			up,
 		)
 	}
 }
 
+/** The move since the save: the price stamped then against the live one. */
+private fun sinceSavePct(symbol: String, liveDetail: LiveDetail?): Double? {
+	val at = com.stak.demo.data.MyStakHoldings.priceAtSave(symbol)?.takeIf { it > 0 } ?: return null
+	val now = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull() ?: return null
+	return (now - at) / at * 100.0
+}
+
 /** "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry. */
 @Composable
-private fun SinceYouSavedCard(f: DetailFacts) {
+private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val since = sinceSavedFor(f)
+	val since = sinceSavedFor(f, symbol, liveDetail)
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
@@ -976,6 +994,30 @@ private data class DetailStat(val label: String, val value: String, val verdict:
 private data class DetailCompare(val label: String, val a: String, val b: String, val c: String, val green: Boolean = false)
 
 /**
+ * The practice-buy ticket for THIS stock. Only three symbols have authored
+ * tickets and buySpecFor() falls back to NVDA, so a stock without one opened
+ * another company's ticket - and because DiscoverBuyFlow re-prices by
+ * spec.symbol, the paper order FILLED that company at its live price
+ * (audit, 2026-09-15). The amount, cash and share count are recomputed by the
+ * sheet itself, so the placeholders here never reach the screen.
+ */
+private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuySpec {
+	listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
+	return BuySpec(
+		title = "Buy $symbol?",
+		badge = symbol.take(1),
+		name = live?.name ?: symbol,
+		priceLine = (live?.price ?: "$0.00") + " today",
+		// formatChange() ends "% today"; the ticket's change carries no suffix.
+		change = (live?.change ?: "▲ 0.0% today").removeSuffix(" today"),
+		cashBefore = "$0.00",
+		cashAfter = "$0.00",
+		shares = "0",
+		symbol = symbol,
+	)
+}
+
+/**
  * Everything the detail page serves per stock - backend-shaped like the
  * news feed’s StockFacts. AAPL carries the authored 1:2382/92:969 frame
  * values VERBATIM; NVDA and GOOGL extend their deck cards, priced off
@@ -987,15 +1029,15 @@ private data class DetailCompare(val label: String, val a: String, val b: String
  * included). The pill's authored x (88 low / 150 mid / 238 high) is the
  * stock's volatility; TasteModel.riskStyle is the user's answer.
  */
-private fun riskFitFor(f: DetailFacts): Pair<String, String> {
+private fun riskFitFor(f: DetailFacts, liveDetail: LiveDetail? = null): Pair<String, String> {
 	val style = com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.data.UserProfile.risk)
-	val highVol = f.riskPillX > 170f
-	val lowVol = f.riskPillX < 120f
-	val first = f.riskCopy.substringBefore(". ") + "."
+	val highVol = (liveDetail?.riskPillX ?: f.riskPillX) > 170f
+	val lowVol = (liveDetail?.riskPillX ?: f.riskPillX) < 120f
+	val first = (liveDetail?.riskCopy ?: f.riskCopy).substringBefore(". ") + "."
 	return when {
 		highVol && (style == "Conservative" || style == "Cautious") -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small."
 		lowVol && style == "Growth-Oriented" -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK."
-		else -> "Matches you" to f.riskCopy
+		else -> "Matches you" to (liveDetail?.riskCopy ?: f.riskCopy)
 	}
 }
 

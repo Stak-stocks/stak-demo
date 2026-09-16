@@ -31,6 +31,19 @@ object StakClock {
 	/** "Saved Jul 2" / "Saved today". */
 	fun savedLabel(daysAgo: Int): String = if (daysAgo == 0) "Saved today" else "Saved ${monthDay(daysAgo)}"
 
+	/**
+	 * "13h" - a story's age in the largest unit that still reads small. Shared by
+	 * the news list and the stock pages so one story can't be two ages at once.
+	 */
+	fun newsAge(datetime: Long): String {
+		val ageSeconds = System.currentTimeMillis() / 1000 - datetime
+		return when {
+			ageSeconds < 3600 -> "${ageSeconds / 60}m"
+			ageSeconds < 86400 -> "${ageSeconds / 3600}h"
+			else -> "${ageSeconds / 86400}d"
+		}
+	}
+
 	/** "September 2026" for the month a new account was created. */
 	fun monthYear(): String = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
 }

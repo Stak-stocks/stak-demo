@@ -49,6 +49,24 @@ object MyStakHoldings {
 	/** When each stock was saved on THIS account (epoch day) - the "Since you saved" card reads it (product audit, 2026-09-05). */
 	private var savedAt: Map<String, Long> = emptyMap()
 
+	/**
+	 * What the server knows about each save: the company's name, the category
+	 * the deck ranked it on, and the price when it was saved. My STAK reads
+	 * this instead of the authored catalogue, so a stock outside the six
+	 * demo collections still shows up with its real name and group.
+	 */
+	data class SavedStock(
+		val ticker: String,
+		val brandId: String,
+		val name: String,
+		val category: String?,
+		val savedDay: Long?,
+		val priceAtSave: Double?,
+	)
+
+	var details by mutableStateOf<Map<String, SavedStock>>(emptyMap())
+		private set
+
 	/** Product audit (2026-09-05): a NEW account holds nothing until the user saves; the demo account keeps the seed. */
 	fun reset(demo: Boolean) {
 		// Local prefs restore first — instant, no network wait.
@@ -58,26 +76,100 @@ object MyStakHoldings {
 			val day = e.substringAfter("=", "").toLongOrNull()
 			if (sym.isNotBlank() && day != null) sym to day else null
 		}?.toMap() ?: emptyMap()
+		details = readDetails()
 		// Overlay with backend state when authenticated — silently no-ops on failure.
 		if (Session.token != null) {
-			scope.launch {
-				runCatching { repository?.getAndroidStocks() }
-					.onSuccess { resp ->
-						resp ?: return@onSuccess
-						tickers = resp.tickers.toSet().ifEmpty { tickers }
-						persist()
-					}
-			}
+			scope.launch { refreshFromBackend() }
 		}
 	}
+
+	/** Re-reads the saved list and what the server knows about each save. Silent on failure. */
+	suspend fun refreshFromBackend() {
+		if (Session.token == null) return
+		val resp = runCatching { repository?.getAndroidStocks() }.getOrNull() ?: return
+		tickers = resp.tickers.toSet().ifEmpty { tickers }
+		if (resp.saved.isNotEmpty()) {
+			details = resp.saved.filter { it.ticker.isNotBlank() }.associate { s ->
+				s.ticker to SavedStock(
+					ticker = s.ticker,
+					brandId = s.brandId,
+					name = s.name.ifBlank { s.ticker },
+					category = s.category,
+					savedDay = s.savedAt?.let(::epochDayOf),
+					priceAtSave = s.priceAtSave,
+				)
+			}
+		}
+		persist()
+	}
+
+	/** The server's timestamp as a local epoch day; null when it isn't a date we can read. */
+	private fun epochDayOf(iso: String): Long? = runCatching {
+		java.time.Instant.parse(iso).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+	}.recoverCatching {
+		java.time.OffsetDateTime.parse(iso).toLocalDate().toEpochDay()
+	}.getOrNull()
 
 	private fun persist() {
 		StakStore.putSet("holdings", tickers)
 		StakStore.putString("saved_at", savedAt.entries.joinToString(",") { "${it.key}=${it.value}" })
+		val array = org.json.JSONArray()
+		details.values.forEach { d ->
+			array.put(
+				org.json.JSONObject().apply {
+					put("t", d.ticker)
+					put("b", d.brandId)
+					put("n", d.name)
+					d.category?.let { put("c", it) }
+					d.savedDay?.let { put("d", it) }
+					d.priceAtSave?.let { put("p", it) }
+				},
+			)
+		}
+		StakStore.putString("saved_details", array.toString())
 	}
 
-	/** Days since the stock was saved on this account; null when the save predates the record (the demo's authored saves). */
-	fun daysSinceSaved(ticker: String): Int? = savedAt[symbolOf(ticker)]?.let { (java.time.LocalDate.now().toEpochDay() - it).toInt() }
+	private fun readDetails(): Map<String, SavedStock> {
+		val raw = StakStore.getString("saved_details") ?: return emptyMap()
+		return runCatching {
+			val array = org.json.JSONArray(raw)
+			(0 until array.length()).mapNotNull { i ->
+				val o = array.getJSONObject(i)
+				val ticker = o.optString("t").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+				ticker to SavedStock(
+					ticker = ticker,
+					brandId = o.optString("b", ""),
+					name = o.optString("n", ticker),
+					category = if (o.has("c")) o.getString("c") else null,
+					savedDay = if (o.has("d")) o.getLong("d") else null,
+					priceAtSave = if (o.has("p")) o.getDouble("p") else null,
+				)
+			}.toMap()
+		}.getOrDefault(emptyMap())
+	}
+
+	/**
+	 * Days since the stock was saved on this account; null when the save predates
+	 * the record (the demo's authored saves). The server's date wins - it survives
+	 * a reinstall and a second device, which the local note does not.
+	 */
+	fun daysSinceSaved(ticker: String): Int? {
+		val sym = symbolOf(ticker)
+		val day = details[sym]?.savedDay ?: savedAt[sym] ?: return null
+		return (java.time.LocalDate.now().toEpochDay() - day).toInt()
+	}
+
+	/** The company's name as the catalogue has it ("NVIDIA"), or null for a save we haven't synced. */
+	fun nameOf(ticker: String): String? = details[symbolOf(ticker)]?.name
+
+	/** The brand this save points at ("tsla") - the key the brand endpoints take. */
+	fun brandIdOf(ticker: String): String? = details[symbolOf(ticker)]?.brandId?.takeIf { it.isNotBlank() }
+
+	/** The category the deck ranked this save on ("semiconductor"), or null when unsynced. */
+	fun categoryOf(ticker: String): String? = details[symbolOf(ticker)]?.category
+
+	/** What the stock cost when it was saved - the "since you saved" move measures from here. */
+	fun priceAtSave(ticker: String): Double? = details[symbolOf(ticker)]?.priceAtSave
 
 	/** How many stocks the user holds - the Overview's "Across N stocks". */
 	val count: Int get() = tickers.size
@@ -85,12 +177,17 @@ object MyStakHoldings {
 	/** True when any of the story's related tickers is held. */
 	fun holdsAny(related: List<String>): Boolean = related.any { it in tickers }
 
-	fun add(ticker: String) {
+	/**
+	 * Saves the stock. [brandId] and [priceNow] are what the Discover deck knows at
+	 * the moment of the swipe; passing them stamps what the stock cost when it was
+	 * saved, which is the only honest moment to record it.
+	 */
+	fun add(ticker: String, brandId: String? = null, priceNow: Double? = null) {
 		val sym = symbolOf(ticker)
 		tickers = tickers + sym
 		if (sym !in savedAt) savedAt = savedAt + (sym to java.time.LocalDate.now().toEpochDay())
 		persist()
-		syncToBackend()
+		syncToBackend(brandId, priceNow)
 	}
 
 	/** Unsave (Stock Detail from My STAK) - the same bare-symbol normalisation as add. */
@@ -101,11 +198,16 @@ object MyStakHoldings {
 		syncToBackend()
 	}
 
-	private fun syncToBackend() {
+	private fun syncToBackend(brandId: String? = null, priceNow: Double? = null) {
 		if (Session.token == null) return
 		val snapshot = tickers.toList()
 		scope.launch {
 			runCatching { repository?.putAndroidStocks(snapshot) }
+			// The row has to exist before its price can be stamped, so this follows
+			// the PUT rather than racing it - the server only keeps the first value.
+			if (!brandId.isNullOrBlank() && priceNow != null && priceNow > 0) {
+				runCatching { repository?.patchStakPrice(brandId, priceNow) }
+			}
 		}
 	}
 

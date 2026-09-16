@@ -10,6 +10,7 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
 
     suspend fun getStock(symbol: String): StockDetailResponse = api.getStock(symbol)
     suspend fun getAnalyst(symbol: String): AnalystResponse = api.getAnalyst(symbol)
+    suspend fun getPeerMetrics(ticker: String): PeerMetricsResponse = api.getPeerMetrics(ticker)
     suspend fun getAnalystActions(symbol: String): List<AnalystAction> = api.getAnalystActions(symbol)
     suspend fun getDailyMove(symbol: String, pct: Double): DailyMoveResponse =
         api.getDailyMove(symbol, pct, sentences = 2)
@@ -18,6 +19,8 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun getAndroidStocks(): AndroidStocksResponse = api.getAndroidStocks()
     suspend fun putAndroidStocks(tickers: List<String>): AndroidStocksResponse =
         api.putAndroidStocks(AndroidStocksPutRequest(tickers))
+    suspend fun patchStakPrice(brandId: String, price: Double): OkResponse =
+        api.patchStakPrice(brandId, StakPricePatchRequest(price))
     suspend fun getMe(): MeResponse = api.getMe()
     suspend fun putMe(displayName: String? = null, onboardingCompleted: Boolean? = null): MeResponse =
         api.putMe(MePutRequest(displayName = displayName, onboardingCompleted = onboardingCompleted))

@@ -23,6 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +49,8 @@ import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.fractionalSpacedBy
 import com.stak.demo.ui.theme.StakColors
+import java.util.Locale
+import kotlin.math.abs
 
 private val CardBg = Color(0xFF181F30)
 private val Muted = Color(0xFF819ABB)
@@ -71,12 +76,21 @@ fun CollectionScreen(
 	// Codex audit (2026-09-04): the dashed Add-stock tile - adding stocks
 	// is the Discover deck, the app's only add path; the host hops there.
 	onAddStock: () -> Unit = {},
+	viewModel: MyStakViewModel = sharedMyStakViewModel(),
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val demo = com.stak.demo.data.Session.demoAccount
+	val ui by viewModel.ui.collectAsState()
+	LaunchedEffect(com.stak.demo.data.MyStakHoldings.tickers, demo) { if (!demo) viewModel.loadIfNeeded() }
+	// The authored catalogue is the demo account's. A real account's collection
+	// is one of its own saved categories (product audit, 2026-09-05), and its
+	// tiles carry live prices instead of the catalogue's fixed ones.
 	val c = collection(collectionId)
+	val group = if (demo) null else ui.groups.firstOrNull { it.id == collectionId }
+	val title = if (demo) c.name else group?.name ?: "Collection"
 	// Codex audit (2026-09-04): the page shows what the holdings store
 	// holds of this collection - Unsave on a tile's Stock Detail drops it.
-	val held = c.held()
+	val held: List<CollStock> = if (demo) c.held() else (group?.holdings ?: emptyList()).map(::holdingTile)
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -89,7 +103,7 @@ fun CollectionScreen(
 			AuthBackCircle(onClick = onBack)
 			Spacer(modifier = Modifier.weight(1f))
 			Text(
-				text = c.name,
+				text = title,
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp),
 				color = Color.White,
 			)
@@ -114,31 +128,49 @@ fun CollectionScreen(
 		) {
 			Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 				// Every collection's hero is its own 60 art, the AI & Tech treatment
-				// (1:3357) - user, 2026-09-05. Mirrors ios CollectionView.
-				Image(
-					painter = painterResource(c.heroRes),
-					contentDescription = null,
-					contentScale = ContentScale.Crop,
-					modifier = Modifier.size((60 * u).dp),
-				)
+				// (1:3357) - user, 2026-09-05. A category with no authored piece draws
+				// its initial rather than borrowing art that says the wrong thing.
+				val heroRes = if (demo) c.heroRes else group?.heroRes
+				if (heroRes != null) {
+					Image(
+						painter = painterResource(heroRes),
+						contentDescription = null,
+						contentScale = ContentScale.Crop,
+						modifier = Modifier.size((60 * u).dp),
+					)
+				} else {
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier.size((60 * u).dp).clip(RoundedCornerShape((16 * u).dp)).background(CardBg),
+					) {
+						Text(
+							text = title.take(1).uppercase(),
+							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (24 * u).sp),
+							color = BadgeInk,
+						)
+					}
+				}
 				Text(
-					text = c.name,
+					text = title,
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp),
 					color = Color.White,
 				)
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((7 * u).dp)) {
-					Text(heldCountLabel(held.size), style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = Muted)
+					// Say nothing rather than "0 stocks" while the load is still in flight.
+					val pending = !demo && group == null && ui.loading
+					Text(if (pending) "—" else heldCountLabel(held.size), style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = Muted)
 					Text("·", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = Faint)
-					// The weekly move is not in the shared demo data - the
-					// authored 1:3333 literal stays for every collection.
+					// The demo keeps the authored literal (the weekly move isn't in its data);
+					// a real collection shows its own stocks' move today.
+					val move = group?.changePct
 					Text(
-						"+2.4% this week",
+						if (demo) "+2.4% this week" else if (pending) "Loading…" else if (move == null) "No quote yet" else com.stak.demo.data.StakInsights.signedPct(move) + " today",
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
-						color = Green,
+						color = if (demo || (move ?: 0.0) >= 0) Green else RedDown,
 					)
 				}
 				Text(
-					text = c.blurb,
+					text = if (demo) c.blurb else if (group == null && ui.loading) "" else "The ${title} names you've saved.",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp),
 					color = Color(0xFFC8D2E0),
 				)
@@ -263,3 +295,21 @@ private fun AddStockTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
 		)
 	}
 }
+
+/**
+* A saved stock in the authored tile's shape (1:3333) - same badge, change,
+* price and company line, with the account's own numbers. A stock with no
+* quote back yet reads "—" rather than a made-up price.
+*/
+private fun holdingTile(h: MyStakViewModel.Holding): CollStock {
+	val pct = h.changePct
+	return CollStock(
+		badge = h.ticker.take(1),
+		change = if (pct == null) "—" else (if (pct >= 0) "\u25b2 " else "\u25bc ") + String.format(Locale.US, "%.1f", abs(pct)) + "%",
+		up = (pct ?: 0.0) >= 0,
+		ticker = h.ticker,
+		company = h.name,
+		price = h.price?.let { "\$" + String.format(Locale.US, "%,.2f", it) } ?: "—",
+	)
+}
+

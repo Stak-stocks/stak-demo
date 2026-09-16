@@ -5,7 +5,12 @@ import com.google.gson.annotations.SerializedName
 data class BatchQuotesResponse(val quotes: Map<String, BatchQuote?>)
 data class BatchQuote(val price: Double = 0.0, val change: Double = 0.0, val changePercent: Double = 0.0)
 
-data class StockDetailResponse(val quote: StockQuote?, val metrics: StockMetrics?)
+data class StockDetailResponse(
+    val quote: StockQuote? = null,
+    val metrics: StockMetrics? = null,
+    /** The company's name, so the page can title itself with the stock it's showing. */
+    val name: String? = null,
+)
 data class StockQuote(
     val price: Double? = null,
     val change: Double? = null,
@@ -16,6 +21,11 @@ data class StockMetrics(
     val revenueGrowth: String? = null,
     val profitMargin: String? = null,
     val marketCap: String? = null,
+    /** Volatility against the market - the Risk fit card's only real source. */
+    val beta: Double? = null,
+    val dividendYield: String? = null,
+    val week52High: Double? = null,
+    val week52Low: Double? = null,
 )
 
 data class AnalystResponse(val priceTarget: AnalystPriceTarget?, val recommendation: AnalystRecommendation?)
@@ -49,8 +59,22 @@ data class NewsArticleDto(
     val ticker: String = "",  // tagged client-side for company news
 )
 
-data class AndroidStocksResponse(val tickers: List<String> = emptyList())
+data class AndroidStocksResponse(
+    val tickers: List<String> = emptyList(),
+    /** What each save is, per the server: name, ranked category, save date and the price then. */
+    val saved: List<SavedStockDto> = emptyList(),
+)
+data class SavedStockDto(
+    val ticker: String = "",
+    val brandId: String = "",
+    val name: String = "",
+    val category: String? = null,
+    val savedAt: String? = null,
+    val priceAtSave: Double? = null,
+)
 data class AndroidStocksPutRequest(val tickers: List<String>)
+data class StakPricePatchRequest(val price: Double)
+data class OkResponse(val ok: Boolean = false)
 
 data class MePutRequest(
     val displayName: String? = null,
@@ -58,6 +82,21 @@ data class MePutRequest(
 )
 
 data class CompanyNewsResponse(val articles: List<NewsArticleDto> = emptyList())
+
+/**
+ * A stock's peer group and that group's median fundamentals. The medians
+ * describe the group as a whole - per-peer numbers come from fetching each
+ * peer's own metrics.
+ */
+data class PeerMetricsResponse(
+    val ticker: String = "",
+    val peerTickers: List<String> = emptyList(),
+    val peerCount: Int = 0,
+    val pe: Double? = null,
+    val revenueGrowth: Double? = null,
+    val profitMargin: Double? = null,
+    val beta: Double? = null,
+)
 
 data class MeResponse(
     val displayName: String = "",

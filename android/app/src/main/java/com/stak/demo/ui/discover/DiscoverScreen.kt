@@ -379,7 +379,13 @@ internal fun DiscoverScreen(
 	fun commitDecision(card: DeckCard, isSTAK: Boolean) {
 		if (isSTAK) {
 			savedCards = savedCards + card.symbol
-			com.stak.demo.data.MyStakHoldings.add(card.symbol)
+			// The card's price is the live quote, so the save is stamped with what
+			// the stock cost at this moment - the only honest "since you saved".
+			com.stak.demo.data.MyStakHoldings.add(
+				card.symbol,
+				card.brandId,
+				card.price.filter { it.isDigit() || it == '.' }.toDoubleOrNull(),
+			)
 		} else {
 			passedCards = passedCards + card.symbol
 		}

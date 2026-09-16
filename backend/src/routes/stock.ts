@@ -511,7 +511,15 @@ stockRouter.get("/:symbol", async (req, res) => {
 		const peRatio = m.peTTM ?? null;
 		const marketCapRaw = m.marketCapitalization ?? null;
 
+		// The catalogue entry behind this symbol: the name titles the page with the
+		// stock being shown rather than another company's (Android's Stock Detail
+		// borrowed Apple's whole fact sheet for unknown symbols), and the id is the
+		// key the brand endpoints - tip, quick look - are addressed by.
+		const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
+
 		res.json({
+			name: brand?.name ?? null,
+			brandId: brand?.id ?? null,
 			quote,
 			metrics: {
 				peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,

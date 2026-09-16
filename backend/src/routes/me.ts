@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, getEasternDateKey } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 
@@ -10,6 +10,13 @@ export const meRouter = Router();
 // Android holds tickers; stak_brands (shared with web) holds brand ids.
 const ID_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.id]));
 const TICKER_BY_ID = new Map(brands.map((b) => [b.id, b.ticker]));
+const NAME_BY_ID = new Map(brands.map((b) => [b.id, b.name]));
+
+// The saved stock's primary category — the same signal /api/recommendations sends,
+// so My STAK groups a save under the category the deck ranked it on.
+const CATEGORY_BY_TICKER: Record<string, string> = Object.fromEntries(
+	(STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[]).map((s) => [s.ticker.toUpperCase(), s.primaryCategory]),
+);
 
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -459,19 +466,53 @@ meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequ
 	}
 });
 
-// GET /api/me/android-stocks — the user's saved stocks as tickers. Backed by the
-// same stak_brands list the web uses, so saves are shared across platforms. The
+// GET /api/me/android-stocks — the user's saved stocks. Backed by the same
+// stak_brands list the web uses, so saves are shared across platforms. The
 // legacy preferences.android_stocks list is folded in until the next save migrates it.
+//
+// `tickers` is the flat list older clients read. `saved` carries what My STAK
+// needs to describe a save without inventing it: the company name, the category
+// the deck ranked it on, when it was saved and the price at the time.
 meRouter.get("/android-stocks", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const [saved, legacy] = await Promise.all([
-			pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1 order by saved_at asc`, [uid]),
+			pgQuery<{ brand_id: string; saved_at: string | null; price_at_save: string | number | null }>(
+				`select brand_id, saved_at, price_at_save from stak_brands where uid = $1 order by saved_at asc`,
+				[uid],
+			),
 			pgQuery<{ preferences: Record<string, unknown> | null }>(`select preferences from users where uid = $1`, [uid]),
 		]);
-		const tickers = saved.rows.map((r) => TICKER_BY_ID.get(r.brand_id)).filter((t): t is string => !!t);
+		const entries = saved.rows.flatMap((r) => {
+			const ticker = TICKER_BY_ID.get(r.brand_id);
+			if (!ticker) return [];
+			return [{
+				ticker,
+				brandId: r.brand_id,
+				name: NAME_BY_ID.get(r.brand_id) ?? ticker,
+				category: CATEGORY_BY_TICKER[ticker.toUpperCase()] ?? null,
+				savedAt: r.saved_at,
+				// numeric columns arrive as strings from pg
+				priceAtSave: r.price_at_save === null ? null : Number(r.price_at_save),
+			}];
+		});
 		const legacyTickers = (legacy.rows[0]?.preferences?.android_stocks as string[] | undefined) ?? [];
-		res.json({ tickers: [...new Set([...tickers, ...legacyTickers])] });
+		const known = new Set(entries.map((e) => e.ticker));
+		for (const ticker of legacyTickers) {
+			if (known.has(ticker)) continue;
+			known.add(ticker);
+			// A legacy save has no row of its own, so it has no save date or price yet.
+			const brandId = ID_BY_TICKER.get(ticker.toUpperCase());
+			entries.push({
+				ticker,
+				brandId: brandId ?? "",
+				name: (brandId && NAME_BY_ID.get(brandId)) || ticker,
+				category: CATEGORY_BY_TICKER[ticker.toUpperCase()] ?? null,
+				savedAt: null,
+				priceAtSave: null,
+			});
+		}
+		res.json({ tickers: entries.map((e) => e.ticker), saved: entries });
 	} catch (error) {
 		console.error("Error fetching android stocks:", error);
 		res.status(500).json({ error: "Failed to fetch android stocks" });
