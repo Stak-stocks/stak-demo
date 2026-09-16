@@ -218,7 +218,7 @@ fun MyStakScreen(
 					color = Body,
 				)
 			}
-			PortfolioSummary(ui, demo)
+			PortfolioSummary(ui, demo, viewModel::selectRange)
 			if (if (demo) com.stak.demo.data.MyStakHoldings.count > 0 else ui.groups.isNotEmpty()) {
 				SectionHeader("Breakdown")
 				AllocationCard(ui, demo)
@@ -365,18 +365,23 @@ private fun CollectionChip(
 
 /** Performance this week — +4.9%, chart, range pills, best/worst. */
 @Composable
-private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean) {
+private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRange: (String) -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// The range pills select (user, 2026-09-05: "be able to click on the
 	// timeline"); "3M" is the authored default (1:3155) and keeps the
 	// authored chart image, the other ranges draw the shared demo series.
 	var range by rememberSaveable { mutableStateOf("3M") }
+	// The pills drive the line: each range is drawn from that range's real prices.
+	if (!demo) LaunchedEffect(range) { onRange(range) }
 	// Product audit (2026-09-05): a new account has no performance yet, and
 	// once it saves, its move is its own stocks' - not the demo's +4.9%.
 	val empty = if (demo) com.stak.demo.data.MyStakHoldings.count == 0 else ui.holdings.isEmpty()
 	// A live quote carries today's move and no further back, so that is what
 	// this card claims. The week returns with real price history.
-	val movePct = if (demo) 4.9 else ui.todayPct
+	// The selected range's own move once its prices are in; today's until then.
+	// Today's move stands in only for 1D, where today IS the range; under any other
+	// pill it would answer a different period than the one selected.
+	val movePct = if (demo) 4.9 else (ui.rangePct ?: if (range == "1D") ui.todayPct else null)
 	Column(
 		verticalArrangement = Arrangement.spacedBy((14 * u).dp),
 		modifier = Modifier
@@ -387,7 +392,7 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean) {
 	) {
 		Column(verticalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.padding(start = (20 * u).dp)) {
 			Text(
-				text = if (demo) "Performance this week" else "Performance today",
+				text = if (demo) "Performance this week" else "Performance " + rangeWord(range, ui.rangePct != null || range == "1D"),
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Muted,
 			)
@@ -410,7 +415,7 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean) {
 					color = Muted,
 				)
 				Text(
-					text = if (demo) "3M" else "Today",
+					text = if (demo) "3M" else range,
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
 				)
@@ -428,8 +433,25 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean) {
 		} else {
 			// The SHAPE is still a stand-in - only its direction and size are the
 			// account's own. A drawn-from-prices line needs the history endpoint.
-			val line = if (demo) series!! else com.stak.demo.data.StakInsights.scaled(series ?: SERIES_3M, movePct ?: 0.0)
-			RangeChart(series = line, tint = Teal, modifier = chartModifier)
+			// The account's own line, drawn from the range's own closes. A range with
+			// no prices draws nothing at all - a shape invented to fill the box would
+			// read as this portfolio's history (audit, 2026-09-15: 1d returns no
+			// points once the market closes).
+			val line = if (demo) series else ui.chartSeries
+			if (line != null) {
+				RangeChart(series = line, tint = Teal, modifier = chartModifier)
+			} else {
+				// Empty while loading; said plainly once the range is known to have none.
+				Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+					if (ui.chartMissing) {
+						Text(
+							"No price history for this range",
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp),
+							color = Muted,
+						)
+					}
+				}
+			}
 		}
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -555,10 +577,26 @@ private fun SectorBar(name: String, share: String, color: Color, fill: Dp, dot: 
 }
 
 /**
-* The Discover banner's line. The authored two-line shape (1:3322) breaks
-* before "deck."; the number is how many cards are actually left in today's
-* deck (product audit, 2026-09-05: it always read 8).
-*/
+ * "today" / "over 3 months" - the period the headline figure covers. Until the
+ * range's own prices arrive the card still shows today's move, so it says today.
+ */
+private fun rangeWord(range: String, haveRange: Boolean): String {
+	if (!haveRange) return "today"
+	return when (range) {
+		"1D" -> "today"
+		"1W" -> "this week"
+		"1M" -> "this month"
+		"3M" -> "over 3 months"
+		"YTD" -> "this year"
+		else -> "over a year"
+	}
+}
+
+/**
+ * The Discover banner's line. The authored two-line shape (1:3322) breaks
+ * before "deck."; the number is how many cards are actually left in today's
+ * deck (product audit, 2026-09-05: it always read 8).
+ */
 private fun bannerLine(demo: Boolean, cardsLeft: Int?): String = when {
 	demo || cardsLeft == null -> "Based on your taste, 8 fresh picks are waiting in the\ndeck."
 	cardsLeft == 0 -> "You've been through today's deck. Fresh picks land\ntomorrow."

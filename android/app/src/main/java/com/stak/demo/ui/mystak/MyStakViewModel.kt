@@ -15,6 +15,9 @@ import com.stak.demo.data.categoryColorKey
 import com.stak.demo.data.categoryGroupId
 import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -79,6 +82,13 @@ class MyStakViewModel @Inject constructor(
         val cardsLeft: Int? = null,
         val readHeadline: String = "",
         val readBody: String = "",
+        /** The selected range's equal-weight line, as fractions of the chart's height. */
+        val chartSeries: List<Float>? = null,
+        /** The move across that range, equally weighted across the saved stocks. */
+        val rangePct: Double? = null,
+        val chartRange: String = "3M",
+        /** True when the range came back with no prices - draw nothing, don't invent a line. */
+        val chartMissing: Boolean = false,
     )
 
     private val _ui = MutableStateFlow(MyStakUi())
@@ -137,7 +147,10 @@ class MyStakViewModel @Inject constructor(
             }
             val moved = holdings.mapNotNull { it.changePct }
             val ranked = holdings.filter { it.changePct != null }
-            _ui.value = MyStakUi(
+            // copy(), not a fresh MyStakUi: the range's chart is fetched alongside this
+            // and finishes on its own schedule, so rebuilding the state wholesale
+            // wiped a line that had already arrived (device audit, 2026-09-15).
+            _ui.value = _ui.value.copy(
                 loading = false,
                 holdings = holdings,
                 groups = groupsOf(holdings),
@@ -149,6 +162,62 @@ class MyStakViewModel @Inject constructor(
                 readBody = readBody(holdings),
             )
         }
+    }
+
+    /**
+     * Draws the performance card for [range] from real prices. The pills' labels
+     * lowercase onto the endpoint's ranges ("3M" -> "3m").
+     */
+    fun selectRange(range: String) {
+        if (_ui.value.chartRange == range && _ui.value.chartSeries != null) return
+        // Drop the old range's line immediately: it answers a different question.
+        _ui.value = _ui.value.copy(chartRange = range, chartSeries = null, rangePct = null, chartMissing = false)
+        viewModelScope.launch {
+            val tickers = MyStakHoldings.tickers.toList()
+            if (tickers.isEmpty()) return@launch
+            val built = portfolioSeries(tickers, range.lowercase())
+            // A slow reply for a range the user has already left must not land.
+            if (_ui.value.chartRange != range) return@launch
+            _ui.value = _ui.value.copy(
+                chartSeries = built?.first,
+                rangePct = built?.second,
+                // A closed market returns no intraday points; that is missing data,
+                // not a flat portfolio, and it must not fall back to a drawn shape.
+                chartMissing = built == null,
+            )
+        }
+    }
+
+    /**
+     * The saved stocks as one equal-weight line. Each stock is indexed to its own
+     * first close before averaging, so a $900 share doesn't drown a $9 one, and the
+     * series are aligned on their tails so every stock covers the same window.
+     */
+    private suspend fun portfolioSeries(tickers: List<String>, range: String): Pair<List<Float>, Double>? = coroutineScope {
+        val series = tickers
+            .map { t -> async { runCatching { repository.getChart(t, range) }.getOrNull() } }
+            .awaitAll()
+            .mapNotNull { chart ->
+                chart?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
+            }
+        if (series.isEmpty()) return@coroutineScope null
+        val n = series.minOf { it.size }
+        val indexed = (0 until n).map { i ->
+            series.map { s ->
+                val base = s[s.size - n]
+                if (base > 0.0) s[s.size - n + i] / base else 1.0
+            }.average()
+        }
+        val pct = (indexed.last() - 1.0) * 100.0
+        val low = indexed.min()
+        val span = (indexed.max() - low).takeIf { it > 1e-9 }
+        // A line that never moved sits in the middle rather than pinned to the floor.
+        // Inset from the edges: the line is a 2dp stroke centred on the path, so a
+        // high of exactly 1.0 draws half of itself outside the box and reads clipped.
+        val fractions = indexed.map { v ->
+            if (span == null) 0.5f else (EDGE + ((v - low) / span).toFloat() * (1f - 2 * EDGE)).coerceIn(0f, 1f)
+        }
+        fractions to pct
     }
 
     /** The collection behind a chip - the Collection page serves this. */
@@ -221,6 +290,9 @@ class MyStakViewModel @Inject constructor(
     private companion object {
         /** A save with no category the deck ranks on - it still has to show up somewhere. */
         const val OTHER = "Other"
+
+        /** How far the chart line stays clear of the top and bottom of its box. */
+        const val EDGE = 0.08f
     }
 }
 

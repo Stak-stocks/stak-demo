@@ -88,6 +88,10 @@ data class CompanyNewsResponse(val articles: List<NewsArticleDto> = emptyList())
  * describe the group as a whole - per-peer numbers come from fetching each
  * peer's own metrics.
  */
+/** One close on a price chart; `session` marks pre/regular/post for intraday ranges. */
+data class ChartPoint(val ts: String = "", val close: Double = 0.0, val session: String = "regular")
+data class ChartResponse(val prices: List<ChartPoint> = emptyList())
+
 data class PeerMetricsResponse(
     val ticker: String = "",
     val peerTickers: List<String> = emptyList(),

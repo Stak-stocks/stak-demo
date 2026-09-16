@@ -15,6 +15,10 @@ interface StockApiService {
     @GET("api/stock/{symbol}")
     suspend fun getStock(@Path("symbol") symbol: String): StockDetailResponse
 
+    /** Ranges: 1d, 1w, 1m, 3m, ytd, 1y - the pills' labels, lowercased. */
+    @GET("api/stock/{symbol}/chart")
+    suspend fun getChart(@Path("symbol") symbol: String, @Query("range") range: String): ChartResponse
+
     /** Two segments, so it can't be swallowed by the single-segment /api/stock/{symbol}. */
     @GET("api/stock/peer-metrics/{ticker}")
     suspend fun getPeerMetrics(@Path("ticker") ticker: String): PeerMetricsResponse
