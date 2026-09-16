@@ -182,6 +182,7 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 	// and if the user swipes on while the sheet is up the save still lands
 	// on the story that opened it.
 	var successId by rememberSaveable { mutableStateOf<String?>(null) }
+	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 	val successArticle = successId?.let { NewsArticleFeed.article(it) } ?: current
 	fun save(target: NewsArticleFeed.Article) {
 		NewsSaves.add(target.id)
@@ -248,7 +249,18 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 						article = article,
 						saved = article.id in savedIds,
 						onSave = { save(article) },
-						onAddToStak = { successId = article.id; showSuccess = true },
+						onAddToStak = {
+							// The sheet announces "Saved to My STAK" before the save runs, so a
+							// full Stak is refused here, with the reason, instead of after it.
+							val ticker = article.ticker
+							if (ticker != null && ticker !in com.stak.demo.data.MyStakHoldings.tickers &&
+								com.stak.demo.data.MyStakHoldings.isFull
+							) {
+								stakFullNotice.show()
+							} else {
+								successId = article.id; showSuccess = true
+							}
+						},
 						onOpenArticle = onOpenArticle,
 					)
 				}
@@ -272,6 +284,14 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 				onDismiss = { showSuccess = false; save(successArticle) },
 			)
 		}
+		com.stak.demo.ui.components.StakFullToast(
+			state = stakFullNotice,
+			u = u,
+			modifier = Modifier
+				.align(Alignment.TopCenter)
+				.statusBarsPadding()
+				.padding(top = (74 * u).dp),
+		)
 		fullscreenSlot.value?.let { (fsPlayer, fsExo) -> FullscreenPlayer(player = fsPlayer, exo = fsExo) }
 	}
 	}

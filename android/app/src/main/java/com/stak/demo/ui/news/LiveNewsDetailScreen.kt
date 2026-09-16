@@ -125,6 +125,7 @@ fun LiveNewsDetailScreen(
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     var saved by rememberSaveable { mutableStateOf(MyStakHoldings.tickers.contains(article.ticker)) }
+    val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 
     // READ NEXT: the 2 articles that follow the current one in feed order (wraps if at end)
     val readNext = remember(article.url) {
@@ -267,9 +268,17 @@ fun LiveNewsDetailScreen(
                 // Add to STAK button
                 if (article.ticker.isNotBlank() && !saved) {
                     LiveAddToStakButton(onClick = {
-                        MyStakHoldings.add(article.ticker)
-                        saved = true
+                        // add() refuses at capacity; marking it saved regardless showed a
+                        // stock as kept that neither the Stak nor the server holds.
+                        if (MyStakHoldings.add(article.ticker)) saved = true else stakFullNotice.show()
                     })
+                    if (stakFullNotice.visible) {
+                        Text(
+                            text = com.stak.demo.ui.components.STAK_FULL_MESSAGE,
+                            style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+                            color = News.Muted,
+                        )
+                    }
                 }
 
                 // Stock card

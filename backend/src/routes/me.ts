@@ -537,9 +537,16 @@ meRouter.put("/android-stocks", authMiddleware, async (req: AuthenticatedRequest
 		// The cap is a rule, not a client habit: the web blocked adds past it while
 		// this accepted any length, so another client could store a Stak the web
 		// would then load over its own capacity.
+		// Only a write that GROWS a Stak past the cap is refused. Android accepted any
+		// length before this rule, so an account can already hold more than 30; refusing
+		// every oversized list would refuse its unsaves too, and it could never get back
+		// under - each removal rejected, then restored by the next refresh.
 		if (ids.length > STAK_CAPACITY) {
-			res.status(400).json({ error: `A Stak holds at most ${STAK_CAPACITY} stocks`, capacity: STAK_CAPACITY });
-			return;
+			const held = await pgQuery<{ n: number }>(`select count(*)::int as n from stak_brands where uid = $1`, [uid]);
+			if (ids.length > (held.rows[0]?.n ?? 0)) {
+				res.status(400).json({ error: `A Stak holds at most ${STAK_CAPACITY} stocks`, capacity: STAK_CAPACITY });
+				return;
+			}
 		}
 		await ensureUserRow(uid, req.user!.email);
 		await replaceStakBrands(uid, ids);

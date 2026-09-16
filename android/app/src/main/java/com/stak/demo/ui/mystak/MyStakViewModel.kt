@@ -225,7 +225,16 @@ class MyStakViewModel @Inject constructor(
     private suspend fun portfolioSeries(tickers: List<String>, range: String): RangeData? {
         // One request for the whole Stak. Combining it here meant a chart call per
         // saved stock on every range change - up to a full Stak of them per tap.
-        val resp = runCatching { repository.getPortfolioChart(tickers, range) }.getOrNull()
+        // A cancelled request must stop here, not read as "no data": runCatching also
+        // swallows the cancellation, so a superseded job ran on and briefly flagged the
+        // range as missing while its replacement was still loading.
+        val resp = try {
+            repository.getPortfolioChart(tickers, range)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
         val indexed = resp?.indexed?.takeIf { it.size >= 2 } ?: return null
         return RangeData(
             series = chartFractions(indexed),

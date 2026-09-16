@@ -37,6 +37,7 @@ object MyStakHoldings {
 	 * chart from that stale set while the labels beside it used the fresh one
 	 * (device audit, 2026-09-16). A read waits for the write in flight.
 	 */
+	@Volatile
 	private var pendingWrite: Job? = null
 
 	fun init(repo: StockRepository) {
@@ -253,9 +254,13 @@ object MyStakHoldings {
 	private fun syncToBackend(brandId: String? = null, priceNow: Double? = null) {
 		if (Session.token == null) return
 		val snapshot = tickers.toList()
-		// Held so a refresh can wait for it; each write sends the whole list, so a
-		// later one supersedes anything still in flight.
+		// Chained, not just replaced. Two quick saves started two PUTs with no order
+		// between them, so the older list could land last and win; and holding only
+		// the newest job let a refresh go ahead while the older one was still out.
+		// Each write now waits for the one before it, and a refresh waits for the tail.
+		val previous = pendingWrite
 		pendingWrite = scope.launch {
+			previous?.join()
 			runCatching { repository?.putAndroidStocks(snapshot) }
 			// The row has to exist before its price can be stamped, so this follows
 			// the PUT rather than racing it - the server only keeps the first value.

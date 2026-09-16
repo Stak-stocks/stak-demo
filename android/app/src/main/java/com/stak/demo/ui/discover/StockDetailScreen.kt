@@ -135,12 +135,7 @@ fun StockDetailScreen(
 	var showSuccess by rememberSaveable { mutableStateOf(false) }
 	var showBuy by rememberSaveable { mutableStateOf(false) }
 	// Shown when Save is refused because the Stak is full; clears on its own.
-	var stakFullNotice by remember { mutableStateOf(false) }
-	LaunchedEffect(stakFullNotice) {
-		if (!stakFullNotice) return@LaunchedEffect
-		kotlinx.coroutines.delay(4000)
-		stakFullNotice = false
-	}
+	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
 	var range by rememberSaveable { mutableStateOf("3M") }
 	// Each pill draws that range's own closes; the demo keeps its authored line.
@@ -305,11 +300,11 @@ fun StockDetailScreen(
 						// attempted, so a full Stak must not reach it - and must say why
 						// rather than leaving the button to do nothing.
 						DetailCta("Save") {
-							if (com.stak.demo.data.MyStakHoldings.isFull) stakFullNotice = true else showSuccess = true
+							if (com.stak.demo.data.MyStakHoldings.isFull) stakFullNotice.show() else showSuccess = true
 						}
-						if (stakFullNotice) {
+						if (stakFullNotice.visible) {
 							Text(
-								"Your STAK is full — remove a stock to save another",
+								com.stak.demo.ui.components.STAK_FULL_MESSAGE,
 								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 								color = Muted,
 								modifier = Modifier.fillMaxWidth(),
@@ -341,15 +336,17 @@ fun StockDetailScreen(
 				// B7/B8: both CTAs mark the stock saved, then leave the page
 				// (forward push to My STAK / dissolve back to the deck).
 				onViewInMyStak = {
-					saved = true
-					DeckSession.saved = DeckSession.saved + symbol
-					com.stak.demo.data.MyStakHoldings.add(symbol)
+					// add() is the authority: it refuses at capacity, and a refused save
+					// must not leave this page or the deck believing the stock is kept.
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
-					saved = true
-					DeckSession.saved = DeckSession.saved + symbol
-					com.stak.demo.data.MyStakHoldings.add(symbol)
+					// add() is the authority: it refuses at capacity, and a refused save
+					// must not leave this page or the deck believing the stock is kept.
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
 			)

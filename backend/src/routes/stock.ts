@@ -452,7 +452,22 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 	}
 });
 
-// ── Stock quote & metrics ─────────────────────────────────────────────────────
+const CATALOGUE_TICKERS = new Set(brands.map((b) => b.ticker.toUpperCase()));
+const CHART_RANGES = new Set(["1d", "1w", "1m", "3m", "ytd", "1y"]);
+
+/** Promise.all with at most `limit` of `fn` running at once; results keep input order. */
+async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+	const out = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			out[i] = await fn(items[i]!);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return out;
+}
 
 // ── Portfolio chart ──────────────────────────────────────────────────────────
 // GET /api/stock/portfolio-chart?tickers=A,B,C&range=3m
@@ -469,8 +484,13 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 		.split(",")
 		.map((t) => t.trim().toUpperCase())
 		.filter(Boolean);
-	const tickers = [...new Set(asked)].slice(0, STAK_CAPACITY);
-	const range = (req.query.range as string) || "1m";
+	// Catalogue tickers only. This route is public, and every unknown symbol was a
+	// Yahoo request that failed uncached - thirty invented tickers per call was a
+	// cheap way to get the backend rate-limited for everyone. A Stak only ever
+	// holds catalogue stocks, so nothing real is turned away.
+	const tickers = [...new Set(asked)].filter((t) => CATALOGUE_TICKERS.has(t)).slice(0, STAK_CAPACITY);
+	// Likewise the range: an unknown one behaved as 1m under its own cache key.
+	const range = CHART_RANGES.has(req.query.range as string) ? (req.query.range as string) : "1m";
 	if (tickers.length === 0) {
 		res.json({ indexed: [], pct: null, moves: {} });
 		return;
@@ -484,12 +504,12 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 		return;
 	}
 
-	const fetched = await Promise.all(
-		tickers.map(async (ticker) => {
-			const payload = await chartPricesFor(ticker, range);
-			return { ticker, closes: payload.prices.map((p) => p.close).filter((c) => c > 0) };
-		}),
-	);
+	// A few at a time: a cold Stak is thirty Yahoo requests, and firing them at once
+	// is the pattern that gets a client rate-limited.
+	const fetched = await mapWithLimit(tickers, 6, async (ticker) => {
+		const payload = await chartPricesFor(ticker, range);
+		return { ticker, closes: payload.prices.map((p) => p.close).filter((c) => c > 0) };
+	});
 	const usable = fetched.filter((s) => s.closes.length >= 2);
 	if (usable.length === 0) {
 		res.json({ indexed: [], pct: null, moves: {} });
@@ -521,10 +541,18 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 		pct: Math.round((indexed[indexed.length - 1]! - 1) * 1000) / 10,
 		moves,
 	};
-	// Today's line is still being drawn; the rest are closed and won't change.
-	await cacheSet(cacheKey, payload, range === "1d" ? 5 * 60 * 1000 : 60 * 60 * 1000);
+	// Only a complete line is kept. When one stock's prices failed to arrive, the
+	// line above simply leaves it out - fine to show once, but caching it would
+	// drop that stock from the percentage and Best/Worst for the whole TTL.
+	if (usable.length === tickers.length) {
+		// Never outlive the per-stock entries it is built from (chartPricesFor).
+		const ttl = range === "1d" ? 5 * 60 * 1000 : range === "1w" ? 30 * 60 * 1000 : 60 * 60 * 1000;
+		await cacheSet(cacheKey, payload, ttl);
+	}
 	res.json(payload);
 });
+
+// ── Stock quote & metrics ─────────────────────────────────────────────────────
 
 stockRouter.get("/:symbol", async (req, res) => {
 	const raw = req.params.symbol.toUpperCase();
@@ -1665,16 +1693,11 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 	res.json({ risk: null });
 });
 
-type ChartPayload = { prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] };
-
 // ── Price chart ───────────────────────────────────────────────────────────────
-// GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
 // 1d/1w include pre/after-hours via prePost=true
 
-/**
- * One symbol's closes for a range, cached. Extracted from the route so the
- * portfolio line can reuse it instead of a client fetching each stock itself.
- */
+type ChartPayload = { prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] };
+
 /**
  * Drops single-bar bad prints from an intraday series. Yahoo's minute data
  * carries the occasional bogus close - GOOGL printed 320.74 between two 344.2s,
@@ -1698,12 +1721,16 @@ function withoutBadTicks<T extends { close: number }>(points: T[]): T[] {
 	});
 }
 
+/**
+ * One symbol's closes for a range, cached. Extracted from the route so the
+ * portfolio line can reuse it instead of a client fetching each stock itself.
+ */
 async function chartPricesFor(symbol: string, range: string): Promise<ChartPayload> {
 	// v5: single-bar bad prints are filtered out of intraday series now, and a v4
 	// entry would keep serving the spike it was cached with.
 	const cacheKey = `stock:chart:v5:${symbol}:${range}`;
-	const cached = await cacheGet<{ prices: { ts: string; close: number; session: "pre" | "regular" | "post" }[] }>(cacheKey);
-	if (cached) return cached as ChartPayload;
+	const cached = await cacheGet<ChartPayload>(cacheKey);
+	if (cached) return cached;
 
 	const now = Math.floor(Date.now() / 1000);
 	let from: number;
@@ -1746,7 +1773,7 @@ async function chartPricesFor(symbol: string, range: string): Promise<ChartPaylo
 			headers: { "User-Agent": "Mozilla/5.0" },
 			signal: AbortSignal.timeout(10000),
 		});
-		if (!r.ok) return { prices: [] };
+		if (!r.ok) return await emptyChart(cacheKey);
 		const data = await r.json() as {
 			chart?: { result?: Array<{
 				timestamp?: number[];
@@ -1795,8 +1822,19 @@ async function chartPricesFor(symbol: string, range: string): Promise<ChartPaylo
 		await cacheSet(cacheKey, payload, cacheTtl);
 		return payload;
 	} catch {
-		return { prices: [] };
+		return await emptyChart(cacheKey);
 	}
+}
+
+/**
+ * A failed fetch, remembered for a minute. Uncached, every retry went straight
+ * back to Yahoo - a rate-limited backend then turned each tap into another
+ * round of up to thirty requests, which is how a limit stays hit.
+ */
+async function emptyChart(cacheKey: string): Promise<ChartPayload> {
+	const payload: ChartPayload = { prices: [] };
+	await cacheSet(cacheKey, payload, 60 * 1000);
+	return payload;
 }
 
 // GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y

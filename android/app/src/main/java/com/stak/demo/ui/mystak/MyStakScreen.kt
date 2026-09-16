@@ -370,7 +370,9 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRang
 	// The range pills select (user, 2026-09-05: "be able to click on the
 	// timeline"); "3M" is the authored default (1:3155) and keeps the
 	// authored chart image, the other ranges draw the shared demo series.
-	var range by rememberSaveable { mutableStateOf("3M") }
+	// Seeded from the shared ViewModel: the tabs don't keep saved state, so this reset
+	// to 3M on every return - losing the user's range and refetching a line for it.
+	var range by rememberSaveable { mutableStateOf(ui.chartRange) }
 	// The pills drive the line: each range is drawn from that range's real prices.
 	if (!demo) LaunchedEffect(range) { onRange(range) }
 	// Product audit (2026-09-05): a new account has no performance yet, and
@@ -487,15 +489,20 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRang
 		// The demo's authored TSLA / SNOW. A real account's best and worst describe
 		// the selected range, so the pair matches the line and the figure above them;
 		// today's movers stand in only until that range's prices arrive.
-		val rangeBest = ui.rangeMoves.maxByOrNull { it.value }
-		val rangeWorst = ui.rangeMoves.minByOrNull { it.value }
+		// A best and a worst need two stocks to compare; with one, both named the same
+		// stock - the rule the today pair (ui.best/worst) already kept.
+		val rangeMoves = ui.rangeMoves.takeIf { it.size >= 2 }
+		val rangeBest = rangeMoves?.maxByOrNull { it.value }
+		val rangeWorst = rangeMoves?.minByOrNull { it.value }
 		val best = ui.best
 		val worst = ui.worst
 		val bestTicker = rangeBest?.key ?: best?.ticker
 		val worstTicker = rangeWorst?.key ?: worst?.ticker
 		val bestPct = rangeBest?.value ?: best?.changePct
 		val worstPct = rangeWorst?.value ?: worst?.changePct
-		val periodLabel = if (demo) "this week" else "· $range"
+		// Name the period the numbers actually cover: while a range loads, or comes
+		// back empty, the pair is today's movers and must not wear "· 1Y".
+		val periodLabel = if (demo) "this week" else if (rangeBest != null) "· $range" else "· today"
 		if (!empty && (demo || (bestTicker != null && worstTicker != null))) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
 				Text("Best $periodLabel", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)
