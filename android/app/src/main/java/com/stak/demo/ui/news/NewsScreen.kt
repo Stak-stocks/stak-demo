@@ -97,6 +97,8 @@ fun NewsScreen(
 	val liveNews by viewModel.liveNews.collectAsStateWithLifecycle()
 	val dailyBrief by viewModel.dailyBrief.collectAsStateWithLifecycle()
 	val forYouNews by viewModel.forYouNews.collectAsStateWithLifecycle()
+	val liveNewsSettled by viewModel.liveNewsSettled.collectAsStateWithLifecycle()
+	val liveNewsFailed by viewModel.liveNewsFailed.collectAsStateWithLifecycle()
 	// Re-fetch For You each time the screen is entered so new holdings from
 	// Discover (or direct My STAK adds) are picked up without a full restart.
 	LaunchedEffect(Unit) { viewModel.refreshForYou() }
@@ -218,11 +220,14 @@ fun NewsScreen(
 			}
 			// Daily brief drives the carousel when authenticated (AI-generated, holiday/session-aware).
 			// Falls back to top news articles; only the demo account falls back to the authored
-			// set - for a real account those are invented stories credited to real outlets.
+			// set — for a real account those are invented stories credited to real outlets.
 			val demo = com.stak.demo.data.Session.demoAccount
-			val briefHasContent = dailyBrief?.let { it.moodExplanation.isNotBlank() || it.plainEnglish.isNotBlank() } == true
-			fun liveBody(a: com.stak.demo.data.NewsArticleDto): String =
+			fun liveBody(a: NewsArticleDto): String =
 				a.explanation.takeIf { it.isNotBlank() } ?: com.stak.demo.data.NewsText.summaryBeyondHeadline(a.headline, a.summary).orEmpty()
+			// Search reads a live story the way it reads an authored one: its text and ticker,
+			// not just the headline and source ("NVDA" found nothing).
+			fun matchesLive(a: NewsArticleDto): Boolean = q.isEmpty() ||
+				listOf(a.headline, a.source, a.summary, a.explanation, a.ticker).any { it.contains(q, ignoreCase = true) }
 			val sourceBriefs = if (briefIsLoading) emptyList() else run {
 				val brief = dailyBrief
 				if (brief != null && (brief.moodExplanation.isNotBlank() || brief.plainEnglish.isNotBlank())) {
@@ -270,36 +275,35 @@ fun NewsScreen(
 			val primaryBrief = sourceBriefs.firstOrNull { q.isEmpty() || matchesBrief(it) }
 			if (primaryBrief != null) {
 				BriefCard(brief = primaryBrief, onRead = {
-					// The brief page needs a brief to show: a failed one opened it empty.
-					if (briefHasContent) {
+					// A news card opens its story; only the brief's own cards (no link) open the
+					// brief page - which a failed brief used to open empty.
+					if (primaryBrief.url != null) {
+						uriHandler.openUri(primaryBrief.url)
+					} else if (dailyBrief?.let { it.moodExplanation.isNotBlank() || it.plainEnglish.isNotBlank() } == true) {
 						DailyBriefHolder.current = dailyBrief
 						DailyBriefHolder.news = liveNews
 						onOpenDailyBrief()
-					} else if (primaryBrief.url != null) {
-						uriHandler.openUri(primaryBrief.url)
 					}
 				})
-			} else if (q.isEmpty() && !briefIsLoading && !demo) {
-				BriefUnavailableCard()
+			} else if (q.isEmpty() && !briefIsLoading && liveNewsSettled && !demo) {
+				// Only once the news request has finished: before that an empty list is just
+				// "not here yet", and the card flashed on every open.
+				BriefUnavailableCard(failed = liveNewsFailed)
 			}
 			// For You: live company news for held stocks, deduplicated and recency-sorted.
-			val liveForYou = forYouNews.filter { a ->
-				q.isEmpty() || a.headline.contains(q, ignoreCase = true) || a.source.contains(q, ignoreCase = true)
-			}
+			val liveForYou = forYouNews.filter(::matchesLive)
 			if (liveForYou.isNotEmpty()) {
 				LiveNewsSection(title = "For You", articles = liveForYou, onOpen = { url -> uriHandler.openUri(url) }, onOpenArticle = onOpenLiveArticle)
 			}
 			// Articles not consumed by the carousel become the Markets rows.
 			// Brief card is AI-only — no news articles are consumed, so Markets gets all of liveNews.
-			val liveMarkets = liveNews.filter { a ->
-				q.isEmpty() || a.headline.contains(q, ignoreCase = true) || a.source.contains(q, ignoreCase = true)
-			}
+			val liveMarkets = liveNews.filter(::matchesLive)
 			if (liveMarkets.isNotEmpty()) {
 				LiveNewsSection(title = "Markets", articles = liveMarkets, onOpen = { url -> uriHandler.openUri(url) }, onOpenArticle = onOpenLiveArticle)
 			} else if (demo) {
 				// The authored stories are the demo's; a real account searching for something
 				// the live feed doesn't carry was shown "Amazon climbs on cloud margin beat"
-				// credited to Reuters - an invented story - instead of "No results".
+				// credited to Reuters — an invented story — instead of "No results".
 				val markets = NewsArticleFeed.markets().filter { matchesArticle(it) }
 				if (markets.isNotEmpty()) NewsSection(title = "Markets", rows = markets, onOpen = onOpenArticle)
 			}
@@ -456,10 +460,12 @@ private fun MoodGauge(mood: String?, u: Float) {
 
 /**
  * Where the brief card sits when a real account has no brief and no live news to fill
- * it: says so, rather than showing the demo's authored briefs as today's.
+ * it: says so, rather than showing the demo's authored briefs as today's. [failed] tells
+ * a news request that failed from one that came back with nothing; the wording matches
+ * Home's.
  */
 @Composable
-private fun BriefUnavailableCard() {
+private fun BriefUnavailableCard(failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -470,12 +476,12 @@ private fun BriefUnavailableCard() {
 			.padding((18 * u).dp),
 	) {
 		Text(
-			text = "Today's brief isn't available",
+			text = if (failed) "Market news isn't loading" else "Today's brief isn't available",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
 			color = Color.White,
 		)
 		Text(
-			text = "Market news couldn't be loaded right now.",
+			text = if (failed) "Leave News and come back to try again." else "There's no market news to show right now.",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = News.Muted,
 		)

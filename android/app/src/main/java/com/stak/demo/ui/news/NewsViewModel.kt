@@ -39,11 +39,20 @@ class NewsViewModel @Inject constructor(
     private val _liveNewsFailed = MutableStateFlow(false)
     val liveNewsFailed: StateFlow<Boolean> = _liveNewsFailed
 
+    /**
+     * True once the market news request has finished, whatever it brought back. An empty
+     * list alone can't tell "still loading" from "nothing came", and the News tab showed
+     * "couldn't be loaded" in the moment before the stories arrived.
+     */
+    private val _liveNewsSettled = MutableStateFlow(false)
+    val liveNewsSettled: StateFlow<Boolean> = _liveNewsSettled
+
     private fun fetchNews() {
         viewModelScope.launch {
             runCatching { repository.getMarketNews() }
                 .onSuccess { _liveNews.value = it.articles; _liveNewsFailed.value = false }
                 .onFailure { _liveNewsFailed.value = true }
+            _liveNewsSettled.value = true
         }
     }
 
@@ -57,12 +66,30 @@ class NewsViewModel @Inject constructor(
         }
     }
 
-    // Called from NewsScreen on each entry so new holdings from Discover are picked up.
-    fun refreshForYou() { fetchForYouNews() }
+    /** When For You last loaded, and for which holdings. */
+    private var forYouAt = 0L
+    private var forYouFor: Set<String>? = null
+
+    /**
+     * Called from NewsScreen on each entry so new holdings from Discover are picked up.
+     * It is one request per holding, so the same holdings are reloaded at most once a
+     * minute; a change of holdings reloads at once.
+     */
+    fun refreshForYou() {
+        val sameHoldings = forYouFor == MyStakHoldings.tickers
+        if (sameHoldings && System.currentTimeMillis() - forYouAt < 60_000) return
+        fetchForYouNews()
+    }
 
     private fun fetchForYouNews() {
         val held = MyStakHoldings.tickers.toList()
-        if (held.isEmpty()) return
+        forYouFor = MyStakHoldings.tickers
+        forYouAt = System.currentTimeMillis()
+        // Nothing held, nothing for you: stories about stocks since removed don't linger.
+        if (held.isEmpty()) {
+            _forYouNews.value = emptyList()
+            return
+        }
         viewModelScope.launch {
             val allArticles = coroutineScope {
                 held.map { ticker ->

@@ -247,8 +247,8 @@ fun LiveNewsDetailScreen(
                     ),
                     color = Color.White,
                 )
-                // Summary subtitle
-                val subtitle = article.summary.ifBlank { null }
+                // Summary subtitle - only when it says more than the headline above it.
+                val subtitle = com.stak.demo.data.NewsText.summaryBeyondHeadline(article.headline, article.summary)
                 if (subtitle != null) {
                     Text(
                         text = subtitle,

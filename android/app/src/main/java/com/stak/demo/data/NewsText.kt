@@ -14,7 +14,21 @@ object NewsText {
 		val h = lettersAndDigits(core)
 		val s = lettersAndDigits(summary)
 		if (s.length < 25 || (s.startsWith(h) && s.length - h.length < 25)) return null
+		// A summary that opens with the headline and then adds more keeps only the more:
+		// printed whole, the card or page repeated its own title before getting going.
+		if (h.isNotEmpty() && s.startsWith(h)) return afterLettersAndDigits(summary, h.length)
 		return summary.trim()
+	}
+
+	/** [text] from just past its first [count] letters and digits, without leading punctuation. */
+	private fun afterLettersAndDigits(text: String, count: Int): String {
+		var seen = 0
+		var i = 0
+		while (i < text.length && seen < count) {
+			if (text[i].isLetterOrDigit()) seen++
+			i++
+		}
+		return text.substring(i).trimStart { !it.isLetterOrDigit() }
 	}
 
 	private fun lettersAndDigits(text: String): String = text.lowercase().filter { it.isLetterOrDigit() }

@@ -150,6 +150,7 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
+	// v2: built from articles cleaned of encoding damage when fetched.
 	const cacheKey = "news:market:v2";
 	try {
 		const cached = await cacheGet<object>(cacheKey);
@@ -177,7 +178,8 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 	// came back as sector news.
 	const companyName = NAME_BY_TICKER.get(ticker) ?? (req.query.name as string | undefined);
 	// v2: classified by whole-word name/ticker; v1 entries carry the substring labels.
-	const cacheKey = `news:company:v2:${ticker}`;
+	// v3: articles are cleaned of encoding damage when fetched; v2 copies still hold it.
+	const cacheKey = `news:company:v3:${ticker}`;
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
@@ -230,7 +232,8 @@ newsRouter.get("/search", async (req, res) => {
 		res.status(400).json({ error: "Query must be at least 2 characters" });
 		return;
 	}
-	const cacheKey = `news:search:${q.toLowerCase()}`;
+	// v2: search results (NewsAPI included) are cleaned of encoding damage when fetched.
+	const cacheKey = `news:search:v2:${q.toLowerCase()}`;
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }

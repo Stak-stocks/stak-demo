@@ -270,7 +270,7 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 
 
 // v2: headlines and summaries are cleaned of encoding damage when fetched.
-const MARKET_CACHE_KEY = "market:all:v2";
+const MARKET_CACHE_KEY = "market:v2:all";
 
 /** Fetches fresh general market news from Finnhub and populates the shared cache pool. */
 async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
@@ -340,8 +340,8 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	return (data.articles ?? [])
 		.filter((a: { title?: string; description?: string }) => a.title && a.description)
 		.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
-			headline: a.title,
-			summary: a.description,
+			headline: cleanNewsText(a.title),
+			summary: cleanNewsText(a.description),
 			url: a.url,
 			image: a.urlToImage ?? "",
 			source: a.source?.name ?? "NewsAPI",
@@ -380,8 +380,8 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 		const articles: FinnhubArticle[] = (data.articles ?? [])
 			.filter((a: { title?: string; description?: string }) => a.title && a.description)
 			.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
-				headline: a.title,
-				summary: a.description,
+				headline: cleanNewsText(a.title),
+				summary: cleanNewsText(a.description),
 				url: a.url,
 				image: a.urlToImage ?? "",
 				source: a.source?.name ?? "NewsAPI",
