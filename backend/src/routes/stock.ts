@@ -4,6 +4,7 @@ import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { runUpdateDetection, BIG_MOVE_PCT } from "../services/updatesService.js";
+import { getRiskWatch } from "../services/riskWatchService.js";
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
@@ -1913,6 +1914,40 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 
 // ── Key risk ──────────────────────────────────────────────────────────────────
 // GET /api/stock/:symbol/key-risk
+// GET /api/stock/:symbol/risk-watch
+// The stock page's Risk snapshot and What to watch next: what could go wrong at this
+// company, and the checkpoints that decide its story - built from the numbers and
+// headlines STAK already has, cached for the day.
+stockRouter.get("/:symbol/risk-watch", async (req, res) => {
+	const symbol = resolveSymbol(req.params.symbol.toUpperCase());
+	try {
+		const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
+		const metricsKey = `metrics:${symbol}`;
+		let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
+		if (!metricsRaw) {
+			metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
+			if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
+		}
+		const m = metricsRaw?.metric ?? {};
+		// The peers' median P/E, when it has already been computed for this stock: it is
+		// what makes "trades at a premium" a fact rather than an impression.
+		const peers = await cacheGet<{ pe: number | null }>(`peer-metrics:v2:${symbol}`);
+		const result = await getRiskWatch({
+			symbol,
+			companyName: brand?.name ?? symbol,
+			peRatio: m.peTTM ?? null,
+			peerPe: peers?.pe ?? null,
+			revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
+			profitMargin: m.netProfitMarginTTM != null ? `${m.netProfitMarginTTM.toFixed(1)}%` : null,
+			beta: m.beta ?? null,
+		});
+		res.json(result ?? { risks: [], watch: [] });
+	} catch (error) {
+		console.error(`Error building risk-watch for ${symbol}:`, error);
+		res.status(500).json({ error: "Failed to build risk snapshot" });
+	}
+});
+
 // Gemini + Google Search: 1-2 sentence financial/macro risk for this stock.
 // Cached 6 hours — risks don't change minute-to-minute.
 

@@ -121,6 +121,9 @@ fun StockDetailScreen(
 		emptyFacts(symbol)
 	}
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
+	val demo = com.stak.demo.data.Session.demoAccount
+	val riskWatch by viewModel.riskWatch.collectAsStateWithLifecycle()
+	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
 	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
 	val chartPct by viewModel.chartPct.collectAsStateWithLifecycle()
@@ -299,13 +302,21 @@ fun StockDetailScreen(
 					verticalArrangement = fractionalSpacedBy((14 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
 				) {
+					// My STAK product spec (Sept 2026), V1 hierarchy: price and chart above,
+					// then Since you saved, the company's own risks, the checkpoints ahead,
+					// and only then the evidence - numbers, analysts, peers.
 					if (fromMyStak) {
 						SinceYouSavedCard(f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled)
 					}
-					RiskFitCard(f, liveDetail)
+					if (demo) {
+						RiskFitCard(f, liveDetail)
+					} else {
+						RiskSnapshotCard(riskWatch, riskWatchFailed)
+						WhatToWatchCard(riskWatch)
+					}
+					NewsSignalCard(f, liveDetail)
 					NumbersCard(f, liveDetail)
 					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
-					NewsSignalCard(f, liveDetail)
 					CompareCard(f, liveDetail, symbol)
 				}
 				Column(
@@ -401,6 +412,136 @@ fun StockDetailScreen(
 				// destination is the FOLDED detail (16:1012).
 				onDone = { analystOpen = false; showBuy = false },
 			)
+		}
+	}
+}
+
+/**
+ * Risk snapshot - what could go wrong at THIS company, and how big each one is. It
+ * replaces "Risk fit / Matches you", which claimed to know whether a stock suited the
+ * reader (My STAK product spec, §7). Nothing here is about the reader at all.
+ */
+@Composable
+private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val risks = riskWatch?.risks.orEmpty()
+	// Nothing to show and nothing to say yet: the card waits rather than inventing levels.
+	if (risks.isEmpty() && !failed) return
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+	) {
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+			Text(
+				"Risk snapshot",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+			Text(
+				"What to understand before you act",
+				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+		if (risks.isEmpty()) {
+			Text(
+				"Couldn't read this company's risks right now.",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Muted,
+			)
+		} else {
+			risks.forEach { risk ->
+				Column(verticalArrangement = Arrangement.spacedBy((4 * u).dp), modifier = Modifier.fillMaxWidth()) {
+					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+						Text(
+							risk.label,
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+							color = Color.White,
+						)
+						Spacer(modifier = Modifier.weight(1f))
+						RiskLevelChip(risk.level)
+					}
+					Text(
+						risk.note,
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
+			}
+		}
+	}
+}
+
+/** Elevated / Moderate / Lower - the company's exposure, in the level's own colour. */
+@Composable
+private fun RiskLevelChip(level: String) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val (bg, ink) = when (level) {
+		"Elevated" -> Color(0x33E5484D) to Color(0xFFFF9BA1)
+		"Lower" -> Color(0x332FD08A) to Color(0xFF7BE0B4)
+		else -> Color(0x33E8B86D) to Color(0xFFE8C08A)
+	}
+	Box(modifier = Modifier.clip(RoundedCornerShape((999 * u).dp)).background(bg).padding(horizontal = (10 * u).dp, vertical = (3 * u).dp)) {
+		Text(
+			level,
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+			color = ink,
+		)
+	}
+}
+
+/**
+ * What to watch next - the two or three checkpoints that decide how the company's story
+ * goes from here. Never a prediction, and never ten catalysts: narrowing is the point.
+ */
+@Composable
+private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val watch = riskWatch?.watch.orEmpty()
+	if (watch.isEmpty()) return
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+	) {
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+			Text(
+				"What to watch next",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+			Text(
+				"Key questions to follow",
+				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+		watch.forEachIndexed { i, item ->
+			Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+				Box(
+					contentAlignment = Alignment.Center,
+					modifier = Modifier.size((24 * u).dp).clip(RoundedCornerShape((8 * u).dp)).background(Color(0x1F5DA8BF)),
+				) {
+					Text(
+						"%02d".format(i + 1),
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp),
+						color = Color(0xFFA6E4F7),
+					)
+				}
+				Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+					Text(
+						item.title,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+						color = Color.White,
+					)
+					Text(
+						item.note,
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
+			}
 		}
 	}
 }

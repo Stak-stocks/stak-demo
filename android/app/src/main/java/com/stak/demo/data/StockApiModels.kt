@@ -43,6 +43,17 @@ data class AnalystRecommendation(
     val strongSell: Int = 0,
 )
 
+/** One company risk: what it is, how big, and why it matters - never a fit to the reader. */
+data class StockRiskDto(val label: String = "", val level: String = "Moderate", val note: String = "")
+
+/** One checkpoint that decides how the company's story goes from here. */
+data class StockWatchDto(val title: String = "", val note: String = "")
+
+data class RiskWatchResponse(
+    val risks: List<StockRiskDto> = emptyList(),
+    val watch: List<StockWatchDto> = emptyList(),
+)
+
 data class AnalystAction(val firm: String, val action: String, val priceTarget: Double?)
 
 data class DailyMoveResponse(val explanation: String = "", val direction: String = "flat")

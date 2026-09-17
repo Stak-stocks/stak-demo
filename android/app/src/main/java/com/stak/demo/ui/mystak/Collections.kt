@@ -135,5 +135,9 @@ internal fun collection(id: String): StakCollection =
  */
 internal fun StakCollection.held(): List<CollStock> = stocks.filter { it.ticker in MyStakHoldings.tickers }
 
-/** "1 stock" / "N stocks" - the chip, the Collection hero and the Breakdown share it. */
-internal fun heldCountLabel(n: Int): String = if (n == 1) "1 stock" else "$n stocks"
+/**
+ * "1 company" / "N companies" - the chip, the Collection hero and the counts share it.
+ * Companies, not stocks: My STAK talks about the companies someone decided to care
+ * about, and switching words mid-page asks a beginner to know they're the same thing.
+ */
+internal fun heldCountLabel(n: Int): String = if (n == 1) "1 company" else "$n companies"

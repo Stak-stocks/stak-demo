@@ -12,6 +12,7 @@ import com.stak.demo.data.PeerMetricsResponse
 import com.stak.demo.data.StakClock
 import com.stak.demo.data.StockDetailResponse
 import com.stak.demo.data.StockMetrics
+import com.stak.demo.data.RiskWatchResponse
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -119,6 +120,13 @@ class StockDetailViewModel @Inject constructor(
     private val _liveDetail = MutableStateFlow<LiveDetail?>(null)
     val liveDetail: StateFlow<LiveDetail?> = _liveDetail
 
+    /** What could go wrong at this company, and what decides its story; null until it lands. */
+    private val _riskWatch = MutableStateFlow<RiskWatchResponse?>(null)
+    val riskWatch: StateFlow<RiskWatchResponse?> = _riskWatch
+    /** Said plainly when the look-up fails, rather than leaving the cards blank forever. */
+    private val _riskWatchFailed = MutableStateFlow(false)
+    val riskWatchFailed: StateFlow<Boolean> = _riskWatchFailed
+
     /** This stock's line for the selected range, as fractions of the chart's height. */
     private val _chartSeries = MutableStateFlow<List<Float>?>(null)
     val chartSeries: StateFlow<List<Float>?> = _chartSeries
@@ -210,6 +218,14 @@ class StockDetailViewModel @Inject constructor(
         // One fetch at a time: a second call (the effect re-running) left two sets of
         // requests racing, and whichever finished last overwrote the other's page.
         fetchJob?.cancel()
+        // Its own request: the snapshot is generated once a day per stock and must not
+        // hold the price and chart behind it.
+        _riskWatch.value = null
+        _riskWatchFailed.value = false
+        viewModelScope.launch {
+            val rw = runCatching { repository.getRiskWatch(symbol) }.getOrNull()
+            if (rw == null) _riskWatchFailed.value = true else _riskWatch.value = rw
+        }
         fetchJob = viewModelScope.launch {
             // Show what this stock last showed while its own data is on the way,
             // instead of a page of placeholders on every re-entry.

@@ -72,6 +72,10 @@ interface StockApiService {
     suspend fun markUpdateRead(@Path("id") id: Long): OkResponse
 
     /** The Taste Graph: themes ranked by the user's own behaviour. */
+    /** The stock page's Risk snapshot and What to watch next. */
+    @GET("api/stock/{symbol}/risk-watch")
+    suspend fun getRiskWatch(@Path("symbol") symbol: String): RiskWatchResponse
+
     @GET("api/me/taste")
     suspend fun getTaste(): TasteResponse
 
