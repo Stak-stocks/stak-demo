@@ -182,16 +182,44 @@ class StockDetailViewModel @Inject constructor(
             // A slow reply for a range already left behind must not land.
             if (chartKey != key) return@launch
             val fractions = closes?.let(::chartFractions)
-            // Measured from the range's own first close, the way the line is drawn -
-            // so the colour and the shape always agree about the direction.
-            val pct = closes?.let { (it.last() - it.first()) / it.first() * 100.0 }
-            _chartSeries.value = fractions
+            val today = range.equals("1D", ignoreCase = true)
+            if (today) todayCloses = closes
+            // Today starts at yesterday's close, so that is the line's first point and
+            // the figure's reference; any other range measures from its own first close.
+            val points = if (today) closes?.let { listOfNotNull(prevClose) + it } else closes
+            val fractionsOfPoints = points?.let(::chartFractions)
+            val pct = points?.let { (it.last() - it.first()) / it.first() * 100.0 }
+            _chartSeries.value = fractionsOfPoints ?: fractions
             _chartPct.value = pct
             _chartMissing.value = fractions == null
             if (fractions != null && pct != null) {
                 StockDetailCache.putChart(symbol, range, StockDetailCache.ChartData(fractions, pct))
             }
         }
+    }
+
+    /**
+     * Yesterday's close for the stock on screen. "Today" is measured from it - by the
+     * price above the chart, and now by the chart itself: drawn from the day's open, a
+     * 1D line ran red on a day the headline called +1.3% (device report, 2026-09-17).
+     */
+    private var prevClose: Double? = null
+
+    /** Today's closes as fetched, so the line can be redrawn when the quote lands. */
+    private var todayCloses: List<Double>? = null
+
+    /**
+     * Redraws today's line against yesterday's close. The chart and the quote are
+     * fetched side by side, so the line is often drawn before the close is known - and
+     * measured from the day's open it can run red on a day the price above it calls up.
+     */
+    private fun redrawTodayLine() {
+        val closes = todayCloses ?: return
+        val prev = prevClose ?: return
+        if (chartKey?.endsWith(":1D") != true) return
+        val points = listOf(prev) + closes
+        _chartSeries.value = chartFractions(points)
+        _chartPct.value = (points.last() - points.first()) / points.first() * 100.0
     }
 
     private var fetchJob: Job? = null
@@ -342,6 +370,7 @@ class StockDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
             val price = quote.price?.takeIf { it > 0 } ?: return@launch
+            quote.change?.let { prevClose = (price - it).takeIf { p -> p > 0 } }
             val pct = quote.changePercent ?: return@launch
             val updated = _liveDetail.value?.copy(
                 price = formatPrice(price),
@@ -379,8 +408,10 @@ class StockDetailViewModel @Inject constructor(
         val closes = runCatching { repository.getChart(symbol, "1d") }.getOrNull()
             ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 } ?: return
         if (chartKey != "$symbol:1D") return
-        _chartSeries.value = chartFractions(closes)
-        _chartPct.value = (closes.last() - closes.first()) / closes.first() * 100.0
+        // Same reference as the first draw: yesterday's close is where today begins.
+        val points = listOfNotNull(prevClose) + closes
+        _chartSeries.value = chartFractions(points)
+        _chartPct.value = (points.last() - points.first()) / points.first() * 100.0
         _chartMissing.value = false
     }
 
@@ -398,6 +429,10 @@ class StockDetailViewModel @Inject constructor(
         val quote = stockData?.quote ?: return null
         val price = quote.price ?: return null
         val pct = quote.changePercent ?: 0.0
+        // Yesterday's close, from the day's move: where today's line starts and what its
+        // percentage is measured against, so the chart and the price above it agree.
+        quote.change?.let { change -> prevClose = (price - change).takeIf { it > 0 } }
+        redrawTodayLine()
 
         val priceStr = formatPrice(price)
         val changeStr = formatChange(pct)

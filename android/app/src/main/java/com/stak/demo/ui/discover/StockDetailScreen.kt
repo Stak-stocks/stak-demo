@@ -152,8 +152,10 @@ fun StockDetailScreen(
 	var showBuy by rememberSaveable { mutableStateOf(false) }
 	// Shown when Save is refused because the Stak is full; clears on its own.
 	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
-	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
-	var range by rememberSaveable { mutableStateOf("3M") }
+	// The range pills select (user, 2026-09-05). Today first (user, 2026-09-17): a page
+	// opened to see what a stock did today shouldn't answer with three months. The demo
+	// keeps "3M", which is the range its authored sd_chart_line (1:2382) draws.
+	var range by rememberSaveable { mutableStateOf(if (demo) "3M" else "1D") }
 	// The price keeps moving while the page is open, not only when it is opened.
 	if (!com.stak.demo.data.Session.demoAccount) {
 		RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol, range) }
