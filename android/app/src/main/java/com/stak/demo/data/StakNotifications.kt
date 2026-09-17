@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * saved. Now: a big move on a saved stock (over 3%, the threshold the settings page
  * promises, only while "Price moves on your picks" is on), today's deck while cards
  * are left ("Daily deck"), the save prompt only while nothing is saved, and the
- * welcome for a week, dated from when this phone first showed it.
+ * welcome for the account's first week, dated from when the account was created.
  */
 object StakNotifications {
 	data class Item(val id: String, val title: String, val body: String, val time: String)
@@ -88,6 +88,14 @@ object StakNotifications {
 					q?.takeIf { it.price > 0 && kotlin.math.abs(it.changePercent) >= MOVE_THRESHOLD_PCT }?.let { ticker to it.changePercent }
 				}
 			} else emptyList()
+			// The account's exact creation time, once: the profile's month-level "joined"
+			// can't tell a week-old account from a month-old one, and falls back to the
+			// current month when unknown - which welcomed a long-standing account.
+			if (StakStore.getString("notif.createdAt") == null) {
+				runCatching { repo.getMe() }.getOrNull()?.createdAt
+					?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+					?.let { StakStore.putString("notif.createdAt", it.toString()) }
+			}
 			val cardsLeft = if (UserProfile.dailyDeck) {
 				// The server keeps the last swipe day's count; one from an earlier deck day
 				// means none of today's cards are used yet (the rule Discover applies).
@@ -127,26 +135,18 @@ object StakNotifications {
 			)
 		}
 		if (MyStakHoldings.count == 0) {
-			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", ago(welcomeShownAt()))
+			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", "Today")
 		}
 		welcomeItem()?.let { out += it }
 		return out
 	}
 
-	/** When this phone first showed the welcome - the account's first open here. */
-	private fun welcomeShownAt(): Long =
-		StakStore.getString("notif.welcomeAt")?.toLongOrNull()
-			?: System.currentTimeMillis().also { StakStore.putString("notif.welcomeAt", it.toString()) }
-
 	private fun welcomeItem(): Item? {
-		// For a new account only: joined is the server's sign-up month, and an account from
-		// an earlier month was welcomed as though it had just arrived.
-		if (UserProfile.joined != StakClock.monthYear()) return null
-		val shownAt = welcomeShownAt()
-		if (System.currentTimeMillis() - shownAt > WELCOME_DAYS * 24 * 60 * 60 * 1000) return null
+		val createdAt = StakStore.getString("notif.createdAt")?.toLongOrNull() ?: return null
+		if (System.currentTimeMillis() - createdAt > WELCOME_DAYS * 24 * 60 * 60 * 1000) return null
 		val name = UserProfile.displayName.takeIf { it.isNotBlank() }?.capitalizeWords()
 		val title = if (name != null) "Welcome to STAK, $name" else "Welcome to STAK"
-		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", ago(shownAt))
+		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", ago(createdAt))
 	}
 
 	/** "Just now", "5m ago", "3h ago", "2d ago". */
