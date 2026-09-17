@@ -123,9 +123,9 @@ fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = tru
 			.padding(horizontal = (14 * u).dp),
 	) {
 		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, maxLines = 1)
-		Spacer(modifier = Modifier.weight(1f))
-		// A long value (an email) ends in an ellipsis instead of wrapping out of the row.
-		if (value != null) Text(value, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).padding(start = (12 * u).dp, end = (8 * u).dp))
+		// The value takes the rest of the row, right-aligned; a long one (an email) ends in
+		// an ellipsis instead of wrapping out of the row.
+		Text(value ?: "", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, textAlign = androidx.compose.ui.text.style.TextAlign.End), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = (12 * u).dp, end = (8 * u).dp))
 		if (chevron) Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted)
 	}
 }
