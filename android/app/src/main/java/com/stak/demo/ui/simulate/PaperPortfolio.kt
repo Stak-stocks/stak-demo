@@ -84,6 +84,9 @@ private val SEED_ROWS = listOf(
 internal object PaperPortfolio {
 	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
 	const val PAPER_START = 10000.0
+	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
+	const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
+	const val DEFAULT_STRATEGY = "Balanced"
 
 	/**
 	 * Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
@@ -107,6 +110,18 @@ internal object PaperPortfolio {
 	 */
 	val needsSetup: Boolean get() = !demo && !setupDone && untouched
 	private val untouched: Boolean get() = trades.isEmpty() && positions.isEmpty() && openOrders.isEmpty()
+
+	/**
+	 * An order placed before the setup card was used records the default setup with it
+	 * (Codex review, PR #167 mirror): the card never hides on an account that reads as
+	 * unset, and the hero's name line has something true to say.
+	 */
+	private fun ensureSetup() {
+		if (demo || setupDone) return
+		portfolioName = DEFAULT_PORTFOLIO_NAME
+		strategy = DEFAULT_STRATEGY
+		setupDone = true
+	}
 
 	fun setup(balance: Double, name: String, strategy: String) {
 		if (!needsSetup) return
@@ -235,6 +250,7 @@ internal object PaperPortfolio {
 	/** True when the cash on hand covers the stake reserved for a limit order too. */
 	fun placeLimit(spec: BuySpec, amount: Double, limit: Double): Boolean {
 		if (!canBuy(amount) || limit <= 0.0) return false
+		ensureSetup()
 		cash -= amount
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
@@ -363,6 +379,10 @@ internal object PaperPortfolio {
 
 	fun buy(spec: BuySpec, amount: Double) {
 		if (!canBuy(amount)) return
+		ensureSetup()
+		// A bought stock is in your STAK (Codex review, PR #167 mirror): the receipt's
+		// "View in My STAK" lands on a page that lists it, not on an empty one.
+		com.stak.demo.ui.MyStakHoldings.add(spec.symbol)
 		val price = spec.price
 		val shares = if (price > 0.0) amount / price else 0.0
 		cash -= amount

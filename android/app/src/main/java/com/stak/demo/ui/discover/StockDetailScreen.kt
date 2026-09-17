@@ -1151,7 +1151,7 @@ private val DETAIL_FACTS = mapOf(
 			DetailCompare("Profit margin", "48.9%", "6.4%", "39%"),
 			DetailCompare("Market cap", "$3.0T", "$0.2T", "$1.0T"),
 		),
-		sheetBadge = "N", sheetName = "NVIDIA", sheetPrice = "$122.10 today", sheetChange = "▲ 2.4%",
+		sheetBadge = "N", sheetName = "Nvidia", sheetPrice = "$122.10 today", sheetChange = "▲ 2.4%",
 		buySpec = NVDA_BUY,
 	),
 	"GOOGL" to DetailFacts(

@@ -48,7 +48,7 @@ internal val COLLECTIONS = listOf(
 		imageRes = R.drawable.ms_coll_aitech,
 		heroRes = R.drawable.ms_coll_aitech,
 		stocks = listOf(
-			CollStock("N", "▲ 2.4%", true, "NVDA", "NVIDIA", "$122.10"),
+			CollStock("N", "▲ 2.4%", true, "NVDA", "Nvidia", "$122.10"),
 			CollStock("A", "▲ 1.2%", true, "AAPL", "Apple", "$229.35"),
 			CollStock("M", "▼ 0.4%", false, "MSFT", "Microsoft", "$438.20"),
 			CollStock("G", "▲ 0.8%", true, "GOOGL", "Alphabet", "$178.90"),
@@ -123,7 +123,8 @@ internal val COLLECTIONS = listOf(
 
 /** The served collection - an unknown id falls back to the authored AI & Tech frame. */
 internal fun collection(id: String): StakCollection =
-	if (id == OTHER_ID) otherCollection() ?: COLLECTIONS.first()
+	// An open Other page whose last stock was just removed keeps an EMPTY Other (Codex review, PR #166), not AI & Tech.
+	if (id == OTHER_ID) otherCollection() ?: otherWith(emptyList())
 	else COLLECTIONS.firstOrNull { it.id == id } ?: COLLECTIONS.first()
 
 internal const val OTHER_ID = "other"
@@ -154,16 +155,19 @@ internal fun otherCollection(): StakCollection? {
 			price = if (known) f.price else "—",
 		)
 	}
-	return StakCollection(
-		id = OTHER_ID,
-		name = "Other",
-		countLabel = "",
-		blurb = "Stocks you saved from the news that sit outside the six collections.",
-		iconRes = R.drawable.ic_saved_bookmark,
-		heroRes = R.drawable.ic_saved_bookmark,
-		stocks = stocks,
-	)
+	return otherWith(stocks)
 }
+
+/** The Other collection around the given tiles - empty for a page that just lost its last one. */
+private fun otherWith(stocks: List<CollStock>): StakCollection = StakCollection(
+	id = OTHER_ID,
+	name = "Other",
+	countLabel = "",
+	blurb = "Stocks you saved from the news that sit outside the six collections.",
+	iconRes = R.drawable.ic_saved_bookmark,
+	heroRes = R.drawable.ic_saved_bookmark,
+	stocks = stocks,
+)
 
 /**
  * The collection's stocks the user actually holds. Codex audit

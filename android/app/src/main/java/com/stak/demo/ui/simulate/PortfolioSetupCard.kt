@@ -44,9 +44,8 @@ internal val SETUP_STRATEGIES = listOf(
 	SetupStrategy("Balanced", "A mix of steady and growth picks. The default most people start on."),
 	SetupStrategy("Bold", "Bigger swings on high-growth picks. Expect bumps."),
 )
-private const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
 private val DEFAULT_BALANCE = SETUP_BALANCES.indexOf(10_000.0)
-private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == "Balanced" }
+private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == PaperPortfolio.DEFAULT_STRATEGY }
 
 /**
  * Portfolio setup (FigJam Simulate board, 2026-09-14: Portfolio setup -> Choose
@@ -82,7 +81,7 @@ internal fun PortfolioSetupCard() {
 			cursorBrush = SolidColor(Sim.Teal),
 			decorationBox = { inner ->
 				Box(contentAlignment = Alignment.CenterStart) {
-					if (name.isEmpty()) Text(DEFAULT_PORTFOLIO_NAME, style = style, color = Sim.Muted)
+					if (name.isEmpty()) Text(PaperPortfolio.DEFAULT_PORTFOLIO_NAME, style = style, color = Sim.Muted)
 					inner()
 				}
 			},
@@ -112,7 +111,7 @@ internal fun PortfolioSetupCard() {
 				.background(Sim.DarkCta)
 				.border((0.36 * u).dp, Sim.CtaBorder, RoundedCornerShape((6 * u).dp))
 				.clickable {
-					PaperPortfolio.setup(SETUP_BALANCES[balance], name.trim().ifEmpty { DEFAULT_PORTFOLIO_NAME }, SETUP_STRATEGIES[strategy].label)
+					PaperPortfolio.setup(SETUP_BALANCES[balance], name.trim().ifEmpty { PaperPortfolio.DEFAULT_PORTFOLIO_NAME }, SETUP_STRATEGIES[strategy].label)
 				}
 				.padding(vertical = (14 * u).dp),
 		) {

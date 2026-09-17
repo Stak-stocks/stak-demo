@@ -113,6 +113,15 @@ object Session {
 			UserProfile.brandPicks = emptySet()
 			UserProfile.goal = -1
 			UserProfile.risk = -1
+			// ...nor its 08 Permissions answers or notification preferences (Codex review,
+			// PR #166): "Not now" on a sign-up that was backed out of must not silently
+			// switch the persona's notifications and account lock off.
+			UserProfile.notificationsOn = true
+			UserProfile.accountLock = false
+			UserProfile.priceAlerts = true
+			UserProfile.dailyDeck = true
+			UserProfile.marketNews = false
+			UserProfile.priceThreshold = 3
 		}
 		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
 		UserProfile.joined = if (demo) "July 2026" else StakClock.monthYear()

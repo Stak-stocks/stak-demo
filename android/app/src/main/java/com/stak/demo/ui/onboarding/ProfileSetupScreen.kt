@@ -102,6 +102,7 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit, editing: Boole
 			}
 		}
 	}
+	var copyGen by remember { mutableStateOf(0) }
 	val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
 		if (uri == null) return@rememberLauncherForActivityResult
 		// The picker's read grant is temporary while Session persists the URI
@@ -109,8 +110,16 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit, editing: Boole
 		// and store THAT, so the avatar survives a reboot. The picker URI is
 		// the fallback when the copy fails.
 		copying = true
+		// A second pick before the first copy finished supersedes it (Codex review, PR #166): the
+		// older coroutine deletes its own copy and touches no state, so the last pick always wins.
+		copyGen += 1
+		val gen = copyGen
 		scope.launch {
 			val copy = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { copyAvatar(context, uri) }
+			if (gen != copyGen) {
+				if (copy != null) deleteAvatarFile(copy)
+				return@launch
+			}
 			// A pick that replaces an unsaved pick drops the earlier copy at once.
 			val previous = photoUri
 			photoUri = copy ?: uri.toString()

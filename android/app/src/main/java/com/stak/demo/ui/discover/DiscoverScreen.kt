@@ -1103,6 +1103,11 @@ private fun PracticeBuyContent(
 	var custom by rememberSaveable { mutableStateOf("") }
 	var limitText by rememberSaveable { mutableStateOf("") }
 	val isLimit = limitPrice != null
+	// A limit that does not parse to a positive price ("0", "1.2.3") holds Confirm (Codex review, PR #167 mirror);
+	// an empty field still means today's price.
+	val limitOk = !isLimit || limitText.isEmpty() || (limitText.toDoubleOrNull()?.let { it > 0.0 } == true)
+	// The shares a valid below-market limit reserves - counted at the limit, not today's quote.
+	val limitShares = limitPrice?.takeIf { isLimit && limitOk && it > 0.0 && it < spec.price }?.let { String.format(java.util.Locale.US, "%.4f", amount / it) }
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.fillMaxWidth()) {
 		Text(
@@ -1287,7 +1292,7 @@ private fun PracticeBuyContent(
 				color = Disc.Muted,
 			)
 			Text(
-				text = spec.shares,
+				text = limitShares ?: spec.shares,
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Disc.BrightInk,
 			)
@@ -1299,7 +1304,7 @@ private fun PracticeBuyContent(
 		}
 		Column(verticalArrangement = Arrangement.spacedBy((16 * u).dp), modifier = Modifier.fillMaxWidth()) {
 			// Confirm only with a stake the cash covers (Codex review, PR #166).
-			SheetCta(text = if (isLimit && (limitPrice ?: 0.0) < spec.price) "Place limit order" else "Confirm practice buy", onClick = onConfirm, enabled = com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount))
+			SheetCta(text = if (isLimit && (limitPrice ?: 0.0) < spec.price) "Place limit order" else "Confirm practice buy", onClick = onConfirm, enabled = com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount) && limitOk)
 			SheetSecondary(text = secondary, onClick = onDismiss)
 		}
 	}
