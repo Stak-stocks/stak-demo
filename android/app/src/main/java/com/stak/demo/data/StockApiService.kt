@@ -63,6 +63,14 @@ interface StockApiService {
     @PUT("api/me/push-device")
     suspend fun putPushDevice(@Body body: PushDeviceRequest): OkResponse
 
+    /** What changed at the user's saved companies, newest first. */
+    @GET("api/me/updates")
+    suspend fun getUpdates(): UpdatesResponse
+
+    /** Opened, so it stops counting as new. */
+    @POST("api/me/updates/{id}/read")
+    suspend fun markUpdateRead(@Path("id") id: Long): OkResponse
+
     /** The Taste Graph: themes ranked by the user's own behaviour. */
     @GET("api/me/taste")
     suspend fun getTaste(): TasteResponse

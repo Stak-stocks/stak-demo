@@ -31,6 +31,8 @@ object StakRoutes {
 	fun collection(id: String) = "mystak/collection/$id"
 	/** Every collection, when the overview's grid holds some back. */
 	const val COLLECTIONS_ALL = "mystak/collections"
+	/** What changed at the saved companies (the overview's "See what changed"). */
+	const val MYSTAK_UPDATES = "mystak/updates"
 	/** Your Investing Taste - the Taste Graph behind the overview's card. */
 	const val TASTE_GRAPH = "mystak/taste"
 	/** The saved-flavour Stock Detail - `symbol` is the tapped collection tile's ticker. */

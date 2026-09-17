@@ -63,6 +63,7 @@ fun MyStakScreen(
 	onStartSwiping: () -> Unit,
 	onOpenTaste: () -> Unit = {},
 	onOpenAllCollections: () -> Unit = {},
+	onOpenUpdates: () -> Unit = {},
 	viewModel: MyStakViewModel = sharedMyStakViewModel(),
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -73,6 +74,7 @@ fun MyStakScreen(
 	LaunchedEffect(com.stak.demo.data.MyStakHoldings.tickers, demo) {
 		if (!demo) viewModel.loadIfNeeded()
 		viewModel.loadTaste()
+		viewModel.loadUpdates()
 	}
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(
@@ -108,11 +110,9 @@ fun MyStakScreen(
 				.padding(horizontal = (20 * u).dp)
 				.padding(top = (20 * u).dp, bottom = (24 * u).dp),
 		) {
-			val groups: List<CollectionEntry> = if (demo) {
-				COLLECTIONS.map { CollectionEntry(it.id, it.name, it.held().size, it.imageRes, it.iconRes) }
-			} else {
-				ui.groups.map { CollectionEntry(it.id, it.name, it.holdings.size, it.imageRes, it.iconRes) }
-			}
+			// The collections holding a company whose update is still unopened.
+			val unreadTickers = ui.updates.filter { !it.read }.map { it.ticker }.toSet()
+			val groups = collectionEntries(demo, ui, unreadTickers)
 			if (groups.isNotEmpty()) {
 				Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
 					StakSectionHeader("Collections")
@@ -135,7 +135,20 @@ fun MyStakScreen(
 			} else {
 				EmptyStak(onStartSwiping)
 			}
-			TasteCard(ui.taste, onOpenTaste)
+			// Only when something actually changed - a calm screen is the right answer
+			// on a quiet day (spec: "Updates in your STAK" appears only when meaningful).
+			if (ui.updates.isNotEmpty()) {
+				UpdatesCard(
+					// Companies, not updates: one company can have several, and the inbox
+					// counts companies too - the two screens must not disagree.
+					unreadCompanies = ui.updates.filter { !it.read }.map { it.ticker }.distinct().size,
+					unread = ui.unreadUpdates,
+					total = ui.updates.size,
+					onOpen = onOpenUpdates,
+				)
+			}
+			TasteCard(ui.taste, ui.tasteFailed, onOpenTaste)
+			if (ui.updatesFailed) FailedCard("Updates in your STAK", "Couldn't check your saved companies right now.")
 			DiscoverHandoff(ui.cardsLeft, onStartSwiping)
 		}
 	}
@@ -168,15 +181,88 @@ private fun AddButton(onClick: () -> Unit) {
 	}
 }
 
+/** Updates in your STAK: the companies with something new, and the way into them. */
+@Composable
+private fun UpdatesCard(unreadCompanies: Int, unread: Int, total: Int, onOpen: () -> Unit) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape((16 * u).dp))
+			.background(Stak.CardBg)
+			.border((1 * u).dp, Color(0x442C9DBC), RoundedCornerShape((16 * u).dp))
+			.clickable(
+				interactionSource = remember { MutableInteractionSource() },
+				indication = com.stak.demo.ui.theme.PressDim,
+				onClick = onOpen,
+			)
+			.padding((16 * u).dp),
+	) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+			Text("🔔", style = TextStyle(fontFamily = Geist, fontSize = (15 * u).sp), color = Stak.Teal)
+			Text(
+				text = "Updates in your STAK",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Color.White,
+			)
+			Spacer(modifier = Modifier.weight(1f))
+			// The count is what is still unopened; nothing to count once all are read.
+			if (unread > 0) {
+				Box(
+					contentAlignment = Alignment.Center,
+					modifier = Modifier.size((24 * u).dp).clip(CircleShape).background(Color(0xFF2C9DBC)),
+				) {
+					Text(
+						text = "$unread",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Color.White,
+					)
+				}
+			}
+		}
+		Text(
+			text = updatesLine(unreadCompanies, total),
+			style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Stak.Body,
+		)
+		Box(
+			contentAlignment = Alignment.Center,
+			modifier = Modifier
+				.fillMaxWidth()
+				.height((44 * u).dp)
+				.clip(RoundedCornerShape((10 * u).dp))
+				.background(Color(0xFF3C98B4)),
+		) {
+			Text(
+				text = if (unread > 0) "See what changed  →" else "Read them again  →",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
+				color = Color.White,
+			)
+		}
+	}
+}
+
+/** "3 saved companies have something new." - companies counted, never rounded up. */
+private fun updatesLine(unreadCompanies: Int, total: Int): String = when {
+	unreadCompanies == 1 -> "1 saved company has something new."
+	unreadCompanies > 1 -> "$unreadCompanies saved companies have something new."
+	total == 1 -> "You've opened the one update from the last 14 days."
+	else -> "You've opened all $total updates from the last 14 days."
+}
+
 /**
  * Your Investing Taste: the mix of what draws the user's attention, as a share of
  * observed interest signals. It is never money - the label and the copy both say so.
  */
 @Composable
-private fun TasteCard(taste: TasteGraph.Graph?, onOpen: () -> Unit) {
+private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	// Nothing measured yet - no card rather than an empty ring.
-	if (taste == null) return
+	if (taste == null) {
+		if (failed) FailedCard("Your Investing Taste", "Couldn't read your taste right now. Pull down or come back in a moment.")
+		// Still loading: no card rather than an empty ring.
+		return
+	}
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
@@ -229,7 +315,13 @@ private fun TasteCard(taste: TasteGraph.Graph?, onOpen: () -> Unit) {
 					color = Stak.Body,
 				)
 				Text(
-					text = "See why ›",
+					// Never a share of money: the one misreading a ring like this invites.
+					text = "Interest, not money — STAK doesn't know what you own.",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Stak.Faint,
+				)
+				Text(
+					text = if (taste.isEmpty || taste.learning) "How this works ›" else "See why ›",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Teal,
 				)
@@ -285,6 +377,27 @@ private fun DiscoverHandoff(cardsLeft: Int?, onStartSwiping: () -> Unit) {
 				color = Stak.Teal,
 			)
 		}
+	}
+}
+
+/** A read that failed - said plainly, so an empty screen never passes for a quiet day. */
+@Composable
+private fun FailedCard(title: String, body: String) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(
+		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Stak.CardBg).padding((16 * u).dp),
+	) {
+		Text(
+			text = title,
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Color.White,
+		)
+		Text(
+			text = body,
+			style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Stak.Body,
+		)
 	}
 }
 

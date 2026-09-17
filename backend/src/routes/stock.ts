@@ -3,6 +3,7 @@ import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, 
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
+import { runUpdateDetection, BIG_MOVE_PCT } from "../services/updatesService.js";
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
@@ -512,19 +513,28 @@ stockRouter.get("/warm-saved", async (req, res) => {
 	// ?limit=N caps the stocks touched in this call - for checking the job by hand
 	// without spending a whole day's pass.
 	const limit = Math.max(0, parseInt(req.query.limit as string) || 0);
+	// ?updates=force re-looks at what changed even if today's pass already did - for
+	// checking a change to the detection rules without waiting for tomorrow.
+	const forceUpdates = req.query.updates === "force";
 	try {
 		const saved = await pgQuery<{ brand_id: string }>(`select distinct brand_id from stak_brands`);
 		const tickerById = new Map(brands.map((b) => [b.id, { ticker: b.ticker.toUpperCase(), name: b.name }]));
 		const stocks = saved.rows.map((r) => tickerById.get(r.brand_id)).filter((x): x is { ticker: string; name: string } => !!x);
 
-		let warmed = 0, skipped = 0, pending = 0;
+		let warmed = 0, skipped = 0, pending = 0, updates = 0;
 		for (const { ticker, name } of stocks) {
 			if (Date.now() - started > WARM_BUDGET_MS || (limit > 0 && warmed >= limit)) { pending++; continue; }
 			const doneKey = `warm-saved:done:${today}:${ticker}`;
-			if (await cacheGet<boolean>(doneKey)) { skipped++; continue; }
+			const moveDone = await cacheGet<boolean>(doneKey);
+			if (!forceUpdates && moveDone && await cacheGet<boolean>(`updates:done:v6:${today}:1:${ticker}`)) { skipped++; continue; }
 
 			// One stock's failure (a timeout, a DNS blip) must not end the run for the rest.
 			try {
+				if (moveDone) {
+					// Only the update is left for this stock today.
+					if (await runUpdateDetection(ticker, name, 1, forceUpdates)) { updates++; warmed++; }
+					continue;
+				}
 				const symbol = resolveSymbol(ticker);
 				const fbKey = `quote:fb:${symbol}`;
 				let quote = await cacheGet<Record<string, number>>(fbKey);
@@ -558,13 +568,18 @@ stockRouter.get("/warm-saved", async (req, res) => {
 				} else {
 					skipped++;
 				}
+				// What changed at this company today, for "Updates in your STAK" - after the
+				// move explanation, which is the more time-sensitive of the two, and inside
+				// the same budget so a long pass stops here rather than overrunning.
+				if (Date.now() - started > WARM_BUDGET_MS) { pending++; continue; }
+				if (await runUpdateDetection(ticker, name, 1, forceUpdates)) updates++;
 			} catch (e) {
 				console.warn(`[warm-saved] ${ticker}: ${(e as Error)?.message}`);
 				skipped++;
 			}
 		}
-		console.log(`[warm-saved] ${today} warmed=${warmed} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
-		res.json({ ok: true, today, total: stocks.length, warmed, skipped, pending });
+		console.log(`[warm-saved] ${today} warmed=${warmed} updates=${updates} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
+		res.json({ ok: true, today, total: stocks.length, warmed, updates, skipped, pending });
 	} catch (error) {
 		console.error("[warm-saved] error:", error);
 		res.status(500).json({ error: "warm failed" });
@@ -581,6 +596,9 @@ stockRouter.get("/warm-saved", async (req, res) => {
 // - Daily deck: once per device per day, in the 9am hour where the phone is (the deck
 //   day starts at 9am local, as in the app), to devices with the daily deck on.
 const PUSH_MOVE_THRESHOLD_PCT = 3;
+/** Most companies to look at again in one run, and how long that look may take. */
+const UPDATE_SLOT2_MAX = 10;
+const PUSH_UPDATE_BUDGET_MS = 90 * 1000;
 const PUSH_DEDUPE_TTL_MS = 20 * 60 * 60 * 1000;
 
 stockRouter.get("/push-run", async (req, res) => {
@@ -590,19 +608,29 @@ stockRouter.get("/push-run", async (req, res) => {
 	}
 	const today = getEasternDateKey();
 	let moves = 0, decks = 0, failed = 0;
+	const runStarted = Date.now();
+	// Today's moves for the saved stocks this job already quoted, so the update pass at the
+	// end needs no market data of its own.
+	const bigMoves = new Map<string, number>();
+	const nameByTicker = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 	try {
 		// Once a day, each account's taste scores are kept as that day's snapshot, so how
 		// interests change over time can be shown later. Rides this job because it runs
 		// every day, weekends included.
 		const snapshotKey = `taste-snapshot:done:${today}`;
 		if (!(await cacheGet<boolean>(snapshotKey))) {
-			await pgQuery(
-				`insert into taste_snapshots (uid, day, tag_scores)
-				 select uid, $1::date, tag_scores from users where tag_scores <> '{}'::jsonb
-				 on conflict (uid, day) do nothing`,
-				[today],
-			);
-			await cacheSet(snapshotKey, true, PUSH_DEDUPE_TTL_MS);
+			try {
+				await pgQuery(
+					`insert into taste_snapshots (uid, day, tag_scores)
+					 select uid, $1::date, tag_scores from users where tag_scores <> '{}'::jsonb
+					 on conflict (uid, day) do nothing`,
+					[today],
+				);
+				await cacheSet(snapshotKey, true, PUSH_DEDUPE_TTL_MS);
+			} catch (e) {
+				// A snapshot is for a feature that doesn't exist yet; a push is for today.
+				console.warn(`[push-run] taste snapshot failed: ${(e as Error)?.message}`);
+			}
 		}
 
 		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean }>(
@@ -636,6 +664,7 @@ stockRouter.get("/push-run", async (req, res) => {
 				// is yesterday's move, already told.
 				if (q && typeof q.dp === "number" && typeof q.t === "number" && getEasternDateKey(new Date(q.t * 1000)) === today) {
 					pct.set(ticker, q.dp);
+					bigMoves.set(ticker, q.dp);
 				}
 			});
 			for (const [uid, held] of byUser) {
@@ -675,8 +704,22 @@ stockRouter.get("/push-run", async (req, res) => {
 			if (r === "sent") decks++; else if (r === "failed") failed++;
 		}
 
-		console.log(`[push-run] ${today} moves=${moves} decks=${decks} failed=${failed} devices=${devices.rows.length}`);
-		res.json({ ok: true, moves, decks, failed });
+		// Something big broke at a saved company: one extra look at what changed, on top of
+		// the daily pass (user, 2026-09-17: at most twice a day). It runs AFTER the pushes,
+		// and only for the biggest movers - on a broad selloff dozens of stocks qualify, and
+		// a slow look at the news must never delay the notifications this job exists to send.
+		let extras = 0;
+		const bigMovers = [...bigMoves.entries()]
+			.filter(([, p]) => Math.abs(p) >= BIG_MOVE_PCT)
+			.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+			.slice(0, UPDATE_SLOT2_MAX);
+		for (const [ticker] of bigMovers) {
+			if (Date.now() - runStarted > PUSH_UPDATE_BUDGET_MS) break;
+			if (await runUpdateDetection(ticker, nameByTicker.get(ticker) ?? ticker, 2).catch(() => false)) extras++;
+		}
+
+		console.log(`[push-run] ${today} moves=${moves} decks=${decks} failed=${failed} extraUpdates=${extras} devices=${devices.rows.length}`);
+		res.json({ ok: true, moves, decks, failed, extraUpdates: extras });
 	} catch (error) {
 		console.error("[push-run] error:", error);
 		res.status(500).json({ error: "push run failed" });

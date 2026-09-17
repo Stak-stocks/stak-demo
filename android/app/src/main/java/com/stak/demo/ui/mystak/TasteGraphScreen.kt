@@ -135,9 +135,9 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 					}
 				}
 			}
-			TasteCardShell("How this shapes STAK") {
-				ShapesRow("Discover", "Companies related to your interests")
-				ShapesRow("Daily Brief", "More context on themes you follow")
+			TasteCardShell("What STAK does with your activity") {
+				ShapesRow("Discover", "More companies like the ones you save")
+				ShapesRow("Daily Brief", "More context on the themes you follow")
 			}
 			Text(
 				text = "Your taste evolves as you explore.",
@@ -191,7 +191,7 @@ private fun ThemeRow(theme: TasteGraph.Theme, graph: TasteGraph.Graph) {
 					}
 				}
 				Text(
-					text = "${Math.round(theme.share * 100)}% of your interest signals",
+					text = (if (theme.share < 0.005f) "<1" else "${Math.round(theme.share * 100)}") + "% of your interest signals",
 					style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Faint,
 				)

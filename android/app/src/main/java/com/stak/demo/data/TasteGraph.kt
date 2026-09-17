@@ -57,28 +57,41 @@ object TasteGraph {
 		/** The activity behind [theme], strongest evidence first. */
 		fun evidenceFor(theme: Theme): List<Evidence> {
 			val out = mutableListOf<Evidence>()
-			val ofSaved = if (totalSaves > 0) " · ${theme.saves} of your $totalSaves saved companies" else ""
+			// "1 of your 1 saved companies" is technically true and reads like a machine.
+			val ofSaved = when {
+				totalSaves == 0 -> ""
+				totalSaves == 1 -> " · your only saved company"
+				else -> " · ${theme.saves} of your $totalSaves saved companies"
+			}
 			when {
 				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}.", theme.label + ofSaved)
 				theme.savedNames.size >= 2 -> out += Evidence(
 					"You saved ${theme.savedNames.take(2).joinToString(" and ")}.",
 					theme.label + ofSaved,
 				)
-				theme.saves > 0 -> out += Evidence("You saved ${theme.saves} ${theme.label} companies.", theme.label + ofSaved)
+				// The label is a category name, not an adjective: "2 companies in Chips",
+				// never "2 Chips companies".
+				theme.saves > 0 -> out += Evidence(
+					"You saved ${theme.saves} ${if (theme.saves == 1) "company" else "companies"} in ${theme.label}.",
+					theme.label + ofSaved,
+				)
 			}
 			if (theme.learnMores > 0) out += Evidence(
-				"You opened Learn more on ${countWord(theme.learnMores)} ${theme.label} ${cards(theme.learnMores)}.",
+				"You opened Learn more on ${theme.learnMores} ${if (theme.learnMores == 1) "card" else "cards"} in ${theme.label}.",
 				"Exploration · Last 90 days",
 			)
 			if (theme.opens > 0) out += Evidence(
-				"You opened ${theme.label} companies ${countWord(theme.opens)} ${times(theme.opens)}.",
+				"You opened companies in ${theme.label} ${theme.opens} ${if (theme.opens == 1) "time" else "times"}.",
 				"Exploration · Last 90 days",
 			)
 			return out
 		}
 
-		/** The evidence across every theme, for the "Why STAK thinks this" card. */
-		val evidence: List<Evidence> get() = themes.flatMap { evidenceFor(it) }.take(4)
+		/**
+		 * One line per theme for "Why STAK thinks this" - the card explains the whole
+		 * reading, so a single busy theme must not fill it.
+		 */
+		val evidence: List<Evidence> get() = themes.mapNotNull { evidenceFor(it).firstOrNull() }.take(4)
 	}
 
 	/** The server's measurement, named and rated for the screen. */
@@ -92,7 +105,7 @@ object TasteGraph {
 				// and the ring's slices have to be told apart from each other.
 				colorKey = "t$i",
 				share = t.share.toFloat(),
-				strength = strengthOf(t.share.toFloat(), t.saves, t.learnMores + t.opens),
+				strength = strengthOf(t.share.toFloat(), t.saves, t.learnMores + t.opens, dto.learning),
 				saves = t.saves,
 				learnMores = t.learnMores,
 				opens = t.opens,
@@ -119,7 +132,7 @@ object TasteGraph {
 					label = b.name,
 					colorKey = "t$i",
 					share = b.share,
-					strength = strengthOf(b.share, b.count, 0),
+					strength = strengthOf(b.share, b.count, 0, symbols.size < 3),
 					saves = b.count,
 					savedNames = StakInsights.namesIn(b.id, symbols).take(2),
 				)
@@ -134,15 +147,13 @@ object TasteGraph {
 	 * How firmly a theme can be stated. A big share of very little activity is not a
 	 * strong reading, so the evidence behind it has to be there too.
 	 */
-	private fun strengthOf(share: Float, saves: Int, explorations: Int): Strength = when {
+	private fun strengthOf(share: Float, saves: Int, explorations: Int, learning: Boolean): Strength = when {
+		// While there is too little activity to name a lead at all, nothing can be Strong -
+		// a Strong chip beside "Still learning your taste" contradicts it.
+		learning -> if (share >= 0.25f) Strength.MODERATE else Strength.EMERGING
 		share >= 0.25f && (saves >= 2 || saves + explorations >= 3) -> Strength.STRONG
 		share >= 0.12f && saves + explorations >= 1 -> Strength.MODERATE
 		else -> Strength.EMERGING
 	}
 
-	private fun countWord(n: Int): String =
-		listOf("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten").getOrNull(n) ?: "$n"
-
-	private fun cards(n: Int): String = if (n == 1) "card" else "cards"
-	private fun times(n: Int): String = if (n == 1) "time" else "times"
 }

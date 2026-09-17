@@ -22,8 +22,9 @@ const WEIGHT = { save: 5, right_swipe: 5, learn_more: 3, stock_detail_open: 1, l
 
 /** Only the last quarter's behaviour: a taste from a year ago is not today's. */
 const WINDOW_DAYS = 90;
-/** Repeat opens of one company in a day say little more than the first. */
+/** Beyond a handful, repeat visits to one company say little more than the first few. */
 const DETAIL_OPENS_PER_TICKER = 5;
+const LEARN_MORES_PER_TICKER = 3;
 /** Under this, STAK says it is still learning rather than naming a lead. */
 const MIN_SIGNALS = 5;
 
@@ -113,7 +114,10 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		}
 		for (const row of events.rows) {
 			const category = categoryOf(row.ticker);
-			if (row.type === "learn_more") add(category, { score: WEIGHT.learn_more * row.n, learnMores: row.n });
+			if (row.type === "learn_more") {
+				const n = Math.min(row.n, LEARN_MORES_PER_TICKER);
+				add(category, { score: WEIGHT.learn_more * n, learnMores: n });
+			}
 			else {
 				const n = Math.min(row.n, DETAIL_OPENS_PER_TICKER);
 				add(category, { score: WEIGHT.stock_detail_open * n, opens: n });
@@ -128,7 +132,12 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			.map((t) => ({ ...t, share: total > 0 ? t.score / total : 0 }))
 			.sort((a, b) => b.score - a.score);
 
-		const signals = totalSaves + swipes.rows.length + events.rows.reduce((n, e) => n + e.n, 0);
+		// Counted the same way the score is: a save and the swipe that made it are one
+		// decision, so one save can't pass for two signals and end "still learning" early.
+		const countedSwipes = swipes.rows.filter(
+			(r) => !(r.direction === "right" && r.ticker && savedTickers.has(r.ticker.toUpperCase())),
+		).length;
+		const signals = totalSaves + countedSwipes + events.rows.reduce((n, e) => n + e.n, 0);
 		const body = {
 			/** Ranked strongest first; the app decides how many to show. */
 			themes: ranked.slice(0, 6),
@@ -139,7 +148,9 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			/** Too little behaviour to name a lead yet. */
 			learning: signals < MIN_SIGNALS,
 		};
-		await cacheSet(cacheKey, body, 5 * 60 * 1000);
+		// Short: a save, a pass or a Learn more should show up in the reading it just
+		// changed, and the three queries behind this are all index-covered.
+		await cacheSet(cacheKey, body, 60 * 1000);
 		res.json(body);
 	} catch (error) {
 		console.error("Error computing taste:", error);

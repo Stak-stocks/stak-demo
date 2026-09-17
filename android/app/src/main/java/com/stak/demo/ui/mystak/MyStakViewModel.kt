@@ -12,6 +12,7 @@ import com.stak.demo.data.BatchQuote
 import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.Session
 import com.stak.demo.data.StakClock
+import com.stak.demo.data.StockUpdateDto
 import com.stak.demo.data.TasteGraph
 import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
@@ -104,6 +105,12 @@ class MyStakViewModel @Inject constructor(
         val chartMissing: Boolean = false,
         /** What the account's own behaviour says it gravitates toward; null until it lands. */
         val taste: TasteGraph.Graph? = null,
+        /** What changed at the saved companies, newest first; empty until it lands. */
+        val updates: List<StockUpdateDto> = emptyList(),
+        val unreadUpdates: Int = 0,
+        /** The request failed and there is nothing to show - said plainly, never as "nothing happened". */
+        val tasteFailed: Boolean = false,
+        val updatesFailed: Boolean = false,
     )
 
     private val _ui = MutableStateFlow(MyStakUi())
@@ -111,6 +118,10 @@ class MyStakViewModel @Inject constructor(
 
     /** The holdings the current state was built from, so a second screen doesn't refetch them. */
     private var loadedFor: Set<String>? = null
+
+    /** When the taste and the updates were last read - every screen asks for them on open. */
+    private var tasteAtMs = 0L
+    private var updatesAtMs = 0L
 
     /** When the last load started - its quotes' age. */
     private var loadedAtMs = 0L
@@ -161,7 +172,7 @@ class MyStakViewModel @Inject constructor(
         }
         // The Discover banner's count, on its own: it used to hold the whole page back.
         viewModelScope.launch { cardsLeft()?.let { _ui.value = _ui.value.copy(cardsLeft = it) } }
-        loadTaste()
+
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
             // Prices for what's saved on the phone, requested alongside the server's
@@ -177,7 +188,9 @@ class MyStakViewModel @Inject constructor(
             loadedFor = MyStakHoldings.tickers
             if (tickers.isEmpty()) {
                 quotesAhead.cancel()
-                _ui.value = MyStakUi(loading = false, cardsLeft = _ui.value.cardsLeft)
+                // copy(), not a fresh state: the taste and updates loaded alongside this
+                // must not be wiped by an account that happens to have no saves.
+                _ui.value = _ui.value.copy(loading = false, holdings = emptyList(), groups = emptyList())
                 return@launch
             }
             var quotes = quotesAhead.await()
@@ -190,10 +203,8 @@ class MyStakViewModel @Inject constructor(
                 tickers, quotes, final = true, previous = _ui.value.holdings,
                 at = if (quotes.isNotEmpty()) System.currentTimeMillis() else _ui.value.quotesAt,
             )
-            // refreshFromBackend above can change what's saved. The line is keyed to
-            // the set it was drawn from, so redraw it rather than leave a percentage
-            // describing stocks the labels no longer count.
-            if (chartFor != MyStakHoldings.tickers) selectRange(_ui.value.chartRange)
+            // No chart is fetched here any more: My STAK shows no performance line, and
+            // /api/stock/portfolio-chart is the most expensive request the screen made.
         }
     }
 
@@ -212,9 +223,7 @@ class MyStakViewModel @Inject constructor(
             // The snapshot keeps every price it had; only those that came back are replaced.
             MyStakSnapshot.putQuotes(MyStakSnapshot.read().first + fresh)
             render(tickers, fresh, final = true, previous = _ui.value.holdings, at = System.currentTimeMillis())
-            // Today's line is still being drawn; the tiles moving while it stood still
-            // made the headline and the stocks under it disagree.
-            if (_ui.value.chartRange == "1D") refreshLine("1D")
+
         }
     }
 
@@ -290,18 +299,69 @@ class MyStakViewModel @Inject constructor(
     }
 
     /**
+     * What changed at the saved companies. The updates themselves are detected once a
+     * day on the server and shared; only whether they have been read is this account's.
+     */
+    fun loadUpdates(force: Boolean = false) {
+        if (Session.demoAccount) {
+            _ui.value = _ui.value.copy(updates = DemoUpdates.list, unreadUpdates = DemoUpdates.list.count { !it.read }, updatesFailed = false)
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (!force && now - updatesAtMs < FRESH_MS) return
+        updatesAtMs = now
+        viewModelScope.launch {
+            val res = runCatching { repository.getUpdates() }.getOrNull()
+            if (res == null) {
+                // "Nothing new" is a claim about the world; a failed request can't make it.
+                updatesAtMs = 0L
+                _ui.value = _ui.value.copy(updatesFailed = _ui.value.updates.isEmpty())
+                return@launch
+            }
+            _ui.value = _ui.value.copy(updates = res.updates, unreadUpdates = res.unread, updatesFailed = false)
+        }
+    }
+
+    /** Opened, so it stops counting as new - here and on the server. */
+    /** The company's updates, all of them, as one card in the inbox. */
+    fun markCompanyRead(ticker: String) {
+        _ui.value.updates.filter { it.ticker == ticker && !it.read }.forEach { markUpdateRead(it.id) }
+    }
+
+    fun markUpdateRead(id: Long) {
+        val current = _ui.value.updates
+        if (current.none { it.id == id && !it.read }) return
+        val updated = current.map { if (it.id == id) it.copy(read = true) else it }
+        _ui.value = _ui.value.copy(updates = updated, unreadUpdates = updated.count { !it.read })
+        if (Session.demoAccount) {
+            DemoUpdates.markRead(id)
+            return
+        }
+        viewModelScope.launch { runCatching { repository.markUpdateRead(id) } }
+    }
+
+    /**
      * The Taste Graph, measured by the server from this account's own saves, passes and
      * opens. Cheap to serve (no AI), so it is read with every load rather than cached
      * for the session - a save made a moment ago should show up in it.
      */
-    fun loadTaste() {
+    fun loadTaste(force: Boolean = false) {
         if (Session.demoAccount) {
-            _ui.value = _ui.value.copy(taste = TasteGraph.demo())
+            _ui.value = _ui.value.copy(taste = TasteGraph.demo(), tasteFailed = false)
             return
         }
+        val now = System.currentTimeMillis()
+        if (!force && now - tasteAtMs < FRESH_MS) return
+        tasteAtMs = now
         viewModelScope.launch {
-            val dto = runCatching { repository.getTaste() }.getOrNull() ?: return@launch
-            _ui.value = _ui.value.copy(taste = TasteGraph.from(dto))
+            val dto = runCatching { repository.getTaste() }.getOrNull()
+            if (dto == null) {
+                // Said, not swallowed: an empty card would read as "you have no taste yet".
+                tasteAtMs = 0L
+                _ui.value = _ui.value.copy(tasteFailed = _ui.value.taste == null)
+                return@launch
+            }
+            _ui.value = _ui.value.copy(taste = TasteGraph.from(dto), tasteFailed = false)
         }
     }
 
@@ -524,6 +584,8 @@ class MyStakViewModel @Inject constructor(
 
         /** How long a screen's quotes count as current before a return to it reloads them. */
         const val QUOTE_FRESH_MS = 60_000L
+        /** How long a taste reading or an update list stands before another screen re-reads it. */
+        const val FRESH_MS = 60_000L
     }
 }
 

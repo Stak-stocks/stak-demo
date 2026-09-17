@@ -42,11 +42,10 @@ fun AllCollectionsScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val demo = com.stak.demo.data.Session.demoAccount
 	val ui by viewModel.ui.collectAsState()
-	val entries = if (demo) {
-		COLLECTIONS.map { CollectionEntry(it.id, it.name, it.held().size, it.imageRes, it.iconRes) }
-	} else {
-		ui.groups.map { CollectionEntry(it.id, it.name, it.holdings.size, it.imageRes, it.iconRes) }
-	}
+	// The same dots the overview shows - this is the page someone with many collections
+	// uses to find them.
+	val unreadTickers = ui.updates.filter { !it.read }.map { it.ticker }.toSet()
+	val entries = collectionEntries(demo, ui, unreadTickers)
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height((56 * u).dp)) {
 			AuthBackCircle(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = (20 * u).dp))
@@ -68,7 +67,7 @@ fun AllCollectionsScreen(
 				.padding(top = (8 * u).dp, bottom = (32 * u).dp),
 		) {
 			Text(
-				text = "${entries.size} collections · ${heldCountLabel(entries.sumOf { it.count })}",
+				text = "${if (entries.size == 1) "1 collection" else "${entries.size} collections"} · ${heldCountLabel(entries.sumOf { it.count })}",
 				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Stak.Muted,
 			)

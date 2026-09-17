@@ -49,14 +49,32 @@ internal data class CollectionEntry(
 	val count: Int,
 	val imageRes: Int? = null,
 	val iconRes: Int? = null,
+	/** One of its companies has an update nobody has opened yet. */
+	val hasUpdate: Boolean = false,
 )
 
+/** Every collection on screen, with the dot for one whose company has an unopened update. */
+internal fun collectionEntries(
+	demo: Boolean,
+	ui: MyStakViewModel.MyStakUi,
+	unreadTickers: Set<String>,
+): List<CollectionEntry> = if (demo) {
+	COLLECTIONS.map { c ->
+		CollectionEntry(c.id, c.name, c.held().size, c.imageRes, c.iconRes, c.held().any { it.ticker in unreadTickers })
+	}
+} else {
+	ui.groups.map { g ->
+		CollectionEntry(g.id, g.name, g.holdings.size, g.imageRes, g.iconRes, g.holdings.any { it.ticker in unreadTickers })
+	}
+}
+
 /**
- * The Taste Mix palette, one colour per ranked theme, so a ring slice and the dot
- * beside its name are the same colour and no two themes look alike.
+ * The Taste Mix palette: one shade of blue per ranked theme, strongest lightest. Shades
+ * of one colour rather than six hues - a rainbow ring read as decoration, and this is
+ * the app's own blue (design concept, user 2026-09-17).
  */
 private val TASTE_PALETTE = listOf(
-	Color(0xFF69B3CA), Color(0xFFE8B86D), Color(0xFF7AB3F0), Color(0xFF2FD08A), Color(0xFF9E8CE5), Color(0xFFE5748A),
+	Color(0xFF9BD7EC), Color(0xFF69B3CA), Color(0xFF4A8FC0), Color(0xFF356F9F), Color(0xFF2A5476), Color(0xFF223D57),
 )
 
 internal fun themeColor(colorKey: String): Color =
@@ -86,6 +104,7 @@ internal fun CollectionGrid(entries: List<CollectionEntry>, onOpen: (String) -> 
 						imageRes = c.imageRes,
 						iconRes = c.iconRes,
 						initial = c.name.take(1),
+						hasUpdate = c.hasUpdate,
 						onClick = { onOpen(c.id) },
 						modifier = Modifier.weight(1f),
 					)
@@ -107,6 +126,7 @@ private fun CollectionChip(
 	iconRes: Int? = null,
 	/** Drawn when no authored art fits the category - better than borrowing art that says the wrong thing. */
 	initial: String? = null,
+	hasUpdate: Boolean = false,
 	onClick: () -> Unit = {},
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -160,6 +180,10 @@ private fun CollectionChip(
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Stak.Muted,
 			)
+		}
+		if (hasUpdate) {
+			Box(modifier = Modifier.size((8 * u).dp).clip(CircleShape).background(Stak.Teal))
+			Spacer(modifier = Modifier.size((4 * u).dp))
 		}
 		Text(
 			text = "›",

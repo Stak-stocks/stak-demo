@@ -13,6 +13,7 @@ import { brandsRouter } from "./routes/brands.js";
 import { swipeRouter } from "./routes/swipe.js";
 import { meRouter } from "./routes/me.js";
 import { tasteRouter } from "./routes/taste.js";
+import { updatesRouter } from "./routes/updates.js";
 import { newsRouter } from "./routes/news.js";
 import { stockRouter } from "./routes/stock.js";
 import { intelCardsRouter } from "./routes/intelCards.js";
@@ -78,6 +79,7 @@ const authLimiter = rateLimit({
 app.use("/api/brands", publicLimiter, brandsRouter);
 app.use("/api/swipe", authLimiter, swipeRouter);
 app.use("/api/me/taste", authLimiter, tasteRouter);
+app.use("/api/me/updates", authLimiter, updatesRouter);
 app.use("/api/me", authLimiter, meRouter);
 app.use("/api/news", publicLimiter, newsRouter);
 app.use("/api/stock", publicLimiter, stockRouter);

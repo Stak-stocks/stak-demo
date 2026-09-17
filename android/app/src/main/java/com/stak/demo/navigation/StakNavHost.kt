@@ -376,6 +376,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
 				onOpenTaste = { navController.navigate(StakRoutes.TASTE_GRAPH) },
 				onOpenAllCollections = { navController.navigate(StakRoutes.COLLECTIONS_ALL) },
+				onOpenUpdates = { navController.navigate(StakRoutes.MYSTAK_UPDATES) },
 				onOpenProfile = { navController.navigate(StakRoutes.PROFILE) },
 				// Product audit (2026-09-05): the bell opens the inbox.
 				onOpenNotifications = { navController.navigate(StakRoutes.NOTIFICATIONS) },
@@ -430,6 +431,18 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.mystak.AllCollectionsScreen(
 				onBack = { navController.popBackStack() },
 				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
+			)
+		}
+		composable(
+			StakRoutes.MYSTAK_UPDATES,
+			enterTransition = { EnterTransition.None },
+			exitTransition = { ExitTransition.None },
+			popEnterTransition = { popEnterFor(shellPop.value, instantRoute = true) },
+			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
+		) {
+			com.stak.demo.ui.mystak.UpdatesScreen(
+				onBack = { navController.popBackStack() },
+				onOpenStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
 			)
 		}
 		composable(
@@ -646,6 +659,7 @@ internal enum class PopStyle { HOUSE_BACK, FORWARD_PUSH, DISSOLVE, INSTANT }
 // deliberately absent: it keeps the house push both ways (171:995).
 private val INSTANT_ROUTES = setOf(
 	StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION, StakRoutes.COLLECTIONS_ALL, StakRoutes.TASTE_GRAPH,
+	StakRoutes.MYSTAK_UPDATES,
 	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK, StakRoutes.LEADERBOARD,
 	StakRoutes.NEWS_DETAIL, StakRoutes.NEWS_LIVE_DETAIL, StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
 )
@@ -692,6 +706,7 @@ private fun MainShell(
 	onOpenCollection: (String) -> Unit,
 	onOpenTaste: () -> Unit,
 	onOpenAllCollections: () -> Unit,
+	onOpenUpdates: () -> Unit,
 	onOpenProfile: () -> Unit,
 	onOpenNotifications: () -> Unit,
 	onOpenSimPortfolio: () -> Unit,
@@ -836,6 +851,7 @@ private fun MainShell(
 							onStartSwiping = { switchTab(MainTab.Discover) },
 							onOpenTaste = onOpenTaste,
 							onOpenAllCollections = onOpenAllCollections,
+							onOpenUpdates = onOpenUpdates,
 						)
 					}
 				}

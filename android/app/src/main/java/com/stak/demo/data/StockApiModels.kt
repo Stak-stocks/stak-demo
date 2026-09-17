@@ -145,6 +145,33 @@ data class MeResponse(
     val plan: String = "free",
 )
 
+/** One headline behind an update. */
+data class UpdateSourceDto(
+    val source: String = "",
+    val url: String = "",
+    val headline: String = "",
+    val datetime: Long = 0L,
+)
+
+/** What changed at a saved company: the change itself, its context, and the headlines behind it. */
+data class StockUpdateDto(
+    val id: Long = 0L,
+    val ticker: String = "",
+    val company: String = "",
+    /** earnings / guidance / analyst / business. */
+    val kind: String = "",
+    val title: String = "",
+    val body: String = "",
+    val watch: String? = null,
+    val sources: List<UpdateSourceDto> = emptyList(),
+    val occurredAt: String = "",
+    val read: Boolean = false,
+)
+data class UpdatesResponse(
+    val updates: List<StockUpdateDto> = emptyList(),
+    val unread: Int = 0,
+)
+
 /**
  * The Taste Graph as the server measured it: what the user's own saves, passes, Learn
  * more opens and stock-page opens say they gravitate toward. Shares are interest
