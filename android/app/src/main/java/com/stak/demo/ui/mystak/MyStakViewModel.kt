@@ -8,7 +8,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stak.demo.data.BatchQuote
 import com.stak.demo.data.MyStakHoldings
+import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
 import com.stak.demo.data.indexedMovePct
@@ -18,6 +20,7 @@ import com.stak.demo.data.categoryGroupId
 import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -136,8 +139,21 @@ class MyStakViewModel @Inject constructor(
         // and started its own.
         loadedFor = MyStakHoldings.tickers
         loadedAtMs = System.currentTimeMillis()
+        // Open with what the phone already knows - the saves in local storage and the
+        // prices last seen today - instead of a blank screen until three requests had
+        // come back one after another (device check, 2026-09-16: 2-5s on first open).
+        if (_ui.value.holdings.isEmpty()) {
+            val local = MyStakHoldings.tickers.toList()
+            if (local.isNotEmpty()) render(local, MyStakSnapshot.quotes(), final = false)
+        }
+        // The Discover banner's count, on its own: it used to hold the whole page back.
+        viewModelScope.launch { cardsLeft()?.let { _ui.value = _ui.value.copy(cardsLeft = it) } }
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
+            // Prices for what's saved on the phone, requested alongside the server's
+            // list rather than after it; a stock the refresh adds is fetched after.
+            val localTickers = MyStakHoldings.tickers.toList()
+            val quotesAhead = async { fetchQuotes(localTickers) }
             // The server is the record of what's saved, and it carries each save's
             // category, date and price - the local set alone can't describe a stock.
             MyStakHoldings.refreshFromBackend()
@@ -146,52 +162,61 @@ class MyStakViewModel @Inject constructor(
             // back: a failed fetch must not loop.
             loadedFor = MyStakHoldings.tickers
             if (tickers.isEmpty()) {
-                _ui.value = MyStakUi(loading = false, cardsLeft = cardsLeft())
+                quotesAhead.cancel()
+                _ui.value = MyStakUi(loading = false, cardsLeft = _ui.value.cardsLeft)
                 return@launch
             }
-            // Batched: one request per 50 symbols keeps the query string sane.
-            val quotes = tickers.chunked(50).flatMap { chunk ->
-                runCatching { repository.batchQuotes(chunk).quotes.entries.map { it.key to it.value } }
-                    .getOrDefault(emptyList())
-            }.toMap()
-
-            val holdings = tickers.map { ticker ->
-                val quote = quotes[ticker]
-                val price = quote?.price?.takeIf { it > 0 }
-                val saved = MyStakHoldings.priceAtSave(ticker)?.takeIf { it > 0 }
-                val groupName = MyStakHoldings.categoryOf(ticker)?.let(::categoryName) ?: OTHER
-                Holding(
-                    ticker = ticker,
-                    name = MyStakHoldings.nameOf(ticker) ?: ticker,
-                    groupId = categoryGroupId(groupName),
-                    groupName = groupName,
-                    price = price,
-                    changePct = quote?.changePercent,
-                    sinceSavedPct = if (price != null && saved != null) (price - saved) / saved * 100 else null,
-                    daysSinceSaved = MyStakHoldings.daysSinceSaved(ticker),
-                )
-            }
-            val moved = holdings.mapNotNull { it.changePct }
-            val ranked = holdings.filter { it.changePct != null }
-            // copy(), not a fresh MyStakUi: the range's chart is fetched alongside this
-            // and finishes on its own schedule, so rebuilding the state wholesale
-            // wiped a line that had already arrived (device audit, 2026-09-15).
-            _ui.value = _ui.value.copy(
-                loading = false,
-                holdings = holdings,
-                groups = groupsOf(holdings),
-                todayPct = moved.takeIf { it.isNotEmpty() }?.average(),
-                best = if (ranked.size >= 2) ranked.maxBy { it.changePct!! } else null,
-                worst = if (ranked.size >= 2) ranked.minBy { it.changePct!! } else null,
-                cardsLeft = cardsLeft(),
-                readHeadline = readHeadline(holdings),
-                readBody = readBody(holdings),
-            )
+            var quotes = quotesAhead.await()
+            val missing = tickers.filter { it !in quotes }
+            if (missing.isNotEmpty()) quotes = quotes + fetchQuotes(missing)
+            if (quotes.isNotEmpty()) MyStakSnapshot.putQuotes(quotes)
+            render(tickers, quotes, final = true)
             // refreshFromBackend above can change what's saved. The line is keyed to
             // the set it was drawn from, so redraw it rather than leave a percentage
             // describing stocks the labels no longer count.
             if (chartFor != MyStakHoldings.tickers) selectRange(_ui.value.chartRange)
         }
+    }
+
+    /** Batched: one request per 50 symbols keeps the query string sane. */
+    private suspend fun fetchQuotes(tickers: List<String>): Map<String, BatchQuote> =
+        tickers.chunked(50).flatMap { chunk ->
+            runCatching { repository.batchQuotes(chunk).quotes.entries.mapNotNull { e -> e.value?.let { e.key to it } } }
+                .getOrDefault(emptyList())
+        }.toMap()
+
+    private fun render(tickers: List<String>, quotes: Map<String, BatchQuote>, final: Boolean) {
+        val holdings = tickers.map { ticker ->
+            val quote = quotes[ticker]
+            val price = quote?.price?.takeIf { it > 0 }
+            val saved = MyStakHoldings.priceAtSave(ticker)?.takeIf { it > 0 }
+            val groupName = MyStakHoldings.categoryOf(ticker)?.let(::categoryName) ?: OTHER
+            Holding(
+                ticker = ticker,
+                name = MyStakHoldings.nameOf(ticker) ?: ticker,
+                groupId = categoryGroupId(groupName),
+                groupName = groupName,
+                price = price,
+                changePct = quote?.takeIf { price != null }?.changePercent,
+                sinceSavedPct = if (price != null && saved != null) (price - saved) / saved * 100 else null,
+                daysSinceSaved = MyStakHoldings.daysSinceSaved(ticker),
+            )
+        }
+        val moved = holdings.mapNotNull { it.changePct }
+        val ranked = holdings.filter { it.changePct != null }
+        // copy(), not a fresh MyStakUi: the range's chart is fetched alongside this
+        // and finishes on its own schedule, so rebuilding the state wholesale
+        // wiped a line that had already arrived (device audit, 2026-09-15).
+        _ui.value = _ui.value.copy(
+            loading = !final,
+            holdings = holdings,
+            groups = groupsOf(holdings),
+            todayPct = moved.takeIf { it.isNotEmpty() }?.average(),
+            best = if (ranked.size >= 2) ranked.maxBy { it.changePct!! } else null,
+            worst = if (ranked.size >= 2) ranked.minBy { it.changePct!! } else null,
+            readHeadline = readHeadline(holdings),
+            readBody = readBody(holdings),
+        )
     }
 
     /**
@@ -204,12 +229,15 @@ class MyStakViewModel @Inject constructor(
         if (_ui.value.chartRange == range && chartFor == forTickers &&
             (_ui.value.chartSeries != null || chartJob?.isActive == true)
         ) return
-        // Drop the old range's line immediately: it answers a different question.
+        // Drop the old range's line immediately: it answers a different question. What
+        // replaces it at once is this range's own line as last drawn today for these
+        // same holdings, if there is one - corrected in place when the fetch lands.
+        val seeded = MyStakSnapshot.line(range, forTickers)
         _ui.value = _ui.value.copy(
             chartRange = range,
-            chartSeries = null,
-            rangePct = null,
-            rangeMoves = emptyMap(),
+            chartSeries = seeded?.series,
+            rangePct = seeded?.pct,
+            rangeMoves = seeded?.moves.orEmpty(),
             chartMissing = false,
         )
         chartFor = forTickers
@@ -221,6 +249,9 @@ class MyStakViewModel @Inject constructor(
             // A slow reply for a range - or a set of holdings - the user has
             // already left must not land on top of the current one.
             if (_ui.value.chartRange != range || chartFor != forTickers) return@launch
+            // A failed refresh keeps today's line rather than replacing it with "no data".
+            if (built == null && seeded != null) return@launch
+            if (built != null) MyStakSnapshot.putLine(range, forTickers, built.series, built.pct, built.moves)
             _ui.value = _ui.value.copy(
                 chartSeries = built?.series,
                 rangePct = built?.pct,
@@ -327,6 +358,42 @@ class MyStakViewModel @Inject constructor(
             .getOrNull(this) ?: toString()
 
     private fun String.cap(): String = replaceFirstChar { it.uppercase() }
+
+    /**
+     * The prices and lines My STAK last showed, kept on the phone so it can open with
+     * them. Only today's (US Eastern) count: a move from a previous session must not
+     * sit under a "today" label, so older ones are ignored rather than shown.
+     */
+    private object MyStakSnapshot {
+        private val gson = com.google.gson.Gson()
+        private data class Quotes(val day: String = "", val quotes: Map<String, BatchQuote> = emptyMap())
+        private data class Line(
+            val day: String = "",
+            val tickers: List<String> = emptyList(),
+            val series: List<Float> = emptyList(),
+            val pct: Double = 0.0,
+            val moves: Map<String, Double> = emptyMap(),
+        )
+        data class Seed(val series: List<Float>, val pct: Double, val moves: Map<String, Double>)
+
+        private fun marketDay(): String =
+            java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()
+
+        fun quotes(): Map<String, BatchQuote> =
+            runCatching { gson.fromJson(StakStore.getString("mystak.quotes"), Quotes::class.java) }.getOrNull()
+                ?.takeIf { it.day == marketDay() }?.quotes.orEmpty()
+
+        fun putQuotes(quotes: Map<String, BatchQuote>) =
+            StakStore.putString("mystak.quotes", gson.toJson(Quotes(marketDay(), quotes)))
+
+        fun line(range: String, tickers: Set<String>): Seed? =
+            runCatching { gson.fromJson(StakStore.getString("mystak.line.$range"), Line::class.java) }.getOrNull()
+                ?.takeIf { it.day == marketDay() && it.tickers.toSet() == tickers && it.series.size >= 2 }
+                ?.let { Seed(it.series, it.pct, it.moves) }
+
+        fun putLine(range: String, tickers: Set<String>, series: List<Float>, pct: Double, moves: Map<String, Double>) =
+            StakStore.putString("mystak.line.$range", gson.toJson(Line(marketDay(), tickers.sorted(), series, pct, moves)))
+    }
 
     private companion object {
         /** A save with no category the deck ranks on - it still has to show up somewhere. */

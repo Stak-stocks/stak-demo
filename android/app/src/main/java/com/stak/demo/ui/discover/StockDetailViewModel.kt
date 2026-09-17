@@ -77,6 +77,40 @@ data class LiveDetail(
     val earningsStr: String?,
 )
 
+/**
+ * This detail with any section it hasn't got yet taken from [previous] - used only
+ * while a page's parts are still arriving, never for the finished page.
+ */
+internal fun LiveDetail.orPrevious(previous: LiveDetail): LiveDetail = copy(
+    name = name ?: previous.name,
+    riskPillX = riskPillX ?: previous.riskPillX,
+    riskCopy = riskCopy ?: previous.riskCopy,
+    newsSources = newsSources ?: previous.newsSources,
+    newsHeadlines = newsHeadlines ?: previous.newsHeadlines,
+    peersLabel = peersLabel ?: previous.peersLabel,
+    peerA = peerA ?: previous.peerA,
+    peerB = peerB ?: previous.peerB,
+    compareRows = compareRows ?: previous.compareRows,
+    statVerdicts = statVerdicts ?: previous.statVerdicts,
+    peRatioValue = peRatioValue ?: previous.peRatioValue,
+    revenueGrowthValue = revenueGrowthValue ?: previous.revenueGrowthValue,
+    profitMarginValue = profitMarginValue ?: previous.profitMarginValue,
+    upside = upside ?: previous.upside,
+    targetLow = targetLow ?: previous.targetLow,
+    targetAvg = targetAvg ?: previous.targetAvg,
+    targetHigh = targetHigh ?: previous.targetHigh,
+    targetMarkerX = targetMarkerX ?: previous.targetMarkerX,
+    consensus = consensus ?: previous.consensus,
+    buyCount = buyCount ?: previous.buyCount,
+    holdCount = holdCount ?: previous.holdCount,
+    sellCount = sellCount ?: previous.sellCount,
+    buyBarW = buyBarW ?: previous.buyBarW,
+    actions = actions ?: previous.actions,
+    newsSignal = newsSignal ?: previous.newsSignal,
+    newsClose = newsClose ?: previous.newsClose,
+    earningsStr = earningsStr ?: previous.earningsStr,
+)
+
 @HiltViewModel
 class StockDetailViewModel @Inject constructor(
     private val repository: StockRepository,
@@ -165,46 +199,75 @@ class StockDetailViewModel @Inject constructor(
                 _savedReferenceSettled.value = true
             }
             _detailSettled.value = false
-            val stockData = runCatching { repository.getStock(symbol) }.getOrNull()
-            val pct = stockData?.quote?.changePercent ?: 0.0
+
+            // Each part is published as it lands. The page used to wait for the quote,
+            // then for the slowest of ten requests - one slow AI summary held back the
+            // price, the chart's stats and everything else (device check, 2026-09-16).
+            // Only the "why it moved" text needs the quote first; the rest start now.
+            var stockData: StockDetailResponse? = null
+            var analyst: AnalystResponse? = null
+            var actions: List<AnalystAction>? = null
+            var move: DailyMoveResponse? = null
+            var earnings: EarningsResponse? = null
+            var news: CompanyNewsResponse? = null
+            var peers: PeerMetricsResponse? = null
+            var peerTickers: List<String> = emptyList()
+            var peerStocks: List<StockDetailResponse?> = emptyList()
+
+            fun build(): LiveDetail? = buildDetail(
+                stockData = stockData,
+                analyst = analyst,
+                actions = actions,
+                move = move,
+                earnings = earnings,
+                news = news,
+                peerTickers = peerTickers,
+                peerStocks = peerStocks,
+                peerMedians = peers,
+            )
+            // While parts are still out, a section they haven't filled keeps what the
+            // cache showed rather than blinking back to a placeholder.
+            fun publish() {
+                val built = build() ?: return
+                _liveDetail.value = _liveDetail.value?.let { built.orPrevious(it) } ?: built
+            }
 
             coroutineScope {
-                val analystDef = async { runCatching { repository.getAnalyst(symbol) }.getOrNull() }
-                val actionsDef = async { runCatching { repository.getAnalystActions(symbol) }.getOrNull() }
-                val moveDef = async { runCatching { repository.getDailyMove(symbol, pct) }.getOrNull() }
-                val earningsDef = async { runCatching { repository.getEarnings(symbol) }.getOrNull() }
-                val newsDef = async { runCatching { repository.getCompanyNews(symbol) }.getOrNull() }
-                val peersDef = async { runCatching { repository.getPeerMetrics(symbol) }.getOrNull() }
-
-                // The peer group names the Compare columns; each peer's own metrics
-                // fill them. peer-metrics returns medians for the group, which can't
-                // describe two separate columns, so the peers are fetched directly.
-                val peers = peersDef.await()
-                val peerTickers = peers?.peerTickers?.take(2).orEmpty()
-                val peerStocks = peerTickers
-                    .map { t -> async { runCatching { repository.getStock(t) }.getOrNull() } }
-                    .awaitAll()
-
-                buildDetail(
-                    stockData = stockData,
-                    analyst = analystDef.await(),
-                    actions = actionsDef.await(),
-                    move = moveDef.await(),
-                    earnings = earningsDef.await(),
-                    news = newsDef.await(),
-                    peerTickers = peerTickers,
-                    peerStocks = peerStocks,
-                    peerMedians = peers,
-                )
-            }.also { built ->
-                // A failed fetch leaves what is already on screen alone; assigning
-                // null here wiped a good page back to placeholders on a bad network.
-                if (built != null) {
-                    _liveDetail.value = built
-                    StockDetailCache.putDetail(symbol, built)
+                launch { analyst = runCatching { repository.getAnalyst(symbol) }.getOrNull(); publish() }
+                launch { actions = runCatching { repository.getAnalystActions(symbol) }.getOrNull(); publish() }
+                launch { earnings = runCatching { repository.getEarnings(symbol) }.getOrNull(); publish() }
+                launch { news = runCatching { repository.getCompanyNews(symbol) }.getOrNull(); publish() }
+                launch {
+                    // The peer group names the Compare columns; each peer's own metrics
+                    // fill them. peer-metrics returns medians for the group, which can't
+                    // describe two separate columns, so the peers are fetched directly.
+                    val group = runCatching { repository.getPeerMetrics(symbol) }.getOrNull()
+                    val tickers = group?.peerTickers?.take(2).orEmpty()
+                    val stocks = tickers
+                        .map { t -> async { runCatching { repository.getStock(t) }.getOrNull() } }
+                        .awaitAll()
+                    peers = group
+                    peerTickers = tickers
+                    peerStocks = stocks
+                    publish()
                 }
-                _detailSettled.value = true
+                launch {
+                    stockData = runCatching { repository.getStock(symbol) }.getOrNull()
+                    publish()
+                    val pct = stockData?.quote?.changePercent ?: 0.0
+                    move = runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()
+                    publish()
+                }
             }
+            // Everything is back: the full build replaces the merged one, so a section
+            // that genuinely came back empty is shown as empty rather than as cached.
+            // A failed quote leaves what is already on screen alone; assigning null here
+            // wiped a good page back to placeholders on a bad network.
+            build()?.let { built ->
+                _liveDetail.value = built
+                StockDetailCache.putDetail(symbol, built)
+            }
+            _detailSettled.value = true
         }
     }
 
