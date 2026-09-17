@@ -222,6 +222,9 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			}
 		}
 		Spacer(modifier = Modifier.height((10 * u).dp))
+		// The bell's dot reflects today's moves and deck: re-read (at most every few
+		// minutes) whenever Home is shown.
+		androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.StakNotifications.refresh() }
 		// Time-of-day in the user's own timezone (device clock); re-read
 		// every 30s so an open app rolls over at noon / 5pm.
 		val greeting by androidx.compose.runtime.produceState(initialValue = com.stak.demo.ui.Greeting.now()) {

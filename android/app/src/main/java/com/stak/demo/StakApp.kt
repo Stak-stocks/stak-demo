@@ -27,6 +27,7 @@ class StakApp : Application() {
 		Session.init(this)
 		val repository = EntryPointAccessors.fromApplication(this, AppEntryPoint::class.java).stockRepository()
 		MyStakHoldings.init(repository)
+		com.stak.demo.data.StakNotifications.init(repository)
 		com.stak.demo.data.LiveQuotes.init(repository)
 	}
 }

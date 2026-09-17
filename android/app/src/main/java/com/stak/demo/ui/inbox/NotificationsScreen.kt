@@ -53,7 +53,10 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val items = StakNotifications.items
 	val readBefore = StakNotifications.readIds
-	LaunchedEffect(Unit) { StakNotifications.markAllRead() }
+	LaunchedEffect(Unit) {
+		StakNotifications.markAllRead()
+		StakNotifications.refresh()
+	}
 	SettingsScaffold(title = "Notifications", onBack = onBack) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((14 * u).dp),
