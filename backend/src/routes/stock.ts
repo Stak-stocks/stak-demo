@@ -6,6 +6,7 @@ import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../servic
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
+import { sendPush } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -567,6 +568,104 @@ stockRouter.get("/warm-saved", async (req, res) => {
 	} catch (error) {
 		console.error("[warm-saved] error:", error);
 		res.status(500).json({ error: "warm failed" });
+	}
+});
+
+// ── Push alerts ───────────────────────────────────────────────────────────────
+// GET /api/stock/push-run
+//
+// Sends the push notifications the app's settings promise, so they arrive with the app
+// closed. Called by Cloud Scheduler every 15 minutes with x-warm-secret.
+// - Price moves: while the market is open, a saved stock moving 3% or more today, once
+//   per user, stock, direction and day, to devices with price alerts on.
+// - Daily deck: once per device per day, in the 9am hour where the phone is (the deck
+//   day starts at 9am local, as in the app), to devices with the daily deck on.
+const PUSH_MOVE_THRESHOLD_PCT = 3;
+const PUSH_DEDUPE_TTL_MS = 20 * 60 * 60 * 1000;
+
+stockRouter.get("/push-run", async (req, res) => {
+	const secret = req.headers["x-warm-secret"];
+	if (!secret || secret !== process.env.WARM_SECRET) {
+		res.status(401).json({ error: "unauthorized" }); return;
+	}
+	const today = getEasternDateKey();
+	let moves = 0, decks = 0, failed = 0;
+	try {
+		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean }>(
+			`select token, uid, timezone, price_alerts, daily_deck from push_devices`,
+		);
+		if (devices.rows.length === 0) { res.json({ ok: true, moves, decks, failed }); return; }
+
+		// ── Price moves ──
+		const alertUids = [...new Set(devices.rows.filter((d) => d.price_alerts).map((d) => d.uid))];
+		if (marketSessionBucket() === "open" && alertUids.length > 0) {
+			const saved = await pgQuery<{ uid: string; brand_id: string }>(
+				`select uid, brand_id from stak_brands where uid = any($1)`, [alertUids],
+			);
+			const tickerById = new Map(brands.map((b) => [b.id, b.ticker.toUpperCase()]));
+			const byUser = new Map<string, string[]>();
+			for (const r of saved.rows) {
+				const t = tickerById.get(r.brand_id);
+				if (t) byUser.set(r.uid, [...(byUser.get(r.uid) ?? []), t]);
+			}
+			const tickers = [...new Set([...byUser.values()].flat())];
+			const pct = new Map<string, number>();
+			await mapWithLimit(tickers, 6, async (ticker) => {
+				const symbol = resolveSymbol(ticker);
+				const fbKey = `quote:fb:${symbol}`;
+				let q = await cacheGet<Record<string, number>>(fbKey);
+				if (!q) {
+					q = (await finnhubGet(`/quote?symbol=${symbol}`).catch(() => null)) as Record<string, number> | null;
+					if (q) await cacheSet(fbKey, q, quoteTtlMs());
+				}
+				// Only a move from today's session: a quote whose last trade is an earlier day
+				// is yesterday's move, already told.
+				if (q && typeof q.dp === "number" && typeof q.t === "number" && getEasternDateKey(new Date(q.t * 1000)) === today) {
+					pct.set(ticker, q.dp);
+				}
+			});
+			for (const [uid, held] of byUser) {
+				const tokens = devices.rows.filter((d) => d.uid === uid && d.price_alerts).map((d) => d.token);
+				for (const ticker of held) {
+					const p = pct.get(ticker);
+					if (p === undefined || Math.abs(p) < PUSH_MOVE_THRESHOLD_PCT) continue;
+					const dir = p >= 0 ? "up" : "down";
+					const key = `push:move:${uid}:${today}:${ticker}:${dir}`;
+					if (await cacheGet<boolean>(key)) continue;
+					await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
+					const name = brands.find((b) => b.ticker.toUpperCase() === ticker)?.name;
+					for (const token of tokens) {
+						const r = await sendPush(
+							token,
+							`${ticker} is ${dir} ${Math.abs(p).toFixed(1)}% today`,
+							`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved more than ${PUSH_MOVE_THRESHOLD_PCT}%.`,
+							{ kind: "move", ticker },
+						);
+						if (r === "sent") moves++; else if (r === "failed") failed++;
+					}
+				}
+			}
+		}
+
+		// ── Daily deck ──
+		for (const d of devices.rows.filter((x) => x.daily_deck)) {
+			const parts = new Intl.DateTimeFormat("en-CA", { timeZone: d.timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
+				.formatToParts(new Date());
+			const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+			if (get("hour") !== "09") continue;
+			const localDay = `${get("year")}-${get("month")}-${get("day")}`;
+			const key = `push:deck:${d.token}:${localDay}`;
+			if (await cacheGet<boolean>(key)) continue;
+			await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
+			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" });
+			if (r === "sent") decks++; else if (r === "failed") failed++;
+		}
+
+		console.log(`[push-run] ${today} moves=${moves} decks=${decks} failed=${failed} devices=${devices.rows.length}`);
+		res.json({ ok: true, moves, decks, failed });
+	} catch (error) {
+		console.error("[push-run] error:", error);
+		res.status(500).json({ error: "push run failed" });
 	}
 });
 

@@ -25,6 +25,7 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun patchStakPrice(brandId: String, price: Double): OkResponse =
         api.patchStakPrice(brandId, StakPricePatchRequest(price))
     suspend fun getMe(): MeResponse = api.getMe()
+    suspend fun putPushDevice(body: PushDeviceRequest): OkResponse = api.putPushDevice(body)
     suspend fun putMe(displayName: String? = null, onboardingCompleted: Boolean? = null): MeResponse =
         api.putMe(MePutRequest(displayName = displayName, onboardingCompleted = onboardingCompleted))
     suspend fun getCompanyNews(symbol: String): CompanyNewsResponse = api.getCompanyNews(symbol)

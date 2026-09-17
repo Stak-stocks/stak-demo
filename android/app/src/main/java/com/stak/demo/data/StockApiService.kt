@@ -59,6 +59,10 @@ interface StockApiService {
     @PATCH("api/me/stak/{brandId}/price")
     suspend fun patchStakPrice(@Path("brandId") brandId: String, @Body body: StakPricePatchRequest): OkResponse
 
+    /** Registers this install for push notifications, with its alert settings and time zone. */
+    @PUT("api/me/push-device")
+    suspend fun putPushDevice(@Body body: PushDeviceRequest): OkResponse
+
     @GET("api/me")
     suspend fun getMe(): MeResponse
 

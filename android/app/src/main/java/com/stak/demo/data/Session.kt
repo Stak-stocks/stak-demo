@@ -121,6 +121,7 @@ object Session {
 		com.stak.demo.ui.discover.DeckSession.load()
 		StakNotifications.load()
 		com.stak.demo.ui.news.NewsSaves.load()
+		PushRegistration.sync()
 	}
 
 	/** Stores the Supabase JWT for authenticated API calls. */
@@ -143,6 +144,7 @@ object Session {
 
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
 	fun signOut() {
+		PushRegistration.forget()
 		signedIn = false
 		resumedSignedIn = false
 		demoAccount = true

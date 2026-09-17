@@ -79,6 +79,13 @@ data class SavedStockDto(
 )
 data class AndroidStocksPutRequest(val tickers: List<String>)
 data class StakPricePatchRequest(val price: Double)
+data class PushDeviceRequest(
+    val token: String,
+    val platform: String,
+    val timezone: String,
+    val priceAlerts: Boolean,
+    val dailyDeck: Boolean,
+)
 data class OkResponse(val ok: Boolean = false)
 
 data class MePutRequest(

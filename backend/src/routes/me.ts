@@ -459,6 +459,54 @@ meRouter.delete("/search-history/:query", authMiddleware, async (req: Authentica
 	}
 });
 
+// PUT /api/me/push-device — register (or update) this install for push notifications.
+// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck? }. The alert switches are
+// the app's per-phone notification settings, so they live on the device row.
+meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { token, platform, timezone, priceAlerts, dailyDeck } = req.body as {
+			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown;
+		};
+		if (typeof token !== "string" || token.length < 20 || token.length > 4096) {
+			res.status(400).json({ error: "token is required" });
+			return;
+		}
+		// An unknown zone would make the morning reminder's local-time check throw.
+		let zone = "America/New_York";
+		if (typeof timezone === "string") {
+			try { new Intl.DateTimeFormat("en-US", { timeZone: timezone }); zone = timezone; } catch { /* keep default */ }
+		}
+		await ensureUserRow(uid, req.user!.email);
+		// The token is the install; if it was registered to another account on this phone,
+		// it now belongs to whoever is signed in.
+		await pgQuery(
+			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, updated_at)
+			values ($1, $2, $3, $4, $5, $6, now())
+			on conflict (token) do update set uid = excluded.uid, platform = excluded.platform, timezone = excluded.timezone,
+				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, updated_at = now()`,
+			[token, uid, platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false],
+		);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error registering push device:", error);
+		res.status(500).json({ error: "Failed to register push device" });
+	}
+});
+
+// DELETE /api/me/push-device — stop pushing to this install (sign-out). Body: { token }.
+meRouter.delete("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const { token } = req.body as { token?: unknown };
+		if (typeof token !== "string") { res.status(400).json({ error: "token is required" }); return; }
+		await pgQuery(`delete from push_devices where token = $1 and uid = $2`, [token, req.user!.uid]);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error removing push device:", error);
+		res.status(500).json({ error: "Failed to remove push device" });
+	}
+});
+
 // DELETE /api/me/search-history — clear all entries
 meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {

@@ -7,6 +7,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    // Reads app/google-services.json (git-ignored; `firebase apps:sdkconfig ANDROID
+    // 1:889057229494:android:53c35649edb99a0ebbc417 --project stak-c21a3 --out app/google-services.json`).
+    id("com.google.gms.google-services")
 }
 
 // Release signing (audit 2026-09-04). The upload key is NOT in the repo:
@@ -110,6 +113,11 @@ dependencies {
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
+    // Push notifications (Firebase Cloud Messaging)
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
