@@ -65,12 +65,6 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height((56 * u).dp)) {
 			AuthBackCircle(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = (20 * u).dp))
-			Text(
-				text = "My STAK",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
-				color = Stak.Muted,
-				modifier = Modifier.align(Alignment.Center),
-			)
 		}
 		Column(
 			verticalArrangement = Arrangement.spacedBy((16 * u).dp),
@@ -163,7 +157,7 @@ private fun ThemeRow(theme: TasteGraph.Theme, graph: TasteGraph.Graph) {
 			) { open = !open },
 	) {
 		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
-			Box(modifier = Modifier.size((10 * u).dp).clip(CircleShape).background(themeColor(theme.colorKey)))
+			ThemeIcon(theme)
 			Text(
 				text = theme.label,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
@@ -196,6 +190,33 @@ private fun ThemeRow(theme: TasteGraph.Theme, graph: TasteGraph.Graph) {
 					color = Stak.Faint,
 				)
 			}
+		}
+	}
+}
+
+/**
+ * The theme's mark: the collection art STAK already uses for that category, on a tile
+ * tinted with the theme's own colour so a row and its slice of the ring still match. A
+ * category with no art of its own keeps the plain dot.
+ */
+@Composable
+private fun ThemeIcon(theme: TasteGraph.Theme) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val art = com.stak.demo.data.categoryArt(theme.label)
+	val tint = themeColor(theme.colorKey)
+	Box(
+		contentAlignment = Alignment.Center,
+		modifier = Modifier.size((28 * u).dp).clip(RoundedCornerShape((8 * u).dp)).background(tint.copy(alpha = 0.18f)),
+	) {
+		val res = art?.iconRes ?: art?.imageRes
+		if (res != null) {
+			androidx.compose.foundation.Image(
+				painter = androidx.compose.ui.res.painterResource(res),
+				contentDescription = null,
+				modifier = Modifier.size((20 * u).dp),
+			)
+		} else {
+			Box(modifier = Modifier.size((10 * u).dp).clip(CircleShape).background(tint))
 		}
 	}
 }

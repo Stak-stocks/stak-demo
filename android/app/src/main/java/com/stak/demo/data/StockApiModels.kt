@@ -187,6 +187,8 @@ data class TasteThemeDto(
     val opens: Int = 0,
     val passes: Int = 0,
     val savedNames: List<String> = emptyList(),
+    /** When the newest save in this theme happened, so the evidence can say "this week". */
+    val lastSavedAt: String? = null,
 )
 data class TasteResponse(
     val themes: List<TasteThemeDto> = emptyList(),

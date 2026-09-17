@@ -46,6 +46,8 @@ type Theme = {
 	passes: number;
 	/** Up to three company names behind the saves, newest first. */
 	savedNames: string[];
+	/** When the newest of those saves happened, so the app can say "this week". */
+	lastSavedAt: string | null;
 };
 
 function categoryOf(ticker: string | null | undefined): string | null {
@@ -80,13 +82,15 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const themes = new Map<string, Theme>();
 		const add = (category: string | null, patch: Partial<Theme> & { score: number }) => {
 			if (!category) return;
-			const t = themes.get(category) ?? { category, score: 0, share: 0, saves: 0, learnMores: 0, opens: 0, passes: 0, savedNames: [] };
+			const t = themes.get(category) ?? { category, score: 0, share: 0, saves: 0, learnMores: 0, opens: 0, passes: 0, savedNames: [], lastSavedAt: null };
 			t.score += patch.score;
 			t.saves += patch.saves ?? 0;
 			t.learnMores += patch.learnMores ?? 0;
 			t.opens += patch.opens ?? 0;
 			t.passes += patch.passes ?? 0;
 			if (patch.savedNames?.length && t.savedNames.length < 3) t.savedNames.push(...patch.savedNames.slice(0, 3 - t.savedNames.length));
+			// The saves arrive newest first, so the first one to land is the newest.
+			if (patch.lastSavedAt && !t.lastSavedAt) t.lastSavedAt = patch.lastSavedAt;
 			themes.set(category, t);
 		};
 
@@ -97,7 +101,7 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			const brand = BRAND_BY_ID.get(row.brand_id);
 			if (!brand) continue;
 			totalSaves++;
-			add(categoryOf(brand.ticker), { score: WEIGHT.save, saves: 1, savedNames: [brand.name] });
+			add(categoryOf(brand.ticker), { score: WEIGHT.save, saves: 1, savedNames: [brand.name], lastSavedAt: row.saved_at });
 		}
 		// The swipe that made a save and the save itself are one decision, so a stock
 		// still saved is counted once, as a save. A right swipe on a stock since

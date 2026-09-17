@@ -24,6 +24,8 @@ object TasteGraph {
 		val learnMores: Int = 0,
 		val opens: Int = 0,
 		val savedNames: List<String> = emptyList(),
+		/** When the newest save in this theme happened; null when it can't be read. */
+		val savedAtMs: Long? = null,
 	)
 
 	/** One line of "Why STAK thinks this": what the user did, and the count behind it. */
@@ -63,10 +65,13 @@ object TasteGraph {
 				totalSaves == 1 -> " · your only saved company"
 				else -> " · ${theme.saves} of your $totalSaves saved companies"
 			}
+			// "this week" answers the question a returning user actually has - why the
+			// reading moved - without inventing anything: the save dates are stored.
+			val whenSaved = recencyOf(theme.savedAtMs)
 			when {
-				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}.", theme.label + ofSaved)
+				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}$whenSaved.", theme.label + ofSaved)
 				theme.savedNames.size >= 2 -> out += Evidence(
-					"You saved ${theme.savedNames.take(2).joinToString(" and ")}.",
+					"You saved ${theme.savedNames.take(2).joinToString(" and ")}$whenSaved.",
 					theme.label + ofSaved,
 				)
 				// The label is a category name, not an adjective: "2 companies in Chips",
@@ -110,6 +115,7 @@ object TasteGraph {
 				learnMores = t.learnMores,
 				opens = t.opens,
 				savedNames = t.savedNames,
+				savedAtMs = t.lastSavedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
 			)
 		},
 		otherShare = dto.otherShare.toFloat(),
@@ -141,6 +147,18 @@ object TasteGraph {
 			totalSaves = symbols.size,
 			learning = symbols.size < 3,
 		)
+	}
+
+	/** " today" / " this week" / " this month" for a save recent enough to be worth saying. */
+	private fun recencyOf(savedAtMs: Long?): String {
+		val days = savedAtMs?.let { (System.currentTimeMillis() - it) / (24 * 60 * 60 * 1000L) } ?: return ""
+		return when {
+			days < 0L -> ""
+			days < 1L -> " today"
+			days < 7L -> " this week"
+			days < 31L -> " this month"
+			else -> ""
+		}
 	}
 
 	/**
