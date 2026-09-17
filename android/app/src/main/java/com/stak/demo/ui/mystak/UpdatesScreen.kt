@@ -60,12 +60,6 @@ fun UpdatesScreen(
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().height((56 * u).dp)) {
 			AuthBackCircle(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = (20 * u).dp))
-			Text(
-				text = "My STAK",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
-				color = Stak.Muted,
-				modifier = Modifier.align(Alignment.Center),
-			)
 		}
 		Column(
 			verticalArrangement = Arrangement.spacedBy((12 * u).dp),
@@ -84,40 +78,74 @@ fun UpdatesScreen(
 					color = Color.White,
 				)
 				Text(
-					text = subtitleFor(ui.updates),
+					text = subtitleFor(ui.updates.filter { !it.read }),
 					style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Muted,
 				)
 			}
-			// Grouped by company: two changes at one company are one card, as the spec asks.
-			ui.updates.groupBy { it.ticker }.forEach { (ticker, forCompany) ->
-				CompanyUpdateCard(
-					updates = forCompany,
-					onOpen = {
-						viewModel.markCompanyRead(ticker)
-						StakEvents.log(StakEvents.UPDATE_OPEN, ticker = ticker, params = mapOf("kind" to forCompany.first().kind))
-						onOpenStock(ticker)
-					},
-				)
+			// New is what the user hasn't opened - not what arrived since they last looked
+			// here: opening a list is not reading the cards in it, and an update glanced at
+			// and backed out of shouldn't disappear from the top.
+			val fresh = ui.updates.filter { !it.read }
+			// Already opened, kept for a fortnight in case they want them again. Capped: a
+			// busy week across 30 saved companies would otherwise bury the new ones.
+			val earlier = ui.updates.filter { it.read }.take(EARLIER_SHOWN)
+			if (fresh.isNotEmpty()) {
+				UpdateSection("New", fresh, viewModel, onOpenStock)
 			}
 			if (ui.updates.isNotEmpty()) {
 				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth().padding(top = (4 * u).dp)) {
 					Text("✓", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = Stak.Faint)
 					Text(
 						// "Up to date" is only true once every one of them has been opened.
-						text = if (ui.unreadUpdates == 0) "You're up to date on your saved companies." else "That's all the new updates.",
+						text = if (fresh.isEmpty()) "You're up to date on your saved companies." else "That's all the new updates.",
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Stak.Faint,
 					)
 				}
 			}
+			if (earlier.isNotEmpty()) {
+				UpdateSection("Earlier", earlier, viewModel, onOpenStock)
+			}
 		}
 	}
 }
 
-private fun subtitleFor(updates: List<StockUpdateDto>): String {
-	if (updates.isEmpty()) return "Nothing new at your saved companies."
-	val companies = updates.map { it.ticker }.distinct().size
+/** How many already-opened updates stay on the page under "Earlier". */
+private const val EARLIER_SHOWN = 10
+
+/** One band of the inbox - its heading, then a card per company in it. */
+@Composable
+private fun UpdateSection(
+	title: String,
+	updates: List<StockUpdateDto>,
+	viewModel: MyStakViewModel,
+	onOpenStock: (String) -> Unit,
+) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Text(
+		text = title,
+		style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, letterSpacing = (0.8 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+		color = Stak.Faint,
+		modifier = Modifier.padding(top = (4 * u).dp),
+	)
+	// Grouped by company: two changes at one company are one card, as the spec asks.
+	updates.groupBy { it.ticker }.forEach { (ticker, forCompany) ->
+		CompanyUpdateCard(
+			updates = forCompany,
+			onOpen = {
+				viewModel.markCompanyRead(ticker)
+				StakEvents.log(StakEvents.UPDATE_OPEN, ticker = ticker, params = mapOf("kind" to forCompany.first().kind))
+				onOpenStock(ticker)
+			},
+		)
+	}
+}
+
+/** The line under the title, counting the companies with something still unopened. */
+private fun subtitleFor(fresh: List<StockUpdateDto>): String {
+	if (fresh.isEmpty()) return "Nothing new at your saved companies."
+	val companies = fresh.map { it.ticker }.distinct().size
 	return "${if (companies == 1) "1 saved company" else "$companies saved companies"} · Last 14 days"
 }
 
@@ -141,6 +169,7 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 			.padding((16 * u).dp),
 	) {
 		Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+			CompanyLogo(update)
 			Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
 				Text(
 					text = update.company,
@@ -201,6 +230,35 @@ private fun kindLabel(kind: String): String = when (kind) {
 	"analyst" -> "Analysts"
 	"business" -> "Company news"
 	else -> "Update"
+}
+
+/**
+ * The company's logo from the brand catalogue, or its initial while that is still
+ * loading (or for a company the catalogue has no mark for).
+ */
+@Composable
+private fun CompanyLogo(update: StockUpdateDto) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val url = com.stak.demo.data.BrandNames.logoByTicker[update.ticker.uppercase()]
+	Box(
+		contentAlignment = Alignment.Center,
+		modifier = Modifier.size((34 * u).dp).clip(RoundedCornerShape((9 * u).dp)).background(Color(0xFF242B3D)),
+	) {
+		if (url != null) {
+			coil.compose.AsyncImage(
+				model = url,
+				contentDescription = null,
+				contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+				modifier = Modifier.size((26 * u).dp),
+			)
+		} else {
+			Text(
+				text = update.company.take(1).uppercase(),
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp),
+				color = Stak.Muted,
+			)
+		}
+	}
 }
 
 /** "From Reuters" / "From Reuters and 2 more" - the headlines this was written from. */

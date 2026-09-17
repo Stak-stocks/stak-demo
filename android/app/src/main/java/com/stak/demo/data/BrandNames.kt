@@ -15,10 +15,18 @@ object BrandNames {
 	var byTicker: Map<String, String> by mutableStateOf(emptyMap())
 		private set
 
+	/** Ticker -> the company's logo, for anywhere a company is named outside the deck. */
+	var logoByTicker: Map<String, String> by mutableStateOf(emptyMap())
+		private set
+
 	fun fill(brands: List<BrandSummaryDto>) {
 		if (brands.isEmpty()) return
 		byTicker = brands.filter { it.ticker.isNotBlank() && it.name.isNotBlank() }
 			.associate { it.ticker.uppercase() to bareName(it.name) }
+		logoByTicker = brands.mapNotNull { b ->
+			val logo = b.logo ?: b.domain?.let { "https://cdn.brandfetch.io/$it/w/400/h/400" }
+			logo?.let { b.ticker.uppercase() to it }
+		}.toMap()
 	}
 
 	suspend fun ensure(repository: StockRepository) {

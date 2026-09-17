@@ -319,6 +319,8 @@ class MyStakViewModel @Inject constructor(
                 return@launch
             }
             _ui.value = _ui.value.copy(updates = res.updates, unreadUpdates = res.unread, updatesFailed = false)
+            // The catalogue carries each company's logo; the inbox draws them beside the names.
+            if (res.updates.isNotEmpty()) com.stak.demo.data.BrandNames.ensure(repository)
         }
     }
 
