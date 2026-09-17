@@ -127,6 +127,7 @@ fun StockDetailScreen(
 	val savedReference by viewModel.savedReference.collectAsStateWithLifecycle()
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
+	val priceAt by viewModel.priceAt.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -188,7 +189,19 @@ fun StockDetailScreen(
 					val displayChange = chartPct.let { p -> if (range != "1D" && p != null) rangeChangeText(p, range) else (liveDetail?.change ?: f.change) }
 					// The page names the stock it is showing; the authored title is another
 					// company's whenever this symbol has no authored facts of its own.
-					Text(liveDetail?.name?.let { "$symbol · $it" } ?: f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+					// Says when the price was fetched: a page opened from the phone's cache looks
+					// just like a live one until the new figures land.
+					val asOf = when {
+						com.stak.demo.data.Session.demoAccount -> null
+						!detailSettled && liveDetail != null -> "Updating\u2026"
+						priceAt != null -> "As of " + com.stak.demo.data.StakClock.clockTime(priceAt!!)
+						else -> null
+					}
+					Text(
+						(liveDetail?.name?.let { "$symbol · $it" } ?: f.title) + (asOf?.let { " · $it" } ?: ""),
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+						color = Muted,
+					)
 					Text(
 						displayPrice,
 						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp),

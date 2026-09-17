@@ -57,6 +57,13 @@ internal object StockDetailCache {
 	 * holds every cached page - would put disk work on the main thread and make
 	 * Android wait on it when the app pauses.
 	 */
+	/** When [detail]'s price was fetched, if that price is still shown (see [detail]). */
+	fun priceAt(symbol: String): Long? {
+		val entry = details[symbol] ?: return null
+		val fresh = entry.day == StakClock.marketDay() && System.currentTimeMillis() - entry.at < FRESH_MS
+		return entry.at.takeIf { fresh }
+	}
+
 	fun putDetail(symbol: String, detail: LiveDetail, persist: Boolean = true) {
 		val entry = Entry(System.currentTimeMillis(), StakClock.marketDay(), detail)
 		details.remove(symbol)

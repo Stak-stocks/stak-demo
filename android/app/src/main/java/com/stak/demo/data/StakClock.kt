@@ -13,6 +13,11 @@ import java.util.Locale
 object StakClock {
 	private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
+	/** "8:32 PM" in the phone's own time zone - when prices on screen were fetched. */
+	fun clockTime(epochMs: Long): String =
+		java.time.Instant.ofEpochMilli(epochMs).atZone(java.time.ZoneId.systemDefault())
+			.format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+
 	/** Today's date in US Eastern time ("2026-09-16") - the market's own day, for dating saved prices. */
 	fun marketDay(): String =
 		java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()

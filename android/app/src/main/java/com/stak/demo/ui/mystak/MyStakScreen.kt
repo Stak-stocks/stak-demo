@@ -111,7 +111,14 @@ fun MyStakScreen(
 				color = Color.White,
 			)
 			Text(
-				text = "Your saved stocks, live.",
+				// Says when the prices were fetched: a page opened from what the phone saved
+				// looks identical to a live one, and a figure from an hour ago shouldn't pass
+				// for this minute's.
+				text = when {
+					demo || ui.quotesAt == null -> "Your saved stocks, live."
+					ui.loading -> "Updating prices\u2026"
+					else -> "Prices as of " + com.stak.demo.data.StakClock.clockTime(ui.quotesAt!!)
+				},
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Muted,
 			)
@@ -495,18 +502,18 @@ private fun PortfolioSummary(ui: MyStakViewModel.MyStakUi, demo: Boolean, onRang
 		// today's movers stand in only until that range's prices arrive.
 		// A best and a worst need two stocks to compare; with one, both named the same
 		// stock - the rule the today pair (ui.best/worst) already kept.
-		val rangeMoves = ui.rangeMoves.takeIf { it.size >= 2 }
-		val rangeBest = rangeMoves?.maxByOrNull { it.value }
-		val rangeWorst = rangeMoves?.minByOrNull { it.value }
+		// Chosen in the ViewModel with a margin, so a near-tie doesn't swap names each refresh.
+		val rangeBestPct = ui.rangeBest?.let { ui.rangeMoves[it] }
+		val rangeWorstPct = ui.rangeWorst?.let { ui.rangeMoves[it] }
 		val best = ui.best
 		val worst = ui.worst
-		val bestTicker = rangeBest?.key ?: best?.ticker
-		val worstTicker = rangeWorst?.key ?: worst?.ticker
-		val bestPct = rangeBest?.value ?: best?.changePct
-		val worstPct = rangeWorst?.value ?: worst?.changePct
+		val bestTicker = ui.rangeBest.takeIf { rangeBestPct != null } ?: best?.ticker
+		val worstTicker = ui.rangeWorst.takeIf { rangeWorstPct != null } ?: worst?.ticker
+		val bestPct = rangeBestPct ?: best?.changePct
+		val worstPct = rangeWorstPct ?: worst?.changePct
 		// Name the period the numbers actually cover: while a range loads, or comes
 		// back empty, the pair is today's movers and must not wear "· 1Y".
-		val periodLabel = if (demo) "this week" else if (rangeBest != null) "· $range" else "· today"
+		val periodLabel = if (demo) "this week" else if (rangeBestPct != null) "· $range" else "· today"
 		if (!empty && (demo || (bestTicker != null && worstTicker != null))) Row(horizontalArrangement = Arrangement.spacedBy((151 * u).dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
 			Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
 				Text("Best $periodLabel", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Faint)

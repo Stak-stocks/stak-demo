@@ -188,6 +188,10 @@ class StockDetailViewModel @Inject constructor(
 
     private var fetchJob: Job? = null
 
+    /** When the price on screen was fetched, or null while none is shown. */
+    private val _priceAt = MutableStateFlow<Long?>(null)
+    val priceAt: StateFlow<Long?> = _priceAt
+
     /** The direction the shown "why it moved" text explains, so a refresh can tell when it no longer fits. */
     private var explainedDirection: String? = null
 
@@ -201,7 +205,10 @@ class StockDetailViewModel @Inject constructor(
         fetchJob = viewModelScope.launch {
             // Show what this stock last showed while its own data is on the way,
             // instead of a page of placeholders on every re-entry.
-            StockDetailCache.detail(symbol)?.let { _liveDetail.value = it }
+            StockDetailCache.detail(symbol)?.let {
+                _liveDetail.value = it
+                _priceAt.value = StockDetailCache.priceAt(symbol)
+            }
             // Alongside the page, not ahead of it: this is one or two chart requests, and
             // awaited first it held back the quote - and so the whole page - behind them.
             _savedReferenceSettled.value = false
@@ -265,6 +272,7 @@ class StockDetailViewModel @Inject constructor(
                 }
                 launch {
                     stockData = runCatching { repository.getStock(symbol) }.getOrNull()
+                    if (stockData?.quote?.price != null) _priceAt.value = System.currentTimeMillis()
                     publish()
                     val pct = stockData?.quote?.changePercent ?: 0.0
                     move = runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()
@@ -315,6 +323,7 @@ class StockDetailViewModel @Inject constructor(
                 newsClose = newsCloseLine(pct),
             ) ?: return@launch
             _liveDetail.value = updated
+            _priceAt.value = System.currentTimeMillis()
             // In memory every time; to the phone at most once a minute.
             val now = System.currentTimeMillis()
             val persist = now - persistedAt > 60_000
