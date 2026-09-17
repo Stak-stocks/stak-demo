@@ -79,8 +79,11 @@ class NewsViewModel @Inject constructor(
             }
             val seen = mutableSetOf<String>()
             _forYouNews.value = allArticles
-                // A story fetched under two holdings keeps the copy that names its company.
-                .sortedByDescending { it.ticker.isNotBlank() }
+                // For You is news about the user's own stocks. A company query also returns
+                // stories merely near it, which led the list with ones like "Why GE Vernova
+                // Stock Crushed it" for someone holding Google, Nvidia, Tesla and Meta
+                // (device check, 2026-09-16); those stay in Markets, not here.
+                .filter { it.ticker.isNotBlank() }
                 .filter { it.url.isNotBlank() && seen.add(it.url) }
                 .sortedByDescending { it.datetime }
                 .take(10)
