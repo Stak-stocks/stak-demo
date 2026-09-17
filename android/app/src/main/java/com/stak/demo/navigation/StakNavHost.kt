@@ -680,9 +680,11 @@ private fun MainShell(
 	val newsViewModel: NewsViewModel = hiltViewModel()
 	val _shellDailyBrief by newsViewModel.dailyBrief.collectAsStateWithLifecycle()
 	val _shellLiveNews by newsViewModel.liveNews.collectAsStateWithLifecycle()
-	LaunchedEffect(_shellDailyBrief, _shellLiveNews) {
+	val _shellLiveNewsFailed by newsViewModel.liveNewsFailed.collectAsStateWithLifecycle()
+	LaunchedEffect(_shellDailyBrief, _shellLiveNews, _shellLiveNewsFailed) {
 		DailyBriefHolder.current = _shellDailyBrief
 		DailyBriefHolder.news = _shellLiveNews
+		DailyBriefHolder.newsFailed = _shellLiveNewsFailed
 	}
 	var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
 	// A1: one-shot switch style - read by the AnimatedContent spec and

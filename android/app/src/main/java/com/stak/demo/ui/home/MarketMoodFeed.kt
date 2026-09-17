@@ -29,7 +29,7 @@ object MarketMoodFeed {
         get() = DailyBriefHolder.current?.mood?.takeIf { it.isNotBlank() }
 
     /** True once the brief request has finished, whatever it brought back. */
-    private val settled: Boolean
+    val settled: Boolean
         get() = DailyBriefHolder.current != null
 
     /** Score (0–100) derived from the backend mood string; null until data arrives. */
@@ -50,7 +50,7 @@ object MarketMoodFeed {
     val statusRest: String
         get() = mood?.let { restForMood(it) } ?: when {
             Session.demoAccount -> DEMO_STATUS_REST
-            settled -> " right now. Check back soon."
+            settled -> " right now."
             else -> "\u2026"
         }
 
@@ -80,10 +80,10 @@ object MarketMoodFeed {
     fun restForMood(mood: String): String = when (mood.lowercase().trim()) {
         "bullish", "risk-on" -> ", momentum is building."
         "calm"               -> ", markets are calm right now."
-        "mixed", "cautious"  -> ", a mixed picture — stay selective."
-        "volatile"           -> ", expect bigger swings than usual."
+        "mixed", "cautious"   -> ", a mixed picture across the market."
+        "volatile"            -> ", expect bigger swings than usual."
         "bearish", "risk-off" -> ", investors are pulling back."
-        else                 -> "."
+        else                  -> "."
     }
 
     /** Maps score band to gauge angle (0 = red/left, 180 = green/right). */

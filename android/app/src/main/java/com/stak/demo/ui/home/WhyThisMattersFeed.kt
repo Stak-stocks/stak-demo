@@ -25,7 +25,7 @@ object WhyThisMattersFeed {
 	const val EMPTY_BODY = "Save a few stocks and STAK will show how today's news hits them."
 
 	/** Said once the brief has come back without a summary for this account. */
-	const val UNAVAILABLE_BODY = "Today's read on your STAK isn't ready yet. Check back soon."
+	const val UNAVAILABLE_BODY = "Today's read on your STAK isn't available."
 
 	/**
 	 * The current summary — backend personalizedImpact when available. A real account
@@ -39,8 +39,8 @@ object WhyThisMattersFeed {
 		val impact = brief?.personalizedImpact
 		if (!impact.isNullOrBlank()) return impact
 		return when {
-			com.stak.demo.data.Session.demoAccount -> if (com.stak.demo.data.MyStakHoldings.count == 0) EMPTY_BODY else DEMO_BODY
 			com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
+			com.stak.demo.data.Session.demoAccount -> DEMO_BODY
 			brief == null -> ""
 			else -> UNAVAILABLE_BODY
 		}

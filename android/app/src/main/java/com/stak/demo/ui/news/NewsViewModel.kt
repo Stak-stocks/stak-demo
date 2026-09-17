@@ -35,10 +35,15 @@ class NewsViewModel @Inject constructor(
         if (Session.token != null) fetchDailyBrief()
     }
 
+    /** True once the market news request has failed, so screens can say so instead of waiting. */
+    private val _liveNewsFailed = MutableStateFlow(false)
+    val liveNewsFailed: StateFlow<Boolean> = _liveNewsFailed
+
     private fun fetchNews() {
         viewModelScope.launch {
             runCatching { repository.getMarketNews() }
-                .onSuccess { _liveNews.value = it.articles }
+                .onSuccess { _liveNews.value = it.articles; _liveNewsFailed.value = false }
+                .onFailure { _liveNewsFailed.value = true }
         }
     }
 

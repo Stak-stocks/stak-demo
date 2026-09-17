@@ -271,16 +271,18 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 
 	const { isOpen, holiday } = await fetchMarketStatus();
 
-	if (!isOpen) {
+	// "Closed" in the first minutes after 9:30 on a normal weekday is the status call
+	// lagging the open (it is cached for ten minutes), not a finished session. Read as
+	// closed, a brief written then was labelled today's close and stored under the
+	// after-close key for the day - serving that evening a line built from quotes that
+	// still showed yesterday's moves. Past the lag window a closed reading is believed:
+	// an early-close afternoon or an unscheduled halt is today's session, as before.
+	const lagAfterOpen = holiday == null && total >= 9 * 60 + 30 && total < 9 * 60 + 45;
+	if (!isOpen && !lagAfterOpen) {
 		// Before 9:30am = pre-market — today's session hasn't started, use last trading day
-		// After 4pm with no holiday = today's session finished normally
+		// After the close with no holiday = today's session finished normally
 		const isPreMarket = total < 9 * 60 + 30;
-		// "Closed" during regular hours on a normal weekday is the status call lagging the
-		// open (it is cached for ten minutes), not a finished session. Treated as today's
-		// close, a brief written at 9:31 from quotes still showing yesterday's moves was
-		// stored under the same key as the real after-close brief and served that evening.
-		const duringSession = total >= 9 * 60 + 30 && total < 16 * 60;
-		const dayLabel = (holiday == null && !isPreMarket && !duringSession) ? "Today's" : await getLastTradingDayLabel(etDateStr);
+		const dayLabel = (holiday == null && !isPreMarket) ? "Today's" : await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
@@ -645,9 +647,10 @@ CRITICAL RULES:
 			};
 			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 			if (!text) continue;
-			// Two hours, not a day: the line quotes live moves, and a copy written from
-			// the wrong session's numbers shouldn't outlast the evening.
-			await cacheSet(cacheKey, text, 2 * 60 * 60 * 1000);
+			// While the market is open the line quotes moves that are still changing, so it
+			// is refreshed every two hours; once closed those moves are final and it keeps
+			// for the day, as it always did.
+			await cacheSet(cacheKey, text, marketClosed ? 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000);
 			return text;
 		} catch {
 			continue;
@@ -1179,7 +1182,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
 
 		// Full-response cache — subsequent requests from the same user in the same session are instant
-		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${uid}`;
+		// v3: dropped v2 entries built during the open-lag window. The day label is part of
+		// the key, so a brief for one session's label is never served under another's.
+		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${dayLabel.replace(/[^a-z]/gi, "")}:${uid}`;
 		const cachedFull = await cacheGet<object>(fullCacheKey);
 		if (cachedFull) { res.json(cachedFull); return; }
 
@@ -1217,7 +1222,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			},
 			generatedAt: new Date().toISOString(),
 		};
-		await cacheSet(fullCacheKey, response, 15 * 60 * 1000); // v2 key — evicts empty results from broken timeout period
+		await cacheSet(fullCacheKey, response, 15 * 60 * 1000);
 		res.json(response);
 	} catch (error) {
 		console.error("Error generating daily brief:", error);

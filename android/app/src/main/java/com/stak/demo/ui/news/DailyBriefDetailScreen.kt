@@ -61,6 +61,8 @@ import com.stak.demo.ui.theme.fractionalSpacedBy
 object DailyBriefHolder {
     var current: DailyBriefResponse? by mutableStateOf(null)
     var news: List<NewsArticleDto> by mutableStateOf(emptyList())
+    /** The market news request failed; nothing more is coming this session. */
+    var newsFailed: Boolean by mutableStateOf(false)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
