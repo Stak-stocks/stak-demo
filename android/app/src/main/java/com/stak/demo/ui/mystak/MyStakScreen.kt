@@ -243,12 +243,15 @@ private fun UpdatesCard(unreadCompanies: Int, unread: Int, total: Int, onOpen: (
 	}
 }
 
-/** "3 saved companies have something new." - companies counted, never rounded up. */
+/**
+ * "3 saved companies have something new." - companies counted, never rounded up. Once
+ * everything is opened it says so plainly, without counting what the user has read or
+ * naming the window STAK keeps them for.
+ */
 private fun updatesLine(unreadCompanies: Int, total: Int): String = when {
 	unreadCompanies == 1 -> "1 saved company has something new."
 	unreadCompanies > 1 -> "$unreadCompanies saved companies have something new."
-	total == 1 -> "You've opened the one update from the last 14 days."
-	else -> "You've opened all $total updates from the last 14 days."
+	else -> "You're up to date. Past updates are still here if you want them."
 }
 
 /**

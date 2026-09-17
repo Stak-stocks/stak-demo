@@ -105,7 +105,7 @@ fun UpdatesScreen(
 				}
 			}
 			if (earlier.isNotEmpty()) {
-				UpdateSection("Earlier", earlier, viewModel, onOpenStock)
+				UpdateSection("Earlier · already opened", earlier, viewModel, onOpenStock)
 			}
 		}
 	}
@@ -142,11 +142,14 @@ private fun UpdateSection(
 	}
 }
 
-/** The line under the title, counting the companies with something still unopened. */
+/**
+ * The line under the title. It says what is waiting, in words rather than a window:
+ * "Last 14 days" told the user about STAK's rules instead of about their companies.
+ */
 private fun subtitleFor(fresh: List<StockUpdateDto>): String {
 	if (fresh.isEmpty()) return "Nothing new at your saved companies."
 	val companies = fresh.map { it.ticker }.distinct().size
-	return "${if (companies == 1) "1 saved company" else "$companies saved companies"} · Last 14 days"
+	return if (companies == 1) "1 saved company has something new" else "$companies saved companies have something new"
 }
 
 /** One company's changes: what happened, the context, and where each one came from. */
