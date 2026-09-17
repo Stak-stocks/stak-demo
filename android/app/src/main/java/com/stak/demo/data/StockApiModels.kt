@@ -91,7 +91,18 @@ data class OkResponse(val ok: Boolean = false)
 data class MePutRequest(
     val displayName: String? = null,
     val onboardingCompleted: Boolean? = null,
+    val taste: TasteDto? = null,
 )
+
+/** The onboarding answers, stored with the account (TasteModel.GOAL_* / RISK_*; picks are brand names). */
+data class TasteDto(
+    val goal: Int = -1,
+    val risk: Int = -1,
+    val riskStyle: String = "",
+    val picks: List<String> = emptyList(),
+) {
+    val hasAnswers: Boolean get() = goal >= 0 || risk >= 0 || picks.isNotEmpty()
+}
 
 data class CompanyNewsResponse(val articles: List<NewsArticleDto> = emptyList())
 
@@ -128,6 +139,8 @@ data class MeResponse(
     val displayName: String = "",
     val onboardingCompleted: Boolean = false,
     val createdAt: String = "",
+    val email: String = "",
+    val taste: TasteDto? = null,
 )
 
 data class WhatHappenedItem(val title: String = "", val body: String = "")

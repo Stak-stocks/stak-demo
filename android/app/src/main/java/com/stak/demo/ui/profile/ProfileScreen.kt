@@ -59,6 +59,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 	// Render nothing once signed out — prevents "Hamza" demo flash during the exit transition frame
 	if (!com.stak.demo.data.Session.signedIn) return
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// The joined month, sign-in email and taste answers as the server has them.
+	androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.ProfileSync.sync() }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(
 			modifier = Modifier
@@ -118,7 +120,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					color = Color.White,
 				)
 				Text(
-					text = "Paper investor · joined ${com.stak.demo.data.UserProfile.joined}",
+					text = (if (com.stak.demo.data.Session.demoAccount) com.stak.demo.data.UserProfile.DEMO_JOINED else com.stak.demo.data.UserProfile.joined)
+						.let { if (it.isBlank()) "Paper investor" else "Paper investor · joined $it" },
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
 				)
@@ -157,7 +160,12 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				val chips: List<Pair<String, Int?>> = if (com.stak.demo.data.Session.demoAccount) {
 					listOf("Tech Curious" to 97, "High Growth" to 94, "Consumer Brands" to 125)
 				} else {
-					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks, profile.goal, profile.risk).map { it to null }
+					// The onboarding picks plus the stocks saved since that belong to a taste, so
+					// the chips follow what the user keeps from the deck.
+					val saved = com.stak.demo.data.MyStakHoldings.tickers
+						.mapNotNull { com.stak.demo.data.MyStakHoldings.nameOf(it) }
+						.filter { com.stak.demo.ui.onboarding.TasteModel.isTasteBrand(it) }
+					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks + saved, profile.goal, profile.risk).map { it to null }
 				}
 				chips.forEach { (label, w) ->
 					Box(
@@ -180,7 +188,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				}
 			}
 			Text(
-					text = "Your taste graph sharpens with every swipe.",
+					text = if (com.stak.demo.data.Session.demoAccount) "Your taste graph sharpens with every swipe." else "Your taste updates as you save stocks.",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Body,
 				)
@@ -218,7 +226,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					.background(CardBg)
 					.padding(vertical = (4 * u).dp),
 			) {
-				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, "Linked accounts" to SettingsKind.LINKED, "Help & support" to SettingsKind.HELP).forEach { (label, kind) ->
+				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, (if (com.stak.demo.data.Session.demoAccount) "Linked accounts" else "Sign-in") to SettingsKind.LINKED, "Help & support" to SettingsKind.HELP).forEach { (label, kind) ->
 					Row(
 						verticalAlignment = Alignment.CenterVertically,
 						modifier = Modifier

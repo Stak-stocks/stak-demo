@@ -18,6 +18,31 @@ const CATEGORY_BY_TICKER: Record<string, string> = Object.fromEntries(
 	(STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[]).map((s) => [s.ticker.toUpperCase(), s.primaryCategory]),
 );
 
+// The Android onboarding answers, kept in preferences so a reinstall or a new phone
+// gets the same taste back. Shape: { goal, risk, riskStyle, picks }.
+type AndroidTaste = { goal: number; risk: number; riskStyle: string; picks: string[] };
+
+function tasteOf(preferences: Record<string, unknown> | null): AndroidTaste | null {
+	const t = preferences?.android_taste as Partial<AndroidTaste> | undefined;
+	if (!t || typeof t !== "object") return null;
+	return {
+		goal: typeof t.goal === "number" ? t.goal : -1,
+		risk: typeof t.risk === "number" ? t.risk : -1,
+		riskStyle: typeof t.riskStyle === "string" ? t.riskStyle : "",
+		picks: Array.isArray(t.picks) ? t.picks.filter((x): x is string => typeof x === "string") : [],
+	};
+}
+
+function validTaste(t: unknown): t is AndroidTaste {
+	if (!t || typeof t !== "object" || Array.isArray(t)) return false;
+	const o = t as Record<string, unknown>;
+	return Number.isInteger(o.goal) && (o.goal as number) >= -1 && (o.goal as number) <= 10
+		&& Number.isInteger(o.risk) && (o.risk as number) >= -1 && (o.risk as number) <= 10
+		&& typeof o.riskStyle === "string" && o.riskStyle.length <= 40
+		&& Array.isArray(o.picks) && o.picks.length <= 50
+		&& o.picks.every((x) => typeof x === "string" && x.length <= 60);
+}
+
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
@@ -53,6 +78,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				id: uid, uid, email: req.user!.email || "",
 				displayName: "", preferences: {}, onboardingCompleted: false,
 				createdAt: new Date().toISOString(),
+				taste: null,
 			};
 			res.json(defaultProfile);
 			return;
@@ -69,6 +95,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			onboardingCompleted: row.onboarding_completed,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			taste: tasteOf(row.preferences),
 		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -80,7 +107,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, phone, preferences, onboardingCompleted } = req.body;
+		const { displayName, phone, preferences, onboardingCompleted, taste } = req.body;
 
 		if (displayName !== undefined && (typeof displayName !== "string" || displayName.length > 100)) {
 			res.status(400).json({ error: "displayName must be a string ≤ 100 characters" });
@@ -99,6 +126,15 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			return;
 		}
 
+		if (taste !== undefined && preferences !== undefined) {
+			res.status(400).json({ error: "send taste or preferences, not both" });
+			return;
+		}
+		if (taste !== undefined && !validTaste(taste)) {
+			res.status(400).json({ error: "taste must be { goal, risk, riskStyle, picks }" });
+			return;
+		}
+
 		await ensureUserRow(uid, req.user!.email);
 
 		const setClauses: string[] = ["updated_at = now()"];
@@ -107,8 +143,18 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 		if (displayName !== undefined) { setClauses.push(`display_name = $${i++}`); values.push(displayName); }
 		if (phone !== undefined) { setClauses.push(`phone = $${i++}`); values.push(phone); }
-		if (preferences !== undefined) { setClauses.push(`preferences = $${i++}`); values.push(JSON.stringify(preferences)); }
+		// Web replaces preferences wholesale; the Android taste answers inside it are kept.
+		if (preferences !== undefined) {
+			setClauses.push(`preferences = $${i++}::jsonb || coalesce(jsonb_strip_nulls(jsonb_build_object('android_taste', preferences->'android_taste')), '{}'::jsonb)`);
+			values.push(JSON.stringify(preferences));
+		}
 		if (onboardingCompleted !== undefined) { setClauses.push(`onboarding_completed = $${i++}`); values.push(onboardingCompleted); }
+		// Merged into preferences, never replacing it - android_stocks lives there too.
+		if (taste !== undefined) {
+			const { goal, risk, riskStyle, picks } = taste as AndroidTaste;
+			setClauses.push(`preferences = coalesce(preferences, '{}'::jsonb) || jsonb_build_object('android_taste', $${i++}::jsonb)`);
+			values.push(JSON.stringify({ goal, risk, riskStyle, picks }));
+		}
 
 		values.push(uid);
 		await pgQuery(
@@ -136,6 +182,7 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			onboardingCompleted: row.onboarding_completed,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			taste: tasteOf(row.preferences),
 		});
 	} catch (error) {
 		console.error("Error updating profile:", error);

@@ -83,6 +83,6 @@ object StakClock {
 		}
 	}
 
-	/** "September 2026" for the month a new account was created. */
-	fun monthYear(): String = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
+	/** "September 2026" - the month an account was created. */
+	fun monthYear(date: LocalDate = LocalDate.now()): String = date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
 }

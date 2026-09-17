@@ -30,6 +30,8 @@ class StakApp : Application() {
 		com.stak.demo.data.StakNotifications.init(repository)
 		com.stak.demo.data.PushRegistration.init(this, repository)
 		com.stak.demo.data.PushRegistration.sync()
+		// No sync here: a push can start the process without the app being opened.
+		com.stak.demo.data.ProfileSync.init(repository)
 		com.stak.demo.data.LiveQuotes.init(repository)
 	}
 }

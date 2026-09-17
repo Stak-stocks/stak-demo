@@ -9,7 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.stak.demo.BuildConfig
-import com.stak.demo.data.ProfileRepository
+import com.stak.demo.data.ProfileSync
 import com.stak.demo.data.Session
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.UserProfile
@@ -22,9 +22,6 @@ import io.github.jan.supabase.auth.providers.builtin.IDToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 
 sealed interface AuthUiState {
@@ -38,7 +35,6 @@ sealed interface AuthUiState {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val supabase: SupabaseClient,
-    private val profileRepository: ProfileRepository,
     private val stockRepository: StockRepository,
 ) : ViewModel() {
 
@@ -59,11 +55,11 @@ class AuthViewModel @Inject constructor(
                 Session.setToken(token)
                 val me = runCatching { stockRepository.getMe() }.getOrNull()
                 me?.displayName?.takeIf { it.isNotBlank() }?.let { UserProfile.displayName = it }
-                me?.createdAt?.takeIf { it.isNotBlank() }?.let { parseJoinedDate(it)?.let { d -> UserProfile.joined = d } }
                 // Network failure → me is null → assume returning user (mirrors web's .catch → "/").
                 me?.onboardingCompleted ?: true
             }.fold(
                 onSuccess = { onboardingComplete ->
+                    UserProfile.linkedGoogle = false
                     Session.saveProfile()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
@@ -87,6 +83,7 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { token ->
                     if (token != null) {
                         Session.setToken(token)
+                        UserProfile.linkedGoogle = false
                         // New users always go through onboarding.
                         _uiState.value = AuthUiState.Success(onboardingComplete = false)
                     } else {
@@ -112,6 +109,8 @@ class AuthViewModel @Inject constructor(
             stockRepository.putMe(
                 displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
                 onboardingCompleted = true,
+                // The answers go with the account, so a new phone shows the same taste.
+                taste = ProfileSync.currentTaste(),
             )
         }
     }
@@ -157,7 +156,6 @@ class AuthViewModel @Inject constructor(
                 val name = me?.displayName?.takeIf { it.isNotBlank() }
                     ?: googleCred.displayName?.takeIf { it.isNotBlank() }
                 name?.let { UserProfile.displayName = it }
-                me?.createdAt?.takeIf { it.isNotBlank() }?.let { parseJoinedDate(it)?.let { d -> UserProfile.joined = d } }
                 // Network failure → me is null → assume returning user (mirrors web's .catch → "/").
                 me?.onboardingCompleted ?: true
             }.fold(
@@ -180,11 +178,6 @@ class AuthViewModel @Inject constructor(
     fun resetState() {
         _uiState.value = AuthUiState.Idle
     }
-
-    private fun parseJoinedDate(createdAt: String): String? = runCatching {
-        LocalDate.parse(createdAt.take(10))
-            .format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
-    }.getOrNull()
 
     private fun friendlyError(e: Throwable): String {
         val msg = e.message ?: return "Something went wrong. Try again."

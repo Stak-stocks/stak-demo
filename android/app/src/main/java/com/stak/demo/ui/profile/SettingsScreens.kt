@@ -111,19 +111,21 @@ fun SettingsScaffold(title: String, onBack: () -> Unit, content: @Composable Col
 
 /** A hub-style row: label, chevron, tap. */
 @Composable
-fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, onClick: () -> Unit) {
+/** A settings row; with no [onClick] it only shows a value and doesn't react to taps. */
+fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, onClick: (() -> Unit)?) {
 	val u = figmaUnit()
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier
 			.fillMaxWidth()
 			.height((48 * u).dp)
-			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
+			.then(if (onClick != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick) else Modifier)
 			.padding(horizontal = (14 * u).dp),
 	) {
-		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
+		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, maxLines = 1)
 		Spacer(modifier = Modifier.weight(1f))
-		if (value != null) Text(value, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, modifier = Modifier.padding(end = (8 * u).dp))
+		// A long value (an email) ends in an ellipsis instead of wrapping out of the row.
+		if (value != null) Text(value, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).padding(start = (12 * u).dp, end = (8 * u).dp))
 		if (chevron) Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted)
 	}
 }
@@ -218,12 +220,23 @@ private fun AppearanceScreen(onBack: () -> Unit) {
 @Composable
 private fun LinkedAccountsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
-	SettingsPage(title = "Linked accounts", onBack = onBack) {
+	val demo = Session.demoAccount
+	SettingsPage(title = if (demo) "Linked accounts" else "Sign-in", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
-			LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
+			if (demo) {
+				LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
+				LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
+			} else {
+				// A real account shows how it signs in. Linking a second method isn't built,
+				// so there are no switches that would only pretend to.
+				SettingsLinkRow(label = "Signed in with", value = if (UserProfile.linkedGoogle) "Google" else "Email and password", chevron = false, onClick = null)
+				if (UserProfile.email.isNotBlank()) SettingsLinkRow(label = "Email", value = UserProfile.email, chevron = false, onClick = null)
+			}
 		}
-		Caption("A linked account lets you sign in with one tap. Your STAK stays the same either way.")
+		Caption(
+			if (demo) "A linked account lets you sign in with one tap. Your STAK stays the same either way."
+			else "Sign in the same way next time, on this phone or a new one. Your saved stocks and taste come with you.",
+		)
 	}
 }
 
@@ -250,15 +263,23 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
 	SettingsPage(title = "Help & support", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			FaqRow("Is this real money?", "No. Simulate runs on $10,000 of paper money so you can practise with zero risk. Nothing is bought or sold for real.")
-			FaqRow("Where do the prices come from?", "STAK shows demo prices while the market feed is being wired up. Every number on screen is illustrative.")
-			FaqRow("Is my data private?", "Your picks, saves and paper portfolio live on this phone. STAK never sells your data.")
+			FaqRow("Is this real money?", "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+			if (Session.demoAccount) {
+				FaqRow("Where do the prices come from?", "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
+			} else {
+				FaqRow("Where do the prices come from?", "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
+			}
+			if (Session.demoAccount) {
+				FaqRow("Is my data private?", "STAK never sells your data.")
+			} else {
+				FaqRow("Is my data private?", "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+			}
 			SettingsLinkRow(label = "Email support") {
 				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
 				runCatching { context.startActivity(intent) }
 			}
 			// A value row - nothing to open behind it (product audit, 2026-09-05).
-			SettingsLinkRow(label = "Version", value = version, chevron = false) {}
+			SettingsLinkRow(label = "Version", value = version, chevron = false, onClick = null)
 		}
 	}
 }

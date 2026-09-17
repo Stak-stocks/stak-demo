@@ -34,6 +34,7 @@ object Session {
 	private const val KEY_LINKED_GOOGLE = "linked_google"
 	private const val KEY_LINKED_APPLE = "linked_apple"
 	private const val KEY_JOINED = "joined"
+	private const val KEY_EMAIL = "email"
 
 	private var prefs: SharedPreferences? = null
 	private var appContext: Context? = null
@@ -86,7 +87,9 @@ object Session {
 		UserProfile.appearance = p.getString(KEY_APPEARANCE, "dark") ?: "dark"
 		UserProfile.linkedGoogle = p.getBoolean(KEY_LINKED_GOOGLE, false)
 		UserProfile.linkedApple = p.getBoolean(KEY_LINKED_APPLE, false)
-		UserProfile.joined = p.getString(KEY_JOINED, "July 2026") ?: "July 2026"
+		// Blank until the server's creation date arrives (ProfileSync); the demo's is authored.
+		UserProfile.joined = p.getString(KEY_JOINED, "") ?: ""
+		UserProfile.email = p.getString(KEY_EMAIL, "") ?: ""
 		token = p.getString(KEY_JWT, null)
 		val today = java.time.LocalDate.now().toString()
 		homeMainSeenToday = context.applicationContext
@@ -96,17 +99,24 @@ object Session {
 	}
 
 	/** Sign-in CTA or account creation (09 Proceed) - remembered across launches. */
-	/** `demo` = the authored demo account (Sign in); false = a fresh account (Create account). */
-	fun signIn(demo: Boolean) {
+	/**
+	 * `demo` = the authored demo account (Sign in); false = a real account.
+	 * `answeredOnboarding` = the taste answers on this phone were just given for this
+	 * account (Profile setup). Any other sign-in drops them - they may be a different
+	 * account's, or a half-finished onboarding - and ProfileSync restores the account's own.
+	 */
+	fun signIn(demo: Boolean, answeredOnboarding: Boolean = false) {
 		signedIn = true
 		demoAccount = demo
-		if (demo) {
-			UserProfile.joined = "July 2026"
-		} else if (UserProfile.joined.isBlank()) {
-			// Brand-new account (backend date not yet available); use current month.
-			// Returning users have joined already set from MeResponse.createdAt in AuthViewModel.
-			UserProfile.joined = StakClock.monthYear()
+		accountGeneration++
+		if (!demo && !answeredOnboarding) {
+			UserProfile.brandPicks = emptySet()
+			UserProfile.goal = -1
+			UserProfile.risk = -1
+			UserProfile.riskStyle = "Growth-Oriented"
 		}
+		// Brand-new account: the server's creation month isn't known yet, and it is this one.
+		if (!demo && answeredOnboarding && UserProfile.joined.isBlank()) UserProfile.joined = StakClock.monthYear()
 		persist()
 		// A brand-new account starts from nothing; the demo account keeps
 		// whatever it did last time it was signed in.
@@ -122,6 +132,7 @@ object Session {
 		StakNotifications.load()
 		com.stak.demo.ui.news.NewsSaves.load()
 		PushRegistration.sync()
+		ProfileSync.sync(force = true)
 	}
 
 	/** Stores the Supabase JWT for authenticated API calls. */
@@ -142,9 +153,17 @@ object Session {
 			?.edit()?.putString(KEY_HOME_MAIN_DATE, today)?.apply()
 	}
 
+	/**
+	 * Bumped at every sign-in and sign-out, so work started for one account can tell
+	 * it finished after that account left (ProfileSync).
+	 */
+	var accountGeneration = 0
+		private set
+
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
 	fun signOut() {
 		PushRegistration.forget()
+		accountGeneration++
 		signedIn = false
 		resumedSignedIn = false
 		demoAccount = true
@@ -161,7 +180,8 @@ object Session {
 		UserProfile.appearance = "dark"
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false
-		UserProfile.joined = "July 2026"
+		UserProfile.joined = ""
+		UserProfile.email = ""
 		token = null
 		prefs?.edit()?.clear()?.apply()
 		// Clear the Supabase SDK's persisted session so it cannot auto-refresh
@@ -195,6 +215,7 @@ object Session {
 			?.putBoolean(KEY_LINKED_GOOGLE, UserProfile.linkedGoogle)
 			?.putBoolean(KEY_LINKED_APPLE, UserProfile.linkedApple)
 			?.putString(KEY_JOINED, UserProfile.joined)
+			?.putString(KEY_EMAIL, UserProfile.email)
 			?.putString(KEY_JWT, token)
 			?.apply()
 	}

@@ -34,10 +34,14 @@ object UserProfile {
 	var dailyDeck by mutableStateOf(true)
 	var marketNews by mutableStateOf(false)
 	var appearance by mutableStateOf("dark")
+	/** Demo: the authored link toggle. Real account: whether it signs in with Google. */
 	var linkedGoogle by mutableStateOf(false)
 	var linkedApple by mutableStateOf(false)
-	/** The month the account was created ("September 2026"); the demo's authored "July 2026". */
-	var joined by mutableStateOf("July 2026")
+	/** The account's sign-in email, from the server (ProfileSync); blank until it answers. */
+	var email by mutableStateOf("")
+	/** A real account's creation month ("September 2026"); blank until known. The demo shows [DEMO_JOINED]. */
+	var joined by mutableStateOf("")
+	const val DEMO_JOINED = "July 2026"
 
 	/** The name as the app addresses the user - always capitalized. */
 	val greetingName: String

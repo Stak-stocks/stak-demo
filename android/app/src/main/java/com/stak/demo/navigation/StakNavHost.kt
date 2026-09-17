@@ -266,7 +266,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onProceed = {
 					// Account created - a NEW account, empty until the user saves
 					// and buys (product audit, 2026-09-05); remembered across launches.
-					com.stak.demo.data.Session.signIn(demo = false)
+					com.stak.demo.data.Session.signIn(demo = false, answeredOnboarding = true)
 					navController.navigate(StakRoutes.MAIN) {
 						popUpTo(0) { inclusive = true }
 					}
