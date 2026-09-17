@@ -178,6 +178,25 @@ class MyStakViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Today's prices again for what is on screen - called every ~15s while My STAK or
+     * a collection is visible. Outside the session there is nothing new to fetch. A
+     * stock whose quote doesn't come back this time keeps the price it already shows.
+     */
+    fun refreshQuotes() {
+        if (com.stak.demo.data.StakClock.lastCloseRef() != "today") return
+        val shown = _ui.value.holdings
+        val tickers = shown.map { it.ticker }.takeIf { it.isNotEmpty() } ?: return
+        viewModelScope.launch {
+            val fresh = fetchQuotes(tickers)
+            if (fresh.isEmpty() || _ui.value.holdings.map { it.ticker } != tickers) return@launch
+            val kept = shown.filter { it.ticker !in fresh && it.price != null }
+                .associate { it.ticker to BatchQuote(price = it.price!!, changePercent = it.changePct ?: 0.0) }
+            MyStakSnapshot.putQuotes(fresh)
+            render(tickers, kept + fresh, final = true)
+        }
+    }
+
     /** Batched: one request per 50 symbols keeps the query string sane. */
     private suspend fun fetchQuotes(tickers: List<String>): Map<String, BatchQuote> =
         tickers.chunked(50).flatMap { chunk ->

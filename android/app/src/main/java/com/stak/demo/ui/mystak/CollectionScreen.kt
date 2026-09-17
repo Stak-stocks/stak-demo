@@ -83,6 +83,8 @@ fun CollectionScreen(
 	val demo = com.stak.demo.data.Session.demoAccount
 	val ui by viewModel.ui.collectAsState()
 	LaunchedEffect(com.stak.demo.data.MyStakHoldings.tickers, demo) { if (!demo) viewModel.loadIfNeeded() }
+	// Prices keep moving while this is on screen, not only when it is opened.
+	if (!demo) com.stak.demo.ui.components.RefreshWhileVisible(key = Unit) { viewModel.refreshQuotes() }
 	// The authored catalogue is the demo account's. A real account's collection
 	// is one of its own saved categories (product audit, 2026-09-05), and its
 	// tiles carry live prices instead of the catalogue's fixed ones.

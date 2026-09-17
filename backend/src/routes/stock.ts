@@ -5,6 +5,7 @@ import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensu
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { pgQuery } from "../lib/postgres.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -123,6 +124,15 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 }
 
 const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
+
+/**
+ * A quote's cache life. The apps refresh on-screen prices every ~15s while the
+ * market is open; a one-minute cache would hand them the same number three times
+ * running. Outside the session prices barely move, so the minute stands.
+ */
+function quoteTtlMs(): number {
+	return marketSessionBucket() === "open" ? 15 * 1000 : QUOTE_TTL_MS;
+}
 const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
@@ -429,7 +439,7 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 				let raw = await cacheGet<Record<string, number>>(fbKey);
 				if (!raw) {
 					raw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-					if (raw) await cacheSet(fbKey, raw, QUOTE_TTL_MS);
+					if (raw) await cacheSet(fbKey, raw, quoteTtlMs());
 				}
 				if (!raw || typeof raw.c !== "number") return [symbol, null] as const;
 				return [symbol, {
@@ -468,6 +478,76 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 	return out;
 }
+
+// ── Saved-stock warm-up ───────────────────────────────────────────────────────
+// GET /api/stock/warm-saved
+//
+// Pre-generates the "why it moved" text for every stock someone has saved, once per
+// trading day, so the first person to open one reads it straight away. Scoped to
+// saved stocks (not the whole catalogue) and to the two lengths the apps ask for
+// - Android's 2 sentences, web My STAK's 4 - at the "today" reference used during
+// market hours: about two grounded calls per saved stock per day (user decision,
+// 2026-09-16, lifting the June hold on cache warming with this scope).
+//
+// Called by Cloud Scheduler with the same x-warm-secret as the daily-brief warm.
+// A Cloud Run request can't outlive five minutes, and a full pass can't fit in one,
+// so each call does what it can in WARM_BUDGET_MS and marks each stock done for the
+// day; the job repeats every ten minutes over the late morning and a finished day's
+// calls return immediately.
+const WARM_BUDGET_MS = 4 * 60 * 1000;
+const WARM_SENTENCES = [2, 4];
+
+stockRouter.get("/warm-saved", async (req, res) => {
+	const secret = req.headers["x-warm-secret"];
+	if (!secret || secret !== process.env.WARM_SECRET) {
+		res.status(401).json({ error: "unauthorized" }); return;
+	}
+	const started = Date.now();
+	const today = getEasternDateKey();
+	// ?limit=N caps the stocks touched in this call - for checking the job by hand
+	// without spending a whole day's pass.
+	const limit = Math.max(0, parseInt(req.query.limit as string) || 0);
+	try {
+		const saved = await pgQuery<{ brand_id: string }>(`select distinct brand_id from stak_brands`);
+		const tickerById = new Map(brands.map((b) => [b.id, { ticker: b.ticker.toUpperCase(), name: b.name }]));
+		const stocks = saved.rows.map((r) => tickerById.get(r.brand_id)).filter((x): x is { ticker: string; name: string } => !!x);
+
+		let warmed = 0, skipped = 0, pending = 0;
+		for (const { ticker, name } of stocks) {
+			if (Date.now() - started > WARM_BUDGET_MS || (limit > 0 && warmed >= limit)) { pending++; continue; }
+			const doneKey = `warm-saved:done:${today}:${ticker}`;
+			if (await cacheGet<boolean>(doneKey)) { skipped++; continue; }
+
+			const symbol = resolveSymbol(ticker);
+			const fbKey = `quote:fb:${symbol}`;
+			let quote = await cacheGet<Record<string, number>>(fbKey);
+			if (!quote) {
+				quote = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+				if (quote) await cacheSet(fbKey, quote, quoteTtlMs());
+			}
+			// No trade today (a holiday, a halt, a quote that didn't come back): there is
+			// no move to explain, so don't spend a grounded call describing a flat line.
+			const tradedToday = typeof quote?.t === "number" && getEasternDateKey(new Date(quote.t * 1000)) === today;
+			if (!quote || typeof quote.dp !== "number" || !tradedToday) { skipped++; continue; }
+
+			const changePercent = quote.dp;
+			const direction: "up" | "down" | "flat" = changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
+			for (const sentences of WARM_SENTENCES) {
+				const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, "today");
+				if (await cacheGet<DailyMoveResult>(cacheKey)) continue;
+				await dailyMoveCompute({ symbol, changePercent, companyName: name, sentences, marketClosed: false, closeRef: "today", direction, cacheKey })
+					.catch(() => { /* logged inside */ });
+			}
+			await cacheSet(doneKey, true, 20 * 60 * 60 * 1000);
+			warmed++;
+		}
+		console.log(`[warm-saved] ${today} warmed=${warmed} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
+		res.json({ ok: true, today, total: stocks.length, warmed, skipped, pending });
+	} catch (error) {
+		console.error("[warm-saved] error:", error);
+		res.status(500).json({ error: "warm failed" });
+	}
+});
 
 // ── Portfolio chart ──────────────────────────────────────────────────────────
 // GET /api/stock/portfolio-chart?tickers=A,B,C&range=3m
@@ -566,7 +646,7 @@ stockRouter.get("/:symbol", async (req, res) => {
 		let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
 		if (!finnhubQuoteRaw) {
 			finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-			if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, QUOTE_TTL_MS);
+			if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
 		}
 
 		// Yahoo only during extended hours — gets pre/after-market prices
@@ -576,7 +656,7 @@ stockRouter.get("/:symbol", async (req, res) => {
 			yahooExt = await cacheGet<YahooExtended>(yKey);
 			if (!yahooExt) {
 				yahooExt = await fetchYahooExtended(symbol);
-				if (yahooExt) await cacheSet(yKey, yahooExt, QUOTE_TTL_MS);
+				if (yahooExt) await cacheSet(yKey, yahooExt, quoteTtlMs());
 			}
 		}
 
@@ -1429,6 +1509,32 @@ type DailyMoveResult = { explanation: string; direction: "up" | "down" | "flat";
 // only (not shared across Cloud Run instances via Redis), but covers the common case.
 const dailyMoveInFlight = new Map<string, Promise<DailyMoveResult>>();
 
+/**
+ * The day's last good explanation for a key, kept past its 30-minute freshness.
+ * Once the fresh copy expired, the next visitor waited on a live Gemini + Search
+ * call - several seconds - before the text appeared. Now they get this copy at once
+ * and the refresh runs behind them: the same number of grounded calls as before,
+ * with nobody waiting on one. Dated (US Eastern), so yesterday's "today" is never
+ * served as today's, and fallbacks are never kept here.
+ */
+function lastDailyMoveKey(cacheKey: string): string {
+	return cacheKey.replace(/^daily-move:/, `daily-move:last:${getEasternDateKey()}:`);
+}
+
+async function rememberDailyMove(cacheKey: string, result: DailyMoveResult): Promise<void> {
+	await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+	await cacheSet(lastDailyMoveKey(cacheKey), result, 20 * 60 * 60 * 1000);
+}
+
+/** Starts (or joins) the computation for a key, de-duplicated per instance. */
+function dailyMoveCompute(params: Parameters<typeof computeDailyMove>[0]): Promise<DailyMoveResult> {
+	const existing = dailyMoveInFlight.get(params.cacheKey);
+	if (existing) return existing;
+	const compute = computeDailyMove(params).finally(() => dailyMoveInFlight.delete(params.cacheKey));
+	dailyMoveInFlight.set(params.cacheKey, compute);
+	return compute;
+}
+
 stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const raw = (req.params["symbol"] as string).toUpperCase();
 	const symbol = resolveSymbol(raw);
@@ -1445,21 +1551,26 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const direction: "up" | "down" | "flat" =
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
-	const cacheKey = `daily-move:v11:${symbol}:${direction}:s${sentences}:${closeRef}`;
+	const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, closeRef);
 	const cached = await cacheGet<DailyMoveResult>(cacheKey);
 	if (cached !== null) { res.json(cached); return; }
 
-	const existing = dailyMoveInFlight.get(cacheKey);
-	if (existing) { res.json(await existing); return; }
-
-	const compute = computeDailyMove({ symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey });
-	dailyMoveInFlight.set(cacheKey, compute);
-	try {
-		res.json(await compute);
-	} finally {
-		dailyMoveInFlight.delete(cacheKey);
+	const params = { symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey };
+	const lastGood = await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey));
+	if (lastGood !== null) {
+		res.json(lastGood);
+		// Cloud Run keeps the instance's CPU while this promise runs only if other
+		// requests are active, so the refresh is best-effort; the next visitor after
+		// it lands gets the fresh copy, and one that arrives first gets this one again.
+		dailyMoveCompute(params).catch(() => { /* already logged inside */ });
+		return;
 	}
+	res.json(await dailyMoveCompute(params));
 });
+
+function dailyMoveCacheKey(symbol: string, direction: "up" | "down" | "flat", sentences: number, closeRef: string): string {
+	return `daily-move:v11:${symbol}:${direction}:s${sentences}:${closeRef}`;
+}
 
 async function computeDailyMove(params: {
 	symbol: string; changePercent: number; companyName: string; sentences: number;
@@ -1575,21 +1686,21 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 						if (bullets.length > 0) {
 							const explanation = bullets.map((b) => b.text).join(" ");
 							const result = { explanation, bullets, direction };
-							await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+							await rememberDailyMove(cacheKey, result);
 							return result;
 						}
 					}
 				} catch { /* fall through to plain text fallback */ }
 				if (raw) {
 					const result = { explanation: raw, direction };
-					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+					await rememberDailyMove(cacheKey, result);
 					return result;
 				}
 			} else {
 				const explanation = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
 				if (explanation) {
 					const result = { explanation, direction };
-					await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+					await rememberDailyMove(cacheKey, result);
 					return result;
 				}
 			}

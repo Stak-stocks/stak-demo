@@ -91,6 +91,8 @@ fun MyStakScreen(
 	// Keyed on the holdings: a save from the deck or an Unsave on a tile
 	// re-reads the screen while it sits in the backstack.
 	LaunchedEffect(com.stak.demo.data.MyStakHoldings.tickers, demo) { if (!demo) viewModel.loadIfNeeded() }
+	// Prices keep moving while this is on screen, not only when it is opened.
+	if (!demo) com.stak.demo.ui.components.RefreshWhileVisible(key = Unit) { viewModel.refreshQuotes() }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((4 * u).dp),

@@ -127,6 +127,10 @@ fun StockDetailScreen(
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
+	// The price keeps moving while the page is open, not only when it is opened.
+	if (!com.stak.demo.data.Session.demoAccount) {
+		com.stak.demo.ui.components.RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol) }
+	}
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even

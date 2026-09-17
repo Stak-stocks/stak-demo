@@ -271,6 +271,41 @@ class StockDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * The News signal's move line. Names the session the move belongs to: this always
+     * said "at yesterday's close", but mid-session the quote's move is today's, still
+     * running - and before the open on a Monday the last close was Friday's. Worded by
+     * the clock the web uses, not marketState, which reads CLOSED after hours whenever
+     * Yahoo has no extended data and would have said "the last close" at 5pm.
+     */
+    private fun newsCloseLine(pct: Double): String {
+        val session = StakClock.lastCloseRef()
+        return if (pct >= 0.0) "▲ +${String.format(Locale.US, "%.1f", pct)}% $session"
+        else "▼ ${String.format(Locale.US, "%.1f", abs(pct))}% $session"
+    }
+
+    /**
+     * Today's price again for the page on screen - called every ~15s while it is
+     * visible and the market is open. Only the figures a quote carries move; the rest
+     * of the page stays as it was.
+     */
+    fun refreshQuote(symbol: String) {
+        if (StakClock.lastCloseRef() != "today") return
+        if (_liveDetail.value == null) return
+        viewModelScope.launch {
+            val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
+            val price = quote.price?.takeIf { it > 0 } ?: return@launch
+            val pct = quote.changePercent ?: return@launch
+            val updated = _liveDetail.value?.copy(
+                price = formatPrice(price),
+                change = formatChange(pct),
+                newsClose = newsCloseLine(pct),
+            ) ?: return@launch
+            _liveDetail.value = updated
+            StockDetailCache.putDetail(symbol, updated)
+        }
+    }
+
     private fun buildDetail(
         stockData: StockDetailResponse?,
         analyst: AnalystResponse?,
@@ -322,18 +357,8 @@ class StockDetailViewModel @Inject constructor(
             Triple(a.firm, a.action, a.priceTarget?.let { "$${ it.toInt() }" } ?: "—")
         }
 
-        // Name the session the move belongs to. This always said "at yesterday's close",
-        // but mid-session the quote's move is today's, still running - and before the
-        // open on a Monday the last close was Friday's, not yesterday's. Worded by the
-        // clock the web uses, not marketState, which reads CLOSED after hours whenever
-        // Yahoo has no extended data and would have said "the last close" at 5pm.
-        val session = StakClock.lastCloseRef()
         // No quote, no line: pct falls back to 0 above, and "+0.0%" would state a move.
-        val newsClosePct = if (stockData?.quote?.changePercent == null) null
-        else if (pct >= 0.0)
-            "▲ +${String.format(Locale.US, "%.1f", pct)}% $session"
-        else
-            "▼ ${String.format(Locale.US, "%.1f", abs(pct))}% $session"
+        val newsClosePct = stockData?.quote?.changePercent?.let(::newsCloseLine)
         val newsSignal = move?.explanation?.takeIf { it.isNotBlank() }
 
         val earningsStr = buildEarningsStr(earnings)
