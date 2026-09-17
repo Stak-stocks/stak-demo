@@ -318,12 +318,6 @@ private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> U
 					color = Stak.Body,
 				)
 				Text(
-					// Never a share of money: the one misreading a ring like this invites.
-					text = "Interest, not money — STAK doesn't know what you own.",
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = Stak.Faint,
-				)
-				Text(
 					text = if (taste.isEmpty || taste.learning) "How this works ›" else "See why ›",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Teal,
@@ -351,12 +345,7 @@ private fun DiscoverHandoff(cardsLeft: Int?, onStartSwiping: () -> Unit) {
 			)
 			.padding((16 * u).dp),
 	) {
-		Box(
-			contentAlignment = Alignment.Center,
-			modifier = Modifier.size((36 * u).dp).clip(CircleShape).background(Color(0xFF212A3D)),
-		) {
-			Text("◎", style = TextStyle(fontFamily = Geist, fontSize = (16 * u).sp), color = Stak.Teal)
-		}
+		StakIconTile(R.drawable.ic_tab_discover, Stak.Teal, size = 36, glyph = 18)
 		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
 			Text(
 				text = "Based on your taste",

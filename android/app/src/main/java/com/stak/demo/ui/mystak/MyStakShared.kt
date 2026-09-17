@@ -64,7 +64,9 @@ internal fun collectionEntries(
 	}
 } else {
 	ui.groups.map { g ->
-		CollectionEntry(g.id, g.name, g.holdings.size, g.imageRes, g.iconRes, g.holdings.any { it.ticker in unreadTickers })
+		// Its own category's icon: the glass art is drawn per family, so Chips and Big
+		// Tech - and Streaming and E-commerce - arrived wearing the same picture.
+		CollectionEntry(g.id, g.name, g.holdings.size, null, null, g.holdings.any { it.ticker in unreadTickers })
 	}
 }
 
@@ -88,6 +90,22 @@ internal fun StakSectionHeader(title: String) {
 		style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 		color = Stak.HeaderGray,
 	)
+}
+
+/** A small marked tile - the shape every icon on the My STAK pages wears. */
+@Composable
+internal fun StakIconTile(iconRes: Int, tint: Color, size: Int = 34, glyph: Int = 20) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Box(
+		contentAlignment = Alignment.Center,
+		modifier = Modifier.size((size * u).dp).clip(RoundedCornerShape((10 * u).dp)).background(tint.copy(alpha = 0.18f)),
+	) {
+		Image(
+			painter = painterResource(iconRes),
+			contentDescription = null,
+			modifier = Modifier.size((glyph * u).dp),
+		)
+	}
 }
 
 /** Two-column collection chips, as the overview and the full list both draw them. */
@@ -144,6 +162,7 @@ private fun CollectionChip(
 			.padding((12 * u).dp),
 	) {
 		if (imageRes != null) {
+			// The demo persona keeps its authored glass art.
 			Image(
 				painter = painterResource(imageRes),
 				contentDescription = null,
@@ -152,17 +171,8 @@ private fun CollectionChip(
 			)
 		} else if (iconRes != null) {
 			Image(painterResource(iconRes), null, modifier = Modifier.size((36 * u).dp))
-		} else if (initial != null) {
-			Box(
-				contentAlignment = Alignment.Center,
-				modifier = Modifier.size((34 * u).dp).background(Color(0xFF242B3D), CircleShape),
-			) {
-				Text(
-					text = initial.uppercase(),
-					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp),
-					color = Stak.Muted,
-				)
-			}
+		} else {
+			StakIconTile(com.stak.demo.data.categoryIcon(name), Stak.Teal)
 		}
 		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
 			Text(
