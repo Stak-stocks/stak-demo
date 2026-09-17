@@ -38,7 +38,9 @@ async function getQuoteChange(symbol: string): Promise<number | null> {
 	const q = await finnhubGet(`/quote?symbol=${symbol}`) as { dp?: number } | null;
 	if (q?.dp == null) return null;
 
-	const pct = Math.round(q.dp * 10) / 10;
+	// Two decimals, as the prompt prints them: rounding to one here turned -1.3 into
+	// a quoted "down 1.30%" that looked more precise than it was.
+	const pct = Math.round(q.dp * 100) / 100;
 	await cacheSet(cacheKey, pct, 5 * 60 * 1000);
 	return pct;
 }
@@ -273,7 +275,12 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 		// Before 9:30am = pre-market — today's session hasn't started, use last trading day
 		// After 4pm with no holiday = today's session finished normally
 		const isPreMarket = total < 9 * 60 + 30;
-		const dayLabel = (holiday == null && !isPreMarket) ? "Today's" : await getLastTradingDayLabel(etDateStr);
+		// "Closed" during regular hours on a normal weekday is the status call lagging the
+		// open (it is cached for ten minutes), not a finished session. Treated as today's
+		// close, a brief written at 9:31 from quotes still showing yesterday's moves was
+		// stored under the same key as the real after-close brief and served that evening.
+		const duringSession = total >= 9 * 60 + 30 && total < 16 * 60;
+		const dayLabel = (holiday == null && !isPreMarket && !duringSession) ? "Today's" : await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
 	}
 
@@ -532,7 +539,8 @@ async function generatePersonalizedImpact(
 ): Promise<string> {
 	const today = getEasternDateKey();
 	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:impact:v11:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	// v12: v11 entries could hold a line written from the wrong session's moves for 24h.
+	const cacheKey = `daily-brief:impact:v12:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -637,7 +645,9 @@ CRITICAL RULES:
 			};
 			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 			if (!text) continue;
-			await cacheSet(cacheKey, text, 24 * 60 * 60 * 1000);
+			// Two hours, not a day: the line quotes live moves, and a copy written from
+			// the wrong session's numbers shouldn't outlast the evening.
+			await cacheSet(cacheKey, text, 2 * 60 * 60 * 1000);
 			return text;
 		} catch {
 			continue;
@@ -1169,7 +1179,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
 
 		// Full-response cache — subsequent requests from the same user in the same session are instant
-		const fullCacheKey = `daily-brief:full:v2:${today}:${session}:${uid}`;
+		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${uid}`;
 		const cachedFull = await cacheGet<object>(fullCacheKey);
 		if (cachedFull) { res.json(cachedFull); return; }
 

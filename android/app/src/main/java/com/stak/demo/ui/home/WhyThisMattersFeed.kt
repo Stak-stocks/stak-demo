@@ -24,14 +24,25 @@ object WhyThisMattersFeed {
 	/** A new account with nothing saved yet (product audit, 2026-09-05). */
 	const val EMPTY_BODY = "Save a few stocks and STAK will show how today's news hits them."
 
-	/** The current summary — backend personalizedImpact when available, else local fallbacks. */
+	/** Said once the brief has come back without a summary for this account. */
+	const val UNAVAILABLE_BODY = "Today's read on your STAK isn't ready yet. Check back soon."
+
+	/**
+	 * The current summary — backend personalizedImpact when available. A real account
+	 * no longer falls back to a line counted against the authored news articles
+	 * ("None of your 4 saved stocks are in today's news"), which described stories
+	 * the user never saw; it stays empty while the brief loads and says so if the
+	 * brief comes back without one.
+	 */
 	fun body(): String {
-		val impact = com.stak.demo.ui.news.DailyBriefHolder.current?.personalizedImpact
+		val brief = com.stak.demo.ui.news.DailyBriefHolder.current
+		val impact = brief?.personalizedImpact
 		if (!impact.isNullOrBlank()) return impact
 		return when {
+			com.stak.demo.data.Session.demoAccount -> if (com.stak.demo.data.MyStakHoldings.count == 0) EMPTY_BODY else DEMO_BODY
 			com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
-			com.stak.demo.data.Session.demoAccount -> DEMO_BODY
-			else -> com.stak.demo.data.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
+			brief == null -> ""
+			else -> UNAVAILABLE_BODY
 		}
 	}
 }

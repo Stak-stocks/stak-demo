@@ -46,7 +46,9 @@ class NewsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { repository.getDailyBrief() }
                 .onSuccess { _dailyBrief.value = it }
-                .onFailure { _dailyBrief.value = DailyBriefResponse(mood = "calm") } // exit loading state; "calm" keeps Market Mood visible
+                // Exit the loading state with no mood: "calm" was reported as the market's
+                // reading whenever the request failed.
+                .onFailure { _dailyBrief.value = DailyBriefResponse(mood = "") }
         }
     }
 

@@ -310,8 +310,8 @@ private fun MarketMoodCard(onOpenNews: () -> Unit) {
 					color = Color.White,
 				)
 				Text(
-					// Backend-served with the mood score in production (the words
-					// change with the market); authored demo copy this phase.
+					// Backend-served with the mood score (the words change with the
+					// market); the demo account keeps the authored copy.
 					text = buildAnnotatedString {
 						withStyle(SpanStyle(color = Home.Teal)) { append(MarketMoodFeed.statusLead) }
 						append(MarketMoodFeed.statusRest)
@@ -741,10 +741,14 @@ internal fun MarketMoodGauge(u: Float) {
 			lineTo(26.7526f * k, 25.6491f * k)
 			close()
 		}
-		val rotationCw = AUTHORED_AXIS_DEG - (sweep.value + wobble)
-		withTransform({ rotate(rotationCw, pivot) }) {
-			drawPath(needle, Color.White)
-			drawCircle(color = Color.White, radius = 1.5806f * k, center = pivot)
+		// No reading, no needle: pointing at the authored pose would state a mood the
+		// market hasn't been read for yet.
+		if (MarketMoodFeed.hasReading) {
+			val rotationCw = AUTHORED_AXIS_DEG - (sweep.value + wobble)
+			withTransform({ rotate(rotationCw, pivot) }) {
+				drawPath(needle, Color.White)
+				drawCircle(color = Color.White, radius = 1.5806f * k, center = pivot)
+			}
 		}
 	}
 }
