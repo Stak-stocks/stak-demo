@@ -1,0 +1,13 @@
+<!-- Streaming: an outlined play mark (the app's ic_hero_play is a filled triangle, which
+     reads as a button rather than a category). Matches the user's reference art. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M8.5,5.2 L18.5,11.4 a0.7,0.7 0 0 1 0,1.2 L8.5,18.8 a0.8,0.8 0 0 1 -1.2,-0.7 v-11.4 a0.8,0.8 0 0 1 1.2,-0.7 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
+</vector>

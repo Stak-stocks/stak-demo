@@ -1,0 +1,25 @@
+<!-- Chips: a processor seen from above, drawn to match the taste-icon set (user's
+     reference art, 2026-09-17): thin white strokes, rounded joins, 24dp box. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M7,7 h10 a1,1 0 0 1 1,1 v8 a1,1 0 0 1 -1,1 h-10 a1,1 0 0 1 -1,-1 v-8 a1,1 0 0 1 1,-1 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M10,10 h4 v4 h-4 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.3"
+        android:strokeLineJoin="round" />
+    <group>
+        <path
+            android:pathData="M9,6 v-2 M12,6 v-2 M15,6 v-2 M9,20 v-2 M12,20 v-2 M15,20 v-2 M6,9 h-2 M6,12 h-2 M6,15 h-2 M20,9 h-2 M20,12 h-2 M20,15 h-2"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="1.5"
+            android:strokeLineCap="round" />
+    </group>
+</vector>
