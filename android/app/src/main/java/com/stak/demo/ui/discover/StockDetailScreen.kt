@@ -128,6 +128,7 @@ fun StockDetailScreen(
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	val priceAt by viewModel.priceAt.collectAsStateWithLifecycle()
+	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -193,14 +194,18 @@ fun StockDetailScreen(
 					// just like a live one until the new figures land.
 					val asOf = when {
 						com.stak.demo.data.Session.demoAccount -> null
-						!detailSettled && liveDetail != null -> "Updating\u2026"
-						priceAt != null -> "As of " + com.stak.demo.data.StakClock.clockTime(priceAt!!)
+						quotePending && liveDetail != null -> "Updating\u2026"
+						priceAt != null -> com.stak.demo.data.StakClock.pricesAsOf(priceAt!!).replaceFirstChar { it.uppercase() }
 						else -> null
 					}
 					Text(
 						(liveDetail?.name?.let { "$symbol · $it" } ?: f.title) + (asOf?.let { " · $it" } ?: ""),
 						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 						color = Muted,
+						// One line: a long name plus the time wrapped, and the price below
+						// jumped as the label changed between "Updating" and a time.
+						maxLines = 1,
+						overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 					)
 					Text(
 						displayPrice,

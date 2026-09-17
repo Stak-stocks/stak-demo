@@ -51,12 +51,6 @@ internal object StockDetailCache {
 		return if (fresh) detail else detail.copy(price = "—", change = "")
 	}
 
-	/**
-	 * Remembers [detail]. [persist] = false keeps it in memory only: the 15-second price
-	 * refresh calls this, and rewriting the whole preferences file that often - it
-	 * holds every cached page - would put disk work on the main thread and make
-	 * Android wait on it when the app pauses.
-	 */
 	/** When [detail]'s price was fetched, if that price is still shown (see [detail]). */
 	fun priceAt(symbol: String): Long? {
 		val entry = details[symbol] ?: return null
@@ -64,8 +58,14 @@ internal object StockDetailCache {
 		return entry.at.takeIf { fresh }
 	}
 
-	fun putDetail(symbol: String, detail: LiveDetail, persist: Boolean = true) {
-		val entry = Entry(System.currentTimeMillis(), StakClock.marketDay(), detail)
+	/**
+	 * Remembers [detail], whose price was fetched at [priceAt]. [persist] = false keeps it
+	 * in memory only: the 15-second price refresh calls this, and rewriting the whole
+	 * preferences file that often - it holds every cached page - would put disk work on
+	 * the main thread and make Android wait on it when the app pauses.
+	 */
+	fun putDetail(symbol: String, detail: LiveDetail, persist: Boolean = true, priceAt: Long = System.currentTimeMillis()) {
+		val entry = Entry(priceAt, StakClock.marketDay(), detail)
 		details.remove(symbol)
 		details[symbol] = entry
 		trim(details)

@@ -111,17 +111,22 @@ fun MyStakScreen(
 				color = Color.White,
 			)
 			Text(
-				// Says when the prices were fetched: a page opened from what the phone saved
-				// looks identical to a live one, and a figure from an hour ago shouldn't pass
-				// for this minute's.
-				text = when {
-					demo || ui.quotesAt == null -> "Your saved stocks, live."
-					ui.loading -> "Updating prices\u2026"
-					else -> "Prices as of " + com.stak.demo.data.StakClock.clockTime(ui.quotesAt!!)
-				},
+				text = "Your saved stocks, live.",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Muted,
 			)
+			// When the prices were fetched, under the designed subtitle rather than in place
+			// of it (user, 2026-09-16): a page opened from what the phone saved looks
+			// identical to a live one, and a figure from an hour ago shouldn't pass for
+			// this minute's.
+			val asOf = ui.quotesAt
+			if (!demo && asOf != null) {
+				Text(
+					text = if (ui.loading) "Updating prices\u2026" else "Prices " + com.stak.demo.data.StakClock.pricesAsOf(asOf),
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Faint,
+				)
+			}
 		}
 		Column(
 			horizontalAlignment = Alignment.CenterHorizontally,

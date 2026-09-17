@@ -192,6 +192,14 @@ class StockDetailViewModel @Inject constructor(
     private val _priceAt = MutableStateFlow<Long?>(null)
     val priceAt: StateFlow<Long?> = _priceAt
 
+    /**
+     * True while this visit's quote is still on its way. The "Updating" label follows
+     * this rather than the whole page: the quote lands in a fraction of a second, and
+     * waiting for the AI summary and peers kept a fresh price labelled "Updating".
+     */
+    private val _quotePending = MutableStateFlow(false)
+    val quotePending: StateFlow<Boolean> = _quotePending
+
     /** The direction the shown "why it moved" text explains, so a refresh can tell when it no longer fits. */
     private var explainedDirection: String? = null
 
@@ -271,8 +279,10 @@ class StockDetailViewModel @Inject constructor(
                     publish()
                 }
                 launch {
+                    _quotePending.value = true
                     stockData = runCatching { repository.getStock(symbol) }.getOrNull()
                     if (stockData?.quote?.price != null) _priceAt.value = System.currentTimeMillis()
+                    _quotePending.value = false
                     publish()
                     val pct = stockData?.quote?.changePercent ?: 0.0
                     move = runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()
@@ -286,7 +296,7 @@ class StockDetailViewModel @Inject constructor(
             // wiped a good page back to placeholders on a bad network.
             build()?.let { built ->
                 _liveDetail.value = built
-                StockDetailCache.putDetail(symbol, built)
+                StockDetailCache.putDetail(symbol, built, priceAt = _priceAt.value ?: System.currentTimeMillis())
             }
             _detailSettled.value = true
         }

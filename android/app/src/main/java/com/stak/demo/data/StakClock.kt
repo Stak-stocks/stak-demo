@@ -13,10 +13,22 @@ import java.util.Locale
 object StakClock {
 	private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
-	/** "8:32 PM" in the phone's own time zone - when prices on screen were fetched. */
-	fun clockTime(epochMs: Long): String =
-		java.time.Instant.ofEpochMilli(epochMs).atZone(java.time.ZoneId.systemDefault())
-			.format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+	private val clockTime = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+
+	/**
+	 * What a price fetched at [fetchedAtMs] stands for. While the market is open it is
+	 * that moment's price: "as of 2:31 PM" in the phone's time. Once the session has
+	 * closed, a price fetched at 8:39 PM is still the 4:00 PM close, so it says which
+	 * close it is - worded like the News signal ("at today's close", "at Friday's close").
+	 */
+	fun pricesAsOf(fetchedAtMs: Long): String {
+		val ref = lastCloseRef()
+		return if (ref == "today") {
+			"as of " + java.time.Instant.ofEpochMilli(fetchedAtMs).atZone(java.time.ZoneId.systemDefault()).format(clockTime)
+		} else {
+			ref
+		}
+	}
 
 	/** Today's date in US Eastern time ("2026-09-16") - the market's own day, for dating saved prices. */
 	fun marketDay(): String =

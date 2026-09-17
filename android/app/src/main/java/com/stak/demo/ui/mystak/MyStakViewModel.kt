@@ -150,7 +150,10 @@ class MyStakViewModel @Inject constructor(
         // come back one after another (device check, 2026-09-16: 2-5s on first open).
         if (_ui.value.holdings.isEmpty()) {
             val local = MyStakHoldings.tickers.toList()
-            if (local.isNotEmpty()) render(local, MyStakSnapshot.quotes(), final = false, at = MyStakSnapshot.quotesAt())
+            if (local.isNotEmpty()) {
+                val (saved, savedAt) = MyStakSnapshot.read()
+                render(local, saved, final = false, at = savedAt)
+            }
         }
         // The Discover banner's count, on its own: it used to hold the whole page back.
         viewModelScope.launch { cardsLeft()?.let { _ui.value = _ui.value.copy(cardsLeft = it) } }
@@ -175,8 +178,13 @@ class MyStakViewModel @Inject constructor(
             var quotes = quotesAhead.await()
             val missing = tickers.filter { it !in quotes }
             if (missing.isNotEmpty()) quotes = quotes + fetchQuotes(missing)
-            if (quotes.isNotEmpty()) MyStakSnapshot.putQuotes(quotes)
-            render(tickers, quotes, final = true, at = if (quotes.isNotEmpty()) System.currentTimeMillis() else _ui.value.quotesAt)
+            // Merged, not replaced: a stock whose quote failed keeps the price it had, on
+            // screen and in the snapshot, instead of being blanked under a fresh time.
+            if (quotes.isNotEmpty()) MyStakSnapshot.putQuotes(MyStakSnapshot.read().first + quotes)
+            render(
+                tickers, quotes, final = true, previous = _ui.value.holdings,
+                at = if (quotes.isNotEmpty()) System.currentTimeMillis() else _ui.value.quotesAt,
+            )
             // refreshFromBackend above can change what's saved. The line is keyed to
             // the set it was drawn from, so redraw it rather than leave a percentage
             // describing stocks the labels no longer count.
@@ -197,7 +205,7 @@ class MyStakViewModel @Inject constructor(
             val fresh = fetchQuotes(tickers)
             if (fresh.isEmpty() || _ui.value.holdings.map { it.ticker } != tickers) return@launch
             // The snapshot keeps every price it had; only those that came back are replaced.
-            MyStakSnapshot.putQuotes(MyStakSnapshot.quotes() + fresh)
+            MyStakSnapshot.putQuotes(MyStakSnapshot.read().first + fresh)
             render(tickers, fresh, final = true, previous = _ui.value.holdings, at = System.currentTimeMillis())
             // Today's line is still being drawn; the tiles moving while it stood still
             // made the headline and the stocks under it disagree.
@@ -255,12 +263,14 @@ class MyStakViewModel @Inject constructor(
         }
         val moved = holdings.mapNotNull { it.changePct }
         val ranked = holdings.filter { it.changePct != null }
+        val (bestTicker, worstTicker) = bestAndWorst(
+            ranked.associate { it.ticker to it.changePct!! },
+            _ui.value.best?.ticker,
+            _ui.value.worst?.ticker,
+        )
         // copy(), not a fresh MyStakUi: the range's chart is fetched alongside this
         // and finishes on its own schedule, so rebuilding the state wholesale
         // wiped a line that had already arrived (device audit, 2026-09-15).
-        val moves = ranked.associate { it.ticker to it.changePct!! }.takeIf { it.size >= 2 }
-        val bestTicker = moves?.let { sticky(it, _ui.value.best?.ticker, best = true) }
-        val worstTicker = moves?.let { sticky(it, _ui.value.worst?.ticker, best = false) }
         _ui.value = _ui.value.copy(
             loading = !final,
             holdings = holdings,
@@ -425,13 +435,20 @@ class MyStakViewModel @Inject constructor(
         return if (close) previous else leader.key
     }
 
+    /**
+     * Best and Worst from [moves], each held steady by [sticky]. Worst is chosen from
+     * the stocks that aren't Best: picked independently, both could land on one stock
+     * - on a tie, or when unsaving the Best left the old Worst leading both ways.
+     */
+    private fun bestAndWorst(moves: Map<String, Double>, previousBest: String?, previousWorst: String?): Pair<String?, String?> {
+        if (moves.size < 2) return null to null
+        val best = sticky(moves, previousBest, best = true) ?: return null to null
+        return best to sticky(moves - best, previousWorst, best = false)
+    }
+
     private fun withRangeMoves(state: MyStakUi, moves: Map<String, Double>, keepPrevious: Boolean = true): MyStakUi {
-        val usable = moves.takeIf { it.size >= 2 }
-        return state.copy(
-            rangeMoves = moves,
-            rangeBest = usable?.let { sticky(it, state.rangeBest.takeIf { keepPrevious }, best = true) },
-            rangeWorst = usable?.let { sticky(it, state.rangeWorst.takeIf { keepPrevious }, best = false) },
-        )
+        val (best, worst) = bestAndWorst(moves, state.rangeBest.takeIf { keepPrevious }, state.rangeWorst.takeIf { keepPrevious })
+        return state.copy(rangeMoves = moves, rangeBest = best, rangeWorst = worst)
     }
 
     /**
@@ -453,10 +470,11 @@ class MyStakViewModel @Inject constructor(
 
         // Gson ignores Kotlin nullability, so every read is checked inside runCatching:
         // a malformed or older-shaped entry reads as nothing saved, never as a crash.
-        fun quotes(): Map<String, BatchQuote> = saved()?.quotes?.filterValues { it.price > 0 }.orEmpty()
-
-        /** When the saved prices were fetched, or null when there are none for today. */
-        fun quotesAt(): Long? = saved()?.at?.takeIf { it > 0 }
+        /** Today's saved prices and when they were fetched, from one read of the stored entry. */
+        fun read(): Pair<Map<String, BatchQuote>, Long?> {
+            val saved = saved()
+            return saved?.quotes?.filterValues { it.price > 0 }.orEmpty() to saved?.at?.takeIf { it > 0 }
+        }
 
         private fun saved(): Quotes? = runCatching {
             gson.fromJson(StakStore.getString("mystak.quotes"), Quotes::class.java)
