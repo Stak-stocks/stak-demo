@@ -199,7 +199,9 @@ fun StockDetailScreen(
 						else -> null
 					}
 					Text(
-						(liveDetail?.name?.let { "$symbol · $it" } ?: f.title) + (asOf?.let { " · $it" } ?: ""),
+						// With a time to show, the ticker alone leads it (user, 2026-09-16): the
+						// company name is already implied, and the line stays short.
+						asOf?.let { "$symbol · $it" } ?: (liveDetail?.name?.let { "$symbol · $it" } ?: f.title),
 						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 						color = Muted,
 						// One line: a long name plus the time wrapped, and the price below
