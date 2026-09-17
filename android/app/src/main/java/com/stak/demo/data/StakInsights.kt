@@ -45,6 +45,14 @@ internal object StakInsights {
 			.map { (id, n) -> Bucket(id, BUCKET_NAME[id] ?: "Other", n, n.toFloat() / symbols.size) }
 	}
 
+	/** The company names in [bucketId] among [symbols] - the demo Taste Graph's evidence. */
+	fun namesIn(bucketId: String, symbols: Collection<String>): List<String> =
+		symbols.mapNotNull { sym ->
+			COLLECTIONS.firstOrNull { c -> c.stocks.any { it.ticker == sym } }
+				?.takeIf { it.id == bucketId }
+				?.stocks?.firstOrNull { it.ticker == sym }?.company
+		}
+
 	/** Home "Why this matters": how many held stocks today's stories touch. */
 	fun whyThisMattersBody(newsTickers: Set<String>): String {
 		val held = MyStakHoldings.tickers

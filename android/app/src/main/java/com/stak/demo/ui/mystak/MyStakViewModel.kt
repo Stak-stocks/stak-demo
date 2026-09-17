@@ -10,7 +10,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.BatchQuote
 import com.stak.demo.data.MyStakHoldings
+import com.stak.demo.data.Session
 import com.stak.demo.data.StakClock
+import com.stak.demo.data.TasteGraph
 import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
@@ -100,6 +102,8 @@ class MyStakViewModel @Inject constructor(
         val quotesAt: Long? = null,
         /** True when the range came back with no prices - draw nothing, don't invent a line. */
         val chartMissing: Boolean = false,
+        /** What the account's own behaviour says it gravitates toward; null until it lands. */
+        val taste: TasteGraph.Graph? = null,
     )
 
     private val _ui = MutableStateFlow(MyStakUi())
@@ -157,6 +161,7 @@ class MyStakViewModel @Inject constructor(
         }
         // The Discover banner's count, on its own: it used to hold the whole page back.
         viewModelScope.launch { cardsLeft()?.let { _ui.value = _ui.value.copy(cardsLeft = it) } }
+        loadTaste()
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
             // Prices for what's saved on the phone, requested alongside the server's
@@ -282,6 +287,22 @@ class MyStakViewModel @Inject constructor(
             readHeadline = readHeadline(holdings),
             readBody = readBody(holdings),
         )
+    }
+
+    /**
+     * The Taste Graph, measured by the server from this account's own saves, passes and
+     * opens. Cheap to serve (no AI), so it is read with every load rather than cached
+     * for the session - a save made a moment ago should show up in it.
+     */
+    fun loadTaste() {
+        if (Session.demoAccount) {
+            _ui.value = _ui.value.copy(taste = TasteGraph.demo())
+            return
+        }
+        viewModelScope.launch {
+            val dto = runCatching { repository.getTaste() }.getOrNull() ?: return@launch
+            _ui.value = _ui.value.copy(taste = TasteGraph.from(dto))
+        }
     }
 
     /**

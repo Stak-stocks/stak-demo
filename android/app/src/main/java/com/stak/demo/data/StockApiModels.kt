@@ -141,6 +141,33 @@ data class MeResponse(
     val createdAt: String = "",
     val email: String = "",
     val taste: TasteDto? = null,
+    /** "free" or "plus" - read only through Entitlements. */
+    val plan: String = "free",
+)
+
+/**
+ * The Taste Graph as the server measured it: what the user's own saves, passes, Learn
+ * more opens and stock-page opens say they gravitate toward. Shares are interest
+ * signals - never money.
+ */
+data class TasteThemeDto(
+    /** The backend's category id; the app names it (StakCategories.categoryName). */
+    val category: String = "",
+    val score: Double = 0.0,
+    val share: Double = 0.0,
+    val saves: Int = 0,
+    val learnMores: Int = 0,
+    val opens: Int = 0,
+    val passes: Int = 0,
+    val savedNames: List<String> = emptyList(),
+)
+data class TasteResponse(
+    val themes: List<TasteThemeDto> = emptyList(),
+    val otherShare: Double = 0.0,
+    val totalSaves: Int = 0,
+    val signals: Int = 0,
+    /** Too little activity to name a lead yet. */
+    val learning: Boolean = true,
 )
 
 data class WhatHappenedItem(val title: String = "", val body: String = "")
@@ -210,6 +237,8 @@ data class EngagementEventRequest(
     val ticker: String? = null,
     val categories: List<String>? = null,
     val todayKey: String? = null,
+    /** Event details (e.g. where a stock page was opened from). */
+    val params: Map<String, Any>? = null,
 )
 data class EventResponse(val success: Boolean = false)
 data class PassedEntry(val id: String = "", val at: Long = 0L)

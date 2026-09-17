@@ -29,6 +29,10 @@ object StakRoutes {
 	/** My STAK collection page - `id` is the tapped chip's catalogue id (Codex parity audit, 2026-09-04). */
 	const val COLLECTION = "mystak/collection/{id}"
 	fun collection(id: String) = "mystak/collection/$id"
+	/** Every collection, when the overview's grid holds some back. */
+	const val COLLECTIONS_ALL = "mystak/collections"
+	/** Your Investing Taste - the Taste Graph behind the overview's card. */
+	const val TASTE_GRAPH = "mystak/taste"
 	/** The saved-flavour Stock Detail - `symbol` is the tapped collection tile's ticker. */
 	const val MYSTAK_STOCK = "mystak/stock/{symbol}"
 	fun myStakStock(symbol: String) = "mystak/stock/$symbol"

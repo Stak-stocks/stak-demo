@@ -63,6 +63,10 @@ interface StockApiService {
     @PUT("api/me/push-device")
     suspend fun putPushDevice(@Body body: PushDeviceRequest): OkResponse
 
+    /** The Taste Graph: themes ranked by the user's own behaviour. */
+    @GET("api/me/taste")
+    suspend fun getTaste(): TasteResponse
+
     @GET("api/me")
     suspend fun getMe(): MeResponse
 

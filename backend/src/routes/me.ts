@@ -4,6 +4,7 @@ import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
+import { planOf } from "../lib/entitlements.js";
 
 export const meRouter = Router();
 
@@ -65,9 +66,9 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const result = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null;
+			created_at: string; updated_at: string | null; plan: string | null;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
 			from users where uid = $1`,
 			[uid],
 		);
@@ -79,6 +80,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				displayName: "", preferences: {}, onboardingCompleted: false,
 				createdAt: new Date().toISOString(),
 				taste: null,
+				plan: "free",
 			};
 			res.json(defaultProfile);
 			return;
@@ -96,6 +98,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 			taste: tasteOf(row.preferences),
+			plan: planOf(row.plan),
 		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -165,9 +168,9 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const updated = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null;
+			created_at: string; updated_at: string | null; plan: string | null;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
 			from users where uid = $1`,
 			[uid],
 		);
@@ -183,6 +186,7 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 			taste: tasteOf(row.preferences),
+			plan: planOf(row.plan),
 		});
 	} catch (error) {
 		console.error("Error updating profile:", error);
@@ -205,6 +209,19 @@ async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void>
 		);
 		const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
 		const savedAts = new Map<string, string | null>(existing.rows.map(r => [r.brand_id, r.saved_at]));
+		// The history of what changed: stak_brands is only the current list, so an unsave
+		// would otherwise leave no record that the stock was ever saved.
+		const next = new Set(brandIds);
+		const added = brandIds.filter((id) => !savedAts.has(id));
+		const removed = existing.rows.filter((r) => !next.has(r.brand_id));
+		if (added.length > 0 || removed.length > 0) {
+			const logRows: string[] = [];
+			const logParams: unknown[] = [uid];
+			let lIdx = 2;
+			for (const id of added) { logRows.push(`($1, $${lIdx}, 'save', null)`); logParams.push(id); lIdx += 1; }
+			for (const r of removed) { logRows.push(`($1, $${lIdx}, 'unsave', $${lIdx + 1})`); logParams.push(r.brand_id, r.price_at_save); lIdx += 2; }
+			await client.query(`insert into stak_save_log (uid, brand_id, action, price) values ${logRows.join(", ")}`, logParams);
+		}
 		await client.query(`delete from stak_brands where uid = $1`, [uid]);
 		if (brandIds.length > 0) {
 			const now = new Date().toISOString();
@@ -667,11 +684,19 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 			res.status(400).json({ error: "price must be a positive number" });
 			return;
 		}
-		await pgQuery(
+		const updated = await pgQuery(
 			`UPDATE stak_brands SET price_at_save = $1
 			 WHERE uid = $2 AND brand_id = $3 AND price_at_save IS NULL`,
 			[price, uid, brandId],
 		);
+		// The same price on the save's history entry, which was written before the price arrived.
+		if ((updated.rowCount ?? 0) > 0) {
+			await pgQuery(
+				`update stak_save_log set price = $1
+				 where id = (select id from stak_save_log where uid = $2 and brand_id = $3 and action = 'save' and price is null order by occurred_at desc limit 1)`,
+				[price, uid, brandId],
+			);
+		}
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error patching stak price:", error);

@@ -591,6 +591,20 @@ stockRouter.get("/push-run", async (req, res) => {
 	const today = getEasternDateKey();
 	let moves = 0, decks = 0, failed = 0;
 	try {
+		// Once a day, each account's taste scores are kept as that day's snapshot, so how
+		// interests change over time can be shown later. Rides this job because it runs
+		// every day, weekends included.
+		const snapshotKey = `taste-snapshot:done:${today}`;
+		if (!(await cacheGet<boolean>(snapshotKey))) {
+			await pgQuery(
+				`insert into taste_snapshots (uid, day, tag_scores)
+				 select uid, $1::date, tag_scores from users where tag_scores <> '{}'::jsonb
+				 on conflict (uid, day) do nothing`,
+				[today],
+			);
+			await cacheSet(snapshotKey, true, PUSH_DEDUPE_TTL_MS);
+		}
+
 		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean }>(
 			`select token, uid, timezone, price_alerts, daily_deck from push_devices`,
 		);

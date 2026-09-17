@@ -130,6 +130,7 @@ object Session {
 		com.stak.demo.ui.simulate.PaperPortfolio.reset(demo = demoAccount)
 		com.stak.demo.ui.discover.DeckSession.load()
 		StakNotifications.load()
+		Entitlements.load()
 		com.stak.demo.ui.news.NewsSaves.load()
 		PushRegistration.sync()
 		ProfileSync.sync(force = true)

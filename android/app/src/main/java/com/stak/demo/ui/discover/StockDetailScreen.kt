@@ -129,7 +129,15 @@ fun StockDetailScreen(
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	val priceAt by viewModel.priceAt.collectAsStateWithLifecycle()
 	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
-	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
+	LaunchedEffect(symbol) {
+		viewModel.fetch(symbol)
+		// Repeated opens of a stock are interest the Taste Graph can show, without assuming ownership.
+		com.stak.demo.data.StakEvents.log(
+			com.stak.demo.data.StakEvents.STOCK_DETAIL_OPEN,
+			ticker = symbol,
+			params = mapOf("source" to if (fromMyStak) "mystak" else "discover", "saved" to (symbol in com.stak.demo.data.MyStakHoldings.tickers)),
+		)
+	}
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even

@@ -374,6 +374,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				},
 				onOpenDailyBrief = { navController.navigate(StakRoutes.NEWS_DAILY_BRIEF_DETAIL) },
 				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
+				onOpenTaste = { navController.navigate(StakRoutes.TASTE_GRAPH) },
+				onOpenAllCollections = { navController.navigate(StakRoutes.COLLECTIONS_ALL) },
 				onOpenProfile = { navController.navigate(StakRoutes.PROFILE) },
 				// Product audit (2026-09-05): the bell opens the inbox.
 				onOpenNotifications = { navController.navigate(StakRoutes.NOTIFICATIONS) },
@@ -416,6 +418,28 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// the app's only add path - the dashed tile hops there, Instant.
 				onAddStock = { popToShell(PopStyle.INSTANT, MainTab.Discover) },
 			)
+		}
+		composable(
+			StakRoutes.COLLECTIONS_ALL,
+			// Authored (1:3155/1:3333 Motion): every My STAK hop is Instant.
+			enterTransition = { EnterTransition.None },
+			exitTransition = { ExitTransition.None },
+			popEnterTransition = { popEnterFor(shellPop.value, instantRoute = true) },
+			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
+		) {
+			com.stak.demo.ui.mystak.AllCollectionsScreen(
+				onBack = { navController.popBackStack() },
+				onOpenCollection = { id -> navController.navigate(StakRoutes.collection(id)) },
+			)
+		}
+		composable(
+			StakRoutes.TASTE_GRAPH,
+			enterTransition = { EnterTransition.None },
+			exitTransition = { ExitTransition.None },
+			popEnterTransition = { popEnterFor(shellPop.value, instantRoute = true) },
+			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
+		) {
+			com.stak.demo.ui.mystak.TasteGraphScreen(onBack = { navController.popBackStack() })
 		}
 		composable(
 			StakRoutes.MYSTAK_STOCK,
@@ -621,7 +645,7 @@ internal enum class PopStyle { HOUSE_BACK, FORWARD_PUSH, DISSOLVE, INSTANT }
 // them must not move the shell (MAIN exit/popEnter = None). PROFILE is
 // deliberately absent: it keeps the house push both ways (171:995).
 private val INSTANT_ROUTES = setOf(
-	StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION,
+	StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION, StakRoutes.COLLECTIONS_ALL, StakRoutes.TASTE_GRAPH,
 	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK, StakRoutes.LEADERBOARD,
 	StakRoutes.NEWS_DETAIL, StakRoutes.NEWS_LIVE_DETAIL, StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
 )
@@ -666,6 +690,8 @@ private fun MainShell(
 	onOpenLiveArticle: (com.stak.demo.data.NewsArticleDto) -> Unit,
 	onOpenDailyBrief: () -> Unit,
 	onOpenCollection: (String) -> Unit,
+	onOpenTaste: () -> Unit,
+	onOpenAllCollections: () -> Unit,
 	onOpenProfile: () -> Unit,
 	onOpenNotifications: () -> Unit,
 	onOpenSimPortfolio: () -> Unit,
@@ -808,6 +834,8 @@ private fun MainShell(
 						MainTab.MySTAK -> MyStakScreen(
 							onOpenCollection = onOpenCollection,
 							onStartSwiping = { switchTab(MainTab.Discover) },
+							onOpenTaste = onOpenTaste,
+							onOpenAllCollections = onOpenAllCollections,
 						)
 					}
 				}
