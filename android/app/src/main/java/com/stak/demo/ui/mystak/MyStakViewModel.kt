@@ -441,7 +441,14 @@ class MyStakViewModel @Inject constructor(
 
     private suspend fun cardsLeft(): Int? =
         runCatching { repository.getDailySwipes() }.getOrNull()
-            ?.let { (it.limit - it.count).coerceAtLeast(0) }
+            ?.let {
+                // The server keeps the last day the user swiped, so a count from an earlier
+                // deck day means none of today's cards are used - the rule Discover and the
+                // notifications inbox both apply. Without it, My STAK said "2 cards left"
+                // to someone who hadn't swiped at all today.
+                val used = if (it.date == com.stak.demo.ui.discover.todayKey()) it.count else 0
+                (it.limit - used).coerceAtLeast(0)
+            }
 
     /** Saves grouped by category, biggest first; ties keep the catalogue's order. */
     private fun groupsOf(holdings: List<Holding>): List<Group> =
