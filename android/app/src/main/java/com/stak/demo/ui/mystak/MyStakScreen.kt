@@ -91,8 +91,10 @@ fun MyStakScreen(
 	// Keyed on the holdings: a save from the deck or an Unsave on a tile
 	// re-reads the screen while it sits in the backstack.
 	LaunchedEffect(com.stak.demo.data.MyStakHoldings.tickers, demo) { if (!demo) viewModel.loadIfNeeded() }
-	// Prices keep moving while this is on screen, not only when it is opened.
-	if (!demo) com.stak.demo.ui.components.RefreshWhileVisible(key = Unit) { viewModel.refreshQuotes() }
+	// Prices keep moving while this is on screen, not only when it is opened. Every 30s
+	// rather than the stock page's 15: a whole Stak is up to 30 quotes a refresh, and at
+	// 15s one viewer alone could use most of the Finnhub keys' per-minute allowance.
+	if (!demo) com.stak.demo.ui.components.RefreshWhileVisible(key = Unit, intervalMs = 30_000L) { viewModel.refreshQuotes() }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((4 * u).dp),

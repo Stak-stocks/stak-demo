@@ -42,3 +42,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Gson reads and writes these by field name - API responses (Retrofit) and the
+# pages and prices kept on the phone. Minified without these, R8 renames the
+# fields, so responses parse to empty objects and saved pages read back broken.
+-keepclassmembers class com.stak.demo.data.** { <fields>; <init>(...); }
+-keep class com.stak.demo.ui.discover.LiveDetail { *; }
+-keep class com.stak.demo.ui.discover.CompareValues { *; }
+-keep class com.stak.demo.ui.discover.StockDetailCache$** { *; }
+-keep class com.stak.demo.ui.mystak.MyStakViewModel$MyStakSnapshot$** { *; }
+
+
+# Ktor's IntelliJ debugger check references java.lang.management, which Android
+# doesn't have; R8 stopped every release build on it.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean

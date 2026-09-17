@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.BatchQuote
 import com.stak.demo.data.MyStakHoldings
+import com.stak.demo.data.StakClock
 import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
@@ -184,16 +185,30 @@ class MyStakViewModel @Inject constructor(
      * stock whose quote doesn't come back this time keeps the price it already shows.
      */
     fun refreshQuotes() {
-        if (com.stak.demo.data.StakClock.lastCloseRef() != "today") return
+        if (StakClock.lastCloseRef() != "today") return
         val shown = _ui.value.holdings
         val tickers = shown.map { it.ticker }.takeIf { it.isNotEmpty() } ?: return
         viewModelScope.launch {
             val fresh = fetchQuotes(tickers)
             if (fresh.isEmpty() || _ui.value.holdings.map { it.ticker } != tickers) return@launch
-            val kept = shown.filter { it.ticker !in fresh && it.price != null }
-                .associate { it.ticker to BatchQuote(price = it.price!!, changePercent = it.changePct ?: 0.0) }
-            MyStakSnapshot.putQuotes(fresh)
-            render(tickers, kept + fresh, final = true)
+            // The snapshot keeps every price it had; only those that came back are replaced.
+            MyStakSnapshot.putQuotes(MyStakSnapshot.quotes() + fresh)
+            render(tickers, fresh, final = true, previous = _ui.value.holdings)
+            // Today's line is still being drawn; the tiles moving while it stood still
+            // made the headline and the stocks under it disagree.
+            if (_ui.value.chartRange == "1D") refreshLine("1D")
+        }
+    }
+
+    /** Redraws [range]'s line for the same holdings without clearing the one on screen first. */
+    private fun refreshLine(range: String) {
+        val forTickers = MyStakHoldings.tickers
+        if (chartFor != forTickers || chartJob?.isActive == true) return
+        chartJob = viewModelScope.launch {
+            val built = portfolioSeries(forTickers.toList(), range.lowercase()) ?: return@launch
+            if (_ui.value.chartRange != range || chartFor != forTickers) return@launch
+            MyStakSnapshot.putLine(range, forTickers, built.series, built.pct, built.moves)
+            _ui.value = _ui.value.copy(chartSeries = built.series, rangePct = built.pct, rangeMoves = built.moves, chartMissing = false)
         }
     }
 
@@ -204,10 +219,16 @@ class MyStakViewModel @Inject constructor(
                 .getOrDefault(emptyList())
         }.toMap()
 
-    private fun render(tickers: List<String>, quotes: Map<String, BatchQuote>, final: Boolean) {
+    /**
+     * [previous] supplies the price and move for any stock whose quote didn't come back
+     * this time, so a refresh never blanks a price it already showed - nor invents a
+     * 0.0% move for one it never had.
+     */
+    private fun render(tickers: List<String>, quotes: Map<String, BatchQuote>, final: Boolean, previous: List<Holding> = emptyList()) {
+        val before = previous.associateBy { it.ticker }
         val holdings = tickers.map { ticker ->
             val quote = quotes[ticker]
-            val price = quote?.price?.takeIf { it > 0 }
+            val price = quote?.price?.takeIf { it > 0 } ?: before[ticker]?.price
             val saved = MyStakHoldings.priceAtSave(ticker)?.takeIf { it > 0 }
             val groupName = MyStakHoldings.categoryOf(ticker)?.let(::categoryName) ?: OTHER
             Holding(
@@ -216,7 +237,7 @@ class MyStakViewModel @Inject constructor(
                 groupId = categoryGroupId(groupName),
                 groupName = groupName,
                 price = price,
-                changePct = quote?.takeIf { price != null }?.changePercent,
+                changePct = if (quote != null && quote.price > 0) quote.changePercent else before[ticker]?.changePct,
                 sinceSavedPct = if (price != null && saved != null) (price - saved) / saved * 100 else null,
                 daysSinceSaved = MyStakHoldings.daysSinceSaved(ticker),
             )
@@ -395,23 +416,24 @@ class MyStakViewModel @Inject constructor(
         )
         data class Seed(val series: List<Float>, val pct: Double, val moves: Map<String, Double>)
 
-        private fun marketDay(): String =
-            java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()
-
-        fun quotes(): Map<String, BatchQuote> =
-            runCatching { gson.fromJson(StakStore.getString("mystak.quotes"), Quotes::class.java) }.getOrNull()
-                ?.takeIf { it.day == marketDay() }?.quotes.orEmpty()
+        // Gson ignores Kotlin nullability, so every read is checked inside runCatching:
+        // a malformed or older-shaped entry reads as nothing saved, never as a crash.
+        fun quotes(): Map<String, BatchQuote> = runCatching {
+            gson.fromJson(StakStore.getString("mystak.quotes"), Quotes::class.java)
+                ?.takeIf { it.day == StakClock.marketDay() }?.quotes?.filterValues { it.price > 0 }.orEmpty()
+        }.getOrDefault(emptyMap())
 
         fun putQuotes(quotes: Map<String, BatchQuote>) =
-            StakStore.putString("mystak.quotes", gson.toJson(Quotes(marketDay(), quotes)))
+            StakStore.putString("mystak.quotes", gson.toJson(Quotes(StakClock.marketDay(), quotes)))
 
-        fun line(range: String, tickers: Set<String>): Seed? =
-            runCatching { gson.fromJson(StakStore.getString("mystak.line.$range"), Line::class.java) }.getOrNull()
-                ?.takeIf { it.day == marketDay() && it.tickers.toSet() == tickers && it.series.size >= 2 }
+        fun line(range: String, tickers: Set<String>): Seed? = runCatching {
+            gson.fromJson(StakStore.getString("mystak.line.$range"), Line::class.java)
+                ?.takeIf { it.day == StakClock.marketDay() && it.tickers.toSet() == tickers && it.series.size >= 2 }
                 ?.let { Seed(it.series, it.pct, it.moves) }
+        }.getOrNull()
 
         fun putLine(range: String, tickers: Set<String>, series: List<Float>, pct: Double, moves: Map<String, Double>) =
-            StakStore.putString("mystak.line.$range", gson.toJson(Line(marketDay(), tickers.sorted(), series, pct, moves)))
+            StakStore.putString("mystak.line.$range", gson.toJson(Line(StakClock.marketDay(), tickers.sorted(), series, pct, moves)))
     }
 
     private companion object {

@@ -15,6 +15,7 @@ import com.stak.demo.data.StockMetrics
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -185,8 +186,19 @@ class StockDetailViewModel @Inject constructor(
         }
     }
 
+    private var fetchJob: Job? = null
+
+    /** The direction the shown "why it moved" text explains, so a refresh can tell when it no longer fits. */
+    private var explainedDirection: String? = null
+
+    /** When the price refresh last wrote this page to the phone. */
+    private var persistedAt = 0L
+
     fun fetch(symbol: String) {
-        viewModelScope.launch {
+        // One fetch at a time: a second call (the effect re-running) left two sets of
+        // requests racing, and whichever finished last overwrote the other's page.
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             // Show what this stock last showed while its own data is on the way,
             // instead of a page of placeholders on every re-entry.
             StockDetailCache.detail(symbol)?.let { _liveDetail.value = it }
@@ -256,6 +268,7 @@ class StockDetailViewModel @Inject constructor(
                     publish()
                     val pct = stockData?.quote?.changePercent ?: 0.0
                     move = runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()
+                    explainedDirection = move?.direction
                     publish()
                 }
             }
@@ -289,9 +302,9 @@ class StockDetailViewModel @Inject constructor(
      * visible and the market is open. Only the figures a quote carries move; the rest
      * of the page stays as it was.
      */
-    fun refreshQuote(symbol: String) {
+    fun refreshQuote(symbol: String, range: String) {
         if (StakClock.lastCloseRef() != "today") return
-        if (_liveDetail.value == null) return
+        if (_liveDetail.value == null || fetchJob?.isActive == true) return
         viewModelScope.launch {
             val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
             val price = quote.price?.takeIf { it > 0 } ?: return@launch
@@ -302,8 +315,38 @@ class StockDetailViewModel @Inject constructor(
                 newsClose = newsCloseLine(pct),
             ) ?: return@launch
             _liveDetail.value = updated
-            StockDetailCache.putDetail(symbol, updated)
+            // In memory every time; to the phone at most once a minute.
+            val now = System.currentTimeMillis()
+            val persist = now - persistedAt > 60_000
+            if (persist) persistedAt = now
+            StockDetailCache.putDetail(symbol, updated, persist)
+
+            // The "why it moved" text explains one direction. If the stock has turned
+            // since, it now contradicts the line above it - ask for the new one.
+            val direction = if (pct > 0.15) "up" else if (pct < -0.15) "down" else "flat"
+            if (explainedDirection != null && direction != explainedDirection) {
+                explainedDirection = direction
+                runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()?.let { m ->
+                    explainedDirection = m.direction
+                    m.explanation.takeIf { it.isNotBlank() }?.let { text ->
+                        _liveDetail.value = _liveDetail.value?.copy(newsSignal = text)
+                    }
+                }
+            }
+            // Today's line is still being drawn; the header price moving while it stood
+            // still made the two disagree.
+            if (range.equals("1D", ignoreCase = true)) refreshTodayLine(symbol)
         }
+    }
+
+    private suspend fun refreshTodayLine(symbol: String) {
+        if (chartKey != "$symbol:1D") return
+        val closes = runCatching { repository.getChart(symbol, "1d") }.getOrNull()
+            ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 } ?: return
+        if (chartKey != "$symbol:1D") return
+        _chartSeries.value = chartFractions(closes)
+        _chartPct.value = (closes.last() - closes.first()) / closes.first() * 100.0
+        _chartMissing.value = false
     }
 
     private fun buildDetail(

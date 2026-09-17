@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import com.stak.demo.R
 import com.stak.demo.ui.components.MainTab
 import com.stak.demo.ui.components.RANGE_LABELS
+import com.stak.demo.ui.components.RefreshWhileVisible
 import com.stak.demo.ui.components.RANGE_SERIES
 import com.stak.demo.ui.components.RangeChart
 import com.stak.demo.ui.components.MainTabBar
@@ -127,10 +128,6 @@ fun StockDetailScreen(
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) { viewModel.fetch(symbol) }
-	// The price keeps moving while the page is open, not only when it is opened.
-	if (!com.stak.demo.data.Session.demoAccount) {
-		com.stak.demo.ui.components.RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol) }
-	}
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even
@@ -144,6 +141,10 @@ fun StockDetailScreen(
 	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
 	var range by rememberSaveable { mutableStateOf("3M") }
+	// The price keeps moving while the page is open, not only when it is opened.
+	if (!com.stak.demo.data.Session.demoAccount) {
+		RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol, range) }
+	}
 	// Each pill draws that range's own closes; the demo keeps its authored line.
 	if (!com.stak.demo.data.Session.demoAccount) {
 		LaunchedEffect(symbol, range) { viewModel.selectRange(symbol, range) }
@@ -1121,9 +1122,10 @@ private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuyS
 		title = "Buy $symbol?",
 		badge = symbol.take(1),
 		name = live?.name ?: symbol,
-		priceLine = (live?.price ?: "$0.00") + " today",
+		// A cached page whose price has lapsed shows "—"; the ticket is never priced from that.
+		priceLine = (live?.price?.takeIf { it != "—" } ?: "$0.00") + " today",
 		// formatChange() ends "% today"; the ticket's change carries no suffix.
-		change = (live?.change ?: "▲ 0.0% today").removeSuffix(" today"),
+		change = (live?.change?.takeIf { it.isNotBlank() } ?: "▲ 0.0% today").removeSuffix(" today"),
 		cashBefore = "$0.00",
 		cashAfter = "$0.00",
 		shares = "0",

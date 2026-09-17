@@ -23,6 +23,7 @@ object StakStore {
 
 	fun getString(name: String): String? = prefs?.getString(key(name), null)
 	fun putString(name: String, value: String) { prefs?.edit()?.putString(key(name), value)?.apply() }
+	fun remove(name: String) { prefs?.edit()?.remove(key(name))?.apply() }
 	fun getInt(name: String, default: Int): Int = prefs?.getInt(key(name), default) ?: default
 	fun putInt(name: String, value: Int) { prefs?.edit()?.putInt(key(name), value)?.apply() }
 	fun getBoolean(name: String, default: Boolean): Boolean = prefs?.getBoolean(key(name), default) ?: default

@@ -124,16 +124,16 @@ async function getPriceChangePct(symbol: string, earningsDate: string, hour: str
 }
 
 const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
+const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 /**
- * A quote's cache life. The apps refresh on-screen prices every ~15s while the
- * market is open; a one-minute cache would hand them the same number three times
- * running. Outside the session prices barely move, so the minute stands.
+ * A quote's cache life. The apps refresh on-screen prices while the market is open;
+ * a one-minute cache would hand them the same number several times running.
+ * Outside the session prices barely move, so the minute stands.
  */
 function quoteTtlMs(): number {
 	return marketSessionBucket() === "open" ? 15 * 1000 : QUOTE_TTL_MS;
 }
-const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 // Map non-US tickers to their US-listed equivalents for quote lookups
 const TICKER_MAP: Record<string, string> = {
@@ -433,8 +433,9 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 	}
 
 	try {
-		const results = await Promise.all(
-			tickers.map(async (symbol) => {
+		// Eight at a time: prices now refresh every few seconds, and a cold batch of up
+		// to 50 fired together went past Finnhub's 30-calls-a-second limit.
+		const results = await mapWithLimit(tickers, 8, async (symbol) => {
 				const fbKey = `quote:fb:${symbol}`;
 				let raw = await cacheGet<Record<string, number>>(fbKey);
 				if (!raw) {
@@ -447,8 +448,7 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 					change: Math.round((raw.d ?? 0) * 100) / 100,
 					changePercent: Math.round((raw.dp ?? 0) * 100) / 100,
 				}] as const;
-			}),
-		);
+			});
 
 		const quotes: Record<string, { price: number; change: number; changePercent: number }> = {};
 		for (const [ticker, quote] of results) {
@@ -484,9 +484,10 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 //
 // Pre-generates the "why it moved" text for every stock someone has saved, once per
 // trading day, so the first person to open one reads it straight away. Scoped to
-// saved stocks (not the whole catalogue) and to the two lengths the apps ask for
-// - Android's 2 sentences, web My STAK's 4 - at the "today" reference used during
-// market hours: about two grounded calls per saved stock per day (user decision,
+// saved stocks (not the whole catalogue) and to the multi-sentence answer both apps
+// read (Android asks for 2, web My STAK for 4; the prompt is the same for any length
+// over one, so they share one cache entry) at the "today" reference used during
+// market hours: one grounded call per saved stock per day (user decision,
 // 2026-09-16, lifting the June hold on cache warming with this scope).
 //
 // Called by Cloud Scheduler with the same x-warm-secret as the daily-brief warm.
@@ -494,8 +495,11 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 // so each call does what it can in WARM_BUDGET_MS and marks each stock done for the
 // day; the job repeats every ten minutes over the late morning and a finished day's
 // calls return immediately.
-const WARM_BUDGET_MS = 4 * 60 * 1000;
-const WARM_SENTENCES = [2, 4];
+// Under Cloud Run's five-minute request limit with room for the stock in progress
+// when it runs out (up to two keys' worth of 8s timeouts).
+const WARM_BUDGET_MS = 3 * 60 * 1000;
+/** How long a day's "last good" explanation is kept. */
+const DAILY_MOVE_LAST_TTL_MS = 20 * 60 * 60 * 1000;
 
 stockRouter.get("/warm-saved", async (req, res) => {
 	const secret = req.headers["x-warm-secret"];
@@ -518,28 +522,45 @@ stockRouter.get("/warm-saved", async (req, res) => {
 			const doneKey = `warm-saved:done:${today}:${ticker}`;
 			if (await cacheGet<boolean>(doneKey)) { skipped++; continue; }
 
-			const symbol = resolveSymbol(ticker);
-			const fbKey = `quote:fb:${symbol}`;
-			let quote = await cacheGet<Record<string, number>>(fbKey);
-			if (!quote) {
-				quote = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-				if (quote) await cacheSet(fbKey, quote, quoteTtlMs());
-			}
-			// No trade today (a holiday, a halt, a quote that didn't come back): there is
-			// no move to explain, so don't spend a grounded call describing a flat line.
-			const tradedToday = typeof quote?.t === "number" && getEasternDateKey(new Date(quote.t * 1000)) === today;
-			if (!quote || typeof quote.dp !== "number" || !tradedToday) { skipped++; continue; }
+			// One stock's failure (a timeout, a DNS blip) must not end the run for the rest.
+			try {
+				const symbol = resolveSymbol(ticker);
+				const fbKey = `quote:fb:${symbol}`;
+				let quote = await cacheGet<Record<string, number>>(fbKey);
+				if (!quote) {
+					quote = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+					if (quote) await cacheSet(fbKey, quote, quoteTtlMs());
+				}
+				// No trade today (a holiday, a halt): there is no move to explain, so no
+				// grounded call. The job only runs well after the open, so a last trade from
+				// an earlier day means none is coming - mark it done, or every later run
+				// would spend a Finnhub call finding that out again. A quote that didn't
+				// come back is left for the next run.
+				if (!quote || typeof quote.dp !== "number" || typeof quote.t !== "number") { skipped++; continue; }
+				if (getEasternDateKey(new Date(quote.t * 1000)) !== today) {
+					await cacheSet(doneKey, true, DAILY_MOVE_LAST_TTL_MS);
+					skipped++;
+					continue;
+				}
 
-			const changePercent = quote.dp;
-			const direction: "up" | "down" | "flat" = changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
-			for (const sentences of WARM_SENTENCES) {
-				const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, "today");
-				if (await cacheGet<DailyMoveResult>(cacheKey)) continue;
-				await dailyMoveCompute({ symbol, changePercent, companyName: name, sentences, marketClosed: false, closeRef: "today", direction, cacheKey })
-					.catch(() => { /* logged inside */ });
+				const changePercent = quote.dp;
+				const direction: "up" | "down" | "flat" = changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
+				const cacheKey = dailyMoveCacheKey(symbol, direction, 2, "today");
+				if (!(await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey)))) {
+					await dailyMoveCompute({ symbol, changePercent, companyName: name, sentences: 2, marketClosed: false, closeRef: "today", direction, cacheKey });
+				}
+				// Done only once a real answer is kept; a failed call leaves the stock for the
+				// next run instead of writing it off for the day.
+				if (await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey))) {
+					await cacheSet(doneKey, true, DAILY_MOVE_LAST_TTL_MS);
+					warmed++;
+				} else {
+					skipped++;
+				}
+			} catch (e) {
+				console.warn(`[warm-saved] ${ticker}: ${(e as Error)?.message}`);
+				skipped++;
 			}
-			await cacheSet(doneKey, true, 20 * 60 * 60 * 1000);
-			warmed++;
 		}
 		console.log(`[warm-saved] ${today} warmed=${warmed} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
 		res.json({ ok: true, today, total: stocks.length, warmed, skipped, pending });
@@ -1523,7 +1544,16 @@ function lastDailyMoveKey(cacheKey: string): string {
 
 async function rememberDailyMove(cacheKey: string, result: DailyMoveResult): Promise<void> {
 	await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
-	await cacheSet(lastDailyMoveKey(cacheKey), result, 20 * 60 * 60 * 1000);
+	await cacheSet(lastDailyMoveKey(cacheKey), result, DAILY_MOVE_LAST_TTL_MS);
+}
+
+/**
+ * One cache entry per explanation actually generated: any length over one sentence
+ * gets the same prompt, so Android's 2 and web's 4 share a key instead of paying for
+ * the same grounded answer twice.
+ */
+function dailyMoveCacheKey(symbol: string, direction: "up" | "down" | "flat", sentences: number, closeRef: string): string {
+	return `daily-move:v12:${symbol}:${direction}:${sentences > 1 ? "multi" : "one"}:${closeRef}`;
 }
 
 /** Starts (or joins) the computation for a key, de-duplicated per instance. */
@@ -1552,25 +1582,27 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
 
 	const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, closeRef);
-	const cached = await cacheGet<DailyMoveResult>(cacheKey);
-	if (cached !== null) { res.json(cached); return; }
+	try {
+		const cached = await cacheGet<DailyMoveResult>(cacheKey);
+		if (cached !== null) { res.json(cached); return; }
 
-	const params = { symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey };
-	const lastGood = await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey));
-	if (lastGood !== null) {
-		res.json(lastGood);
-		// Cloud Run keeps the instance's CPU while this promise runs only if other
-		// requests are active, so the refresh is best-effort; the next visitor after
-		// it lands gets the fresh copy, and one that arrives first gets this one again.
-		dailyMoveCompute(params).catch(() => { /* already logged inside */ });
-		return;
+		const params = { symbol, changePercent, companyName, sentences, marketClosed, closeRef, direction, cacheKey };
+		const lastGood = await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey));
+		if (lastGood !== null) {
+			res.json(lastGood);
+			// Cloud Run keeps the instance's CPU while this promise runs only if other
+			// requests are active, so the refresh is best-effort; the next visitor after
+			// it lands gets the fresh copy, and one that arrives first gets this one again.
+			dailyMoveCompute(params).catch(() => { /* already logged inside */ });
+			return;
+		}
+		res.json(await dailyMoveCompute(params));
+	} catch (e) {
+		// Express 4 doesn't catch a rejected async handler: without this the request hung.
+		console.warn(`[daily-move] ${symbol}: ${(e as Error)?.message}`);
+		if (!res.headersSent) res.status(500).json({ error: "Failed to explain the move" });
 	}
-	res.json(await dailyMoveCompute(params));
 });
-
-function dailyMoveCacheKey(symbol: string, direction: "up" | "down" | "flat", sentences: number, closeRef: string): string {
-	return `daily-move:v11:${symbol}:${direction}:s${sentences}:${closeRef}`;
-}
 
 async function computeDailyMove(params: {
 	symbol: string; changePercent: number; companyName: string; sentences: number;
@@ -1713,6 +1745,11 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 
 	// All keys exhausted or errored — return simple fallback
 	console.warn(`[Gemini] daily-move(${symbol}): all ${keys.length} keys exhausted/failed — falling back to generic explanation`);
+	// The day's good answer beats a generic line: caching the fallback under the fresh
+	// key hid it for five minutes from everyone, including the visitor who had just
+	// been shown it.
+	const lastGood = await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey));
+	if (lastGood) return lastGood;
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
 	return fallback;

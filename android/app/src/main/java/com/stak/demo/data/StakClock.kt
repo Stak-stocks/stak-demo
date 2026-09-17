@@ -13,6 +13,10 @@ import java.util.Locale
 object StakClock {
 	private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
+	/** Today's date in US Eastern time ("2026-09-16") - the market's own day, for dating saved prices. */
+	fun marketDay(): String =
+		java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()
+
 	/**
 	 * Which session a quote's daily move belongs to, in US Eastern time: "today"
 	 * while the market is open, "at today's close" after 4pm, "at yesterday's close"

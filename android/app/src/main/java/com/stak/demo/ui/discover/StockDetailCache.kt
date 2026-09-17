@@ -1,5 +1,6 @@
 package com.stak.demo.ui.discover
 
+import com.stak.demo.data.StakClock
 import com.stak.demo.data.StakStore
 
 /**
@@ -31,9 +32,6 @@ internal object StockDetailCache {
 	private val details = LinkedHashMap<String, Entry>()
 	private val charts = LinkedHashMap<String, ChartData>()
 
-	private fun marketDay(): String =
-		java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()
-
 	/**
 	 * The last detail for [symbol]. The stock's slow-moving half - peers, metrics,
 	 * analysts, news - is kept as it was. What belongs to a moment is not:
@@ -46,32 +44,44 @@ internal object StockDetailCache {
 	fun detail(symbol: String): LiveDetail? {
 		val entry = details[symbol] ?: fromDisk(symbol)?.also { details[symbol] = it } ?: return null
 		val detail = entry.detail ?: return null
-		if (entry.day != marketDay()) {
+		if (entry.day != StakClock.marketDay()) {
 			return detail.copy(price = "—", change = "", newsClose = null, newsSignal = null)
 		}
 		val fresh = System.currentTimeMillis() - entry.at < FRESH_MS
 		return if (fresh) detail else detail.copy(price = "—", change = "")
 	}
 
-	fun putDetail(symbol: String, detail: LiveDetail) {
-		val entry = Entry(System.currentTimeMillis(), marketDay(), detail)
+	/**
+	 * Remembers [detail]. [persist] = false keeps it in memory only: the 15-second price
+	 * refresh calls this, and rewriting the whole preferences file that often - it
+	 * holds every cached page - would put disk work on the main thread and make
+	 * Android wait on it when the app pauses.
+	 */
+	fun putDetail(symbol: String, detail: LiveDetail, persist: Boolean = true) {
+		val entry = Entry(System.currentTimeMillis(), StakClock.marketDay(), detail)
 		details.remove(symbol)
 		details[symbol] = entry
 		trim(details)
-		toDisk(symbol, entry)
+		if (persist) toDisk(symbol, entry)
 	}
 
-	private fun fromDisk(symbol: String): Entry? =
-		runCatching { gson.fromJson(StakStore.getString("detail.$symbol"), Entry::class.java) }.getOrNull()
-			?.takeIf { it.detail != null }
+	/**
+	 * Gson fills fields by reflection and ignores Kotlin's nullability, so a saved page
+	 * missing a field reads back with null in a non-null property. Anything that isn't
+	 * whole is treated as not cached rather than handed to the screen.
+	 */
+	private fun fromDisk(symbol: String): Entry? = runCatching {
+		gson.fromJson(StakStore.getString("stockpage.$symbol"), Entry::class.java)
+			?.takeIf { e -> e.detail?.let { d -> (d.price as String?) != null && (d.change as String?) != null } == true }
+	}.getOrNull()
 
 	/** Written per symbol with a most-recent-first index, so the phone keeps the same [MAX_ENTRIES] as memory. */
 	private fun toDisk(symbol: String, entry: Entry) {
 		runCatching {
-			StakStore.putString("detail.$symbol", gson.toJson(entry))
-			val index = (listOf(symbol) + StakStore.getString("detail.index").orEmpty().split(",").filter { it.isNotBlank() && it != symbol })
-			index.drop(MAX_ENTRIES).forEach { StakStore.putString("detail.$it", "") }
-			StakStore.putString("detail.index", index.take(MAX_ENTRIES).joinToString(","))
+			StakStore.putString("stockpage.$symbol", gson.toJson(entry))
+			val index = (listOf(symbol) + StakStore.getString("stockpage.index").orEmpty().split(",").filter { it.isNotBlank() && it != symbol })
+			index.drop(MAX_ENTRIES).forEach { StakStore.remove("stockpage.$it") }
+			StakStore.putString("stockpage.index", index.take(MAX_ENTRIES).joinToString(","))
 		}
 	}
 
