@@ -92,6 +92,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
+import com.stak.demo.ui.components.RefreshWhileVisible
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
@@ -336,6 +337,11 @@ internal fun DiscoverScreen(
 	val remainingDeck = deck.filter { it.symbol !in savedCards && it.symbol !in passedCards }
 		.take((dailyLimit - swipedToday).coerceAtLeast(0))
 	val atEnd = remainingDeck.isEmpty() || hasReachedLimit
+	// Prices move while the deck sits open. Every 30s, for the front card and the two
+	// peeking behind it only - swiped cards and the end screen show no price.
+	RefreshWhileVisible(key = Unit, intervalMs = 30_000L, tickOnResume = true) {
+		viewModel.onVisibleTick(if (atEnd) emptyList() else remainingDeck.take(3).map { it.symbol })
+	}
 
 	val initialResetKey = remember { resetKey }
 	LaunchedEffect(resetKey) {
@@ -656,13 +662,15 @@ internal fun DiscoverScreen(
 			QuickLookSheet(
 				card = card,
 				loadQuickLook = { id -> viewModel.fetchQuickLook(id) },
+				// The deck's current copy of the card: prices refresh while the sheet is open,
+				// and a save records the price at that moment.
 				onPass = {
 					quickLookCard = null
-					animateAndCommit(card, isSTAK = false)
+					animateAndCommit(deck.firstOrNull { it.symbol == card.symbol } ?: card, isSTAK = false)
 				},
 				onSTAK = {
 					quickLookCard = null
-					animateAndCommit(card, isSTAK = true)
+					animateAndCommit(deck.firstOrNull { it.symbol == card.symbol } ?: card, isSTAK = true)
 				},
 				onDismiss = { quickLookCard = null },
 			)
@@ -922,8 +930,10 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 						color = Color.White,
 					)
 					Text(
-						text = card.change,
+						text = com.stak.demo.data.StakClock.sessionChange(card.change),
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						maxLines = 1,
+						softWrap = false,
 						color = if (card.change.startsWith("▼")) Disc.Red else Disc.Green,
 						modifier = Modifier.padding(bottom = (2 * u).dp),
 					)
@@ -1502,6 +1512,18 @@ private fun DeckLoadError(u: Float, onRetry: () -> Unit) {
 	}
 }
 
+/**
+ * The cards this deck actually showed - a day with fewer eligible stocks ends before
+ * the daily limit and must not claim the full count; a day with none says so.
+ */
+private fun endOfDeckSummary(seen: Int, total: Int): String {
+	if (seen <= 0) return "No new stocks to show today."
+	val n = seen.coerceAtMost(total)
+	val cards = if (n == 1) "card" else "cards"
+	val signals = if (n == 1) "signal" else "signals"
+	return "${countWord(n)} $cards, ${countWord(n).lowercase()} $signals. Your taste graph got smarter."
+}
+
 private fun countWord(n: Int): String = listOf(
 	"Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
 	"Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty",
@@ -1530,7 +1552,7 @@ private fun EndOfDeck(seen: Int, total: Int, saved: Int, passed: Int, limitReach
 		)
 		Spacer(modifier = Modifier.height((8 * u).dp))
 		Text(
-			text = "${countWord(total)} cards, ${countWord(total).lowercase()} signals. Your taste graph got smarter.",
+			text = endOfDeckSummary(seen, total),
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Disc.Muted,
 		)
@@ -1581,7 +1603,8 @@ private fun EndOfDeck(seen: Int, total: Int, saved: Int, passed: Int, limitReach
 		}
 		Spacer(modifier = Modifier.height((14 * u).dp))
 		Text(
-			text = "A new deck lands tomorrow with your morning brief.",
+			// The deck day turns at DECK_DAY_START_HOUR local (todayKey): finished before it, the next one is today.
+			text = if (java.time.LocalTime.now().hour < DECK_DAY_START_HOUR) "A new deck lands at 9am." else "A new deck lands tomorrow at 9am.",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Disc.Muted,
 		)

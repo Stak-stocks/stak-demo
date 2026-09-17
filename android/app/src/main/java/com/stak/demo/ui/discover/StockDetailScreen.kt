@@ -187,7 +187,7 @@ fun StockDetailScreen(
 					val displayPrice = liveDetail?.price ?: f.price
 					// The figure follows the selected pill: a red line for the year above a
 					// green "today" was two periods stacked with nothing to tell them apart.
-					val displayChange = chartPct.let { p -> if (range != "1D" && p != null) rangeChangeText(p, range) else (liveDetail?.change ?: f.change) }
+					val displayChange = chartPct.let { p -> if (range != "1D" && p != null) rangeChangeText(p, range) else com.stak.demo.data.StakClock.sessionChange(liveDetail?.change ?: f.change) }
 					// The page names the stock it is showing; the authored title is another
 					// company's whenever this symbol has no authored facts of its own.
 					// Says when the price was fetched: a page opened from the phone's cache looks
@@ -716,7 +716,7 @@ private fun DetailSavedSheet(f: DetailFacts, symbol: String = f.symbol, liveDeta
 					Text(liveDetail?.name ?: f.sheetName, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
 					Text(liveDetail?.price ?: f.sheetPrice, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 				}
-				val sheetChange = liveDetail?.change ?: f.sheetChange
+				val sheetChange = com.stak.demo.data.StakClock.sessionChange(liveDetail?.change ?: f.sheetChange)
 				Text(sheetChange, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = if (sheetChange.startsWith("▼")) Red else Green)
 			}
 			Text(

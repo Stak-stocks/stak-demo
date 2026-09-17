@@ -52,6 +52,27 @@ object StakClock {
 		}
 	}
 
+	/** Whether the US market's regular session is on right now (holidays not known). */
+	fun isMarketOpen(): Boolean = lastCloseRef() == "today"
+
+	/**
+	 * A "▲ 1.2% today" move named for the session it describes. From the day's open on,
+	 * "today" stands (after 4pm it is still today's move). Before the open and over the
+	 * weekend it names that session's weekday - "▲ 1.2% on Wednesday" - which, unlike
+	 * "yesterday", reads right in any time zone. Applied when shown, so a card loaded in
+	 * the afternoon doesn't still say "today" the next morning.
+	 */
+	fun sessionChange(change: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))): String {
+		if (!change.endsWith(" today")) return change
+		val minutes = now.hour * 60 + now.minute
+		val weekend = now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY
+		if (!weekend && minutes >= 570) return change
+		var day = now.toLocalDate().minusDays(1)
+		while (day.dayOfWeek == java.time.DayOfWeek.SATURDAY || day.dayOfWeek == java.time.DayOfWeek.SUNDAY) day = day.minusDays(1)
+		val name = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.US)
+		return change.removeSuffix("today") + "on $name"
+	}
+
 	/** "Saturday, July 4" for today. */
 	fun todayLong(): String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.US))
 

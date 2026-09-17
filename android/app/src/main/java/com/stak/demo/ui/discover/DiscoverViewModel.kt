@@ -8,6 +8,7 @@ import com.stak.demo.data.EngagementEventRequest
 import com.stak.demo.data.MyStakHoldings
 import com.stak.demo.data.PassedEntry
 import com.stak.demo.data.RecordSwipeRequest
+import com.stak.demo.data.StakClock
 import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.categoryName
@@ -92,6 +93,8 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch {
             _loading.value = true
             _loadError.value = false
+            loadedDay = todayKey()
+            missingRetries = 0
             coroutineScope {
                 val dailySwipesDeferred = async { runCatching { repository.getDailySwipes() }.getOrNull() }
                 val recsDeferred = async { runCatching { repository.getRecommendations() }.getOrNull() }
@@ -104,7 +107,8 @@ class DiscoverViewModel @Inject constructor(
                 val swiped = if (dailySwipes != null && dailySwipes.date == todayKey()) dailySwipes.count else 0
                 _dailyLimit.value = limit
                 _swipedToday.value = swiped
-                if (swiped >= limit) _hasReachedLimit.value = true
+                // Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
+                _hasReachedLimit.value = swiped >= limit
                 statsDeferred.await()?.let { swipes ->
                     val saved = swipes.filter { it.direction == "right" }.map { it.brandId }.toSet().size
                     val passed = swipes.filter { it.direction == "left" }.map { it.brandId }.toSet().size
@@ -117,6 +121,7 @@ class DiscoverViewModel @Inject constructor(
                     val recs = recsDeferred.await()
                     passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
                     val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
+                    quotedRef = StakClock.lastCloseRef()
                     val quotes = if (picks.isNotEmpty()) {
                         runCatching { repository.batchQuotes(picks.map { it.ticker }) }.getOrNull()?.quotes ?: emptyMap()
                     } else emptyMap()
@@ -262,6 +267,54 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
+    private var quoteJob: Job? = null
+    /** The deck day ([todayKey]) the deck on screen was loaded for. */
+    private var loadedDay: String? = null
+    /** [StakClock.lastCloseRef] when the deck was last priced - a changed one means the prices predate a session boundary. */
+    private var quotedRef: String? = null
+    /** Out-of-hours attempts to price cards whose quote never came back; capped so one bad symbol can't poll all night. */
+    private var missingRetries = 0
+
+    /**
+     * Each tick while Discover is on screen, with the symbols of the cards it shows (none
+     * on the end-of-deck screen). Past the 9am rollover the next deck is loaded; otherwise
+     * the visible cards are re-priced.
+     */
+    fun onVisibleTick(visible: List<String>) {
+        if (_loading.value) return
+        if (loadedDay != null && loadedDay != todayKey()) {
+            DeckSession.load()
+            fetchDeck()
+            return
+        }
+        refreshQuotes(visible)
+    }
+
+    /**
+     * Re-prices the visible cards so each - and the price a save records - stays current:
+     * while the market is open, once after a session boundary passes, and (a couple of
+     * times) for a card whose quote failed.
+     */
+    private fun refreshQuotes(visible: List<String>) {
+        if (visible.isEmpty() || quoteJob?.isActive == true) return
+        val ref = StakClock.lastCloseRef()
+        val tickers = if (StakClock.isMarketOpen() || ref != quotedRef) {
+            visible
+        } else {
+            val missing = _deck.value.filter { it.symbol in visible && it.price == "—" }.map { it.symbol }
+            if (missing.isEmpty() || missingRetries >= MISSING_QUOTE_RETRIES) return
+            missingRetries++
+            missing
+        }
+        quoteJob = viewModelScope.launch {
+            val quotes = runCatching { repository.batchQuotes(tickers) }.getOrNull()?.quotes ?: return@launch
+            quotedRef = ref
+            _deck.value = _deck.value.map { c ->
+                quotes[c.symbol]?.takeIf { it.price > 0 }?.let { q -> c.copy(price = formatPrice(q.price), change = formatChange(q.changePercent)) } ?: c
+            }
+        }
+    }
+
     private fun prefetchTips(cards: List<DeckCard>) {
         cards.filter { it.brandId.isNotBlank() && !tipCache.containsKey(it.brandId) }.forEach { card ->
             viewModelScope.launch {
@@ -283,6 +336,9 @@ data class QuickLookData(
 
 /** Used only when the server can't be reached; /api/me/daily-swipes serves the real value. */
 private const val FALLBACK_DAILY_LIMIT = 10
+private const val MISSING_QUOTE_RETRIES = 2
+/** The local hour a new deck day begins - the server counts swipes under the same rollover. */
+internal const val DECK_DAY_START_HOUR = 9
 private const val DEFAULT_DECK_LABEL = "TODAY'S DECK"
 private const val PICKS_DAY_KEY = "deck.picks.day"
 private const val PICKS_KEY = "deck.picks"
@@ -348,7 +404,7 @@ private val CARD_COLOR_PALETTE = listOf(
 /** The swipe day: rolls over at 9am local, matching the key the server counts swipes under. */
 internal fun todayKey(): String {
     val now = Calendar.getInstance()
-    if (now.get(Calendar.HOUR_OF_DAY) < 9) now.add(Calendar.DATE, -1)
+    if (now.get(Calendar.HOUR_OF_DAY) < DECK_DAY_START_HOUR) now.add(Calendar.DATE, -1)
     return "%04d-%02d-%02d".format(
         now.get(Calendar.YEAR),
         now.get(Calendar.MONTH) + 1,
@@ -358,7 +414,7 @@ internal fun todayKey(): String {
 
 /** When today's swipe day began (9am local on [todayKey]'s date), as an ISO instant. */
 private fun swipeDayStartIso(): String =
-    java.time.LocalDate.parse(todayKey()).atTime(9, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+    java.time.LocalDate.parse(todayKey()).atTime(DECK_DAY_START_HOUR, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
 
 internal fun formatPrice(price: Double): String =
     "$${String.format(Locale.US, "%,.2f", price)}"
@@ -367,3 +423,4 @@ internal fun formatChange(pct: Double): String {
     val arrow = if (pct >= 0.0) "▲" else "▼"
     return "$arrow ${String.format(Locale.US, "%.1f", abs(pct))}% today"
 }
+

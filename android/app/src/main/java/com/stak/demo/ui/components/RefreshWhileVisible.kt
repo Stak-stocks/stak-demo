@@ -18,11 +18,13 @@ internal const val LIVE_PRICE_INTERVAL_MS = 15_000L
  * whether there is anything to do (the market may be closed).
  */
 @Composable
-internal fun RefreshWhileVisible(key: Any?, intervalMs: Long = LIVE_PRICE_INTERVAL_MS, onTick: () -> Unit) {
+internal fun RefreshWhileVisible(key: Any?, intervalMs: Long = LIVE_PRICE_INTERVAL_MS, tickOnResume: Boolean = false, onTick: () -> Unit) {
 	val lifecycleOwner = LocalLifecycleOwner.current
 	val tick = rememberUpdatedState(onTick)
 	LaunchedEffect(key, lifecycleOwner) {
 		lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+			// Coming back to a screen left open for hours shouldn't wait a full interval.
+			if (tickOnResume) tick.value()
 			while (true) {
 				delay(intervalMs)
 				tick.value()
