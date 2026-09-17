@@ -44,14 +44,17 @@ object NewsDeckFeed {
                 val title = article.headline.let {
                     if (it.length > 65) it.take(65).trimEnd() + "…" else it
                 }
-                // A summary that opens by repeating the headline loses that repeat; what's
-                // left is kept only if it says something - feeds pad a bare headline with
-                // the source name ("... sources say  Reuters").
-                val headline = article.headline.trim()
+                // A summary that only restates the headline isn't a body. Feeds pad it with
+                // their source and stray characters ("... sources say� Reuters" under
+                // "... sources say - Reuters"), so the two are compared by letters and
+                // digits alone; a summary needs 25 more of those to count as saying more.
                 val body = article.summary.trim()
-                    .let { if (it.startsWith(headline, ignoreCase = true)) it.substring(headline.length) else it }
-                    .trim { !it.isLetterOrDigit() }
-                    .takeIf { it.length >= 25 }
+                    .takeIf { summary ->
+                        val core = article.headline.substringBeforeLast(" - ").takeIf { it.length >= 20 } ?: article.headline
+                        val h = lettersAndDigits(core)
+                        val sum = lettersAndDigits(summary)
+                        sum.length >= 25 && !(sum.startsWith(h) && sum.length - h.length < 25)
+                    }
                     ?.let { if (it.length > 110) it.take(110).trimEnd() + "…" else it }
                     .orEmpty()
                 Story(title = title, body = body)
@@ -60,6 +63,8 @@ object NewsDeckFeed {
         }
         return padToDeck(if (Session.demoAccount) DEMO_STORIES else emptyList())
     }
+
+    private fun lettersAndDigits(text: String): String = text.lowercase().filter { it.isLetterOrDigit() }
 
     fun padToDeck(served: List<Story>): List<Story> {
         val filler = if (Session.demoAccount) DEMO_STORIES else List(DECK_SIZE) { BLANK }
