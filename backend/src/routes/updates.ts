@@ -45,7 +45,15 @@ updatesRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) =>
 			 from stock_updates u
 			 join unnest($2::text[], $4::timestamptz[]) as s(ticker, saved_at) on s.ticker = u.ticker
 			 left join update_reads r on r.update_id = u.id and r.uid = $1
-			 where u.occurred_at >= $3 and u.occurred_at >= s.saved_at
+			 where u.occurred_at >= $3
+			   -- Measured from when the NEWS happened, not from when the job noticed it: the
+			   -- detector reads a three-day window, so a run today can pick up a story from
+			   -- before the user saved the company - and the card would date itself "2d ago"
+			   -- under a save made yesterday.
+			   and coalesce(
+			         (select max((e->>'datetime')::bigint) from jsonb_array_elements(u.sources) e),
+			         extract(epoch from u.occurred_at)::bigint
+			       ) >= extract(epoch from s.saved_at)::bigint
 			 order by u.occurred_at desc
 			 limit 50`,
 			[uid, tickers, since, tickers.map((t) => new Date(savedAt.get(t) ?? 0).toISOString())],
