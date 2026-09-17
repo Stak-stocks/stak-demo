@@ -24,6 +24,9 @@ final class PaperPortfolio: ObservableObject {
 
 	/// Authored (1:3898): "$10,000 paper", "+$240.00 all time", "Cash available $8,800.00".
 	static let defaultPaperStart = 10000.0
+	/// What an account that trades before setting up is called (Codex review, PR #167).
+	static let defaultPortfolioName = "My first portfolio"
+	static let defaultStrategy = "Balanced"
 	/// Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
 	/// Strategy). A NEW account picks its starting balance before its first trade;
 	/// the demo persona is the authored $10,000 portfolio. Persisted with the
@@ -135,6 +138,16 @@ final class PaperPortfolio: ObservableObject {
 	}
 
 	/// Portfolio setup: only before the first trade, never for the demo persona.
+	/// An order placed before the setup card was used records the default setup with it
+	/// (Codex review, PR #167): the card never hides on an account that reads as unset,
+	/// and the hero's name line has something true to say.
+	private func ensureSetup() {
+		guard !demo, !setupDone else { return }
+		portfolioName = PaperPortfolio.defaultPortfolioName
+		strategy = PaperPortfolio.defaultStrategy
+		setupDone = true
+	}
+
 	func setup(balance: Double, name: String, strategy: String) {
 		guard needsSetup else { return }
 		paperStart = balance
@@ -170,6 +183,7 @@ final class PaperPortfolio: ObservableObject {
 	@discardableResult
 	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double) -> Bool {
 		guard canBuy(amount), limit > 0 else { return false }
+		ensureSetup()
 		cash -= amount
 		openOrders.insert(OpenOrder(id: "\(spec.symbol)-\(Int(Date().timeIntervalSince1970 * 1000))", symbol: spec.symbol, badge: spec.badge, name: spec.name, amount: amount, limit: limit, change: spec.change, day: PaperPortfolio.today()), at: 0)
 		persist()
@@ -296,6 +310,10 @@ final class PaperPortfolio: ObservableObject {
 
 	func buy(_ spec: BuySpec, amount: Double) {
 		guard canBuy(amount) else { return }
+		ensureSetup()
+		// A bought stock is in your STAK (Codex review, PR #167): the receipt's
+		// "View in My STAK" lands on a page that lists it, not on an empty one.
+		MyStakHoldings.shared.add(spec.symbol)
 		let price = spec.price
 		cash -= amount
 		newStake += amount

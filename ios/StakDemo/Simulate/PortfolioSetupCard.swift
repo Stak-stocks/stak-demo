@@ -14,9 +14,8 @@ let setupStrategies = [
 	SetupStrategy(label: "Balanced", blurb: "A mix of steady and growth picks. The default most people start on."),
 	SetupStrategy(label: "Bold", blurb: "Bigger swings on high-growth picks. Expect bumps.")
 ]
-private let defaultPortfolioName = "My first portfolio"
 private let defaultBalance = setupBalances.firstIndex(of: 10_000) ?? 1
-private let defaultStrategy = setupStrategies.firstIndex { $0.label == "Balanced" } ?? 1
+private let defaultStrategy = setupStrategies.firstIndex { $0.label == PaperPortfolio.defaultStrategy } ?? 1
 
 /// Portfolio setup (FigJam Simulate board, 2026-09-14: Portfolio setup -> Choose
 /// balance, Name, Strategy). A NEW account sees it on Simulate home until it
@@ -50,7 +49,7 @@ struct PortfolioSetupCard: View {
 				Text("Portfolio name")
 					.font(StakFont.geist(13 * u, .medium))
 					.foregroundStyle(StakColors.textPrimary)
-				TextField("", text: $name, prompt: Text(defaultPortfolioName).font(StakFont.geist(12 * u, .medium)).foregroundStyle(Sim.muted))
+				TextField("", text: $name, prompt: Text(PaperPortfolio.defaultPortfolioName).font(StakFont.geist(12 * u, .medium)).foregroundStyle(Sim.muted))
 					.font(StakFont.geist(12 * u, .medium))
 					.foregroundStyle(StakColors.textPrimary)
 					.tint(Sim.teal)
@@ -77,7 +76,7 @@ struct PortfolioSetupCard: View {
 					.foregroundStyle(Sim.muted)
 				Button {
 					let trimmed = name.trimmingCharacters(in: .whitespaces)
-					PaperPortfolio.shared.setup(balance: setupBalances[balance], name: trimmed.isEmpty ? defaultPortfolioName : trimmed, strategy: setupStrategies[strategy].label)
+					PaperPortfolio.shared.setup(balance: setupBalances[balance], name: trimmed.isEmpty ? PaperPortfolio.defaultPortfolioName : trimmed, strategy: setupStrategies[strategy].label)
 				} label: {
 					Text("Start practising")
 						.font(StakFont.sora(14 * u, .semiBold))

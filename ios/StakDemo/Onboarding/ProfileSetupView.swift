@@ -32,6 +32,8 @@ struct ProfileSetupView: View {
 	@State private var photoData: Data? = nil
 	/// Proceed waits for the thumbnail (mirrors the Android review fix, PR #166): leaving mid-load would persist a nil photo.
 	@State private var loadingPhoto = false
+	/// A second pick before the first load finished supersedes it (Codex review, PR #166 mirror): the older Task touches no state.
+	@State private var loadGen = 0
 	/// The same thumbnail decoded once, so the avatar does not re-decode
 	/// on every keystroke of the name field.
 	@State private var photo: UIImage? = nil
@@ -156,9 +158,11 @@ struct ProfileSetupView: View {
 		.photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
 		.onChange(of: pickedItem) { _, item in
 			guard let item else { return }
+			loadGen += 1
+			let gen = loadGen
 			Task {
 				loadingPhoto = true
-				defer { loadingPhoto = false }
+				defer { if gen == loadGen { loadingPhoto = false } }
 				// A camera-roll original is tens of MB once decoded, so only a
 				// 512px thumbnail survives the pick (ImageIO downsample, EXIF
 				// orientation applied) as an 85% JPEG of a few tens of KB -
@@ -168,6 +172,7 @@ struct ProfileSetupView: View {
 				guard let data = try? await item.loadTransferable(type: Data.self),
 					let thumb = await UIImage(data: data)?.byPreparingThumbnail(ofSize: CGSize(width: 512, height: 512)),
 					let jpeg = thumb.jpegData(compressionQuality: 0.85) else { return }
+				guard gen == loadGen else { return }
 				photo = thumb
 				photoData = jpeg
 			}

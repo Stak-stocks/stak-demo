@@ -61,7 +61,7 @@ enum StakCollections {
 			image: "MsCollAITech",
 			hero: "MsCollAITech",
 			stocks: [
-				CollStock(badge: "N", change: "▲ 2.4%", up: true, ticker: "NVDA", company: "NVIDIA", price: "$122.10"),
+				CollStock(badge: "N", change: "▲ 2.4%", up: true, ticker: "NVDA", company: "Nvidia", price: "$122.10"),
 				CollStock(badge: "A", change: "▲ 1.2%", up: true, ticker: "AAPL", company: "Apple", price: "$229.35"),
 				CollStock(badge: "M", change: "▼ 0.4%", up: false, ticker: "MSFT", company: "Microsoft", price: "$438.20"),
 				CollStock(badge: "G", change: "▲ 0.8%", up: true, ticker: "GOOGL", company: "Alphabet", price: "$178.90"),
@@ -127,7 +127,8 @@ enum StakCollections {
 	/// The collection an Overview chip pushed; an unknown id serves the
 	/// authored AI & Tech sample, like `stockFacts` falls back to AAPL.
 	static func collection(_ id: String) -> StakCollection {
-		if id == otherId { return other(holdings: MyStakHoldings.shared.tickers) ?? all[0] }
+		// An open Other page whose last stock was just removed keeps an EMPTY Other (Codex review, PR #166 mirror), not AI & Tech.
+		if id == otherId { return other(holdings: MyStakHoldings.shared.tickers) ?? other(stocks: []) }
 		return all.first { $0.id == id } ?? all[0]
 	}
 
@@ -158,7 +159,12 @@ enum StakCollections {
 				price: known ? f.price : "—"
 			)
 		}
-		return StakCollection(
+		return other(stocks: stocks)
+	}
+
+	/// The Other collection around the given tiles - empty for a page that just lost its last one.
+	private static func other(stocks: [CollStock]) -> StakCollection {
+		StakCollection(
 			id: otherId, name: "Other", count: "",
 			blurb: "Stocks you saved from the news that sit outside the six collections.",
 			icon: "IcSavedBookmark", hero: "IcSavedBookmark", stocks: stocks

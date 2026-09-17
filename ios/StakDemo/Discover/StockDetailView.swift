@@ -1007,7 +1007,7 @@ private let detailFacts: [String: DetailFacts] = [
 			DetailCompareRow(label: "Profit margin", a: "48.9%", b: "6.4%", c: "39%"),
 			DetailCompareRow(label: "Market cap", a: "$3.0T", b: "$0.2T", c: "$1.0T"),
 		],
-		sheetBadge: "N", sheetName: "NVIDIA", sheetPrice: "$122.10 today", sheetChange: "▲ 2.4%",
+		sheetBadge: "N", sheetName: "Nvidia", sheetPrice: "$122.10 today", sheetChange: "▲ 2.4%",
 		buySpec: nvdaBuy
 	),
 	"GOOGL": DetailFacts(

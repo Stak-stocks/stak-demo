@@ -102,6 +102,15 @@ final class Session: ObservableObject {
 			UserProfile.shared.brandPicks = []
 			UserProfile.shared.goal = -1
 			UserProfile.shared.risk = -1
+			// ...nor its 08 Permissions answers or notification preferences (Codex review,
+			// PR #166 mirror): "Not now" on a sign-up that was backed out of must not
+			// silently switch the persona's notifications and account lock off.
+			UserProfile.shared.notificationsOn = true
+			UserProfile.shared.accountLock = false
+			UserProfile.shared.priceAlerts = true
+			UserProfile.shared.dailyDeck = true
+			UserProfile.shared.marketNews = false
+			UserProfile.shared.priceThreshold = 3
 		}
 		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
 		UserProfile.shared.joined = demo ? "July 2026" : StakClock.monthYear()

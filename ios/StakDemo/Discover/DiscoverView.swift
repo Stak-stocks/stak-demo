@@ -987,6 +987,13 @@ struct PracticeBuySheet: View {
 	@State private var customText = ""
 	@State private var limitText = ""
 	private var isLimit: Bool { limitPrice != nil }
+	/// A limit that does not parse to a positive price ("0", "1.2.3") holds Confirm (Codex review, PR #167); an empty field still means today's price.
+	private var limitOk: Bool { !isLimit || limitText.isEmpty || (Double(limitText).map { $0 > 0 } ?? false) }
+	/// The shares a valid below-market limit reserves - counted at the limit, not today's quote.
+	private var limitShares: String? {
+		guard isLimit, limitOk, let l = limitPrice, l > 0, l < spec.price else { return nil }
+		return PaperPortfolio.shares(amount / l)
+	}
 
 	/// A pill selects its stake; Custom re-applies whatever valid amount
 	/// its field already holds (else the last pill value stands).
@@ -1135,7 +1142,7 @@ struct PracticeBuySheet: View {
 					Text("You get")
 						.font(StakFont.geist(12 * u))
 						.foregroundStyle(Disc.muted)
-					Text(spec.shares)
+					Text(limitShares ?? spec.shares)
 						.font(StakFont.sora(15 * u, .semiBold))
 						.foregroundStyle(Disc.brightInk)
 					Text("shares of \(spec.symbol)")
@@ -1147,8 +1154,8 @@ struct PracticeBuySheet: View {
 				VStack(spacing: 16 * u) {
 					// Confirm only with a stake the cash covers (Codex review, PR #167).
 					SheetCta(text: isLimit && (limitPrice ?? 0) < spec.price ? "Place limit order" : "Confirm practice buy", action: onConfirm)
-						.disabled(!PaperPortfolio.shared.canBuy(amount))
-						.opacity(PaperPortfolio.shared.canBuy(amount) ? 1 : 0.5)
+						.disabled(!PaperPortfolio.shared.canBuy(amount) || !limitOk)
+						.opacity(PaperPortfolio.shared.canBuy(amount) && limitOk ? 1 : 0.5)
 					SheetSecondary(text: secondary, action: onDismiss)
 				}
 			}
