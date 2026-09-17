@@ -28,8 +28,11 @@ object TasteGraph {
 		val savedAtMs: Long? = null,
 	)
 
+	/** What kind of activity an evidence line reports, so the page can mark it. */
+	enum class Act { SAVED, LEARNED, OPENED }
+
 	/** One line of "Why STAK thinks this": what the user did, and the count behind it. */
-	data class Evidence(val text: String, val detail: String)
+	data class Evidence(val text: String, val detail: String, val act: Act)
 
 	data class Graph(
 		val themes: List<Theme> = emptyList(),
@@ -69,25 +72,29 @@ object TasteGraph {
 			// reading moved - without inventing anything: the save dates are stored.
 			val whenSaved = recencyOf(theme.savedAtMs)
 			when {
-				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}$whenSaved.", theme.label + ofSaved)
+				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}$whenSaved.", theme.label + ofSaved, Act.SAVED)
 				theme.savedNames.size >= 2 -> out += Evidence(
 					"You saved ${theme.savedNames.take(2).joinToString(" and ")}$whenSaved.",
 					theme.label + ofSaved,
+					Act.SAVED,
 				)
 				// The label is a category name, not an adjective: "2 companies in Chips",
 				// never "2 Chips companies".
 				theme.saves > 0 -> out += Evidence(
 					"You saved ${theme.saves} ${if (theme.saves == 1) "company" else "companies"} in ${theme.label}.",
 					theme.label + ofSaved,
+					Act.SAVED,
 				)
 			}
 			if (theme.learnMores > 0) out += Evidence(
 				"You opened Learn more on ${theme.learnMores} ${if (theme.learnMores == 1) "card" else "cards"} in ${theme.label}.",
 				"Exploration · Last 90 days",
+				Act.LEARNED,
 			)
 			if (theme.opens > 0) out += Evidence(
 				"You opened companies in ${theme.label} ${theme.opens} ${if (theme.opens == 1) "time" else "times"}.",
 				"Exploration · Last 90 days",
+				Act.OPENED,
 			)
 			return out
 		}

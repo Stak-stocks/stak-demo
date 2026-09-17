@@ -110,6 +110,31 @@ private val ART_BY_NAME: Map<String, CategoryArt> = mapOf(
 	"Casinos" to CONSUMER, "Home Retail" to CONSUMER, "Food" to CONSUMER, "Consumer" to CONSUMER,
 )
 
+/**
+ * A category's own mark for the Taste Graph, from the icons the app already ships. The
+ * collection art groups whole families under one picture (every tech category drew the
+ * same sparkle), which left four rows looking identical; these tell them apart.
+ */
+internal fun categoryIcon(name: String): Int = when (name) {
+	"Streaming" -> R.drawable.ic_hero_play
+	"Social Media" -> R.drawable.ic_nav_person
+	"Gaming", "Casinos" -> R.drawable.ic_tab_discover
+	"E-commerce", "Retail", "Home Retail", "Staples", "Fashion", "Food", "Drinks", "Restaurants", "Consumer" -> R.drawable.ic_cat_consumer
+	"Chips", "Data", "AI" -> R.drawable.ic_tab_simulate
+	"Cybersecurity" -> R.drawable.ic_risk_shield
+	"Big Tech", "Software", "Tech" -> R.drawable.ic_gist_sparkle
+	"Consumer Tech", "Ad Tech" -> R.drawable.ic_goal_grow
+	"Banks", "Fintech", "Payments", "Markets", "Asset Managers", "Financial Data", "Insurance",
+	"Crypto", "Private Equity", "Index Funds", "Finance" -> R.drawable.ic_sim_clock
+	"Clean Energy", "Utilities", "Energy", "Mining" -> R.drawable.ic_cat_green
+	"EVs", "Autos", "Logistics", "Airlines", "Travel" -> R.drawable.ic_goal_explore
+	"Real Estate" -> R.drawable.ic_cat_realestate
+	"Pharma", "MedTech", "Biotech", "Health Insurers", "Digital Health" -> R.drawable.ic_cat_health
+	"Space", "Defense" -> R.drawable.ic_goal_explore
+	"Industrials" -> R.drawable.ic_risk_pause
+	else -> R.drawable.ic_gist_info
+}
+
 /** The collection's art, or null when no authored piece fits - the chip draws its initial. */
 internal fun categoryArt(name: String): CategoryArt? = ART_BY_NAME[name]
 

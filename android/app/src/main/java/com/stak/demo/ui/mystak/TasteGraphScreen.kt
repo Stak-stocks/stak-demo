@@ -113,25 +113,37 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 				if (evidence.isNotEmpty()) {
 					TasteCardShell("Why STAK thinks this") {
 						evidence.forEach { e ->
-							Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
-								Text(
-									text = e.text,
-									style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-									color = Color.White,
+							Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+								// The mark says which kind of activity this was: a save, a
+								// Learn more, or a company's page opened.
+								IconTile(
+									when (e.act) {
+										TasteGraph.Act.SAVED -> com.stak.demo.R.drawable.ic_saved_bookmark
+										TasteGraph.Act.LEARNED -> com.stak.demo.R.drawable.ic_goal_learn
+										TasteGraph.Act.OPENED -> com.stak.demo.R.drawable.ic_risk_eye
+									},
+									Stak.Teal,
 								)
-								Text(
-									text = e.detail,
-									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-									color = Stak.Muted,
-								)
+								Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+									Text(
+										text = e.text,
+										style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+										color = Color.White,
+									)
+									Text(
+										text = e.detail,
+										style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+										color = Stak.Muted,
+									)
+								}
 							}
 						}
 					}
 				}
 			}
 			TasteCardShell("What STAK does with your activity") {
-				ShapesRow("Discover", "More companies like the ones you save")
-				ShapesRow("Daily Brief", "More context on the themes you follow")
+				ShapesRow(com.stak.demo.R.drawable.ic_tab_discover, "Discover", "More companies like the ones you save")
+				ShapesRow(com.stak.demo.R.drawable.ic_tab_news, "Daily Brief", "More context on the themes you follow")
 			}
 			Text(
 				text = "Your taste evolves as you explore.",
@@ -202,22 +214,24 @@ private fun ThemeRow(theme: TasteGraph.Theme, graph: TasteGraph.Graph) {
 @Composable
 private fun ThemeIcon(theme: TasteGraph.Theme) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val art = com.stak.demo.data.categoryArt(theme.label)
-	val tint = themeColor(theme.colorKey)
+	// Its own category's mark, not its family's: the collection art drew one sparkle for
+	// every tech category, which left four rows looking the same.
+	IconTile(com.stak.demo.data.categoryIcon(theme.label), themeColor(theme.colorKey))
+}
+
+/** A small marked tile - the shape every row on this page wears, in the given colour. */
+@Composable
+private fun IconTile(iconRes: Int, tint: Color) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(
 		contentAlignment = Alignment.Center,
 		modifier = Modifier.size((28 * u).dp).clip(RoundedCornerShape((8 * u).dp)).background(tint.copy(alpha = 0.18f)),
 	) {
-		val res = art?.iconRes ?: art?.imageRes
-		if (res != null) {
-			androidx.compose.foundation.Image(
-				painter = androidx.compose.ui.res.painterResource(res),
-				contentDescription = null,
-				modifier = Modifier.size((20 * u).dp),
-			)
-		} else {
-			Box(modifier = Modifier.size((10 * u).dp).clip(CircleShape).background(tint))
-		}
+		androidx.compose.foundation.Image(
+			painter = androidx.compose.ui.res.painterResource(iconRes),
+			contentDescription = null,
+			modifier = Modifier.size((16 * u).dp),
+		)
 	}
 }
 
@@ -242,8 +256,10 @@ private fun StrengthChip(strength: TasteGraph.Strength) {
 }
 
 @Composable
-private fun ShapesRow(title: String, body: String) {
+private fun ShapesRow(iconRes: Int, title: String, body: String) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+	IconTile(iconRes, Stak.Teal)
 	Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
 		Text(
 			text = title,
@@ -255,6 +271,7 @@ private fun ShapesRow(title: String, body: String) {
 			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Stak.Muted,
 		)
+	}
 	}
 }
 
