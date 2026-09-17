@@ -112,6 +112,8 @@ class DiscoverViewModel @Inject constructor(
                 }
 
                 brandsResult.onSuccess { res ->
+                    // Shared with news search, which maps tickers and company names.
+                    com.stak.demo.data.BrandNames.fill(res.brands)
                     val recs = recsDeferred.await()
                     passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
                     val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())

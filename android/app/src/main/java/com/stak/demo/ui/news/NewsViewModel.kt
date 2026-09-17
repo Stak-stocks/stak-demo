@@ -66,6 +66,11 @@ class NewsViewModel @Inject constructor(
         }
     }
 
+    /** Loads the ticker/name lookup the first time search is opened, unless Discover already has. */
+    fun prepareSearch() {
+        viewModelScope.launch { com.stak.demo.data.BrandNames.ensure(repository) }
+    }
+
     /** When For You last loaded, and for which holdings. */
     private var forYouAt = 0L
     private var forYouFor: Set<String>? = null

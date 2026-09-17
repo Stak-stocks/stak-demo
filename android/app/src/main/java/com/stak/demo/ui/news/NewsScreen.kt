@@ -112,7 +112,8 @@ fun NewsScreen(
 	// Search reads the whole story, not just its headline (Codex audit
 	// 2026-09-04): subtitle, source, tags and ticker too.
 	fun matchesArticle(a: NewsArticleFeed.Article) = articleMatches(a, q)
-	fun matchesBrief(b: NewsBriefFeed.Brief) = matches(b.title) || matches(b.body) || matches(b.source)
+	fun matchesBrief(b: NewsBriefFeed.Brief) = matches(b.title) || matches(b.body) || matches(b.source) ||
+		com.stak.demo.data.BrandNames.expand(q).any { t -> b.title.contains(t, ignoreCase = true) || b.body.contains(t, ignoreCase = true) }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -164,6 +165,7 @@ fun NewsScreen(
 		val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 		LaunchedEffect(searching) {
 			if (searching) {
+				viewModel.prepareSearch()
 				searchFocus.requestFocus()
 				keyboard?.show()
 			}
@@ -226,8 +228,23 @@ fun NewsScreen(
 				a.explanation.takeIf { it.isNotBlank() } ?: com.stak.demo.data.NewsText.summaryBeyondHeadline(a.headline, a.summary).orEmpty()
 			// Search reads a live story the way it reads an authored one: its text and ticker,
 			// not just the headline and source ("NVDA" found nothing).
-			fun matchesLive(a: NewsArticleDto): Boolean = q.isEmpty() ||
-				listOf(a.headline, a.source, a.summary, a.explanation, a.ticker).any { it.contains(q, ignoreCase = true) }
+			// A ticker also finds its company by name and a name finds its ticker, so "NVDA"
+			// matches "Nvidia Stock Rises..." and "Google" matches a story tagged GOOGL.
+			val alsoFind = com.stak.demo.data.BrandNames.expand(q)
+			fun matchesLive(a: NewsArticleDto): Boolean {
+				if (q.isEmpty()) return true
+				val text = listOf(a.headline, a.source, a.summary, a.explanation)
+				if (text.any { it.contains(q, ignoreCase = true) } || a.ticker.contains(q, ignoreCase = true)) return true
+				return alsoFind.any { term ->
+					if (term.all { it.isUpperCase() || it.isDigit() || it == '.' }) {
+						// A ticker: the story's own tag, or cited as a capitalised whole word.
+						a.ticker.equals(term, ignoreCase = true) ||
+							text.any { Regex("(^|[^A-Za-z0-9])" + Regex.escape(term) + "($|[^A-Za-z0-9])").containsMatchIn(it) }
+					} else {
+						text.any { Regex("(^|[^A-Za-z0-9])" + Regex.escape(term) + "($|[^A-Za-z0-9])", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+					}
+				}
+			}
 			val sourceBriefs = if (briefIsLoading) emptyList() else run {
 				val brief = dailyBrief
 				if (brief != null && (brief.moodExplanation.isNotBlank() || brief.plainEnglish.isNotBlank())) {
