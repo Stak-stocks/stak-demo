@@ -19,7 +19,8 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const BATCH_SIZE = 8;
 
 function getCacheKey(articles: FinnhubArticle[]): string {
-	return articles.map((a) => String(a.id || a.headline)).join("|");
+	// v2: the cached copy carries the headline, which is now cleaned when fetched.
+	return "v2|" + articles.map((a) => String(a.id || a.headline)).join("|");
 }
 
 /** Chunk an array into groups of `size` */

@@ -245,6 +245,20 @@ export function classifyArticle(
 	return "sector";
 }
 
+/**
+ * Feed text as readers should see it. Finnhub passes some sources' encoding damage
+ * straight through - replacement characters and non-breaking spaces between a
+ * summary and its outlet ("... sources say� � Reuters") - which the
+ * apps printed as "�". Those go; runs of whitespace become one space.
+ */
+function cleanNewsText(text: string): string {
+	return (text ?? "").replace(/[� ​]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function cleanArticleText(a: FinnhubArticle): FinnhubArticle {
+	return { ...a, headline: cleanNewsText(a.headline), summary: cleanNewsText(a.summary) };
+}
+
 /** Returns true if the article is likely financially relevant to the stock */
 function isStockRelevant(article: FinnhubArticle): boolean {
 	const text = `${article.headline} ${article.summary}`.toLowerCase();
@@ -255,7 +269,8 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 }
 
 
-const MARKET_CACHE_KEY = "market:all";
+// v2: headlines and summaries are cleaned of encoding damage when fetched.
+const MARKET_CACHE_KEY = "market:all:v2";
 
 /** Fetches fresh general market news from Finnhub and populates the shared cache pool. */
 async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
@@ -267,7 +282,7 @@ async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 		console.warn(`Finnhub market news unavailable (${res.status}) — returning empty`);
 		return [];
 	}
-	const data: FinnhubArticle[] = await res.json();
+	const data = (await res.json() as FinnhubArticle[]).map(cleanArticleText);
 	const finnhubFiltered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
 
 	// Supplement with geopolitical energy news (Iran war, OPEC, Middle East oil)
@@ -386,7 +401,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
  *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
-	const cacheKey = `company:${symbol}:${limit}`;
+	const cacheKey = `company:v2:${symbol}:${limit}`;
 	const cached = await cacheGet<FinnhubArticle[]>(cacheKey);
 	if (cached) return cached;
 
@@ -399,7 +414,7 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	);
 
 	if (res && res.ok) {
-		const data: FinnhubArticle[] = await res.json();
+		const data = (await res.json() as FinnhubArticle[]).map(cleanArticleText);
 		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
 		filtered.sort((a, b) => b.datetime - a.datetime);
 		if (filtered.length > 0) {

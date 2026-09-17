@@ -217,7 +217,12 @@ fun NewsScreen(
 				BriefLoadingCard()
 			}
 			// Daily brief drives the carousel when authenticated (AI-generated, holiday/session-aware).
-			// Falls back to top news articles, then hardcoded demo set.
+			// Falls back to top news articles; only the demo account falls back to the authored
+			// set - for a real account those are invented stories credited to real outlets.
+			val demo = com.stak.demo.data.Session.demoAccount
+			val briefHasContent = dailyBrief?.let { it.moodExplanation.isNotBlank() || it.plainEnglish.isNotBlank() } == true
+			fun liveBody(a: com.stak.demo.data.NewsArticleDto): String =
+				a.explanation.takeIf { it.isNotBlank() } ?: com.stak.demo.data.NewsText.summaryBeyondHeadline(a.headline, a.summary).orEmpty()
 			val sourceBriefs = if (briefIsLoading) emptyList() else run {
 				val brief = dailyBrief
 				if (brief != null && (brief.moodExplanation.isNotBlank() || brief.plainEnglish.isNotBlank())) {
@@ -241,29 +246,32 @@ fun NewsScreen(
 					val newsCards = liveNews.take(4 - aiCards.size).map { a ->
 						NewsBriefFeed.Brief(
 							title = a.headline,
-							body = a.explanation.takeIf { it.isNotBlank() } ?: a.summary,
+							body = liveBody(a),
 							source = "${a.source} · ${formatNewsAge(a.datetime)}",
 							url = a.url.takeIf { it.isNotBlank() },
 						)
 					}
-					(aiCards + newsCards).ifEmpty { NewsBriefFeed.briefs() }
+					(aiCards + newsCards).ifEmpty { if (demo) NewsBriefFeed.briefs() else emptyList() }
 				} else if (liveNews.isNotEmpty()) {
 					liveNews.take(4).map { a ->
 						NewsBriefFeed.Brief(
 							title = a.headline,
-							body = a.explanation.takeIf { it.isNotBlank() } ?: a.summary,
+							body = liveBody(a),
 							source = "${a.source} · ${formatNewsAge(a.datetime)}",
 							url = a.url.takeIf { it.isNotBlank() },
 						)
 					}
-				} else {
+				} else if (demo) {
 					NewsBriefFeed.briefs()
+				} else {
+					emptyList()
 				}
 			}
 			val primaryBrief = sourceBriefs.firstOrNull { q.isEmpty() || matchesBrief(it) }
 			if (primaryBrief != null) {
 				BriefCard(brief = primaryBrief, onRead = {
-					if (dailyBrief != null) {
+					// The brief page needs a brief to show: a failed one opened it empty.
+					if (briefHasContent) {
 						DailyBriefHolder.current = dailyBrief
 						DailyBriefHolder.news = liveNews
 						onOpenDailyBrief()
@@ -271,6 +279,8 @@ fun NewsScreen(
 						uriHandler.openUri(primaryBrief.url)
 					}
 				})
+			} else if (q.isEmpty() && !briefIsLoading && !demo) {
+				BriefUnavailableCard()
 			}
 			// For You: live company news for held stocks, deduplicated and recency-sorted.
 			val liveForYou = forYouNews.filter { a ->
@@ -286,12 +296,15 @@ fun NewsScreen(
 			}
 			if (liveMarkets.isNotEmpty()) {
 				LiveNewsSection(title = "Markets", articles = liveMarkets, onOpen = { url -> uriHandler.openUri(url) }, onOpenArticle = onOpenLiveArticle)
-			} else {
+			} else if (demo) {
+				// The authored stories are the demo's; a real account searching for something
+				// the live feed doesn't carry was shown "Amazon climbs on cloud margin beat"
+				// credited to Reuters - an invented story - instead of "No results".
 				val markets = NewsArticleFeed.markets().filter { matchesArticle(it) }
 				if (markets.isNotEmpty()) NewsSection(title = "Markets", rows = markets, onOpen = onOpenArticle)
 			}
 			// Empty state — only when a query is active and every section came up empty.
-			val marketsVisible = liveMarkets.isNotEmpty() || NewsArticleFeed.markets().any { matchesArticle(it) }
+			val marketsVisible = liveMarkets.isNotEmpty() || (demo && NewsArticleFeed.markets().any { matchesArticle(it) })
 			if (q.isNotEmpty() && primaryBrief == null && liveForYou.isEmpty() && !marketsVisible) {
 				Column(
 					verticalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -437,6 +450,34 @@ private fun MoodGauge(mood: String?, u: Float) {
 			color = Color.White.copy(alpha = 0.9f),
 			radius = (1.5f * u).dp.toPx(),
 			center = androidx.compose.ui.geometry.Offset(cx, cy),
+		)
+	}
+}
+
+/**
+ * Where the brief card sits when a real account has no brief and no live news to fill
+ * it: says so, rather than showing the demo's authored briefs as today's.
+ */
+@Composable
+private fun BriefUnavailableCard() {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(
+		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape((18 * u).dp))
+			.background(News.CardBg)
+			.padding((18 * u).dp),
+	) {
+		Text(
+			text = "Today's brief isn't available",
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+			color = Color.White,
+		)
+		Text(
+			text = "Market news couldn't be loaded right now.",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = News.Muted,
 		)
 	}
 }

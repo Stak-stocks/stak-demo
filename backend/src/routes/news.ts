@@ -150,7 +150,7 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
-	const cacheKey = "news:market";
+	const cacheKey = "news:market:v2";
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
