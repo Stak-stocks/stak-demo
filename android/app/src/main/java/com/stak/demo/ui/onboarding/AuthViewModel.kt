@@ -122,6 +122,31 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Change password screen. Supabase's password update uses the active session -
+     * no re-auth with the current password needed (mirrors the web app's
+     * profile_.security.tsx). Null on success, else a message to show inline.
+     */
+    suspend fun changePassword(newPassword: String): String? =
+        runCatching {
+            supabase.auth.updateUser { password = newPassword }
+        }.fold(
+            onSuccess = { null },
+            onFailure = { e -> friendlyError(e) },
+        )
+
+    /**
+     * App settings -> Delete account, for a real (non-demo) account: DELETE /api/me
+     * removes every saved row and the Supabase auth record itself. Null on success,
+     * else a message - the caller must not wipe local state or sign out on failure,
+     * since the server-side account (and its data) would still exist.
+     */
+    suspend fun deleteAccount(): String? =
+        runCatching { stockRepository.deleteMe() }.fold(
+            onSuccess = { ok -> if (ok.ok) null else "Something went wrong. Try again." },
+            onFailure = { e -> friendlyError(e) },
+        )
+
     fun signOut() {
         viewModelScope.launch {
             runCatching { supabase.auth.signOut() }

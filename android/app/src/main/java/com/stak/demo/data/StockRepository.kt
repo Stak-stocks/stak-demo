@@ -7,6 +7,8 @@ import javax.inject.Singleton
 class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun batchQuotes(tickers: List<String>): BatchQuotesResponse =
         api.batchQuotes(tickers.joinToString(","))
+    suspend fun getTrending(): TrendingResponse = api.getTrending()
+    suspend fun deleteMe(): OkResponse = api.deleteMe()
 
     suspend fun getStock(symbol: String): StockDetailResponse = api.getStock(symbol)
     suspend fun getAnalyst(symbol: String): AnalystResponse = api.getAnalyst(symbol)

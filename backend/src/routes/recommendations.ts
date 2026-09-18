@@ -34,7 +34,9 @@ async function finnhubGet(path: string): Promise<unknown | null> {
 // Tickers we compute freshness signals for — covers nearly all top-ranked deck cards.
 // Must be a subset of StakTicker (i.e. in STAK_WEIGHTED_STOCK_TAGS / the brand catalog)
 // so the freshness boost actually lands on brands users can see in their deck.
-const WATCH_TICKERS: StakTicker[] = [
+// Exported: stock.ts's /trending route sorts quotes over this same universe, so
+// "today's biggest movers" only ever names a stock the deck could actually show.
+export const WATCH_TICKERS: StakTicker[] = [
 	"AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX",
 	"AVGO", "AMD", "INTC", "QCOM", "ORCL", "ADBE", "CRM",
 	"UBER", "ABNB", "DASH", "SPOT", "SNAP", "PINS", "RDDT", "COIN",

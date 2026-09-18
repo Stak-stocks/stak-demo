@@ -367,8 +367,12 @@ internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit)
  */
 @Composable
 private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAccountDeleted: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
 	var confirmDelete by rememberSaveable { mutableStateOf(false) }
+	var deleting by rememberSaveable { mutableStateOf(false) }
+	var deleteError by rememberSaveable { mutableStateOf<String?>(null) }
 	SettingsPage(title = "App settings", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
 			SettingsLinkRow(label = "Dark mode", value = if (UserProfile.appearance == "system") "Match system" else "On") { onOpen(SettingsKind.APPEARANCE) }
@@ -384,6 +388,9 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
 					)
+					if (deleteError != null) {
+						Text(deleteError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
+					}
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier
@@ -391,12 +398,31 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 							.height((44 * u).dp)
 							.clip(RoundedCornerShape((6 * u).dp))
 							.background(Color(0x33E5484D))
-							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
-								Session.deleteAccount()
-								onAccountDeleted()
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting) {
+								// The demo persona has nothing on the server to delete - only a
+								// real account's data needs the network round trip, and only a
+								// confirmed server-side delete may wipe the phone and sign out
+								// (a failed request must leave the account exactly as it was).
+								if (Session.demoAccount) {
+									Session.deleteAccount()
+									onAccountDeleted()
+								} else {
+									deleting = true
+									deleteError = null
+									scope.launch {
+										val error = viewModel.deleteAccount()
+										deleting = false
+										if (error == null) {
+											Session.deleteAccount()
+											onAccountDeleted()
+										} else {
+											deleteError = error
+										}
+									}
+								}
 							},
 					) {
-						Text("Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
+						Text(if (deleting) "Deleting\u2026" else "Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
 					}
 				}
 			}
@@ -407,21 +433,37 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 }
 
 /**
- * Change password (FigJam Profile board, 2026-09-14). The demo has no auth
- * backend: the new password must pass the sign-up rules and match its
- * confirmation, then the page flips into its "Password updated" state.
+ * Change password (FigJam Profile board, 2026-09-14). Supabase's password update
+ * uses the active session, so there's no "current password" to check - the web
+ * app's profile_.security.tsx asks only for the new one, and this mirrors it.
+ * A Google-linked account has no Supabase password to change (audit: the web
+ * app disables this section for Google sign-in, same reason).
  */
 @Composable
 private fun ChangePasswordScreen(onBack: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
-	var current by rememberSaveable { mutableStateOf("") }
+	if (UserProfile.linkedGoogle) {
+		SettingsPage(title = "Change password", onBack = onBack) {
+			Column(
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
+			) {
+				Text("Password managed by Google", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
+				Text("Your sign-in is handled by Google. To change your password, visit your Google account settings.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+			}
+		}
+		return
+	}
 	var next by rememberSaveable { mutableStateOf("") }
 	var confirm by rememberSaveable { mutableStateOf("") }
 	var show by rememberSaveable { mutableStateOf(false) }
 	var attempted by rememberSaveable { mutableStateOf(false) }
+	var saving by rememberSaveable { mutableStateOf(false) }
 	var updated by rememberSaveable { mutableStateOf(false) }
-	val currentError = if (current.isEmpty()) "Enter your current password" else null
-	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next) ?: if (next == current) "Choose a password you haven\u2019t used" else null
+	var serverError by rememberSaveable { mutableStateOf<String?>(null) }
+	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next)
 	val confirmError = com.stak.demo.ui.onboarding.AuthRules.confirmError(next, confirm)
 	SettingsPage(title = "Change password", onBack = onBack) {
 		if (updated) {
@@ -430,18 +472,31 @@ private fun ChangePasswordScreen(onBack: () -> Unit) {
 				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
 			) {
 				Text("Password updated", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
-				Text("Use it the next time you sign in. Sessions on other phones were signed out.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+				Text("Use it the next time you sign in.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
 			}
 			com.stak.demo.ui.onboarding.AuthCta(text = "Done", onClick = onBack)
 		} else {
-			com.stak.demo.ui.onboarding.AuthInput(value = current, onValueChange = { current = it }, placeholder = "Current password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) currentError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) nextError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it; serverError = null }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) nextError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it; serverError = null }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
 			Caption("At least ${com.stak.demo.ui.onboarding.AuthRules.PASSWORD_MIN} characters.")
-			com.stak.demo.ui.onboarding.AuthCta(text = "Update password", enabled = current.isNotEmpty() && next.isNotEmpty() && confirm.isNotEmpty(), onClick = {
-				attempted = true
-				if (currentError == null && nextError == null && confirmError == null) updated = true
-			})
+			if (serverError != null) {
+				Text(serverError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
+			}
+			com.stak.demo.ui.onboarding.AuthCta(
+				text = if (saving) "Updating\u2026" else "Update password",
+				enabled = next.isNotEmpty() && confirm.isNotEmpty() && !saving,
+				onClick = {
+					attempted = true
+					if (nextError == null && confirmError == null) {
+						saving = true
+						scope.launch {
+							val error = viewModel.changePassword(next)
+							saving = false
+							if (error == null) updated = true else serverError = error
+						}
+					}
+				},
+			)
 		}
 	}
 }

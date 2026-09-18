@@ -19,6 +19,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.StakColors
 
@@ -54,7 +57,15 @@ fun BiometricGate(onUnlocked: () -> Unit) {
 			},
 		).authenticate(info)
 	}
-	LaunchedEffect(Unit) { prompt() }
+	// The re-lock navigates here the moment the app leaves the foreground (ON_STOP), while
+	// this gate is still off-screen - a prompt requested then showed nothing and left the
+	// gate stuck with no way through (device report, 2026-09-18). Wait for RESUMED, i.e.
+	// the app actually back in front, before asking; a second resume (a cancelled prompt
+	// that backgrounds and returns) asks again.
+	val lifecycleOwner = LocalLifecycleOwner.current
+	LaunchedEffect(lifecycleOwner) {
+		lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { prompt() }
+	}
 	// Back never leaves the gate (Codex review, PR #166): pushed over a route by the re-lock,
 	// an unhandled Back would pop LOCK and reveal the page beneath. A cancelled prompt re-arms.
 	androidx.activity.compose.BackHandler { if (failed) { failed = false; prompt() } }

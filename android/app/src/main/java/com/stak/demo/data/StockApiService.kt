@@ -1,6 +1,7 @@
 package com.stak.demo.data
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -11,6 +12,10 @@ import retrofit2.http.Query
 interface StockApiService {
     @GET("api/stock/batch-quotes")
     suspend fun batchQuotes(@Query("tickers") tickers: String): BatchQuotesResponse
+
+    /** Today's biggest movers, either direction - Home's Trending strip. */
+    @GET("api/stock/trending")
+    suspend fun getTrending(): TrendingResponse
 
     @GET("api/stock/{symbol}")
     suspend fun getStock(@Path("symbol") symbol: String): StockDetailResponse
@@ -84,6 +89,10 @@ interface StockApiService {
 
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
+
+    /** App settings -> Delete account: removes every saved row and the Supabase auth record. */
+    @DELETE("api/me")
+    suspend fun deleteMe(): OkResponse
 
     @GET("api/news/company/{symbol}")
     suspend fun getCompanyNews(@Path("symbol") symbol: String): CompanyNewsResponse

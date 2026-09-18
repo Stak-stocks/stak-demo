@@ -5,6 +5,16 @@ import com.google.gson.annotations.SerializedName
 data class BatchQuotesResponse(val quotes: Map<String, BatchQuote?>)
 data class BatchQuote(val price: Double = 0.0, val change: Double = 0.0, val changePercent: Double = 0.0)
 
+/** Today's biggest movers over the deck's watch universe - Home's Trending strip. */
+data class TrendingResponse(val trending: List<TrendingStock> = emptyList())
+data class TrendingStock(
+    val ticker: String = "",
+    val name: String = "",
+    val price: Double = 0.0,
+    val change: Double = 0.0,
+    val changePercent: Double = 0.0,
+)
+
 data class StockDetailResponse(
     val quote: StockQuote? = null,
     val metrics: StockMetrics? = null,

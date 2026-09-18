@@ -5,6 +5,7 @@ import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOC
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
+import { getSupabaseAdmin } from "../lib/supabaseAdmin.js";
 
 export const meRouter = Router();
 
@@ -701,5 +702,38 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 	} catch (error) {
 		console.error("Error patching stak price:", error);
 		res.status(500).json({ error: "Failed to patch stak price" });
+	}
+});
+
+// DELETE /api/me — delete account (Android's App settings -> Delete account).
+// `users` is the one row every save, swipe, event, taste snapshot and push device
+// FKs to with ON DELETE CASCADE, so removing it clears all of it in a single delete
+// (see the schema migration's own note on this). The Supabase Auth record is a
+// second, best-effort step: it needs the service-role admin API, not a plain
+// connection, and a failure there still leaves the promise kept - every save and
+// setting is gone and the session is over, just with a harmless auth shell left
+// behind for later cleanup, rather than a delete that half-succeeds and blocks logout.
+meRouter.delete("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+
+		const mapped = await pgQuery<{ supabase_uid: string }>(
+			`select supabase_uid from auth_identity_map where firebase_uid = $1`,
+			[uid],
+		);
+		const supabaseUid = mapped.rows[0]?.supabase_uid ?? null;
+
+		await pgQuery(`delete from users where uid = $1`, [uid]);
+
+		if (supabaseUid) {
+			await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e) => {
+				console.error("[me] account data deleted but the Supabase auth record wasn't:", e);
+			});
+		}
+
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error deleting account:", error);
+		res.status(500).json({ error: "Failed to delete account" });
 	}
 });
