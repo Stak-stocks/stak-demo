@@ -529,7 +529,6 @@ fun StockDetailScreen(
 private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val risks = riskWatch?.risks.orEmpty()
-	val rated = riskWatch?.rated == true
 	// Still reading: the card keeps its place rather than appearing later and shoving
 	// the page down under the reader's eyes.
 	if (risks.isEmpty() && !failed) {
@@ -598,12 +597,6 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 					)
 				}
 			}
-			Text(
-				if (rated) "Levels come from this company's own figures; the risks themselves are read from recent headlines."
-				else "Read from recent company headlines and figures.",
-				style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Muted,
-			)
 		}
 	}
 }

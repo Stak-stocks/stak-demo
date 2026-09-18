@@ -101,9 +101,25 @@ object TasteGraph {
 
 		/**
 		 * One line per theme for "Why STAK thinks this" - the card explains the whole
-		 * reading, so a single busy theme must not fill it.
+		 * reading, so a single busy theme must not fill it. Saves are the strongest
+		 * evidence for almost every theme, so taking each theme's top line on its own
+		 * produced four "You saved..." rows in a row. Each theme instead offers a kind
+		 * of evidence not already shown - a save, then a Learn more, then a page opened -
+		 * so the card reads as several kinds of activity, not one repeated four times.
 		 */
-		val evidence: List<Evidence> get() = themes.mapNotNull { evidenceFor(it).firstOrNull() }.take(4)
+		val evidence: List<Evidence>
+			get() {
+				val shown = mutableSetOf<Act>()
+				val out = mutableListOf<Evidence>()
+				for (theme in themes) {
+					if (out.size >= 4) break
+					val options = evidenceFor(theme)
+					val pick = options.firstOrNull { it.act !in shown } ?: options.firstOrNull() ?: continue
+					out += pick
+					shown += pick.act
+				}
+				return out
+			}
 	}
 
 	/** The server's measurement, named and rated for the screen. */
