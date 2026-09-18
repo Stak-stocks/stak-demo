@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
@@ -413,6 +414,8 @@ fun StockDetailScreen(
 					NumbersCard(f, liveDetail)
 					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
 					CompareCard(f, liveDetail, symbol)
+					// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
+					LessonCard(lesson = StockLessons.lessonFor(f.symbol))
 				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -431,7 +434,14 @@ fun StockDetailScreen(
 						}
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
-						DetailSecondary("Unsave") { com.stak.demo.data.MyStakHoldings.remove(symbol); onBack() }
+						// Unsave clears this run's deck save and any saved news stories for it too
+						// (Codex review, PR #167 mirror) - not just the My STAK holding.
+						DetailSecondary("Unsave") {
+							DeckSession.saved = DeckSession.saved - symbol
+							com.stak.demo.data.MyStakHoldings.remove(symbol)
+							com.stak.demo.ui.news.NewsSaves.removeStories(symbol)
+							onBack()
+						}
 					} else if (saved) {
 						// A saved stock reads the same from every entry: the authored
 						// saved block (16:1012) - Practice buy + Unsave. The "Saved to
@@ -439,11 +449,12 @@ fun StockDetailScreen(
 						// "something is off when I saved my stock"). Unsave here drops
 						// the stock from this run's saves and the holdings store and
 						// stays on the page with the Save CTA back.
-						DetailCta("Practice buy") { if (onPracticeBuy != null) onPracticeBuy() else showBuy = true }
+						DetailCta("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 						DetailSecondary("Unsave") {
 							saved = false
 							DeckSession.saved = DeckSession.saved - symbol
 							com.stak.demo.data.MyStakHoldings.remove(symbol)
+							com.stak.demo.ui.news.NewsSaves.removeStories(symbol)
 						}
 					} else {
 						// The sheet this opens says "Saved to My STAK" before the save is
@@ -461,7 +472,7 @@ fun StockDetailScreen(
 								textAlign = androidx.compose.ui.text.style.TextAlign.Center,
 							)
 						}
-						DetailSecondary("Practice buy") { if (onPracticeBuy != null) onPracticeBuy() else showBuy = true }
+						DetailSecondary("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 					}
 				}
 			}
@@ -471,6 +482,8 @@ fun StockDetailScreen(
 				MainTabBar(selected = MainTab.Discover, onSelect = onTab)
 			}
 		}
+		// System Back dismisses the overlay like the scrim does (Codex review, PR #166).
+		androidx.activity.compose.BackHandler(enabled = showSuccess) { showSuccess = false }
 		// B6: the save-success sheet enters like the News one - scale
 		// 0.92 -> 1 + fade - at the authored 350 ease-out (92:969).
 		AnimatedVisibility(
@@ -482,7 +495,13 @@ fun StockDetailScreen(
 		) {
 			DetailSavedSheet(symbol = symbol, liveDetail = liveDetail,
 				f = f,
-				onDone = { showSuccess = false; saved = true; DeckSession.saved = DeckSession.saved + symbol },
+				// The scrim dismiss saves like the two CTAs do (Codex review, PR #166) -
+				// dismissing without tapping either named action must not silently drop the save.
+				onDone = {
+					showSuccess = false
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
+				},
 				// B7/B8: both CTAs mark the stock saved, then leave the page
 				// (forward push to My STAK / dissolve back to the deck).
 				onViewInMyStak = {
@@ -1117,9 +1136,10 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 				color = Bright,
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			if (!open) {
-				Image(painterResource(R.drawable.ic_sd_caret), null, modifier = Modifier.size((20 * u).dp))
-			}
+			// The caret stays when the card is open, flipped into a drop-up so the user
+			// sees it folds back (user, 2026-09-06: "no drop up when a user is on it");
+			// the open frames (1:2651 / 1:2719) author none. Mirrors iOS.
+			Image(painterResource(R.drawable.ic_sd_caret), null, modifier = Modifier.size((20 * u).dp).rotate(if (open) 180f else 0f))
 		}
 		if (!open) {
 			Text(
@@ -1253,9 +1273,10 @@ private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: 
 				color = Bright,
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			if (!open) {
-				Image(painterResource(R.drawable.ic_sd_caret), null, modifier = Modifier.size((20 * u).dp))
-			}
+			// The caret stays when the card is open, flipped into a drop-up so the user
+			// sees it folds back (user, 2026-09-06: "no drop up when a user is on it");
+			// the open frames (1:2651 / 1:2719) author none. Mirrors iOS.
+			Image(painterResource(R.drawable.ic_sd_caret), null, modifier = Modifier.size((20 * u).dp).rotate(if (open) 180f else 0f))
 		}
 		if (!open) {
 			// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
@@ -1580,6 +1601,49 @@ private fun riskFitFor(f: DetailFacts, liveDetail: LiveDetail? = null): Pair<Str
 	}
 }
 
+/**
+ * The page's facts for a symbol. The nineteen designed pages carry their own; any
+ * other stock a first-time user saved (a Tesla or Amazon story, the Other
+ * collection) keeps ITS identity - symbol, name, quote - over the Apple
+ * template's body, so the header, the Since-you-saved line and Unsave are about
+ * the stock the user tapped (audit 2026-09-07: they opened Apple's page).
+ */
+private fun detailFactsFor(symbol: String): DetailFacts {
+	DETAIL_FACTS[symbol]?.let { return it }
+	val base = DETAIL_FACTS.getValue("AAPL")
+	val feed = com.stak.demo.ui.news.NewsArticleFeed
+	val badge = symbol.take(1)
+	// Every order-related field follows the requested ticker (Codex review, PR #167 mirror):
+	// the inherited AAPL buySpec used to add Apple to the paper portfolio for an AMZN page.
+	if (!feed.hasStockFacts(symbol)) {
+		return base.copy(
+			symbol = symbol, title = symbol, sheetBadge = badge, sheetName = symbol,
+			buySpec = base.buySpec.copy(title = "Buy $symbol?", badge = badge, name = symbol, symbol = symbol),
+		)
+	}
+	val sf = feed.stockFacts(symbol)
+	val pct = sf.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
+	val move = (if (sf.up) "\u25B2 " else "\u25BC ") + pct + "%"
+	return base.copy(
+		symbol = symbol,
+		title = "$symbol · ${sf.name}",
+		price = sf.price,
+		change = "$move today",
+		sheetBadge = badge, sheetName = sf.shortName, sheetPrice = "${sf.price} today", sheetChange = move,
+		// The ticket recomputes cash and shares from the chosen amount (withAmount).
+		buySpec = BuySpec("Buy $symbol?", badge, sf.name, "${sf.price} today", move, "$0.00", "$0.00", "0.0000", symbol),
+	)
+}
+
+/**
+ * The authored Discover-entry Practice buy hops to the Simulate tab (1:2382,
+ * Instant), whose Saved staks list the ACCOUNT's saves. For the demo persona that
+ * is the authored frame; for a first-time user the hop is a dead end unless the
+ * stock is one of their saves - then the in-page ticket (16:1012) serves it.
+ */
+private fun hopsToSimulate(symbol: String): Boolean =
+	com.stak.demo.data.Session.demoAccount || symbol in com.stak.demo.data.MyStakHoldings.tickers
+
 private data class DetailFacts(
 	val symbol: String,
 	val title: String,
@@ -1749,7 +1813,7 @@ private val DETAIL_FACTS = mapOf(
 			DetailCompare("Profit margin", "48.9%", "6.4%", "39%"),
 			DetailCompare("Market cap", "$3.0T", "$0.2T", "$1.0T"),
 		),
-		sheetBadge = "N", sheetName = "NVIDIA", sheetPrice = "$122.10 today", sheetChange = "▲ 2.4%",
+		sheetBadge = "N", sheetName = "Nvidia", sheetPrice = "$122.10 today", sheetChange = "▲ 2.4%",
 		buySpec = NVDA_BUY,
 	),
 	"GOOGL" to DetailFacts(

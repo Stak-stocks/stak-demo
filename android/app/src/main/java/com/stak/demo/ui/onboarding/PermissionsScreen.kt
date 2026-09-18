@@ -26,6 +26,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +56,7 @@ import com.stak.demo.ui.theme.StakColors
 fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	val u = figmaUnit()
 	var notifications by rememberSaveable { mutableStateOf(true) }
+	var accountSecurity by rememberSaveable { mutableStateOf(true) }
 	// Product audit (2026-09-05): "Allow and continue" really asks the OS
 	// (Android 13+ POST_NOTIFICATIONS); the grant is what the toggle meant.
 	val context = LocalContext.current
@@ -63,9 +69,10 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 		val needsAsk = notifications && android.os.Build.VERSION.SDK_INT >= 33 &&
 			androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
 		com.stak.demo.data.UserProfile.notificationsOn = notifications
+		// The lock the toggle promises is real: enforced at the next launch (Codex review, PR #167 mirror).
+		com.stak.demo.data.UserProfile.accountLock = accountSecurity
 		if (needsAsk) askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS) else onContinue()
 	}
-	var accountSecurity by rememberSaveable { mutableStateOf(true) }
 
 	Artboard(modifier = Modifier.background(StakColors.Bg)) {
 		Row(modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp, bottom = (4 * u).dp)) {
@@ -121,7 +128,7 @@ fun PermissionsScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 			modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 		) {
 			AuthCta(text = "Allow and continue", onClick = { allowAndContinue() })
-			AuthSecondaryButton(text = "Not now", onClick = { com.stak.demo.data.UserProfile.notificationsOn = false; onContinue() })
+			AuthSecondaryButton(text = "Not now", onClick = { com.stak.demo.data.UserProfile.notificationsOn = false; com.stak.demo.data.UserProfile.accountLock = false; onContinue() })
 		}
 	}
 }
@@ -162,13 +169,13 @@ internal fun PermissionCard(title: String, description: String, checked: Boolean
 				color = Auth.SubtitleGray,
 			)
 		}
-		StakToggle(checked = checked, onToggle = onToggle)
+		StakToggle(checked = checked, onToggle = onToggle, label = title)
 	}
 }
 
 /** 42x24 Figma toggle — #2c9dbc track when on, white 18dp thumb 3dp from the edge. */
 @Composable
-internal fun StakToggle(checked: Boolean, onToggle: () -> Unit) {
+internal fun StakToggle(checked: Boolean, onToggle: () -> Unit, label: String? = null) {
 	val u = figmaUnit()
 	val track by animateColorAsState(if (checked) Color(0xFF2C9DBC) else Color(0xFF242B3D), label = "track")
 	val thumbOffset by animateDpAsState(if (checked) (21 * u).dp else (3 * u).dp, label = "thumb")
@@ -180,7 +187,13 @@ internal fun StakToggle(checked: Boolean, onToggle: () -> Unit) {
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				onClick = onToggle,
-			),
+			)
+			// TalkBack reads the row it switches (mirrors the iOS review fix, PR #167).
+			.semantics {
+				role = Role.Switch
+				if (label != null) contentDescription = label
+				stateDescription = if (checked) "On" else "Off"
+			},
 	) {
 		Box(
 			modifier = Modifier

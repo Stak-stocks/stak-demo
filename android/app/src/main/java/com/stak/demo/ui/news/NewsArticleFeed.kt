@@ -389,6 +389,9 @@ object NewsArticleFeed {
 	/** The served article for a story - the backend resolves this in production. */
 	fun article(id: String): Article = ARTICLES.firstOrNull { it.id == id } ?: ARTICLES.first()
 
+	/** The story's primary ticker, or null for an unknown id (never the fallback story's). */
+	fun tickerOf(id: String): String? = ARTICLES.firstOrNull { it.id == id }?.ticker
+
 	/**
 	 * The feed's canonical story order - the article page's SWIPE order
 	 * (user, 2026-08-31: "swipe to get the previous/next news - social
@@ -533,6 +536,9 @@ object NewsArticleFeed {
 	}
 
 	/** The served stock module for a ticker - the backend resolves this in production. */
+	/** True when the feed carries facts for the ticker (the Other collection reads them). */
+	fun hasStockFacts(ticker: String): Boolean = ticker in STOCK_FACTS
+
 	fun stockFacts(ticker: String): StockFacts {
 		val facts = STOCK_FACTS[ticker] ?: STOCK_FACTS.getValue("AAPL")
 		// Product audit (2026-09-05): the demo stand-ins quoted NVDA at $178.42

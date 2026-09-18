@@ -46,6 +46,8 @@ private val Green = Color(0xFF2FD08A)
 private val ChipBg = Color(0xFF1A2333)
 private val ChipBorder = Color(0xFF2C9DBC)
 private val ChipInk = Color(0xFF7FD4E8)
+/** The hub row that opens the share sheet instead of a settings page. */
+private const val INVITE = "invite"
 
 /**
  * 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
@@ -55,10 +57,11 @@ private val ChipInk = Color(0xFF7FD4E8)
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}) {
 	// Render nothing once signed out — prevents "Hamza" demo flash during the exit transition frame
 	if (!com.stak.demo.data.Session.signedIn) return
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val context = androidx.compose.ui.platform.LocalContext.current
 	// The joined month, sign-in email and taste answers as the server has them.
 	androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.ProfileSync.sync() }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
@@ -91,10 +94,25 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				.padding(horizontal = (20 * u).dp)
 				.padding(top = (16 * u).dp, bottom = (40 * u).dp),
 		) {
-			Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((8 * u).dp)) {
+			// The whole block - avatar, name, joined line - is ONE target that opens the
+			// edit page: 09 Profile setup's own promise, "You can change this anytime in
+			// Profile." (user, 2026-09-07: a photo of their choice, editable after sign-up).
+			Column(
+				horizontalAlignment = Alignment.CenterHorizontally,
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier
+					.clip(RoundedCornerShape((12 * u).dp))
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClickLabel = "Edit profile",
+						onClick = onEditProfile,
+					)
+					.padding(horizontal = (12 * u).dp),
+			) {
 				Box(
 					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((64 * u).dp).background(Color(0xFF242B3D), CircleShape),
+					modifier = Modifier.size((64 * u).dp).background(Color(0xFF242B3D), CircleShape).clip(CircleShape),
 				) {
 					// The picked photo when one exists; else the live initial of
 					// the display name ("H" was hardcoded - audit 2026-08-25).
@@ -213,7 +231,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				}
 				val gain = com.stak.demo.ui.simulate.PaperPortfolio.allTimeGain
 				Text(
-					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on $10,000 paper",
+					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on ${com.stak.demo.ui.simulate.PaperPortfolio.wholeUsd(com.stak.demo.ui.simulate.PaperPortfolio.paperStart)} paper",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = if (gain >= 0) Green else Color(0xFFE5484D),
 				)
@@ -226,7 +244,15 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					.background(CardBg)
 					.padding(vertical = (4 * u).dp),
 			) {
-				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, (if (com.stak.demo.data.Session.demoAccount) "Linked accounts" else "Sign-in") to SettingsKind.LINKED, "Help & support" to SettingsKind.HELP).forEach { (label, kind) ->
+				// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14).
+				listOf(
+					"Notifications" to SettingsKind.NOTIFICATIONS,
+					"Appearance" to SettingsKind.APPEARANCE,
+					(if (com.stak.demo.data.Session.demoAccount) "Linked accounts" else "Sign-in") to SettingsKind.LINKED,
+					"App settings" to SettingsKind.APP,
+					"Help & support" to SettingsKind.HELP,
+					"Invite a friend" to INVITE,
+				).forEach { (label, kind) ->
 					Row(
 						verticalAlignment = Alignment.CenterVertically,
 						modifier = Modifier
@@ -235,7 +261,16 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 							.clickable(
 								interactionSource = remember { MutableInteractionSource() },
 								indication = com.stak.demo.ui.theme.PressDim,
-							) { onOpenSetting(kind) }
+							) {
+								if (kind == INVITE) {
+									// The system share sheet with the invite line (FigJam: Your profile -> Invite a friend).
+									val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practise with paper money. https://stak.app")
+									runCatching { context.startActivity(android.content.Intent.createChooser(send, "Invite a friend")) }
+								} else {
+									onOpenSetting(kind)
+								}
+							}
 							.padding(horizontal = (14 * u).dp),
 					) {
 						Text(

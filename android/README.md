@@ -15,8 +15,9 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Gradle wrapper is pinned to 8.14.5 (AGP 8.7.3 is incompatible with
-Gradle 9.x — don't regenerate the wrapper to a newer major).
+Gradle wrapper is pinned to 8.14.5 and the Android Gradle Plugin to
+8.13.2 (the 8.x line is incompatible with Gradle 9.x — don't regenerate
+the wrapper to a newer major).
 
 `app/google-services.json` (the Firebase config) is git-ignored: copy
 `app/google-services.json.example`, fill in your Firebase project, or

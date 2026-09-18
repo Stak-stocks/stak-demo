@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ always draws a system splash before the first frame; it cannot be turned off,
-         only coloured. It is the frame's ground (1:926 Bg) with NO icon, so the only launch screen
-         anyone sees is the authored 00 Splash that follows (user, 2026-09-05: "this should be
-         whenever a user opens STAK" - the earlier centred launcher mark was not in the design).
-         iOS does the same: LaunchBackground, no image, then SplashView. -->
+    <!-- No system launch window (user, 2026-09-07: the navy blank "is never on the figma design").
+         Android 12+ IGNORES windowDisablePreview for launcher / SystemUI launches (AOSP
+         ActivityRecord.validateStartingWindowTheme: "If this activity is launched from system
+         surface, ignore windowDisableStarting", unchanged through Android 16); the one theme-level
+         path that still skips the starting window on a launcher tap is a translucent window. So
+         the launch activity's window is translucent: the launcher simply stays on screen until the
+         app's own first frame - PreSplashView, the authored 00 Splash (1:926) - is drawn, and that
+         frame is fully opaque navy, so nothing ever shows through afterwards. Below Android 12
+         windowDisablePreview does the same job (values/themes.xml). The splash attributes still
+         describe the system window for any path that shows one anyway (a warm start from recents
+         uses a task snapshot instead). iOS: the launch storyboard IS the 00 Splash frame. -->
     <style name="Theme.STAK" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#0A1020</item>
         <item name="android:statusBarColor">#0A1020</item>
         <item name="android:navigationBarColor">#10172A</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowSplashScreenBackground">#0A1020</item>
         <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
     </style>

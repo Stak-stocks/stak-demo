@@ -294,6 +294,8 @@ fun NewsDetailScreen(articleId: String = NewsArticleFeed.APPLE, onBack: () -> Un
 				fadeIn(tween(350, easing = EaseOut)),
 			exit = fadeOut(tween(300, easing = EaseOut)),
 		) {
+			// System Back dismisses the sheet like the scrim does (Codex review, PR #166).
+			androidx.activity.compose.BackHandler(enabled = showSuccess) { showSuccess = false }
 			SaveSuccessOverlay(
 				facts = factsFor(successArticle.ticker ?: "AAPL"),
 				onViewInMyStak = { save(successArticle); onViewInMyStak() },
@@ -397,7 +399,8 @@ private fun NewsArticlePage(
 				article.pullQuote?.let { PullQuote(it) }
 				article.explainer?.let { NewToThisCard(it) }
 				article.paragraphs.drop(2).forEach { Paragraph(it) }
-				SourceRow()
+				// The Source row opens where the story came from (user, 2026-09-08).
+				SourceRow(link = article.media.sourceLinkOrNull())
 				article.ticker?.let { KeyStatsCard(facts = factsFor(it)) }
 				Divider()
 				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
@@ -505,6 +508,7 @@ private fun HeroImage(media: NewsMedia, category: String, saved: Boolean, player
 				}
 			} else {
 				NewsVideoPlayer(
+					onLoaded = { player.firstFrame = true },
 					video = video,
 					paused = paused,
 					modifier = Modifier
@@ -951,11 +955,23 @@ private fun NewToThisCard(body: String) {
 }
 
 @Composable
-private fun SourceRow() {
+private fun SourceRow(link: String? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
-		modifier = Modifier.width((81 * u).dp),
+		modifier = Modifier
+			.width((81 * u).dp)
+			// The row - label and the external-link glyph - opens the story's source in
+			// the browser (user, 2026-09-08: "take users where the news is gotten from").
+			.then(
+				if (link != null) Modifier.clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = com.stak.demo.ui.theme.PressDim,
+					onClickLabel = "Open the source",
+					onClick = { runCatching { uriHandler.openUri(link) } },
+				) else Modifier,
+			),
 	) {
 		Text(
 			text = "Source",
@@ -963,8 +979,14 @@ private fun SourceRow() {
 			color = Color.White,
 		)
 		Spacer(modifier = Modifier.weight(1f))
-		Image(painterResource(R.drawable.ic_news_external), null, modifier = Modifier.size((19 * u).dp))
+		Image(painterResource(R.drawable.ic_news_external), if (link != null) "Open the source" else null, modifier = Modifier.size((19 * u).dp))
 	}
+}
+
+/** The story's own link, whichever media carries it. */
+private fun NewsMedia.sourceLinkOrNull(): String? = when (this) {
+	is NewsMedia.Image -> sourceLink
+	is NewsMedia.Video -> sourceLink
 }
 
 @Composable
@@ -1229,7 +1251,7 @@ private fun SaveSuccessOverlay(facts: NewsArticleFeed.StockFacts, onViewInMyStak
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifier, paused: Boolean = false, onDone: () -> Unit = {}) {
+private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifier, paused: Boolean = false, onDone: () -> Unit = {}, onLoaded: () -> Unit = {}) {
 	val embed = video.youTubeEmbedUrl
 	if (embed != null) {
 		androidx.compose.ui.viewinterop.AndroidView(
@@ -1243,6 +1265,8 @@ private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifie
 					webViewClient = object : android.webkit.WebViewClient() {
 						override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
 							android.util.Log.i("NewsMedia", "embed loaded: $url")
+							// The hero's poster lifts once the embed has loaded (Codex review, PR #167 mirror).
+							onLoaded()
 						}
 						override fun onReceivedError(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
 							android.util.Log.w("NewsMedia", "embed error ${error?.errorCode} ${error?.description} for ${request?.url}")

@@ -31,6 +31,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +77,11 @@ fun SimPortfolioScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	var showSell by rememberSaveable { mutableStateOf(false) }
 	var showClosed by rememberSaveable { mutableStateOf(false) }
+	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
+	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
+	// fresh buy sits at the top), Worst = smallest gain first.
+	var sortChip by rememberSaveable { mutableStateOf(0) }
+	var historyChip by rememberSaveable { mutableStateOf(0) }
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -125,48 +135,53 @@ fun SimPortfolioScreen(
 						color = Sim.Muted,
 					)
 				}
-				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
-					FilterChip("Top gainers", selected = true)
-					FilterChip("Newest", selected = false)
-					FilterChip("Worst", selected = false)
-				}
-				// Codex audit (2026-09-04): the live positions - a fresh buy sits
-				// at the top, a sold one drops to SOLD · REALIZED below.
-				PaperPortfolio.positions.forEach { pos ->
-					val p = pos.row
-					PortfolioRow(
-						badge = p.badge, ticker = p.ticker, sub = p.sub,
-						amount = p.amount, pct = p.pct, up = p.up,
-						// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
-						subLight = true,
-						onClick = { onOpenPick(p.ticker) },
-						// B16 (1:4496 Motion): the Sell pill opens the Pick detail
-						// - the authored sell flow lives there; the in-page
-						// sheets below stay built but unwired.
-						trailing = { SellPill(onClick = { onOpenPick(p.ticker) }) },
-					)
-				}
-				// 1:4605 gk (exact-design audit 2026-09-04): the kicker sits 4 below the box top (13 in a 17), not centred.
-				Box(
-					contentAlignment = Alignment.BottomStart,
-					modifier = Modifier.fillMaxWidth().height((17 * u).dp).padding(start = (2 * u).dp),
-				) {
+				if (!PaperPortfolio.demo && PaperPortfolio.positions.isEmpty() && PaperPortfolio.realized.isEmpty()) {
+					// A first-time user's history before the first practice buy (audit 2026-09-07):
+					// the Simulate home's empty card instead of empty chrome.
+					EmptyStateCard(title = "No picks yet", body = "Your first practice buy lands here with its live gain.")
+				} else {
+					Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
+						FilterChip("Top gainers", selected = sortChip == 0) { sortChip = 0 }
+						FilterChip("Newest", selected = sortChip == 1) { sortChip = 1 }
+						FilterChip("Worst", selected = sortChip == 2) { sortChip = 2 }
+					}
+					// Codex audit (2026-09-04): the live positions - a fresh buy sits
+					// at the top, a sold one drops to SOLD · REALIZED below.
+					val rows = when (sortChip) {
+						0 -> PaperPortfolio.positions.sortedByDescending { it.gainDollars }
+						2 -> PaperPortfolio.positions.sortedBy { it.gainDollars }
+						else -> PaperPortfolio.positions
+					}
+					rows.forEach { pos ->
+						val p = pos.row
+						PortfolioRow(
+							badge = p.badge, ticker = p.ticker, sub = p.sub,
+							amount = p.amount, pct = p.pct, up = p.up,
+							// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
+							subLight = true,
+							onClick = { onOpenPick(p.ticker) },
+							// B16 (1:4496 Motion): the Sell pill opens the Pick detail
+							// - the authored sell flow lives there; the in-page
+							// sheets below stay built but unwired.
+							trailing = { SellPill(onClick = { onOpenPick(p.ticker) }) },
+						)
+					}
+					PortfolioKicker("SOLD · REALIZED")
+					PaperPortfolio.realized.forEach { r ->
+						RealizedRow(r.badge, r.ticker, r.sub, r.amount, r.up)
+					}
 					Text(
-						text = "SOLD · REALIZED",
-						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, letterSpacing = (0.9 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						text = "Sell a pick and the cash returns to your balance, gain or loss.",
+						// 1:4621 (exact-design audit 2026-09-04): centre-aligned across the full column, so a wrap stays centred.
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, textAlign = TextAlign.Center, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Sim.Faint,
+						modifier = Modifier.fillMaxWidth(),
 					)
 				}
-				PaperPortfolio.realized.forEach { r ->
-					RealizedRow(r.badge, r.ticker, r.sub, r.amount, r.up)
-				}
-				Text(
-					text = "Sell a pick and the cash returns to your balance, gain or loss.",
-					// 1:4621 (exact-design audit 2026-09-04): centre-aligned across the full column, so a wrap stays centred.
-					style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, textAlign = TextAlign.Center, lineHeightStyle = FIGMA_LINE_BOX),
-					color = Sim.Faint,
-					modifier = Modifier.fillMaxWidth(),
-				)
+				// FigJam "Order pending -> cancel" (review 2026-09-14): a first-move limit order has no
+				// position or realized row yet, so these live outside the empty-state branch. Both self-hide when empty.
+				OpenOrdersSection()
+				TradeHistorySection(filter = historyChip, onFilter = { historyChip = it })
 			}
 		}
 		// The unwired in-page host keeps the frame's NVDA (1:4698 / 73:855).
@@ -190,12 +205,13 @@ fun SimPortfolioScreen(
 }
 
 @Composable
-private fun FilterChip(label: String, selected: Boolean) {
+private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(
 		modifier = Modifier
 			.clip(RoundedCornerShape((14 * u).dp))
 			.background(if (selected) Sim.TealTint else Sim.CardBg)
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
 			.padding(horizontal = (12 * u).dp, vertical = (6 * u).dp),
 	) {
 		Text(
@@ -330,9 +346,18 @@ private fun PickSellRow(pick: PickSpec) {
 
 /** "Sell NVDA?" confirm sheet content (1:4698), templated on the tapped pick. */
 @Composable
-private fun SellConfirmContent(pick: PickSpec, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun SellConfirmContent(pick: PickSpec, onConfirm: (Double) -> Unit, onDismiss: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	var mode by rememberSaveable { mutableIntStateOf(0) }
+	// Half / Custom sell a slice of the position (Codex review, PR #167): the chips
+	// pick the portion; Custom takes a dollar amount up to the position value.
+	var custom by rememberSaveable { mutableStateOf("") }
+	val positionValue = pick.stakeValue.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+	val portion = when (mode) {
+		0 -> 1.0
+		1 -> 0.5
+		else -> custom.toDoubleOrNull()?.takeIf { it > 0.0 && positionValue > 0.0 && it <= positionValue }?.let { it / positionValue } ?: 0.0
+	}
 	Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.fillMaxWidth()) {
 		Text(
 			"Sell ${pick.symbol}?",
@@ -386,6 +411,35 @@ private fun SellConfirmContent(pick: PickSpec, onConfirm: () -> Unit, onDismiss:
 					}
 				}
 			}
+			if (mode == 2) {
+				// Custom borrows the chip chrome; a value > 0 and within the position value drives the sell.
+				BasicTextField(
+					value = custom,
+					onValueChange = { raw -> custom = raw.filter { it.isDigit() || it == '.' }.take(9) },
+					singleLine = true,
+					keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+					textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, color = Color(0xFFDCE7F7)),
+					cursorBrush = SolidColor(Color(0xFF5DA8BF)),
+					decorationBox = { inner ->
+						Row(
+							verticalAlignment = Alignment.CenterVertically,
+							horizontalArrangement = Arrangement.spacedBy((4 * u).dp),
+							modifier = Modifier
+								.fillMaxWidth()
+								.clip(RoundedCornerShape((6 * u).dp))
+								.background(Color(0xFF0B1430))
+								.border((0.5 * u).dp, Color(0xFF5DA8BF), RoundedCornerShape((6 * u).dp))
+								.padding(horizontal = (12 * u).dp, vertical = (8 * u).dp),
+						) {
+							Text("$", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Color(0xFFDCE7F7))
+							Box(modifier = Modifier.weight(1f)) {
+								if (custom.isEmpty()) Text("0.00", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Sim.Muted)
+								inner()
+							}
+						}
+					},
+				)
+			}
 			// 1:4861 (exact-design audit 2026-09-04): the three runs share one baseline.
 			Row(
 				horizontalArrangement = Arrangement.spacedBy((6 * u).dp, Alignment.CenterHorizontally),
@@ -393,7 +447,7 @@ private fun SellConfirmContent(pick: PickSpec, onConfirm: () -> Unit, onDismiss:
 			) {
 				Text("Returning", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Muted, modifier = Modifier.alignByBaseline())
 				Text(
-					pick.stakeValue,
+					PaperPortfolio.usd(positionValue * portion),
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Sim.Bright,
 					modifier = Modifier.alignByBaseline(),
@@ -415,7 +469,7 @@ private fun SellConfirmContent(pick: PickSpec, onConfirm: () -> Unit, onDismiss:
 					.clickable(
 						interactionSource = remember { MutableInteractionSource() },
 						indication = com.stak.demo.ui.theme.PressDim,
-						onClick = onConfirm,
+						onClick = { if (portion > 0.0) onConfirm(portion) },
 					),
 			) {
 				Text(
@@ -445,7 +499,7 @@ private fun SellConfirmContent(pick: PickSpec, onConfirm: () -> Unit, onDismiss:
 
 /** "Position closed" success sheet content (73:855), templated on the tapped pick. */
 @Composable
-private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, onViewPortfolio: () -> Unit) {
+private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, onViewPortfolio: () -> Unit, full: Boolean = true) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		horizontalAlignment = Alignment.CenterHorizontally,
@@ -454,7 +508,7 @@ private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, 
 	) {
 		Image(painterResource(R.drawable.ic_sheet_check), null, modifier = Modifier.size((47 * u).dp))
 		Text(
-			"Position closed",
+			if (full) "Position closed" else "Position reduced",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp),
 			color = Color.White,
 		)
@@ -544,7 +598,7 @@ private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, 
 
 /** "Sell NVDA?" confirm sheet (1:4698) — kept for the in-page host. */
 @Composable
-private fun SellConfirmSheet(pick: PickSpec, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun SellConfirmSheet(pick: PickSpec, onConfirm: (Double) -> Unit, onDismiss: () -> Unit) {
 	SimSheet(onDismiss = onDismiss) { SellConfirmContent(pick = pick, onConfirm = onConfirm, onDismiss = onDismiss) }
 }
 
@@ -571,6 +625,8 @@ internal fun SellFlowHost(
 	onViewPortfolio: () -> Unit = onClose,
 ) {
 	var closed by rememberSaveable { mutableStateOf(false) }
+	// The slice that was sold - the receipt shows it (PR #167).
+	var soldPortion by rememberSaveable { mutableDoubleStateOf(1.0) }
 	// The scrim tap is unauthored - it keeps the per-state plain dismiss.
 	SimSheet(onDismiss = { if (closed) onViewPortfolio() else onClose() }) {
 		AnimatedContent(
@@ -591,10 +647,25 @@ internal fun SellFlowHost(
 				// the sheet morphs into Position closed (73:855). Review
 				// 2026-09-04: only a real sell morphs - a pick no longer held
 				// leaves the confirm where it is.
-				SellConfirmContent(pick = pick, onConfirm = { if (!closed && PaperPortfolio.sell(pick.symbol)) closed = true }, onDismiss = onClose)
+				SellConfirmContent(pick = pick, onConfirm = { portion -> if (!closed && PaperPortfolio.sell(pick.symbol, portion)) { soldPortion = portion; closed = true } }, onDismiss = onClose)
 			} else {
-				PositionClosedContent(pick = pick, onBackToSimulate = onBackToSimulate, onViewPortfolio = onViewPortfolio)
+				PositionClosedContent(pick = pick.slice(soldPortion), onBackToSimulate = onBackToSimulate, onViewPortfolio = onViewPortfolio, full = soldPortion >= 0.999)
 			}
 		}
 	}
+}
+
+/** The spec for a slice of a position - a partial sell's receipt (PR #167): shares, value, basis and gain scaled. */
+private fun PickSpec.slice(portion: Double): PickSpec {
+	if (portion >= 0.999) return this
+	val gainAbs = gain.removePrefix("+").removePrefix("-").removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+	val signedGain = if (gain.startsWith("-")) -gainAbs else gainAbs
+	val value = stakeValue.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+	val basis = stakeBasis.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+	return copy(
+		shares = String.format(java.util.Locale.US, "%.4f", (shares.toDoubleOrNull() ?: 0.0) * portion),
+		stakeValue = PaperPortfolio.usd(value * portion),
+		stakeBasis = PaperPortfolio.stakeLabel(basis * portion),
+		gain = PaperPortfolio.signedUsd(signedGain * portion),
+	)
 }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,7 +53,8 @@ private val Dot = Color(0xFFFF8030)
 fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val items = StakNotifications.items
-	val readBefore = StakNotifications.readIds
+	// Captured once: markAllRead below rewrites readIds, and the rows opened unread keep their dot for this visit.
+	val readBefore = remember { StakNotifications.readIds }
 	LaunchedEffect(Unit) {
 		StakNotifications.markAllRead()
 		StakNotifications.refresh()

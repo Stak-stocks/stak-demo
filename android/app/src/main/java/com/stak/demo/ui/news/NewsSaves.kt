@@ -24,4 +24,12 @@ object NewsSaves {
 		ids = ids + id
 		StakStore.putSet("news.saved", ids)
 	}
+
+	/** Unsaving a stock forgets the stories that saved it, so they offer Add to STAK again (Codex review, PR #167 mirror). */
+	fun removeStories(ticker: String) {
+		val next = ids.filterNot { NewsArticleFeed.tickerOf(it) == ticker }.toSet()
+		if (next.size == ids.size) return
+		ids = next
+		StakStore.putSet("news.saved", ids)
+	}
 }

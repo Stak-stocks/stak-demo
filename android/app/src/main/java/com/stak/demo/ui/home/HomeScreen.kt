@@ -89,8 +89,9 @@ private object Home {
  * (prototype: Swap overlay · Instant). The tab bar itself lives in the
  * MainShell so the other tabs share it.
  */
+/** `onOpenStock`: the board-only Trending strip and Saved peek (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -115,9 +116,15 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					WhyThisMattersCard(onOpenMyStak = onOpenMyStak)
 					Spacer(modifier = Modifier.height((20 * u).dp))
 					DeckBanner(onOpenDeck = onOpenDeck)
-					// Authored scroll content (118:1634) ends exactly at the
-					// banner's bottom edge - no trailing gap. First run keeps
-					// room for the scrim pill.
+					// The board's Trending stocks and Saved peek follow the authored
+					// stack (FigJam Home board, 2026-09-14); first run keeps them under
+					// the scrim, so the pill still sits on the frame's geometry.
+					Spacer(modifier = Modifier.height((20 * u).dp))
+					TrendingStrip(onOpenStock = onOpenStock)
+					Spacer(modifier = Modifier.height((12 * u).dp))
+					SavedPeekCard(onOpenStock = onOpenSavedStock, onOpenMyStak = onOpenMyStak, onOpenDeck = onOpenDeck)
+					Spacer(modifier = Modifier.height((20 * u).dp))
+					// First run keeps room for the scrim pill.
 					if (firstRun) Spacer(modifier = Modifier.height((140 * u).dp))
 				}
 			}

@@ -173,6 +173,9 @@ object MyStakHoldings {
 		}.getOrDefault(emptyMap())
 	}
 
+	/** A ticker the demo persona's authored history carries (never an "Other" tile). */
+	fun isSeed(ticker: String): Boolean = symbolOf(ticker) in SEED
+
 	/**
 	 * Days since the stock was saved on this account; null when the save predates
 	 * the record (the demo's authored saves). The server's date wins - it survives

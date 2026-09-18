@@ -131,7 +131,8 @@ fun LeaderboardScreen(onBack: () -> Unit) {
 				}
 				Box(contentAlignment = Alignment.Center, modifier = Modifier.size((36 * u).dp).background(Sim.ChipBg, CircleShape)) {
 					// The authored "E" is the demo persona's; a new account shows its own initial (product audit, 2026-09-05).
-					Text(if (PaperPortfolio.demo) "E" else com.stak.demo.data.UserProfile.greetingName.take(1).uppercase(), style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.BadgeInk) // 1:4158 is 14 (exact-design audit 2026-09-04)
+					// A renamed persona reaches the board too (the edit page promises it; review 2026-09-07).
+					Text(if (PaperPortfolio.demo && com.stak.demo.data.UserProfile.displayName.isBlank()) "E" else com.stak.demo.data.UserProfile.greetingName.take(1).uppercase(), style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.BadgeInk) // 1:4158 is 14 (exact-design audit 2026-09-04)
 				}
 				Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
 					Text("You", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White) // 1:4160 Sora Medium (exact-design audit 2026-09-04)
@@ -145,14 +146,18 @@ fun LeaderboardScreen(onBack: () -> Unit) {
 				}
 			}
 			TOP.forEach { LeaderRow(it) }
-			Text(
-				text = "· · ·",
-				// 1:4205 (exact-design audit 2026-09-04): Geist Medium 13 - was Regular 12.
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Sim.Faint,
-				modifier = Modifier.align(Alignment.CenterHorizontally),
-			)
-			NEAR.forEach { LeaderRow(it) }
+			// The authored #46/#48 neighbours cluster around the persona's #47; an unranked
+			// first-time user sees the top five only (audit 2026-09-07).
+			if (PaperPortfolio.weekRank != null) {
+				Text(
+					text = "· · ·",
+					// 1:4205 (exact-design audit 2026-09-04): Geist Medium 13 - was Regular 12.
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Sim.Faint,
+					modifier = Modifier.align(Alignment.CenterHorizontally),
+				)
+				NEAR.forEach { LeaderRow(it) }
+			}
 			Text(
 				text = "Percentage return, not dollar size, so everyone competes on the same scale. This week ranks the trailing 7 days.",
 				// 1:4124 centres the explainer.

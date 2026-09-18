@@ -31,9 +31,6 @@ object StakNotifications {
 		Item("weekly-recap", "Weekly recap", "You're up +1.9% this week and #47 on the board. Nice.", "1d"),
 	)
 
-	/** A move this size on a saved stock earns a notification; matches the settings copy. */
-	private const val MOVE_THRESHOLD_PCT = 3.0
-
 	/** How long the welcome stays in the inbox. */
 	private const val WELCOME_DAYS = 7L
 
@@ -85,7 +82,7 @@ object StakNotifications {
 					held.chunked(50).flatMap { chunk -> repo.batchQuotes(chunk).quotes.entries.toList() }
 				}.getOrNull() ?: return@launch
 				quotes.mapNotNull { (ticker, q) ->
-					q?.takeIf { it.price > 0 && kotlin.math.abs(it.changePercent) >= MOVE_THRESHOLD_PCT }?.let { ticker to it.changePercent }
+					q?.takeIf { it.price > 0 && kotlin.math.abs(it.changePercent) >= UserProfile.priceThreshold }?.let { ticker to it.changePercent }
 				}
 			} else emptyList()
 			// The account's exact creation time, once: the profile's month-level "joined"
@@ -122,7 +119,7 @@ object StakNotifications {
 				id = "move:$day:$ticker:${if (up) "up" else "down"}",
 				title = "$ticker is ${if (up) "up" else "down"} ${String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct))}% $session",
 				body = (name?.let { "$it, one of your saved stocks, " } ?: "One of your saved stocks ") +
-					"moved more than ${MOVE_THRESHOLD_PCT.toInt()}%.",
+					"moved more than ${UserProfile.priceThreshold}%.",
 				time = if (session == "today") "Today" else session.removePrefix("at ").replaceFirstChar { it.uppercase() },
 			)
 		}

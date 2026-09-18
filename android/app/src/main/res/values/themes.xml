@@ -6,5 +6,9 @@
         <item name="android:statusBarColor">#0A1020</item>
         <item name="android:navigationBarColor">#10172A</item>
         <item name="android:windowLightStatusBar">false</item>
+        <!-- Android 8-11: no preview window, so the first thing drawn is the app's own 00 Splash
+             (PreSplashView). Android 12+ ignores this flag for launcher taps; values-v31 uses a
+             translucent window instead. -->
+        <item name="android:windowDisablePreview">true</item>
     </style>
 </resources>

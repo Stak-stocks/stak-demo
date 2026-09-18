@@ -115,93 +115,6 @@ fun NewsScreen(
 	fun matchesBrief(b: NewsBriefFeed.Brief) = matches(b.title) || matches(b.body) || matches(b.source) ||
 		com.stak.demo.data.BrandNames.expand(q).any { t -> b.title.contains(t, ignoreCase = true) || b.body.contains(t, ignoreCase = true) }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
-		Row(
-			verticalAlignment = Alignment.CenterVertically,
-			modifier = Modifier
-				.fillMaxWidth()
-				.background(StakColors.Bg)
-				.statusBarsPadding()
-				.padding(horizontal = (20 * u).dp)
-				.padding(top = (22 * u).dp),
-		) {
-			Column(verticalArrangement = Arrangement.spacedBy((4 * u).dp)) {
-				Text(
-					text = "News",
-					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = Color.White,
-				)
-				// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
-				Text(
-					// Product audit (2026-09-05): today's date, on the authored line.
-					text = com.stak.demo.data.StakClock.todayLong(),
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = News.Muted,
-				)
-			}
-			Spacer(modifier = Modifier.weight(1f))
-			Box(
-				contentAlignment = Alignment.Center,
-				modifier = Modifier
-					.size((40 * u).dp)
-					.background(News.CardBg, CircleShape)
-					.clickable(
-						interactionSource = remember { MutableInteractionSource() },
-						indication = com.stak.demo.ui.theme.PressDim,
-					) {
-						searching = !searching
-						if (!searching) query = ""
-					},
-			) {
-				Image(
-					painter = painterResource(R.drawable.ic_news_search),
-					contentDescription = "Search",
-					modifier = Modifier.size((20 * u).dp),
-				)
-			}
-		}
-		// Product audit (2026-09-05): opening search focuses the field and raises
-		// the keyboard, so the tap on the glass is enough to start typing.
-		val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-		val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-		LaunchedEffect(searching) {
-			if (searching) {
-				viewModel.prepareSearch()
-				searchFocus.requestFocus()
-				keyboard?.show()
-			}
-		}
-		BackHandler(enabled = searching) {
-			searching = false
-			query = ""
-		}
-		if (searching) {
-			BasicTextField(
-				value = query,
-				onValueChange = { query = it },
-				singleLine = true,
-				textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, color = Color.White),
-				cursorBrush = SolidColor(News.Teal),
-				decorationBox = { inner ->
-					Box(contentAlignment = Alignment.CenterStart) {
-						if (query.isEmpty()) {
-							Text(
-								text = "Search news",
-								style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp),
-								color = News.Faint,
-							)
-						}
-						inner()
-					}
-				},
-				modifier = Modifier.focusRequester(searchFocus)
-					.fillMaxWidth()
-					.padding(horizontal = (20 * u).dp)
-					.padding(top = (12 * u).dp)
-					.clip(RoundedCornerShape((12 * u).dp))
-					.background(News.CardBg)
-					.padding(horizontal = (16 * u).dp, vertical = (13 * u).dp),
-			)
-		}
 		Column(
 			verticalArrangement = fractionalSpacedBy((22 * u).dp),
 			modifier = Modifier
@@ -210,8 +123,97 @@ fun NewsScreen(
 				.verticalScroll(rememberScrollState())
 				.navigationBarsPadding()
 				.padding(horizontal = (20 * u).dp)
-				.padding(top = (22 * u).dp, bottom = (24 * u).dp),
+				.padding(bottom = (24 * u).dp),
 		) {
+			// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+			// "I don't want a fixed top bar") - title, date, the search glass and its
+			// field are the column's first item; the 22 item gap is the old top inset.
+			Column(modifier = Modifier.fillMaxWidth()) {
+				Row(
+					verticalAlignment = Alignment.CenterVertically,
+					modifier = Modifier
+						.fillMaxWidth()
+						.statusBarsPadding()
+						.padding(top = (22 * u).dp),
+				) {
+					Column(verticalArrangement = Arrangement.spacedBy((4 * u).dp)) {
+						Text(
+							text = "News",
+							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Color.White,
+						)
+						// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
+						Text(
+							// Product audit (2026-09-05): today's date, on the authored line.
+							text = com.stak.demo.data.StakClock.todayLong(),
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = News.Muted,
+						)
+					}
+					Spacer(modifier = Modifier.weight(1f))
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							.size((40 * u).dp)
+							.background(News.CardBg, CircleShape)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+							) {
+								searching = !searching
+								if (!searching) query = ""
+							},
+					) {
+						Image(
+							painter = painterResource(R.drawable.ic_news_search),
+							contentDescription = "Search",
+							modifier = Modifier.size((20 * u).dp),
+						)
+					}
+				}
+				// Product audit (2026-09-05): opening search focuses the field and raises
+				// the keyboard, so the tap on the glass is enough to start typing.
+				val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+				val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+				LaunchedEffect(searching) {
+					if (searching) {
+						viewModel.prepareSearch()
+						searchFocus.requestFocus()
+						keyboard?.show()
+					}
+				}
+				BackHandler(enabled = searching) {
+					searching = false
+					query = ""
+				}
+				if (searching) {
+					BasicTextField(
+						value = query,
+						onValueChange = { query = it },
+						singleLine = true,
+						textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, color = Color.White),
+						cursorBrush = SolidColor(News.Teal),
+						decorationBox = { inner ->
+							Box(contentAlignment = Alignment.CenterStart) {
+								if (query.isEmpty()) {
+									Text(
+										text = "Search news",
+										style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp),
+										color = News.Faint,
+									)
+								}
+								inner()
+							}
+						},
+						modifier = Modifier.focusRequester(searchFocus)
+							.fillMaxWidth()
+							.padding(top = (12 * u).dp)
+							.clip(RoundedCornerShape((12 * u).dp))
+							.background(News.CardBg)
+							.padding(horizontal = (16 * u).dp, vertical = (13 * u).dp),
+					)
+				}
+			}
 			// Only show MoodMiniRow when a real mood value is available
 			val mood = dailyBrief?.mood
 			if (q.isEmpty() && !mood.isNullOrBlank()) MoodMiniRow(mood = mood)

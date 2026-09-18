@@ -1,6 +1,7 @@
 package com.stak.demo.data
 
 import com.stak.demo.ui.mystak.COLLECTIONS
+import com.stak.demo.ui.mystak.CollStock
 import com.stak.demo.ui.simulate.PaperPortfolio
 import java.util.Locale
 import kotlin.math.abs
@@ -29,6 +30,13 @@ internal object StakInsights {
 	)
 
 	fun signedPct(pct: Double): String = (if (pct < 0) "-" else "+") + String.format(Locale.US, "%.1f", abs(pct)) + "%"
+
+	/** "▲ 2.4%" -> 2.4, "▼ 0.4%" -> -0.4 - the Collection page's sort-by-movers and week move. */
+	fun changePct(s: CollStock): Double {
+		val v = s.change.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
+		return if (s.up) v else -v
+	}
+
 
 	private fun Int.word(): String =
 		listOf("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve").getOrNull(this) ?: toString()

@@ -17,6 +17,9 @@ object StakRoutes {
 	/** Sign up — `via` = "back" when sign-in's post-logout back circle re-opens it (B21). */
 	const val CREATE_ACCOUNT = "onboarding/create-account?via={via}"
 	fun createAccount(via: String) = "onboarding/create-account?via=$via"
+	/** Email verification between an email sign-up and 01 Welcome (FigJam entry flow, 2026-09-14) - `email` is the address the code went to. */
+	const val VERIFY_EMAIL = "auth/verify-email?email={email}"
+	fun verifyEmail(email: String) = "auth/verify-email?email=" + android.net.Uri.encode(email)
 	const val PERMISSIONS = "onboarding/permissions"
 	const val PROFILE_SETUP = "onboarding/profile-setup"
 	const val MAIN = "main" // bottom-tab shell (Home/News/Discover/My STAK/Simulate)
@@ -39,8 +42,12 @@ object StakRoutes {
 	const val MYSTAK_STOCK = "mystak/stock/{symbol}"
 	fun myStakStock(symbol: String) = "mystak/stock/$symbol"
 	const val PROFILE = "profile"
+	/** 09 Profile setup reused as the hub's edit page (user, 2026-09-07). */
+	const val EDIT_PROFILE = "profile/edit"
 	/** The Home bell's inbox (product audit, 2026-09-05). */
 	const val NOTIFICATIONS = "notifications"
+	/** The account lock between the splash and Home (PR #167 mirror). */
+	const val LOCK = "lock"
 	/** The Profile hub's settings pages - `kind` is a SettingsKind. */
 	const val SETTINGS = "settings/{kind}"
 	fun settings(kind: String) = "settings/$kind"

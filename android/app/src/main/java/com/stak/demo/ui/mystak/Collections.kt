@@ -48,7 +48,7 @@ internal val COLLECTIONS = listOf(
 		imageRes = R.drawable.ms_coll_aitech,
 		heroRes = R.drawable.ms_coll_aitech,
 		stocks = listOf(
-			CollStock("N", "▲ 2.4%", true, "NVDA", "NVIDIA", "$122.10"),
+			CollStock("N", "▲ 2.4%", true, "NVDA", "Nvidia", "$122.10"),
 			CollStock("A", "▲ 1.2%", true, "AAPL", "Apple", "$229.35"),
 			CollStock("M", "▼ 0.4%", false, "MSFT", "Microsoft", "$438.20"),
 			CollStock("G", "▲ 0.8%", true, "GOOGL", "Alphabet", "$178.90"),
@@ -123,7 +123,51 @@ internal val COLLECTIONS = listOf(
 
 /** The served collection - an unknown id falls back to the authored AI & Tech frame. */
 internal fun collection(id: String): StakCollection =
-	COLLECTIONS.firstOrNull { it.id == id } ?: COLLECTIONS.first()
+	// An open Other page whose last stock was just removed keeps an EMPTY Other (Codex review, PR #166), not AI & Tech.
+	if (id == OTHER_ID) otherCollection() ?: otherWith(emptyList())
+	else COLLECTIONS.firstOrNull { it.id == id } ?: COLLECTIONS.first()
+
+internal const val OTHER_ID = "other"
+
+/**
+ * The stocks the user holds that no collection catalogues - news saves such
+ * as AMZN, MU, PLTR, TSLA or XOM (Codex review, PR #166). Built from the
+ * holdings and the news feed's stock facts, so every saved ticker has a tile
+ * to open and unsave from; null while nothing uncatalogued is held. The demo
+ * persona keeps its authored six-tile grid (its TSLA / SNOW are the authored
+ * Best / Worst stand-ins). Mirrors ios StakCollections.other.
+ */
+internal fun otherCollection(): StakCollection? {
+	val catalogued = COLLECTIONS.flatMap { it.stocks }.map { it.ticker }.toSet()
+	// The persona's seeded TSLA/SNOW are the frame's until the persona saves one itself -
+	// a recorded save day makes it a real, reversible save (Codex review, PR #166).
+	val extra = MyStakHoldings.tickers.filter { it !in catalogued && !(com.stak.demo.data.Session.demoAccount && MyStakHoldings.isSeed(it) && MyStakHoldings.daysSinceSaved(it) == null) }.sorted()
+	if (extra.isEmpty()) return null
+	val stocks = extra.map { t ->
+		val known = com.stak.demo.ui.news.NewsArticleFeed.hasStockFacts(t)
+		val f = com.stak.demo.ui.news.NewsArticleFeed.stockFacts(t)
+		CollStock(
+			badge = t.take(1),
+			change = if (known) (if (f.up) "▲ " else "▼ ") + f.change.removePrefix("+").removePrefix("-").removeSuffix(" today") else "—",
+			up = if (known) f.up else true,
+			ticker = t,
+			company = if (known) f.shortName else t,
+			price = if (known) f.price else "—",
+		)
+	}
+	return otherWith(stocks)
+}
+
+/** The Other collection around the given tiles - empty for a page that just lost its last one. */
+private fun otherWith(stocks: List<CollStock>): StakCollection = StakCollection(
+	id = OTHER_ID,
+	name = "Other",
+	countLabel = "",
+	blurb = "Stocks you saved from the news that sit outside the six collections.",
+	iconRes = R.drawable.ic_saved_bookmark,
+	heroRes = R.drawable.ic_saved_bookmark,
+	stocks = stocks,
+)
 
 /**
  * The collection's stocks the user actually holds. Codex audit

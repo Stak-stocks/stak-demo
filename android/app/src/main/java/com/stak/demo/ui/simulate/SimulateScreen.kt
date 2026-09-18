@@ -161,47 +161,6 @@ internal fun SimulateScreen(
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
-			Row(
-				verticalAlignment = Alignment.CenterVertically,
-				modifier = Modifier
-					.fillMaxWidth()
-					.background(StakColors.Bg)
-					.statusBarsPadding()
-					.padding(horizontal = (20 * u).dp)
-					// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
-					// status bar with no bottom inset - the 18 above the hero is the Main column's own.
-					.padding(top = (8 * u).dp),
-			) {
-				Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-					Text(
-						text = "Simulate",
-						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Color.White,
-					)
-					Text(
-						text = "Pick from your saves. Paper money does the talking.",
-						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Sim.Muted,
-					)
-				}
-				Spacer(modifier = Modifier.weight(1f))
-				// Codex audit (2026-09-04): the clock (1:3918 "btn" / icon/clock)
-				// is the pick history - it opens the portfolio page, where the
-				// SOLD · REALIZED rows live. Same plumbing as AuthBackCircle.
-				Box(
-					contentAlignment = Alignment.Center,
-					modifier = Modifier
-						.size((40 * u).dp)
-						.background(Sim.CardBg, CircleShape)
-						.clickable(
-							interactionSource = remember { MutableInteractionSource() },
-							indication = com.stak.demo.ui.theme.PressDim,
-							onClick = onOpenPortfolio,
-						),
-				) {
-					Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
-				}
-			}
 			Column(
 				verticalArrangement = Arrangement.spacedBy((18 * u).dp),
 				modifier = Modifier
@@ -209,9 +168,54 @@ internal fun SimulateScreen(
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState())
 					.padding(horizontal = (20 * u).dp)
-					.padding(top = (18 * u).dp, bottom = (26 * u).dp),
+					.padding(bottom = (26 * u).dp),
 			) {
+				// The header scrolls with the content like Home's top nav (user, 2026-09-14:
+				// "I don't want a fixed top bar"); the 18 item gap is the old top inset.
+				Row(
+					verticalAlignment = Alignment.CenterVertically,
+					modifier = Modifier
+						.fillMaxWidth()
+						.statusBarsPadding()
+						// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
+						// status bar with no bottom inset - the 18 above the hero is the Main column's own.
+						.padding(top = (8 * u).dp),
+				) {
+					Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
+						Text(
+							text = "Simulate",
+							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Color.White,
+						)
+						Text(
+							text = "Pick from your saves. Paper money does the talking.",
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Sim.Muted,
+						)
+					}
+					Spacer(modifier = Modifier.weight(1f))
+					// Codex audit (2026-09-04): the clock (1:3918 "btn" / icon/clock)
+					// is the pick history - it opens the portfolio page, where the
+					// SOLD · REALIZED rows live. Same plumbing as AuthBackCircle.
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							.size((40 * u).dp)
+							.background(Sim.CardBg, CircleShape)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								onClick = onOpenPortfolio,
+							),
+					) {
+						Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
+					}
+				}
+				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
+				// chooses its balance, name and strategy before its first trade.
+				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
 				ScoreHero(onOpenLeaderboard = onOpenLeaderboard)
+				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
 				val savedRows = savedStakRows()
 				if (savedRows.isEmpty()) {
@@ -332,10 +336,34 @@ private fun savedStakRows(): List<SavedStak> {
 			SavedStak(COST_BUY, savedStakSub("COST", com.stak.demo.data.StakClock.savedLabel(2) + " · not in portfolio yet")),
 		)
 	}
-	val tickets = listOf(com.stak.demo.ui.discover.NVDA_BUY, com.stak.demo.ui.discover.AAPL_BUY, com.stak.demo.ui.discover.GOOGL_BUY, PLTR_BUY, COST_BUY)
-	return tickets.filter { it.symbol in com.stak.demo.data.MyStakHoldings.tickers }
+	// Every save the account made is a candidate - a Tesla or Amazon story's save
+	// gets a ticket built from the catalogue quote, the way the Other collection
+	// tile does - and the sub line reads the real save day (audit 2026-09-07:
+	// a TSLA-only account was told nothing was saved, and every row said "today").
+	val designed = listOf(com.stak.demo.ui.discover.NVDA_BUY, com.stak.demo.ui.discover.AAPL_BUY, com.stak.demo.ui.discover.GOOGL_BUY, PLTR_BUY, COST_BUY)
+	val held = com.stak.demo.data.MyStakHoldings
+	return held.tickers
+		// Newest save first, then by symbol - a Set's order is nothing to show a user by.
+		.sortedWith(compareBy({ held.daysSinceSaved(it) ?: Int.MAX_VALUE }, { it }))
+		.map { t -> designed.firstOrNull { it.symbol == t } ?: catalogueTicket(t) }
 		.take(2)
-		.map { SavedStak(it, savedStakSub(it.symbol, com.stak.demo.data.StakClock.savedLabel(0) + " · not in portfolio yet")) }
+		.map { SavedStak(it, savedStakSub(it.symbol, com.stak.demo.data.StakClock.savedLabel(held.daysSinceSaved(it.symbol) ?: 0) + " · not in portfolio yet")) }
+}
+
+/** A $25 paper ticket for a saved stock without a designed one, priced off the catalogue quote. */
+private fun catalogueTicket(symbol: String): BuySpec {
+	val feed = com.stak.demo.ui.news.NewsArticleFeed
+	val known = feed.hasStockFacts(symbol)
+	val sf = feed.stockFacts(symbol)
+	val price = if (known) sf.price.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0 else 0.0
+	val pct = sf.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
+	return BuySpec(
+		"Buy $symbol?", symbol.take(1), if (known) sf.name else symbol,
+		if (known) "${sf.price} today" else "\u2014 today",
+		if (known) (if (sf.up) "\u25B2 " else "\u25BC ") + pct + "%" else "\u2014",
+		"$8,800.00", "$8,775.00",
+		if (price > 0) String.format(java.util.Locale.US, "%.4f", 25.0 / price) else "0", symbol,
+	)
 }
 
 /** The card an empty section shows a new account (CardBg r14, Sora title, Geist body, optional teal link). */
@@ -415,7 +443,7 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		}
 		Text(
-			text = "${PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on $" + String.format(java.util.Locale.US, "%,.0f", PaperPortfolio.PAPER_START) + " paper · ${PaperPortfolio.pickCountText}",
+			text = "${PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)} paper · ${PaperPortfolio.pickCountText}",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Sim.Muted,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
@@ -468,7 +496,6 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		} else {
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			val pct = PaperPortfolio.allTimeGain / PaperPortfolio.PAPER_START * 100
 			// The demo keeps its authored line. A real ledger has nothing to draw
 			// from: a position records a cost basis and a current value, but no
 			// entry price and no date except inside its display line, so the value

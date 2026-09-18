@@ -99,6 +99,27 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		tab?.let { pendingShellTab.value = it }
 		navController.popBackStack(StakRoutes.MAIN, false)
 	}
+	// A protected account re-locks when the app leaves the foreground (Codex
+	// review, PR #167 mirror): ON_STOP pushes the gate over whatever was open
+	// - the task-switcher snapshot shows the splash backdrop - and unlocking
+	// pops back to it. Picture-in-picture never stops the activity, so a
+	// floating clip keeps playing.
+	@Suppress("DEPRECATION")
+	val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+	androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+		val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+			if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP &&
+				com.stak.demo.data.Session.signedIn && com.stak.demo.data.UserProfile.accountLock
+			) {
+				val route = navController.currentBackStackEntry?.destination?.route
+				if (route != null && route != StakRoutes.LOCK && route != StakRoutes.SPLASH) {
+					navController.navigate(StakRoutes.LOCK) { launchSingleTop = true }
+				}
+			}
+		}
+		lifecycleOwner.lifecycle.addObserver(observer)
+		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+	}
 	// The persisted session (sign-in state + profile) is restored in
 	// StakApp.onCreate, before any composition - composition must not
 	// mutate app state (RememberReturnType lint, audit 2026-09-04).
@@ -121,12 +142,29 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			SplashScreen(
 				onContinue = {
-					val next = if (com.stak.demo.data.Session.signedIn) StakRoutes.MAIN else StakRoutes.createAccount(via = "dissolve")
+					// Returning user (signed in before) goes straight to Home;
+					// a first-time user is taken to create an account
+					// (user, 2026-08-23).
+					// A signed-in user who left "Account security" on unlocks first (Codex review, PR #167 mirror).
+					val locked = com.stak.demo.data.Session.signedIn && com.stak.demo.data.UserProfile.accountLock
+					val next = if (com.stak.demo.data.Session.signedIn) (if (locked) StakRoutes.LOCK else StakRoutes.MAIN) else StakRoutes.createAccount(via = "dissolve")
 					navController.navigate(next) {
 						popUpTo(StakRoutes.SPLASH) { inclusive = true }
 					}
 				},
 			)
+		}
+		composable(
+			StakRoutes.LOCK,
+			enterTransition = { fadeIn(tween(350, easing = EaseOut)) },
+			exitTransition = { fadeOut(tween(350, easing = EaseOut)) },
+		) {
+			com.stak.demo.ui.onboarding.BiometricGate(onUnlocked = {
+				// From the splash the gate is the whole stack - Home follows; a re-lock
+				// sits over the place the user left, so unlocking pops back to it.
+				if (navController.previousBackStackEntry != null) navController.popBackStack()
+				else navController.navigate(StakRoutes.MAIN) { popUpTo(StakRoutes.LOCK) { inclusive = true } }
+			})
 		}
 		composable(
 			StakRoutes.INTRO,
@@ -214,7 +252,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				when {
 					targetState.arguments?.getString("via") == "back" ->
 						slideInHorizontally(tween(300, easing = EaseOut)) { it }
-					initialState.destination.route == StakRoutes.SPLASH ||
+					// Splash, the sign-in "Create account" link and Delete account (FigJam
+					// Profile board, 2026-09-14; via=dissolve) all arrive as the 350 dissolve.
+					targetState.arguments?.getString("via") == "dissolve" ||
+						initialState.destination.route == StakRoutes.SPLASH ||
 						initialState.destination.route == StakRoutes.SIGN_IN ->
 						fadeIn(tween(350, easing = EaseOut))
 					else -> null
@@ -285,8 +326,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					else -> null
 				}
 			},
-			// Prototype (sign-in frame): socials/CTA leave toward Home
-			// first run as Push Right; the "Create account" link dissolves
+			// Prototype (sign-in frame): socials/CTA leave toward Home as
+			// Push Right (the authored target is 1:958 "Home first run"; by
+			// the 2026-09-07 ruling an active user lands on Home Main - the
+			// transition is the same); the "Create account" link dissolves
 			// back over sign up; the post-logout back circle (via=back)
 			// leaves as Push Left — the authored Back edge's other half.
 			exitTransition = {
@@ -334,8 +377,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		}
 		composable(
 			StakRoutes.MAIN,
-			// Prototype (sign-in frame): "Home first run" arrives as Push
-			// Right — in from the left, 300ms ease out.
+			// Prototype (sign-in frame): Home arrives as Push Right — in
+			// from the left, 300ms ease out. Authored against 1:958 "Home
+			// first run"; an active user lands on Home Main (1:1097) by the
+			// 2026-09-07 ruling, with the same push.
 			enterTransition = {
 				when (initialState.destination.route) {
 					StakRoutes.SIGN_IN -> slideInHorizontally(tween(300, easing = EaseOut)) { -it }
@@ -394,6 +439,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 						launchSingleTop = true
 					}
 				},
+				// Home's Trending strip - the route reads whether it's actually held (review 2026-09-14).
+				onOpenStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
+				// A held stock opens the saved flavour of Stock Detail (review 2026-09-14).
+				onOpenSavedStock = { symbol -> navController.navigate(StakRoutes.myStakStock(symbol)) },
 			)
 		}
 		// The authored "Learn more -> Stock Detail Unsaved" route (1:1785 Motion)
@@ -467,7 +516,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onBack = { navController.popBackStack() },
 				// Codex parity audit (2026-09-04): the tapped tile's ticker.
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
-				fromMyStak = true,
+				// Home's Trending strip can open a stock that isn't actually held (review 2026-09-14):
+				// the "Since you saved" card and Unsave wording only belong to a real save.
+				fromMyStak = (entry.arguments?.getString("symbol")) in com.stak.demo.data.MyStakHoldings.tickers,
 				// The practice ticket lives in Simulate: the page hands the company over
 				// and the shell comes back on that tab.
 				onPracticeInSimulate = { popToShell(PopStyle.FORWARD_PUSH, MainTab.Simulate) },
@@ -564,6 +615,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			val authVm: AuthViewModel = hiltViewModel()
 			ProfileScreen(
+				// launchSingleTop: two fingers on the block must not stack two edit pages (review 2026-09-07).
+				onEditProfile = { navController.navigate(StakRoutes.EDIT_PROFILE) { launchSingleTop = true } },
 				onBack = { navController.popBackStack() },
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
@@ -581,6 +634,18 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				},
 			)
 		}
+		composable(StakRoutes.EDIT_PROFILE) {
+			// 09 Profile setup (1:793) doubles as the hub's edit page - its own copy
+			// promises "You can change this anytime in Profile." (user, 2026-09-07:
+			// a photo of their choice, and editable after sign-up). House push in,
+			// house back out; Save pops back to the hub, which re-reads the profile.
+			// Pops only while this page is still on top: a second tap on Save during
+			// the 300 ms pop must not take the hub with it (review 2026-09-07).
+			val popEdit: () -> Unit = {
+				if (navController.currentBackStackEntry?.destination?.route == StakRoutes.EDIT_PROFILE) navController.popBackStack()
+			}
+			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
+		}
 		composable(StakRoutes.NOTIFICATIONS) {
 			com.stak.demo.ui.inbox.NotificationsScreen(
 				onBack = { navController.popBackStack() },
@@ -591,6 +656,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.profile.SettingsScreen(
 				kind = entry.arguments?.getString("kind") ?: com.stak.demo.ui.profile.SettingsKind.HELP,
 				onBack = { navController.popBackStack() },
+				onOpen = { kind -> navController.navigate(StakRoutes.settings(kind)) },
+				// Delete account (FigJam Profile board, 2026-09-14): the session is gone, the stack clears to Create account.
+				onAccountDeleted = {
+					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
+				},
 			)
 		}
 		composable(
@@ -717,6 +787,10 @@ private fun MainShell(
 	onOpenSimPick: (String) -> Unit,
 	onOpenLeaderboard: () -> Unit,
 	onViewSimPortfolio: () -> Unit,
+	/** Home's Trending strip - a stock that may not be held (FigJam Home board, 2026-09-14). */
+	onOpenStock: (String) -> Unit,
+	/** A held stock's saved-flavour Stock Detail (review 2026-09-14). */
+	onOpenSavedStock: (String) -> Unit = onOpenStock,
 ) {
 	// Create NewsViewModel at shell level so news + brief fetch starts immediately on
 	// app open, regardless of which tab the user is on. NewsScreen's own hiltViewModel()
@@ -748,14 +822,14 @@ private fun MainShell(
 	LaunchedEffect(pendingTab.value) {
 		pendingTab.value?.let { switchTab(it); pendingTab.value = null }
 	}
-	// First run shows for brand-new sign-ins only. Once dismissed it is
-	// persisted in a separate prefs file (not cleared on sign-out), so
-	// returning users never see the overlay again on subsequent sign-ins.
-	var homeFirstRun by rememberSaveable {
-		mutableStateOf(!com.stak.demo.data.Session.resumedSignedIn && !com.stak.demo.data.Session.homeMainSeenToday)
-	}
-	LaunchedEffect(homeFirstRun) {
-		if (!homeFirstRun) com.stak.demo.data.Session.markHomeMainSeen()
+	// First run (1:958) is for a FIRST-TIME user only: the account was created
+	// here and the run has not been completed yet. An active/returning user -
+	// Sign in, or any relaunch after the first run - lands on Home Main
+	// (user, 2026-09-07). Completion persists in Session.
+	var homeFirstRun by rememberSaveable { mutableStateOf(com.stak.demo.data.Session.firstRunPending) }
+	fun endFirstRun() {
+		homeFirstRun = false
+		com.stak.demo.data.Session.completeFirstRun()
 	}
 	// Codex audit (2026-09-04): the Discover ticket serves the FRONT card's
 	// stock (NVDA / AAPL / GOOGL into the 1:1970 template) - the raised spec
@@ -820,12 +894,15 @@ private fun MainShell(
 							// -> Home must land on Main, never back on the scrim
 							// (prototype walk, 2026-09-05). Only the avatar's
 							// Profile push (1:1003, BACK) returns to first run.
-							onSeeTodaysPick = { homeFirstRun = false; switchTab(MainTab.Discover) },
+							onSeeTodaysPick = { endFirstRun(); switchTab(MainTab.Discover) },
 							onProfile = onOpenProfile,
 							onBell = onOpenNotifications,
-							onOpenNews = { homeFirstRun = false; switchTab(MainTab.News) },
-							onOpenMyStak = { homeFirstRun = false; switchTab(MainTab.MySTAK) },
-							onOpenDeck = { homeFirstRun = false; switchTab(MainTab.Discover) },
+							onOpenNews = { endFirstRun(); switchTab(MainTab.News) },
+							onOpenMyStak = { endFirstRun(); switchTab(MainTab.MySTAK) },
+							onOpenDeck = { endFirstRun(); switchTab(MainTab.Discover) },
+							// The board-only sections: a stock opens its detail.
+							onOpenStock = onOpenStock,
+							onOpenSavedStock = onOpenSavedStock,
 						)
 						MainTab.News -> NewsScreen(
 								onOpenArticle = onOpenArticle,
