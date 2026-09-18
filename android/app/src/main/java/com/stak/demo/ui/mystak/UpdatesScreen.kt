@@ -219,8 +219,9 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 		}
 		Spacer(modifier = Modifier.height((2 * u).dp))
 		Text(
-			// It opens the company's page, which doesn't carry the change itself yet.
-			text = "Open ${update.company} ›",
+			// The company's page now carries these changes under Since you saved, so the
+			// promise this makes is one the destination keeps.
+			text = "Understand this change ›",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Stak.Teal,
 		)

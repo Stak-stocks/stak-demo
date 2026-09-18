@@ -137,11 +137,14 @@ internal fun SimulateScreen(
 	// A company handed over by a stock page's "Practice with ..." - opened on today's
 	// price, or not at all: a paper order must never fill at a price STAK doesn't have.
 	androidx.compose.runtime.LaunchedEffect(Unit) {
-		PendingSimBuy.take()?.let { (symbol, company) ->
+		PendingSimBuy.peek()?.let { (symbol, company) ->
+			// Taken only once the price is in hand: spent before the quote, a failed
+			// look-up left the user on Simulate with no ticket and no way to ask again.
 			com.stak.demo.data.LiveQuotes.quote(symbol)?.let { (price, changePct) ->
+				PendingSimBuy.take()
 				practiceBuy(
 					BuySpec(
-						title = "Buy $symbol?",
+						title = "Buy $company?",
 						badge = company.take(1).uppercase(),
 						name = company,
 						priceLine = "$0.00 today",

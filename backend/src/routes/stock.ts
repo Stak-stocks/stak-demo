@@ -1941,7 +1941,13 @@ stockRouter.get("/:symbol/risk-watch", async (req, res) => {
 			profitMargin: m.netProfitMarginTTM != null ? `${m.netProfitMarginTTM.toFixed(1)}%` : null,
 			beta: m.beta ?? null,
 		});
-		res.json(result ?? { risks: [], watch: [] });
+		if (!result) {
+			// Not "this company has no risks": the app has a line for a failed read, and a
+			// 200 with an empty list is how it never got shown.
+			res.status(503).json({ error: "Risk snapshot unavailable" });
+			return;
+		}
+		res.json(result);
 	} catch (error) {
 		console.error(`Error building risk-watch for ${symbol}:`, error);
 		res.status(500).json({ error: "Failed to build risk snapshot" });

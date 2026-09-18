@@ -17,12 +17,15 @@ internal object PendingSimBuy {
 		this.company = company
 	}
 
-	/** The waiting request, cleared as it is read. */
-	fun take(): Pair<String, String>? {
+	/** The waiting request, left in place. */
+	fun peek(): Pair<String, String>? {
 		val s = symbol ?: return null
-		val c = company ?: s
+		return s to (company ?: s)
+	}
+
+	/** Spends the request - called once the ticket can actually be opened. */
+	fun take() {
 		symbol = null
 		company = null
-		return s to c
 	}
 }

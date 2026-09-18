@@ -131,6 +131,9 @@ fun StockDetailScreen(
 	val changesForStock = remember(myStakUi.updates, symbol) {
 		myStakUi.updates.filter { it.ticker.equals(symbol, ignoreCase = true) }
 	}
+	// Read state as it was on arrival: marking them read here would otherwise flip the
+	// dots from unread to read in front of the reader.
+	val unreadOnEntry = remember(symbol) { changesForStock.filter { !it.read }.map { it.id }.toSet() }
 	val riskWatch by viewModel.riskWatch.collectAsStateWithLifecycle()
 	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
@@ -242,15 +245,16 @@ fun StockDetailScreen(
 								overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 							)
 							Text(
-								// The category the deck ranked this save on, when STAK knows it.
+								// The category the deck ranked this save on - STAK's own grouping,
+								// so it says so rather than passing for the company's industry.
 								com.stak.demo.data.MyStakHoldings.categoryOf(symbol)
 									?.let { com.stak.demo.data.categoryName(it) }
-									?.let { "$symbol · $it" } ?: symbol,
+									?.let { "$symbol · in your $it" } ?: symbol,
 								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 								color = Muted,
 							)
 						}
-						if (saved || fromMyStak) {
+						if (saved || symbol in com.stak.demo.data.MyStakHoldings.tickers) {
 							Row(
 								verticalAlignment = Alignment.CenterVertically,
 								horizontalArrangement = Arrangement.spacedBy((5 * u).dp),
@@ -390,6 +394,7 @@ fun StockDetailScreen(
 						SinceYouSavedCard(
 							f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled,
 							changes = changesForStock,
+							unreadOnEntry = unreadOnEntry,
 						)
 					}
 					if (demo) {
@@ -411,7 +416,7 @@ fun StockDetailScreen(
 						// Simulation belongs in Simulate, with this company prefilled (My STAK
 						// product spec, Sept 2026); the demo keeps its in-page ticket.
 						if (!demo && onPracticeInSimulate != null) {
-							DetailCta("Practice with ${liveDetail?.name ?: symbol}") {
+							DetailCta("Practice with ${liveDetail?.name ?: symbol} · paper money") {
 								com.stak.demo.ui.simulate.PendingSimBuy.request(symbol, liveDetail?.name ?: symbol)
 								onPracticeInSimulate()
 							}
@@ -518,8 +523,28 @@ fun StockDetailScreen(
 private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val risks = riskWatch?.risks.orEmpty()
-	// Nothing to show and nothing to say yet: the card waits rather than inventing levels.
-	if (risks.isEmpty() && !failed) return
+	val rated = riskWatch?.rated == true
+	// Still reading: the card keeps its place rather than appearing later and shoving
+	// the page down under the reader's eyes.
+	if (risks.isEmpty() && !failed) {
+		Column(
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+		) {
+			Text(
+				"Risk snapshot",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+			Text(
+				"Reading this company's risks…",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+				color = Muted,
+			)
+		}
+		return
+	}
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -532,14 +557,17 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 				color = Bright,
 			)
 			Text(
-				"What to understand before you act",
+				// Not "what to understand before you act": three sentences aren't
+				// understanding, and the reader isn't necessarily about to do anything.
+				"What could go wrong at this company",
 				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 				color = Muted,
 			)
 		}
 		if (risks.isEmpty()) {
 			Text(
-				"Couldn't read this company's risks right now.",
+				// A failed read is STAK's problem, not a statement about the company.
+				"STAK couldn't load this company's risks right now - that doesn't mean it has none.",
 				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Muted,
 			)
@@ -553,7 +581,9 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 							color = Color.White,
 						)
 						Spacer(modifier = Modifier.weight(1f))
-						RiskLevelChip(risk.level)
+						// Only where a figure rates it: the level is measured from this
+						// company's beta or its P/E against peers, never guessed.
+						risk.level?.let { RiskLevelChip(it) }
 					}
 					Text(
 						risk.note,
@@ -562,18 +592,28 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 					)
 				}
 			}
+			Text(
+				if (rated) "Levels come from this company's own figures; the risks themselves are read from recent headlines."
+				else "Read from recent company headlines and figures.",
+				style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Muted,
+			)
 		}
 	}
 }
 
-/** Elevated / Moderate / Lower - the company's exposure, in the level's own colour. */
+/**
+ * Elevated / Moderate / Lower - how much of this risk the figures show. Never green:
+ * the app's good/bad palette on a risk chip reads as "safe to buy", which is the
+ * suitability signal removing "Risk fit" was meant to end.
+ */
 @Composable
 private fun RiskLevelChip(level: String) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val (bg, ink) = when (level) {
-		"Elevated" -> Color(0x33E5484D) to Color(0xFFFF9BA1)
-		"Lower" -> Color(0x332FD08A) to Color(0xFF7BE0B4)
-		else -> Color(0x33E8B86D) to Color(0xFFE8C08A)
+		"Elevated" -> Color(0x33E8B86D) to Color(0xFFE8C08A)
+		"Lower" -> Color(0x142A3346) to Muted
+		else -> Color(0x1F3A465E) to Color(0xFFC8D2E0)
 	}
 	Box(modifier = Modifier.clip(RoundedCornerShape((999 * u).dp)).background(bg).padding(horizontal = (10 * u).dp, vertical = (3 * u).dp)) {
 		Text(
@@ -1337,6 +1377,8 @@ private fun SinceYouSavedCard(
 	detailSettled: Boolean,
 	/** What changed at this company since the save - the same updates My STAK lists. */
 	changes: List<com.stak.demo.data.StockUpdateDto> = emptyList(),
+	/** Which of them were still unopened when the page was opened. */
+	unreadOnEntry: Set<Long> = emptySet(),
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val since = sinceSavedFor(f, symbol, liveDetail, savedReference, referenceSettled, detailSettled)
@@ -1372,14 +1414,16 @@ private fun SinceYouSavedCard(
 		if (changes.isNotEmpty()) {
 			Box(modifier = Modifier.fillMaxWidth().height((1 * u).dp).background(Color(0xFF232B3D)))
 			Text(
-				"WHAT CHANGED",
+				// Detection reads a few days of news, so this is what changed recently -
+				// not everything that happened since a save weeks ago.
+				"RECENT CHANGES",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8 * u).sp),
 				color = Muted,
 			)
 			// Two at most: this is the story since the save, not an archive of it.
 			changes.take(2).forEach { change ->
 				Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
-					Box(modifier = Modifier.padding(top = (5 * u).dp).size((6 * u).dp).clip(RoundedCornerShape((3 * u).dp)).background(if (change.read) Muted else Color(0xFF2C9DBC)))
+					Box(modifier = Modifier.padding(top = (5 * u).dp).size((6 * u).dp).clip(RoundedCornerShape((3 * u).dp)).background(if (change.id in unreadOnEntry) Color(0xFF2C9DBC) else Muted))
 					Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
 						Text(
 							change.title,

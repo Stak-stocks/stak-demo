@@ -504,9 +504,10 @@ class StockDetailViewModel @Inject constructor(
         val statVerdicts = peerMedians?.let { p ->
             listOf(
                 // A high multiple is dearer, not better.
-                peerLine(metrics?.peRatio, p.pe, higherIsBetter = false) { "Peers ${format1(it)}x" },
-                peerLine(percentValue(metrics?.revenueGrowth), p.revenueGrowth, higherIsBetter = true) { "Sector ${format1(it)}%" },
-                peerLine(percentValue(metrics?.profitMargin), p.profitMargin, higherIsBetter = true) { "Sector ${format1(it)}%" },
+                // One word for one group: all three are the same peer median.
+                peerLine(metrics?.peRatio, p.pe, higherIsBetter = null) { "Peers ${format1(it)}x" },
+                peerLine(percentValue(metrics?.revenueGrowth), p.revenueGrowth, higherIsBetter = true) { "Peers ${format1(it)}%" },
+                peerLine(percentValue(metrics?.profitMargin), p.profitMargin, higherIsBetter = true) { "Peers ${format1(it)}%" },
             )
         }
 
@@ -595,21 +596,27 @@ class StockDetailViewModel @Inject constructor(
     private fun format1(value: Double): String = String.format(java.util.Locale.US, "%.1f", value)
 
     /**
-     * The peer group's figure, coloured by how this stock compares with it: green when
-     * it is on the better side, plain when the two are close enough not to call.
+     * The peer group's own figure. Growth and margin carry a colour when this company is
+     * clearly on the better side of it; a P/E never does - cheaper than peers is as often
+     * a company in trouble as a bargain, and that judgement isn't STAK's to make.
+     *
+     * Compared by difference, not by ratio: a ratio flips sign the moment either number
+     * is negative, which painted a loss-making company green (review, 2026-09-17).
      */
     private fun peerLine(
         value: Double?,
         median: Double?,
-        higherIsBetter: Boolean,
+        higherIsBetter: Boolean?,
         label: (Double) -> String,
     ): Pair<String, Boolean> {
         if (median == null || median == 0.0) return "" to false
         val text = label(median)
-        if (value == null) return text to false
-        val ratio = value / median
-        if (ratio in 0.9..1.1) return text to false
-        return text to (if (ratio > 1.1) higherIsBetter else !higherIsBetter)
+        if (value == null || higherIsBetter == null) return text to false
+        // A tenth of the peer figure either way is "about the same".
+        val margin = kotlin.math.abs(median) * 0.1
+        val better = if (higherIsBetter) value - median > margin else median - value > margin
+        val worse = if (higherIsBetter) median - value > margin else value - median > margin
+        return text to (better && !worse)
     }
 
     private fun verdictFor(

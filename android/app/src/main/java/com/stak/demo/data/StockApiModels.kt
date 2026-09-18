@@ -43,8 +43,11 @@ data class AnalystRecommendation(
     val strongSell: Int = 0,
 )
 
-/** One company risk: what it is, how big, and why it matters - never a fit to the reader. */
-data class StockRiskDto(val label: String = "", val level: String = "Moderate", val note: String = "")
+/**
+ * One company risk: what it is, why it matters, and how big - but only where a figure
+ * backs the size. `level` is null for a risk nothing measurable rates.
+ */
+data class StockRiskDto(val label: String = "", val level: String? = null, val note: String = "")
 
 /** One checkpoint that decides how the company's story goes from here. */
 data class StockWatchDto(val title: String = "", val note: String = "")
@@ -52,6 +55,8 @@ data class StockWatchDto(val title: String = "", val note: String = "")
 data class RiskWatchResponse(
     val risks: List<StockRiskDto> = emptyList(),
     val watch: List<StockWatchDto> = emptyList(),
+    /** Whether any level shown was computed from the company's own figures. */
+    val rated: Boolean = false,
 )
 
 data class AnalystAction(val firm: String, val action: String, val priceTarget: Double?)

@@ -16,8 +16,11 @@ import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit } fr
 export type RiskLevel = "Elevated" | "Moderate" | "Lower";
 
 export type RiskWatch = {
-	risks: { label: string; level: RiskLevel; note: string }[];
+	/** `level` is null for a risk no figure can rate - the chip is left off rather than guessed. */
+	risks: { label: string; level: RiskLevel | null; note: string }[];
 	watch: { title: string; note: string }[];
+	/** True when the levels shown were computed from this company's own figures. */
+	rated: boolean;
 };
 
 export type RiskInputs = {
@@ -32,11 +35,32 @@ export type RiskInputs = {
 };
 
 const TTL_MS = 24 * 60 * 60 * 1000;
-const LEVELS: RiskLevel[] = ["Elevated", "Moderate", "Lower"];
+/** Without the peer median, the valuation risk can't be rated - so it is kept only briefly. */
+const PARTIAL_TTL_MS = 60 * 60 * 1000;
 
-function levelOf(raw: unknown): RiskLevel {
-	return LEVELS.find((l) => l.toLowerCase() === String(raw).toLowerCase()) ?? "Moderate";
+/** Words that mean a risk is about the share price's swings, whatever the model called it. */
+const VOLATILITY_WORDS = ["price swing", "volatil", "share price", "price movement"];
+const VALUATION_WORDS = ["valuation", "price-to-earnings", "price to earnings", "p/e", "multiple", "expectations"];
+
+/**
+ * The level for a risk STAK can actually measure: how much this share moves against the
+ * market, and what it costs against its peers. Anything else gets no level - a made-up
+ * rating presented as a measurement is worse than none.
+ */
+function ratedLevel(label: string, beta: number | null | undefined, pe: number | null | undefined, peerPe: number | null | undefined): RiskLevel | null {
+	const l = label.toLowerCase();
+	if (VOLATILITY_WORDS.some((w) => l.includes(w)) && beta != null) {
+		return beta > 1.15 ? "Elevated" : beta < 0.85 ? "Lower" : "Moderate";
+	}
+	if (VALUATION_WORDS.some((w) => l.includes(w)) && pe != null && peerPe != null && peerPe > 0 && pe > 0) {
+		const ratio = pe / peerPe;
+		return ratio > 1.25 ? "Elevated" : ratio < 0.8 ? "Lower" : "Moderate";
+	}
+	return null;
 }
+
+/** Advice, or anything about the reader, that the prompt forbids and a model still writes. */
+const BANNED = /\b(you|your|should|buy|sell|hold|recommend|invest in|price target|we expect|will likely)\b/i;
 
 /** The facts worth handing over, written the way a person would say them. */
 function factLines(input: RiskInputs): string {
@@ -55,7 +79,8 @@ function factLines(input: RiskInputs): string {
 }
 
 export async function getRiskWatch(input: RiskInputs): Promise<RiskWatch | null> {
-	const cacheKey = `risk-watch:v1:${input.symbol}`;
+	// v2: levels are computed from the figures now, and a level can be absent.
+	const cacheKey = `risk-watch:v2:${input.symbol}`;
 	const cached = await cacheGet<RiskWatch>(cacheKey);
 	if (cached) return cached;
 
@@ -74,14 +99,13 @@ Recent headlines:
 ${headlines}
 
 Reply with JSON only:
-{"risks":[{"label":"...","level":"Elevated|Moderate|Lower","note":"..."}],"watch":[{"title":"...","note":"..."}]}
+{"risks":[{"label":"...","note":"..."}],"watch":[{"title":"...","note":"..."}]}
 
-risks: exactly 3, about THIS company's business - what could go wrong and why it matters. Never about the reader, their profile, or whether they should buy.
+risks: exactly 3, about THIS company's business - what could go wrong and why it matters. Never about the reader, their profile, or whether they should buy. Do not rate them; STAK does that from the figures.
 - label: 2-4 words naming the risk (e.g. "Valuation expectations", "iPhone dependence", "Price swings").
-- level: Elevated, Moderate or Lower. Base it on the figures above where they apply: a P/E well above peers is Elevated valuation risk; a beta above 1.15 is Elevated price swings, below 0.85 is Lower.
 - note: ONE sentence (max 18 words), plain English, no jargon, no advice, no disclaimers.
 
-watch: exactly 2, the checkpoints that decide how this company's story goes from here.
+watch: 2 or 3, the checkpoints that decide how this company's story goes from here.
 - title: 2-4 words (e.g. "Services growth", "iPhone demand").
 - note: ONE short question or sentence (max 14 words) a beginner can actually follow.
 
@@ -112,21 +136,29 @@ Never mention a share price, a price target, or what analysts think. Never say "
 			const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 			if (typeof raw !== "string") return null;
 			const parsed = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as {
-				risks?: { label?: string; level?: string; note?: string }[];
+				risks?: { label?: string; note?: string }[];
 				watch?: { title?: string; note?: string }[];
 			};
+			// The prompt forbids advice and anything about the reader; one generation in a
+			// while writes it anyway, and it would sit in the cache for a day.
 			const risks = (parsed.risks ?? [])
-				.filter((r) => r.label && r.note)
+				.filter((r) => r.label && r.note && !BANNED.test(String(r.note)))
 				.slice(0, 3)
-				.map((r) => ({ label: String(r.label).slice(0, 40), level: levelOf(r.level), note: String(r.note).slice(0, 140) }));
+				.map((r) => ({
+					label: String(r.label).slice(0, 40),
+					level: ratedLevel(String(r.label), input.beta, input.peRatio, input.peerPe),
+					note: String(r.note).slice(0, 140),
+				}));
 			const watch = (parsed.watch ?? [])
-				.filter((w) => w.title && w.note)
+				.filter((w) => w.title && w.note && !BANNED.test(String(w.note)))
 				.slice(0, 3)
 				.map((w) => ({ title: String(w.title).slice(0, 40), note: String(w.note).slice(0, 120) }));
 			if (risks.length === 0) return null;
 
-			const result: RiskWatch = { risks, watch };
-			await cacheSet(cacheKey, result, TTL_MS);
+			const result: RiskWatch = { risks, watch, rated: risks.some((r) => r.level != null) };
+			// A snapshot built without the peer median can't rate valuation, so it is kept
+			// for an hour rather than a day - the peers are usually known by the next visit.
+			await cacheSet(cacheKey, result, input.peerPe == null ? PARTIAL_TTL_MS : TTL_MS);
 			return result;
 		} catch (e) {
 			console.warn(`[Gemini] risk-watch(${input.symbol}) failed on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
