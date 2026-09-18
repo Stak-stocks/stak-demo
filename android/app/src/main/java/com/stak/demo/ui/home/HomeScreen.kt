@@ -539,7 +539,11 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 		)
 		Column(
 			verticalArrangement = Arrangement.spacedBy((6 * u).dp),
-			modifier = Modifier.align(Alignment.CenterStart).padding(start = (127 * u).dp),
+			// Vertical padding, not just start: the design's short one-line demo copy
+			// never needed breathing room above or below it, but the real generated
+			// paragraph is 2-3 sentences and read as squeezed flush against the card's
+			// own edges (user, 2026-09-18).
+			modifier = Modifier.align(Alignment.CenterStart).padding(start = (127 * u).dp, end = (14 * u).dp, top = (14 * u).dp, bottom = (14 * u).dp),
 		) {
 			Text(
 				text = "Why this matters to you",
@@ -550,10 +554,16 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 			Text(
 				// Backend-served summary of why today's news matters to THIS
 				// user (holdings + risk profile); authored demo copy this phase.
+				// Capped at 4 lines: the source text can run up to 280 characters, and
+				// without a limit a long day's brief stretched the card far taller than
+				// the design's frame - a beginner reading it any further can open the
+				// full brief; this is the teaser.
 				text = WhyThisMattersFeed.body(),
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
-				modifier = Modifier.width((198 * u).dp),
+				maxLines = 4,
+				overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+				modifier = Modifier.fillMaxWidth(),
 			)
 		}
 	}

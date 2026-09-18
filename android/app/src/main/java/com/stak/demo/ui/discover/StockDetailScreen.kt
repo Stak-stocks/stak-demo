@@ -537,11 +537,14 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 		) {
-			Text(
-				"Risk snapshot",
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-				color = Bright,
-			)
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+				com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_shield, Color(0xFFE8B86D), size = 28, glyph = 16)
+				Text(
+					"Risk snapshot",
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+					color = Bright,
+				)
+			}
 			Text(
 				"Reading this company's risks…",
 				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
@@ -555,12 +558,15 @@ private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, f
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
-		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_shield, Color(0xFFE8B86D), size = 28, glyph = 16)
 			Text(
 				"Risk snapshot",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
 				color = Bright,
 			)
+		}
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
 			Text(
 				// Not "what to understand before you act": three sentences aren't
 				// understanding, and the reader isn't necessarily about to do anything.
@@ -639,11 +645,14 @@ private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, fa
 			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 		) {
-			Text(
-				"What to watch next",
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-				color = Bright,
-			)
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+				com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_eye, Color(0xFFA6E4F7), size = 28, glyph = 16)
+				Text(
+					"What to watch next",
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+					color = Bright,
+				)
+			}
 			Text(
 				"Working out what matters next…",
 				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
@@ -657,12 +666,15 @@ private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, fa
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
-		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_eye, Color(0xFFA6E4F7), size = 28, glyph = 16)
 			Text(
 				"What to watch next",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
 				color = Bright,
 			)
+		}
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
 			Text(
 				"Key questions to follow",
 				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),

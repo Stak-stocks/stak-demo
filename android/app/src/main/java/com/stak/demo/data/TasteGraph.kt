@@ -86,14 +86,16 @@ object TasteGraph {
 					Act.SAVED,
 				)
 			}
+			// Captioned with the theme, like the save line above - "Last 90 days" told the
+			// reader about the scoring window instead of about their own activity.
 			if (theme.learnMores > 0) out += Evidence(
 				"You opened Learn more on ${theme.learnMores} ${if (theme.learnMores == 1) "card" else "cards"} in ${theme.label}.",
-				"Exploration · Last 90 days",
+				theme.label,
 				Act.LEARNED,
 			)
 			if (theme.opens > 0) out += Evidence(
 				"You opened companies in ${theme.label} ${theme.opens} ${if (theme.opens == 1) "time" else "times"}.",
-				"Exploration · Last 90 days",
+				theme.label,
 				Act.OPENED,
 			)
 			return out

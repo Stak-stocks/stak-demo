@@ -220,10 +220,6 @@ private fun BriefWhatHappenedCard(items: List<WhatHappenedItem>, u: Float) {
 @Composable
 private fun BriefWhyMattersCard(text: String, u: Float) {
     val tickers = remember { MyStakHoldings.tickers.take(5).toList() }
-    val chipColors = listOf(
-        Color(0xFF1ABC9C), Color(0xFF3A86FF), Color(0xFFFF6B35),
-        Color(0xFF9B5DE5), Color(0xFF00B4D8),
-    )
     BriefSectionCard(u = u) {
         BriefSectionHeader(icon = { StarIcon(u) }, label = "Why this matters to your STAK", u = u)
         Text(
@@ -237,8 +233,11 @@ private fun BriefWhyMattersCard(text: String, u: Float) {
                 verticalArrangement = Arrangement.spacedBy((8 * u).dp),
                 modifier = Modifier.padding(top = (2 * u).dp),
             ) {
-                tickers.forEachIndexed { idx, ticker ->
-                    val chipColor = chipColors[idx % chipColors.size]
+                // One colour for every chip: a different one per ticker, picked only by
+                // its position in the list, looked like it meant something - performance,
+                // category - when it was really just decoration (user, 2026-09-18).
+                tickers.forEach { ticker ->
+                    val chipColor = News.Teal
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape((20 * u).dp))
