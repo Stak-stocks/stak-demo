@@ -795,11 +795,14 @@ private fun NumbersCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
-		Text(
-			"Numbers that matter",
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-			color = Bright,
-		)
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_gist_info, Color(0xFFA6E4F7), size = 28, glyph = 16)
+			Text(
+				"Numbers that matter",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
 		Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
 			displayStats.forEach { st ->
 				StatCell(st.label, st.value, st.verdict, if (st.good) Green else Muted, Modifier.weight(1f), border = st.border)
@@ -861,11 +864,14 @@ private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
-		Text(
-			"News signal",
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-			color = Bright,
-		)
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_news, Color(0xFFA6E4F7), size = 28, glyph = 16)
+			Text(
+				"News signal",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
 		Text(
 			displayNewsClose,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
@@ -1103,6 +1109,8 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 	) {
 		// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
 		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_goal_search, Color(0xFFA6E4F7), size = 22, glyph = 13)
+			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
 				"Analyst view",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
@@ -1237,6 +1245,8 @@ private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: 
 	) {
 		// Collapsed head (1:2527) authors a 22-tall row - exact-design audit 2026-09-04.
 		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_simulate, Color(0xFFA6E4F7), size = 22, glyph = 13)
+			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
 				"Compare and learn",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),

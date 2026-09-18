@@ -554,15 +554,12 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 			Text(
 				// Backend-served summary of why today's news matters to THIS
 				// user (holdings + risk profile); authored demo copy this phase.
-				// Capped at 4 lines: the source text can run up to 280 characters, and
-				// without a limit a long day's brief stretched the card far taller than
-				// the design's frame - a beginner reading it any further can open the
-				// full brief; this is the teaser.
+				// No line cap: a card that cuts the text off gives the reader nowhere
+				// to see the rest of it, so the fix for the squeeze is the padding
+				// above, not a limit on how much of the sentence shows.
 				text = WhyThisMattersFeed.body(),
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
-				maxLines = 4,
-				overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 				modifier = Modifier.fillMaxWidth(),
 			)
 		}
