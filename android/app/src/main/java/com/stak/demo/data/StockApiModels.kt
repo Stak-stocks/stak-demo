@@ -20,6 +20,8 @@ data class StockQuote(
     /** The session's range so far. */
     val high: Double? = null,
     val low: Double? = null,
+    /** Yesterday's close - where today's move, and today's line, are measured from. */
+    val prevClose: Double? = null,
 )
 data class StockMetrics(
     val peRatio: Double? = null,

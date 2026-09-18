@@ -23,6 +23,12 @@ export type RiskWatch = {
 	rated: boolean;
 };
 
+/** What the model writes. The levels are laid over it at read time, from the figures. */
+type WrittenRiskWatch = {
+	risks: { label: string; note: string }[];
+	watch: { title: string; note: string }[];
+};
+
 export type RiskInputs = {
 	symbol: string;
 	companyName: string;
@@ -34,13 +40,17 @@ export type RiskInputs = {
 	beta?: number | null;
 };
 
-const TTL_MS = 24 * 60 * 60 * 1000;
-/** Without the peer median, the valuation risk can't be rated - so it is kept only briefly. */
-const PARTIAL_TTL_MS = 60 * 60 * 1000;
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * A failed generation is remembered too, briefly: without this a company whose answer
+ * keeps failing - a timeout, or wording the filter below rejects every time - spent a
+ * fresh call on every single page open (review, 2026-09-17).
+ */
+const FAILED_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 /** Words that mean a risk is about the share price's swings, whatever the model called it. */
 const VOLATILITY_WORDS = ["price swing", "volatil", "share price", "price movement"];
-const VALUATION_WORDS = ["valuation", "price-to-earnings", "price to earnings", "p/e", "multiple", "expectations"];
+const VALUATION_WORDS = ["valuation", "price-to-earnings", "price to earnings", "p/e ", "p/e", "price multiple", "earnings multiple"];
 
 /**
  * The level for a risk STAK can actually measure: how much this share moves against the
@@ -59,8 +69,12 @@ function ratedLevel(label: string, beta: number | null | undefined, pe: number |
 	return null;
 }
 
-/** Advice, or anything about the reader, that the prompt forbids and a model still writes. */
-const BANNED = /\b(you|your|should|buy|sell|hold|recommend|invest in|price target|we expect|will likely)\b/i;
+/**
+ * Advice, or anything about the reader, that the prompt forbids and a model still writes.
+ * Narrow on purpose: "buy", "sell" and "hold" alone threw out ordinary business prose
+ * ("could hold back growth", "buy-side demand") and left the company with no snapshot.
+ */
+const BANNED = /\byou\b|\byour\b|\bshould\b|\brecommend|price target|\bwe expect\b|will likely/i;
 
 /** The facts worth handing over, written the way a person would say them. */
 function factLines(input: RiskInputs): string {
@@ -78,14 +92,37 @@ function factLines(input: RiskInputs): string {
 	return out.join("\n") || "- No fundamentals available";
 }
 
+/** The written risks, with the levels this company's own figures support. */
+function rate(written: WrittenRiskWatch, input: RiskInputs): RiskWatch {
+	const risks = written.risks.map((r) => ({
+		label: r.label,
+		level: ratedLevel(r.label, input.beta, input.peRatio, input.peerPe),
+		note: r.note,
+	}));
+	return { risks, watch: written.watch, rated: risks.some((r) => r.level != null) };
+}
+
+/** One generation at a time per company, so two readers don't pay for the same answer. */
+const inFlight = new Map<string, Promise<RiskWatch | null>>();
+
 export async function getRiskWatch(input: RiskInputs): Promise<RiskWatch | null> {
-	// v2: levels are computed from the figures now, and a level can be absent.
-	const cacheKey = `risk-watch:v2:${input.symbol}`;
-	const cached = await cacheGet<RiskWatch>(cacheKey);
-	if (cached) return cached;
+	// v3: only the written words are cached; the levels are laid over them on the way
+	// out, so a peer median that arrives later is used without regenerating anything.
+	const cacheKey = `risk-watch:v3:${input.symbol}`;
+	const cached = await cacheGet<WrittenRiskWatch | { failed: true }>(cacheKey);
+	if (cached) return "failed" in cached ? null : rate(cached, input);
 
 	const keys = getGeminiKeys();
 	if (keys.length === 0) return null;
+
+	const running = inFlight.get(cacheKey);
+	if (running) return running;
+	const job = generate(input, cacheKey, keys).finally(() => inFlight.delete(cacheKey));
+	inFlight.set(cacheKey, job);
+	return job;
+}
+
+async function generate(input: RiskInputs, cacheKey: string, keys: string[]): Promise<RiskWatch | null> {
 
 	const articles = await getCompanyNews(input.symbol, 24, input.companyName).catch(() => []);
 	const headlines = articles.slice(0, 5).map((a) => `- ${a.headline}`).join("\n") || "- (no recent headlines)";
@@ -130,6 +167,7 @@ Never mention a share price, a price target, or what analysts think. Never say "
 			}
 			if (!res.ok) {
 				console.warn(`[Gemini] risk-watch(${input.symbol}) got ${res.status} on key ...${key.slice(-4)} — giving up`);
+				await cacheSet(cacheKey, { failed: true }, FAILED_TTL_MS);
 				return null;
 			}
 			const data = await res.json();
@@ -144,26 +182,24 @@ Never mention a share price, a price target, or what analysts think. Never say "
 			const risks = (parsed.risks ?? [])
 				.filter((r) => r.label && r.note && !BANNED.test(String(r.note)))
 				.slice(0, 3)
-				.map((r) => ({
-					label: String(r.label).slice(0, 40),
-					level: ratedLevel(String(r.label), input.beta, input.peRatio, input.peerPe),
-					note: String(r.note).slice(0, 140),
-				}));
+				.map((r) => ({ label: String(r.label).slice(0, 40), note: String(r.note).slice(0, 140) }));
 			const watch = (parsed.watch ?? [])
 				.filter((w) => w.title && w.note && !BANNED.test(String(w.note)))
 				.slice(0, 3)
 				.map((w) => ({ title: String(w.title).slice(0, 40), note: String(w.note).slice(0, 120) }));
-			if (risks.length === 0) return null;
+			if (risks.length === 0) {
+				await cacheSet(cacheKey, { failed: true }, FAILED_TTL_MS);
+				return null;
+			}
 
-			const result: RiskWatch = { risks, watch, rated: risks.some((r) => r.level != null) };
-			// A snapshot built without the peer median can't rate valuation, so it is kept
-			// for an hour rather than a day - the peers are usually known by the next visit.
-			await cacheSet(cacheKey, result, input.peerPe == null ? PARTIAL_TTL_MS : TTL_MS);
-			return result;
+			const written: WrittenRiskWatch = { risks, watch };
+			await cacheSet(cacheKey, written, TTL_MS);
+			return rate(written, input);
 		} catch (e) {
 			console.warn(`[Gemini] risk-watch(${input.symbol}) failed on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
 	}
 	console.warn(`[Gemini] risk-watch(${input.symbol}): all ${keys.length} keys exhausted - no snapshot`);
+	await cacheSet(cacheKey, { failed: true }, FAILED_TTL_MS);
 	return null;
 }

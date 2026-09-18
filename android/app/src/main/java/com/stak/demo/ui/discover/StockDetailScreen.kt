@@ -132,8 +132,17 @@ fun StockDetailScreen(
 		myStakUi.updates.filter { it.ticker.equals(symbol, ignoreCase = true) }
 	}
 	// Read state as it was on arrival: marking them read here would otherwise flip the
-	// dots from unread to read in front of the reader.
-	val unreadOnEntry = remember(symbol) { changesForStock.filter { !it.read }.map { it.id }.toSet() }
+	// dots from unread to read in front of the reader. Taken when the changes actually
+	// arrive - keyed on the symbol alone it captured the empty list a cold start has, and
+	// every dot then drew as read.
+	var unreadOnEntry by remember(symbol) { mutableStateOf<Set<Long>?>(null) }
+	LaunchedEffect(symbol, changesForStock) {
+		if (unreadOnEntry == null && changesForStock.isNotEmpty()) {
+			unreadOnEntry = changesForStock.filter { !it.read }.map { it.id }.toSet()
+			// Read once they are actually on screen, not before they have loaded.
+			if (fromMyStak) myStak.markCompanyRead(symbol)
+		}
+	}
 	val riskWatch by viewModel.riskWatch.collectAsStateWithLifecycle()
 	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
@@ -146,9 +155,6 @@ fun StockDetailScreen(
 	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) {
 		viewModel.fetch(symbol)
-		// Arriving here is reading them: the inbox sent the user to this page for exactly
-		// these changes, and the count must not keep claiming they are new.
-		if (fromMyStak) myStak.markCompanyRead(symbol)
 		// Repeated opens of a stock are interest the Taste Graph can show, without assuming ownership.
 		com.stak.demo.data.StakEvents.log(
 			com.stak.demo.data.StakEvents.STOCK_DETAIL_OPEN,
@@ -394,14 +400,14 @@ fun StockDetailScreen(
 						SinceYouSavedCard(
 							f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled,
 							changes = changesForStock,
-							unreadOnEntry = unreadOnEntry,
+							unreadOnEntry = unreadOnEntry.orEmpty(),
 						)
 					}
 					if (demo) {
 						RiskFitCard(f, liveDetail)
 					} else {
 						RiskSnapshotCard(riskWatch, riskWatchFailed)
-						WhatToWatchCard(riskWatch)
+						WhatToWatchCard(riskWatch, riskWatchFailed)
 					}
 					NewsSignalCard(f, liveDetail)
 					NumbersCard(f, liveDetail)
@@ -629,10 +635,30 @@ private fun RiskLevelChip(level: String) {
  * goes from here. Never a prediction, and never ten catalysts: narrowing is the point.
  */
 @Composable
-private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?) {
+private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val watch = riskWatch?.watch.orEmpty()
-	if (watch.isEmpty()) return
+	// Nothing came back for this company: no card, rather than an empty one.
+	if (watch.isEmpty() && (failed || riskWatch != null)) return
+	if (watch.isEmpty()) {
+		Column(
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+		) {
+			Text(
+				"What to watch next",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+			Text(
+				"Working out what matters next…",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+				color = Muted,
+			)
+		}
+		return
+	}
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -1435,6 +1461,23 @@ private fun SinceYouSavedCard(
 							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = Muted,
 						)
+						// What it affects, and the headlines behind it. The inbox shows both,
+						// and this page is where its "Understand this change" lands - it can't
+						// arrive here with less than the card that sent it.
+						change.watch?.takeIf { it.isNotBlank() }?.let {
+							Text(
+								it,
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+								color = Muted,
+							)
+						}
+						com.stak.demo.ui.mystak.updateSourceLine(change)?.let {
+							Text(
+								it,
+								style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+								color = Muted,
+							)
+						}
 					}
 				}
 			}

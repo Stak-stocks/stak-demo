@@ -209,7 +209,7 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 			}
 			// Where it came from: STAK summarised these headlines, and says so rather than
 			// asking to be taken on trust.
-			sourceLine(change)?.let { line ->
+			updateSourceLine(change)?.let { line ->
 				Text(
 					text = line,
 					style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
@@ -266,7 +266,7 @@ private fun CompanyLogo(update: StockUpdateDto) {
 }
 
 /** "From Reuters" / "From Reuters and 2 more" - the headlines this was written from. */
-private fun sourceLine(update: StockUpdateDto): String? {
+internal fun updateSourceLine(update: StockUpdateDto): String? {
 	val names = update.sources.map { it.source }.filter { it.isNotBlank() }.distinct()
 	if (names.isEmpty()) return null
 	val extra = update.sources.size - 1

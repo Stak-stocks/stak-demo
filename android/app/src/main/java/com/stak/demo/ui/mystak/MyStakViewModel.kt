@@ -327,7 +327,10 @@ class MyStakViewModel @Inject constructor(
     /** Opened, so it stops counting as new - here and on the server. */
     /** The company's updates, all of them, as one card in the inbox. */
     fun markCompanyRead(ticker: String) {
-        _ui.value.updates.filter { it.ticker == ticker && !it.read }.forEach { markUpdateRead(it.id) }
+        // Matched the way the screens match: a lower-case symbol found its changes but
+        // never marked them read, so the page said read and the inbox said new.
+        _ui.value.updates.filter { it.ticker.equals(ticker, ignoreCase = true) && !it.read }
+            .forEach { markUpdateRead(it.id) }
     }
 
     fun markUpdateRead(id: Long) {

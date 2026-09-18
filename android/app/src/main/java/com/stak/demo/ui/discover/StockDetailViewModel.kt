@@ -40,6 +40,7 @@ data class SavedReference(val price: Double, val atMoment: Boolean)
 data class CompareValues(val label: String, val a: String, val b: String, val c: String, val green: Boolean = false)
 
 /** The Risk fit pill's track, in design units: the card's width less its padding. */
+private const val TODAY_CHART_FRESH_MS = 5 * 60 * 1000L
 private const val RISK_TRACK = 289f
 
 data class LiveDetail(
@@ -208,6 +209,9 @@ class StockDetailViewModel @Inject constructor(
     /** Today's closes as fetched, so the line can be redrawn when the quote lands. */
     private var todayCloses: List<Double>? = null
 
+    /** When today's line was last refetched; the server rebuilds it every five minutes. */
+    private var todayChartAtMs = 0L
+
     /**
      * Redraws today's line against yesterday's close. The chart and the quote are
      * fetched side by side, so the line is often drawn before the close is known - and
@@ -223,6 +227,7 @@ class StockDetailViewModel @Inject constructor(
     }
 
     private var fetchJob: Job? = null
+    private var riskJob: Job? = null
 
     /** When the price on screen was fetched, or null while none is shown. */
     private val _priceAt = MutableStateFlow<Long?>(null)
@@ -246,11 +251,15 @@ class StockDetailViewModel @Inject constructor(
         // One fetch at a time: a second call (the effect re-running) left two sets of
         // requests racing, and whichever finished last overwrote the other's page.
         fetchJob?.cancel()
+        riskJob?.cancel()
         // Its own request: the snapshot is generated once a day per stock and must not
         // hold the price and chart behind it.
         _riskWatch.value = null
         _riskWatchFailed.value = false
-        viewModelScope.launch {
+        // A new stock starts from no line and no close of its own.
+        prevClose = null
+        todayCloses = null
+        riskJob = viewModelScope.launch {
             val rw = runCatching { repository.getRiskWatch(symbol) }.getOrNull()
             if (rw == null) _riskWatchFailed.value = true else _riskWatch.value = rw
         }
@@ -370,7 +379,7 @@ class StockDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
             val price = quote.price?.takeIf { it > 0 } ?: return@launch
-            quote.change?.let { prevClose = (price - it).takeIf { p -> p > 0 } }
+            quote.prevClose?.takeIf { it > 0 }?.let { prevClose = it }
             val pct = quote.changePercent ?: return@launch
             val updated = _liveDetail.value?.copy(
                 price = formatPrice(price),
@@ -397,9 +406,13 @@ class StockDetailViewModel @Inject constructor(
                     }
                 }
             }
-            // Today's line is still being drawn; the header price moving while it stood
-            // still made the two disagree.
-            if (range.equals("1D", ignoreCase = true)) refreshTodayLine(symbol)
+            // The line follows the new price without another request; the chart itself is
+            // only refetched every few minutes, which is as often as the server rebuilds it.
+            redrawTodayLine()
+            if (range.equals("1D", ignoreCase = true) && System.currentTimeMillis() - todayChartAtMs > TODAY_CHART_FRESH_MS) {
+                todayChartAtMs = System.currentTimeMillis()
+                refreshTodayLine(symbol)
+            }
         }
     }
 
@@ -429,9 +442,10 @@ class StockDetailViewModel @Inject constructor(
         val quote = stockData?.quote ?: return null
         val price = quote.price ?: return null
         val pct = quote.changePercent ?: 0.0
-        // Yesterday's close, from the day's move: where today's line starts and what its
-        // percentage is measured against, so the chart and the price above it agree.
-        quote.change?.let { change -> prevClose = (price - change).takeIf { it > 0 } }
+        // Yesterday's close as the server reports it. Deriving it as price - change was
+        // wrong whenever the price came from an extended-hours session and the change
+        // described the regular one, which drew today's line from an invented figure.
+        quote.prevClose?.takeIf { it > 0 }?.let { prevClose = it }
         redrawTodayLine()
 
         val priceStr = formatPrice(price)
@@ -592,7 +606,7 @@ class StockDetailViewModel @Inject constructor(
     /** "11.8%" -> 11.8, so a served percentage can be compared with a peer median. */
     private fun percentValue(s: String?): Double? = s?.trim()?.removeSuffix("%")?.toDoubleOrNull()
 
-    /** A stat against its peer median; within a tenth either way reads as in line. */
+    /** "26.8" - a peer figure at the precision these cards show. */
     private fun format1(value: Double): String = String.format(java.util.Locale.US, "%.1f", value)
 
     /**
@@ -609,31 +623,15 @@ class StockDetailViewModel @Inject constructor(
         higherIsBetter: Boolean?,
         label: (Double) -> String,
     ): Pair<String, Boolean> {
-        if (median == null || median == 0.0) return "" to false
+        if (median == null) return "" to false
         val text = label(median)
         if (value == null || higherIsBetter == null) return text to false
-        // A tenth of the peer figure either way is "about the same".
-        val margin = kotlin.math.abs(median) * 0.1
-        val better = if (higherIsBetter) value - median > margin else median - value > margin
-        val worse = if (higherIsBetter) median - value > margin else value - median > margin
-        return text to (better && !worse)
+        // A tenth of the peer figure, but never less than a percentage point: a peer
+        // median of 0.2% made a 0.1-point difference read as clearly better.
+        val margin = maxOf(kotlin.math.abs(median) * 0.1, 1.0)
+        return text to (if (higherIsBetter) value - median > margin else median - value > margin)
     }
 
-    private fun verdictFor(
-        value: Double?,
-        median: Double?,
-        higherIsBetter: Boolean,
-        above: String,
-        below: String,
-    ): Pair<String, Boolean> {
-        if (value == null || median == null || median == 0.0) return "" to false
-        val ratio = value / median
-        return when {
-            ratio in 0.9..1.1 -> "In line" to false
-            ratio > 1.1 -> above to higherIsBetter
-            else -> below to !higherIsBetter
-        }
-    }
 
     /** The four authored comparison rows, this stock against each peer. */
     private fun compareRowsFor(own: StockMetrics?, peers: List<StockDetailResponse?>): List<CompareValues> {
