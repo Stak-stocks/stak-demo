@@ -5,20 +5,32 @@ it covers a large merge and a follow-up round of backend wiring, in order.
 
 ## 1. Where things stand right now (read this first)
 
-- Two commits are **in** on `feat/android-backend`, unpushed:
+- **The working tree is clean.** Three commits are **in** on
+  `feat/android-backend`, unpushed:
   - `50ccca2` — the PR #166 ("android app redesign" branch) merge, fully
     conflict-resolved file by file.
   - `f2ab396` — restored a stashed AGP/Gradle/Kotlin toolchain bump (AGP
     8.13.2→9.4.0, Gradle 8.14.5→9.6.0, Kotlin 2.1.20→2.2.10) that predated the
     merge and was set aside during it.
-- **Everything in section 3 below (the "live data" round) is UNCOMMITTED** —
-  sitting in the working tree only. Run `git status --short` to see the exact
-  file list before doing anything destructive. The user has not yet said
-  whether to commit it.
+  - `83a1e8f` — the "live data" round in section 3 below (Trending Today,
+    Saved Peek, Change password, Delete account, the biometric re-lock fix).
+    This is now committed, not uncommitted — the file list under section 3
+    reflects what landed in this commit.
 - Nothing on this branch has been pushed to any remote.
+- **Simulate is the next task** — the user is opening a new session
+  specifically to start it. Nothing on Simulate has been touched yet beyond
+  what PR166's merge already brought in (trade log, limit orders — see
+  section 2). Go through it the same way Home/News/Notifications/Profile/
+  Discover were done: find what's still fake/static and decide with the user
+  whether/how to make it real.
 - Local backend (`backend/`) may have a leftover `npm run start` process from
   testing — check `netstat -ano | grep 3001` / kill it if you find one before
   starting your own.
+- **Biometric login is currently switched ON** on the user's real test
+  account (turned on deliberately during testing in section 3e). The app will
+  keep asking for a fingerprint on launch/resume until the user turns it off
+  themselves in Profile → App settings — don't be surprised by it, and don't
+  turn it off without being asked.
 
 ## 2. The PR #166 merge (commit `50ccca2`)
 
@@ -124,7 +136,7 @@ package to `com.stak.demo.data.*`.**
   Collections/Updates/Investing-Taste layout), Discover all confirmed
   rendering against live data with no regressions.
 
-## 3. Live-data follow-up round (uncommitted)
+## 3. Live-data follow-up round (commit `83a1e8f`)
 
 After the merge, the user asked to replace remaining fake/stubbed data that
 PR166 had introduced with real backend behavior. Four items, all now real:
@@ -253,7 +265,37 @@ PR166 had introduced with real backend behavior. Four items, all now real:
   returned to the app, and successfully unlocked with a real fingerprint both
   from cold start and from the background→foreground path that was broken.
 
-## 4. What's explicitly still outstanding
+## 4. Investigated, not a bug: "every chart looks the same"
+
+User noticed Stock Detail's 1D price chart looked visually identical across
+different stocks (e.g. INTC and AMD both showed the same "steep jump then
+flat" silhouette). Traced end to end (not just theorized):
+- `GET /api/stock/{symbol}/chart?range=1d` returns real, symbol-specific data
+  — confirmed by curling it directly for several tickers.
+- The client's `chartFractions()` normalization and `StockDetailViewModel`'s
+  per-symbol fetch/cache keying (`"$symbol:$range"`) are both correct — no
+  state leaking between stocks.
+- The actual cause: it was pre-market hours when this was tested. Each
+  stock's real 1D data was only 3–8 sparse pre-market ticks, all clustered
+  within a few cents of each other (e.g. DIS: `[105.52, 105.52, 105.50]`,
+  all tagged `"session": "pre"`). The chart is built as
+  `[prevClose] + todayCloses`, so with real prevClose far from a tight
+  cluster of pre-market ticks, *any* stock reduces to the same "one diagonal
+  segment, then flat" shape — not because data is fake or shared, but because
+  there simply isn't much real intraday data yet before the regular session
+  opens. Confirmed by checking `marketState: "PRE"` on the live quote.
+- **Not fixed, left as an open question for the user**: should a chart built
+  from only a couple of real, tightly-clustered points show something more
+  honest (e.g. "not much movement yet today") instead of a dramatic-looking
+  two-segment line that reads as generic/fake even though it's technically
+  accurate? This would extend the same principle the app already applies
+  elsewhere (`RangeChart`'s demo-vs-real branching in `SimulateScreen.kt` /
+  `PickDetailScreen.kt` — "a shape invented to fill the box would read as its
+  real history"). Re-test after the regular session has been open a while
+  before deciding this is worth doing — the sparse-data condition may not
+  reproduce during market hours.
+
+## 5. What's explicitly still outstanding
 
 Asked and confirmed with the user as of this session — nothing below has been
 started:
@@ -285,7 +327,7 @@ started:
    one device's enrolled sensor, so there's nothing meaningful to sync). Don't
    "fix" this later without re-checking this reasoning.
 
-## 5. Environment notes for the next session
+## 6. Environment notes for the next session
 
 - **adb / wireless debugging**: the direct `adb pair`/`adb connect` path kept
   dying (device shows `offline`, pairing port rotates on reconnect/network
@@ -295,6 +337,14 @@ started:
   `adb devices` from any terminal (same shared adb daemon). If adb shows the
   device offline again, that's the fastest fix — ask the user to re-pair via
   Android Studio rather than fighting `adb pair` directly.
+- The wireless connection is **flaky even after pairing successfully** —
+  it dropped mid-session multiple times (`error: closed`, then `adb devices`
+  showing nothing at all), with no clear trigger (screen lock / Wi-Fi power
+  save, most likely). Expect this and don't over-diagnose it: just ask the
+  user to check the device, and re-run `adb devices` — it often reconnects on
+  its own within a few seconds, sometimes registering as a second/duplicate
+  device id for the same phone (both work, either one is fine to target with
+  `-s`).
 - `adb.exe` lives at
   `C:\Users\badew\AppData\Local\Android\Sdk\platform-tools\adb.exe` (not on
   PATH in the bash tool).
