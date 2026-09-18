@@ -105,6 +105,8 @@ fun StockDetailScreen(
 	onPracticeBuy: (() -> Unit)? = null,
 	// B7/B13: the success sheets' "View in My STAK" pop (92:969/71:949).
 	onViewInMyStak: (() -> Unit)? = null,
+	/** The stock page's "Practice with ..." - Simulate, with this company ready to buy. */
+	onPracticeInSimulate: (() -> Unit)? = null,
 	// B8 (92:969 Motion): "Keep exploring" dissolves back to the deck.
 	onKeepExploring: (() -> Unit)? = null,
 	// B9 (1:2579): the Discover-entry OPEN state composes the shell tab
@@ -122,6 +124,13 @@ fun StockDetailScreen(
 	}
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
 	val demo = com.stak.demo.data.Session.demoAccount
+	// The updates My STAK already holds, narrowed to this company - the same detection,
+	// no second request.
+	val myStak = com.stak.demo.ui.mystak.sharedMyStakViewModel()
+	val myStakUi by myStak.ui.collectAsStateWithLifecycle()
+	val changesForStock = remember(myStakUi.updates, symbol) {
+		myStakUi.updates.filter { it.ticker.equals(symbol, ignoreCase = true) }
+	}
 	val riskWatch by viewModel.riskWatch.collectAsStateWithLifecycle()
 	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
@@ -134,6 +143,9 @@ fun StockDetailScreen(
 	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) {
 		viewModel.fetch(symbol)
+		// Arriving here is reading them: the inbox sent the user to this page for exactly
+		// these changes, and the count must not keep claiming they are new.
+		if (fromMyStak) myStak.markCompanyRead(symbol)
 		// Repeated opens of a stock are interest the Taste Graph can show, without assuming ownership.
 		com.stak.demo.data.StakEvents.log(
 			com.stak.demo.data.StakEvents.STOCK_DETAIL_OPEN,
@@ -193,6 +205,67 @@ fun StockDetailScreen(
 				Spacer(modifier = Modifier.size((40 * u).dp))
 			}
 			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+				// The company, the way the design concept introduces it: its mark, its name,
+				// the ticker and what it does - and whether it is in the reader's STAK.
+				if (!demo) {
+					Row(
+						verticalAlignment = Alignment.CenterVertically,
+						horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+						modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (6 * u).dp),
+					) {
+						val logo = com.stak.demo.data.BrandNames.logoByTicker[symbol.uppercase()]
+						Box(
+							contentAlignment = Alignment.Center,
+							modifier = Modifier.size((44 * u).dp).clip(RoundedCornerShape((12 * u).dp)).background(Color(0xFF242B3D)),
+						) {
+							if (logo != null) {
+								coil.compose.AsyncImage(
+									model = logo,
+									contentDescription = null,
+									contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+									modifier = Modifier.size((30 * u).dp),
+								)
+							} else {
+								Text(
+									(liveDetail?.name ?: symbol).take(1).uppercase(),
+									style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp),
+									color = Muted,
+								)
+							}
+						}
+						Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
+							Text(
+								liveDetail?.name ?: symbol,
+								style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (20 * u).sp),
+								color = Color.White,
+								maxLines = 1,
+								overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+							)
+							Text(
+								// The category the deck ranked this save on, when STAK knows it.
+								com.stak.demo.data.MyStakHoldings.categoryOf(symbol)
+									?.let { com.stak.demo.data.categoryName(it) }
+									?.let { "$symbol · $it" } ?: symbol,
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+								color = Muted,
+							)
+						}
+						if (saved || fromMyStak) {
+							Row(
+								verticalAlignment = Alignment.CenterVertically,
+								horizontalArrangement = Arrangement.spacedBy((5 * u).dp),
+								modifier = Modifier.clip(RoundedCornerShape((999 * u).dp)).background(Color(0x1F5DA8BF)).padding(horizontal = (10 * u).dp, vertical = (5 * u).dp),
+							) {
+								Image(painterResource(R.drawable.ic_saved_bookmark), null, modifier = Modifier.size((10 * u).dp))
+								Text(
+									"Saved",
+									style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+									color = Color(0xFFA6E4F7),
+								)
+							}
+						}
+					}
+				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((4 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp, bottom = (6 * u).dp),
@@ -214,7 +287,13 @@ fun StockDetailScreen(
 					Text(
 						// With a time to show, the ticker alone leads it (user, 2026-09-16): the
 						// company name is already implied, and the line stays short.
-						asOf?.let { "$symbol · $it" } ?: (liveDetail?.name?.let { "$symbol · $it" } ?: f.title),
+						// The header above already names the company and its ticker, so this
+						// line only says when the price is from.
+						when {
+							demo -> asOf?.let { "$symbol · $it" } ?: (liveDetail?.name?.let { "$symbol · $it" } ?: f.title)
+							asOf != null -> asOf
+							else -> ""
+						},
 						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 						color = Muted,
 						// One line: a long name plus the time wrapped, and the price below
@@ -308,7 +387,10 @@ fun StockDetailScreen(
 					// then Since you saved, the company's own risks, the checkpoints ahead,
 					// and only then the evidence - numbers, analysts, peers.
 					if (fromMyStak) {
-						SinceYouSavedCard(f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled)
+						SinceYouSavedCard(
+							f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled,
+							changes = changesForStock,
+						)
 					}
 					if (demo) {
 						RiskFitCard(f, liveDetail)
@@ -326,7 +408,16 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (4 * u).dp, bottom = (16 * u).dp),
 				) {
 					if (fromMyStak) {
-						DetailCta("Practice buy") { showBuy = true }
+						// Simulation belongs in Simulate, with this company prefilled (My STAK
+						// product spec, Sept 2026); the demo keeps its in-page ticket.
+						if (!demo && onPracticeInSimulate != null) {
+							DetailCta("Practice with ${liveDetail?.name ?: symbol}") {
+								com.stak.demo.ui.simulate.PendingSimBuy.request(symbol, liveDetail?.name ?: symbol)
+								onPracticeInSimulate()
+							}
+						} else {
+							DetailCta("Practice buy") { showBuy = true }
+						}
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
 						DetailSecondary("Unsave") { com.stak.demo.data.MyStakHoldings.remove(symbol); onBack() }
@@ -1237,7 +1328,16 @@ private fun rangeChangeText(pct: Double, range: String): String {
 
 /** "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry. */
 @Composable
-private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean, detailSettled: Boolean) {
+private fun SinceYouSavedCard(
+	f: DetailFacts,
+	symbol: String,
+	liveDetail: LiveDetail?,
+	savedReference: SavedReference?,
+	referenceSettled: Boolean,
+	detailSettled: Boolean,
+	/** What changed at this company since the save - the same updates My STAK lists. */
+	changes: List<com.stak.demo.data.StockUpdateDto> = emptyList(),
+) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val since = sinceSavedFor(f, symbol, liveDetail, savedReference, referenceSettled, detailSettled)
 	Column(
@@ -1269,6 +1369,32 @@ private fun SinceYouSavedCard(f: DetailFacts, symbol: String, liveDetail: LiveDe
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Muted,
 		)
+		if (changes.isNotEmpty()) {
+			Box(modifier = Modifier.fillMaxWidth().height((1 * u).dp).background(Color(0xFF232B3D)))
+			Text(
+				"WHAT CHANGED",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8 * u).sp),
+				color = Muted,
+			)
+			// Two at most: this is the story since the save, not an archive of it.
+			changes.take(2).forEach { change ->
+				Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+					Box(modifier = Modifier.padding(top = (5 * u).dp).size((6 * u).dp).clip(RoundedCornerShape((3 * u).dp)).background(if (change.read) Muted else Color(0xFF2C9DBC)))
+					Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+						Text(
+							change.title,
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Color.White,
+						)
+						Text(
+							change.body,
+							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Muted,
+						)
+					}
+				}
+			}
+		}
 	}
 }
 

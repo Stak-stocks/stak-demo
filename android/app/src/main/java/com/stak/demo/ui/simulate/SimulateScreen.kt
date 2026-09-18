@@ -134,6 +134,27 @@ internal fun SimulateScreen(
 	// The in-page ticket: null = closed, else the tapped row's spec.
 	var buySpec by rememberSaveable(stateSaver = SimBuySpecSaver) { mutableStateOf<BuySpec?>(null) }
 	val practiceBuy: (BuySpec) -> Unit = onPracticeBuy ?: { buySpec = it }
+	// A company handed over by a stock page's "Practice with ..." - opened on today's
+	// price, or not at all: a paper order must never fill at a price STAK doesn't have.
+	androidx.compose.runtime.LaunchedEffect(Unit) {
+		PendingSimBuy.take()?.let { (symbol, company) ->
+			com.stak.demo.data.LiveQuotes.quote(symbol)?.let { (price, changePct) ->
+				practiceBuy(
+					BuySpec(
+						title = "Buy $symbol?",
+						badge = company.take(1).uppercase(),
+						name = company,
+						priceLine = "$0.00 today",
+						change = "",
+						cashBefore = "$0.00",
+						cashAfter = "$0.00",
+						shares = "0",
+						symbol = symbol,
+					).withQuote(price, changePct),
+				)
+			}
+		}
+	}
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {

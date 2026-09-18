@@ -497,12 +497,16 @@ class StockDetailViewModel @Inject constructor(
         // margin). Laid over another company's numbers they mislabel them - TSLA's
         // 3.7% margin read "Excellent" in green - so each is judged against the
         // peer group's median instead.
+        // What the peer group actually is, rather than a word for it: "Peers 26.8x" lets
+        // the reader compare for themselves, where "Above peers" asked them to take the
+        // judgement on trust (design concept, user 2026-09-17). The colour still carries
+        // the direction, judged against the same median.
         val statVerdicts = peerMedians?.let { p ->
             listOf(
                 // A high multiple is dearer, not better.
-                verdictFor(metrics?.peRatio, p.pe, higherIsBetter = false, above = "Above peers", below = "Below peers"),
-                verdictFor(percentValue(metrics?.revenueGrowth), p.revenueGrowth, higherIsBetter = true, above = "Faster", below = "Slower"),
-                verdictFor(percentValue(metrics?.profitMargin), p.profitMargin, higherIsBetter = true, above = "Higher", below = "Lower"),
+                peerLine(metrics?.peRatio, p.pe, higherIsBetter = false) { "Peers ${format1(it)}x" },
+                peerLine(percentValue(metrics?.revenueGrowth), p.revenueGrowth, higherIsBetter = true) { "Sector ${format1(it)}%" },
+                peerLine(percentValue(metrics?.profitMargin), p.profitMargin, higherIsBetter = true) { "Sector ${format1(it)}%" },
             )
         }
 
@@ -588,6 +592,26 @@ class StockDetailViewModel @Inject constructor(
     private fun percentValue(s: String?): Double? = s?.trim()?.removeSuffix("%")?.toDoubleOrNull()
 
     /** A stat against its peer median; within a tenth either way reads as in line. */
+    private fun format1(value: Double): String = String.format(java.util.Locale.US, "%.1f", value)
+
+    /**
+     * The peer group's figure, coloured by how this stock compares with it: green when
+     * it is on the better side, plain when the two are close enough not to call.
+     */
+    private fun peerLine(
+        value: Double?,
+        median: Double?,
+        higherIsBetter: Boolean,
+        label: (Double) -> String,
+    ): Pair<String, Boolean> {
+        if (median == null || median == 0.0) return "" to false
+        val text = label(median)
+        if (value == null) return text to false
+        val ratio = value / median
+        if (ratio in 0.9..1.1) return text to false
+        return text to (if (ratio > 1.1) higherIsBetter else !higherIsBetter)
+    }
+
     private fun verdictFor(
         value: Double?,
         median: Double?,

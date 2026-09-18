@@ -468,6 +468,9 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Codex parity audit (2026-09-04): the tapped tile's ticker.
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
 				fromMyStak = true,
+				// The practice ticket lives in Simulate: the page hands the company over
+				// and the shell comes back on that tab.
+				onPracticeInSimulate = { popToShell(PopStyle.FORWARD_PUSH, MainTab.Simulate) },
 				// B13 (71:949/71:994 Motion): View in My STAK forward-pushes
 				// the Overview - the detail (and Collection) pop to the shell.
 				onViewInMyStak = { popToShell(PopStyle.FORWARD_PUSH, MainTab.MySTAK) },
