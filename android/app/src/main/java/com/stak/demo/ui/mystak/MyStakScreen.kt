@@ -92,8 +92,6 @@ fun MyStakScreen(
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Color.White,
 				)
-				Spacer(modifier = Modifier.weight(1f))
-				AddButton(onClick = onStartSwiping)
 			}
 			Text(
 				text = "Companies you've STAK'd, all in one place.",
@@ -151,33 +149,6 @@ fun MyStakScreen(
 			if (ui.updatesFailed) FailedCard("Updates in your STAK", "Couldn't check your saved companies right now.")
 			DiscoverHandoff(ui.cardsLeft, onStartSwiping)
 		}
-	}
-}
-
-/** The header's "+ Add" - the one way into the deck from here (the old CTA sat mid-page). */
-@Composable
-private fun AddButton(onClick: () -> Unit) {
-	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Row(
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
-		modifier = Modifier
-			.clip(RoundedCornerShape((999 * u).dp))
-			.background(Color(0xFF1A2333))
-			.border((1 * u).dp, Color(0x552C9DBC), RoundedCornerShape((999 * u).dp))
-			.clickable(
-				interactionSource = remember { MutableInteractionSource() },
-				indication = com.stak.demo.ui.theme.PressDim,
-				onClick = onClick,
-			)
-			.padding(horizontal = (14 * u).dp, vertical = (8 * u).dp),
-	) {
-		Image(painterResource(R.drawable.ic_plus_small), null, modifier = Modifier.size((12 * u).dp))
-		Text(
-			text = "Add",
-			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = Color.White,
-		)
 	}
 }
 
@@ -327,48 +298,53 @@ private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> U
 	}
 }
 
-/** The way back into Discover - present, but not the loudest thing on the page. */
+/**
+ * The way back into Discover: the solid teal card (design from the user, 2026-09-19 -
+ * same #69B3CA as Home's deck banner, dark ink on it). Its count is the real number of
+ * cards left today when it is known, never a fixed "8".
+ */
 @Composable
 private fun DiscoverHandoff(cardsLeft: Int?, onStartSwiping: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Row(
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+	val ink = StakColors.Bg
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
 			.fillMaxWidth()
 			.clip(RoundedCornerShape((16 * u).dp))
-			.background(Stak.CardBg)
+			.background(Stak.Teal)
 			.clickable(
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				onClick = onStartSwiping,
 			)
-			.padding((16 * u).dp),
+			.padding(horizontal = (20 * u).dp, vertical = (22 * u).dp),
 	) {
-		StakIconTile(R.drawable.ic_tab_discover, Stak.Teal, size = 36, glyph = 18)
-		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
-			Text(
-				text = "Based on your taste",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Stak.Muted,
-			)
-			Text(
-				text = "Find your next company",
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Color.White,
-			)
-			Text(
-				// The real number of cards left today when it is known, rather than a fixed "8".
-				text = when (cardsLeft) {
-					null -> "Explore in Discover ›"
-					0 -> "You've been through today's deck ›"
-					1 -> "1 card left in today's deck ›"
-					else -> "$cardsLeft cards left in today's deck ›"
-				},
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Stak.Teal,
-			)
-		}
+		Text(
+			text = "DISCOVER",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, letterSpacing = (0.9 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = ink,
+		)
+		Text(
+			text = "More like your STAK",
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (22 * u).sp, lineHeight = (28 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = ink,
+		)
+		Text(
+			text = when (cardsLeft) {
+				null -> "Based on your taste, fresh picks are waiting in the deck."
+				0 -> "You've been through today's deck."
+				1 -> "Based on your taste, 1 fresh pick is waiting in the deck."
+				else -> "Based on your taste, $cardsLeft fresh picks are waiting in the deck."
+			},
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (15 * u).sp, lineHeight = (24 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = ink,
+		)
+		Text(
+			text = "Start swiping ›",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (15 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = ink.copy(alpha = 0.72f),
+		)
 	}
 }
 
