@@ -413,6 +413,10 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 										val error = viewModel.deleteAccount()
 										deleting = false
 										if (error == null) {
+											// Drops the SDK's live session for the now-deleted account (audit
+											// 2026-09-19) - the same fix as Log out, so nothing signed up or
+											// signed into right after can inherit it.
+											viewModel.clearSession()
 											Session.deleteAccount()
 											onAccountDeleted()
 										} else {

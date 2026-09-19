@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -602,6 +603,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			},
 		) {
 			val authVm: AuthViewModel = hiltViewModel()
+			val logOutScope = androidx.compose.runtime.rememberCoroutineScope()
 			ProfileScreen(
 				// launchSingleTop: two fingers on the block must not stack two edit pages (review 2026-09-07).
 				onEditProfile = { navController.navigate(StakRoutes.EDIT_PROFILE) { launchSingleTop = true } },
@@ -609,16 +611,21 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Product audit (2026-09-05): the rows open their settings pages.
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
 				onLogOut = {
-					// Navigate first so the back-stack is cleared before displayName
-					// is wiped — prevents ProfileScreen from flashing the old name
-					// during the ExitTransition.None window.
-					navController.navigate(StakRoutes.SIGN_IN) {
-						popUpTo(0) { inclusive = true }
+					logOutScope.launch {
+						// Clears the SDK's live session first (audit 2026-09-19) - purely
+						// local, no network call, so it can't leave a window where a fast
+						// re-signup right after logout inherits this account's session.
+						authVm.clearSession()
+						// Navigate first so the back-stack is cleared before displayName
+						// is wiped — prevents ProfileScreen from flashing the old name
+						// during the ExitTransition.None window.
+						navController.navigate(StakRoutes.SIGN_IN) {
+							popUpTo(0) { inclusive = true }
+						}
+						com.stak.demo.data.Session.signOut()
+						// Best-effort: revoke the Supabase refresh token server-side too.
+						authVm.revokeSessionRemotely()
 					}
-					com.stak.demo.data.Session.signOut()
-					// Best-effort: revoke the Supabase refresh token server-side.
-					// The persisted session is already cleared by Session.signOut().
-					authVm.signOut()
 				},
 			)
 		}
