@@ -6,7 +6,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.stak.demo.BuildConfig
 import com.stak.demo.data.ProfileSync
@@ -274,13 +274,15 @@ class AuthViewModel @Inject constructor(
             _uiState.value = AuthUiState.Loading
             runCatching {
                 val credentialManager = CredentialManager.create(context)
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-                    .setAutoSelectEnabled(false)
-                    .build()
+                // The button flow's own API (device report, 2026-09-19): this is an explicit
+                // "Continue with Google" tap, which is what GetSignInWithGoogleOption is for.
+                // GetGoogleIdOption is the automatic bottom-sheet prompt - on this phone
+                // Google's side answered in 3.2-4.1s on every attempt while Android's
+                // credential framework cancels a remote provider at ~3.0s, so a sign-in
+                // that actually succeeded surfaced as "No credentials available".
+                val googleOption = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build()
                 val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
+                    .addCredentialOption(googleOption)
                     .build()
                 val result = credentialManager.getCredential(context = context, request = request)
                 val googleCred = GoogleIdTokenCredential.createFrom(result.credential.data)
