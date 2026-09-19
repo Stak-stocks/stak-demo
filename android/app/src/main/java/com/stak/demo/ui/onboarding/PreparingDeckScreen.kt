@@ -96,7 +96,11 @@ fun PreparingDeckScreen(onDone: () -> Unit) {
 		) {
 			Spinner()
 			Text(
-				text = "Reading your brand picks",
+				// Not "Reading your brand picks" (device report, 2026-09-19): that's a
+				// specific claim about live work, and there isn't any here - the picks
+				// are already in UserProfile, and the real deck load happens later, once
+				// Profile setup finishes the account. This is just the authored pacing hold.
+				text = "Getting everything ready",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Auth.FaintText,
 			)

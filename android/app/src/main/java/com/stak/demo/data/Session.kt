@@ -58,6 +58,16 @@ object Session {
 	 * account with the authored history (19 saved stocks, $10,240, #47);
 	 * Create account = a NEW account that starts empty and earns its numbers.
 	 * Persisted with the sign-in so a relaunch restores the same account.
+	 *
+	 * Orphaned as of the real-auth integration (audit 2026-09-19): every live call
+	 * site of signIn() now passes demo = false (real Supabase sign-in / sign-up), so
+	 * demo = true is no longer reachable from any screen - the paragraph above
+	 * describes what Sign In used to do, before it called AuthViewModel for real. The
+	 * authored persona this still seeds is real, working code, just currently dead.
+	 * Deliberately left in place and undecided (user, 2026-09-19): either wire a real
+	 * "Try the demo" entry point back to signIn(demo = true), or remove the demo path
+	 * (and every demoAccount branch downstream - Home, News, Profile, Discover, My
+	 * STAK, Simulate all have one) once that decision is made either way.
 	 */
 	var demoAccount by mutableStateOf(true)
 		private set
@@ -111,10 +121,12 @@ object Session {
 
 	/** Sign-in CTA or account creation (09 Proceed) - remembered across launches. */
 	/**
-	 * `demo` = the authored demo account (Sign in); false = a real account.
-	 * `answeredOnboarding` = the taste answers on this phone were just given for this
-	 * account (Profile setup). Any other sign-in drops them - they may be a different
-	 * account's, or a half-finished onboarding - and ProfileSync restores the account's own.
+	 * `demo` = the authored demo account; false = a real account (every live caller
+	 * passes false as of the real-auth integration - see demoAccount's own doc, audit
+	 * 2026-09-19). `answeredOnboarding` = the taste answers on this phone were just
+	 * given for this account (Profile setup). Any other sign-in drops them - they may
+	 * be a different account's, or a half-finished onboarding - and ProfileSync
+	 * restores the account's own.
 	 */
 	fun signIn(demo: Boolean, answeredOnboarding: Boolean = false) {
 		signedIn = true
