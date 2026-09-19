@@ -24,3 +24,12 @@ internal fun chartFractions(values: List<Double>): List<Float> {
 
 /** The move across an indexed series, as a percentage. */
 internal fun indexedMovePct(indexed: List<Double>): Double = (indexed.last() - 1.0) * 100.0
+
+/**
+ * True once every one of [prices] is still pre-market - nothing has traded in the
+ * regular session yet. A handful of tightly clustered pre-market ticks, drawn as a 1D
+ * line (especially against yesterday's close), reads as a dramatic move that hasn't
+ * actually happened (root-caused 2026-09-17, fixed 2026-09-18) - callers show an honest
+ * "nothing yet" state instead of this line while it's true.
+ */
+internal fun allPreMarket(prices: List<ChartPoint>): Boolean = prices.isNotEmpty() && prices.all { it.session == "pre" }

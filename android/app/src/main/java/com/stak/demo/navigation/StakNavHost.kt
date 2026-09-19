@@ -47,7 +47,6 @@ import com.stak.demo.ui.news.LiveNewsDetailScreen
 import com.stak.demo.ui.news.LiveNewsHolder
 import com.stak.demo.ui.news.NewsDetailScreen
 import com.stak.demo.ui.profile.ProfileScreen
-import com.stak.demo.ui.simulate.LeaderboardScreen
 import com.stak.demo.ui.simulate.PickDetailScreen
 import com.stak.demo.ui.simulate.SimBuySpecSaver
 import com.stak.demo.ui.simulate.SimPortfolioScreen
@@ -427,7 +426,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onOpenNotifications = { navController.navigate(StakRoutes.NOTIFICATIONS) },
 				onOpenSimPortfolio = { navController.navigate(StakRoutes.SIM_PORTFOLIO) },
 				onOpenSimPick = { symbol -> navController.navigate(StakRoutes.simPick(symbol)) },
-				onOpenLeaderboard = { navController.navigate(StakRoutes.LEADERBOARD) },
 				// B20 (85:895 Motion): the ticket's View portfolio pushes the
 				// portfolio with the house forward push over the leaving shell.
 				onViewSimPortfolio = {
@@ -595,16 +593,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			)
 		}
 		composable(
-			StakRoutes.LEADERBOARD,
-			// Authored (1:4112/1:4124 Motion): open and Back are Instant.
-			enterTransition = { EnterTransition.None },
-			exitTransition = { ExitTransition.None },
-			popEnterTransition = { EnterTransition.None },
-			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
-		) {
-			LeaderboardScreen(onBack = { navController.popBackStack() })
-		}
-		composable(
 			StakRoutes.PROFILE,
 			// Log out exits instantly so HomeScreen never flashes through during
 		// the transition; SIGN_IN fades in on the other side.
@@ -733,7 +721,7 @@ internal enum class PopStyle { HOUSE_BACK, FORWARD_PUSH, DISSOLVE, INSTANT }
 private val INSTANT_ROUTES = setOf(
 	StakRoutes.MYSTAK_STOCK, StakRoutes.COLLECTION, StakRoutes.COLLECTIONS_ALL, StakRoutes.TASTE_GRAPH,
 	StakRoutes.MYSTAK_UPDATES,
-	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK, StakRoutes.LEADERBOARD,
+	StakRoutes.SIM_PORTFOLIO, StakRoutes.SIM_PICK,
 	StakRoutes.NEWS_DETAIL, StakRoutes.NEWS_LIVE_DETAIL, StakRoutes.NEWS_DAILY_BRIEF_DETAIL,
 )
 
@@ -785,7 +773,6 @@ private fun MainShell(
 	onOpenSimPortfolio: () -> Unit,
 	// Codex parity audit (2026-09-04): the tapped pick's ticker.
 	onOpenSimPick: (String) -> Unit,
-	onOpenLeaderboard: () -> Unit,
 	onViewSimPortfolio: () -> Unit,
 	/** Home's Trending strip - a stock that may not be held (FigJam Home board, 2026-09-14). */
 	onOpenStock: (String) -> Unit,
@@ -921,7 +908,6 @@ private fun MainShell(
 							onPracticeBuy = { spec -> simulateBuySpec = spec; simulateBuyGen++; simulateBuyDissolve = false; simulateBuy = true },
 							onOpenPortfolio = onOpenSimPortfolio,
 							onOpenPick = onOpenSimPick,
-							onOpenLeaderboard = onOpenLeaderboard,
 							// B14 (1:3964 Motion): All saved staks -> My STAK tab.
 							onOpenMyStak = { switchTab(MainTab.MySTAK) },
 							onOpenDiscover = { switchTab(MainTab.Discover) },

@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 internal object Sim {
 	val CardBg = Color(0xFF181F30)
@@ -121,7 +123,6 @@ internal fun SimulateScreen(
 	// Codex parity audit (2026-09-04): pick rows and the best/worst duo
 	// open THEIR pick - the tapped ticker rides to PickDetailScreen.
 	onOpenPick: (String) -> Unit,
-	onOpenLeaderboard: () -> Unit,
 	// When the shell hosts the ticket (1:4232: the sheet covers the tab bar),
 	// it raises it here with the tapped row's spec (PLTR_BUY / COST_BUY).
 	onPracticeBuy: ((BuySpec) -> Unit)? = null,
@@ -134,6 +135,18 @@ internal fun SimulateScreen(
 	// The in-page ticket: null = closed, else the tapped row's spec.
 	var buySpec by rememberSaveable(stateSaver = SimBuySpecSaver) { mutableStateOf<BuySpec?>(null) }
 	val practiceBuy: (BuySpec) -> Unit = onPracticeBuy ?: { buySpec = it }
+	// A real account's held picks mark to today's price while the page is open (Position.liveValue /
+	// liveRow), and its saved-but-not-designed staks price their ticket the same way
+	// (catalogueTicket) - the demo's authored numbers carry no live price, so there is
+	// nothing to refresh for it.
+	val savedRows = savedStakRows()
+	val scope = androidx.compose.runtime.rememberCoroutineScope()
+	val quoteSymbols = (PaperPortfolio.positions.map { it.spec.symbol } + savedRows.map { it.spec.symbol }).distinct()
+	if (!PaperPortfolio.demo) {
+		com.stak.demo.ui.components.RefreshWhileVisible(key = quoteSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
+			scope.launch { com.stak.demo.data.LiveQuotes.refresh(quoteSymbols) }
+		}
+	}
 	// A company handed over by a stock page's "Practice with ..." - opened on today's
 	// price, or not at all: a paper order must never fill at a price STAK doesn't have.
 	androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -214,10 +227,9 @@ internal fun SimulateScreen(
 				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 				// chooses its balance, name and strategy before its first trade.
 				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
-				ScoreHero(onOpenLeaderboard = onOpenLeaderboard)
+				ScoreHero()
 				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
-				val savedRows = savedStakRows()
 				if (savedRows.isEmpty()) {
 					// Product audit (2026-09-05): a new account has saved nothing yet.
 					EmptyStateCard(
@@ -241,9 +253,11 @@ internal fun SimulateScreen(
 				val best = positions.maxByOrNull { it.gainDollars }
 				val worst = positions.minByOrNull { it.gainDollars }
 				if (positions.size >= 2 && best != null && worst != null) {
+					val bestRow = best.liveRow
+					val worstRow = worst.liveRow
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
-						PickDuo("BEST PICK", best.row.pct, if (best.row.up) Sim.Green else Sim.Red, best.row.badge, best.row.ticker, best.duoLine, Modifier.weight(1f)) { onOpenPick(best.row.ticker) }
-						PickDuo("WORST PICK", worst.row.pct, if (worst.row.up) Sim.Green else Sim.Red, worst.row.badge, worst.row.ticker, worst.duoLine, Modifier.weight(1f)) { onOpenPick(worst.row.ticker) }
+						PickDuo("BEST PICK", bestRow.pct, if (bestRow.up) Sim.Green else Sim.Red, bestRow.badge, bestRow.ticker, best.duoLine, Modifier.weight(1f)) { onOpenPick(bestRow.ticker) }
+						PickDuo("WORST PICK", worstRow.pct, if (worstRow.up) Sim.Green else Sim.Red, worstRow.badge, worstRow.ticker, worst.duoLine, Modifier.weight(1f)) { onOpenPick(worstRow.ticker) }
 					}
 				}
 				HowItWorksCard()
@@ -257,7 +271,7 @@ internal fun SimulateScreen(
 				} else {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 					PaperPortfolio.positions.take(3).forEach { pos ->
-						val p = pos.row
+						val p = pos.liveRow
 						PortfolioRow(p.badge, p.ticker, p.sub, p.amount, p.pct, p.up, onClick = { onOpenPick(p.ticker) })
 					}
 				}
@@ -296,7 +310,6 @@ internal fun SimulateScreen(
 					}
 					SimAllocationCard()
 				}
-				BoardCard(onOpenLeaderboard = onOpenLeaderboard)
 			}
 		}
 		buySpec?.let { spec ->
@@ -350,17 +363,23 @@ private fun savedStakRows(): List<SavedStak> {
 		.map { SavedStak(it, savedStakSub(it.symbol, com.stak.demo.data.StakClock.savedLabel(held.daysSinceSaved(it.symbol) ?: 0) + " · not in portfolio yet")) }
 }
 
-/** A $25 paper ticket for a saved stock without a designed one, priced off the catalogue quote. */
+/**
+ * A $25 paper ticket for a saved stock without a designed one, priced off today's live
+ * quote - the same feed every other real-account price in the app reads, not the old
+ * demo stand-in table (which the rest of the app already treats as stale; product audit
+ * 2026-09-18). Nothing to show yet reads as a dash, never an invented number.
+ */
 private fun catalogueTicket(symbol: String): BuySpec {
+	val quote = com.stak.demo.data.LiveQuotes.cached(symbol)
 	val feed = com.stak.demo.ui.news.NewsArticleFeed
-	val known = feed.hasStockFacts(symbol)
-	val sf = feed.stockFacts(symbol)
-	val price = if (known) sf.price.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0 else 0.0
-	val pct = sf.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
+	val name = com.stak.demo.data.MyStakHoldings.nameOf(symbol)
+		?: (if (feed.hasStockFacts(symbol)) feed.stockFacts(symbol).name else null)
+		?: symbol
+	val price = quote?.first ?: 0.0
 	return BuySpec(
-		"Buy $symbol?", symbol.take(1), if (known) sf.name else symbol,
-		if (known) "${sf.price} today" else "\u2014 today",
-		if (known) (if (sf.up) "\u25B2 " else "\u25BC ") + pct + "%" else "\u2014",
+		"Buy $symbol?", symbol.take(1), name,
+		if (quote != null) "${PaperPortfolio.usd(price)} today" else "\u2014 today",
+		quote?.let { (_, pct) -> (if (pct >= 0) "\u25B2 " else "\u25BC ") + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct)) + "%" } ?: "\u2014",
 		"$8,800.00", "$8,775.00",
 		if (price > 0) String.format(java.util.Locale.US, "%.4f", 25.0 / price) else "0", symbol,
 	)
@@ -403,7 +422,7 @@ internal fun EmptyStateCard(title: String, body: String, link: String? = null, o
 
 /** Portfolio value hero — $10,240.00, cash, weekly change, chart + pills. */
 @Composable
-private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
+private fun ScoreHero() {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// Codex audit (2026-09-04): the range pills select; "3M" is the authored
 	// default (1:3935) and keeps the authored chart image.
@@ -466,25 +485,6 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			color = if (PaperPortfolio.weekUp) Sim.Green else Sim.Red,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
 		)
-		Box(
-			modifier = Modifier
-				.padding(horizontal = (20 * u).dp)
-				.clip(RoundedCornerShape((13 * u).dp))
-				.background(Sim.TealTint)
-				.clickable(
-					interactionSource = remember { MutableInteractionSource() },
-					indication = com.stak.demo.ui.theme.PressDim,
-					onClick = onOpenLeaderboard,
-				)
-				.padding(horizontal = (11 * u).dp, vertical = (6 * u).dp),
-		) {
-			Text(
-				text = PaperPortfolio.weekRank?.let { "#$it this week" } ?: "Unranked this week",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Sim.Teal,
-			)
-		}
-		// Authored: ranks→chart gap is exactly the column's 11 (1:3935).
 		val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((343 * u).dp, (73.56 * u).dp)
 		val series = RANGE_SERIES[range]
 		if (series == null && PaperPortfolio.demo) {
@@ -495,21 +495,25 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 				modifier = chartModifier,
 			)
 		} else {
-			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			// The demo keeps its authored line. A real ledger has nothing to draw
-			// from: a position records a cost basis and a current value, but no
-			// entry price and no date except inside its display line, so the value
-			// between then and now is unknown. Better an empty box than a shape
-			// that would read as this portfolio's own past.
+			// The demo keeps its authored line - it has no live price behind its numbers
+			// to build a real one from. A real account's line is the ledger's own real
+			// value over this range (PortfolioHistory - product decision, 2026-09-18):
+			// its real cash and shares, priced with each traded symbol's own real history,
+			// never a shape invented to fill the box.
 			if (PaperPortfolio.demo) {
 				RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
 			} else {
-				Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
-					Text(
-						"No history yet",
-						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
-						color = Sim.Faint,
-					)
+				val points = rememberPortfolioHistory(range)
+				if (points != null && points.size >= 2) {
+					RangeChart(series = PortfolioHistory.fractions(points), tint = Sim.Teal, modifier = chartModifier)
+				} else {
+					Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+						Text(
+							"No history yet",
+							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+							color = Sim.Faint,
+						)
+					}
 				}
 			}
 		}
@@ -542,6 +546,30 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			}
 		}
 	}
+}
+
+/**
+ * A real account's ledger value across [range] (PortfolioHistory.build) - cached per
+ * range so switching pills back and forth doesn't re-fetch, and rebuilt whenever a trade
+ * lands (a fresh buy/sell changes what every past day's shares-held was). Null while
+ * there's nothing to show yet.
+ */
+@Composable
+private fun rememberPortfolioHistory(range: String): List<PortfolioHistory.Point>? {
+	val tradeCount = PaperPortfolio.trades.size
+	var cache by remember { mutableStateOf<Map<String, List<PortfolioHistory.Point>>>(emptyMap()) }
+	var cachedForTradeCount by remember { mutableStateOf(-1) }
+	if (cachedForTradeCount != tradeCount) {
+		cache = emptyMap()
+		cachedForTradeCount = tradeCount
+	}
+	LaunchedEffect(range, tradeCount) {
+		if (cache[range] == null) {
+			val built = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.paperStart, range)
+			if (built != null) cache = cache + (range to built)
+		}
+	}
+	return cache[range]
 }
 
 /** Saved stak row — badge, ticker + saved line, teal Buy pill (60x30); Buy raises the row's own ticket. */
@@ -835,72 +863,6 @@ private fun SimSector(name: String, share: String, color: Color, fill: Dp) {
 		Box(modifier = Modifier.fillMaxWidth().height((7 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Sim.Track)) {
 			Box(modifier = Modifier.width(fill).height((7 * u).dp).background(color, RoundedCornerShape((4 * u).dp)))
 		}
-	}
-}
-
-/** THIS WEEK'S BOARD mini-leaderboard. */
-@Composable
-private fun BoardCard(onOpenLeaderboard: () -> Unit) {
-	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Column(
-		verticalArrangement = Arrangement.spacedBy((10 * u).dp),
-		modifier = Modifier
-			.fillMaxWidth()
-			.clip(RoundedCornerShape((16 * u).dp))
-			.background(Sim.CardBg)
-			.padding((16 * u).dp),
-	) {
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-			Text(
-				text = "THIS WEEK’S BOARD",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.9 * u).sp),
-				color = Sim.Faint,
-			)
-			Spacer(modifier = Modifier.weight(1f))
-			Text("Trailing 7 days", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Sim.Faint)
-		}
-		BoardRow("1", "Maya A.", "+9.4%", you = false)
-		BoardRow("2", "Jide O.", "+8.8%", you = false)
-		// Codex audit (2026-09-04): You reads the shared week figures (the
-		// hero's +1.9% / #47) instead of its own contradicting +4.2%.
-		// Authored board figures (1:4111 +4.2%; user, 2026-09-04 (CHINEDU 07 · Simulate 423:1007): the authored look wins).
-		BoardRow(PaperPortfolio.weekRank?.toString() ?: "—", "You", if (PaperPortfolio.demo) "+4.2%" else PaperPortfolio.weekPctText, you = true)
-		// 1:4112 (exact-design audit 2026-09-04): the frame lays this link at the card's
-		// left edge (x16, hug width), not centred like the column links.
-		CenterLink("Full leaderboard", centered = false, onClick = onOpenLeaderboard)
-	}
-}
-
-@Composable
-private fun BoardRow(rank: String, name: String, pct: String, you: Boolean) {
-	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Row(
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
-		modifier = Modifier
-			.fillMaxWidth()
-			.clip(RoundedCornerShape((10 * u).dp))
-			.background(if (you) Sim.TealTint else Color.Transparent)
-			.padding(horizontal = (10 * u).dp, vertical = (7 * u).dp),
-	) {
-		Text(
-			rank,
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (12 * u).sp),
-			color = if (you) Sim.Teal else Sim.Faint,
-			// 1:4101 (exact-design audit 2026-09-04): the rank sits in a 22-wide box so the names line up.
-			modifier = Modifier.width((22 * u).dp),
-		)
-		Text(
-			name,
-			style = TextStyle(fontFamily = Geist, fontWeight = if (you) FontWeight.SemiBold else FontWeight.Medium, fontSize = (13 * u).sp),
-			color = Color.White,
-			modifier = Modifier.weight(1f),
-		)
-		Text(
-			pct,
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = if (you) (13 * u).sp else (12 * u).sp),
-			color = if (you) Sim.Teal else Sim.HeaderGray,
-		)
 	}
 }
 

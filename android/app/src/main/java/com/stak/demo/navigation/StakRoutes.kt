@@ -57,7 +57,6 @@ object StakRoutes {
 	/** Pick detail - `symbol` is the tapped pick's ticker; NVDA is the authored frame (1:4631). Codex parity audit (2026-09-04). */
 	const val SIM_PICK = "simulate/pick/{symbol}"
 	fun simPick(symbol: String) = "simulate/pick/$symbol"
-	const val LEADERBOARD = "simulate/leaderboard"
 
 	const val TRADE_TICKET = "trade/{symbol}"
 	fun tradeTicket(symbol: String) = "trade/$symbol"

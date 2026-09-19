@@ -35,5 +35,7 @@ class StakApp : Application() {
 		com.stak.demo.data.StakEvents.init(repository)
 		com.stak.demo.data.LiveQuotes.init(repository)
 		com.stak.demo.data.TrendingStocks.init(repository)
+		com.stak.demo.data.StockCharts.init(repository)
+		com.stak.demo.ui.simulate.PortfolioHistory.init(repository)
 	}
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.AnalystAction
 import com.stak.demo.data.AnalystResponse
+import com.stak.demo.data.ChartPoint
 import com.stak.demo.data.DailyMoveResponse
 import com.stak.demo.data.EarningsResponse
 import com.stak.demo.data.MyStakHoldings
@@ -14,6 +15,7 @@ import com.stak.demo.data.StockDetailResponse
 import com.stak.demo.data.StockMetrics
 import com.stak.demo.data.RiskWatchResponse
 import com.stak.demo.data.StockRepository
+import com.stak.demo.data.allPreMarket
 import com.stak.demo.data.chartFractions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -137,6 +139,15 @@ class StockDetailViewModel @Inject constructor(
     val chartMissing: StateFlow<Boolean> = _chartMissing
 
     /**
+     * True when today's chart has real prices, but every one of them is still pre-market -
+     * nothing has traded in the regular session yet (root-caused 2026-09-17: a handful of
+     * tightly clustered pre-market ticks, drawn from yesterday's close, reads as a dramatic
+     * jump that hasn't actually happened). Shown as its own honest state, not the line.
+     */
+    private val _chartNoMovementYet = MutableStateFlow(false)
+    val chartNoMovementYet: StateFlow<Boolean> = _chartNoMovementYet
+
+    /**
      * The price a save from before stamping is measured against, and whether it is
      * the actual moment of the save. Recovered from that session's intraday points
      * when the save is recent enough for them; otherwise the day's close, which is
@@ -178,22 +189,27 @@ class StockDetailViewModel @Inject constructor(
         _chartPct.value = cached?.pct
         _chartMissing.value = false
         viewModelScope.launch {
-            val closes = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
-                ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 }
+            val prices = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
+                ?.prices?.filter { it.close > 0.0 }?.takeIf { it.size >= 2 }
             // A slow reply for a range already left behind must not land.
             if (chartKey != key) return@launch
+            val closes = prices?.map { it.close }
             val fractions = closes?.let(::chartFractions)
             val today = range.equals("1D", ignoreCase = true)
-            if (today) todayCloses = closes
+            if (today) todayPrices = prices
+            val noMovementYet = today && prices != null && allPreMarket(prices)
             // Today starts at yesterday's close, so that is the line's first point and
             // the figure's reference; any other range measures from its own first close.
-            val points = if (today) closes?.let { listOfNotNull(prevClose) + it } else closes
+            // Not while it's all still pre-market though - that reference is what turns a
+            // handful of flat overnight ticks into a line that looks like a real move.
+            val points = if (today && !noMovementYet) closes?.let { listOfNotNull(prevClose) + it } else closes
             val fractionsOfPoints = points?.let(::chartFractions)
             val pct = points?.let { (it.last() - it.first()) / it.first() * 100.0 }
-            _chartSeries.value = fractionsOfPoints ?: fractions
-            _chartPct.value = pct
-            _chartMissing.value = fractions == null
-            if (fractions != null && pct != null) {
+            _chartNoMovementYet.value = noMovementYet
+            _chartSeries.value = if (noMovementYet) null else (fractionsOfPoints ?: fractions)
+            _chartPct.value = if (noMovementYet) null else pct
+            _chartMissing.value = !noMovementYet && fractions == null
+            if (!noMovementYet && fractions != null && pct != null) {
                 StockDetailCache.putChart(symbol, range, StockDetailCache.ChartData(fractions, pct))
             }
         }
@@ -206,8 +222,9 @@ class StockDetailViewModel @Inject constructor(
      */
     private var prevClose: Double? = null
 
-    /** Today's closes as fetched, so the line can be redrawn when the quote lands. */
-    private var todayCloses: List<Double>? = null
+    /** Today's real chart points as fetched (close + session), so the line - or the
+     * "no movement yet" read of it - can be redrawn when the quote lands. */
+    private var todayPrices: List<ChartPoint>? = null
 
     /** When today's line was last refetched; the server rebuilds it every five minutes. */
     private var todayChartAtMs = 0L
@@ -216,12 +233,21 @@ class StockDetailViewModel @Inject constructor(
      * Redraws today's line against yesterday's close. The chart and the quote are
      * fetched side by side, so the line is often drawn before the close is known - and
      * measured from the day's open it can run red on a day the price above it calls up.
+     * Skipped while every point is still pre-market (2026-09-18): that reference is what
+     * turns a handful of flat overnight ticks into a line that looks like a real move.
      */
     private fun redrawTodayLine() {
-        val closes = todayCloses ?: return
+        val prices = todayPrices ?: return
         val prev = prevClose ?: return
         if (chartKey?.endsWith(":1D") != true) return
-        val points = listOf(prev) + closes
+        if (allPreMarket(prices)) {
+            _chartNoMovementYet.value = true
+            _chartSeries.value = null
+            _chartPct.value = null
+            return
+        }
+        _chartNoMovementYet.value = false
+        val points = listOf(prev) + prices.map { it.close }
         _chartSeries.value = chartFractions(points)
         _chartPct.value = (points.last() - points.first()) / points.first() * 100.0
     }
@@ -258,7 +284,8 @@ class StockDetailViewModel @Inject constructor(
         _riskWatchFailed.value = false
         // A new stock starts from no line and no close of its own.
         prevClose = null
-        todayCloses = null
+        todayPrices = null
+        _chartNoMovementYet.value = false
         riskJob = viewModelScope.launch {
             val rw = runCatching { repository.getRiskWatch(symbol) }.getOrNull()
             if (rw == null) _riskWatchFailed.value = true else _riskWatch.value = rw
@@ -418,11 +445,20 @@ class StockDetailViewModel @Inject constructor(
 
     private suspend fun refreshTodayLine(symbol: String) {
         if (chartKey != "$symbol:1D") return
-        val closes = runCatching { repository.getChart(symbol, "1d") }.getOrNull()
-            ?.prices?.map { it.close }?.filter { it > 0.0 }?.takeIf { it.size >= 2 } ?: return
+        val prices = runCatching { repository.getChart(symbol, "1d") }.getOrNull()
+            ?.prices?.filter { it.close > 0.0 }?.takeIf { it.size >= 2 } ?: return
         if (chartKey != "$symbol:1D") return
+        todayPrices = prices
+        if (allPreMarket(prices)) {
+            _chartNoMovementYet.value = true
+            _chartSeries.value = null
+            _chartPct.value = null
+            _chartMissing.value = false
+            return
+        }
+        _chartNoMovementYet.value = false
         // Same reference as the first draw: yesterday's close is where today begins.
-        val points = listOfNotNull(prevClose) + closes
+        val points = listOfNotNull(prevClose) + prices.map { it.close }
         _chartSeries.value = chartFractions(points)
         _chartPct.value = (points.last() - points.first()) / points.first() * 100.0
         _chartMissing.value = false

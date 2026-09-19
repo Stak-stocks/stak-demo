@@ -58,6 +58,7 @@ import com.stak.demo.ui.onboarding.AuthBackCircle
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import kotlinx.coroutines.launch
 
 // Codex audit (2026-09-04): SimPick and the six authored rows moved to
 // PaperPortfolio.kt - the rows are the shared portfolio's positions now.
@@ -82,6 +83,16 @@ fun SimPortfolioScreen(
 	// fresh buy sits at the top), Worst = smallest gain first.
 	var sortChip by rememberSaveable { mutableStateOf(0) }
 	var historyChip by rememberSaveable { mutableStateOf(0) }
+	// A real account's held picks mark to today's price while this page is open
+	// (Position.liveValue / liveRow) - the demo's authored numbers carry no live
+	// price, so there is nothing to refresh for it.
+	val scope = androidx.compose.runtime.rememberCoroutineScope()
+	val heldSymbols = PaperPortfolio.positions.map { it.spec.symbol }.distinct()
+	if (!PaperPortfolio.demo) {
+		com.stak.demo.ui.components.RefreshWhileVisible(key = heldSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
+			scope.launch { com.stak.demo.data.LiveQuotes.refresh(heldSymbols) }
+		}
+	}
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -153,7 +164,7 @@ fun SimPortfolioScreen(
 						else -> PaperPortfolio.positions
 					}
 					rows.forEach { pos ->
-						val p = pos.row
+						val p = pos.liveRow
 						PortfolioRow(
 							badge = p.badge, ticker = p.ticker, sub = p.sub,
 							amount = p.amount, pct = p.pct, up = p.up,

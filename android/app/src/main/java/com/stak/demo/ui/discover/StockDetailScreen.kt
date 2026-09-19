@@ -148,6 +148,7 @@ fun StockDetailScreen(
 	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
 	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
 	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
+	val chartNoMovementYet by viewModel.chartNoMovementYet.collectAsStateWithLifecycle()
 	val chartPct by viewModel.chartPct.collectAsStateWithLifecycle()
 	val savedReference by viewModel.savedReference.collectAsStateWithLifecycle()
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
@@ -346,8 +347,17 @@ fun StockDetailScreen(
 						RangeChart(series = live, tint = if ((chartPct ?: 0.0) < 0.0) Red else Green, modifier = chartModifier)
 					} else {
 						Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
-							if (chartMissing) {
-								Text(
+							when {
+								// The regular session hasn't opened yet - a handful of tightly
+								// clustered pre-market ticks, drawn against yesterday's close,
+								// reads as a dramatic move that hasn't actually happened
+								// (root-caused 2026-09-17; fixed 2026-09-18).
+								chartNoMovementYet -> Text(
+									"Not much movement yet today",
+									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+									color = Muted,
+								)
+								chartMissing -> Text(
 									"No price history for this range",
 									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 									color = Muted,

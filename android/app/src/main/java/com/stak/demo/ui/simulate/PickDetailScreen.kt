@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
 import androidx.compose.foundation.layout.requiredSize
+import kotlinx.coroutines.launch
 
 /**
  * One paper pick's numbers - the six authored picks are $100 stakes. NVDA is frame
@@ -121,14 +123,26 @@ fun PickDetailScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// The range pills select (user, 2026-09-05); "3M" keeps the authored sim_chart_line (1:4631).
 	var range by rememberSaveable { mutableStateOf("3M") }
+	var showSell by rememberSaveable { mutableStateOf(false) }
+	// A real account's held pick marks to today's price while this page is open
+	// (pickSpec -> Position.liveSpec) - paused the moment the sell sheet opens, so
+	// "Position closed" reads the numbers the user actually confirmed against, not
+	// a price that moved under the receipt. The demo's authored spec carries no
+	// live price, so there is nothing to refresh for it.
+	var refreshTick by rememberSaveable { mutableStateOf(0) }
+	val scope = androidx.compose.runtime.rememberCoroutineScope()
+	if (!PaperPortfolio.demo) {
+		com.stak.demo.ui.components.RefreshWhileVisible(key = symbol, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
+			if (!showSell) scope.launch { com.stak.demo.data.LiveQuotes.refresh(listOf(symbol)); refreshTick++ }
+		}
+	}
 	// Pinned for the page's life: once Confirm sell removes the position,
 	// the Position-closed sheet must still show THIS pick, not the fallback.
-	val p = remember(symbol) { pickSpec(symbol) }
+	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
 	// "+$24.00" -> "+$24" in the 48 box and ".00" in its own 16/20 box (1:4654).
 	val gainWhole = p.gain.substringBefore('.')
 	// "" when a gain carries no cents, ".00" otherwise - never an index crash.
 	val gainCents = p.gain.removePrefix(p.gain.substringBefore('.'))
-	var showSell by rememberSaveable { mutableStateOf(false) }
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -218,20 +232,30 @@ fun PickDetailScreen(
 							modifier = chartModifier,
 						)
 					} else {
-						// A new account's pick draws its own move - flat until the price moves (product audit, 2026-09-05).
-						val pct = (p.gainPct.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) * (if (p.up) 1 else -1)
-						// The demo keeps its authored line; a real pick draws nothing
-						// rather than a shape scaled from its gain, which is not a
+						// The demo keeps its authored line - it has no live price behind its
+						// numbers to draw a real one from. A real pick draws its own stock's
+						// real price history (StockCharts, the same /chart endpoint Stock
+						// Detail reads) - never a shape scaled from its gain, which is not a
 						// price history and would read as one.
 						if (PaperPortfolio.demo) {
 							RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
 						} else {
-							Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
-								Text(
-									"No history yet",
-									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
-									color = Sim.Faint,
-								)
+							when (val chart = rememberPickChart(symbol, range)) {
+								is PickChartState.Line -> RangeChart(series = com.stak.demo.data.chartFractions(chart.closes), tint = Sim.Teal, modifier = chartModifier)
+								PickChartState.NoMovementYet -> Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+									Text(
+										"Not much movement yet today",
+										style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+										color = Sim.Faint,
+									)
+								}
+								null -> Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+									Text(
+										"No history yet",
+										style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+										color = Sim.Faint,
+									)
+								}
 							}
 						}
 					}
@@ -359,6 +383,35 @@ fun PickDetailScreen(
 	}
 }
 
+/** What Pick Detail's chart has for a range: a real line, or "nothing much yet" - the regular
+ * session hasn't opened, so a 1D line would read as a move that hasn't actually happened. */
+private sealed interface PickChartState {
+	data class Line(val closes: List<Double>) : PickChartState
+	object NoMovementYet : PickChartState
+}
+
+/**
+ * [symbol]'s own real chart across [range] (StockCharts, the same /chart endpoint Stock
+ * Detail reads) - cached per range so switching pills doesn't re-fetch. Null while
+ * there's nothing to show yet (loading, or fewer than two real points came back).
+ */
+@Composable
+private fun rememberPickChart(symbol: String, range: String): PickChartState? {
+	var cache by remember(symbol) { mutableStateOf<Map<String, PickChartState>>(emptyMap()) }
+	LaunchedEffect(symbol, range) {
+		if (cache[range] == null) {
+			val points = com.stak.demo.data.StockCharts.points(symbol, range.lowercase())
+			val state = when {
+				points == null || points.size < 2 -> null
+				range.equals("1D", ignoreCase = true) && com.stak.demo.data.allPreMarket(points) -> PickChartState.NoMovementYet
+				else -> PickChartState.Line(points.map { it.close })
+			}
+			if (state != null) cache = cache + (range to state)
+		}
+	}
+	return cache[range]
+}
+
 @Composable
 private fun StatBox(label: String, value: String, valueColor: Color, modifier: Modifier) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -377,6 +430,11 @@ private fun StatBox(label: String, value: String, valueColor: Color, modifier: M
 			value,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = valueColor,
+			// The cell's height is fixed - a value too wide for one line wrapped and had
+			// its second line clipped instead of showing (device report, 2026-09-18: "vs
+			// the market" read as the cut-off "Even with the").
+			maxLines = 1,
+			overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 		)
 	}
 }

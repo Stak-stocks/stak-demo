@@ -148,9 +148,7 @@ private fun CollectionChip(
 	onClick: () -> Unit = {},
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Row(
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
+	Box(
 		modifier = modifier
 			.clip(RoundedCornerShape((12 * u).dp))
 			.background(Stak.CardBg)
@@ -158,47 +156,66 @@ private fun CollectionChip(
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				onClick = onClick,
-			)
-			.padding((12 * u).dp),
+			),
 	) {
-		if (imageRes != null) {
-			// The demo persona keeps its authored glass art.
-			Image(
-				painter = painterResource(imageRes),
-				contentDescription = null,
-				contentScale = ContentScale.Crop,
-				modifier = Modifier.size((34 * u).dp),
-			)
-		} else if (iconRes != null) {
-			Image(painterResource(iconRes), null, modifier = Modifier.size((36 * u).dp))
-		} else {
-			StakIconTile(com.stak.demo.data.categoryIcon(name), Stak.Teal)
-		}
-		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
+		Row(
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.padding((12 * u).dp),
+		) {
+			if (imageRes != null) {
+				// The demo persona keeps its authored glass art.
+				Image(
+					painter = painterResource(imageRes),
+					contentDescription = null,
+					contentScale = ContentScale.Crop,
+					modifier = Modifier.size((34 * u).dp),
+				)
+			} else if (iconRes != null) {
+				Image(painterResource(iconRes), null, modifier = Modifier.size((36 * u).dp))
+			} else {
+				StakIconTile(com.stak.demo.data.categoryIcon(name), Stak.Teal)
+			}
+			Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
+				Text(
+					text = name,
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Color.White,
+					maxLines = 1,
+					softWrap = false,
+					// Authored: "Green Energy" (box 90) overflows its 84 column —
+					// the frame draws it past the column, so don't clip it.
+					overflow = TextOverflow.Visible,
+				)
+				Text(
+					text = count,
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Stak.Muted,
+					maxLines = 1,
+					// Same treatment as the name above it (device report, 2026-09-18): a
+					// narrow tile was breaking "companies" mid-word ("companie" / "s")
+					// instead of overflowing past the column.
+					softWrap = false,
+					overflow = TextOverflow.Visible,
+				)
+			}
 			Text(
-				text = name,
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Color.White,
-				maxLines = 1,
-				softWrap = false,
-				// Authored: "Green Energy" (box 90) overflows its 84 column —
-				// the frame draws it past the column, so don't clip it.
-				overflow = TextOverflow.Visible,
-			)
-			Text(
-				text = count,
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Stak.Muted,
+				text = "›",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (16 * u).sp),
+				color = Stak.Faint,
 			)
 		}
 		if (hasUpdate) {
-			Box(modifier = Modifier.size((8 * u).dp).clip(CircleShape).background(Stak.Teal))
-			Spacer(modifier = Modifier.size((4 * u).dp))
+			// A corner badge, not inline with the name (device report, 2026-09-18: it was
+			// sitting right after the text and crowded a longer name).
+			Box(
+				modifier = Modifier
+					.align(Alignment.TopEnd)
+					.padding((8 * u).dp)
+					.size((8 * u).dp)
+					.clip(CircleShape)
+					.background(Stak.Teal),
+			)
 		}
-		Text(
-			text = "›",
-			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (16 * u).sp),
-			color = Stak.Faint,
-		)
 	}
 }
