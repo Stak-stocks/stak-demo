@@ -76,6 +76,22 @@ function ratedLevel(label: string, beta: number | null | undefined, pe: number |
  */
 const BANNED = /\byou\b|\byour\b|\bshould\b|\brecommend|price target|\bwe expect\b|will likely/i;
 
+/**
+ * A severity word the model baked into a risk's label despite the prompt asking it not to
+ * (device report, 2026-09-24: "High Volatility" next to an "Elevated" chip says the same
+ * thing twice). Stripped rather than relied on the prompt alone, since one generation in a
+ * while still writes it in.
+ */
+const SEVERITY_PREFIX = /^(high|low|elevated|significant|major|substantial|strong|weak|minor|moderate)\s+/i;
+function stripSeverity(label: string): string {
+	if (!SEVERITY_PREFIX.test(label)) return label;
+	const stripped = label.replace(SEVERITY_PREFIX, "").trim();
+	// Only re-capitalise when a prefix actually came off - otherwise a label with no
+	// severity word (e.g. "iPhone dependence") had its own lowercase-then-capital first
+	// letter clobbered into "IPhone dependence" for no reason.
+	return stripped.length > 0 ? stripped.charAt(0).toUpperCase() + stripped.slice(1) : label;
+}
+
 /** The facts worth handing over, written the way a person would say them. */
 function factLines(input: RiskInputs): string {
 	const out: string[] = [];
@@ -102,18 +118,43 @@ function rate(written: WrittenRiskWatch, input: RiskInputs): RiskWatch {
 	return { risks, watch: written.watch, rated: risks.some((r) => r.level != null) };
 }
 
+/** What's cached: the written words, plus the level each risk was rated at when they were
+ * written - so a later read can tell whether the figures have since moved it. */
+type CachedRiskWatch = WrittenRiskWatch & { levels: (RiskLevel | null)[] };
+
+/**
+ * True when this company's figures have since moved a risk to a different level than the
+ * one its cached note was written against - device report, 2026-09-24: NVDA's valuation
+ * note still said "high P/E ratio suggests future growth is already priced in" a day after
+ * the ratio itself had dropped enough to rate "Lower", because the note is cached for 24h
+ * but the level is recomputed live on every read. Two different pipelines drifting apart
+ * reads worse than either alone, so a note that no longer matches its own level is treated
+ * as stale rather than served.
+ */
+function isStale(cached: CachedRiskWatch, input: RiskInputs): boolean {
+	return cached.risks.some((r, i) => {
+		const then = cached.levels[i];
+		const now = ratedLevel(r.label, input.beta, input.peRatio, input.peerPe);
+		return then != null && now != null && then !== now;
+	});
+}
+
 /** One generation at a time per company, so two readers don't pay for the same answer. */
 const inFlight = new Map<string, Promise<RiskWatch | null>>();
 
 export async function getRiskWatch(input: RiskInputs): Promise<RiskWatch | null> {
-	// v3: only the written words are cached; the levels are laid over them on the way
-	// out, so a peer median that arrives later is used without regenerating anything.
-	const cacheKey = `risk-watch:v3:${input.symbol}`;
-	const cached = await cacheGet<WrittenRiskWatch | { failed: true }>(cacheKey);
-	if (cached) return "failed" in cached ? null : rate(cached, input);
+	// v4: the written words are cached along with the level each carried when written, so a
+	// figure that's since flipped a risk's level forces a fresh note instead of serving one
+	// that now contradicts it (v3 cached only the words and re-rated them live every read,
+	// which is how a stale valuation note kept saying "high P/E" under a "Lower" chip).
+	const cacheKey = `risk-watch:v4:${input.symbol}`;
+	const cached = await cacheGet<CachedRiskWatch | { failed: true }>(cacheKey);
+	if (cached && "failed" in cached) return null;
+	if (cached && !isStale(cached, input)) return rate(cached, input);
 
 	const keys = getGeminiKeys();
-	if (keys.length === 0) return null;
+	// No key to regenerate a stale note with - an outdated read still beats none.
+	if (keys.length === 0) return cached ? rate(cached, input) : null;
 
 	const running = inFlight.get(cacheKey);
 	if (running) return running;
@@ -139,7 +180,7 @@ Reply with JSON only:
 {"risks":[{"label":"...","note":"..."}],"watch":[{"title":"...","note":"..."}]}
 
 risks: exactly 3, about THIS company's business - what could go wrong and why it matters. Never about the reader, their profile, or whether they should buy. Do not rate them; STAK does that from the figures.
-- label: 2-4 words naming the risk (e.g. "Valuation expectations", "iPhone dependence", "Price swings").
+- label: 2-4 words NAMING the risk, never rating it (e.g. "Valuation expectations", "iPhone dependence", "Price swings" - not "High valuation" or "Elevated volatility"). STAK shows its own Elevated/Moderate/Lower chip right next to the label; a severity word baked into the label just repeats that chip in different words.
 - note: ONE sentence (max 18 words), plain English, no jargon, no advice, no disclaimers.
 
 watch: 2 or 3, the checkpoints that decide how this company's story goes from here.
@@ -182,7 +223,7 @@ Never mention a share price, a price target, or what analysts think. Never say "
 			const risks = (parsed.risks ?? [])
 				.filter((r) => r.label && r.note && !BANNED.test(String(r.note)))
 				.slice(0, 3)
-				.map((r) => ({ label: String(r.label).slice(0, 40), note: String(r.note).slice(0, 140) }));
+				.map((r) => ({ label: stripSeverity(String(r.label).slice(0, 40)), note: String(r.note).slice(0, 140) }));
 			const watch = (parsed.watch ?? [])
 				.filter((w) => w.title && w.note && !BANNED.test(String(w.note)))
 				.slice(0, 3)
@@ -193,8 +234,10 @@ Never mention a share price, a price target, or what analysts think. Never say "
 			}
 
 			const written: WrittenRiskWatch = { risks, watch };
-			await cacheSet(cacheKey, written, TTL_MS);
-			return rate(written, input);
+			const rated = rate(written, input);
+			const cached: CachedRiskWatch = { ...written, levels: rated.risks.map((r) => r.level) };
+			await cacheSet(cacheKey, cached, TTL_MS);
+			return rated;
 		} catch (e) {
 			console.warn(`[Gemini] risk-watch(${input.symbol}) failed on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
 		}
