@@ -60,6 +60,18 @@ android {
                 keyPassword = signingValue("keyPassword", "STAK_KEY_PASSWORD")
             }
         }
+        // Committed on purpose (device report, 2026-09-23): AGP's implicit debug config
+        // auto-generates a new keystore per machine, and Google's OAuth client is
+        // registered against one specific SHA-1 - a fresh per-machine key silently breaks
+        // Google Sign-In for every new teammate until someone notices and works around it.
+        // Standard debug credentials (AGP's own defaults), so this is no more sensitive
+        // than the keystore AGP would have generated anyway - just shared, not per-machine.
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
     buildTypes {
         release {
