@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Today's Brief redesign (device report, 2026-09-23): Fed/central-bank watch items - a bank building, matching the app's #819ABB stroke icon set. A bell read as "notification", not "Fed" (device report). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp" android:height="21dp"
+    android:viewportWidth="21" android:viewportHeight="21">
+    <path android:pathData="M3,7.5 L10.5,3 L18,7.5 Z" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M4,7.5 L4,14.5 M8,7.5 L8,14.5 M13,7.5 L13,14.5 M17,7.5 L17,14.5" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" />
+    <path android:pathData="M2.5,14.5 L18.5,14.5" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" />
+    <path android:pathData="M2,18 L19,18" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" />
+</vector>

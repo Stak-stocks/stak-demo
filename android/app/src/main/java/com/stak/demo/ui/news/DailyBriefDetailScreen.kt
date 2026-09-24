@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -263,43 +264,80 @@ private fun BriefWhyMattersCard(text: String, u: Float) {
 private fun BriefWatchNextCard(items: List<WatchItem>, u: Float) {
     BriefSectionCard(u = u) {
         BriefSectionHeader(icon = { EyeIcon(u) }, label = "What to watch next", u = u)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            items.take(3).forEach { item ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy((5 * u).dp),
-                    modifier = Modifier.weight(1f),
+        // One Column, not loose children - BriefSectionCard's own spacedBy(12u) sits
+        // between EVERY child it's given, so a bare forEach here stacked its gap on
+        // top of the divider spacing below on every row (device report, 2026-09-23).
+        Column(modifier = Modifier.fillMaxWidth()) {
+            items.take(3).forEachIndexed { idx, item ->
+                if (idx > 0) {
+                    Spacer(Modifier.height((6 * u).dp))
+                    Box(Modifier.fillMaxWidth().height((1 * u).dp).background(News.Divider))
+                    Spacer(Modifier.height((6 * u).dp))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size((36 * u).dp)
-                            .clip(RoundedCornerShape((10 * u).dp))
-                            .background(Color(0xFF1A2235)),
-                    ) {
+                    // Plain icon, no tile - consistent with the same fix on My STAK's
+                    // Taste Graph (device report, 2026-09-23).
+                    Image(
+                        painter = painterResource(watchIcon(item)),
+                        contentDescription = null,
+                        modifier = Modifier.size((26 * u).dp),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
                         Text(
-                            text = item.icon,
-                            style = TextStyle(fontSize = (16 * u).sp),
+                            text = item.label,
+                            style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+                            color = Color.White,
+                        )
+                        Text(
+                            text = item.body,
+                            style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+                            color = News.Muted,
                         )
                     }
-                    Text(
-                        text = item.label,
-                        style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = item.body,
-                        style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-                        color = News.Muted,
-                        textAlign = TextAlign.Center,
-                    )
                 }
             }
         }
+    }
+}
+
+/** Eye icon using the existing drawable - the header mark for "What to watch next". */
+@Composable
+private fun EyeIcon(u: Float) {
+    IconBox(u) {
+        Image(
+            painter = painterResource(R.drawable.ic_risk_eye),
+            contentDescription = null,
+            modifier = Modifier.size((15 * u).dp),
+            colorFilter = ColorFilter.tint(Color(0xFF8B9AB8)),
+        )
+    }
+}
+
+/**
+ * A watch item's topic, in the app's own line-icon language rather than the emoji
+ * `item.icon` arrives with (device report, 2026-09-23: "like the rest of the app's
+ * design") - keyword-matched against its own label/body since the AI copy is
+ * open-ended, not a fixed set of categories. Falls back to the eye ("watch") icon.
+ */
+private fun watchIcon(item: WatchItem): Int {
+    val text = "${item.label} ${item.body}".lowercase()
+    return when {
+        listOf("fed", "central bank", "powell", "hawkish", "dovish", "speaker", "rate decision").any { it in text } -> R.drawable.ic_ql_bank
+        listOf("oil", "crude", "opec", "barrel").any { it in text } -> R.drawable.ic_ql_barrel
+        listOf("bond", "yield", "treasury", "rate").any { it in text } -> R.drawable.ic_ql_percent
+        listOf("vix", "volatil").any { it in text } -> R.drawable.ic_ql_pulse
+        listOf("dollar", "currency", "usd").any { it in text } -> R.drawable.ic_ql_dollar
+        listOf("tech", "chip", "semiconductor", "software").any { it in text } -> R.drawable.ic_ql_chip
+        listOf("material", "sector", "rotation", "industrial").any { it in text } -> R.drawable.ic_ql_layers
+        listOf("sentiment", "market", "index", "breakout", "momentum", "support").any { it in text } -> R.drawable.ic_ql_trending
+        listOf("defensive", "safety", "utilit", "staple", "shield").any { it in text } -> R.drawable.ic_risk_shield
+        listOf("growth", "grow", "high-beta").any { it in text } -> R.drawable.ic_goal_grow
+        listOf("earnings", "report", "reaction").any { it in text } -> R.drawable.ic_goal_learn
+        else -> R.drawable.ic_risk_eye
     }
 }
 
@@ -307,6 +345,8 @@ private fun BriefWatchNextCard(items: List<WatchItem>, u: Float) {
 
 @Composable
 private fun BriefContextCard(question: String, u: Float) {
+    // Same header + body scale as every other card on this page (device report,
+    // 2026-09-23: this one and "What to watch next" had drifted to their own sizes).
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
@@ -314,35 +354,17 @@ private fun BriefContextCard(question: String, u: Float) {
             .fillMaxWidth()
             .clip(RoundedCornerShape((16 * u).dp))
             .background(News.CardBg)
-            .padding((16 * u).dp),
+            .padding((18 * u).dp),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size((40 * u).dp)
-                .clip(RoundedCornerShape((11 * u).dp))
-                .background(News.Teal.copy(alpha = 0.13f)),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_stak_logo_mark),
-                contentDescription = null,
-                modifier = Modifier.size((22 * u).dp),
-                colorFilter = ColorFilter.tint(News.Teal),
-            )
-        }
         Column(
-            verticalArrangement = Arrangement.spacedBy((3 * u).dp),
+            verticalArrangement = Arrangement.spacedBy((8 * u).dp),
             modifier = Modifier.weight(1f),
         ) {
-            Text(
-                text = "Need context?",
-                style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-                color = Color.White,
-            )
+            BriefSectionHeader(icon = { AskAiIcon(u) }, label = "Ask STAK AI", u = u)
             Text(
                 text = question,
-                style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-                color = News.Muted,
+                style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+                color = News.Body,
             )
         }
         Image(
@@ -350,6 +372,19 @@ private fun BriefContextCard(question: String, u: Float) {
             contentDescription = null,
             modifier = Modifier.size((16 * u).dp),
             colorFilter = ColorFilter.tint(News.Muted),
+        )
+    }
+}
+
+/** STAK's mark, teal - the header icon for "Ask STAK AI". */
+@Composable
+private fun AskAiIcon(u: Float) {
+    IconBox(u) {
+        Image(
+            painter = painterResource(R.drawable.ic_stak_logo_mark),
+            contentDescription = null,
+            modifier = Modifier.size((14 * u).dp),
+            colorFilter = ColorFilter.tint(News.Teal),
         )
     }
 }
@@ -464,19 +499,6 @@ private fun StarIcon(u: Float) {
             path.close()
             drawPath(path, color = Color(0xFF8B9AB8))
         }
-    }
-}
-
-/** Eye icon using the existing drawable. */
-@Composable
-private fun EyeIcon(u: Float) {
-    IconBox(u) {
-        Image(
-            painter = painterResource(R.drawable.ic_risk_eye),
-            contentDescription = null,
-            modifier = Modifier.size((15 * u).dp),
-            colorFilter = ColorFilter.tint(Color(0xFF8B9AB8)),
-        )
     }
 }
 

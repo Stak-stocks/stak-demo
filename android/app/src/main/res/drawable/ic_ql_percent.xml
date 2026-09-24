@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Today's Brief redesign (device report, 2026-09-23): bond/yield watch items - a percent sign with a trending arrow (device reference screenshot), matching the app's #819ABB stroke icon set. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp" android:height="21dp"
+    android:viewportWidth="21" android:viewportHeight="21">
+    <path android:pathData="M7.25,8.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" />
+    <path android:pathData="M13.75,12.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" />
+    <path android:pathData="M6,15 L15,6" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M11.5,6 L15,6 L15,9.5" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>
