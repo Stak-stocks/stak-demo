@@ -148,10 +148,12 @@ fun CollectionScreen(
 				.padding(top = (16 * u).dp, bottom = (26 * u).dp),
 		) {
 			Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {
-				// Every collection's hero is its own 60 art, the AI & Tech treatment
-				// (1:3357) - user, 2026-09-05. A category with no authored piece draws
-				// its initial rather than borrowing art that says the wrong thing.
-				val heroRes = if (demo) c.heroRes else group?.heroRes
+				// The demo persona's six collections keep their authored 60 glass art
+				// (1:3357, user 2026-09-05). A real account's collection instead wears
+				// its own category icon - the same one the Overview chip shows, so the
+				// two pages never disagree about what a category looks like (device
+				// report, 2026-09-23: Big Tech's chip and its Collection page differed).
+				val heroRes = if (demo) c.heroRes else null
 				if (heroRes != null) {
 					Image(
 						painter = painterResource(heroRes),
@@ -159,6 +161,8 @@ fun CollectionScreen(
 						contentScale = ContentScale.Crop,
 						modifier = Modifier.size((60 * u).dp),
 					)
+				} else if (!demo) {
+					StakIconTile(com.stak.demo.data.categoryIcon(title), Stak.Teal, size = 60, glyph = 32)
 				} else {
 					Box(
 						contentAlignment = Alignment.Center,

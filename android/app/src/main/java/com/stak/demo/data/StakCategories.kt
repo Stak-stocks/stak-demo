@@ -124,11 +124,13 @@ internal fun categoryIcon(name: String): Int = when (name) {
 	"Cybersecurity" -> R.drawable.ic_risk_shield
 	"Big Tech", "Software", "Tech" -> R.drawable.ic_gist_sparkle
 	"Consumer Tech", "Ad Tech" -> R.drawable.ic_goal_grow
-	"Banks", "Fintech", "Payments", "Markets", "Asset Managers", "Financial Data", "Insurance",
+	"Fintech" -> R.drawable.ic_cat_fintech
+	"Banks", "Payments", "Markets", "Asset Managers", "Financial Data", "Insurance",
 	"Crypto", "Private Equity", "Index Funds", "Finance" -> R.drawable.ic_sim_clock
 	"Clean Energy", "Utilities", "Energy", "Mining" -> R.drawable.ic_cat_green
 	"EVs", "Autos" -> R.drawable.ic_cat_ev
-	"Logistics", "Airlines", "Travel" -> R.drawable.ic_goal_explore
+	"Travel" -> R.drawable.ic_cat_travel
+	"Logistics", "Airlines" -> R.drawable.ic_goal_explore
 	"Real Estate" -> R.drawable.ic_cat_realestate
 	"Pharma", "MedTech", "Biotech", "Health Insurers", "Digital Health" -> R.drawable.ic_cat_health
 	"Space", "Defense" -> R.drawable.ic_goal_explore
