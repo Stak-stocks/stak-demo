@@ -11,6 +11,9 @@ package com.stak.demo.data
  * It also never claims the user understands anything: it reports what they did.
  */
 object TasteGraph {
+	/** How long since the last save before the card reads as "paused" rather than current. */
+	private const val PAUSED_AFTER_MS = 14L * 24 * 60 * 60 * 1000
+
 	enum class Strength(val label: String) { STRONG("Strong"), MODERATE("Moderate"), EMERGING("Emerging") }
 
 	/** One theme: a backend category in the app's words, with what produced it. */
@@ -31,8 +34,16 @@ object TasteGraph {
 	/** What kind of activity an evidence line reports, so the page can mark it. */
 	enum class Act { SAVED, LEARNED, OPENED }
 
-	/** One line of "Why STAK thinks this": what the user did, and the count behind it. */
-	data class Evidence(val text: String, val detail: String, val act: Act)
+	/** One line of "Why STAK thinks this": the theme it's evidence for, and the plain fact behind it. */
+	data class Evidence(val theme: String, val text: String, val act: Act)
+
+	/**
+	 * The My STAK card reads differently depending on how much there is to say (device
+	 * report, 2026-09-24) - a brand-new account, one clear lead, several at once, or a
+	 * account that hasn't touched Discover in a while all deserve their own line rather
+	 * than the same "X leads your interests" for everyone.
+	 */
+	enum class Scenario { NO_SIGNAL, PAUSED, EARLY_SIGNAL, ONE_DOMINANT, TWO_STRONG, BROAD_MIX }
 
 	data class Graph(
 		val themes: List<Theme> = emptyList(),
@@ -43,59 +54,85 @@ object TasteGraph {
 	) {
 		val isEmpty: Boolean get() = themes.isEmpty()
 
+		/**
+		 * No new save in [PAUSED_AFTER_MS] - the closest reading of "gone quiet" the data
+		 * supports. Learn-more and page-open counts aren't timestamped individually, only
+		 * saves are, so a theme with no save at all can't be judged this way and just
+		 * isn't - it falls through to whatever scenario its theme count gives it.
+		 */
+		private val isPaused: Boolean
+			get() {
+				val newestSave = themes.mapNotNull { it.savedAtMs }.maxOrNull() ?: return false
+				return System.currentTimeMillis() - newestSave > PAUSED_AFTER_MS
+			}
+
+		val scenario: Scenario
+			get() = when {
+				themes.isEmpty() -> Scenario.NO_SIGNAL
+				isPaused -> Scenario.PAUSED
+				learning -> Scenario.EARLY_SIGNAL
+				themes.size == 1 -> Scenario.ONE_DOMINANT
+				themes.size == 2 -> Scenario.TWO_STRONG
+				else -> Scenario.BROAD_MIX
+			}
+
 		/** The one-sentence reading. Never states a lead the evidence doesn't carry. */
 		val summary: String
-			get() = when {
-				themes.isEmpty() -> "Still learning your taste."
-				learning -> "Still learning your taste."
-				themes.size == 1 -> "${themes[0].label} leads your interests."
-				else -> "${themes[0].label} and ${themes[1].label} lead your interests."
+			get() = when (scenario) {
+				Scenario.NO_SIGNAL -> "Your Taste starts here"
+				Scenario.PAUSED -> "Your Taste is paused"
+				Scenario.EARLY_SIGNAL -> "Your Taste is taking shape"
+				Scenario.ONE_DOMINANT -> "${themes[0].label} stands out"
+				Scenario.TWO_STRONG -> "${themes[0].label} + ${themes[1].label}"
+				Scenario.BROAD_MIX -> "A broad mix of interests"
 			}
 
 		val subtitle: String
-			get() = if (themes.isEmpty() || learning) {
-				"Save a few companies and STAK will read what draws you."
-			} else {
-				"Based on what you save and explore."
+			get() = when (scenario) {
+				Scenario.NO_SIGNAL -> "Explore and STAK companies to build your picture."
+				Scenario.PAUSED -> "Your last saved picture of your interests."
+				Scenario.EARLY_SIGNAL -> "${themes[0].label} caught your attention. Keep exploring."
+				Scenario.ONE_DOMINANT -> "Updated to reflect your choices."
+				Scenario.TWO_STRONG -> "Based on what you STAK and explore."
+				Scenario.BROAD_MIX -> "No single theme stands out yet."
 			}
 
-		/** The activity behind [theme], strongest evidence first. */
+		/** The card's link, without its trailing "›" - MyStakScreen adds that itself. */
+		val ctaLabel: String
+			get() = if (scenario == Scenario.NO_SIGNAL) "Explore companies" else "See your Taste"
+
+		/**
+		 * The activity behind [theme], strongest evidence first. Plain facts, not
+		 * second-person narration ("You saved...") - device report, 2026-09-23:
+		 * paired with the theme name shown once as its own heading, not repeated in
+		 * every line.
+		 */
 		fun evidenceFor(theme: Theme): List<Evidence> {
 			val out = mutableListOf<Evidence>()
-			// "1 of your 1 saved companies" is technically true and reads like a machine.
-			val ofSaved = when {
-				totalSaves == 0 -> ""
-				totalSaves == 1 -> " · your only saved company"
-				else -> " · ${theme.saves} of your $totalSaves saved companies"
-			}
 			// "this week" answers the question a returning user actually has - why the
 			// reading moved - without inventing anything: the save dates are stored.
 			val whenSaved = recencyOf(theme.savedAtMs)
 			when {
-				theme.savedNames.size == 1 -> out += Evidence("You saved ${theme.savedNames[0]}$whenSaved.", theme.label + ofSaved, Act.SAVED)
+				theme.savedNames.size == 1 -> out += Evidence(theme.label, "Saved ${theme.savedNames[0]}$whenSaved.", Act.SAVED)
 				theme.savedNames.size >= 2 -> out += Evidence(
-					"You saved ${theme.savedNames.take(2).joinToString(" and ")}$whenSaved.",
-					theme.label + ofSaved,
+					theme.label,
+					"Saved ${theme.savedNames.take(2).joinToString(" and ")}$whenSaved.",
 					Act.SAVED,
 				)
-				// The label is a category name, not an adjective: "2 companies in Chips",
-				// never "2 Chips companies".
 				theme.saves > 0 -> out += Evidence(
-					"You saved ${theme.saves} ${if (theme.saves == 1) "company" else "companies"} in ${theme.label}.",
-					theme.label + ofSaved,
+					theme.label,
+					"Saved ${theme.saves} ${if (theme.saves == 1) "company" else "companies"}$whenSaved.",
 					Act.SAVED,
 				)
 			}
-			// Captioned with the theme, like the save line above - "Last 90 days" told the
-			// reader about the scoring window instead of about their own activity.
 			if (theme.learnMores > 0) out += Evidence(
-				"You opened Learn more on ${theme.learnMores} ${if (theme.learnMores == 1) "card" else "cards"} in ${theme.label}.",
 				theme.label,
+				"Opened Learn more on ${theme.learnMores} ${if (theme.learnMores == 1) "company card" else "company cards"}.",
 				Act.LEARNED,
 			)
 			if (theme.opens > 0) out += Evidence(
-				"You opened companies in ${theme.label} ${theme.opens} ${if (theme.opens == 1) "time" else "times"}.",
 				theme.label,
+				"Visited company pages ${theme.opens} ${if (theme.opens == 1) "time" else "times"}.",
 				Act.OPENED,
 			)
 			return out

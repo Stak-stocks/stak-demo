@@ -40,6 +40,7 @@ internal object Stak {
 	val Body = Color(0xFFC8D2E0)
 	val Teal = Color(0xFF69B3CA)
 	val HeaderGray = Color(0xFFD3D3DD)
+	val Divider = Color(0xFF2A3346)
 }
 
 /** One collection chip's content, whichever account it came from. */

@@ -145,7 +145,7 @@ fun MyStakScreen(
 					onOpen = onOpenUpdates,
 				)
 			}
-			TasteCard(ui.taste, ui.tasteFailed, onOpenTaste)
+			TasteCard(ui.taste, ui.tasteFailed, onOpenTaste, onRetry = { viewModel.loadTaste(force = true) })
 			if (ui.updatesFailed) FailedCard("Updates in your STAK", "Couldn't check your saved companies right now.")
 			DiscoverHandoff(ui.cardsLeft, onStartSwiping)
 		}
@@ -230,10 +230,10 @@ private fun updatesLine(unreadCompanies: Int, total: Int): String = when {
  * observed interest signals. It is never money - the label and the copy both say so.
  */
 @Composable
-private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> Unit) {
+private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> Unit, onRetry: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	if (taste == null) {
-		if (failed) FailedCard("Your Investing Taste", "Couldn't read your taste right now. Pull down or come back in a moment.")
+		if (failed) FailedCard("Your Taste is unavailable", "We couldn't load your interests. Try again later.", onRetry = onRetry)
 		// Still loading: no card rather than an empty ring.
 		return
 	}
@@ -289,7 +289,7 @@ private fun TasteCard(taste: TasteGraph.Graph?, failed: Boolean, onOpen: () -> U
 					color = Stak.Body,
 				)
 				Text(
-					text = if (taste.isEmpty || taste.learning) "How this works ›" else "See why ›",
+					text = "${taste.ctaLabel} ›",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Teal,
 				)
@@ -350,7 +350,7 @@ private fun DiscoverHandoff(cardsLeft: Int?, onStartSwiping: () -> Unit) {
 
 /** A read that failed - said plainly, so an empty screen never passes for a quiet day. */
 @Composable
-private fun FailedCard(title: String, body: String) {
+private fun FailedCard(title: String, body: String, onRetry: (() -> Unit)? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -366,6 +366,20 @@ private fun FailedCard(title: String, body: String) {
 			style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Stak.Body,
 		)
+		if (onRetry != null) {
+			Text(
+				text = "Retry ›",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Stak.Teal,
+				modifier = Modifier
+					.padding(top = (2 * u).dp)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = onRetry,
+					),
+			)
+		}
 	}
 }
 

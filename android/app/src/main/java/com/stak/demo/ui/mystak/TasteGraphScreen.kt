@@ -3,6 +3,7 @@ package com.stak.demo.ui.mystak
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -112,38 +113,55 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 				val evidence = taste.evidence
 				if (evidence.isNotEmpty()) {
 					TasteCardShell("Why STAK thinks this") {
-						evidence.forEach { e ->
-							Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
-								// The mark says which kind of activity this was: a save, a
-								// Learn more, or a company's page opened.
-								IconTile(
-									when (e.act) {
-										TasteGraph.Act.SAVED -> com.stak.demo.R.drawable.ic_saved_bookmark
-										TasteGraph.Act.LEARNED -> com.stak.demo.R.drawable.ic_goal_learn
-										TasteGraph.Act.OPENED -> com.stak.demo.R.drawable.ic_risk_eye
-									},
-									Stak.Teal,
-								)
-								Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
-									Text(
-										text = e.text,
-										style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-										color = Color.White,
-									)
-									Text(
-										text = e.detail,
-										style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-										color = Stak.Muted,
-									)
+						// One Column, not loose children - TasteCardShell's own spacedBy(12u)
+						// sits between EVERY child it's given, so a bare forEach here stacked its
+						// gap on top of the divider spacing below on every row (device report,
+						// 2026-09-23: "too much space in between").
+						Column(modifier = Modifier.fillMaxWidth()) {
+							evidence.forEachIndexed { i, e ->
+								if (i > 0) {
+									Spacer(Modifier.height((6 * u).dp))
+									Box(Modifier.fillMaxWidth().height((1 * u).dp).background(Stak.Divider))
+									Spacer(Modifier.height((6 * u).dp))
+								}
+								Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+									// Its own category's mark - the reading is about what the user did in
+									// each theme, so the theme is what should be recognisable at a glance,
+									// not which of three activity types produced the line (device report,
+									// 2026-09-23).
+									IconTile(com.stak.demo.data.categoryIcon(e.theme), Stak.Teal)
+									Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+										Text(
+											text = e.theme,
+											style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+											color = Color.White,
+										)
+										Text(
+											text = e.text,
+											style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+											color = Stak.Muted,
+										)
+									}
 								}
 							}
 						}
 					}
 				}
 			}
-			TasteCardShell("What STAK does with your activity") {
-				ShapesRow(com.stak.demo.R.drawable.ic_tab_discover, "Discover", "More companies like the ones you save")
-				ShapesRow(com.stak.demo.R.drawable.ic_tab_news, "Daily Brief", "More context on the themes you follow")
+			TasteCardShell("How this shapes your STAK") {
+				// One Column, not loose children - see the same fix on "Why STAK thinks
+				// this" (device report, 2026-09-23): TasteCardShell's spacedBy(12u) would
+				// otherwise stack on top of the divider's own spacing.
+				Column(modifier = Modifier.fillMaxWidth()) {
+					// Circle for both - ic_tab_news is already a little rectangle-framed
+					// glyph, so a rounded-square tile around it doubled up as two nested
+					// boxes (device report, 2026-09-23).
+					ShapesRow(com.stak.demo.R.drawable.ic_tab_discover, "Discover", "Companies related to your interests.")
+					Spacer(Modifier.height((10 * u).dp))
+					Box(Modifier.fillMaxWidth().height((1 * u).dp).background(Stak.Divider))
+					Spacer(Modifier.height((10 * u).dp))
+					ShapesRow(com.stak.demo.R.drawable.ic_tab_news, "Daily Brief", "More context on the themes you follow.")
+				}
 			}
 			Text(
 				text = "Your taste evolves as you explore.",
@@ -258,20 +276,28 @@ private fun StrengthChip(strength: TasteGraph.Strength) {
 @Composable
 private fun ShapesRow(iconRes: Int, title: String, body: String) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
-	IconTile(iconRes, Stak.Teal)
-	Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
-		Text(
-			text = title,
-			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = Color.White,
+	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.fillMaxWidth()) {
+		// Plain icon, no tile - a box around it doubled up with ic_tab_news's own
+		// rectangle frame, and the circle swap for the other row still read as an
+		// unnecessary wrapper (device report, 2026-09-23).
+		androidx.compose.foundation.Image(
+			painter = androidx.compose.ui.res.painterResource(iconRes),
+			contentDescription = null,
+			modifier = Modifier.size((20 * u).dp),
+			colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Stak.Teal),
 		)
-		Text(
-			text = body,
-			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = Stak.Muted,
-		)
-	}
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+			Text(
+				text = title,
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Color.White,
+			)
+			Text(
+				text = body,
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Stak.Muted,
+			)
+		}
 	}
 }
 
