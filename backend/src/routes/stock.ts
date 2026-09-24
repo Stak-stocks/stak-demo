@@ -34,7 +34,7 @@ async function warmRiskWatch(ticker: string, companyName: string): Promise<void>
 	});
 }
 import { getEdgarEarningsEps } from "../services/edgarService.js";
-import { cacheGet, cacheSet } from "../lib/cache.js";
+import { cacheDelete, cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { sendPush } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
@@ -2042,6 +2042,20 @@ stockRouter.get("/:symbol/risk-watch", async (req, res) => {
 		console.error(`Error building risk-watch for ${symbol}:`, error);
 		res.status(500).json({ error: "Failed to build risk snapshot" });
 	}
+});
+
+// DELETE /:symbol/risk-watch — protected by X-Admin-Secret header, forces the next read to
+// regenerate rather than serve this symbol's cached note (e.g. after a prompt/logic change
+// that a still-valid, non-contradicting cache entry wouldn't otherwise pick up on its own).
+stockRouter.delete("/:symbol/risk-watch", async (req, res) => {
+	const secret = req.headers["x-admin-secret"];
+	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+		res.status(403).json({ error: "Forbidden" });
+		return;
+	}
+	const symbol = resolveSymbol(req.params.symbol.toUpperCase());
+	await cacheDelete(`risk-watch:v4:${symbol}`);
+	res.json({ ok: true });
 });
 
 // Gemini + Google Search: 1-2 sentence financial/macro risk for this stock.
