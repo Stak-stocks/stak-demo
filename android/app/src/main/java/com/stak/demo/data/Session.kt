@@ -49,6 +49,10 @@ object Session {
 	var token: String? = null
 		private set
 
+	/** The signed-in user's id (the JWT subject) - what per-account phone state is keyed by. */
+	var accountId: String? = null
+		private set
+
 	/** True when this launch started already signed in - the returning-user path. */
 	var resumedSignedIn = false
 		private set
@@ -116,6 +120,8 @@ object Session {
 		UserProfile.joined = p.getString(KEY_JOINED, "") ?: ""
 		UserProfile.email = p.getString(KEY_EMAIL, "") ?: ""
 		token = p.getString(KEY_JWT, null)
+		accountId = token?.let(::jwtSubject)
+		StakStore.migrateLegacy(if (signedIn && !demoAccount) accountId else null)
 		applyAccount()
 	}
 
@@ -163,9 +169,9 @@ object Session {
 		persist()
 		// A brand-new account starts from nothing; the demo account keeps
 		// whatever it did last time it was signed in.
-		if (!demo) {
-			StakStore.clearAccount(demo = false)
-			// The day the account was created: the inbox ages its welcome from it.
+		// A real account keeps its own phone state (saves, paper ledger, inbox) across
+		// log out / log in; only the day the account first appeared here is stamped, once.
+		if (!demo && StakStore.getString("created_day") == null) {
 			StakStore.putString("created_day", java.time.LocalDate.now().toEpochDay().toString())
 		}
 		applyAccount()
@@ -181,13 +187,20 @@ object Session {
 		com.stak.demo.ui.news.NewsSaves.load()
 		PushRegistration.sync()
 		ProfileSync.sync(force = true)
+		DeviceStateSync.sync()
 	}
 
 	/** Stores the Supabase JWT for authenticated API calls. */
 	fun setToken(jwt: String) {
 		token = jwt
+		accountId = jwtSubject(jwt)
 		persist()
 	}
+
+	private fun jwtSubject(jwt: String): String? = runCatching {
+		val payload = String(android.util.Base64.decode(jwt.split(".")[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP))
+		org.json.JSONObject(payload).optString("sub").takeIf { it.isNotBlank() }
+	}.getOrNull()
 
 	/** Profile edits after sign-in (name/photo) stay with the session. */
 	fun saveProfile() = persist()
@@ -206,7 +219,7 @@ object Session {
 	 * demo persona's authored history reseeds on its next sign-in.
 	 */
 	fun deleteAccount() {
-		StakStore.clearAccount(demo = demoAccount)
+		StakStore.clearAccount()
 		signOut()
 	}
 
@@ -243,6 +256,7 @@ object Session {
 		UserProfile.joined = ""
 		UserProfile.email = ""
 		token = null
+		accountId = null
 		prefs?.edit()?.clear()?.apply()
 		// Clear the Supabase SDK's persisted session so it cannot auto-refresh
 		// a stale token after logout. Server-side revocation happens separately

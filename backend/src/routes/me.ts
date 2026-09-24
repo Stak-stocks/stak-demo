@@ -389,6 +389,67 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 	}
 });
 
+// GET /api/me/android-state — the phone-only state that used to be lost on a new
+// device or a reinstall: the practice portfolio ledger, the notification inbox's
+// read ids, and saved news. Android is the only client that reads this.
+meRouter.get("/android-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const result = await pgQuery<{ portfolio: Record<string, unknown> | null; notif_read: string[]; news_saved: string[] }>(
+			`select portfolio, notif_read, news_saved from android_device_state where uid = $1`,
+			[uid],
+		);
+		const row = result.rows[0];
+		res.json({ portfolio: row?.portfolio ?? null, notifRead: row?.notif_read ?? [], newsSaved: row?.news_saved ?? [] });
+	} catch (error) {
+		console.error("Error fetching android state:", error);
+		res.status(500).json({ error: "Failed to fetch android state" });
+	}
+});
+
+// PUT /api/me/android-state — write whichever fields changed; omitted fields are left as they are.
+meRouter.put("/android-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { portfolio, notifRead, newsSaved } = req.body as {
+			portfolio?: unknown; notifRead?: unknown; newsSaved?: unknown;
+		};
+		if (portfolio !== undefined && (typeof portfolio !== "object" || portfolio === null || Array.isArray(portfolio))) {
+			res.status(400).json({ error: "portfolio must be an object" });
+			return;
+		}
+		if (notifRead !== undefined && (!Array.isArray(notifRead) || notifRead.some((x) => typeof x !== "string"))) {
+			res.status(400).json({ error: "notifRead must be an array of strings" });
+			return;
+		}
+		if (newsSaved !== undefined && (!Array.isArray(newsSaved) || newsSaved.some((x) => typeof x !== "string"))) {
+			res.status(400).json({ error: "newsSaved must be an array of strings" });
+			return;
+		}
+		if (portfolio === undefined && notifRead === undefined && newsSaved === undefined) {
+			res.status(400).json({ error: "nothing to update" });
+			return;
+		}
+
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`insert into android_device_state (uid, portfolio, notif_read, news_saved, updated_at)
+			values ($1, $2::jsonb, coalesce($3::text[], '{}'), coalesce($4::text[], '{}'), now())
+			on conflict (uid) do update set
+				portfolio = coalesce($2::jsonb, android_device_state.portfolio),
+				notif_read = coalesce($3::text[], android_device_state.notif_read),
+				news_saved = coalesce($4::text[], android_device_state.news_saved),
+				updated_at = now()`,
+			[uid, portfolio !== undefined ? JSON.stringify(portfolio) : null, notifRead ?? null, newsSaved ?? null],
+		);
+
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error saving android state:", error);
+		res.status(500).json({ error: "Failed to save android state" });
+	}
+});
+
 // GET /api/me/daily-swipes — get today's swipe count for cross-device sync
 meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {

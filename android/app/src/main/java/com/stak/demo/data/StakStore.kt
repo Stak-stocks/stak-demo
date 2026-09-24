@@ -7,9 +7,11 @@ import android.content.SharedPreferences
  * The user-state store (product audit, 2026-09-05: saves, practice buys,
  * the deck's progress and the notification badge all vanished on a
  * relaunch). A SharedPreferences file separate from the session, keyed
- * per ACCOUNT KIND ("demo." / "new.") so the demo account and a fresh
- * account never read each other's state. Every mutation writes through;
- * Session.applyAccount() reads it back. Mirrors ios StakStore.swift.
+ * per ACCOUNT: "demo." for the demo persona, "u.<user id>." for a real account
+ * (the id is the Supabase JWT subject), so logging out and back in restores that
+ * account's own state and a second account on the phone never reads it. Every
+ * mutation writes through; Session.applyAccount() reads it back. Mirrors ios
+ * StakStore.swift.
  */
 object StakStore {
 	private const val PREFS = "stak_state"
@@ -19,7 +21,13 @@ object StakStore {
 		if (prefs == null) prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 	}
 
-	private fun key(name: String): String = (if (Session.demoAccount) "demo." else "new.") + name
+	private fun prefix(): String = when {
+		Session.demoAccount -> "demo."
+		Session.accountId != null -> "u.${Session.accountId}."
+		else -> "anon."
+	}
+
+	private fun key(name: String): String = prefix() + name
 
 	fun getString(name: String): String? = prefs?.getString(key(name), null)
 	fun putString(name: String, value: String) { prefs?.edit()?.putString(key(name), value)?.apply() }
@@ -33,12 +41,38 @@ object StakStore {
 	fun getSet(name: String): Set<String>? = getString(name)?.split(",")?.filter { it.isNotBlank() }?.toSet()
 	fun putSet(name: String, value: Set<String>) = putString(name, value.joinToString(","))
 
-	/** Forgets one account kind's state - a brand-new account starts from nothing. */
-	fun clearAccount(demo: Boolean) {
+	/** Forgets the current account's state (Delete account). */
+	fun clearAccount() {
 		val p = prefs ?: return
-		val prefix = if (demo) "demo." else "new."
+		val prefix = prefix()
 		val editor = p.edit()
 		p.all.keys.filter { it.startsWith(prefix) }.forEach { editor.remove(it) }
+		editor.apply()
+	}
+
+	/**
+	 * Before per-user keys, every real account shared "new." and was wiped at each sign-in.
+	 * A user already signed in when the update lands keeps that state (moved under their id);
+	 * anything left over belonged to a session that has since ended and is dropped.
+	 */
+	fun migrateLegacy(accountId: String?) {
+		val p = prefs ?: return
+		val legacy = p.all.filterKeys { it.startsWith("new.") }
+		if (legacy.isEmpty()) return
+		val editor = p.edit()
+		legacy.forEach { (k, v) ->
+			editor.remove(k)
+			if (accountId != null) {
+				val target = "u.$accountId." + k.removePrefix("new.")
+				if (!p.contains(target)) when (v) {
+					is String -> editor.putString(target, v)
+					is Int -> editor.putInt(target, v)
+					is Boolean -> editor.putBoolean(target, v)
+					is Long -> editor.putLong(target, v)
+					is Float -> editor.putFloat(target, v)
+				}
+			}
+		}
 		editor.apply()
 	}
 }

@@ -326,6 +326,7 @@ internal object PaperPortfolio {
 			realized.forEach { r -> arr.put(org.json.JSONObject().put("badge", r.badge).put("ticker", r.ticker).put("sub", r.sub).put("amount", r.amount).put("up", r.up)) }
 		})
 		com.stak.demo.data.StakStore.putString("portfolio", o.toString())
+		com.stak.demo.data.DeviceStateSync.push()
 	}
 
 	private fun specJson(s: PickSpec): org.json.JSONObject = org.json.JSONObject()

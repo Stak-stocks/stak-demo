@@ -156,5 +156,6 @@ object StakNotifications {
 	fun markAllRead() {
 		readIds = items.map { it.id }.toSet()
 		StakStore.putSet("notif.read", readIds)
+		DeviceStateSync.push()
 	}
 }

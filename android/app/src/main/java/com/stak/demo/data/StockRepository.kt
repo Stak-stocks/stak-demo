@@ -21,6 +21,8 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
         api.getDailyMove(symbol, pct, sentences = 2)
     suspend fun getEarnings(symbol: String): EarningsResponse = api.getEarnings(symbol)
     suspend fun getMarketNews(): MarketNewsResponse = api.getMarketNews()
+    suspend fun getAndroidState(): AndroidStateResponse = api.getAndroidState()
+    suspend fun putAndroidState(body: AndroidStatePutRequest): OkResponse = api.putAndroidState(body)
     suspend fun getAndroidStocks(): AndroidStocksResponse = api.getAndroidStocks()
     suspend fun putAndroidStocks(tickers: List<String>): AndroidStocksResponse =
         api.putAndroidStocks(AndroidStocksPutRequest(tickers))

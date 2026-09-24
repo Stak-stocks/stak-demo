@@ -23,6 +23,7 @@ object NewsSaves {
 		if (id in ids) return
 		ids = ids + id
 		StakStore.putSet("news.saved", ids)
+		com.stak.demo.data.DeviceStateSync.push()
 	}
 
 	/** Unsaving a stock forgets the stories that saved it, so they offer Add to STAK again (Codex review, PR #167 mirror). */
@@ -31,5 +32,6 @@ object NewsSaves {
 		if (next.size == ids.size) return
 		ids = next
 		StakStore.putSet("news.saved", ids)
+		com.stak.demo.data.DeviceStateSync.push()
 	}
 }

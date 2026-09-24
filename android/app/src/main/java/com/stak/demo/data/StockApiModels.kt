@@ -116,6 +116,22 @@ data class PushDeviceRequest(
 )
 data class OkResponse(val ok: Boolean = false)
 
+/** The phone-only state carried to a new device: the practice portfolio, notification
+ * read ids and saved news. `portfolio` is PaperPortfolio's own opaque JSON blob - the
+ * server never reads its shape, just stores and returns it. */
+data class AndroidStateResponse(
+    val portfolio: com.google.gson.JsonObject? = null,
+    val notifRead: List<String> = emptyList(),
+    val newsSaved: List<String> = emptyList(),
+)
+/** Only the fields being updated need to be set - a null field is left out of the
+ * request body (default Gson behaviour) and the server leaves that column alone. */
+data class AndroidStatePutRequest(
+    val portfolio: com.google.gson.JsonObject? = null,
+    val notifRead: List<String>? = null,
+    val newsSaved: List<String>? = null,
+)
+
 data class MePutRequest(
     val displayName: String? = null,
     val onboardingCompleted: Boolean? = null,

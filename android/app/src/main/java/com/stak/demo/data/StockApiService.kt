@@ -54,6 +54,13 @@ interface StockApiService {
     @GET("api/news/market")
     suspend fun getMarketNews(): MarketNewsResponse
 
+    /** The practice portfolio, notification read ids and saved news - carried to a new phone. */
+    @GET("api/me/android-state")
+    suspend fun getAndroidState(): AndroidStateResponse
+
+    @PUT("api/me/android-state")
+    suspend fun putAndroidState(@Body body: AndroidStatePutRequest): OkResponse
+
     @GET("api/me/android-stocks")
     suspend fun getAndroidStocks(): AndroidStocksResponse
 
