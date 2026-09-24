@@ -1813,7 +1813,7 @@ private fun QuickLookSheet(
 	}
 	val companyName = card.ticker.substringAfter("· ").trim().ifBlank { card.symbol }
 	val ticker = card.symbol
-	val maxHeightDp = (LocalConfiguration.current.screenHeightDp * 0.50f).dp
+	val maxHeightDp = (LocalConfiguration.current.screenHeightDp * 0.62f).dp
 	SheetScaffold(onDismiss = onDismiss) {
 		Column(
 			modifier = Modifier
@@ -1821,51 +1821,56 @@ private fun QuickLookSheet(
 				.heightIn(max = maxHeightDp)
 				.verticalScroll(rememberScrollState()),
 		) {
-			// "Quick Look" label (drag handle above handles dismiss)
+			// "Quick Look" label (drag handle above already handles the swipe-down dismiss).
 			Text(
 				text = "Quick Look",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, letterSpacing = (0.4f * u).sp),
 				color = Disc.Muted,
-				modifier = Modifier.padding(bottom = (8 * u).dp),
-			)
-			// Title: "CompanyName (TICKER)"
-			Text(
-				text = "$companyName ($ticker)",
-				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp, lineHeight = (24 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Disc.BrightInk,
-				modifier = Modifier.padding(bottom = (2 * u).dp),
-			)
-			// Subtitle
-			Text(
-				text = "A 30-second overview to help you decide.",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Disc.Muted,
 				modifier = Modifier.padding(bottom = (10 * u).dp),
 			)
+			// Title row: "Apple" in bright ink, "AAPL" beside it in teal.
+			Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
+				Text(
+					text = companyName,
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Bold, fontSize = (22 * u).sp, lineHeight = (27 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Disc.BrightInk,
+				)
+				Text(
+					text = ticker,
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Disc.Teal,
+					modifier = Modifier.padding(bottom = (1 * u).dp),
+				)
+			}
 			val ql = data?.structured
+			// The one-line business summary under the title - what in10Seconds used to
+			// carry as its own labelled row now reads like Quick Look's own subtitle.
+			val summary = ql?.in10Seconds?.takeIf { it.isNotBlank() }
+				?: data?.sections?.firstOrNull()?.content?.takeIf { it.isNotBlank() }
+				?: card.headline.takeIf { it.isNotBlank() }
+			if (summary != null) {
+				Text(
+					text = summary,
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Disc.Body,
+					modifier = Modifier.padding(top = (4 * u).dp, bottom = (16 * u).dp),
+				)
+			} else {
+				Spacer(Modifier.height((12 * u).dp))
+			}
 			if (ql != null) {
-				QuickLookIconRow(iconRes = R.drawable.ic_goal_learn, label = "$companyName in 10 seconds", body = ql.in10Seconds, u = u)
-				Spacer(Modifier.height((8 * u).dp))
-				QuickLookIconRow(iconRes = R.drawable.ic_goal_grow, label = "Why now", body = ql.whyNow, u = u)
-				Spacer(Modifier.height((8 * u).dp))
-				Row(
-					modifier = Modifier.fillMaxWidth(),
-					horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
-				) {
-					Column(modifier = Modifier.weight(1f)) {
-						QuickLookIconRow(iconRes = R.drawable.ic_risk_plus, label = "The setup", body = ql.setup, u = u)
-					}
-					Column(modifier = Modifier.weight(1f)) {
-						QuickLookIconRow(iconRes = R.drawable.ic_risk_shield, label = "The catch", body = ql.theCatch, u = u, tile = Color(0x33FF5A6A))
-					}
-				}
-				Spacer(Modifier.height((8 * u).dp))
-				QuickLookIconRow(iconRes = R.drawable.ic_risk_eye, label = "What to watch", body = ql.whatToWatch, u = u)
+				QuickLookIconRow(iconRes = R.drawable.ic_ql_trending, label = "Why investors are watching", body = ql.whyNow, u = u)
+				Spacer(Modifier.height((14 * u).dp))
+				QuickLookIconRow(iconRes = R.drawable.ic_ql_layers, label = "Business strength", body = ql.setup, u = u)
+				Spacer(Modifier.height((14 * u).dp))
+				QuickLookIconRow(iconRes = R.drawable.ic_risk_shield, label = "Main risk", body = ql.theCatch, u = u)
+				Spacer(Modifier.height((14 * u).dp))
+				QuickLookIconRow(iconRes = R.drawable.ic_ql_calendar, label = "Watch next", body = ql.whatToWatch, u = u)
 				KeyThemes(themes = ql.keyThemes, u = u)
 			} else if (!data?.sections.isNullOrEmpty()) {
-				val icons = listOf(R.drawable.ic_goal_learn, R.drawable.ic_goal_grow, R.drawable.ic_risk_plus, R.drawable.ic_risk_shield, R.drawable.ic_risk_eye)
-				data?.sections.orEmpty().forEachIndexed { i, section ->
-					if (i > 0) Spacer(Modifier.height((8 * u).dp))
+				val icons = listOf(R.drawable.ic_ql_trending, R.drawable.ic_ql_layers, R.drawable.ic_risk_shield, R.drawable.ic_ql_calendar, R.drawable.ic_risk_eye)
+				data?.sections.orEmpty().drop(1).forEachIndexed { i, section ->
+					if (i > 0) Spacer(Modifier.height((14 * u).dp))
 					QuickLookIconRow(iconRes = icons[i % icons.size], label = section.heading, body = section.content, u = u)
 				}
 				KeyThemes(themes = card.categories.map { c -> c.split('_').joinToString(" & ") { it.replaceFirstChar(Char::titlecase) } }, u = u)
@@ -1876,8 +1881,6 @@ private fun QuickLookSheet(
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp),
 					color = Disc.Muted,
 				)
-			} else if (card.headline.isNotBlank()) {
-				QuickLookIconRow(iconRes = R.drawable.ic_goal_learn, label = "About", body = card.headline, u = u)
 			}
 			Spacer(Modifier.height((8 * u).dp))
 		}
@@ -1889,13 +1892,7 @@ private fun QuickLookSheet(
 @Composable
 private fun KeyThemes(themes: List<String>, u: Float) {
 	if (themes.isEmpty()) return
-	Spacer(Modifier.height((10 * u).dp))
-	Text(
-		text = "KEY THEMES",
-		style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8f * u).sp),
-		color = Disc.Teal,
-		modifier = Modifier.padding(bottom = (5 * u).dp),
-	)
+	Spacer(Modifier.height((16 * u).dp))
 	FlowRow(
 		horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
 		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
