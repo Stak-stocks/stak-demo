@@ -15,7 +15,7 @@ export const updatesRouter = Router();
 const BRAND_BY_ID = new Map(brands.map((b) => [b.id, { ticker: b.ticker.toUpperCase(), name: b.name }]));
 
 /** How far back the inbox looks. Older changes are history, not news. */
-const WINDOW_DAYS = 14;
+const WINDOW_DAYS = 7;
 
 // GET /api/me/updates — the user's saved companies' recent changes, newest first.
 updatesRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
