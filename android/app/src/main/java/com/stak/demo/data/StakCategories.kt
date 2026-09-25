@@ -62,8 +62,8 @@ internal val CATEGORY_NAMES = mapOf(
 	// Not just "Tech" - reads as a third, unrelated category next to "Big Tech" on the
 	// same grid (device report, 2026-09-25), when it's really the catch-all the other,
 	// more specific tech categories (Chips, AI, Big Tech, Software...) fall out of.
-	"default_tech" to "Tech Sector",
-	"tech" to "Tech Sector",
+	"default_tech" to "General Tech",
+	"tech" to "General Tech",
 	"adtech" to "Ad Tech",
 	"meme_stock" to "Meme Stocks",
 	"default_consumer" to "Consumer",
@@ -99,7 +99,7 @@ private val CONSUMER = CategoryArt(iconRes = R.drawable.ic_cat_consumer, heroRes
 
 private val ART_BY_NAME: Map<String, CategoryArt> = mapOf(
 	"Software" to TECH, "Chips" to TECH, "Cybersecurity" to TECH, "Data" to TECH,
-	"AI" to TECH, "Big Tech" to TECH, "Consumer Tech" to TECH, "Tech Sector" to TECH,
+	"AI" to TECH, "Big Tech" to TECH, "Consumer Tech" to TECH, "General Tech" to TECH,
 	"Ad Tech" to TECH, "Social Media" to TECH, "Gaming" to TECH,
 	"Banks" to FINANCE, "Fintech" to FINANCE, "Markets" to FINANCE, "Asset Managers" to FINANCE,
 	"Financial Data" to FINANCE, "Payments" to FINANCE, "Insurance" to FINANCE, "Crypto" to FINANCE,
@@ -126,7 +126,8 @@ internal fun categoryIcon(name: String): Int = when (name) {
 	"Chips", "Data", "AI" -> R.drawable.ic_cat_chips
 	"Cybersecurity" -> R.drawable.ic_risk_shield
 	"Big Tech" -> R.drawable.ic_gist_sparkle
-	"Software", "Tech Sector" -> R.drawable.ic_cat_code
+	"Software" -> R.drawable.ic_cat_code
+	"General Tech" -> R.drawable.ic_cat_gear
 	"Consumer Tech", "Ad Tech" -> R.drawable.ic_goal_grow
 	"Fintech" -> R.drawable.ic_cat_fintech
 	"Banks", "Payments", "Markets", "Asset Managers", "Financial Data", "Insurance",
@@ -139,6 +140,8 @@ internal fun categoryIcon(name: String): Int = when (name) {
 	"Pharma", "MedTech", "Biotech", "Health Insurers", "Digital Health" -> R.drawable.ic_cat_health
 	"Space", "Defense" -> R.drawable.ic_goal_explore
 	"Industrials" -> R.drawable.ic_risk_pause
+	"Telecom" -> R.drawable.ic_cat_telecom
+	"Meme Stocks" -> R.drawable.ic_cat_meme
 	else -> R.drawable.ic_gist_info
 }
 
