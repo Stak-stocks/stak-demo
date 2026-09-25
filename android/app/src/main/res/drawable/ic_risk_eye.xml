@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding 05 risk icon "hold and watch" - converted from the Figma SVG (stroke #819ABB), circle bg stripped. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="37.9dp" android:height="37.9dp"
+    android:viewportWidth="37.9006" android:viewportHeight="37.9006">
+    <path android:pathData="M11.0779 19.2065C15.0779 13.2065 23.0779 13.2065 27.0779 19.2065C23.0779 25.2065 15.0779 25.2065 11.0779 19.2065Z" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="miter" />
+    <!-- The pupil ring - present in the frame render but dropped by the
+         SVG export (hidden sibling node); measured from the 2x render. -->
+    <path android:pathData="M19.0779,19.2065 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" />
+</vector>

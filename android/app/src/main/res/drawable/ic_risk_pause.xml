@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding 05 risk icon "step away" - converted from the Figma SVG (stroke #819ABB), circle bg stripped. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp" android:height="36dp"
+    android:viewportWidth="36" android:viewportHeight="36">
+    <path android:pathData="M14.261 11.9658V23.9658" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="round" />
+    <path android:pathData="M22.261 11.9658V23.9658" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="round" />
+</vector>

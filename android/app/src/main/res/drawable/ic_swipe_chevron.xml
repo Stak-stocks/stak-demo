@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swipe-tutorial down chevron (1:487 / 1:489) - the exported Figma SVG (13.97x6.98, stroke #5C6B85 1.746, round caps). Exact-design audit 2026-09-04. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="13.97dp" android:height="6.98dp"
+    android:viewportWidth="13.9669" android:viewportHeight="6.98344">
+    <path android:pathData="M1.74582 0.872927L6.9834 6.11051L12.221 0.872927" android:strokeColor="#5C6B85" android:strokeWidth="1.74586" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

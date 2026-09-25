@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding 05 risk icon - converted from the Figma SVG (stroke #819ABB). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp" android:height="20dp"
+    android:viewportWidth="20" android:viewportHeight="20">
+    <path android:pathData="M10 2.22222L16.6667 4.88889V9.55556C16.6667 13.7778 14 16.5556 10 17.7778C6 16.5556 3.33333 13.7778 3.33333 9.55556V4.88889L10 2.22222Z" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="round" />
+    <path android:pathData="M7.11111 10L9.22222 12.1111L13.1111 8" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

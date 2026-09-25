@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="35dp"
+    android:height="35dp"
+    android:viewportWidth="35"
+    android:viewportHeight="35">
+    <path
+        android:pathData="M0,17.5 A17.5,17.5 0 1 0 35,17.5 A17.5,17.5 0 1 0 0,17.5 Z"
+        android:fillColor="#192238" />
+    <path
+        android:pathData="M19.524 21.5492V22.0553C19.524 22.5921 19.3107 23.1069 18.9311 23.4865C18.5516 23.8661 18.0367 24.0793 17.4999 24.0793C16.9631 24.0793 16.4483 23.8661 16.0687 23.4865C15.6891 23.1069 15.4758 22.5921 15.4758 22.0553V21.5492M22.9295 20.5192C22.1173 19.5252 21.5439 19.0191 21.5439 16.2787C21.5439 13.7692 20.2625 12.8751 19.2077 12.4409C19.0676 12.3833 18.9357 12.2511 18.893 12.1072C18.708 11.4775 18.1894 10.9228 17.4999 10.9228C16.8105 10.9228 16.2915 11.4779 16.1083 12.1079C16.0657 12.2533 15.9338 12.3833 15.7937 12.4409C14.7377 12.8757 13.4574 13.7667 13.4574 16.2787C13.4559 19.0191 12.8825 19.5252 12.0703 20.5192C11.7338 20.9309 12.0286 21.5492 12.6171 21.5492H22.3858C22.9712 21.5492 23.2641 20.929 22.9295 20.5192Z"
+        android:strokeColor="#AEAEAE"
+        android:strokeWidth="1.01204"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- The authored unread dot (cx26.25 cy11.667 r2.917 #FF8030) is NOT
+         baked here: it is stateful - drawn by TopNav while unread
+         notifications exist (CHINEDU 151:1207). -->
+</vector>

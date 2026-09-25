@@ -1,0 +1,14 @@
+<!-- DE-STAK 04 · Discover 1:2050 "icon/bookmark" - the deck Save pill's glyph:
+     12 box, 8x10 bookmark, #AEAEAE stroke 1 (exported from Figma). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp"
+    android:height="12dp"
+    android:viewportWidth="12"
+    android:viewportHeight="12">
+    <path
+        android:pathData="M2 8.9904V4.85377C2 3.03708 2 2.12874 2.58578 1.56437C3.17157 1 4.11438 1 6 1C7.8856 1 8.82845 1 9.4142 1.56437C10 2.12874 10 3.03708 10 4.85377V8.9904C10 10.1434 10 10.7198 9.6136 10.9262C8.86525 11.3257 7.4616 9.9926 6.795 9.5912C6.4084 9.3584 6.2151 9.242 6 9.242C5.7849 9.242 5.5916 9.3584 5.205 9.5912C4.5384 9.9926 3.13474 11.3257 2.38643 10.9262C2 10.7198 2 10.1434 2 8.9904Z"
+        android:strokeColor="#AEAEAE"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

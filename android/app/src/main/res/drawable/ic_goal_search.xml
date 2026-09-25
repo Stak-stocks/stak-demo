@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding 04 goal icon "find my first stocks" - converted from the Figma SVG (stroke #819ABB). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26.49dp" android:height="26.49dp"
+    android:viewportWidth="26.4937" android:viewportHeight="26.4937">
+    <path android:pathData="M15.6217 15.6217L19.5798 19.5798" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="miter" />
+    <path android:pathData="M11.6636 6.91387C14.0385 6.91387 16.4133 9.28874 16.4133 11.6636C16.4133 14.0385 14.0385 16.4133 11.6636 16.4133C9.28874 16.4133 6.91387 14.0385 6.91387 11.6636C6.91387 9.28874 9.28874 6.91387 11.6636 6.91387Z" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="butt" android:strokeLineJoin="miter" />
+</vector>

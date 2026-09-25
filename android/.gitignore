@@ -1,0 +1,13 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+# Release signing - never commit the upload key or its passwords
+keystore.properties
+*.jks
+*.keystore
+# Firebase config - per developer / CI secret, never committed (Copilot review, PR #166)
+app/google-services.json
