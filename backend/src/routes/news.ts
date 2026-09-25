@@ -1,8 +1,13 @@
 import { Router } from "express";
 import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, type FinnhubArticle } from "../services/finnhubService.js";
-import { simplifyArticles, classifyEarnings, filterMarketRelevant } from "../services/geminiService.js";
+import { simplifyArticles, classifyEarnings, filterMarketRelevant, type SimplifiedArticle } from "../services/geminiService.js";
 import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { brands } from "@stak/shared/brands";
+
+// The catalogue's name for each ticker, so an article can be matched to its company
+// without the caller having to send the name.
+const NAME_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 
 const MARKET_NEWS_TTL_MS  = 15 * 60 * 1000; // 15 minutes
 const COMPANY_NEWS_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -145,7 +150,8 @@ async function extractEarningsSignal(articles: FinnhubArticle[]): Promise<Earnin
 
 // GET /api/news/market — market-wide news (already macro-curated by Finnhub general endpoint)
 newsRouter.get("/market", async (_req, res) => {
-	const cacheKey = "news:market";
+	// v2: built from articles cleaned of encoding damage when fetched.
+	const cacheKey = "news:market:v2";
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
@@ -166,13 +172,23 @@ newsRouter.get("/market", async (_req, res) => {
 newsRouter.get("/company/:symbol", async (req, res) => {
 	const { symbol } = req.params;
 	const ticker = symbol.toUpperCase();
-	const companyName = req.query.name as string | undefined;
-	const cacheKey = `news:company:${ticker}`;
+	// The catalogue knows every Stak stock's name, so a caller that doesn't send one
+	// (Android never did) still gets its articles matched by name: without it a Tesla
+	// headline counted only if it happened to spell out "TSLA", and every Tesla story
+	// came back as sector news.
+	const companyName = NAME_BY_TICKER.get(ticker) ?? (req.query.name as string | undefined);
+	// v2: classified by whole-word name/ticker; v1 entries carry the substring labels.
+	// v3: articles are cleaned of encoding damage when fetched; v2 copies still hold it.
+	const cacheKey = `news:company:v3:${ticker}`;
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }
 
-		const articles = await getCompanyNews(ticker, 24, companyName);
+		// The caller's own name, not the catalogue's: getCompanyNews falls back to NewsAPI
+		// whenever it is given a name and Finnhub comes back empty. Handing it the
+		// catalogue name would turn that fallback on for every Android request, and a
+		// Finnhub outage would spend the NewsAPI quota. The catalogue name only classifies.
+		const articles = await getCompanyNews(ticker, 24, req.query.name as string | undefined);
 
 		if (articles.length === 0) {
 			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
@@ -216,7 +232,8 @@ newsRouter.get("/search", async (req, res) => {
 		res.status(400).json({ error: "Query must be at least 2 characters" });
 		return;
 	}
-	const cacheKey = `news:search:${q.toLowerCase()}`;
+	// v2: search results (NewsAPI included) are cleaned of encoding damage when fetched.
+	const cacheKey = `news:search:v2:${q.toLowerCase()}`;
 	try {
 		const cached = await cacheGet<object>(cacheKey);
 		if (cached) { res.json(cached); return; }

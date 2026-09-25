@@ -1,7 +1,13 @@
-package com.stak.demo.ui.news
+﻿package com.stak.demo.ui.news
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.fractionalSpacedBy
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,11 +40,21 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stak.demo.data.NewsArticleDto
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,8 +87,22 @@ internal object News {
  * bar comes from the MainShell.
  */
 @Composable
-fun NewsScreen(onOpenArticle: (String) -> Unit) {
+fun NewsScreen(
+	onOpenArticle: (String) -> Unit,
+	onOpenLiveArticle: (com.stak.demo.data.NewsArticleDto) -> Unit = {},
+	onOpenDailyBrief: () -> Unit = {},
+	viewModel: NewsViewModel = hiltViewModel(),
+) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val liveNews by viewModel.liveNews.collectAsStateWithLifecycle()
+	val dailyBrief by viewModel.dailyBrief.collectAsStateWithLifecycle()
+	val forYouNews by viewModel.forYouNews.collectAsStateWithLifecycle()
+	val liveNewsSettled by viewModel.liveNewsSettled.collectAsStateWithLifecycle()
+	val liveNewsFailed by viewModel.liveNewsFailed.collectAsStateWithLifecycle()
+	// Re-fetch For You each time the screen is entered so new holdings from
+	// Discover (or direct My STAK adds) are picked up without a full restart.
+	LaunchedEffect(Unit) { viewModel.refreshForYou() }
+	val uriHandler = LocalUriHandler.current
 	// Designer's call (2026-08-22): the search icon opens a search bar that
 	// word-matches the news content; the list is empty when nothing matches.
 	var searching by rememberSaveable { mutableStateOf(false) }
@@ -81,7 +112,8 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 	// Search reads the whole story, not just its headline (Codex audit
 	// 2026-09-04): subtitle, source, tags and ticker too.
 	fun matchesArticle(a: NewsArticleFeed.Article) = articleMatches(a, q)
-	fun matchesBrief(b: NewsBriefFeed.Brief) = matches(b.title) || matches(b.body) || matches(b.source)
+	fun matchesBrief(b: NewsBriefFeed.Brief) = matches(b.title) || matches(b.body) || matches(b.source) ||
+		com.stak.demo.data.BrandNames.expand(q).any { t -> b.title.contains(t, ignoreCase = true) || b.body.contains(t, ignoreCase = true) }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(
 			verticalArrangement = fractionalSpacedBy((22 * u).dp),
@@ -89,7 +121,9 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 				.weight(1f)
 				.fillMaxWidth()
 				.verticalScroll(rememberScrollState())
-				.padding(horizontal = (20 * u).dp),
+				.navigationBarsPadding()
+				.padding(horizontal = (20 * u).dp)
+				.padding(bottom = (24 * u).dp),
 		) {
 			// The header scrolls with the content like Home's top nav (user, 2026-09-14:
 			// "I don't want a fixed top bar") - title, date, the search glass and its
@@ -111,7 +145,7 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 						// Authored date line (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins).
 						Text(
 							// Product audit (2026-09-05): today's date, on the authored line.
-							text = com.stak.demo.ui.StakClock.todayLong(),
+							text = com.stak.demo.data.StakClock.todayLong(),
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = News.Muted,
 						)
@@ -143,9 +177,14 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 				val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 				LaunchedEffect(searching) {
 					if (searching) {
+						viewModel.prepareSearch()
 						searchFocus.requestFocus()
 						keyboard?.show()
 					}
+				}
+				BackHandler(enabled = searching) {
+					searching = false
+					query = ""
 				}
 				if (searching) {
 					BasicTextField(
@@ -175,29 +214,141 @@ fun NewsScreen(onOpenArticle: (String) -> Unit) {
 					)
 				}
 			}
-			if (q.isEmpty()) MoodMiniRow()
-			// Designer's call (2026-08-22): today's brief on tap leads to the
-			// News info page (the Story tile stays wired per panel 1:1228).
-			// Only the briefs that match ride the carousel (Codex audit
-			// 2026-09-04: one hit used to show all four pages).
-			val briefHits = NewsBriefFeed.briefs().withIndex().filter { matchesBrief(it.value) }
-			if (briefHits.isNotEmpty()) {
-				// Each brief opens ITS OWN article (user, 2026-08-25). The
-				// index guard covers a served brief without a mapped article.
-				BriefCarousel(
-					briefs = briefHits.map { it.value },
-					onRead = { page -> NewsArticleFeed.BRIEF_ARTICLES.getOrNull(briefHits[page].index)?.let(onOpenArticle) },
-				)
+			// Only show MoodMiniRow when a real mood value is available
+			val mood = dailyBrief?.mood
+			if (q.isEmpty() && !mood.isNullOrBlank()) MoodMiniRow(mood = mood)
+			// Show loading skeleton only while still waiting (null). Once resolved (even empty), stop.
+			val briefIsLoading = com.stak.demo.data.Session.token != null && dailyBrief == null
+			if (briefIsLoading) {
+				BriefLoadingCard()
 			}
-			StoryGrid(onOpenArticle = onOpenArticle, query = q)
-			// The rows render from the served section feeds - STRICT stock
-			// news only (user, 2026-08-25); EVERY story opens its article.
-			// Each story names the stocks it relates to; the "In your STAK"
-			// chip shows only when one of them is in the user's My STAK.
-			val forYou = NewsArticleFeed.forYou().filter { matchesArticle(it) }
-			if (forYou.isNotEmpty()) NewsSection(title = "For You", rows = forYou, onOpen = onOpenArticle)
-			val markets = NewsArticleFeed.markets().filter { matchesArticle(it) }
-			if (markets.isNotEmpty()) NewsSection(title = "Markets", rows = markets, onOpen = onOpenArticle)
+			// Daily brief drives the carousel when authenticated (AI-generated, holiday/session-aware).
+			// Falls back to top news articles; only the demo account falls back to the authored
+			// set — for a real account those are invented stories credited to real outlets.
+			val demo = com.stak.demo.data.Session.demoAccount
+			fun liveBody(a: NewsArticleDto): String =
+				a.explanation.takeIf { it.isNotBlank() } ?: com.stak.demo.data.NewsText.summaryBeyondHeadline(a.headline, a.summary).orEmpty()
+			// Search reads a live story the way it reads an authored one: its text and ticker,
+			// not just the headline and source ("NVDA" found nothing).
+			// A ticker also finds its company by name and a name finds its ticker, so "NVDA"
+			// matches "Nvidia Stock Rises..." and "Google" matches a story tagged GOOGL.
+			val alsoFind = com.stak.demo.data.BrandNames.expand(q)
+			fun matchesLive(a: NewsArticleDto): Boolean {
+				if (q.isEmpty()) return true
+				val text = listOf(a.headline, a.source, a.summary, a.explanation)
+				if (text.any { it.contains(q, ignoreCase = true) } || a.ticker.contains(q, ignoreCase = true)) return true
+				return alsoFind.any { term ->
+					if (term.all { it.isUpperCase() || it.isDigit() || it == '.' }) {
+						// A ticker: the story's own tag, or cited as a capitalised whole word.
+						a.ticker.equals(term, ignoreCase = true) ||
+							text.any { Regex("(^|[^A-Za-z0-9])" + Regex.escape(term) + "($|[^A-Za-z0-9])").containsMatchIn(it) }
+					} else {
+						text.any { Regex("(^|[^A-Za-z0-9])" + Regex.escape(term) + "($|[^A-Za-z0-9])", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+					}
+				}
+			}
+			val sourceBriefs = if (briefIsLoading) emptyList() else run {
+				val brief = dailyBrief
+				if (brief != null && (brief.moodExplanation.isNotBlank() || brief.plainEnglish.isNotBlank())) {
+					val aiSource = "STAK AI · ${brief.dayLabel.ifBlank { "Today's" }} Brief"
+					val aiCards = buildList {
+						if (brief.moodExplanation.isNotBlank() && brief.plainEnglish.isNotBlank()) {
+							add(NewsBriefFeed.Brief(
+								title = brief.moodExplanation,
+								body = brief.plainEnglish,
+								source = aiSource,
+							))
+						}
+						if (brief.personalizedImpact.isNotBlank()) {
+							add(NewsBriefFeed.Brief(
+								title = "What this means for you",
+								body = brief.personalizedImpact,
+								source = aiSource,
+							))
+						}
+					}
+					val newsCards = liveNews.take(4 - aiCards.size).map { a ->
+						NewsBriefFeed.Brief(
+							title = a.headline,
+							body = liveBody(a),
+							source = "${a.source} · ${formatNewsAge(a.datetime)}",
+							url = a.url.takeIf { it.isNotBlank() },
+						)
+					}
+					(aiCards + newsCards).ifEmpty { if (demo) NewsBriefFeed.briefs() else emptyList() }
+				} else if (liveNews.isNotEmpty()) {
+					liveNews.take(4).map { a ->
+						NewsBriefFeed.Brief(
+							title = a.headline,
+							body = liveBody(a),
+							source = "${a.source} · ${formatNewsAge(a.datetime)}",
+							url = a.url.takeIf { it.isNotBlank() },
+						)
+					}
+				} else if (demo) {
+					NewsBriefFeed.briefs()
+				} else {
+					emptyList()
+				}
+			}
+			val primaryBrief = sourceBriefs.firstOrNull { q.isEmpty() || matchesBrief(it) }
+			if (primaryBrief != null) {
+				BriefCard(brief = primaryBrief, onRead = {
+					// A news card opens its story; only the brief's own cards (no link) open the
+					// brief page - which a failed brief used to open empty.
+					if (primaryBrief.url != null) {
+						uriHandler.openUri(primaryBrief.url)
+					} else if (dailyBrief?.let { it.moodExplanation.isNotBlank() || it.plainEnglish.isNotBlank() } == true) {
+						DailyBriefHolder.current = dailyBrief
+						DailyBriefHolder.news = liveNews
+						onOpenDailyBrief()
+					}
+				})
+			} else if (q.isEmpty() && !briefIsLoading && liveNewsSettled && !demo) {
+				// Only once the news request has finished: before that an empty list is just
+				// "not here yet", and the card flashed on every open.
+				BriefUnavailableCard(failed = liveNewsFailed)
+			}
+			// For You: live company news for held stocks, deduplicated and recency-sorted.
+			val liveForYou = forYouNews.filter(::matchesLive)
+			if (liveForYou.isNotEmpty()) {
+				LiveNewsSection(title = "For You", articles = liveForYou, onOpen = { url -> uriHandler.openUri(url) }, onOpenArticle = onOpenLiveArticle)
+			}
+			// Articles not consumed by the carousel become the Markets rows.
+			// Brief card is AI-only — no news articles are consumed, so Markets gets all of liveNews.
+			val liveMarkets = liveNews.filter(::matchesLive)
+			if (liveMarkets.isNotEmpty()) {
+				LiveNewsSection(title = "Markets", articles = liveMarkets, onOpen = { url -> uriHandler.openUri(url) }, onOpenArticle = onOpenLiveArticle)
+			} else if (demo) {
+				// The authored stories are the demo's; a real account searching for something
+				// the live feed doesn't carry was shown "Amazon climbs on cloud margin beat"
+				// credited to Reuters — an invented story — instead of "No results".
+				val markets = NewsArticleFeed.markets().filter { matchesArticle(it) }
+				if (markets.isNotEmpty()) NewsSection(title = "Markets", rows = markets, onOpen = onOpenArticle)
+			}
+			// Empty state — only when a query is active and every section came up empty.
+			val marketsVisible = liveMarkets.isNotEmpty() || (demo && NewsArticleFeed.markets().any { matchesArticle(it) })
+			if (q.isNotEmpty() && primaryBrief == null && liveForYou.isEmpty() && !marketsVisible) {
+				Column(
+					verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+					modifier = Modifier
+						.fillMaxWidth()
+						.clip(RoundedCornerShape((14 * u).dp))
+						.background(News.CardBg)
+						.padding((16 * u).dp),
+				) {
+					Text(
+						text = "No results for “$q”",
+						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+						color = Color.White,
+					)
+					Text(
+						text = "Try a different keyword — ticker, topic or source.",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = News.Muted,
+					)
+				}
+			}
 			Spacer(modifier = Modifier.height(0.dp))
 		}
 	}
@@ -210,13 +361,14 @@ private fun articleMatches(a: NewsArticleFeed.Article, q: String): Boolean {
 	return hit(a.headline) || hit(a.subtitle) || hit(a.source) || a.tags.any(::hit) || (a.ticker?.let(::hit) ?: false)
 }
 
-/**
- * Compact Market Mood row — #171d2c r12 with the small low-volatility
- * gauge, exactly as authored (user, 2026-09-04 (CHINEDU 03 · News 1:1228): the authored look wins); Home's card keeps its own live line.
- */
+/** Compact Market Mood row — live mood from /api/daily-brief, Canvas-drawn gauge. */
 @Composable
-private fun MoodMiniRow() {
+private fun MoodMiniRow(mood: String?) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// Same table Home reads (com.stak.demo.ui.home.MarketMoodFeed) - a hand-copied one
+	// here read differently for "volatile" than Home did (device report, 2026-09-24).
+	val moodLabel = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.leadForMood(it) } ?: "Loading…"
+	val moodColor = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.colorFor(it) } ?: News.Teal
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier
@@ -232,61 +384,102 @@ private fun MoodMiniRow() {
 				color = Color.White,
 			)
 			Text(
-				text = "Low volatility",
+				text = moodLabel,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = News.Teal,
+				color = moodColor,
 			)
 		}
 		Spacer(modifier = Modifier.weight(1f))
-		Image(
-			painter = painterResource(R.drawable.news_gauge_small),
-			contentDescription = null,
-			modifier = Modifier.size((40.97 * u).dp, (20.76 * u).dp),
+		MoodGauge(mood = mood, u = u)
+	}
+}
+
+@Composable
+private fun MoodGauge(mood: String?, u: Float) {
+	// Same canonical mapping Home's gauge angle reads (device report, 2026-09-24: this
+	// gauge used to place "volatile" at the same spot as "calm"/"mixed" under its own
+	// hand-rolled fraction table, while Home's score put it clearly on the bad side).
+	val moodColor = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.colorFor(it) } ?: News.Teal
+	val fraction = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.fractionFor(it) } ?: 0.5f
+	Canvas(modifier = androidx.compose.ui.Modifier.size((42 * u).dp, (22 * u).dp)) {
+		val stroke = (2.8f * u).dp.toPx()
+		val radius = size.height - stroke * 0.5f
+		val cx = size.width / 2f
+		val cy = size.height
+		val arcTopLeft = androidx.compose.ui.geometry.Offset(cx - radius, cy - radius)
+		val arcSize = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+		// Background arc (full upper semicircle, counter-clockwise from left to right)
+		drawArc(
+			color = Color(0xFF2A3346),
+			startAngle = 180f,
+			sweepAngle = -180f,
+			useCenter = false,
+			topLeft = arcTopLeft,
+			size = arcSize,
+			style = Stroke(width = stroke),
+		)
+		// Mood-coloured fill arc
+		drawArc(
+			color = moodColor,
+			startAngle = 180f,
+			sweepAngle = -(fraction * 180f),
+			useCenter = false,
+			topLeft = arcTopLeft,
+			size = arcSize,
+			style = Stroke(width = stroke, cap = StrokeCap.Round),
+		)
+		// Needle
+		val angleRad = ((1f - fraction) * PI).toFloat()
+		val needleLen = radius * 0.78f
+		drawLine(
+			color = Color.White.copy(alpha = 0.9f),
+			start = androidx.compose.ui.geometry.Offset(cx, cy),
+			end = androidx.compose.ui.geometry.Offset(
+				cx + needleLen * cos(angleRad),
+				cy - needleLen * sin(angleRad),
+			),
+			strokeWidth = (1.3f * u).dp.toPx(),
+			cap = StrokeCap.Round,
+		)
+		drawCircle(
+			color = Color.White.copy(alpha = 0.9f),
+			radius = (1.5f * u).dp.toPx(),
+			center = androidx.compose.ui.geometry.Offset(cx, cy),
 		)
 	}
 }
 
 /**
- * TODAY'S BRIEF — teal r18 feature card + pager dots. The user swipes
- * left and right through the served briefs (user, 2026-08-22); the
- * active dot follows the page. Text comes from NewsBriefFeed.
+ * Where the brief card sits when a real account has no brief and no live news to fill
+ * it: says so, rather than showing the demo's authored briefs as today's. [failed] tells
+ * a news request that failed from one that came back with nothing; the wording matches
+ * Home's.
  */
 @Composable
-private fun BriefCarousel(briefs: List<NewsBriefFeed.Brief>, onRead: (Int) -> Unit) {
+private fun BriefUnavailableCard(failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	// Keyed on the page count so a narrowing search never leaves the pager
-	// parked past its last page.
-	val pager = androidx.compose.runtime.key(briefs.size) {
-		androidx.compose.foundation.pager.rememberPagerState(pageCount = { briefs.size })
-	}
-	Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((12 * u).dp)) {
-		androidx.compose.foundation.pager.HorizontalPager(
-			state = pager,
-			modifier = Modifier.fillMaxWidth(),
-		) { page ->
-			BriefCard(brief = briefs[page], onRead = { onRead(page) })
-		}
-		// Pager dots — the active page is the 16x6 teal pill, the rest
-		// 6px #5c6b85 dots, 6px gaps: the authored 52x6 strip.
-		Row(
-			horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
-			verticalAlignment = Alignment.CenterVertically,
-			modifier = Modifier.height((6 * u).dp),
-		) {
-			for (i in briefs.indices) {
-				if (i == pager.currentPage) {
-					Box(modifier = Modifier.size((16 * u).dp, (6 * u).dp).background(News.Teal, RoundedCornerShape((3 * u).dp)))
-				} else {
-					Box(modifier = Modifier.size((6 * u).dp).background(Color(0xFF5C6B85), CircleShape))
-				}
-			}
-		}
-		// Authored carousel block (1:1261) is 229 tall: 15 of slack under the dots.
-		Spacer(modifier = Modifier.height((3 * u).dp))
+	Column(
+		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape((18 * u).dp))
+			.background(News.CardBg)
+			.padding((18 * u).dp),
+	) {
+		Text(
+			text = if (failed) "Market news isn't loading" else "Today's brief isn't available",
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+			color = Color.White,
+		)
+		Text(
+			text = if (failed) "Leave News and come back to try again." else "There's no market news to show right now.",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = News.Muted,
+		)
 	}
 }
 
-/** One brief card in the carousel slot. */
+/** One brief card — teal r18 feature card. Tapping it (or the "Read ›" link) calls [onRead]. */
 @Composable
 private fun BriefCard(brief: NewsBriefFeed.Brief, onRead: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -347,79 +540,35 @@ private fun BriefCard(brief: NewsBriefFeed.Brief, onRead: () -> Unit) {
 	}
 }
 
-/**
- * The two 128dp story tiles. The tags are authored SLOT labels (1:1228:
- * "Markets" = the day's top stock story, "Your stocks" = the top story
- * from the user's holdings); the tile copy renders from the SERVED
- * story - the frame's copy was placeholder (user, 2026-08-25: "the
- * design by the ui is just placeholder"), and only strict stock news
- * is served.
- */
-@Composable
-private fun StoryGrid(onOpenArticle: (String) -> Unit, query: String = "") {
-	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val market = NewsArticleFeed.article(NewsArticleFeed.MARKET_TILE)
-	// A story about a held stock, else the authored Apple story as a plain "Trending" tile (product audit, 2026-09-05).
-	val yoursHeld = NewsArticleFeed.yourStocksTile()
-	val yours = yoursHeld ?: NewsArticleFeed.article(NewsArticleFeed.APPLE)
-	fun visible(a: NewsArticleFeed.Article) = NewsArticleFeed.isStockNews(a) && articleMatches(a, query)
-	val showMarket = visible(market)
-	val showYours = visible(yours)
-	if (!showMarket && !showYours) return
-	Row(horizontalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.fillMaxWidth().height((128 * u).dp)) {
-		if (showMarket) {
-			StoryTile(
-				tag = "Markets",
-				// Authored Geist Regular (1:1280) - exact-design audit 2026-09-04.
-				tagWeight = FontWeight.Normal,
-				headline = market.headline,
-				source = "${market.source} · ${market.age}",
-				onClick = { onOpenArticle(market.id) },
-				modifier = Modifier.weight(1f),
-			)
-		}
-		if (showYours) {
-			StoryTile(
-				tag = if (yoursHeld != null) "Your stocks" else "Trending",
-				// Authored Geist Light (1:1288) - exact-design audit 2026-09-04.
-				tagWeight = FontWeight.Light,
-				headline = yours.headline,
-				source = "${yours.source} · ${yours.age}",
-				onClick = { onOpenArticle(yours.id) },
-				modifier = Modifier.weight(1f),
-			)
-		}
-	}
-}
 
+/** Same blue card as BriefCard but with three pulsing placeholder bars while the brief loads. */
 @Composable
-private fun StoryTile(tag: String, tagWeight: FontWeight, headline: String, source: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun BriefLoadingCard() {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val transition = rememberInfiniteTransition(label = "brief-loading")
+	val alpha by transition.animateFloat(
+		initialValue = 0.25f,
+		targetValue = 0.55f,
+		animationSpec = infiniteRepeatable(animation = tween(800), repeatMode = RepeatMode.Reverse),
+		label = "brief-shimmer",
+	)
+	val shimmer = News.Ink.copy(alpha = alpha)
 	Column(
-		verticalArrangement = Arrangement.spacedBy((8 * u).dp),
-		modifier = modifier
-			.height((128 * u).dp)
-			.clip(RoundedCornerShape((12 * u).dp))
-			.background(News.CardBg)
-			.clickable(
-				interactionSource = remember { MutableInteractionSource() },
-				indication = com.stak.demo.ui.theme.PressDim,
-				onClick = onClick,
-			)
-			.padding((14 * u).dp),
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape((18 * u).dp))
+			.background(News.Teal)
+			.padding(start = (18 * u).dp, end = (18 * u).dp, top = (18 * u).dp, bottom = (22 * u).dp),
 	) {
-		NewsTag(text = tag, letterSpacing = (0.4 * u).sp, weight = tagWeight)
 		Text(
-			text = headline,
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = Color.White,
+			text = "TODAY’S BRIEF",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, letterSpacing = (0.6 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = News.Ink,
 		)
-		Spacer(modifier = Modifier.weight(1f))
-		Text(
-			text = source,
-			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = News.Muted,
-		)
+		Box(modifier = Modifier.fillMaxWidth(0.78f).height((14 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(shimmer))
+		Box(modifier = Modifier.fillMaxWidth(0.95f).height((10 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(shimmer))
+		Box(modifier = Modifier.fillMaxWidth(0.60f).height((10 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(shimmer))
 	}
 }
 
@@ -444,6 +593,66 @@ internal fun NewsTag(text: String, letterSpacing: androidx.compose.ui.unit.TextU
 		)
 	}
 }
+
+/** Live market news rows — same card style as NewsSection, tap opens article URL in browser. */
+@Composable
+private fun LiveNewsSection(
+	title: String,
+	articles: List<NewsArticleDto>,
+	onOpen: (String) -> Unit,
+	onOpenArticle: ((NewsArticleDto) -> Unit)? = null,
+) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(verticalArrangement = com.stak.demo.ui.theme.fractionalSpacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+		Text(
+			text = title,
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = News.HeaderGray,
+			modifier = Modifier.padding(bottom = (2 * u).dp),
+		)
+		articles.forEach { article ->
+			Row(
+				verticalAlignment = Alignment.CenterVertically,
+				horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+				modifier = Modifier
+					.fillMaxWidth()
+					.clip(RoundedCornerShape((14 * u).dp))
+					.background(News.CardBg)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = { if (onOpenArticle != null) onOpenArticle(article) else onOpen(article.url) },
+					)
+					.padding((12 * u).dp),
+			) {
+				if (article.image.isNotBlank()) {
+					coil.compose.AsyncImage(
+						model = article.image,
+						contentDescription = null,
+						contentScale = ContentScale.Crop,
+						modifier = Modifier.size((60 * u).dp).clip(RoundedCornerShape((10 * u).dp)),
+					)
+				}
+				Column(verticalArrangement = Arrangement.spacedBy((5 * u).dp), modifier = Modifier.weight(1f)) {
+					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((16 * u).dp)) {
+						Text(
+							text = "${article.source} · ${formatNewsAge(article.datetime)}",
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = News.Muted,
+						)
+					}
+					Text(
+						text = article.headline,
+						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Color.White,
+					)
+				}
+			}
+		}
+	}
+}
+
+private fun formatNewsAge(datetime: Long): String = com.stak.demo.data.StakClock.newsAge(datetime)
 
 /** "For You" / "Markets" — Sora 16 #d3d3d3 header + 60dp-thumb cards. */
 @Composable
@@ -511,7 +720,7 @@ private fun NewsSection(
 						)
 						Spacer(modifier = Modifier.weight(1f))
 						// Only for stocks the user holds (user, 2026-08-23).
-						if (com.stak.demo.ui.MyStakHoldings.holdsAny(row.relatedTickers)) NewsTag(text = "In your STAK")
+						if (com.stak.demo.data.MyStakHoldings.holdsAny(row.relatedTickers)) NewsTag(text = "In your STAK")
 					}
 					Text(
 						text = row.headline,

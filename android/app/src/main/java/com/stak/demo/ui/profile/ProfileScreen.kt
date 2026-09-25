@@ -1,4 +1,4 @@
-package com.stak.demo.ui.profile
+﻿package com.stak.demo.ui.profile
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.background
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,8 +58,12 @@ private const val INVITE = "invite"
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: (String) -> Unit = {}, onEditProfile: () -> Unit = {}) {
+	// Render nothing once signed out — prevents "Hamza" demo flash during the exit transition frame
+	if (!com.stak.demo.data.Session.signedIn) return
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val context = androidx.compose.ui.platform.LocalContext.current
+	// The joined month, sign-in email and taste answers as the server has them.
+	androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.ProfileSync.sync() }
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Box(
 			modifier = Modifier
@@ -85,6 +90,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				.weight(1f)
 				.fillMaxWidth()
 				.verticalScroll(rememberScrollState())
+				.navigationBarsPadding()
 				.padding(horizontal = (20 * u).dp)
 				.padding(top = (16 * u).dp, bottom = (40 * u).dp),
 		) {
@@ -110,7 +116,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				) {
 					// The picked photo when one exists; else the live initial of
 					// the display name ("H" was hardcoded - audit 2026-08-25).
-					val photo = com.stak.demo.ui.UserProfile.photoUri
+					val photo = com.stak.demo.data.UserProfile.photoUri
 					if (photo != null) {
 						coil.compose.AsyncImage(
 							model = photo,
@@ -120,21 +126,31 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 						)
 					} else {
 						Text(
-							text = com.stak.demo.ui.UserProfile.greetingName.take(1).uppercase(),
+							text = com.stak.demo.data.UserProfile.displayName.firstOrNull()?.uppercase() ?: "",
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (22 * u).sp, lineHeight = (28 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = Color(0xFF9EADC7),
 						)
 					}
 				}
 				Text(
-					text = com.stak.demo.ui.UserProfile.greetingName,
+					text = com.stak.demo.data.UserProfile.greetingName,
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (20 * u).sp, lineHeight = (25 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Color.White,
 				)
 				Text(
-					text = "Paper investor · joined ${com.stak.demo.ui.UserProfile.joined}",
+					text = (if (com.stak.demo.data.Session.demoAccount) com.stak.demo.data.UserProfile.DEMO_JOINED else com.stak.demo.data.UserProfile.joined)
+						.let { if (it.isBlank()) "Paper investor" else "Paper investor · joined $it" },
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Muted,
+				)
+				Text(
+					text = "Edit profile",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = ChipInk,
+					modifier = Modifier.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+					) { onOpenSetting(SettingsKind.EDIT_PROFILE) },
 				)
 			}
 			// YOUR TASTE card.
@@ -158,11 +174,16 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				// The demo account keeps the authored chips at their pinned widths; a
 				// new account's chips come from its onboarding answers and hug their
 				// labels (product audit, 2026-09-05).
-				val profile = com.stak.demo.ui.UserProfile
-				val chips: List<Pair<String, Int?>> = if (com.stak.demo.ui.Session.demoAccount) {
+				val profile = com.stak.demo.data.UserProfile
+				val chips: List<Pair<String, Int?>> = if (com.stak.demo.data.Session.demoAccount) {
 					listOf("Tech Curious" to 97, "High Growth" to 94, "Consumer Brands" to 125)
 				} else {
-					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks, profile.goal, profile.risk).map { it to null }
+					// The onboarding picks plus the stocks saved since that belong to a taste, so
+					// the chips follow what the user keeps from the deck.
+					val saved = com.stak.demo.data.MyStakHoldings.tickers
+						.mapNotNull { com.stak.demo.data.MyStakHoldings.nameOf(it) }
+						.filter { com.stak.demo.ui.onboarding.TasteModel.isTasteBrand(it) }
+					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks + saved, profile.goal, profile.risk).map { it to null }
 				}
 				chips.forEach { (label, w) ->
 					Box(
@@ -185,7 +206,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				}
 			}
 			Text(
-					text = "Your taste graph sharpens with every swipe.",
+					text = if (com.stak.demo.data.Session.demoAccount) "Your taste graph sharpens with every swipe." else "Your taste updates as you save stocks.",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Body,
 				)
@@ -224,7 +245,14 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					.padding(vertical = (4 * u).dp),
 			) {
 				// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14).
-				listOf("Notifications" to SettingsKind.NOTIFICATIONS, "Appearance" to SettingsKind.APPEARANCE, "Linked accounts" to SettingsKind.LINKED, "App settings" to SettingsKind.APP, "Help & support" to SettingsKind.HELP, "Invite a friend" to INVITE).forEach { (label, kind) ->
+				listOf(
+					"Notifications" to SettingsKind.NOTIFICATIONS,
+					"Appearance" to SettingsKind.APPEARANCE,
+					(if (com.stak.demo.data.Session.demoAccount) "Linked accounts" else "Sign-in") to SettingsKind.LINKED,
+					"App settings" to SettingsKind.APP,
+					"Help & support" to SettingsKind.HELP,
+					"Invite a friend" to INVITE,
+				).forEach { (label, kind) ->
 					Row(
 						verticalAlignment = Alignment.CenterVertically,
 						modifier = Modifier

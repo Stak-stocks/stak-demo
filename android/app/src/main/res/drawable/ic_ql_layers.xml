@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick Look redesign (device report, 2026-09-23): "Business strength" - stacked layers, matching the app's #819ABB stroke icon set. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp" android:height="21dp"
+    android:viewportWidth="21" android:viewportHeight="21">
+    <path android:pathData="M10.5,3.5 L18,7.5 L10.5,11.5 L3,7.5 Z" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M3,11 L10.5,15 L18,11" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M3,14.5 L10.5,18.5 L18,14.5" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

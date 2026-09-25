@@ -1,0 +1,18 @@
+<!-- Social Media: two speech bubbles, matching the taste-icon set (user's reference art).
+     Rounded rectangles with tails rather than arcs - the ellipse version drew lopsided. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4,6.5 a2,2 0 0 1 2,-2 h7 a2,2 0 0 1 2,2 v4 a2,2 0 0 1 -2,2 h-4.2 l-3.3,2.4 v-2.4 h0.5 a2,2 0 0 1 -2,-2 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M10.5,15.5 a2,2 0 0 1 2,-2 h5.5 a2,2 0 0 1 2,2 v2.5 a2,2 0 0 1 -2,2 h-0.5 v2 l-2.8,-2 h-2.2 a2,2 0 0 1 -2,-2 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
+</vector>

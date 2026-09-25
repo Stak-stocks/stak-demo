@@ -1,4 +1,4 @@
-package com.stak.demo.ui.home
+﻿package com.stak.demo.ui.home
 
 /**
  * "Why this matters to you" data source (CHINEDU 1:1176).
@@ -24,11 +24,25 @@ object WhyThisMattersFeed {
 	/** A new account with nothing saved yet (product audit, 2026-09-05). */
 	const val EMPTY_BODY = "Save a few stocks and STAK will show how today's news hits them."
 
-	/** The current summary - the served personalized copy once the backend exists. */
-	fun body(): String = when {
-		com.stak.demo.ui.MyStakHoldings.count == 0 -> EMPTY_BODY
-		com.stak.demo.ui.Session.demoAccount -> DEMO_BODY
-		// A new account's saves against today's stories (product audit, 2026-09-05).
-		else -> com.stak.demo.ui.StakInsights.whyThisMattersBody(com.stak.demo.ui.news.NewsArticleFeed.relatedTickers())
+	/** Said once the brief has come back without a summary for this account. */
+	const val UNAVAILABLE_BODY = "Today's read on your STAK isn't available."
+
+	/**
+	 * The current summary — backend personalizedImpact when available. A real account
+	 * no longer falls back to a line counted against the authored news articles
+	 * ("None of your 4 saved stocks are in today's news"), which described stories
+	 * the user never saw; it stays empty while the brief loads and says so if the
+	 * brief comes back without one.
+	 */
+	fun body(): String {
+		val brief = com.stak.demo.ui.news.DailyBriefHolder.current
+		val impact = brief?.personalizedImpact
+		if (!impact.isNullOrBlank()) return impact
+		return when {
+			com.stak.demo.data.MyStakHoldings.count == 0 -> EMPTY_BODY
+			com.stak.demo.data.Session.demoAccount -> DEMO_BODY
+			brief == null -> ""
+			else -> UNAVAILABLE_BODY
+		}
 	}
 }

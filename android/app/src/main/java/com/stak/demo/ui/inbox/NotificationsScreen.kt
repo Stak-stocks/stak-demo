@@ -1,4 +1,4 @@
-package com.stak.demo.ui.inbox
+﻿package com.stak.demo.ui.inbox
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -26,7 +27,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.stak.demo.ui.StakNotifications
+import com.stak.demo.data.StakNotifications
 import com.stak.demo.ui.profile.SettingsLinkRow
 import com.stak.demo.ui.profile.SettingsScaffold
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
@@ -54,11 +55,14 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 	val items = StakNotifications.items
 	// Captured once: markAllRead below rewrites readIds, and the rows opened unread keep their dot for this visit.
 	val readBefore = remember { StakNotifications.readIds }
-	LaunchedEffect(Unit) { StakNotifications.markAllRead() }
+	LaunchedEffect(Unit) {
+		StakNotifications.markAllRead()
+		StakNotifications.refresh()
+	}
 	SettingsScaffold(title = "Notifications", onBack = onBack) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((14 * u).dp),
-			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
+			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
 		) {
 			if (items.isEmpty()) {
 				Column(

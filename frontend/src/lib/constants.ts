@@ -1,5 +1,9 @@
-/** Maximum number of brands a user can hold in their Stak. */
-export const STAK_CAPACITY = 30;
+/**
+ * Maximum number of brands a user can hold in their Stak. Re-exported from
+ * @stak/shared so the web, Android and the backend all read one value - it used
+ * to be defined here, where only the web could see it.
+ */
+export { STAK_CAPACITY } from "@stak/shared";
 
 /** Maximum brands shown in the My Stak watch list before "See all" collapses them. */
 export const WATCH_LIST_LIMIT = 5;

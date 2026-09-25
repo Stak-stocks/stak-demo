@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.stak.demo.data.StakStore
 import com.stak.demo.ui.onboarding.figmaUnit
 import com.stak.demo.ui.profile.SettingsChip
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
@@ -56,9 +58,16 @@ private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == Paper
 @Composable
 internal fun PortfolioSetupCard() {
 	val u = figmaUnit()
-	var balance by rememberSaveable { mutableIntStateOf(DEFAULT_BALANCE) }
-	var name by rememberSaveable { mutableStateOf("") }
-	var strategy by rememberSaveable { mutableIntStateOf(DEFAULT_STRATEGY) }
+	// The half-filled form is remembered on the phone too, so a relaunch or a log out / in
+	// doesn't send the picks back to the defaults before "Start practising" is tapped.
+	var balance by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_balance", DEFAULT_BALANCE).coerceIn(SETUP_BALANCES.indices)) }
+	var name by rememberSaveable { mutableStateOf(StakStore.getString("setup_draft_name") ?: "") }
+	var strategy by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_strategy", DEFAULT_STRATEGY).coerceIn(SETUP_STRATEGIES.indices)) }
+	LaunchedEffect(balance, name, strategy) {
+		StakStore.putInt("setup_draft_balance", balance)
+		StakStore.putString("setup_draft_name", name)
+		StakStore.putInt("setup_draft_strategy", strategy)
+	}
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Sim.CardBg).padding((16 * u).dp),

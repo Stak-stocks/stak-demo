@@ -1,4 +1,4 @@
-package com.stak.demo.ui.simulate
+﻿package com.stak.demo.ui.simulate
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -27,10 +27,53 @@ internal data class Position(val spec: PickSpec, val row: SimPick) {
 	/** "$124.00" -> 124.0: what selling returns to cash. */
 	val stake: Double get() = parseUsd(spec.stakeValue)
 
-	/** "+$24.00" -> 24.0, "-$3.00" -> -3.0: the row's gain in dollars (review 2026-09-04). */
+	/** "$100" -> 100.0: what the position cost, the fixed point live gain is measured from. */
+	val costBasis: Double get() = parseUsd(spec.stakeBasis)
+
+	private val sharesCount: Double get() = spec.shares.toDoubleOrNull() ?: 0.0
+
+	/**
+	 * Today's quote for this pick - null for the demo (its numbers carry no live price
+	 * behind them) or before the first refresh lands for a real one.
+	 */
+	private val liveQuote: Pair<Double, Double>? get() = if (PaperPortfolio.demo) null else com.stak.demo.data.LiveQuotes.cached(spec.symbol)
+
+	/** The position's real-time market value: shares at today's price, falling back to the stored stake until a quote lands. */
+	val liveValue: Double get() = liveQuote?.let { it.first * sharesCount } ?: stake
+
+	/**
+	 * The row's gain in dollars - a real position's shares at today's live price, less
+	 * its cost basis, so the paper stake actually "tracks the move live" the way the
+	 * app's own copy promises; "+$24.00" -> 24.0 (review 2026-09-04) for the demo's
+	 * seeded rows, which have no live price behind them.
+	 */
 	val gainDollars: Double get() {
+		val quote = liveQuote
+		if (quote != null) return quote.first * sharesCount - costBasis
 		val unsigned = parseUsd(row.amount.removePrefix("-").removePrefix("+"))
 		return if (row.amount.startsWith("-")) -unsigned else unsigned
+	}
+
+	/** [row], re-priced off today's quote for a real position - amount, percent and up/down; the demo's authored row unchanged. */
+	val liveRow: SimPick get() {
+		val quote = liveQuote ?: return row
+		val gain = quote.first * sharesCount - costBasis
+		val pct = if (costBasis > 0.0) gain / costBasis * 100.0 else 0.0
+		return row.copy(amount = PaperPortfolio.signedUsd(gain), pct = String.format(Locale.US, "%+.1f%%", pct), up = gain >= 0.0)
+	}
+
+	/** [spec], re-priced off today's quote for a real position - Price now, the gain (dollars and percent), up/down and position value; the demo's authored spec unchanged. */
+	val liveSpec: PickSpec get() {
+		val quote = liveQuote ?: return spec
+		val gain = quote.first * sharesCount - costBasis
+		val pct = if (costBasis > 0.0) abs(gain / costBasis * 100.0) else 0.0
+		return spec.copy(
+			priceNow = PaperPortfolio.usd(quote.first),
+			gain = PaperPortfolio.signedUsd(gain),
+			gainPct = String.format(Locale.US, "%.1f%%", pct),
+			up = gain >= 0.0,
+			stakeValue = PaperPortfolio.usd(quote.first * sharesCount),
+		)
 	}
 
 	/** The best/worst tile line (1:3898): "+$24 on $100" - gain to whole dollars over the cost basis. */
@@ -77,8 +120,8 @@ private val SEED_ROWS = listOf(
  * Codex audit (2026-09-04): the paper portfolio is real state, not a set of
  * literals that contradict each other. Demo-seeded from the authored
  * numbers (1:3898 hero, 1:4496 rows, 1:4631 picks); buys and sells on
- * every host move the same cash and rows the Simulate, Portfolio, Pick
- * detail and Leaderboard pages read. Mirrors
+ * every host move the same cash and rows the Simulate, Portfolio and Pick
+ * detail pages read. Mirrors
  * ios/StakDemo/Simulate/PaperPortfolio.swift.
  */
 internal object PaperPortfolio {
@@ -143,9 +186,8 @@ internal object PaperPortfolio {
 	var openOrders by mutableStateOf(listOf<OpenOrder>())
 		private set
 
-	// One set of week figures for the hero, the board card and the
-	// Leaderboard You row - audit item 6 (they used to disagree).
-	const val WEEK_RANK = 47
+	// One set of week figures for the hero - audit item 6 (they used to disagree
+	// with the now-removed board card and leaderboard).
 	const val WEEK_GAIN = "+$186"
 	const val WEEK_PCT = "+1.9%"
 
@@ -157,8 +199,6 @@ internal object PaperPortfolio {
 	var demo by mutableStateOf(true)
 		private set
 
-	/** The leaderboard rank - the demo's authored #47; a new account is unranked until it has moves. */
-	val weekRank: Int? get() = if (demo) WEEK_RANK else null
 	val weekUp: Boolean get() = if (demo) true else allTimeGain >= 0
 	val weekGainText: String get() = if (demo) WEEK_GAIN else signedWhole(allTimeGain)
 	val weekPctText: String get() = if (demo) WEEK_PCT else signedPct(allTimeGain / paperStart * 100)
@@ -228,7 +268,7 @@ internal object PaperPortfolio {
 		// audit 2026-09-05; the seed baseline above is what value grows from.
 		// A demo ledger persisted before the trade log existed (no "trades" key) reseeds once with its
 		// authored history; the next persist() rewrites it in the current shape (review 2026-09-14).
-		com.stak.demo.ui.StakStore.getString("portfolio")?.let { runCatching { val o = org.json.JSONObject(it); if (!(demo && !o.has("trades"))) restore(o) } }
+		com.stak.demo.data.StakStore.getString("portfolio")?.let { runCatching { val o = org.json.JSONObject(it); if (!(demo && !o.has("trades"))) restore(o) } }
 	}
 
 	private fun seedTrades(): List<Trade> {
@@ -285,7 +325,8 @@ internal object PaperPortfolio {
 		o.put("realized", org.json.JSONArray().also { arr ->
 			realized.forEach { r -> arr.put(org.json.JSONObject().put("badge", r.badge).put("ticker", r.ticker).put("sub", r.sub).put("amount", r.amount).put("up", r.up)) }
 		})
-		com.stak.demo.ui.StakStore.putString("portfolio", o.toString())
+		com.stak.demo.data.StakStore.putString("portfolio", o.toString())
+		com.stak.demo.data.DeviceStateSync.push()
 	}
 
 	private fun specJson(s: PickSpec): org.json.JSONObject = org.json.JSONObject()
@@ -346,18 +387,21 @@ internal object PaperPortfolio {
 
 	/**
 	 * The authored $10,240.00 plus every move since: a buy swaps cash for
-	 * stake at cost and a sell swaps stake back at value, so the figure
-	 * holds until prices move - the demo serves no live prices.
+	 * stake at cost and a sell swaps stake back at value. The demo serves no
+	 * live prices, so its seeded holdings hold at their authored stake; a
+	 * real account's holdings are marked at today's live price instead
+	 * (Position.liveValue), so the hero figure moves with the market.
 	 */
 	val portfolioValue: Double
 		// A reserved limit stake is still the account's money until it fills or is cancelled (review 2026-09-14).
-		get() = baseValue + (cash - baseCash) + (positions.sumOf { it.stake } - baseHoldings) + openOrders.sumOf { it.amount }
+		get() = baseValue + (cash - baseCash) + (positions.sumOf { it.liveValue } - baseHoldings) + openOrders.sumOf { it.amount }
 
 	val pickCount: Int get() = positions.size
 
 	fun holds(symbol: String): Boolean = positions.any { it.spec.symbol == symbol }
 
-	fun pickSpec(symbol: String): PickSpec? = positions.firstOrNull { it.spec.symbol == symbol }?.spec
+	/** The tapped pick's numbers, re-priced off today's quote for a real account (Position.liveSpec) - the demo's authored spec unchanged. */
+	fun pickSpec(symbol: String): PickSpec? = positions.firstOrNull { it.spec.symbol == symbol }?.liveSpec
 
 	/** "$" + Locale.US "%,.2f" - the one cash format every screen shares. */
 	fun usd(amount: Double): String = "$" + String.format(Locale.US, "%,.2f", amount)
@@ -382,7 +426,7 @@ internal object PaperPortfolio {
 		ensureSetup()
 		// A bought stock is in your STAK (Codex review, PR #167 mirror): the receipt's
 		// "View in My STAK" lands on a page that lists it, not on an empty one.
-		com.stak.demo.ui.MyStakHoldings.add(spec.symbol)
+		com.stak.demo.data.MyStakHoldings.add(spec.symbol)
 		val price = spec.price
 		val shares = if (price > 0.0) amount / price else 0.0
 		cash -= amount
@@ -425,7 +469,10 @@ internal object PaperPortfolio {
 				up = true,
 				shares = String.format(Locale.US, "%.4f", shares),
 				stakeValue = usd(amount),
-				vsMarket = "Even with the market",
+				// Short on purpose (device report, 2026-09-18): the stat's own label already
+				// says "vs the market" - "Even with the market" wrapped inside the fixed-height
+				// cell and its second line got clipped, reading as the cut-off "Even with the".
+				vsMarket = "Even",
 				ahead = true,
 				dayChange = spec.change,
 				stakeBasis = stakeLabel(amount),
@@ -446,25 +493,28 @@ internal object PaperPortfolio {
 		val held = positions.firstOrNull { it.spec.symbol == symbol } ?: return false
 		val p = portion.coerceIn(0.0, 1.0)
 		if (p <= 0.0) return false
-		val banked = !held.spec.gain.startsWith("-")
+		// Live for a real account (today's quote), the authored spec for the demo -
+		// what actually returns to cash and what the SOLD row banks.
+		val live = held.liveSpec
+		val banked = held.gainDollars >= 0.0
 		val sub = "Sold ${today()} · ${if (banked) "profit banked" else "loss realized"}"
-		recordTrade("SELL", symbol, held.spec.badge, held.stake * p, (held.spec.shares.toDoubleOrNull() ?: 0.0) * p, parseUsd(held.spec.priceNow))
+		recordTrade("SELL", symbol, held.spec.badge, held.liveValue * p, (held.spec.shares.toDoubleOrNull() ?: 0.0) * p, parseUsd(live.priceNow))
 		if (p >= 0.999) {
 			positions = positions.filterNot { it === held }
-			cash += held.stake
-			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = held.spec.gain, up = banked)) + realized
+			cash += held.liveValue
+			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = live.gain, up = banked)) + realized
 		} else {
 			// A partial sell - the Half / Custom chips (Codex review, PR #167): the sold
 			// slice returns to cash and banks its share of the gain; the rest of the
 			// position stays, scaled.
 			val keep = 1.0 - p
 			val gain = held.gainDollars
-			val basis = held.spec.stakeBasis.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
-			cash += held.stake * p
+			val basis = held.costBasis
+			cash += held.liveValue * p
 			val rest = held.copy(
 				spec = held.spec.copy(
 					shares = String.format(Locale.US, "%.4f", (held.spec.shares.toDoubleOrNull() ?: 0.0) * keep),
-					stakeValue = usd(held.stake * keep),
+					stakeValue = usd(held.liveValue * keep),
 					stakeBasis = stakeLabel(basis * keep),
 					gain = signedUsd(gain * keep),
 				),

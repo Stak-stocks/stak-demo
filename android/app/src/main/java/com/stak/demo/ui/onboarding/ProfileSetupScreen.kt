@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.text.BasicTextField
-import com.stak.demo.ui.capitalizeWords
+import com.stak.demo.data.capitalizeWords
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -61,19 +62,24 @@ private const val NAME_MAX = 20
  * "Proceed to home" CTA.
  */
 @Composable
-fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit, editing: Boolean = false) {
+fun ProfileSetupScreen(
+    viewModel: AuthViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+    onProceed: () -> Unit,
+    // `editing`: the same frame serves as the Profile hub's edit page (its own copy
+    // promises "You can change this anytime in Profile."; user, 2026-09-07) - it
+    // arrives with the account's name and photo and saves in place.
+    editing: Boolean = false,
+) {
 	val u = figmaUnit()
-	// `editing`: the same frame serves as the Profile hub's edit page (its own copy
-	// promises "You can change this anytime in Profile."; user, 2026-09-07) - it
-	// arrives with the account's name and photo and saves in place.
 	// The frame arrives with "Nedu" typed (avatar "N", counter 4 / 20) - user, 2026-09-04 (CHINEDU 01 · Onboarding 1:793): the exact frame wins.
 	// Product audit (2026-09-05): a real first run starts with an empty name
 	// (the frame's "Nedu" was authored demo state) and Proceed waits for one.
-	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.ui.UserProfile.displayName.ifBlank { com.stak.demo.ui.UserProfile.greetingName } else "") }
+	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.displayName.ifBlank { com.stak.demo.data.UserProfile.greetingName } else "") }
 	// User's motion (2026-08-21): Add a photo opens the system gallery and
 	// the chosen image becomes the avatar. The photo picker carries its own
 	// permission flow, so no runtime permission is requested by the app.
-	var photoUri by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.ui.UserProfile.photoUri else null) }
+	var photoUri by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.photoUri else null) }
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
 	// Proceed waits for the avatar copy (Codex review, PR #166): leaving the screen
@@ -123,14 +129,14 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit, editing: Boole
 			// A pick that replaces an unsaved pick drops the earlier copy at once.
 			val previous = photoUri
 			photoUri = copy ?: uri.toString()
-			if (previous != null && previous != com.stak.demo.ui.UserProfile.photoUri) deleteAvatarFile(previous)
+			if (previous != null && previous != com.stak.demo.data.UserProfile.photoUri) deleteAvatarFile(previous)
 			copying = false
 		}
 	}
 	// Leaving without saving (back circle or system back) discards the unsaved
 	// copies; only the photo the account already keeps survives (review 2026-09-07).
 	val leave: () -> Unit = {
-		pruneAvatars(context, keep = com.stak.demo.ui.UserProfile.photoUri)
+		pruneAvatars(context, keep = com.stak.demo.data.UserProfile.photoUri)
 		onBack()
 	}
 	androidx.activity.compose.BackHandler(onBack = leave)
@@ -266,15 +272,26 @@ fun ProfileSetupScreen(onBack: () -> Unit, onProceed: () -> Unit, editing: Boole
 			}
 		}
 
+		var isSaving by rememberSaveable { mutableStateOf(false) }
 		Column(modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp)) {
-			AuthCta(text = if (editing) "Save changes" else "Proceed to home", enabled = name.isNotBlank() && !copying, onClick = {
-				com.stak.demo.ui.UserProfile.displayName = name.trim().capitalizeWords()
-				com.stak.demo.ui.UserProfile.photoUri = photoUri
-				pruneAvatars(context, keep = photoUri)
-				// Editing saves in place; onboarding persists with the account at Proceed.
-				if (editing) com.stak.demo.ui.Session.saveProfile()
-				onProceed()
-			})
+			AuthCta(
+				text = if (isSaving) "Saving…" else if (editing) "Save changes" else "Proceed to home",
+				enabled = name.isNotBlank() && !isSaving && !copying,
+				onClick = {
+					isSaving = true
+					scope.launch {
+						com.stak.demo.data.UserProfile.displayName = name.trim().capitalizeWords()
+						com.stak.demo.data.UserProfile.photoUri = photoUri
+						pruneAvatars(context, keep = photoUri)
+						com.stak.demo.data.Session.saveProfile()
+						// Await the backend save before navigating — fire-and-forget was
+						// unreliable because the ViewModel scope was cancelled when the nav
+						// stack cleared mid-request, leaving onboarding_completed = false.
+						if (editing) viewModel.updateProfile() else viewModel.saveProfile()
+						onProceed()
+					}
+				},
+			)
 		}
 	}
 }

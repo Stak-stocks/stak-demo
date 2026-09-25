@@ -9,5 +9,9 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+# ...except the shared debug keystore: committed on purpose so every machine's debug
+# build gets the same SHA-1, which is what Google's OAuth client is registered against
+# (a fresh per-machine debug key otherwise breaks Google Sign-In for every new teammate).
+!debug.keystore
 # Firebase config - per developer / CI secret, never committed (Copilot review, PR #166)
 app/google-services.json

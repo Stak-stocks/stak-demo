@@ -1,4 +1,4 @@
-package com.stak.demo.ui.discover
+﻿package com.stak.demo.ui.discover
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.fractionalSpacedBy
@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,11 +37,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,11 +58,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stak.demo.R
 import com.stak.demo.ui.components.MainTab
 import com.stak.demo.ui.components.RANGE_LABELS
+import com.stak.demo.ui.components.RefreshWhileVisible
 import com.stak.demo.ui.components.RANGE_SERIES
 import com.stak.demo.ui.components.RangeChart
 import com.stak.demo.ui.components.MainTabBar
@@ -76,6 +82,8 @@ private val Green = Color(0xFF2FD08A)
 private val Red = Color(0xFFFF5A6A)
 private val Teal = Color(0xFF69B3CA)
 
+private val BULLISH_ACTIONS = setOf("Buy", "Strong Buy", "Outperform", "Overweight", "Market Outperform")
+
 /**
  * Discover · Stock Detail (CHINEDU 1:2382 folded, 92:969 save success)
  * — reached from the deck's Learn more, serving the TAPPED stock's
@@ -92,11 +100,14 @@ fun StockDetailScreen(
 	// 2026-09-01: the NVIDIA card must open NVIDIA, not AAPL).
 	symbol: String = "AAPL",
 	fromMyStak: Boolean = false,
+	viewModel: StockDetailViewModel = hiltViewModel(),
 	// B5 (1:2382 Motion): the Discover entry's Practice buy leaves the
 	// detail for the Simulate tab; null keeps the in-page ticket.
 	onPracticeBuy: (() -> Unit)? = null,
 	// B7/B13: the success sheets' "View in My STAK" pop (92:969/71:949).
 	onViewInMyStak: (() -> Unit)? = null,
+	/** The stock page's "Practice with ..." - Simulate, with this company ready to buy. */
+	onPracticeInSimulate: (() -> Unit)? = null,
 	// B8 (92:969 Motion): "Keep exploring" dissolves back to the deck.
 	onKeepExploring: (() -> Unit)? = null,
 	// B9 (1:2579): the Discover-entry OPEN state composes the shell tab
@@ -104,18 +115,78 @@ fun StockDetailScreen(
 	onTab: ((MainTab) -> Unit)? = null,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val f = detailFactsFor(symbol)
+	// A real account never borrows authored facts - not even for the moment before
+	// its own data lands. They flashed another company's numbers under this stock's
+	// name on every open (user, 2026-09-15). The demo keeps its authored frames.
+	val f = if (com.stak.demo.data.Session.demoAccount) {
+		DETAIL_FACTS[symbol] ?: DETAIL_FACTS.getValue("AAPL")
+	} else {
+		emptyFacts(symbol)
+	}
+	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
+	val demo = com.stak.demo.data.Session.demoAccount
+	// The updates My STAK already holds, narrowed to this company - the same detection,
+	// no second request.
+	val myStak = com.stak.demo.ui.mystak.sharedMyStakViewModel()
+	val myStakUi by myStak.ui.collectAsStateWithLifecycle()
+	val changesForStock = remember(myStakUi.updates, symbol) {
+		myStakUi.updates.filter { it.ticker.equals(symbol, ignoreCase = true) }
+	}
+	// Read state as it was on arrival: marking them read here would otherwise flip the
+	// dots from unread to read in front of the reader. Taken when the changes actually
+	// arrive - keyed on the symbol alone it captured the empty list a cold start has, and
+	// every dot then drew as read.
+	var unreadOnEntry by remember(symbol) { mutableStateOf<Set<Long>?>(null) }
+	LaunchedEffect(symbol, changesForStock) {
+		if (unreadOnEntry == null && changesForStock.isNotEmpty()) {
+			unreadOnEntry = changesForStock.filter { !it.read }.map { it.id }.toSet()
+			// Read once they are actually on screen, not before they have loaded.
+			if (fromMyStak) myStak.markCompanyRead(symbol)
+		}
+	}
+	val riskWatch by viewModel.riskWatch.collectAsStateWithLifecycle()
+	val riskWatchFailed by viewModel.riskWatchFailed.collectAsStateWithLifecycle()
+	val chartSeries by viewModel.chartSeries.collectAsStateWithLifecycle()
+	val chartMissing by viewModel.chartMissing.collectAsStateWithLifecycle()
+	val chartNoMovementYet by viewModel.chartNoMovementYet.collectAsStateWithLifecycle()
+	val chartPct by viewModel.chartPct.collectAsStateWithLifecycle()
+	val savedReference by viewModel.savedReference.collectAsStateWithLifecycle()
+	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
+	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
+	val priceAt by viewModel.priceAt.collectAsStateWithLifecycle()
+	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
+	LaunchedEffect(symbol) {
+		viewModel.fetch(symbol)
+		// Repeated opens of a stock are interest the Taste Graph can show, without assuming ownership.
+		com.stak.demo.data.StakEvents.log(
+			com.stak.demo.data.StakEvents.STOCK_DETAIL_OPEN,
+			ticker = symbol,
+			params = mapOf("source" to if (fromMyStak) "mystak" else "discover", "saved" to (symbol in com.stak.demo.data.MyStakHoldings.tickers)),
+		)
+	}
 	// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 	// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
 	// the chip ruling (user, 2026-09-04: 1:1627 shows Save on NVDA even
 	// though My STAK holds it) applies to the page it opens. The seeded
 	// holdings made every designed card open "Saved" (StakTest walk vs the
 	// 2x export of 1:2382, 2026-09-04 evening). My STAK entry opens saved.
-	var saved by rememberSaveable { mutableStateOf(fromMyStak || f.symbol in DeckSession.saved) }
+	var saved by rememberSaveable { mutableStateOf(fromMyStak || symbol in DeckSession.saved) }
 	var showSuccess by rememberSaveable { mutableStateOf(false) }
 	var showBuy by rememberSaveable { mutableStateOf(false) }
-	// The range pills select (user, 2026-09-05); "3M" keeps the authored sd_chart_line (1:2382).
-	var range by rememberSaveable { mutableStateOf("3M") }
+	// Shown when Save is refused because the Stak is full; clears on its own.
+	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
+	// The range pills select (user, 2026-09-05). Today first (user, 2026-09-17): a page
+	// opened to see what a stock did today shouldn't answer with three months. The demo
+	// keeps "3M", which is the range its authored sd_chart_line (1:2382) draws.
+	var range by rememberSaveable { mutableStateOf(if (demo) "3M" else "1D") }
+	// The price keeps moving while the page is open, not only when it is opened.
+	if (!com.stak.demo.data.Session.demoAccount) {
+		RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol, range) }
+	}
+	// Each pill draws that range's own closes; the demo keeps its authored line.
+	if (!com.stak.demo.data.Session.demoAccount) {
+		LaunchedEffect(symbol, range) { viewModel.selectRange(symbol, range) }
+	}
 	// B9/B13: hoisted Analyst state - the open state carries the tab bar
 	// (Discover entry) and the buy-success "Done" folds the section.
 	var analystOpen by rememberSaveable { mutableStateOf(false) }
@@ -133,48 +204,167 @@ fun StockDetailScreen(
 				AuthBackCircle(onClick = onBack)
 				Spacer(modifier = Modifier.weight(1f))
 				Text(
-					text = f.symbol,
+					text = symbol,
 					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp),
 					color = Color.White,
 				)
 				Spacer(modifier = Modifier.weight(1f))
-				Box(
-					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((40 * u).dp).background(Card, CircleShape),
-				) {
-					// 1:2382 authors the share glyph WHITE (1.5 strokes); the News page's
-					// asset is its own #AEAEAE - tinted here (StakTest audit, 2026-09-05).
-					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((17 * u).dp), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White))
-				}
+				// The share control had no click handling at all - a drawing that took
+				// a tap and did nothing, without even the press dim every real button
+				// here shows. Removed until there is something to share to; the spacer
+				// keeps the title centred against the back circle.
+				Spacer(modifier = Modifier.size((40 * u).dp))
 			}
-			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+			Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+				// The company, the way the design concept introduces it: its mark, its name,
+				// the ticker and what it does - and whether it is in the reader's STAK.
+				if (!demo) {
+					Row(
+						verticalAlignment = Alignment.CenterVertically,
+						horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
+						modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (6 * u).dp),
+					) {
+						val logo = com.stak.demo.data.BrandNames.logoByTicker[symbol.uppercase()]
+						Box(
+							contentAlignment = Alignment.Center,
+							modifier = Modifier.size((44 * u).dp).clip(RoundedCornerShape((12 * u).dp)).background(Color(0xFF242B3D)),
+						) {
+							if (logo != null) {
+								coil.compose.AsyncImage(
+									model = logo,
+									contentDescription = null,
+									contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+									modifier = Modifier.size((30 * u).dp),
+								)
+							} else {
+								Text(
+									(liveDetail?.name ?: symbol).take(1).uppercase(),
+									style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp),
+									color = Muted,
+								)
+							}
+						}
+						Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
+							Text(
+								liveDetail?.name ?: symbol,
+								style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (20 * u).sp),
+								color = Color.White,
+								maxLines = 1,
+								overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+							)
+							Text(
+								// The category the deck ranked this save on - STAK's own grouping,
+								// so it says so rather than passing for the company's industry.
+								com.stak.demo.data.MyStakHoldings.categoryOf(symbol)
+									?.let { com.stak.demo.data.categoryName(it) }
+									?.let { "$symbol · in your $it" } ?: symbol,
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+								color = Muted,
+							)
+						}
+						if (saved || symbol in com.stak.demo.data.MyStakHoldings.tickers) {
+							Row(
+								verticalAlignment = Alignment.CenterVertically,
+								horizontalArrangement = Arrangement.spacedBy((5 * u).dp),
+								modifier = Modifier.clip(RoundedCornerShape((999 * u).dp)).background(Color(0x1F5DA8BF)).padding(horizontal = (10 * u).dp, vertical = (5 * u).dp),
+							) {
+								Image(painterResource(R.drawable.ic_saved_bookmark), null, modifier = Modifier.size((10 * u).dp))
+								Text(
+									"Saved",
+									style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+									color = Color(0xFFA6E4F7),
+								)
+							}
+						}
+					}
+				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((4 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp, bottom = (6 * u).dp),
 				) {
-					Text(f.title, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+					val displayPrice = liveDetail?.price ?: f.price
+					// The figure follows the selected pill: a red line for the year above a
+					// green "today" was two periods stacked with nothing to tell them apart.
+					val displayChange = chartPct.let { p -> if (range != "1D" && p != null) rangeChangeText(p, range) else com.stak.demo.data.StakClock.sessionChange(liveDetail?.change ?: f.change) }
+					// The page names the stock it is showing; the authored title is another
+					// company's whenever this symbol has no authored facts of its own.
+					// Says when the price was fetched: a page opened from the phone's cache looks
+					// just like a live one until the new figures land.
+					val asOf = when {
+						com.stak.demo.data.Session.demoAccount -> null
+						quotePending && liveDetail != null -> "Updating\u2026"
+						priceAt != null -> com.stak.demo.data.StakClock.pricesAsOf(priceAt!!).replaceFirstChar { it.uppercase() }
+						else -> null
+					}
 					Text(
-						f.price,
+						// With a time to show, the ticker alone leads it (user, 2026-09-16): the
+						// company name is already implied, and the line stays short.
+						// The header above already names the company and its ticker, so this
+						// line only says when the price is from.
+						when {
+							demo -> asOf?.let { "$symbol · $it" } ?: (liveDetail?.name?.let { "$symbol · $it" } ?: f.title)
+							asOf != null -> asOf
+							else -> ""
+						},
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+						color = Muted,
+						// One line: a long name plus the time wrapped, and the price below
+						// jumped as the label changed between "Updating" and a time.
+						maxLines = 1,
+						overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+					)
+					Text(
+						displayPrice,
 						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp),
 						color = Bright,
 					)
 					Text(
-						f.change,
+						displayChange,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-						color = if (f.change.startsWith("▼")) Red else Green,
+						color = if (displayChange.startsWith("▼")) Red else Green,
 					)
 				}
 				val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((345 * u).dp, (76 * u).dp)
-				val series = RANGE_SERIES[range]
-				if (series == null) {
-					Image(
-						painter = painterResource(R.drawable.sd_chart_line),
-						contentDescription = null,
-						contentScale = ContentScale.Fit,
-						modifier = chartModifier,
-					)
+				if (com.stak.demo.data.Session.demoAccount) {
+					val series = RANGE_SERIES[range]
+					if (series == null) {
+						Image(
+							painter = painterResource(R.drawable.sd_chart_line),
+							contentDescription = null,
+							contentScale = ContentScale.Fit,
+							modifier = chartModifier,
+						)
+					} else {
+						RangeChart(series = series, tint = Teal, modifier = chartModifier)
+					}
 				} else {
-					RangeChart(series = series, tint = Teal, modifier = chartModifier)
+					// This stock's own closes. A range with no prices draws nothing:
+					// a shape invented to fill the box would read as its real history.
+					val live = chartSeries
+					if (live != null) {
+						// The line's colour is the range's verdict: green where the
+						// period ends above where it started, red where it ends below.
+						RangeChart(series = live, tint = if ((chartPct ?: 0.0) < 0.0) Red else Green, modifier = chartModifier)
+					} else {
+						Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
+							when {
+								// The regular session hasn't opened yet - a handful of tightly
+								// clustered pre-market ticks, drawn against yesterday's close,
+								// reads as a dramatic move that hasn't actually happened
+								// (root-caused 2026-09-17; fixed 2026-09-18).
+								chartNoMovementYet -> Text(
+									"Not much movement yet today",
+									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+									color = Muted,
+								)
+								chartMissing -> Text(
+									"No price history for this range",
+									style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+									color = Muted,
+								)
+							}
+						}
+					}
 				}
 				Spacer(modifier = Modifier.height((40 * u).dp))
 				Row(
@@ -214,37 +404,26 @@ fun StockDetailScreen(
 					verticalArrangement = fractionalSpacedBy((14 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
 				) {
+					// My STAK product spec (Sept 2026), V1 hierarchy: price and chart above,
+					// then Since you saved, the company's own risks, the checkpoints ahead,
+					// and only then the evidence - numbers, analysts, peers.
 					if (fromMyStak) {
-						SinceYouSavedCard(f)
-					}
-					RiskFitCard(f)
-					NumbersCard(f)
-					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen })
-					NewsSignalCard(f)
-					CompareCard(f)
-					Row(
-						horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
-						modifier = Modifier
-							.fillMaxWidth()
-							.clip(RoundedCornerShape((12 * u).dp))
-							.background(Card)
-							.padding(horizontal = (12 * u).dp, vertical = (10 * u).dp),
-					) {
-						Text(
-							"TIP",
-							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-							color = Color(0xFF5BD7E4),
-						)
-						Text(
-							f.tip,
-							// Measured exception (2026-09-04): the authored tip (1:2828)
-							// is ONE line in a 260 box - the AAPL copy fits by 6u and the
-							// advance-rounding compensation added 12u. No tracking here.
-							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
-							color = Muted,
-							modifier = Modifier.width((260 * u).dp),
+						SinceYouSavedCard(
+							f, symbol, liveDetail, savedReference, savedReferenceSettled, detailSettled,
+							changes = changesForStock,
+							unreadOnEntry = unreadOnEntry.orEmpty(),
 						)
 					}
+					if (demo) {
+						RiskFitCard(f, liveDetail)
+					} else {
+						RiskSnapshotCard(riskWatch, riskWatchFailed)
+						WhatToWatchCard(riskWatch, riskWatchFailed)
+					}
+					NewsSignalCard(f, liveDetail)
+					NumbersCard(f, liveDetail)
+					AnalystCard(f, open = analystOpen, onToggle = { analystOpen = !analystOpen }, liveDetail = liveDetail)
+					CompareCard(f, liveDetail, symbol)
 					// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
 					LessonCard(lesson = StockLessons.lessonFor(f.symbol))
 				}
@@ -253,11 +432,26 @@ fun StockDetailScreen(
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (4 * u).dp, bottom = (16 * u).dp),
 				) {
 					if (fromMyStak) {
-						DetailCta("Practice buy") { showBuy = true }
+						// Simulation belongs in Simulate, with this company prefilled (My STAK
+						// product spec, Sept 2026); the demo keeps its in-page ticket.
+						if (!demo && onPracticeInSimulate != null) {
+							DetailCta("Practice with ${liveDetail?.name ?: symbol} · paper money") {
+								com.stak.demo.ui.simulate.PendingSimBuy.request(symbol, liveDetail?.name ?: symbol)
+								onPracticeInSimulate()
+							}
+						} else {
+							DetailCta("Practice buy") { showBuy = true }
+						}
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
-						// Unsave clears this run's deck save too (Codex review, PR #167 mirror).
-						DetailSecondary("Unsave") { DeckSession.saved = DeckSession.saved - f.symbol; com.stak.demo.ui.MyStakHoldings.remove(f.symbol); com.stak.demo.ui.news.NewsSaves.removeStories(f.symbol); onBack() }
+						// Unsave clears this run's deck save and any saved news stories for it too
+						// (Codex review, PR #167 mirror) - not just the My STAK holding.
+						DetailSecondary("Unsave") {
+							DeckSession.saved = DeckSession.saved - symbol
+							com.stak.demo.data.MyStakHoldings.remove(symbol)
+							com.stak.demo.ui.news.NewsSaves.removeStories(symbol)
+							onBack()
+						}
 					} else if (saved) {
 						// A saved stock reads the same from every entry: the authored
 						// saved block (16:1012) - Practice buy + Unsave. The "Saved to
@@ -268,17 +462,25 @@ fun StockDetailScreen(
 						DetailCta("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 						DetailSecondary("Unsave") {
 							saved = false
-							DeckSession.saved = DeckSession.saved - f.symbol
-							com.stak.demo.ui.MyStakHoldings.remove(f.symbol); com.stak.demo.ui.news.NewsSaves.removeStories(f.symbol)
+							DeckSession.saved = DeckSession.saved - symbol
+							com.stak.demo.data.MyStakHoldings.remove(symbol)
+							com.stak.demo.ui.news.NewsSaves.removeStories(symbol)
 						}
 					} else {
-						// The save is committed on the tap itself (Codex review, PR #166): the
-						// overlay's paths only navigate, so no dismissal can lose it.
+						// The sheet this opens says "Saved to My STAK" before the save is
+						// attempted, so a full Stak must not reach it - and must say why
+						// rather than leaving the button to do nothing.
 						DetailCta("Save") {
-							saved = true
-							DeckSession.saved = DeckSession.saved + f.symbol
-							com.stak.demo.ui.MyStakHoldings.add(f.symbol)
-							showSuccess = true
+							if (com.stak.demo.data.MyStakHoldings.isFull) stakFullNotice.show() else showSuccess = true
+						}
+						if (stakFullNotice.visible) {
+							Text(
+								com.stak.demo.ui.components.STAK_FULL_MESSAGE,
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+								color = Muted,
+								modifier = Modifier.fillMaxWidth(),
+								textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+							)
 						}
 						DetailSecondary("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
 					}
@@ -301,22 +503,29 @@ fun StockDetailScreen(
 			// The scrim dismiss is unauthored - it stays instant.
 			exit = ExitTransition.None,
 		) {
-			DetailSavedSheet(
+			DetailSavedSheet(symbol = symbol, liveDetail = liveDetail,
 				f = f,
-				// The scrim dismiss saves like the two CTAs do (Codex review, PR #166).
-				onDone = { showSuccess = false; saved = true; DeckSession.saved = DeckSession.saved + f.symbol; com.stak.demo.ui.MyStakHoldings.add(f.symbol) },
+				// The scrim dismiss saves like the two CTAs do (Codex review, PR #166) -
+				// dismissing without tapping either named action must not silently drop the save.
+				onDone = {
+					showSuccess = false
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
+				},
 				// B7/B8: both CTAs mark the stock saved, then leave the page
 				// (forward push to My STAK / dissolve back to the deck).
 				onViewInMyStak = {
-					saved = true
-					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.ui.MyStakHoldings.add(f.symbol)
+					// add() is the authority: it refuses at capacity, and a refused save
+					// must not leave this page or the deck believing the stock is kept.
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
-					saved = true
-					DeckSession.saved = DeckSession.saved + f.symbol
-					com.stak.demo.ui.MyStakHoldings.add(f.symbol)
+					// add() is the authority: it refuses at capacity, and a refused save
+					// must not leave this page or the deck believing the stock is kept.
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
 			)
@@ -329,7 +538,7 @@ fun StockDetailScreen(
 			exit = fadeOut(tween(300, easing = EaseOut)),
 		) {
 			DetailBuyHost(
-				spec = f.buySpec,
+				spec = liveBuySpec(symbol, liveDetail, f),
 				onClose = { showBuy = false },
 				onViewInMyStak = { if (onViewInMyStak != null) onViewInMyStak() else { showBuy = false } },
 				// B13: "Done" also folds the Analyst section - the authored
@@ -340,9 +549,203 @@ fun StockDetailScreen(
 	}
 }
 
+/**
+ * Risk snapshot - what could go wrong at THIS company, and how big each one is. It
+ * replaces "Risk fit / Matches you", which claimed to know whether a stock suited the
+ * reader (My STAK product spec, §7). Nothing here is about the reader at all.
+ */
 @Composable
-private fun RiskFitCard(f: DetailFacts) {
+private fun RiskSnapshotCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val risks = riskWatch?.risks.orEmpty()
+	// Still reading: the card keeps its place rather than appearing later and shoving
+	// the page down under the reader's eyes.
+	if (risks.isEmpty() && !failed) {
+		Column(
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+		) {
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+				com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_shield, Color(0xFFE8B86D), size = 28, glyph = 16)
+				Text(
+					"Risk snapshot",
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+					color = Bright,
+				)
+			}
+			Text(
+				"Reading this company's risks…",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+				color = Muted,
+			)
+		}
+		return
+	}
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+	) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_shield, Color(0xFFE8B86D), size = 28, glyph = 16)
+			Text(
+				"Risk snapshot",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+			Text(
+				// Not "what to understand before you act": three sentences aren't
+				// understanding, and the reader isn't necessarily about to do anything.
+				"What could go wrong at this company",
+				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+		if (risks.isEmpty()) {
+			Text(
+				// A failed read is STAK's problem, not a statement about the company.
+				"STAK couldn't load this company's risks right now - that doesn't mean it has none.",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Muted,
+			)
+		} else {
+			risks.forEach { risk ->
+				Column(verticalArrangement = Arrangement.spacedBy((4 * u).dp), modifier = Modifier.fillMaxWidth()) {
+					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+						Text(
+							risk.label,
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+							color = Color.White,
+						)
+						Spacer(modifier = Modifier.weight(1f))
+						// Only where a figure rates it: the level is measured from this
+						// company's beta or its P/E against peers, never guessed.
+						risk.level?.let { RiskLevelChip(it) }
+					}
+					Text(
+						risk.note,
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Elevated / Moderate / Lower - how much of this risk the figures show. Never green:
+ * the app's good/bad palette on a risk chip reads as "safe to buy", which is the
+ * suitability signal removing "Risk fit" was meant to end.
+ */
+@Composable
+private fun RiskLevelChip(level: String) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val (bg, ink) = when (level) {
+		"Elevated" -> Color(0x33E8B86D) to Color(0xFFE8C08A)
+		"Lower" -> Color(0x142A3346) to Muted
+		else -> Color(0x1F3A465E) to Color(0xFFC8D2E0)
+	}
+	Box(modifier = Modifier.clip(RoundedCornerShape((999 * u).dp)).background(bg).padding(horizontal = (10 * u).dp, vertical = (3 * u).dp)) {
+		Text(
+			level,
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+			color = ink,
+		)
+	}
+}
+
+/**
+ * What to watch next - the two or three checkpoints that decide how the company's story
+ * goes from here. Never a prediction, and never ten catalysts: narrowing is the point.
+ */
+@Composable
+private fun WhatToWatchCard(riskWatch: com.stak.demo.data.RiskWatchResponse?, failed: Boolean) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val watch = riskWatch?.watch.orEmpty()
+	// Nothing came back for this company: no card, rather than an empty one.
+	if (watch.isEmpty() && (failed || riskWatch != null)) return
+	if (watch.isEmpty()) {
+		Column(
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+				.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+		) {
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+				com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_eye, Color(0xFFA6E4F7), size = 28, glyph = 16)
+				Text(
+					"What to watch next",
+					style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+					color = Bright,
+				)
+			}
+			Text(
+				"Working out what matters next…",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+				color = Muted,
+			)
+		}
+		return
+	}
+	Column(
+		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
+			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
+	) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_risk_eye, Color(0xFFA6E4F7), size = 28, glyph = 16)
+			Text(
+				"What to watch next",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
+		Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+			Text(
+				"Key questions to follow",
+				style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+		watch.forEachIndexed { i, item ->
+			Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
+				Box(
+					contentAlignment = Alignment.Center,
+					modifier = Modifier.size((24 * u).dp).clip(RoundedCornerShape((8 * u).dp)).background(Color(0x1F5DA8BF)),
+				) {
+					Text(
+						"%02d".format(i + 1),
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp),
+						color = Color(0xFFA6E4F7),
+					)
+				}
+				Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+					Text(
+						item.title,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+						color = Color.White,
+					)
+					Text(
+						item.note,
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
+			}
+		}
+	}
+}
+
+@Composable
+private fun RiskFitCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// Beta decides where the marker sits and what the chip says. Until it lands
+	// there is nothing to place or to claim - the placeholder's mid-track value
+	// would otherwise read as "Around market" for a stock we know nothing about.
+	val known = liveDetail?.riskPillX != null || com.stak.demo.data.Session.demoAccount
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -356,30 +759,47 @@ private fun RiskFitCard(f: DetailFacts) {
 				color = Bright,
 			)
 			Spacer(modifier = Modifier.weight(1f))
-			Box(
-				modifier = Modifier
-					.clip(RoundedCornerShape((999 * u).dp))
-					.background(Color(0x1F5DA8BF))
-					.padding(horizontal = (10 * u).dp, vertical = (4 * u).dp),
-			) {
-				Text(
-					riskFitFor(f).first,
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-					color = Color(0xFFA6E4F7),
-				)
+			if (known) {
+				Box(
+					modifier = Modifier
+						.clip(RoundedCornerShape((999 * u).dp))
+						.background(Color(0x1F5DA8BF))
+						.padding(horizontal = (10 * u).dp, vertical = (4 * u).dp),
+				) {
+					Text(
+						riskFitFor(f, liveDetail).first,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
+						color = Color(0xFFA6E4F7),
+					)
+				}
 			}
 		}
-		// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
-		Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
-			Box(modifier = Modifier.offset(x = (f.riskPillX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+		// 1:2382 draws the marker alone, with no track. That reads as decoration;
+		// once the position is real it needs a scale to be read against, and a
+		// midpoint tick for the market itself (beta 1.0), which is what "more" and
+		// "less than the market" are measured from. The offset is a fraction of the
+		// measured width, not a fixed dp: riskPillX is computed against a 375-wide
+		// design and drifted off the track on any other screen.
+		BoxWithConstraints(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
+			val pillWidth = (14 * u).dp
+			val fraction = ((liveDetail?.riskPillX ?: f.riskPillX) / 289f).coerceIn(0f, 1f)
+			Box(modifier = Modifier.fillMaxWidth().height((4 * u).dp).background(Color(0xFF2A3346), RoundedCornerShape((2 * u).dp)))
+			Box(modifier = Modifier.offset(x = (maxWidth - (2 * u).dp) / 2).size((2 * u).dp, (8 * u).dp).background(Color(0xFF3A465E)))
+			if (known) {
+				Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			}
 		}
 		Row(modifier = Modifier.fillMaxWidth()) {
 			Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 			Spacer(modifier = Modifier.weight(1f))
+			// Names what the midpoint tick is, so "moves more than the market" has
+			// something on the scale to point at.
+			Text("Market", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
+			Spacer(modifier = Modifier.weight(1f))
 			Text("High", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 		}
 		Text(
-			riskFitFor(f).second,
+			riskFitFor(f, liveDetail).second,
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 			color = Muted,
 		)
@@ -387,28 +807,36 @@ private fun RiskFitCard(f: DetailFacts) {
 }
 
 @Composable
-private fun NumbersCard(f: DetailFacts) {
+private fun NumbersCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayStats = if (liveDetail != null) {
+		f.stats.mapIndexed { i, st ->
+			when (i) {
+				0 -> st.copy(value = liveDetail.peRatioValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(0)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(0)?.second ?: st.good)
+				1 -> st.copy(value = liveDetail.revenueGrowthValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(1)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(1)?.second ?: st.good)
+				2 -> st.copy(value = liveDetail.profitMarginValue ?: st.value, verdict = liveDetail.statVerdicts?.getOrNull(2)?.first?.takeIf { it.isNotBlank() } ?: st.verdict, good = liveDetail.statVerdicts?.getOrNull(2)?.second ?: st.good)
+				else -> st
+			}
+		}
+	} else f.stats
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
-		Text(
-			"Numbers that matter",
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-			color = Bright,
-		)
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_gist_info, Color(0xFFA6E4F7), size = 28, glyph = 16)
+			Text(
+				"Numbers that matter",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
 		Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
-			f.stats.forEach { st ->
+			displayStats.forEach { st ->
 				StatCell(st.label, st.value, st.verdict, if (st.good) Green else Muted, Modifier.weight(1f), border = st.border)
 			}
 		}
-		Text(
-			"Tap a stat for sector and peer benchmarks",
-			style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp),
-			color = Muted,
-		)
 	}
 }
 
@@ -455,34 +883,40 @@ private fun CollapsedCard(title: String, sub: String, subColor: Color) {
 }
 
 @Composable
-private fun NewsSignalCard(f: DetailFacts) {
+private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayNewsClose = liveDetail?.newsClose ?: f.newsClose
+	val displayNewsSignal = liveDetail?.newsSignal ?: f.newsSignal
+	val displayEarnings = liveDetail?.earningsStr ?: f.newsEarnings
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_news, Color(0xFFA6E4F7), size = 28, glyph = 16)
+			Text(
+				"News signal",
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
+				color = Bright,
+			)
+		}
 		Text(
-			"News signal",
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
-			color = Bright,
-		)
-		Text(
-			f.newsClose,
+			displayNewsClose,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-			color = Green,
+			color = if (displayNewsClose.startsWith("▼")) Red else Green,
 		)
 		Text(
-			f.newsSignal,
+			displayNewsSignal,
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
 			color = Muted,
 		)
-		Text(f.newsEarnings, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
+		Text(displayEarnings, style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Muted)
 		Row(
 			horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
 			modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
 		) {
-			f.newsSources.forEachIndexed { i, (src, tag) ->
+			(liveDetail?.newsSources ?: f.newsSources).forEachIndexed { i, (src, tag) ->
 				Column(
 					verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 					modifier = Modifier
@@ -512,7 +946,7 @@ private fun NewsSignalCard(f: DetailFacts) {
 						}
 					}
 					Text(
-						if (i == 0) f.newsHeadline else f.newsHeadline2,
+						liveDetail?.newsHeadlines?.getOrNull(i) ?: if (i == 0) f.newsHeadline else f.newsHeadline2,
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
 						color = Bright,
 						modifier = Modifier.width((173 * u).dp),
@@ -576,7 +1010,7 @@ private fun DetailSecondary(text: String, size: Float = 13f, onClick: () -> Unit
 
 /** Saved-to-My-STAK sheet over the detail (92:969) — Apple row variant. */
 @Composable
-private fun DetailSavedSheet(f: DetailFacts, onDone: () -> Unit, onViewInMyStak: () -> Unit = onDone, onKeepExploring: () -> Unit = onDone) {
+private fun DetailSavedSheet(f: DetailFacts, symbol: String = f.symbol, liveDetail: LiveDetail? = null, onDone: () -> Unit, onViewInMyStak: () -> Unit = onDone, onKeepExploring: () -> Unit = onDone) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(modifier = Modifier.fillMaxSize()) {
 		Box(
@@ -624,13 +1058,14 @@ private fun DetailSavedSheet(f: DetailFacts, onDone: () -> Unit, onViewInMyStak:
 					.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),
 			) {
 				Box(contentAlignment = Alignment.Center, modifier = Modifier.size((38 * u).dp).background(Color(0xFF242B3D), CircleShape)) {
-					Text(f.sheetBadge, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color(0xFF9EADC7))
+					Text(if (liveDetail?.name != null) symbol.take(1) else f.sheetBadge, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color(0xFF9EADC7))
 				}
 				Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp), modifier = Modifier.weight(1f)) {
-					Text(f.sheetName, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
-					Text(f.sheetPrice, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
+					Text(liveDetail?.name ?: f.sheetName, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
+					Text(liveDetail?.price ?: f.sheetPrice, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
 				}
-				Text(f.sheetChange, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = if (f.sheetChange.startsWith("▼")) Red else Green)
+				val sheetChange = com.stak.demo.data.StakClock.sessionChange(liveDetail?.change ?: f.sheetChange)
+				Text(sheetChange, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = if (sheetChange.startsWith("▼")) Red else Green)
 			}
 			Text(
 				"Watching from today · no money committed",
@@ -679,8 +1114,19 @@ private fun Kicker(text: String, weight: FontWeight = FontWeight.Medium) {
 
 /** Analyst view (collapsed 1:2454 / open 1:2651) — caret toggles; state hoisted for B9/B13. */
 @Composable
-private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
+private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liveDetail: LiveDetail? = null) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val displayUpside = liveDetail?.upside ?: f.upside
+	val displayTargetLow = liveDetail?.targetLow ?: f.targetLow
+	val displayTargetAvg = liveDetail?.targetAvg ?: f.targetAvg
+	val displayTargetHigh = liveDetail?.targetHigh ?: f.targetHigh
+	val displayMarkerX = liveDetail?.targetMarkerX ?: f.targetMarkerX
+	val displayConsensus = liveDetail?.consensus ?: f.consensus
+	val displayBuyCount = liveDetail?.buyCount ?: f.buyCount
+	val displayHoldCount = liveDetail?.holdCount ?: f.holdCount
+	val displaySellCount = liveDetail?.sellCount ?: f.sellCount
+	val displayBuyBarW = liveDetail?.buyBarW ?: f.buyBarW
+	val displayActions = liveDetail?.actions ?: f.actions
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Card)
@@ -692,6 +1138,8 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 	) {
 		// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
 		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_goal_search, Color(0xFFA6E4F7), size = 22, glyph = 13)
+			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
 				"Analyst view",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
@@ -705,7 +1153,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 		}
 		if (!open) {
 			Text(
-				f.upside,
+				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 				color = Green,
 			)
@@ -713,46 +1161,57 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 			Kicker("PRICE TARGET RANGE", weight = FontWeight.Normal)
 			// 1:2656: a 14 circle at y-3 inside the 8-tall clipped track renders as
 			// a 14x8 cap - exact-design audit 2026-09-04 (was 13 wide).
-			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
-				Box(modifier = Modifier.width((180 * u).dp).height((8 * u).dp).background(Color(0x8C5DA8BF), RoundedCornerShape((4 * u).dp)))
-				Box(modifier = Modifier.offset(x = (f.targetMarkerX * u).dp).size((14 * u).dp, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
+			// The track was a fixed 180 inside a full-width row whose Low/Avg/High
+			// labels span the whole width, so it stopped two thirds of the way across
+			// and the marker never sat above the Avg it marks. Both now measure from
+			// the row's real width; the marker keeps its 0..166 scale as a fraction.
+			BoxWithConstraints(modifier = Modifier.fillMaxWidth().height((8 * u).dp)) {
+				val pillWidth = (14 * u).dp
+				val fraction = (displayMarkerX / 166f).coerceIn(0f, 1f)
+				Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp).background(Color(0x8C5DA8BF), RoundedCornerShape((4 * u).dp)))
+				Box(modifier = Modifier.offset(x = (maxWidth - pillWidth) * fraction).size(pillWidth, (8 * u).dp).background(Color(0xFFA6E4F7), RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
 				Column(verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("Low", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetLow, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetLow, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 				Spacer(modifier = Modifier.weight(1f))
 				Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("Avg", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetAvg, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetAvg, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 				Spacer(modifier = Modifier.weight(1f))
 				Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy((1 * u).dp)) {
 					Text("High", style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp), color = Muted)
-					Text(f.targetHigh, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(displayTargetHigh, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
 				}
 			}
 			Text(
-				f.upside,
+				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 				color = Green,
 			)
-			Kicker(f.consensus)
+			Kicker(displayConsensus)
 			// 1:2669 authors the consensus track in the card's own #181F30 (the
 			// render shows only the green fill) - exact-design audit 2026-09-04.
-			Box(modifier = Modifier.fillMaxWidth().height((8 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Card)) {
-				Box(modifier = Modifier.width((f.buyBarW * u).dp).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
+			// The track was painted in the card's own colour, so only the green fill
+			// showed and it read as a line floating in space. The fill was also sized
+			// against a 318 design width inside a full-width box, so its share of the
+			// bar was wrong - a unanimous buy would have run past the end of it.
+			BoxWithConstraints(modifier = Modifier.fillMaxWidth().height((8 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(Color(0xFF2A3346))) {
+				val fraction = (displayBuyBarW / 318f).coerceIn(0f, 1f)
+				Box(modifier = Modifier.width(maxWidth * fraction).height((8 * u).dp).background(Green, RoundedCornerShape((4 * u).dp)))
 			}
 			Row(modifier = Modifier.fillMaxWidth()) {
-				Text(f.buyCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Green)
+				Text(displayBuyCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Green)
 				Spacer(modifier = Modifier.weight(1f))
-				Text(f.holdCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
+				Text(displayHoldCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
 				Spacer(modifier = Modifier.weight(1f))
-				Text(f.sellCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
+				Text(displaySellCount, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = Muted)
 			}
 			Kicker("RECENT ACTIONS")
-			f.actions.forEach { (name, action, target) ->
+			displayActions.forEach { (name, action, target) ->
 				// 1:2676..1:2696 author the rows in the card's own #181F30 (flat in
 				// the render, no darker wells) - exact-design audit 2026-09-04.
 				Row(
@@ -764,15 +1223,34 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 						.background(Card)
 						.padding(horizontal = (12 * u).dp),
 				) {
-					Text(name, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
-					Spacer(modifier = Modifier.weight(1f))
+					// Fixed columns for the action and the target. Laid out by a weighted
+					// spacer, the action's own width ("Hold" against "Buy") shifted the
+					// price after it, so the targets never lined up down the list.
+					Text(
+						name,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Bright,
+						maxLines = 1,
+						overflow = TextOverflow.Ellipsis,
+						modifier = Modifier.weight(1f),
+					)
 					Text(
 						action,
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-						color = if (action == "Buy") Green else Muted,
+						color = if (action in BULLISH_ACTIONS) Green else Muted,
+						maxLines = 1,
+						textAlign = androidx.compose.ui.text.style.TextAlign.End,
+						modifier = Modifier.width((64 * u).dp),
 					)
 					Spacer(modifier = Modifier.width((10 * u).dp))
-					Text(target, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Bright)
+					Text(
+						target,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Bright,
+						maxLines = 1,
+						textAlign = androidx.compose.ui.text.style.TextAlign.End,
+						modifier = Modifier.width((52 * u).dp),
+					)
 				}
 			}
 		}
@@ -781,7 +1259,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit) {
 
 /** Compare and learn (collapsed 1:2526 / open 1:2719) — peer table. */
 @Composable
-private fun CompareCard(f: DetailFacts) {
+private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: String = f.symbol) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	var open by rememberSaveable { mutableStateOf(false) }
 	// Both states author a 23 gap under the title (1:2526 / 1:2719); the open
@@ -797,6 +1275,8 @@ private fun CompareCard(f: DetailFacts) {
 	) {
 		// Collapsed head (1:2527) authors a 22-tall row - exact-design audit 2026-09-04.
 		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_simulate, Color(0xFFA6E4F7), size = 22, glyph = 13)
+			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
 				"Compare and learn",
 				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp),
@@ -811,7 +1291,7 @@ private fun CompareCard(f: DetailFacts) {
 		if (!open) {
 			// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
 			Text(
-				f.peersLabel,
+				liveDetail?.peersLabel ?: f.peersLabel,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp),
 				color = Muted,
 			)
@@ -841,8 +1321,8 @@ private fun CompareCard(f: DetailFacts) {
 						)
 					},
 				) {
-					CompareRow("", f.symbol, f.peerA, f.peerB, header = true)
-					f.compareRows.forEach { r ->
+					CompareRow("", symbol, liveDetail?.peerA ?: f.peerA, liveDetail?.peerB ?: f.peerB, header = true)
+					(liveDetail?.compareRows?.map { DetailCompare(it.label, it.a, it.b, it.c, it.green) } ?: f.compareRows).forEach { r ->
 						CompareRow(r.label, r.a, r.b, r.c, valueColor = if (r.green) Green else null)
 					}
 				}
@@ -897,32 +1377,83 @@ private fun CompareRow(label: String, a: String, m: String, g: String, header: B
  * the right symbol; a new account reads its own save date, and the move
  * since is this week's change once a day has passed.
  */
-private fun sinceSavedFor(f: DetailFacts): Triple<String, String, Boolean> {
-	// A save with a recorded day reads its real age on either account; the authored
-	// "5 weeks ago" belongs to the demo persona's SEED saves, which predate the record
-	// (audit 2026-09-07: the persona's own saves read "5 weeks ago" a minute later).
-	val recorded = com.stak.demo.ui.MyStakHoldings.daysSinceSaved(f.symbol)
-	val demo = com.stak.demo.ui.Session.demoAccount && recorded == null
-	val days = if (demo) null else recorded
-	val move = f.change.filter { it.isDigit() || it == '.' }.ifBlank { "0.0" }
-	val up = !f.change.contains('\u25BC') && !f.change.trimStart().startsWith("-")
+private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail?, savedReference: SavedReference?, referenceSettled: Boolean, detailSettled: Boolean): Triple<String, String, Boolean> {
+	val demo = com.stak.demo.data.Session.demoAccount
+	val days = if (demo) null else com.stak.demo.data.MyStakHoldings.daysSinceSaved(symbol)
+	// Two references, and they are not the same claim. A stamped price is what the
+	// stock cost at the moment of saving. A save from before stamping existed has
+	// only the close on that day, which is a real price but a different moment - so
+	// the copy says which one it measured from rather than blurring them.
+	val stamped = if (demo) null else com.stak.demo.data.MyStakHoldings.priceAtSave(symbol)?.takeIf { it > 0.0 }
+	val recovered = if (demo) null else savedReference?.takeIf { it.price > 0.0 }
+	// A stamped price and a price recovered for the same minute are the same claim;
+	// a day's close is a real price from a different moment, so it reads differently.
+	val atMoment = stamped != null || recovered?.atMoment == true
+	val reference = stamped ?: recovered?.price
+	val now = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull()
+	val savedPct = if (reference != null && now != null) (now - reference) / reference * 100.0 else null
+	val move = savedPct?.let { String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(it)) }
+	val up = savedPct?.let { it >= 0.0 } ?: true
+	val whenSaved = if (days == 1) "yesterday" else "$days days ago"
 	return when {
-		demo -> Triple("+4.6%", "Saved 5 weeks ago. ${f.symbol} is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
+		demo -> Triple("+4.6%", "Saved 5 weeks ago. $symbol is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
 		// null = a save from before the record existed; it reads as recent rather than as the demo's five weeks.
-		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. ${f.symbol} hasn't moved since you saved it - check back after a few sessions.", true)
+		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
+		// Still arriving - today's price, or the price to measure against - says only what
+		// is known. "No record" is a finding, and it can't be made before the look-up ends.
+		savedPct == null && ((now == null && !detailSettled) || (stamped == null && !referenceSettled)) ->
+			Triple("\u2014", "Saved $whenSaved.", true)
+		// The page finished without today's price: say so, rather than leave a bare date.
+		savedPct == null && now == null ->
+			Triple("\u2014", "Saved $whenSaved. Today's price isn't available right now, so there's no move to show.", true)
+		savedPct == null -> Triple("\u2014", "Saved $whenSaved. STAK has no record of what $symbol cost then, so there's no move to measure yet.", true)
+		atMoment -> Triple(
+			(if (up) "+" else "-") + move + "%",
+			"Saved $whenSaved. $symbol is ${if (up) "up" else "down"} $move% since you saved it.",
+			up,
+		)
 		else -> Triple(
 			(if (up) "+" else "-") + move + "%",
-			"Saved ${if (days == 1) "yesterday" else "$days days ago"}. ${f.symbol} is ${if (up) "up" else "down"} $move% since, moving with the market this week.",
+			"Saved $whenSaved, when $symbol closed at " + formatPrice(reference ?: 0.0) + ". It is ${if (up) "up" else "down"} $move% since that close.",
 			up,
 		)
 	}
 }
 
+/**
+ * "▼ 15.4% past year" - the selected range's own move, named for its period so
+ * the figure and the line beneath it always describe the same stretch of time.
+ */
+private fun rangeChangeText(pct: Double, range: String): String {
+	val arrow = if (pct < 0) "▼" else "▲"
+	val period = when (range) {
+		"1D" -> "today"
+		"1W" -> "past week"
+		"1M" -> "past month"
+		"3M" -> "past 3 months"
+		"YTD" -> "year to date"
+		else -> "past year"
+	}
+	return "$arrow " + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct)) + "% $period"
+}
+
+
 /** "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry. */
 @Composable
-private fun SinceYouSavedCard(f: DetailFacts) {
+private fun SinceYouSavedCard(
+	f: DetailFacts,
+	symbol: String,
+	liveDetail: LiveDetail?,
+	savedReference: SavedReference?,
+	referenceSettled: Boolean,
+	detailSettled: Boolean,
+	/** What changed at this company since the save - the same updates My STAK lists. */
+	changes: List<com.stak.demo.data.StockUpdateDto> = emptyList(),
+	/** Which of them were still unopened when the page was opened. */
+	unreadOnEntry: Set<Long> = emptySet(),
+) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val since = sinceSavedFor(f)
+	val since = sinceSavedFor(f, symbol, liveDetail, savedReference, referenceSettled, detailSettled)
 	Column(
 		verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 		modifier = Modifier
@@ -943,7 +1474,8 @@ private fun SinceYouSavedCard(f: DetailFacts) {
 			Text(
 				since.first,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-				color = if (since.third) Green else Red,
+				// A dash is no move at all, so it takes neither the up nor the down colour.
+				color = if (since.first == "—") Muted else if (since.third) Green else Red,
 			)
 		}
 		Text(
@@ -951,6 +1483,51 @@ private fun SinceYouSavedCard(f: DetailFacts) {
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Muted,
 		)
+		if (changes.isNotEmpty()) {
+			Box(modifier = Modifier.fillMaxWidth().height((1 * u).dp).background(Color(0xFF232B3D)))
+			Text(
+				// Detection reads a few days of news, so this is what changed recently -
+				// not everything that happened since a save weeks ago.
+				"RECENT CHANGES",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.8 * u).sp),
+				color = Muted,
+			)
+			// Two at most: this is the story since the save, not an archive of it.
+			changes.take(2).forEach { change ->
+				Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
+					Box(modifier = Modifier.padding(top = (5 * u).dp).size((6 * u).dp).clip(RoundedCornerShape((3 * u).dp)).background(if (change.id in unreadOnEntry) Color(0xFF2C9DBC) else Muted))
+					Column(verticalArrangement = Arrangement.spacedBy((2 * u).dp)) {
+						Text(
+							change.title,
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Color.White,
+						)
+						Text(
+							change.body,
+							style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Muted,
+						)
+						// What it affects, and the headlines behind it. The inbox shows both,
+						// and this page is where its "Understand this change" lands - it can't
+						// arrive here with less than the card that sent it.
+						change.watch?.takeIf { it.isNotBlank() }?.let {
+							Text(
+								it,
+								style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+								color = Muted,
+							)
+						}
+						com.stak.demo.ui.mystak.updateSourceLine(change)?.let {
+							Text(
+								it,
+								style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+								color = Muted,
+							)
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -960,6 +1537,31 @@ private data class DetailStat(val label: String, val value: String, val verdict:
 
 /** One "Compare and learn" table row (a = this stock). */
 private data class DetailCompare(val label: String, val a: String, val b: String, val c: String, val green: Boolean = false)
+
+/**
+ * The practice-buy ticket for THIS stock. Only three symbols have authored
+ * tickets and buySpecFor() falls back to NVDA, so a stock without one opened
+ * another company's ticket - and because DiscoverBuyFlow re-prices by
+ * spec.symbol, the paper order FILLED that company at its live price
+ * (audit, 2026-09-15). The amount, cash and share count are recomputed by the
+ * sheet itself, so the placeholders here never reach the screen.
+ */
+private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuySpec {
+	listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
+	return BuySpec(
+		title = "Buy $symbol?",
+		badge = symbol.take(1),
+		name = live?.name ?: symbol,
+		// A cached page whose price has lapsed shows "—"; the ticket is never priced from that.
+		priceLine = (live?.price?.takeIf { it != "—" } ?: "$0.00") + " today",
+		// formatChange() ends "% today"; the ticket's change carries no suffix.
+		change = (live?.change?.takeIf { it.isNotBlank() } ?: "▲ 0.0% today").removeSuffix(" today"),
+		cashBefore = "$0.00",
+		cashAfter = "$0.00",
+		shares = "0",
+		symbol = symbol,
+	)
+}
 
 /**
  * Everything the detail page serves per stock - backend-shaped like the
@@ -973,19 +1575,39 @@ private data class DetailCompare(val label: String, val a: String, val b: String
  * included). The pill's authored x (88 low / 150 mid / 238 high) is the
  * stock's volatility; TasteModel.riskStyle is the user's answer.
  */
-private fun riskFitFor(f: DetailFacts): Pair<String, String> {
-	// The active user (Sign in) is the authored persona: its page reads the frame's
-	// "Matches you"; only a first-time user's own 05 Risk answer drives the variants
-	// (audit 2026-09-07 - the persona never answers 05, so its risk is -1).
-	if (com.stak.demo.ui.Session.demoAccount) return "Matches you" to f.riskCopy
-	val style = com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.ui.UserProfile.risk)
-	val highVol = f.riskPillX > 170f
-	val lowVol = f.riskPillX < 120f
-	val first = f.riskCopy.substringBefore(". ") + "."
+private fun riskFitFor(f: DetailFacts, liveDetail: LiveDetail? = null): Pair<String, String> {
+	val pillX = liveDetail?.riskPillX ?: f.riskPillX
+	val riskCopy = liveDetail?.riskCopy ?: f.riskCopy
+	// 120 and 170 sit either side of the track's midpoint, which is market beta.
+	val stockBand = when {
+		pillX > 170f -> 1
+		pillX < 120f -> -1
+		else -> 0
+	}
+	// An unanswered risk question is not a profile. The old rule read the
+	// onboarding default and told the user a stock matched them on the strength
+	// of an answer they never gave, so this names the stock instead.
+	if (com.stak.demo.data.UserProfile.risk < 0) {
+		val label = when (stockBand) {
+			1 -> "More volatile"
+			-1 -> "Less volatile"
+			else -> "Around market"
+		}
+		return label to riskCopy
+	}
+	// The volatility each style is comfortable with, so every style gets a real
+	// comparison. The old rule tested two combinations and called everything else
+	// a match, which told a Balanced account that every stock matched it.
+	val styleBand = when (com.stak.demo.ui.onboarding.TasteModel.riskStyle(com.stak.demo.data.UserProfile.risk)) {
+		"Growth-Oriented" -> 1
+		"Balanced" -> 0
+		else -> -1
+	}
+	val first = riskCopy.substringBefore(". ").takeIf { it.isNotBlank() }?.plus(".").orEmpty()
 	return when {
-		highVol && (style == "Conservative" || style == "Cautious") -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small."
-		lowVol && style == "Growth-Oriented" -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK."
-		else -> "Matches you" to f.riskCopy
+		stockBand > styleBand -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small.".trim()
+		stockBand < styleBand -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK.".trim()
+		else -> "Matches you" to riskCopy
 	}
 }
 
@@ -1030,7 +1652,7 @@ private fun detailFactsFor(symbol: String): DetailFacts {
  * stock is one of their saves - then the in-page ticket (16:1012) serves it.
  */
 private fun hopsToSimulate(symbol: String): Boolean =
-	com.stak.demo.ui.Session.demoAccount || symbol in com.stak.demo.ui.MyStakHoldings.tickers
+	com.stak.demo.data.Session.demoAccount || symbol in com.stak.demo.data.MyStakHoldings.tickers
 
 private data class DetailFacts(
 	val symbol: String,
@@ -1070,6 +1692,56 @@ private data class DetailFacts(
 	val buySpec: BuySpec,
 )
 
+/**
+ * The page with nothing filled in: what a real account shows until its own data
+ * arrives. Every field here is a placeholder, so a value on screen is either
+ * this stock's or visibly absent - never another company's.
+ */
+private fun emptyFacts(symbol: String): DetailFacts = DetailFacts(
+	symbol = symbol,
+	title = symbol,
+	price = "—",
+	change = "",
+	tip = "",
+	// Mid-track until beta says otherwise; the copy stays blank rather than guessing.
+	riskPillX = 145f,
+	riskCopy = "",
+	stats = listOf(
+		DetailStat("P/E ratio", "—", ""),
+		DetailStat("Revenue growth", "—", ""),
+		// No border: the authored highlight marked the one stat a designer judged
+		// notable for that company, which says nothing about this one's numbers.
+		DetailStat("Profit margin", "—", ""),
+	),
+	upside = "",
+	targetLow = "—",
+	targetAvg = "—",
+	targetHigh = "—",
+	targetMarkerX = 0f,
+	consensus = "",
+	buyCount = "",
+	holdCount = "",
+	sellCount = "",
+	buyBarW = 0f,
+	actions = emptyList(),
+	newsClose = "",
+	newsSignal = "",
+	newsEarnings = "",
+	newsSources = emptyList(),
+	newsHeadline = "",
+	newsHeadline2 = "",
+	peersLabel = "",
+	peerA = "—",
+	peerB = "—",
+	compareRows = emptyList(),
+	sheetBadge = symbol.take(1),
+	sheetName = symbol,
+	sheetPrice = "—",
+	sheetChange = "",
+	// Replaced by liveBuySpec() at the call site; this is never the ticket shown.
+	buySpec = BuySpec("Buy $symbol?", symbol.take(1), symbol, "$0.00 today", "▲ 0.0%", "$0.00", "$0.00", "0", symbol),
+)
+
 private val DETAIL_FACTS = mapOf(
 	"AAPL" to DetailFacts(
 		symbol = "AAPL",
@@ -1098,7 +1770,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.8% at yesterday’s close",
 		newsSignal = "Foldable iPhone reports point to a premium fall lineup.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(26)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(26)}.",
 		newsSources = listOf("Yahoo · 13h ago" to "Neutral", "CNN · 1h ago" to "Neutral"),
 		newsHeadline = "The rally leaves Apple about 4 percent shy of the market-cap crown",
 		newsHeadline2 = "Apple's services arm posts another record quarter as the iPhone cycle steadies",
@@ -1139,7 +1811,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +2.1% at yesterday’s close",
 		newsSignal = "Blackwell demand keeps outrunning supply into the fall.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(54)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(54)}.",
 		newsSources = listOf("Reuters · 2h ago" to "Bullish", "CNBC · 9h ago" to "Neutral"),
 		newsHeadline = "Nvidia lags the chip rally it kicked off as orders pile up",
 		newsHeadline2 = "Nvidia's data-center backlog stretches into next year, analysts say",
@@ -1180,7 +1852,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.6% at yesterday’s close",
 		newsSignal = "A blowout ad quarter pushed the stock to fresh highs.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(18)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(18)}.",
 		newsSources = listOf("Bloomberg · 5h ago" to "Bullish", "Yahoo · 1d ago" to "Neutral"),
 		newsHeadline = "Alphabet jumps after a blowout ad quarter as cloud accelerates",
 		newsHeadline2 = "Alphabet lifts its capex plan again as Gemini demand outruns capacity",
@@ -1227,7 +1899,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.3% at yesterday’s close",
 		newsSignal = "Azure growth and Copilot seat counts are the numbers to watch this week.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(117)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(117)}.",
 		newsSources = listOf("Bloomberg · 4h ago" to "Bullish", "Reuters · 11h ago" to "Neutral"),
 		newsHeadline = "Tech earnings week: what to watch",
 		newsHeadline2 = "Microsoft's Azure growth holds as Copilot seats climb",
@@ -1268,7 +1940,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +1.6% at yesterday’s close",
 		newsSignal = "The AI rotation is lifting AMD as buyers look past the most crowded chip names.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(123)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(123)}.",
 		newsSources = listOf("CNBC · 3h ago" to "Bullish", "Yahoo · 8h ago" to "Neutral"),
 		newsHeadline = "AMD rides the AI rotation to a yearly high",
 		newsHeadline2 = "AMD lands another hyperscaler for its MI-series chips",
@@ -1309,7 +1981,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.4% at yesterday’s close",
 		newsSignal = "Trading desks and card spending keep the bank ahead of a softer loan market.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("Reuters · 6h ago" to "Bullish", "WSJ · 1d ago" to "Neutral"),
 		newsHeadline = "JPMorgan tops estimates again as trading and card spending hold up",
 		newsHeadline2 = "JPMorgan lifts its net-interest income outlook for the year",
@@ -1350,7 +2022,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.5% at yesterday’s close",
 		newsSignal = "Cross-border travel volume keeps payment growth running in double digits.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(116)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(116)}.",
 		newsSources = listOf("Bloomberg · 7h ago" to "Bullish", "CNBC · 1d ago" to "Neutral"),
 		newsHeadline = "Visa keeps growing at a double-digit clip as cross-border spending holds",
 		newsHeadline2 = "Visa's cross-border volumes climb as travel stays strong",
@@ -1391,7 +2063,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.7% at yesterday’s close",
 		newsSignal = "A reopening deal calendar is refilling the investment-banking pipeline.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(103)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(103)}.",
 		newsSources = listOf("Reuters · 5h ago" to "Neutral", "FT · 14h ago" to "Bullish"),
 		newsHeadline = "Goldman rides a deal-making rebound as advisory fees climb",
 		newsHeadline2 = "Goldman's IPO pipeline fills up as issuers return",
@@ -1432,7 +2104,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +2.3% at yesterday’s close",
 		newsSignal = "Battery attach rates are climbing as home-storage demand builds ahead of credit changes.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(116)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(116)}.",
 		newsSources = listOf("Yahoo · 3h ago" to "Neutral", "CNBC · 9h ago" to "Bullish"),
 		newsHeadline = "Enphase bounces as battery orders pick up in a shaky solar market",
 		newsHeadline2 = "Enphase guides to a rebound as installers work through inventory",
@@ -1473,7 +2145,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.6% at yesterday’s close",
 		newsSignal = "Data-center power deals are adding to a renewables backlog that already runs for years.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(111)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(111)}.",
 		newsSources = listOf("Reuters · 8h ago" to "Bullish", "Bloomberg · 1d ago" to "Neutral"),
 		newsHeadline = "NextEra signs more data-center power deals as its renewables backlog swells",
 		newsHeadline2 = "NextEra's storage build-out hits a record quarter",
@@ -1514,7 +2186,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.4% at yesterday’s close",
 		newsSignal = "Tariff rulings on imported panels keep swinging the stock week to week.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(118)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(118)}.",
 		newsSources = listOf("Reuters · 4h ago" to "Neutral", "WSJ · 12h ago" to "Bullish"),
 		newsHeadline = "First Solar slips as a tariff ruling clouds the outlook for imported panels",
 		newsHeadline2 = "First Solar books more U.S. capacity as tariffs bite imports",
@@ -1555,7 +2227,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.3% at yesterday’s close",
 		newsSignal = "Warehouse leasing is firming as tenants sign again after a slow stretch.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(103)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(103)}.",
 		newsSources = listOf("Bloomberg · 6h ago" to "Neutral", "Reuters · 1d ago" to "Bullish"),
 		newsHeadline = "Prologis lifts its outlook as warehouse leasing steadies",
 		newsHeadline2 = "Prologis leases fill faster as e-commerce demand firms",
@@ -1596,7 +2268,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.2% at yesterday’s close",
 		newsSignal = "Monthly dividend hikes keep coming as rate-cut hopes lift REITs.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(122)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(122)}.",
 		newsSources = listOf("Yahoo · 5h ago" to "Neutral", "CNBC · 1d ago" to "Bullish"),
 		newsHeadline = "Realty Income raises its monthly dividend again as rate hopes lift REITs",
 		newsHeadline2 = "Realty Income adds another European portfolio to its rent roll",
@@ -1637,7 +2309,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +1.1% at yesterday’s close",
 		newsSignal = "The weight-loss pill is heading toward a decision that could open a much larger market.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(118)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(118)}.",
 		newsSources = listOf("Reuters · 2h ago" to "Bullish", "CNBC · 10h ago" to "Neutral"),
 		newsHeadline = "Eli Lilly climbs as its oral weight-loss pill nears a decision",
 		newsHeadline2 = "Lilly's weight-loss pill moves closer to a filing",
@@ -1678,7 +2350,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.0% at yesterday’s close",
 		newsSignal = "Medical-cost trends are still running hot, and the new CEO is resetting expectations.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("WSJ · 4h ago" to "Bearish", "Reuters · 9h ago" to "Neutral"),
 		newsHeadline = "UnitedHealth slides again as medical costs keep climbing",
 		newsHeadline2 = "UnitedHealth trims its outlook as medical costs stay high",
@@ -1719,7 +2391,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.4% at yesterday’s close",
 		newsSignal = "New drug launches are offsetting the Stelara patent cliff faster than expected.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(102)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(102)}.",
 		newsSources = listOf("Reuters · 7h ago" to "Neutral", "Bloomberg · 1d ago" to "Bullish"),
 		newsHeadline = "J&J raises its forecast as new drugs outrun the Stelara patent cliff",
 		newsHeadline2 = "J&J's oncology pipeline carries the quarter",
@@ -1760,7 +2432,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -0.4% at yesterday’s close",
 		newsSignal = "Cost cuts are holding up profit while the post-Covid revenue reset plays out.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(123)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(123)}.",
 		newsSources = listOf("Yahoo · 6h ago" to "Neutral", "Reuters · 1d ago" to "Neutral"),
 		newsHeadline = "Pfizer leans on cost cuts as Covid sales keep fading",
 		newsHeadline2 = "Pfizer pushes deeper into obesity with a new deal",
@@ -1801,7 +2473,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▲ +0.5% at yesterday’s close",
 		newsSignal = "Membership renewals and monthly sales are still running ahead of the rest of retail.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(83)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(83)}.",
 		newsSources = listOf("CNBC · 5h ago" to "Bullish", "Bloomberg · 1d ago" to "Neutral"),
 		newsHeadline = "Costco posts another strong sales month as memberships keep renewing",
 		newsHeadline2 = "Costco's membership renewals hit a fresh high",
@@ -1842,7 +2514,7 @@ private val DETAIL_FACTS = mapOf(
 		),
 		newsClose = "▼ -1.6% at yesterday’s close",
 		newsSignal = "The turnaround is showing up in wholesale orders before it shows up in sales.",
-		newsEarnings = "Next earnings land ${com.stak.demo.ui.StakClock.daysAhead(88)}.",
+		newsEarnings = "Next earnings land ${com.stak.demo.data.StakClock.daysAhead(88)}.",
 		newsSources = listOf("WSJ · 3h ago" to "Neutral", "CNBC · 12h ago" to "Bearish"),
 		newsHeadline = "Nike slips as tariff costs weigh on a turnaround that is only starting",
 		newsHeadline2 = "Nike's turnaround shows early signs in running",

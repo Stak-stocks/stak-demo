@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- My STAK category icon: General Tech - a gear, matching the app's #819ABB stroke icon set. Enlarged (device report, 2026-09-25: the teeth only reached halfway to the canvas edge, reading much smaller than every sibling icon). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp" android:height="21dp"
+    android:viewportWidth="21" android:viewportHeight="21">
+    <!-- Scaled 1.15x on top of the earlier enlargement (device report, 2026-09-25:
+         "increase their percentage coverage a bit" across the category icon set). -->
+    <group android:pivotX="10.5" android:pivotY="10.5" android:scaleX="1.15" android:scaleY="1.15">
+        <path android:pathData="M10.5,10.5 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0" android:strokeColor="#819ABB" android:strokeWidth="1.3" />
+        <path android:pathData="M10.5,10.5 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0" android:strokeColor="#819ABB" android:strokeWidth="1.13" />
+        <path android:pathData="M10.5,3.9 L10.5,6.5 M10.5,14.5 L10.5,17.1 M3.9,10.5 L6.5,10.5 M14.5,10.5 L17.1,10.5 M5.83,5.83 L7.67,7.67 M13.33,13.33 L15.17,15.17 M5.83,15.17 L7.67,13.33 M13.33,7.67 L15.17,5.83" android:strokeColor="#819ABB" android:strokeWidth="1.22" android:strokeLineCap="round" />
+    </group>
+</vector>

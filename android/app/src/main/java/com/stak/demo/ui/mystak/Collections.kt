@@ -1,7 +1,7 @@
-package com.stak.demo.ui.mystak
+﻿package com.stak.demo.ui.mystak
 
 import com.stak.demo.R
-import com.stak.demo.ui.MyStakHoldings
+import com.stak.demo.data.MyStakHoldings
 
 /**
  * The My STAK collection catalogue - what every chip on the Overview
@@ -141,7 +141,7 @@ internal fun otherCollection(): StakCollection? {
 	val catalogued = COLLECTIONS.flatMap { it.stocks }.map { it.ticker }.toSet()
 	// The persona's seeded TSLA/SNOW are the frame's until the persona saves one itself -
 	// a recorded save day makes it a real, reversible save (Codex review, PR #166).
-	val extra = MyStakHoldings.tickers.filter { it !in catalogued && !(com.stak.demo.ui.Session.demoAccount && MyStakHoldings.isSeed(it) && MyStakHoldings.daysSinceSaved(it) == null) }.sorted()
+	val extra = MyStakHoldings.tickers.filter { it !in catalogued && !(com.stak.demo.data.Session.demoAccount && MyStakHoldings.isSeed(it) && MyStakHoldings.daysSinceSaved(it) == null) }.sorted()
 	if (extra.isEmpty()) return null
 	val stocks = extra.map { t ->
 		val known = com.stak.demo.ui.news.NewsArticleFeed.hasStockFacts(t)
@@ -179,5 +179,9 @@ private fun otherWith(stocks: List<CollStock>): StakCollection = StakCollection(
  */
 internal fun StakCollection.held(): List<CollStock> = stocks.filter { it.ticker in MyStakHoldings.tickers }
 
-/** "1 stock" / "N stocks" - the chip, the Collection hero and the Breakdown share it. */
-internal fun heldCountLabel(n: Int): String = if (n == 1) "1 stock" else "$n stocks"
+/**
+ * "1 company" / "N companies" - the chip, the Collection hero and the counts share it.
+ * Companies, not stocks: My STAK talks about the companies someone decided to care
+ * about, and switching words mid-page asks a beginner to know they're the same thing.
+ */
+internal fun heldCountLabel(n: Int): String = if (n == 1) "1 company" else "$n companies"

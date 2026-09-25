@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { escapeRegExp } from "../lib/regex.js";
 import { getEasternDateKey } from "@stak/shared";
 
 export const FINNHUB_BASE = "https://finnhub.io/api/v1";
@@ -131,6 +132,96 @@ const MACRO_SIGNALS = [
 	"national debt", "debt ceiling", "budget deficit",
 ];
 
+/**
+ * Names and first words that are also everyday headline words - "Price Target",
+ * "Stocks Zoom Higher", "the Oracle of Omaha", "Nasdaq Slips". On their own they
+ * say nothing about the company, so these need the ticker. A missing tag only
+ * drops a price card; a wrong one shows the reader a company the story isn't about.
+ */
+const AMBIGUOUS_NAMES = new Set([
+	"target", "block", "snap", "zoom", "visa", "match", "nasdaq", "travelers", "oracle",
+	"toast", "strategy", "affirm", "ally", "bumble", "celsius", "chewy", "riot", "upstart",
+	"unity", "monster", "beyond", "lucid", "live",
+]);
+
+/**
+ * First words too common to stand for a company on their own: "General" is not
+ * General Mills, "Home" is not Home Depot. Only a distinctive first word - Ford,
+ * Exxon, JPMorgan, Berkshire - is taken as the company's everyday name.
+ */
+const COMMON_FIRST_WORDS = new Set([
+	"american", "applied", "analog", "arthur", "baker", "bank", "boston", "burlington", "capital",
+	"charles", "citizens", "constellation", "digital", "dollar", "duke", "dutch", "electronic",
+	"eli", "first", "franklin", "general", "global", "hartford", "home", "illinois", "intuitive",
+	"jack", "johnson", "kinder", "las", "lincoln", "marsh", "morgan", "national", "northern",
+	"palo", "papa", "phillips", "plug", "principal", "raymond", "realty", "regions", "rocket",
+	"ross", "royal", "shake", "simon", "southern", "southwest", "state", "super", "texas",
+	"tractor", "union", "united", "vertex", "virgin", "warby", "warner", "wells",
+]);
+
+/**
+ * Tickers that are also English words. As a capitalised whole word "NOW", "ALL",
+ * "ICE" or "KEY" is as often shouting as a symbol, so these, like the one- and
+ * two-letter tickers, count only when cited: "(ICE)", "NYSE: ICE", "$ICE".
+ */
+const WORD_TICKERS = new Set([
+	"ALL", "AMP", "APP", "ARM", "BEN", "BILL", "BROS", "CAKE", "CART", "CAT", "COIN", "COST",
+	"DASH", "EAT", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
+	"NOW", "PATH", "PLUG", "RIOT", "SAM", "SNOW", "SPOT", "TEAM", "WING",
+]);
+
+/**
+ * The ways a headline names a company, from its catalogue name: the name without
+ * legal and corporate tails ("Deere & Company" -> "Deere & "... -> "Deere"), any
+ * name given in brackets ("Strategy (MicroStrategy)" -> "MicroStrategy"), and a
+ * distinctive first word ("Ford Motor" -> "Ford", "Exxon Mobil" -> "Exxon").
+ * Matching the catalogue string alone lost real stories: "Will Ford's $1B Kentucky
+ * Investment..." never says "Ford Motor".
+ */
+function nameVariants(name: string): string[] {
+	const out = new Set<string>();
+	const bracketed = [...name.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!.trim());
+	let base = name.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().replace(/^the\s+/i, "");
+	const TAIL = /[,\s&]+(inc\.?|corp\.?|corporation|co\.?|company|companies|group|holdings|plc|ltd\.?)$/i;
+	while (TAIL.test(base)) base = base.replace(TAIL, "").trim();
+	for (const n of [base, ...bracketed]) {
+		if (n.length >= 3 && !AMBIGUOUS_NAMES.has(n.toLowerCase())) out.add(n);
+		const words = n.split(" ");
+		const first = words[0]!;
+		if (words.length > 1 && first.length >= 4 && /^[A-Za-z][A-Za-z.'-]*$/.test(first)
+			&& !COMMON_FIRST_WORDS.has(first.toLowerCase()) && !AMBIGUOUS_NAMES.has(first.toLowerCase())) {
+			out.add(first);
+		}
+	}
+	return [...out];
+}
+
+/** Headlines mix straight and curly apostrophes; the catalogue writes straight ones. */
+const normaliseQuotes = (s: string) => s.replace(/[‘’ʼ]/g, "'");
+
+function mentionsName(headline: string, name: string): boolean {
+	const text = normaliseQuotes(headline);
+	return nameVariants(normaliseQuotes(name)).some((n) => {
+		// An all-capitals name ("UPS", "IBM") is a symbol-like word: match it in capitals
+		// only, or "ups and downs" becomes UPS news.
+		const flags = /^[A-Z0-9&.\s-]+$/.test(n) ? "" : "i";
+		return new RegExp(`(^|[^A-Za-z0-9])${escapeRegExp(n)}($|[^A-Za-z0-9])`, flags).test(text);
+	});
+}
+
+function mentionsTicker(headline: string, ticker: string): boolean {
+	const upper = ticker.trim().toUpperCase();
+	const t = escapeRegExp(upper);
+	if (!t) return false;
+	// One- and two-letter tickers are ordinary letters and words ("O", "ON", "SO"), as
+	// are WORD_TICKERS, so only an explicit citation counts: "(O)", "NYSE: O", "$O".
+	if (upper.length <= 2 || WORD_TICKERS.has(upper)) {
+		return new RegExp(`\\(${t}\\)|\\b(?:NYSE|NASDAQ|Nasdaq)\\s*:\\s*${t}(?![A-Za-z0-9])|\\$${t}(?![A-Za-z0-9])`).test(headline);
+	}
+	// Longer ones as a capitalised whole word, so a title-cased "Net" or "Snow" isn't NET or SNOW.
+	return new RegExp(`(^|[^A-Za-z0-9])${t}($|[^A-Za-z0-9])`).test(headline);
+}
+
 /** Classify an article as macro, company-specific, or sector-level */
 export function classifyArticle(
 	article: FinnhubArticle,
@@ -140,14 +231,32 @@ export function classifyArticle(
 	const headline = article.headline.toLowerCase();
 	const body = `${headline} ${article.summary.toLowerCase()}`;
 
-	// Company: company name or ticker appears in the headline
-	if (companyName && headline.includes(companyName.toLowerCase())) return "company";
-	if (ticker && headline.includes(ticker.toLowerCase())) return "company";
+	// Company: the company is named, or its ticker cited, in the headline. Matched as
+	// whole words. A plain substring test made "googl" match "google" by luck and let
+	// one-letter tickers claim nearly everything - "o" (Realty Income) is in almost
+	// every headline - so a story about Joby or Apple went out labelled as another
+	// company's news, with that company's price card beside it.
+	if (companyName && mentionsName(article.headline, companyName)) return "company";
+	if (ticker && mentionsTicker(article.headline, ticker)) return "company";
 
 	// Macro: strong market-wide signal in headline or summary
 	if (MACRO_SIGNALS.some((s) => body.includes(s))) return "macro";
 
 	return "sector";
+}
+
+/**
+ * Feed text as readers should see it. Finnhub passes some sources' encoding damage
+ * straight through - replacement characters and non-breaking spaces between a
+ * summary and its outlet ("... sources say� � Reuters") - which the
+ * apps printed as "�". Those go; runs of whitespace become one space.
+ */
+function cleanNewsText(text: string): string {
+	return (text ?? "").replace(/[� ​]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function cleanArticleText(a: FinnhubArticle): FinnhubArticle {
+	return { ...a, headline: cleanNewsText(a.headline), summary: cleanNewsText(a.summary) };
 }
 
 /** Returns true if the article is likely financially relevant to the stock */
@@ -160,7 +269,8 @@ function isStockRelevant(article: FinnhubArticle): boolean {
 }
 
 
-const MARKET_CACHE_KEY = "market:all";
+// v2: headlines and summaries are cleaned of encoding damage when fetched.
+const MARKET_CACHE_KEY = "market:v2:all";
 
 /** Fetches fresh general market news from Finnhub and populates the shared cache pool. */
 async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
@@ -172,7 +282,7 @@ async function fetchFreshMarketNews(): Promise<FinnhubArticle[]> {
 		console.warn(`Finnhub market news unavailable (${res.status}) — returning empty`);
 		return [];
 	}
-	const data: FinnhubArticle[] = await res.json();
+	const data = (await res.json() as FinnhubArticle[]).map(cleanArticleText);
 	const finnhubFiltered = data.filter((a) => a.headline && a.summary && a.datetime >= cutoff && isStockRelevant(a));
 
 	// Supplement with geopolitical energy news (Iran war, OPEC, Middle East oil)
@@ -230,8 +340,8 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	return (data.articles ?? [])
 		.filter((a: { title?: string; description?: string }) => a.title && a.description)
 		.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
-			headline: a.title,
-			summary: a.description,
+			headline: cleanNewsText(a.title),
+			summary: cleanNewsText(a.description),
 			url: a.url,
 			image: a.urlToImage ?? "",
 			source: a.source?.name ?? "NewsAPI",
@@ -270,8 +380,8 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 		const articles: FinnhubArticle[] = (data.articles ?? [])
 			.filter((a: { title?: string; description?: string }) => a.title && a.description)
 			.map((a: { title: string; description: string; url: string; urlToImage?: string; source?: { name?: string }; publishedAt: string }) => ({
-				headline: a.title,
-				summary: a.description,
+				headline: cleanNewsText(a.title),
+				summary: cleanNewsText(a.description),
 				url: a.url,
 				image: a.urlToImage ?? "",
 				source: a.source?.name ?? "NewsAPI",
@@ -291,7 +401,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
  *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
  *  Returns up to `limit` articles from the past 7 days. */
 export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
-	const cacheKey = `company:${symbol}:${limit}`;
+	const cacheKey = `company:v2:${symbol}:${limit}`;
 	const cached = await cacheGet<FinnhubArticle[]>(cacheKey);
 	if (cached) return cached;
 
@@ -304,7 +414,7 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	);
 
 	if (res && res.ok) {
-		const data: FinnhubArticle[] = await res.json();
+		const data = (await res.json() as FinnhubArticle[]).map(cleanArticleText);
 		const filtered = data.filter((a) => a.headline && a.summary && isStockRelevant(a));
 		filtered.sort((a, b) => b.datetime - a.datetime);
 		if (filtered.length > 0) {

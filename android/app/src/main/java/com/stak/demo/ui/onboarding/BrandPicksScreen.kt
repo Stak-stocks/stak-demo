@@ -1,4 +1,4 @@
-package com.stak.demo.ui.onboarding
+﻿package com.stak.demo.ui.onboarding
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
@@ -149,7 +149,7 @@ fun BrandPicksScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				enabled = picked.size >= 3,
 				onClick = {
 					if (picked.size >= 3) {
-						com.stak.demo.ui.UserProfile.brandPicks = picked
+						com.stak.demo.data.UserProfile.brandPicks = picked
 						onContinue()
 					}
 				},

@@ -4,9 +4,12 @@ import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,12 +31,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import com.stak.demo.ui.discover.DeckCard
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -56,25 +62,19 @@ import kotlinx.coroutines.launch
 // Discover card template. Slab poses template-matched to the frame.
 private const val DECK_SCALE = 305.75f / 350f
 
-/** The authored mid slab (1:344, 273.5 wide) over the front card (305.75): the queue's next-card geometry. */
-private const val MID_SCALE = 273.5f / 305.75f
-
 /**
  * Onboarding · 03 Swipe tutorial — Figma node 1:344 (CHINEDU file, "STEP 3 OF 6").
  *
- * The stacked swipe deck: the authored queue slabs (AAPL and GOOGL at
- * their designed tilts) behind a live front card from the Discover
- * template at the frame's 87.4% scale. Swiping down reshuffles: the
- * front card flies off to the back of the queue and the next design
- * takes the front row, cycling in order. Chevrons + "Swipe down" hint
- * under the stack, Continue/Back below.
- *
- * The swipe IS the Discover deck's swipe (user, 2026-09-07: the practice
- * swipe must be Discover's swipe down, nothing else): commit-first ghost
- * fly-off, fling commit, the mid slab crossfading into the live next card
- * as the drag reveals it, the new front promoting from the slab geometry;
- * a dragged or flying card stays whole past the deck bounds. Same numbers
- * as DiscoverScreen at this deck's 87.4% unit.
+ * The stacked swipe deck: the authored queue slabs (AAPL and GOOGL at their designed
+ * tilts) behind a live front card from the Discover template, at the frame's 87.4%
+ * scale. The gesture IS Discover's own (device report, 2026-09-19: the tutorial was
+ * teaching a vertical "swipe down for next card" that Discover doesn't have at all -
+ * the real deck swipes horizontally, left to pass and right to STAK, with the same
+ * Pass/STAK buttons underneath): drag left or right, the card rotates and the buttons
+ * fill with the same ratio Discover uses, and a commit sends the card flying off in
+ * that direction while the next design in the demo queue takes the front slot - no
+ * invented crossfade-promote transition Discover doesn't do either, just the front
+ * card being whichever is next once the flown one clears.
  */
 @Composable
 fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
@@ -86,15 +86,26 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	var flyingCard by remember { mutableStateOf<DeckCard?>(null) }
 	val flyOffset = remember { Animatable(0f) }
 	val flyFade = remember { Animatable(1f) }
-	val topOffset = remember { Animatable(0f) }
-	// `enter` is the PROMOTE progress: 0 = the authored mid-slab geometry
-	// (y 21 / 273.5 wide), 1 = settled in the front slot.
-	val enter = remember { Animatable(1f) }
-	val frontFade = remember { Animatable(1f) }
+	val swipeOffset = remember { Animatable(0f) }
 	val scope = rememberCoroutineScope()
 	val density = LocalDensity.current
 	val u = figmaUnit()
 	val u2 = u * DECK_SCALE
+
+	fun advance(isSTAK: Boolean, gestureOffsetPx: Float = 0f) {
+		val cardWidthPx = with(density) { (306 * u).dp.toPx() }
+		val flyTarget = if (isSTAK) cardWidthPx * 1.6f else -cardWidthPx * 1.6f
+		scope.launch {
+			flyingCard = DECK[swiped % 3]
+			flyFade.snapTo(1f)
+			flyOffset.snapTo(gestureOffsetPx)
+			swiped += 1
+			swipeOffset.snapTo(0f)
+			launch { flyFade.animateTo(0f, tween(120, delayMillis = 200, easing = EaseOut)) }
+			flyOffset.animateTo(flyTarget, tween(380, easing = EaseOut))
+			flyingCard = null
+		}
+	}
 
 	Artboard(modifier = Modifier.background(StakColors.Bg)) {
 		Row(
@@ -125,7 +136,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 					color = StakColors.TextPrimary,
 				)
 				Text(
-					text = "Swipe down for the next card. Save what you like.",
+					text = "Swipe right to STAK, left to pass.",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp),
 					color = Auth.SubtitleGray,
 				)
@@ -135,16 +146,8 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				horizontalAlignment = Alignment.CenterHorizontally,
 				modifier = Modifier.weight(1f).fillMaxWidth().padding(top = (10 * u).dp),
 			) {
-				// The deck — the authored queue slabs stay put while the live
-				// front card cycles. User's motion (2026-08-21): swipe down
-				// reshuffles the front card to the back and the next takes the
-				// front row in an organized sequence — the Discover grammar.
-				// The card rows: this frame's card authors looser text gaps than a
-				// uniform 87.4% scale of the Discover card (1:1627) — render-fitted
-				// against the 2x export of 1:344 (re-fitted 2026-09-05 on StakTest
-				// after FIGMA_LINE_BOX: the old (0.85, 0.85, 1.65, 0.4) left every
-				// card row 2.2-3.2 low).
 				val rows = DeckRowTweaks(overlay = -1.35f, headline = 0.55f, price = 0.95f, tip = 0.1f)
+				val commitPx = with(density) { (110 * u2).dp.toPx() }
 				Box(
 					modifier = Modifier
 						.size((306 * u).dp, (423.07 * u).dp)
@@ -153,112 +156,49 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 						// over the hint/CTA zone like a real card deck.
 						.zIndex(1f)
 						.pointerInput(Unit) {
-							// The commit decision reads a PLAIN var written in the
-							// drag callback itself - never the animatable, whose
-							// queued snapTo can lag the finger on starved frames.
 							var dragTotal = 0f
-							var maxVel = 0f
-							detectVerticalDragGestures(
-								onDragStart = { dragTotal = 0f; maxVel = 0f },
+							detectHorizontalDragGestures(
+								onDragStart = { dragTotal = 0f },
 								onDragEnd = {
-									val committed = dragTotal
-									val flung = maxVel > 1.2f
+									val abs = kotlin.math.abs(dragTotal)
 									scope.launch {
-										val commitPx = with(density) { (110 * u2).dp.toPx() }
-										// Commit on distance OR on a fling - a fast short
-										// flick advances too (the Instagram rule).
-										if (committed > commitPx || (flung && committed > with(density) { (20 * u2).dp.toPx() })) {
-											// The frame's card shuffle, commit-first: the swiped
-											// card becomes the ghost and the deck advances NOW -
-											// a second swipe grabs the next card even while the
-											// ghost is still flying.
-											flyingCard = DECK[swiped % 3]
-											flyFade.snapTo(1f)
-											flyOffset.snapTo(committed)
-											swiped += 1
-											topOffset.snapTo(0f)
-											// The new front takes over at the mid-slab geometry
-											// the finger just revealed, then promotes forward.
-											enter.snapTo(0f)
-											// A velocity flick can commit before the crossfade
-											// finished - pick the alpha up from the reveal.
-											frontFade.snapTo((committed / commitPx).coerceIn(0f, 1f))
-											launch { frontFade.animateTo(1f, tween(120, easing = EaseOut)) }
-											launch { flyOffset.animateTo(with(density) { (500 * u2).dp.toPx() }, tween(280, easing = EaseOut)) }
-											launch { enter.animateTo(1f, tween(200, easing = EaseOut)) }
-											flyFade.animateTo(0f, tween(300, easing = EaseOut))
-											flyingCard = null
+										if (abs > commitPx) {
+											advance(isSTAK = dragTotal > 0, dragTotal)
 										} else {
-											topOffset.animateTo(0f, tween(180))
+											swipeOffset.animateTo(0f, tween(260, easing = EaseOut))
 										}
 									}
 								},
 							) { change, dragAmount ->
-								// Each event carries its own dt, so even a gesture the
-								// starved main thread coalesced into ONE move still
-								// yields a velocity (px/ms).
-								val dt = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
-								maxVel = maxOf(maxVel, dragAmount / dt)
 								change.consume()
-								dragTotal = (dragTotal + dragAmount).coerceAtLeast(0f)
-								val target = dragTotal
-								scope.launch { topOffset.snapTo(target) }
+								dragTotal += dragAmount
+								scope.launch { swipeOffset.snapTo(dragTotal) }
 							}
 						},
 				) {
-					val commitPx = with(density) { (110 * u2).dp.toPx() }
+					// The authored queue slabs (1:344) - static behind the live front
+					// card, same as Discover's own peek cards: they don't animate or
+					// crossfade, they're just there until the front card clears.
 					Image(
 						painter = painterResource(R.drawable.tutorial_card_googl),
 						contentDescription = null,
 						modifier = Modifier.offset(x = (33.5 * u).dp, y = 0.dp).size((238.75 * u).dp, (290.75 * u).dp),
 					)
-					// As the drag exposes the mid slab it crossfades into the LIVE
-					// next card at the SAME authored geometry (Discover's rule), so
-					// the queue always tells the truth.
 					Image(
 						painter = painterResource(R.drawable.tutorial_card_aapl),
 						contentDescription = null,
-						modifier = Modifier
-							.offset(x = (15.5 * u).dp, y = (21 * u).dp)
-							.size((273.5 * u).dp, (309.5 * u).dp)
-							.graphicsLayer { alpha = 1f - (topOffset.value / commitPx).coerceIn(0f, 1f) },
-					)
-					FrontDeckCard(
-						card = DECK[(swiped + 1) % 3],
-						onSave = {},
-						u = u2,
-						rows = rows,
-						modifier = Modifier
-							.align(Alignment.TopCenter)
-							.offset(y = (21 * u).dp)
-							.graphicsLayer {
-								alpha = (topOffset.value / commitPx).coerceIn(0f, 1f)
-								transformOrigin = TransformOrigin(0.5f, 0f)
-								scaleX = MID_SCALE
-								scaleY = MID_SCALE
-							},
+						modifier = Modifier.offset(x = (15.5 * u).dp, y = (21 * u).dp).size((273.5 * u).dp, (309.5 * u).dp),
 					)
 					FrontDeckCard(
 						card = DECK[swiped % 3],
-						onSave = {},
+						onSave = { advance(isSTAK = true) },
 						u = u2,
 						rows = rows,
 						modifier = Modifier
 							.align(Alignment.TopCenter)
 							.offset(y = (47.5 * u).dp)
-							.offset { IntOffset(0, topOffset.value.roundToInt()) }
-							.graphicsLayer {
-								// The promote: from the authored mid-slab geometry
-								// (y 21, 273.5 wide) into the front slot as `enter`
-								// settles - the queue visibly steps forward.
-								alpha = frontFade.value
-								transformOrigin = TransformOrigin(0.5f, 0f)
-								val e = enter.value
-								translationY = (21f - 47.5f) * u * this.density * (1f - e)
-								val s = MID_SCALE + (1f - MID_SCALE) * e
-								scaleX = s
-								scaleY = s
-							},
+							.offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
+							.graphicsLayer { rotationZ = (swipeOffset.value / commitPx) * 8f },
 					)
 					flyingCard?.let { ghost ->
 						// The swiped-away card flying off above the live deck;
@@ -271,29 +211,59 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 							modifier = Modifier
 								.align(Alignment.TopCenter)
 								.offset(y = (47.5 * u).dp)
-								.offset { IntOffset(0, flyOffset.value.roundToInt()) }
+								.offset { IntOffset(flyOffset.value.roundToInt(), 0) }
 								.graphicsLayer { alpha = flyFade.value },
 						)
 					}
 				}
-				Spacer(modifier = Modifier.size((9 * u).dp))
-				// Gesture hint — twin chevrons at 50% + "Swipe down".
-				Column(
-					horizontalAlignment = Alignment.CenterHorizontally,
-					verticalArrangement = Arrangement.spacedBy((4 * u).dp),
-				) {
-					Column(
-						verticalArrangement = Arrangement.spacedBy((1 * u).dp),
-						modifier = Modifier.alpha(0.5f),
-					) {
-						ChevronDown(u)
-						ChevronDown(u)
+				Spacer(modifier = Modifier.size((16 * u).dp))
+				// Pass/STAK — the same pair Discover has, filling colour with the same
+				// drag ratio, and just as clickable without dragging at all.
+				val ratio = (swipeOffset.value / commitPx).coerceIn(-1f, 1f)
+				val passRatio = (-ratio).coerceAtLeast(0f)
+				val stakRatio = ratio.coerceAtLeast(0f)
+				Row(horizontalArrangement = Arrangement.spacedBy((48 * u2).dp), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u2).dp)) {
+						val passBg = lerp(Color(0xFF1C202E), Color.White, passRatio)
+						val passIconColor = lerp(Color(0xFFB0B8CC), Color(0xFF1C202E), passRatio)
+						Box(
+							contentAlignment = Alignment.Center,
+							modifier = Modifier
+								.size((56 * u2).dp)
+								.background(passBg, CircleShape)
+								.clickable(
+									interactionSource = remember { MutableInteractionSource() },
+									indication = com.stak.demo.ui.theme.PressDim,
+									onClick = { advance(isSTAK = false) },
+								),
+						) {
+							Canvas(modifier = Modifier.size((20 * u2).dp)) {
+								val s = size.minDimension
+								val sw = s * 0.12f
+								val pad = s * 0.1f
+								drawLine(passIconColor, Offset(pad, pad), Offset(s - pad, s - pad), strokeWidth = sw, cap = StrokeCap.Round)
+								drawLine(passIconColor, Offset(s - pad, pad), Offset(pad, s - pad), strokeWidth = sw, cap = StrokeCap.Round)
+							}
+						}
+						Text(text = "Pass", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray)
 					}
-					Text(
-						text = "Swipe down",
-						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (8.73 * u).sp),
-						color = Auth.FaintText,
-					)
+					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u2).dp)) {
+						val stakBg = lerp(Color(0xFF1C202E), Color(0xFF4FB3D9), stakRatio)
+						Box(
+							contentAlignment = Alignment.Center,
+							modifier = Modifier
+								.size((56 * u2).dp)
+								.background(stakBg, CircleShape)
+								.clickable(
+									interactionSource = remember { MutableInteractionSource() },
+									indication = com.stak.demo.ui.theme.PressDim,
+									onClick = { advance(isSTAK = true) },
+								),
+						) {
+							Image(painterResource(R.drawable.ic_stak_logo_mark), "STAK", modifier = Modifier.size((28 * u2).dp))
+						}
+						Text(text = "STAK", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray)
+					}
 				}
 			}
 		}
@@ -306,19 +276,4 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 			AuthSecondaryButton(text = "Back", onClick = onBack)
 		}
 	}
-}
-
-/**
- * The authored 13.97x6.98 down-chevron (1:487 / 1:489): the exported
- * vector - stroke #5C6B85 at 1.75, round caps, the glyph inset inside
- * its frame. Was a hand-drawn corner-to-corner #819ABB 1.6 stroke
- * (exact-design audit 2026-09-04).
- */
-@Composable
-private fun ChevronDown(u: Float) {
-	Image(
-		painter = painterResource(R.drawable.ic_swipe_chevron),
-		contentDescription = null,
-		modifier = Modifier.size((13.97 * u).dp, (6.98 * u).dp),
-	)
 }

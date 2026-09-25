@@ -1,5 +1,49 @@
 import type { Request, Response, NextFunction } from "express";
+import { createHash } from "node:crypto";
 import { pgQuery } from "./lib/postgres.js";
+
+/**
+ * Verified logins, remembered briefly. Every authenticated request used to ask
+ * Supabase whether its token was valid and then read the identity map and the
+ * user row - two network hops and two queries, 0.3-0.9s before the route itself
+ * ran, on every call to My STAK, swipes or saves.
+ *
+ * A token is cached only after Supabase has verified it, keyed by its SHA-256
+ * (the token itself is never stored), for at most VERIFIED_TTL_MS and never past
+ * the token's own expiry. The trade: a token revoked by signing out elsewhere
+ * keeps working on this instance for up to that long. Per instance and in memory
+ * on purpose - identity doesn't belong in a shared cache for a saving this small.
+ */
+const VERIFIED_TTL_MS = 2 * 60 * 1000;
+const VERIFIED_MAX = 5000;
+type VerifiedUser = NonNullable<AuthenticatedRequest["user"]>;
+const verified = new Map<string, { user: VerifiedUser; until: number }>();
+
+function tokenKey(token: string): string {
+	return createHash("sha256").update(token).digest("hex");
+}
+
+/** The token's own expiry in ms, read from its payload - used only to cap the cache, never to trust it. */
+function tokenExpiryMs(token: string): number | null {
+	try {
+		const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as { exp?: number };
+		return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+	} catch {
+		return null;
+	}
+}
+
+function rememberVerified(token: string, user: VerifiedUser): void {
+	const now = Date.now();
+	const exp = tokenExpiryMs(token);
+	const until = Math.min(now + VERIFIED_TTL_MS, exp ?? now + VERIFIED_TTL_MS);
+	if (until <= now) return;
+	if (verified.size >= VERIFIED_MAX) {
+		for (const [k, v] of verified) if (v.until <= now) verified.delete(k);
+		if (verified.size >= VERIFIED_MAX) verified.delete(verified.keys().next().value!);
+	}
+	verified.set(tokenKey(token), { user, until });
+}
 
 // Verify a Supabase user JWT via direct fetch to /auth/v1/user — avoids creating a
 // full @supabase/supabase-js client, which requires globalThis.WebSocket (not available
@@ -36,6 +80,13 @@ export async function authMiddleware(
 	}
 
 	const token = authHeader.split("Bearer ")[1]!;
+
+	const hit = verified.get(tokenKey(token));
+	if (hit && hit.until > Date.now()) {
+		req.user = { ...hit.user };
+		next();
+		return;
+	}
 
 	try {
 		const supabaseUser = await verifySupabaseJwt(token);
@@ -75,6 +126,7 @@ export async function authMiddleware(
 			email: supabaseUser.email,
 			onboardingCompleted: onboardingResult.rows[0]?.onboarding_completed === true,
 		};
+		rememberVerified(token, req.user);
 		next();
 	} catch {
 		res.status(401).json({ error: "Invalid or expired token" });

@@ -1,10 +1,49 @@
 import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { getEasternDateKey } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
+import { planOf } from "../lib/entitlements.js";
+import { getSupabaseAdmin } from "../lib/supabaseAdmin.js";
 
 export const meRouter = Router();
+
+// Android holds tickers; stak_brands (shared with web) holds brand ids.
+const ID_BY_TICKER = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.id]));
+const TICKER_BY_ID = new Map(brands.map((b) => [b.id, b.ticker]));
+const NAME_BY_ID = new Map(brands.map((b) => [b.id, b.name]));
+
+// The saved stock's primary category — the same signal /api/recommendations sends,
+// so My STAK groups a save under the category the deck ranked it on.
+const CATEGORY_BY_TICKER: Record<string, string> = Object.fromEntries(
+	(STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[]).map((s) => [s.ticker.toUpperCase(), s.primaryCategory]),
+);
+
+// The Android onboarding answers, kept in preferences so a reinstall or a new phone
+// gets the same taste back. Shape: { goal, risk, riskStyle, picks }.
+type AndroidTaste = { goal: number; risk: number; riskStyle: string; picks: string[] };
+
+function tasteOf(preferences: Record<string, unknown> | null): AndroidTaste | null {
+	const t = preferences?.android_taste as Partial<AndroidTaste> | undefined;
+	if (!t || typeof t !== "object") return null;
+	return {
+		goal: typeof t.goal === "number" ? t.goal : -1,
+		risk: typeof t.risk === "number" ? t.risk : -1,
+		riskStyle: typeof t.riskStyle === "string" ? t.riskStyle : "",
+		picks: Array.isArray(t.picks) ? t.picks.filter((x): x is string => typeof x === "string") : [],
+	};
+}
+
+function validTaste(t: unknown): t is AndroidTaste {
+	if (!t || typeof t !== "object" || Array.isArray(t)) return false;
+	const o = t as Record<string, unknown>;
+	return Number.isInteger(o.goal) && (o.goal as number) >= -1 && (o.goal as number) <= 10
+		&& Number.isInteger(o.risk) && (o.risk as number) >= -1 && (o.risk as number) <= 10
+		&& typeof o.riskStyle === "string" && o.riskStyle.length <= 40
+		&& Array.isArray(o.picks) && o.picks.length <= 50
+		&& o.picks.every((x) => typeof x === "string" && x.length <= 60);
+}
 
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -28,9 +67,9 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const result = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null;
+			created_at: string; updated_at: string | null; plan: string | null;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
 			from users where uid = $1`,
 			[uid],
 		);
@@ -41,6 +80,8 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				id: uid, uid, email: req.user!.email || "",
 				displayName: "", preferences: {}, onboardingCompleted: false,
 				createdAt: new Date().toISOString(),
+				taste: null,
+				plan: "free",
 			};
 			res.json(defaultProfile);
 			return;
@@ -57,6 +98,8 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			onboardingCompleted: row.onboarding_completed,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			taste: tasteOf(row.preferences),
+			plan: planOf(row.plan),
 		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -68,7 +111,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { displayName, phone, preferences, onboardingCompleted } = req.body;
+		const { displayName, phone, preferences, onboardingCompleted, taste } = req.body;
 
 		if (displayName !== undefined && (typeof displayName !== "string" || displayName.length > 100)) {
 			res.status(400).json({ error: "displayName must be a string ≤ 100 characters" });
@@ -87,6 +130,15 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			return;
 		}
 
+		if (taste !== undefined && preferences !== undefined) {
+			res.status(400).json({ error: "send taste or preferences, not both" });
+			return;
+		}
+		if (taste !== undefined && !validTaste(taste)) {
+			res.status(400).json({ error: "taste must be { goal, risk, riskStyle, picks }" });
+			return;
+		}
+
 		await ensureUserRow(uid, req.user!.email);
 
 		const setClauses: string[] = ["updated_at = now()"];
@@ -95,8 +147,18 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 		if (displayName !== undefined) { setClauses.push(`display_name = $${i++}`); values.push(displayName); }
 		if (phone !== undefined) { setClauses.push(`phone = $${i++}`); values.push(phone); }
-		if (preferences !== undefined) { setClauses.push(`preferences = $${i++}`); values.push(JSON.stringify(preferences)); }
+		// Web replaces preferences wholesale; the Android taste answers inside it are kept.
+		if (preferences !== undefined) {
+			setClauses.push(`preferences = $${i++}::jsonb || coalesce(jsonb_strip_nulls(jsonb_build_object('android_taste', preferences->'android_taste')), '{}'::jsonb)`);
+			values.push(JSON.stringify(preferences));
+		}
 		if (onboardingCompleted !== undefined) { setClauses.push(`onboarding_completed = $${i++}`); values.push(onboardingCompleted); }
+		// Merged into preferences, never replacing it - android_stocks lives there too.
+		if (taste !== undefined) {
+			const { goal, risk, riskStyle, picks } = taste as AndroidTaste;
+			setClauses.push(`preferences = coalesce(preferences, '{}'::jsonb) || jsonb_build_object('android_taste', $${i++}::jsonb)`);
+			values.push(JSON.stringify({ goal, risk, riskStyle, picks }));
+		}
 
 		values.push(uid);
 		await pgQuery(
@@ -107,9 +169,9 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const updated = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null;
+			created_at: string; updated_at: string | null; plan: string | null;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
 			from users where uid = $1`,
 			[uid],
 		);
@@ -124,12 +186,68 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			onboardingCompleted: row.onboarding_completed,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			taste: tasteOf(row.preferences),
+			plan: planOf(row.plan),
 		});
 	} catch (error) {
 		console.error("Error updating profile:", error);
 		res.status(500).json({ error: "Failed to update profile" });
 	}
 });
+
+/** Replace the user's saved brands, keeping each existing save's price_at_save. */
+async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void> {
+	const client = await pgPool.connect();
+	try {
+		await client.query("BEGIN");
+		// Preserve price_at_save AND saved_at so "since you saved" isn't wiped on every
+		// watchlist edit. The price was already kept; saved_at was not, so this rewrote
+		// every save's date on each sync - a stock saved weeks ago reported itself as
+		// saved the moment anything else was added or removed.
+		const existing = await client.query<{ brand_id: string; price_at_save: number | null; saved_at: string | null }>(
+			`select brand_id, price_at_save, saved_at from stak_brands where uid = $1`,
+			[uid],
+		);
+		const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
+		const savedAts = new Map<string, string | null>(existing.rows.map(r => [r.brand_id, r.saved_at]));
+		// The history of what changed: stak_brands is only the current list, so an unsave
+		// would otherwise leave no record that the stock was ever saved.
+		const next = new Set(brandIds);
+		const added = brandIds.filter((id) => !savedAts.has(id));
+		const removed = existing.rows.filter((r) => !next.has(r.brand_id));
+		if (added.length > 0 || removed.length > 0) {
+			const logRows: string[] = [];
+			const logParams: unknown[] = [uid];
+			let lIdx = 2;
+			for (const id of added) { logRows.push(`($1, $${lIdx}, 'save', null)`); logParams.push(id); lIdx += 1; }
+			for (const r of removed) { logRows.push(`($1, $${lIdx}, 'unsave', $${lIdx + 1})`); logParams.push(r.brand_id, r.price_at_save); lIdx += 2; }
+			await client.query(`insert into stak_save_log (uid, brand_id, action, price) values ${logRows.join(", ")}`, logParams);
+		}
+		await client.query(`delete from stak_brands where uid = $1`, [uid]);
+		if (brandIds.length > 0) {
+			const now = new Date().toISOString();
+			const rowPlaceholders: string[] = [];
+			const params: unknown[] = [uid];
+			let pIdx = 2;
+			for (const brandId of brandIds) {
+				rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
+				// An existing row keeps the date it was first saved; only a new one is "now".
+				params.push(brandId, savedAts.get(brandId) ?? now, savedPrices.get(brandId) ?? null);
+				pIdx += 3;
+			}
+			await client.query(
+				`insert into stak_brands (uid, brand_id, saved_at, price_at_save) values ${rowPlaceholders.join(", ")}`,
+				params,
+			);
+		}
+		await client.query("COMMIT");
+	} catch (e) {
+		await client.query("ROLLBACK");
+		throw e;
+	} finally {
+		client.release();
+	}
+}
 
 // GET /api/me/stak — get user's saved brand IDs (requires auth)
 meRouter.get("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -158,38 +276,7 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 		}
 
 		await ensureUserRow(uid, req.user!.email);
-		const client = await pgPool.connect();
-		try {
-			await client.query("BEGIN");
-			// Preserve existing price_at_save so "since you saved" isn't wiped on every watchlist edit
-			const existing = await client.query<{ brand_id: string; price_at_save: number | null }>(
-				`select brand_id, price_at_save from stak_brands where uid = $1`,
-				[uid],
-			);
-			const savedPrices = new Map<string, number | null>(existing.rows.map(r => [r.brand_id, r.price_at_save]));
-			await client.query(`delete from stak_brands where uid = $1`, [uid]);
-			if (brandIds.length > 0) {
-				const now = new Date().toISOString();
-				const rowPlaceholders: string[] = [];
-				const params: unknown[] = [uid];
-				let pIdx = 2;
-				for (const brandId of brandIds as string[]) {
-					rowPlaceholders.push(`($1, $${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
-					params.push(brandId, now, savedPrices.get(brandId) ?? null);
-					pIdx += 3;
-				}
-				await client.query(
-					`insert into stak_brands (uid, brand_id, saved_at, price_at_save) values ${rowPlaceholders.join(", ")}`,
-					params,
-				);
-			}
-			await client.query("COMMIT");
-		} catch (e) {
-			await client.query("ROLLBACK");
-			throw e;
-		} finally {
-			client.release();
-		}
+		await replaceStakBrands(uid, brandIds as string[]);
 
 		res.json({ brandIds });
 	} catch (error) {
@@ -302,6 +389,67 @@ meRouter.put("/intel-state", authMiddleware, async (req: AuthenticatedRequest, r
 	}
 });
 
+// GET /api/me/android-state — the phone-only state that used to be lost on a new
+// device or a reinstall: the practice portfolio ledger, the notification inbox's
+// read ids, and saved news. Android is the only client that reads this.
+meRouter.get("/android-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const result = await pgQuery<{ portfolio: Record<string, unknown> | null; notif_read: string[]; news_saved: string[] }>(
+			`select portfolio, notif_read, news_saved from android_device_state where uid = $1`,
+			[uid],
+		);
+		const row = result.rows[0];
+		res.json({ portfolio: row?.portfolio ?? null, notifRead: row?.notif_read ?? [], newsSaved: row?.news_saved ?? [] });
+	} catch (error) {
+		console.error("Error fetching android state:", error);
+		res.status(500).json({ error: "Failed to fetch android state" });
+	}
+});
+
+// PUT /api/me/android-state — write whichever fields changed; omitted fields are left as they are.
+meRouter.put("/android-state", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { portfolio, notifRead, newsSaved } = req.body as {
+			portfolio?: unknown; notifRead?: unknown; newsSaved?: unknown;
+		};
+		if (portfolio !== undefined && (typeof portfolio !== "object" || portfolio === null || Array.isArray(portfolio))) {
+			res.status(400).json({ error: "portfolio must be an object" });
+			return;
+		}
+		if (notifRead !== undefined && (!Array.isArray(notifRead) || notifRead.some((x) => typeof x !== "string"))) {
+			res.status(400).json({ error: "notifRead must be an array of strings" });
+			return;
+		}
+		if (newsSaved !== undefined && (!Array.isArray(newsSaved) || newsSaved.some((x) => typeof x !== "string"))) {
+			res.status(400).json({ error: "newsSaved must be an array of strings" });
+			return;
+		}
+		if (portfolio === undefined && notifRead === undefined && newsSaved === undefined) {
+			res.status(400).json({ error: "nothing to update" });
+			return;
+		}
+
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`insert into android_device_state (uid, portfolio, notif_read, news_saved, updated_at)
+			values ($1, $2::jsonb, coalesce($3::text[], '{}'), coalesce($4::text[], '{}'), now())
+			on conflict (uid) do update set
+				portfolio = coalesce($2::jsonb, android_device_state.portfolio),
+				notif_read = coalesce($3::text[], android_device_state.notif_read),
+				news_saved = coalesce($4::text[], android_device_state.news_saved),
+				updated_at = now()`,
+			[uid, portfolio !== undefined ? JSON.stringify(portfolio) : null, notifRead ?? null, newsSaved ?? null],
+		);
+
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error saving android state:", error);
+		res.status(500).json({ error: "Failed to save android state" });
+	}
+});
+
 // GET /api/me/daily-swipes — get today's swipe count for cross-device sync
 meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
@@ -311,7 +459,7 @@ meRouter.get("/daily-swipes", authMiddleware, async (req: AuthenticatedRequest, 
 			[uid],
 		);
 		const row = result.rows[0];
-		res.json({ date: row?.daily_swipe_date ?? "", count: row?.daily_swipe_count ?? 0 });
+		res.json({ date: row?.daily_swipe_date ?? "", count: row?.daily_swipe_count ?? 0, limit: DAILY_SWIPE_LIMIT });
 	} catch (error) {
 		console.error("Error fetching daily swipes:", error);
 		res.status(500).json({ error: "Failed to fetch daily swipes" });
@@ -437,6 +585,54 @@ meRouter.delete("/search-history/:query", authMiddleware, async (req: Authentica
 	}
 });
 
+// PUT /api/me/push-device — register (or update) this install for push notifications.
+// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck? }. The alert switches are
+// the app's per-phone notification settings, so they live on the device row.
+meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { token, platform, timezone, priceAlerts, dailyDeck } = req.body as {
+			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown;
+		};
+		if (typeof token !== "string" || token.length < 20 || token.length > 4096) {
+			res.status(400).json({ error: "token is required" });
+			return;
+		}
+		// An unknown zone would make the morning reminder's local-time check throw.
+		let zone = "America/New_York";
+		if (typeof timezone === "string") {
+			try { new Intl.DateTimeFormat("en-US", { timeZone: timezone }); zone = timezone; } catch { /* keep default */ }
+		}
+		await ensureUserRow(uid, req.user!.email);
+		// The token is the install; if it was registered to another account on this phone,
+		// it now belongs to whoever is signed in.
+		await pgQuery(
+			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, updated_at)
+			values ($1, $2, $3, $4, $5, $6, now())
+			on conflict (token) do update set uid = excluded.uid, platform = excluded.platform, timezone = excluded.timezone,
+				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, updated_at = now()`,
+			[token, uid, platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false],
+		);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error registering push device:", error);
+		res.status(500).json({ error: "Failed to register push device" });
+	}
+});
+
+// DELETE /api/me/push-device — stop pushing to this install (sign-out). Body: { token }.
+meRouter.delete("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const { token } = req.body as { token?: unknown };
+		if (typeof token !== "string") { res.status(400).json({ error: "token is required" }); return; }
+		await pgQuery(`delete from push_devices where token = $1 and uid = $2`, [token, req.user!.uid]);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error removing push device:", error);
+		res.status(500).json({ error: "Failed to remove push device" });
+	}
+});
+
 // DELETE /api/me/search-history — clear all entries
 meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
@@ -446,6 +642,97 @@ meRouter.delete("/search-history", authMiddleware, async (req: AuthenticatedRequ
 	} catch (error) {
 		console.error("Error clearing search history:", error);
 		res.status(500).json({ error: "Failed to clear search history" });
+	}
+});
+
+// GET /api/me/android-stocks — the user's saved stocks. Backed by the same
+// stak_brands list the web uses, so saves are shared across platforms. The
+// legacy preferences.android_stocks list is folded in until the next save migrates it.
+//
+// `tickers` is the flat list older clients read. `saved` carries what My STAK
+// needs to describe a save without inventing it: the company name, the category
+// the deck ranked it on, when it was saved and the price at the time.
+meRouter.get("/android-stocks", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const [saved, legacy] = await Promise.all([
+			pgQuery<{ brand_id: string; saved_at: string | null; price_at_save: string | number | null }>(
+				`select brand_id, saved_at, price_at_save from stak_brands where uid = $1 order by saved_at asc`,
+				[uid],
+			),
+			pgQuery<{ preferences: Record<string, unknown> | null }>(`select preferences from users where uid = $1`, [uid]),
+		]);
+		const entries = saved.rows.flatMap((r) => {
+			const ticker = TICKER_BY_ID.get(r.brand_id);
+			if (!ticker) return [];
+			return [{
+				ticker,
+				brandId: r.brand_id,
+				name: NAME_BY_ID.get(r.brand_id) ?? ticker,
+				category: CATEGORY_BY_TICKER[ticker.toUpperCase()] ?? null,
+				savedAt: r.saved_at,
+				// numeric columns arrive as strings from pg
+				priceAtSave: r.price_at_save === null ? null : Number(r.price_at_save),
+			}];
+		});
+		const legacyTickers = (legacy.rows[0]?.preferences?.android_stocks as string[] | undefined) ?? [];
+		const known = new Set(entries.map((e) => e.ticker));
+		for (const ticker of legacyTickers) {
+			if (known.has(ticker)) continue;
+			known.add(ticker);
+			// A legacy save has no row of its own, so it has no save date or price yet.
+			const brandId = ID_BY_TICKER.get(ticker.toUpperCase());
+			entries.push({
+				ticker,
+				brandId: brandId ?? "",
+				name: (brandId && NAME_BY_ID.get(brandId)) || ticker,
+				category: CATEGORY_BY_TICKER[ticker.toUpperCase()] ?? null,
+				savedAt: null,
+				priceAtSave: null,
+			});
+		}
+		res.json({ tickers: entries.map((e) => e.ticker), saved: entries });
+	} catch (error) {
+		console.error("Error fetching android stocks:", error);
+		res.status(500).json({ error: "Failed to fetch android stocks" });
+	}
+});
+
+// PUT /api/me/android-stocks — replace the saved list (tickers), written to stak_brands.
+meRouter.put("/android-stocks", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { tickers } = req.body as { tickers?: unknown };
+		if (!Array.isArray(tickers) || tickers.some((t) => typeof t !== "string")) {
+			res.status(400).json({ error: "tickers must be an array of strings" });
+			return;
+		}
+		const ids = [...new Set((tickers as string[]).map((t) => ID_BY_TICKER.get(t.toUpperCase())).filter((id): id is string => !!id))];
+		// The cap is a rule, not a client habit: the web blocked adds past it while
+		// this accepted any length, so another client could store a Stak the web
+		// would then load over its own capacity.
+		// Only a write that GROWS a Stak past the cap is refused. Android accepted any
+		// length before this rule, so an account can already hold more than 30; refusing
+		// every oversized list would refuse its unsaves too, and it could never get back
+		// under - each removal rejected, then restored by the next refresh.
+		if (ids.length > STAK_CAPACITY) {
+			const held = await pgQuery<{ n: number }>(`select count(*)::int as n from stak_brands where uid = $1`, [uid]);
+			if (ids.length > (held.rows[0]?.n ?? 0)) {
+				res.status(400).json({ error: `A Stak holds at most ${STAK_CAPACITY} stocks`, capacity: STAK_CAPACITY });
+				return;
+			}
+		}
+		await ensureUserRow(uid, req.user!.email);
+		await replaceStakBrands(uid, ids);
+		// The list now lives in stak_brands; drop the legacy copy so it can't resurrect removed saves.
+		await pgQuery(
+			`update users set preferences = coalesce(preferences, '{}'::jsonb) - 'android_stocks', updated_at = now() where uid = $1`,
+			[uid],
+		);
+		res.json({ tickers: ids.map((id) => TICKER_BY_ID.get(id)) });
+	} catch (error) {
+		console.error("Error saving android stocks:", error);
+		res.status(500).json({ error: "Failed to save android stocks" });
 	}
 });
 
@@ -459,14 +746,55 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 			res.status(400).json({ error: "price must be a positive number" });
 			return;
 		}
-		await pgQuery(
+		const updated = await pgQuery(
 			`UPDATE stak_brands SET price_at_save = $1
 			 WHERE uid = $2 AND brand_id = $3 AND price_at_save IS NULL`,
 			[price, uid, brandId],
 		);
+		// The same price on the save's history entry, which was written before the price arrived.
+		if ((updated.rowCount ?? 0) > 0) {
+			await pgQuery(
+				`update stak_save_log set price = $1
+				 where id = (select id from stak_save_log where uid = $2 and brand_id = $3 and action = 'save' and price is null order by occurred_at desc limit 1)`,
+				[price, uid, brandId],
+			);
+		}
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error patching stak price:", error);
 		res.status(500).json({ error: "Failed to patch stak price" });
+	}
+});
+
+// DELETE /api/me — delete account (Android's App settings -> Delete account).
+// `users` is the one row every save, swipe, event, taste snapshot and push device
+// FKs to with ON DELETE CASCADE, so removing it clears all of it in a single delete
+// (see the schema migration's own note on this). The Supabase Auth record is a
+// second, best-effort step: it needs the service-role admin API, not a plain
+// connection, and a failure there still leaves the promise kept - every save and
+// setting is gone and the session is over, just with a harmless auth shell left
+// behind for later cleanup, rather than a delete that half-succeeds and blocks logout.
+meRouter.delete("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+
+		const mapped = await pgQuery<{ supabase_uid: string }>(
+			`select supabase_uid from auth_identity_map where firebase_uid = $1`,
+			[uid],
+		);
+		const supabaseUid = mapped.rows[0]?.supabase_uid ?? null;
+
+		await pgQuery(`delete from users where uid = $1`, [uid]);
+
+		if (supabaseUid) {
+			await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e) => {
+				console.error("[me] account data deleted but the Supabase auth record wasn't:", e);
+			});
+		}
+
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error deleting account:", error);
+		res.status(500).json({ error: "Failed to delete account" });
 	}
 });

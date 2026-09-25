@@ -146,6 +146,13 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 swipeRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
+		// Optional ?since=<ISO> narrows to recent swipes (clients count today's saves/passes).
+		const sinceRaw = typeof req.query.since === "string" ? req.query.since : null;
+		const since = sinceRaw ? new Date(sinceRaw) : null;
+		if (since && Number.isNaN(since.getTime())) {
+			res.status(400).json({ error: "since must be an ISO timestamp" });
+			return;
+		}
 		const result = await pgQuery<{
 			id: number; uid: string; brandId: string; direction: string; timestamp: string;
 			ticker: string | null; categories: string[] | null; stakSize: number | null;
@@ -154,8 +161,8 @@ swipeRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			`select id, uid, brand_id as "brandId", direction, occurred_at as "timestamp",
 			 ticker, categories, stak_size as "stakSize", time_on_card_ms as "timeOnCardMs",
 			 swipe_velocity as "swipeVelocity"
-			 from swipes where uid = $1 order by occurred_at desc`,
-			[uid],
+			 from swipes where uid = $1 ${since ? "and occurred_at >= $2 " : ""}order by occurred_at desc`,
+			since ? [uid, since.toISOString()] : [uid],
 		);
 		res.json({ swipes: result.rows });
 	} catch (error) {

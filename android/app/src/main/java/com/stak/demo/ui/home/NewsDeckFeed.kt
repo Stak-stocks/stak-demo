@@ -1,60 +1,70 @@
 package com.stak.demo.ui.home
 
+import com.stak.demo.data.Session
+import com.stak.demo.ui.news.DailyBriefHolder
+
 /**
- * Market Mood news deck data source (CHINEDU 1:1162).
+ * Market Mood news deck data source. Reads live market news from DailyBriefHolder
+ * (populated by NewsViewModel on app open). DailyBriefHolder uses mutableStateOf so
+ * the deck recomposes automatically when news loads.
  *
- * CONTRACT (user, 2026-08-22): the deck is proxied to REAL-TIME news -
- * "news don't stay the same, it changes everyday". The STAK BACKEND
- * propagates the day's breaking stories, the kind that makes a user
- * want to open them, and the app renders whatever is served into the
- * authored deck slots (poses, colors and typography stay authored).
- *
- * Delivery timing is per user: the backend schedules the day's deck
- * (and the mood refresh) for the user's LOCAL morning using the
- * timezone ID the app sends with the session (UserProfile.timeZoneId).
- *
- * LIVE stays false this phase so the deck always matches the frame;
- * the demo stories below are the authored copy.
+ * Only the demo account falls back to the authored stories. A real account was
+ * shown them until the news arrived — "Wall Street's fear gauge reads 32", "The
+ * OpenAI IPO is reportedly delayed" — and a short live list was topped up with
+ * them; invented headlines beside real ones. It now gets loading cards, or a line
+ * saying the news didn't load.
  */
 object NewsDeckFeed {
-	/** Production switch - keep false while reviews compare build vs frame. */
-	const val LIVE = false
+    const val LIVE = true
 
-	data class Story(val title: String, val body: String)
+    /** [loading] draws the placeholder bars instead of text. */
+    data class Story(val title: String, val body: String, val loading: Boolean = false)
 
-	// exact-design audit 2026-09-04 (1:1166 / 1:1170): the frame's " ...." and
-	// "...." truncation marks are typos - normalised to the three-dot ellipsis
-	// the third card (1:1174) already uses; the story copy itself is verbatim.
-	val DEMO_STORIES = listOf(
-		Story(
-			"Wall Street's fear gauge reads 32",
-			"The Fear & Greed Index is firmly in Fear territory. Money is rotating out of the...",
-		),
-		Story(
-			"Fed meeting notes drop Wednesday",
-			"Minutes from the last Fed meeting land July 8. A market this tense moves on every word...",
-		),
-		Story(
-			"The OpenAI IPO is reportedly delayed",
-			"The year's most anticipated listing just slipped. Markets riding a wave of IPO excitement...",
-		),
-	)
+    val DEMO_STORIES = listOf(
+        Story(
+            "Wall Street's fear gauge reads 32",
+            "The Fear & Greed Index is firmly in Fear territory. Money is rotating out of the...",
+        ),
+        Story(
+            "Fed meeting notes drop Wednesday",
+            "Minutes from the last Fed meeting land July 8. A market this tense moves on every word...",
+        ),
+        Story(
+            "The OpenAI IPO is reportedly delayed",
+            "The year's most anticipated listing just slipped. Markets riding a wave of IPO excitement...",
+        ),
+    )
 
-	/** The authored deck has exactly this many slots (HomeScreen.NewsDeck). */
-	const val DECK_SIZE = 3
+    const val DECK_SIZE = 3
 
-	/**
-	 * The current stories - the served breaking news once the backend
-	 * exists. Always exactly [DECK_SIZE] long.
-	 */
-	fun stories(): List<Story> = padToDeck(DEMO_STORIES)
+    private val LOADING = Story("", "", loading = true)
+    private val EMPTY = Story("", "")
 
-	/**
-	 * GUARD (audit 2026-09-04): the Home deck indexes three fixed, authored
-	 * slots, so a served feed shorter than the deck is padded with the
-	 * authored stories and a longer one trimmed - a short or empty backend
-	 * response can never index past the end. Route every live feed through
-	 * this before it reaches the deck.
-	 */
-	fun padToDeck(served: List<Story>): List<Story> = (served + DEMO_STORIES).take(DECK_SIZE)
+    fun stories(): List<Story> {
+        val liveNews = DailyBriefHolder.news
+        if (liveNews.isNotEmpty()) {
+            val mapped = liveNews.take(DECK_SIZE).map { article ->
+                val title = article.headline.let {
+                    if (it.length > 65) it.take(65).trimEnd() + "…" else it
+                }
+                // A summary that only restates the headline isn't a body.
+                val body = com.stak.demo.data.NewsText.summaryBeyondHeadline(article.headline, article.summary)
+                    ?.let { if (it.length > 110) it.take(110).trimEnd() + "…" else it }
+                    .orEmpty()
+                Story(title = title, body = body)
+            }
+            return padToDeck(mapped)
+        }
+        if (Session.demoAccount) return padToDeck(DEMO_STORIES)
+        // Failed: the front card says so and the ones behind it stay plain.
+        if (DailyBriefHolder.newsFailed) {
+            return padToDeck(listOf(Story("Market news isn't loading", "Open News to try again.")))
+        }
+        return List(DECK_SIZE) { LOADING }
+    }
+
+    fun padToDeck(served: List<Story>): List<Story> {
+        val filler = if (Session.demoAccount) DEMO_STORIES else List(DECK_SIZE) { EMPTY }
+        return (served + filler).take(DECK_SIZE)
+    }
 }

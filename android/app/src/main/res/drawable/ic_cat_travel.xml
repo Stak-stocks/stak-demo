@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- My STAK category icon: Travel - a commercial-airplane silhouette (device report, 2026-09-23: the folded-triangle version read as a paper airplane). Filled rather than stroked, like every other airplane glyph in this style of icon set, in the app's #819ABB. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp" android:height="21dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Scaled 1.12x about the canvas center (device report, 2026-09-25: "increase their
+         percentage coverage a bit"). -->
+    <group android:pivotX="12" android:pivotY="12" android:scaleX="1.12" android:scaleY="1.12">
+        <path android:fillColor="#819ABB" android:pathData="M21,16v-2l-8,-5V3.5C13,2.67 12.33,2 11.5,2S10,2.67 10,3.5V9l-8,5v2l8,-2.5V19l-2.5,1.5V22L11.5,21l3.5,1.5v-1.5L12.5,19v-5.5L21,16z" />
+    </group>
+</vector>

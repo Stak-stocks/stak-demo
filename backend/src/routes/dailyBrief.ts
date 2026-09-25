@@ -2,7 +2,7 @@ import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey } from "@stak/shared";
+import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import {
 	classifyMood, SECTOR_ETFS, SECTOR_NAMES,
@@ -13,6 +13,18 @@ import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
 
 export const dailyBriefRouter = Router();
+
+/**
+ * Each ticker's real category, so "Why this matters to you" can be told what a stock
+ * actually is instead of guessing (device report, 2026-09-24: it tied Amazon's move to
+ * "the communications sector" - Amazon is Consumer Discretionary/e-commerce, not
+ * Communication Services; the model had the stock's move and the day's leading/lagging
+ * sector, but nothing saying which sector the stock itself belongs to, so it wired the
+ * two together on its own).
+ */
+const CATEGORY_BY_TICKER: Record<string, string> = Object.fromEntries(
+	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s.displayTags[0] ?? s.primaryCategory.replace(/_/g, " ")]),
+);
 
 
 async function finnhubGet(path: string): Promise<unknown | null> {
@@ -38,7 +50,9 @@ async function getQuoteChange(symbol: string): Promise<number | null> {
 	const q = await finnhubGet(`/quote?symbol=${symbol}`) as { dp?: number } | null;
 	if (q?.dp == null) return null;
 
-	const pct = Math.round(q.dp * 10) / 10;
+	// Two decimals, as the prompt prints them: rounding to one here turned -1.3 into
+	// a quoted "down 1.30%" that looked more precise than it was.
+	const pct = Math.round(q.dp * 100) / 100;
 	await cacheSet(cacheKey, pct, 5 * 60 * 1000);
 	return pct;
 }
@@ -46,6 +60,23 @@ async function getQuoteChange(symbol: string): Promise<number | null> {
 type Session = "open" | "midday" | "close";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * Every Gemini-written daily-brief field is told the mood, the session and whether the
+ * market's closed - so its cache key must change whenever any of those does, or a
+ * generation written for one state can outlive it (device report, 2026-09-24: the
+ * personalized-impact and what-happened caches didn't include mood in their key while the
+ * mood-explanation cache next to them did, so a mood reclassification mid-day could leave
+ * two of the three still serving text written for the mood before it changed - the same
+ * shape of bug as the risk snapshot's level/note drift). One canonical builder, used by
+ * every one of these caches, so a state a prompt is later given can't be added to the
+ * prompt without also landing in the key - forgetting it in one call site is no longer
+ * possible because there's only one call site.
+ */
+function briefStateKey(mood: Mood, session: Session, marketClosed: boolean, dayLabel: string): string {
+	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
+	return `${mood}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+}
 
 async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string | null }> {
 	const cacheKey = "market-status:us";
@@ -68,6 +99,105 @@ async function fetchMarketStatus(): Promise<{ isOpen: boolean; holiday: string |
 	} catch { /* fall through to weekend check */ }
 
 	return { isOpen: false, holiday: null };
+}
+
+interface WhatHappenedResult {
+	whatHappened: Array<{ title: string; body: string }>;
+	contextQuestion: string;
+	watchItems: Array<{ icon: string; label: string; body: string }>;
+}
+
+async function generateWhatHappenedAndContext(
+	session: Session,
+	marketClosed: boolean,
+	dayLabel: string,
+	marketDrivers: string | null,
+	mood: Mood,
+	spyDp: number | null,
+	qqqDp: number | null,
+	diaDp: number | null,
+	topSector: string | null,
+	worstSector: string | null,
+): Promise<WhatHappenedResult> {
+	const today = getEasternDateKey();
+	// v3: v2 didn't key on mood, so a mood change mid-session couldn't invalidate it - see briefStateKey.
+	const cacheKey = `daily-brief:events:v3:${today}:${briefStateKey(mood, session, marketClosed, dayLabel)}`;
+	const cached = await cacheGet<WhatHappenedResult>(cacheKey);
+	if (cached) return cached;
+
+	const isToday = dayLabel === "Today's";
+	const timeWord = marketClosed && !isToday ? `on ${dayLabel.replace(/'s$/, "")}` : "today";
+	const context = [
+		spyDp != null ? `S&P 500 ${spyDp >= 0 ? "+" : ""}${spyDp}%` : null,
+		qqqDp != null ? `Nasdaq ${qqqDp >= 0 ? "+" : ""}${qqqDp}%` : null,
+		diaDp != null ? `Dow ${diaDp >= 0 ? "+" : ""}${diaDp}%` : null,
+		topSector ? `Leading: ${topSector}` : null,
+		worstSector && worstSector !== topSector ? `Lagging: ${worstSector}` : null,
+	].filter(Boolean).join(" | ");
+	const driversBlock = marketDrivers ? `What drove markets ${timeWord}:\n${marketDrivers}` : "";
+	// Told explicitly, not left for the model to guess from context (device report,
+	// 2026-09-24: one item read "continued its climb" - still in progress - while
+	// another said "closed up slightly" in the same batch of three).
+	const sessionStateLine = marketClosed
+		? "The market has now CLOSED for the session being described. Every title and body below must read as a finished, definite recap - \"closed up 0.4%\", \"fell 1.1%\", \"rallied into the close\". Never write as if trading is still happening (\"continues\", \"is leading\", \"so far\")."
+		: session === "open"
+			? "The market just OPENED and is still trading right now. Every title and body below must read as ongoing and present - \"opens higher\", \"is leading early trading\". Never say \"closed\" or describe the session as finished."
+			: "The market is MID-SESSION and still trading right now. Every title and body below must read as ongoing, so-far-today - \"is up\", \"leads so far\", \"trades higher\". Never say \"closed\" or describe the session as finished.";
+
+	const prompt = `You are writing content for a Gen Z / millennial stock-learning app. Based on the market data below, return ONLY a JSON object with exactly three fields.
+
+Market data: ${context || "unavailable"}
+${driversBlock}
+Mood: ${mood}
+
+${sessionStateLine} All three "whatHappened" items must agree with each other and with this - never mix a finished-session item with an ongoing one.
+
+Fields to return:
+
+"whatHappened": array of exactly 3 objects with:
+  - "title": 3–6 word event label, same tense as the market status above, e.g. "Dow reached a new high" once closed, or "Dow is climbing" while still open
+  - "body": 1 sentence ≤ 80 chars explaining what happened and why, in that SAME tense as its own title
+Cover the 3 most significant market events ${timeWord}.
+
+"contextQuestion": one "Why…" or "How…" question a young investor might ask about WHY today's market moved this way. ≤ 65 chars. E.g. "Why can the Dow rise while the Nasdaq falls?"
+
+"watchItems": array of exactly 3 objects with:
+  - "icon": single emoji relevant to the item (e.g. 📅 🔬 🔄)
+  - "label": 2–3 word forward-looking topic (e.g. "Fed data", "Chip-sector")
+  - "body": ≤ 50 char phrase describing what to watch for
+
+Return ONLY the raw JSON object, no markdown, no code fences.`;
+
+	const fallback: WhatHappenedResult = { whatHappened: [], contextQuestion: "", watchItems: [] };
+	const keys = getGeminiKeys();
+	for (const key of keys) {
+		try {
+			const res = await fetch(geminiUrl(GEMINI_MODEL, key), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+				}),
+				signal: AbortSignal.timeout(12000),
+			});
+			if (!res.ok) continue;
+			const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (!text) continue;
+			const parsed = JSON.parse(text) as WhatHappenedResult;
+			if (Array.isArray(parsed.whatHappened) && parsed.contextQuestion) {
+				const result: WhatHappenedResult = {
+					whatHappened: parsed.whatHappened.slice(0, 3),
+					contextQuestion: parsed.contextQuestion,
+					watchItems: Array.isArray(parsed.watchItems) ? parsed.watchItems.slice(0, 3) : [],
+				};
+				await cacheSet(cacheKey, result, 4 * 60 * 60 * 1000);
+				return result;
+			}
+		} catch { continue; }
+	}
+	return fallback;
 }
 
 // GET /api/daily-brief/market-status — public, no auth required (used by guests too).
@@ -180,9 +310,16 @@ async function getMarketStatus(): Promise<{ session: Session; marketClosed: bool
 
 	const { isOpen, holiday } = await fetchMarketStatus();
 
-	if (!isOpen) {
+	// "Closed" in the first minutes after 9:30 on a normal weekday is the status call
+	// lagging the open (it is cached for ten minutes), not a finished session. Read as
+	// closed, a brief written then was labelled today's close and stored under the
+	// after-close key for the day - serving that evening a line built from quotes that
+	// still showed yesterday's moves. Past the lag window a closed reading is believed:
+	// an early-close afternoon or an unscheduled halt is today's session, as before.
+	const lagAfterOpen = holiday == null && total >= 9 * 60 + 30 && total < 9 * 60 + 45;
+	if (!isOpen && !lagAfterOpen) {
 		// Before 9:30am = pre-market — today's session hasn't started, use last trading day
-		// After 4pm with no holiday = today's session finished normally
+		// After the close with no holiday = today's session finished normally
 		const isPreMarket = total < 9 * 60 + 30;
 		const dayLabel = (holiday == null && !isPreMarket) ? "Today's" : await getLastTradingDayLabel(etDateStr);
 		return { session: "close", marketClosed: true, holiday, dayLabel, nextTradingDayLabel };
@@ -260,7 +397,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
 					}),
-					signal: AbortSignal.timeout(20000),
+					signal: AbortSignal.timeout(8000),
 				},
 			);
 			if (!res.ok) continue;
@@ -293,8 +430,8 @@ async function generateMarketText(
 	holiday: string | null = null,
 ): Promise<{ moodExplanation: string; plainEnglish: string }> {
 	const today = getEasternDateKey();
-	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:text:v11:${mood}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	// v12: keyed through the shared briefStateKey now - see its own comment.
+	const cacheKey = `daily-brief:text:v12:${today}:${briefStateKey(mood, session, marketClosed, dayLabel)}`;
 	const cached = await cacheGet<{ moodExplanation: string; plainEnglish: string }>(cacheKey);
 	if (cached) return cached;
 
@@ -442,8 +579,11 @@ async function generatePersonalizedImpact(
 	dayLabel = "Today's",
 ): Promise<string> {
 	const today = getEasternDateKey();
-	const safeDay = dayLabel.replace(/[^a-z]/gi, "");
-	const cacheKey = `daily-brief:impact:v11:${uid}:${today}:${session}:${marketClosed ? "closed" : "open"}:${safeDay}`;
+	// v14: each stock now carries its real category into the prompt (v13; device report,
+	// 2026-09-24: Amazon miscast as "communications"), and the key is now built through the
+	// shared briefStateKey - v13 and earlier didn't include mood, so a mood reclassification
+	// mid-session couldn't force this one to regenerate the way the mood-explanation cache did.
+	const cacheKey = `daily-brief:impact:v14:${uid}:${today}:${briefStateKey(mood, session, marketClosed, dayLabel)}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -467,7 +607,9 @@ async function generatePersonalizedImpact(
 				stockLines = brandInfos.map((b, i) => {
 					const c = changes[i];
 					if (c === null) return null;
-					return `${b.name} (${b.ticker}) ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+					const category = CATEGORY_BY_TICKER[b.ticker.toUpperCase()];
+					const categoryPart = category ? `, category: ${category}` : "";
+					return `${b.name} (${b.ticker}) ${c >= 0 ? "+" : ""}${c.toFixed(2)}%${categoryPart}`;
 				}).filter(Boolean) as string[];
 			}
 		} catch {
@@ -523,6 +665,7 @@ Write exactly 2 punchy sentences:
 
 CRITICAL RULES:
 - ONLY use stock names that appear verbatim in the section above. NEVER guess, invent, or add stock names that are not listed.
+- Each listed stock's "category:" is what that company actually is - if you name a sector or category for a stock, it MUST be that one. NEVER pair a stock with the day's leading/lagging sector unless its own category IS that sector - a stock moving alongside a sector it doesn't belong to is a coincidence, not a cause.
 - Do NOT write phrases like "if [stock] is in your list" or any conditional about whether a stock is relevant — just use the names given or omit them.
 - Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
 - Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
@@ -548,7 +691,10 @@ CRITICAL RULES:
 			};
 			const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 			if (!text) continue;
-			await cacheSet(cacheKey, text, 24 * 60 * 60 * 1000);
+			// While the market is open the line quotes moves that are still changing, so it
+			// is refreshed every two hours; once closed those moves are final and it keeps
+			// for the day, as it always did.
+			await cacheSet(cacheKey, text, marketClosed ? 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000);
 			return text;
 		} catch {
 			continue;
@@ -911,7 +1057,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 							temperature: 0.4,
 						},
 					}),
-					signal: AbortSignal.timeout(25000),
+					signal: AbortSignal.timeout(8000),
 				},
 			);
 			if (!res.ok) continue;
@@ -997,58 +1143,110 @@ const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
 	},
 };
 
+// ── Shared market-data builder (used by both /warm and /) ────────────────────
+
+async function buildSharedMarketData() {
+	const today = getEasternDateKey();
+	const [[spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges], marketStatus] = await Promise.all([
+		Promise.all([
+			getQuoteChange("SPY"), getQuoteChange("QQQ"), getQuoteChange("DIA"),
+			getQuoteChange("IWM"), getQuoteChange("VIX"),
+			...SECTOR_ETFS.map(s => getQuoteChange(s)),
+		]),
+		getMarketStatus(),
+	]);
+
+	let sectorsGreen = 0, sectorsRed = 0;
+	let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
+	let topVal = -Infinity, worstVal = Infinity;
+	SECTOR_ETFS.forEach((sym, i) => {
+		const pct = sectorChanges[i] as number | null;
+		if (pct === null) return;
+		if (pct > 0) sectorsGreen++;
+		else if (pct < 0) sectorsRed++;
+		if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
+		if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
+	});
+	const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
+	const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+
+	const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+	const mood = classifyMood(marketData);
+	return { today, marketData, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
+}
+
+// GET /api/daily-brief/warm — pre-generates shared (non-personalized) content on a schedule
+// Called by Cloud Scheduler; protected by WARM_SECRET header so no user auth needed.
+dailyBriefRouter.get("/warm", async (req, res) => {
+	const secret = req.headers["x-warm-secret"];
+	if (!secret || secret !== process.env.WARM_SECRET) {
+		res.status(401).json({ error: "unauthorized" }); return;
+	}
+	try {
+		const { today, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = await buildSharedMarketData();
+		const { session, marketClosed, holiday, dayLabel } = marketStatus;
+
+		// Warm the market drivers search (most expensive — Gemini with Google Search)
+		const marketDrivers = await Promise.race([
+			searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session),
+			new Promise<null>(resolve => setTimeout(() => resolve(null), 8000)),
+		]);
+
+		// Warm the two shared Gemini calls — results stored in their own caches,
+		// so any user request arriving after this finds them ready
+		await Promise.all([
+			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
+			generateWhatHappenedAndContext(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector),
+		]);
+
+		console.log(`[warm] done — ${today} ${session} mood=${mood} drivers=${!!marketDrivers}`);
+		res.json({ ok: true, today, session, mood, driversFound: !!marketDrivers });
+	} catch (error) {
+		console.error("[warm] error:", error);
+		res.status(500).json({ error: "warm failed" });
+	}
+});
+
 // GET /api/daily-brief
 dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 
-		// Fetch major indices + VIX + sectors in parallel
-		const [spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges] = await Promise.all([
-			getQuoteChange("SPY"),
-			getQuoteChange("QQQ"),
-			getQuoteChange("DIA"),
-			getQuoteChange("IWM"),   // Russell 2000
-			getQuoteChange("VIX"),   // VIX
-			...SECTOR_ETFS.map(s => getQuoteChange(s)),
+		// Fetch shared market data + user profile in parallel
+		const [shared, [userRow, stakResult]] = await Promise.all([
+			buildSharedMarketData(),
+			Promise.all([
+				pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
+				pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
+			]),
 		]);
-		const [userRow, stakResult] = await Promise.all([
-			pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
-			pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
-		]);
+		const { today, marketData, mood, marketStatus, spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector } = shared;
+		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = marketStatus;
 		const tagScores: Record<string, number> = userRow.rows[0]?.tag_scores ?? {};
 		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
 
-		// Build sector summary
-		let sectorsGreen = 0, sectorsRed = 0;
-		let topSectorSymbol: string | null = null, worstSectorSymbol: string | null = null;
-		let topVal = -Infinity, worstVal = Infinity;
-		SECTOR_ETFS.forEach((sym, i) => {
-			const pct = sectorChanges[i] as number | null;
-			if (pct === null) return;
-			if (pct > 0) sectorsGreen++;
-			else if (pct < 0) sectorsRed++;
-			if (pct > topVal) { topVal = pct; topSectorSymbol = sym; }
-			if (pct < worstVal) { worstVal = pct; worstSectorSymbol = sym; }
-		});
-		const topSector = topSectorSymbol ? SECTOR_NAMES[topSectorSymbol] ?? topSectorSymbol : null;
-		const worstSector = worstSectorSymbol ? SECTOR_NAMES[worstSectorSymbol] ?? worstSectorSymbol : null;
+		// Full-response cache — subsequent requests from the same user in the same session are instant
+		// v3: dropped v2 entries built during the open-lag window. The day label is part of
+		// the key, so a brief for one session's label is never served under another's.
+		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${dayLabel.replace(/[^a-z]/gi, "")}:${uid}`;
+		const cachedFull = await cacheGet<object>(fullCacheKey);
+		if (cachedFull) { res.json(cachedFull); return; }
 
-		const marketData: MarketData = { spyDp, qqqDp, diaDp, iwmDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector };
-		const mood = classifyMood(marketData);
-		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = await getMarketStatus();
+		// Hard 8s outer timeout so multi-key exhaustion (3 keys × 8s each) can't block for a minute
+		const marketDrivers = await Promise.race([
+			searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session),
+			new Promise<null>(resolve => setTimeout(() => resolve(null), 8000)),
+		]);
 
-		const today = getEasternDateKey();
-		// Skip drivers search only on weekends/holidays (dayLabel !== "Today's") — still fetch after normal weekday close
-		const marketDrivers = await searchMarketDrivers(today, marketClosed && dayLabel !== "Today's", session);
-
-		const [{ moodExplanation, plainEnglish }, personalizedImpact] = await Promise.all([
+		const [{ moodExplanation, plainEnglish }, personalizedImpact, events] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
 			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
+			generateWhatHappenedAndContext(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector),
 		]);
 
 		const decks = [SESSION_PRIMARY_DECKS[mood][session], ...MOOD_DECKS[mood].slice(1)];
 
-		res.json({
+		const response = {
 			mood,
 			session,
 			dayLabel,
@@ -1057,6 +1255,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			moodExplanation,
 			plainEnglish,
 			personalizedImpact,
+			whatHappened: events.whatHappened,
+			contextQuestion: events.contextQuestion,
+			watchItems: events.watchItems,
 			decks,
 			marketSnapshot: {
 				spyChange: spyDp, qqqChange: qqqDp, diaChange: diaDp,
@@ -1064,7 +1265,9 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 				sectorsGreen, sectorsRed, topSector, worstSector,
 			},
 			generatedAt: new Date().toISOString(),
-		});
+		};
+		await cacheSet(fullCacheKey, response, 15 * 60 * 1000);
+		res.json(response);
 	} catch (error) {
 		console.error("Error generating daily brief:", error);
 		res.status(500).json({ error: "Failed to generate daily brief" });

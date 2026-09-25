@@ -1,4 +1,4 @@
-package com.stak.demo.ui.home
+﻿package com.stak.demo.ui.home
 
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -65,6 +66,7 @@ import com.stak.demo.R
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import com.stak.demo.ui.news.DailyBriefHolder
 
 /** Palette of the CHINEDU "02 · Home" frames. */
 private object Home {
@@ -182,7 +184,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 					contentDescription = "Notifications",
 					modifier = Modifier.size((35 * u).dp),
 				)
-				if (com.stak.demo.ui.StakNotifications.hasUnread) {
+				if (com.stak.demo.data.StakNotifications.hasUnread) {
 					Box(
 						modifier = Modifier
 							.offset(x = (23.333 * u).dp, y = (8.75 * u).dp)
@@ -205,7 +207,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			) {
 				// The picked photo when one exists (Codex audit 2026-09-04),
 				// as on the Profile hub; else the authored glyph (118:1633).
-				val photo = com.stak.demo.ui.UserProfile.photoUri
+				val photo = com.stak.demo.data.UserProfile.photoUri
 				if (photo != null) {
 					coil.compose.AsyncImage(
 						model = photo,
@@ -227,6 +229,9 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			}
 		}
 		Spacer(modifier = Modifier.height((10 * u).dp))
+		// The bell's dot reflects today's moves and deck: re-read (at most every few
+		// minutes) whenever Home is shown.
+		androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.StakNotifications.refresh() }
 		// Time-of-day in the user's own timezone (device clock); re-read
 		// every 30s so an open app rolls over at noon / 5pm.
 		val greeting by androidx.compose.runtime.produceState(initialValue = com.stak.demo.ui.Greeting.now()) {
@@ -236,7 +241,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 			}
 		}
 		Text(
-			text = "$greeting, ${com.stak.demo.ui.UserProfile.greetingName}",
+			text = "$greeting, ${com.stak.demo.data.UserProfile.greetingName}",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
@@ -316,8 +321,8 @@ private fun MarketMoodCard(onOpenNews: () -> Unit) {
 					color = Color.White,
 				)
 				Text(
-					// Backend-served with the mood score in production (the words
-					// change with the market); authored demo copy this phase.
+					// Backend-served with the mood score (the words change with the
+					// market); the demo account keeps the authored copy.
 					text = buildAnnotatedString {
 						withStyle(SpanStyle(color = Home.Teal)) { append(MarketMoodFeed.statusLead) }
 						append(MarketMoodFeed.statusRest)
@@ -348,7 +353,9 @@ private fun BoxScope.NewsDeck(
 	interactive: Boolean,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val stories = NewsDeckFeed.stories()
+	// Recomputed when the news changes, not on every drag frame (both deck copies
+	// recompose while a card moves).
+	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed) { NewsDeckFeed.stories() }
 	// Per-slot authored styling; card bottoms sit at 397.4/527.2/602.7 in
 	// the 397 card, so the up-drag clamps at bottom-397.
 	val slots = listOf(
@@ -362,6 +369,7 @@ private fun BoxScope.NewsDeck(
 			bg = slot.bg,
 			title = stories[i].title,
 			body = stories[i].body,
+			loading = stories[i].loading,
 			bodyWeight = slot.bodyWeight,
 			bodySize = (slot.bodySize * u).sp,
 			titleBodyGap = (slot.gap * u).dp,
@@ -456,9 +464,24 @@ private fun BoxScope.NewsDeckCard(
 	offsetX: Dp,
 	offsetY: Dp,
 	rotation: Float,
+	loading: Boolean = false,
 	modifier: Modifier = Modifier,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// While the news loads each card shows pulsing bars where its text will go - the
+	// same placeholder the News tab's brief card uses - instead of a blank card.
+	val barAlpha = if (loading) {
+		val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "deck-loading")
+		pulse.animateFloat(
+			initialValue = 0.10f,
+			targetValue = 0.22f,
+			animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+				animation = androidx.compose.animation.core.tween(800),
+				repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+			),
+			label = "deck-loading-alpha",
+		).value
+	} else 0f
 	Column(
 		verticalArrangement = Arrangement.spacedBy(titleBodyGap),
 		modifier = modifier
@@ -470,18 +493,25 @@ private fun BoxScope.NewsDeckCard(
 			.background(bg)
 			.padding(start = (14.43 * u).dp, top = (23.77 * u).dp),
 	) {
-		Text(
-			text = title,
-			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Medium, fontSize = (16 * u).sp),
-			color = Home.CardInk,
-			modifier = Modifier.width((202.9 * u).dp),
-		)
-		Text(
-			text = body,
-			style = TextStyle(fontFamily = Geist, fontWeight = bodyWeight, fontSize = bodySize),
-			color = Home.CardInk,
-			modifier = Modifier.width((189.31 * u).dp),
-		)
+		if (loading) {
+			val bar = Home.CardInk.copy(alpha = barAlpha)
+			Box(Modifier.width((170 * u).dp).height((14 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(bar))
+			Box(Modifier.width((120 * u).dp).height((14 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(bar))
+			Box(Modifier.width((180 * u).dp).height((10 * u).dp).clip(RoundedCornerShape((4 * u).dp)).background(bar))
+		} else {
+			Text(
+				text = title,
+				style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Medium, fontSize = (16 * u).sp),
+				color = Home.CardInk,
+				modifier = Modifier.width((202.9 * u).dp),
+			)
+			Text(
+				text = body,
+				style = TextStyle(fontFamily = Geist, fontWeight = bodyWeight, fontSize = bodySize),
+				color = Home.CardInk,
+				modifier = Modifier.width((189.31 * u).dp),
+			)
+		}
 	}
 }
 
@@ -492,7 +522,7 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
-			.height((91 * u).dp)
+			.heightIn(min = (91 * u).dp)
 			// Shaped background, no clip needed — the visible ball never
 			// reaches the card edges, only transparent padding overhangs.
 			.clickable(
@@ -516,7 +546,11 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 		)
 		Column(
 			verticalArrangement = Arrangement.spacedBy((6 * u).dp),
-			modifier = Modifier.align(Alignment.CenterStart).padding(start = (127 * u).dp),
+			// Vertical padding, not just start: the design's short one-line demo copy
+			// never needed breathing room above or below it, but the real generated
+			// paragraph is 2-3 sentences and read as squeezed flush against the card's
+			// own edges (user, 2026-09-18).
+			modifier = Modifier.align(Alignment.CenterStart).padding(start = (127 * u).dp, end = (14 * u).dp, top = (14 * u).dp, bottom = (14 * u).dp),
 		) {
 			Text(
 				text = "Why this matters to you",
@@ -527,10 +561,13 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 			Text(
 				// Backend-served summary of why today's news matters to THIS
 				// user (holdings + risk profile); authored demo copy this phase.
+				// No line cap: a card that cuts the text off gives the reader nowhere
+				// to see the rest of it, so the fix for the squeeze is the padding
+				// above, not a limit on how much of the sentence shows.
 				text = WhyThisMattersFeed.body(),
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
-				modifier = Modifier.width((198 * u).dp),
+				modifier = Modifier.fillMaxWidth(),
 			)
 		}
 	}
@@ -572,7 +609,7 @@ private fun DeckBanner(onOpenDeck: () -> Unit) {
 				.width((156 * u).dp),
 		) {
 			Text(
-				text = "Take your first deck to build your taste",
+				text = if (com.stak.demo.data.MyStakHoldings.tickers.isNotEmpty()) "Your next pick is a swipe away" else "Take your first deck to build your taste",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (15 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.Black,
 			)
@@ -695,27 +732,54 @@ private fun FirstRunOverlay(onSeeTodaysPick: () -> Unit, modifier: Modifier = Mo
  */
 @Composable
 internal fun MarketMoodGauge(u: Float) {
-	// Shared with the News mood row (Codex audit 2026-09-04), which passes a
-	// scaled unit so the compact 40.97x20.76 gauge is this same drawing.
+	// News draws its own compact gauge, not this one - but both read the same
+	// MarketMoodFeed score/angle/colour tables, so the two can't disagree about what a
+	// mood means (device report, 2026-09-24: News used to hand-roll its own numbers here
+	// and had drifted - "volatile" landed on opposite sides of the two dials).
 	// Starts at the design's default pose; moves to the live worldwide
 	// reading once it arrives (user's call, 2026-08-21).
 	val sweep = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(MarketMoodFeed.DEMO_ANGLE_DEG) }
 	androidx.compose.runtime.LaunchedEffect(Unit) { MarketMoodFeed.refresh() }
 	val live = MarketMoodFeed.score
 	val moodAngleDeg = if (live != null) MarketMoodFeed.angleFor(live) else MarketMoodFeed.DEMO_ANGLE_DEG
-	androidx.compose.runtime.LaunchedEffect(moodAngleDeg) {
-		sweep.animateTo(moodAngleDeg, androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.EaseOut))
+	val hasReading = MarketMoodFeed.hasReading
+	androidx.compose.runtime.LaunchedEffect(moodAngleDeg, hasReading) {
+		// With no needle drawn yet there is nothing to sweep from: place it on its
+		// reading, rather than showing the authored pose first and swinging away.
+		if (!hasReading) sweep.snapTo(moodAngleDeg)
+		else sweep.animateTo(moodAngleDeg, androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.EaseOut))
 	}
-	val idle = androidx.compose.animation.core.rememberInfiniteTransition(label = "gaugeIdle")
-	val wobble by idle.animateFloat(
-		initialValue = -0.8f,
-		targetValue = 0.8f,
-		animationSpec = androidx.compose.animation.core.infiniteRepeatable<Float>(
-			animation = androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.EaseInOutSine),
-			repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
-		),
-		label = "gaugeWobble",
-	)
+	// The idle wobble and the loading pulse each run only when there's something to show.
+	val wobble = if (hasReading) {
+		val idle = androidx.compose.animation.core.rememberInfiniteTransition(label = "gaugeIdle")
+		idle.animateFloat(
+			initialValue = -0.8f,
+			targetValue = 0.8f,
+			animationSpec = androidx.compose.animation.core.infiniteRepeatable<Float>(
+				animation = androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.EaseInOutSine),
+				repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+			),
+			label = "gaugeWobble",
+		).value
+	} else 0f
+	// Still reading: the arcs breathe, so an empty gauge reads as working rather than
+	// broken. Settled without a reading, they sit dimmed.
+	val arcAlpha = when {
+		hasReading -> 1f
+		MarketMoodFeed.settled -> 0.35f
+		else -> {
+			val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "gaugeLoading")
+			pulse.animateFloat(
+				initialValue = 0.3f,
+				targetValue = 0.8f,
+				animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+					animation = androidx.compose.animation.core.tween(800),
+					repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+				),
+				label = "gaugeLoadingAlpha",
+			).value
+		}
+	}
 	androidx.compose.foundation.Canvas(modifier = Modifier.size((56.9018 * u).dp, (28.8371 * u).dp)) {
 		val k = size.width / 56.9018f          // canvas px per authored unit
 		val cx = 28.4509f * k
@@ -729,7 +793,7 @@ internal fun MarketMoodGauge(u: Float) {
 			300f to Color(0xFFDE4E71),
 		)) {
 			drawArc(
-				color = color,
+				color = color.copy(alpha = arcAlpha),
 				startAngle = start,
 				sweepAngle = 60f,
 				useCenter = false,
@@ -747,10 +811,14 @@ internal fun MarketMoodGauge(u: Float) {
 			lineTo(26.7526f * k, 25.6491f * k)
 			close()
 		}
-		val rotationCw = AUTHORED_AXIS_DEG - (sweep.value + wobble)
-		withTransform({ rotate(rotationCw, pivot) }) {
-			drawPath(needle, Color.White)
-			drawCircle(color = Color.White, radius = 1.5806f * k, center = pivot)
+		// No reading, no needle: pointing at the authored pose would state a mood the
+		// market hasn't been read for yet.
+		if (hasReading) {
+			val rotationCw = AUTHORED_AXIS_DEG - (sweep.value + wobble)
+			withTransform({ rotate(rotationCw, pivot) }) {
+				drawPath(needle, Color.White)
+				drawCircle(color = Color.White, radius = 1.5806f * k, center = pivot)
+			}
 		}
 	}
 }

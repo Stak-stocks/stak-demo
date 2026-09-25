@@ -38,6 +38,9 @@ internal object TasteModel {
 		else -> "Growth-Oriented"
 	}
 
+	/** Whether a brand name counts toward any taste - other saves would only dilute the shares. */
+	fun isTasteBrand(name: String): Boolean = name in TECH || name in GROWTH || name in CONSUMER || name in INCOME
+
 	/** tech / growth / consumer / income, each 0..1. */
 	fun scores(picks: Set<String>, goal: Int, risk: Int): List<Float> {
 		fun share(group: Set<String>): Float = if (picks.isEmpty()) 0f else picks.count { it in group }.toFloat() / picks.size

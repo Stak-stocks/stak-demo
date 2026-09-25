@@ -1,8 +1,13 @@
-package com.stak.demo.ui.profile
+﻿package com.stak.demo.ui.profile
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,35 +23,54 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.stak.demo.ui.Session
-import com.stak.demo.ui.UserProfile
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.stak.demo.data.Session
+import com.stak.demo.data.UserProfile
+import com.stak.demo.data.capitalizeWords
 import com.stak.demo.ui.onboarding.AuthBackCircle
+import com.stak.demo.ui.onboarding.AuthCta
+import com.stak.demo.ui.onboarding.AuthViewModel
 import com.stak.demo.ui.onboarding.PermissionCard
 import com.stak.demo.ui.onboarding.figmaUnit
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 private val CardBg = Color(0xFF10182B)
 private val Muted = Color(0xFF819ABB)
@@ -65,6 +89,7 @@ object SettingsKind {
 	const val APPEARANCE = "appearance"
 	const val LINKED = "linked"
 	const val HELP = "help"
+	const val EDIT_PROFILE = "edit_profile"
 	/** App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account. */
 	const val APP = "app"
 	const val PASSWORD = "password"
@@ -90,19 +115,21 @@ fun SettingsScaffold(title: String, onBack: () -> Unit, content: @Composable Col
 
 /** A hub-style row: label, chevron, tap. */
 @Composable
-fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, onClick: () -> Unit) {
+/** A settings row; with no [onClick] it only shows a value and doesn't react to taps. */
+fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, onClick: (() -> Unit)?) {
 	val u = figmaUnit()
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier
 			.fillMaxWidth()
 			.height((48 * u).dp)
-			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
+			.then(if (onClick != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick) else Modifier)
 			.padding(horizontal = (14 * u).dp),
 	) {
-		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
-		Spacer(modifier = Modifier.weight(1f))
-		if (value != null) Text(value, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, modifier = Modifier.padding(end = (8 * u).dp))
+		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, maxLines = 1)
+		// The value takes the rest of the row, right-aligned; a long one (an email) ends in
+		// an ellipsis instead of wrapping out of the row.
+		Text(value ?: "", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, textAlign = androidx.compose.ui.text.style.TextAlign.End), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = (12 * u).dp, end = (8 * u).dp))
 		if (chevron) Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted)
 	}
 }
@@ -119,7 +146,7 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
 	SettingsScaffold(title = title, onBack = onBack) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((12 * u).dp),
-			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
+			modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = (20 * u).dp).padding(bottom = (26 * u).dp),
 			content = content,
 		)
 	}
@@ -132,6 +159,7 @@ fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = 
 		SettingsKind.NOTIFICATIONS -> NotificationSettingsScreen(onBack)
 		SettingsKind.APPEARANCE -> AppearanceScreen(onBack)
 		SettingsKind.LINKED -> LinkedAccountsScreen(onBack)
+		SettingsKind.EDIT_PROFILE -> EditProfileScreen(onBack)
 		SettingsKind.APP -> AppSettingsScreen(onBack, onOpen, onAccountDeleted)
 		SettingsKind.PASSWORD -> ChangePasswordScreen(onBack)
 		else -> HelpSupportScreen(onBack)
@@ -142,8 +170,11 @@ fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = 
 private fun NotificationSettingsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
+	// Live OS check so the warning card appears if the user revoked the permission in phone Settings
+	// after onboarding, without relying on the stored preference (which is only written at grant time).
+	val osGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
 	SettingsPage(title = "Notifications", onBack = onBack) {
-		if (!UserProfile.notificationsOn) {
+		if (!osGranted) {
 			Column(
 				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
@@ -161,7 +192,8 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 				)
 			}
 		}
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile() }
+		// Each switch is sent to the backend, which does the sending while STAK is closed.
+		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 		Column(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -175,7 +207,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 				}
 			}
 		}
-		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile() }
+		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		PermissionCard("Market news", "The stories behind the moves, a few times a week.", UserProfile.marketNews) { UserProfile.marketNews = !UserProfile.marketNews; Session.saveProfile() }
 		Caption("You can change these any time.")
 	}
@@ -208,12 +240,23 @@ private fun AppearanceScreen(onBack: () -> Unit) {
 @Composable
 private fun LinkedAccountsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
-	SettingsPage(title = "Linked accounts", onBack = onBack) {
+	val demo = Session.demoAccount
+	SettingsPage(title = if (demo) "Linked accounts" else "Sign-in", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
-			LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
+			if (demo) {
+				LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
+				LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
+			} else {
+				// A real account shows how it signs in. Linking a second method isn't built,
+				// so there are no switches that would only pretend to.
+				SettingsLinkRow(label = "Signed in with", value = if (UserProfile.linkedGoogle) "Google" else "Email and password", chevron = false, onClick = null)
+				if (UserProfile.email.isNotBlank()) SettingsLinkRow(label = "Email", value = UserProfile.email, chevron = false, onClick = null)
+			}
 		}
-		Caption("A linked account lets you sign in with one tap. Your STAK stays the same either way.")
+		Caption(
+			if (demo) "A linked account lets you sign in with one tap. Your STAK stays the same either way."
+			else "Sign in the same way next time, on this phone or a new one. Your saved stocks and taste come with you.",
+		)
 	}
 }
 
@@ -240,9 +283,17 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
 	SettingsPage(title = "Help & support", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			FaqRow("Is this real money?", "No. Simulate runs on $10,000 of paper money so you can practise with zero risk. Nothing is bought or sold for real.")
-			FaqRow("Where do the prices come from?", "STAK shows demo prices while the market feed is being wired up. Every number on screen is illustrative.")
-			FaqRow("Is my data private?", "Your picks, saves and paper portfolio live on this phone. STAK never sells your data.")
+			FaqRow("Is this real money?", "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+			if (Session.demoAccount) {
+				FaqRow("Where do the prices come from?", "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
+			} else {
+				FaqRow("Where do the prices come from?", "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
+			}
+			if (Session.demoAccount) {
+				FaqRow("Is my data private?", "STAK never sells your data.")
+			} else {
+				FaqRow("Is my data private?", "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+			}
 			SettingsLinkRow(label = "Email support") {
 				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
 				runCatching { context.startActivity(intent) }
@@ -257,7 +308,7 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 			SettingsLinkRow(label = "Terms of service") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))) } }
 			SettingsLinkRow(label = "Privacy policy") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) } }
 			// A value row - nothing to open behind it (product audit, 2026-09-05).
-			SettingsLinkRow(label = "Version", value = version, chevron = false) {}
+			SettingsLinkRow(label = "Version", value = version, chevron = false, onClick = null)
 		}
 	}
 }
@@ -316,8 +367,12 @@ internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit)
  */
 @Composable
 private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAccountDeleted: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
 	var confirmDelete by rememberSaveable { mutableStateOf(false) }
+	var deleting by rememberSaveable { mutableStateOf(false) }
+	var deleteError by rememberSaveable { mutableStateOf<String?>(null) }
 	SettingsPage(title = "App settings", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
 			SettingsLinkRow(label = "Dark mode", value = if (UserProfile.appearance == "system") "Match system" else "On") { onOpen(SettingsKind.APPEARANCE) }
@@ -333,6 +388,9 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
 					)
+					if (deleteError != null) {
+						Text(deleteError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
+					}
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier
@@ -340,12 +398,35 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 							.height((44 * u).dp)
 							.clip(RoundedCornerShape((6 * u).dp))
 							.background(Color(0x33E5484D))
-							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
-								Session.deleteAccount()
-								onAccountDeleted()
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting) {
+								// The demo persona has nothing on the server to delete - only a
+								// real account's data needs the network round trip, and only a
+								// confirmed server-side delete may wipe the phone and sign out
+								// (a failed request must leave the account exactly as it was).
+								if (Session.demoAccount) {
+									Session.deleteAccount()
+									onAccountDeleted()
+								} else {
+									deleting = true
+									deleteError = null
+									scope.launch {
+										val error = viewModel.deleteAccount()
+										deleting = false
+										if (error == null) {
+											// Drops the SDK's live session for the now-deleted account (audit
+											// 2026-09-19) - the same fix as Log out, so nothing signed up or
+											// signed into right after can inherit it.
+											viewModel.clearSession()
+											Session.deleteAccount()
+											onAccountDeleted()
+										} else {
+											deleteError = error
+										}
+									}
+								}
 							},
 					) {
-						Text("Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
+						Text(if (deleting) "Deleting\u2026" else "Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
 					}
 				}
 			}
@@ -356,21 +437,37 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 }
 
 /**
- * Change password (FigJam Profile board, 2026-09-14). The demo has no auth
- * backend: the new password must pass the sign-up rules and match its
- * confirmation, then the page flips into its "Password updated" state.
+ * Change password (FigJam Profile board, 2026-09-14). Supabase's password update
+ * uses the active session, so there's no "current password" to check - the web
+ * app's profile_.security.tsx asks only for the new one, and this mirrors it.
+ * A Google-linked account has no Supabase password to change (audit: the web
+ * app disables this section for Google sign-in, same reason).
  */
 @Composable
 private fun ChangePasswordScreen(onBack: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
-	var current by rememberSaveable { mutableStateOf("") }
+	if (UserProfile.linkedGoogle) {
+		SettingsPage(title = "Change password", onBack = onBack) {
+			Column(
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
+			) {
+				Text("Password managed by Google", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
+				Text("Your sign-in is handled by Google. To change your password, visit your Google account settings.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+			}
+		}
+		return
+	}
 	var next by rememberSaveable { mutableStateOf("") }
 	var confirm by rememberSaveable { mutableStateOf("") }
 	var show by rememberSaveable { mutableStateOf(false) }
 	var attempted by rememberSaveable { mutableStateOf(false) }
+	var saving by rememberSaveable { mutableStateOf(false) }
 	var updated by rememberSaveable { mutableStateOf(false) }
-	val currentError = if (current.isEmpty()) "Enter your current password" else null
-	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next) ?: if (next == current) "Choose a password you haven\u2019t used" else null
+	var serverError by rememberSaveable { mutableStateOf<String?>(null) }
+	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next)
 	val confirmError = com.stak.demo.ui.onboarding.AuthRules.confirmError(next, confirm)
 	SettingsPage(title = "Change password", onBack = onBack) {
 		if (updated) {
@@ -379,18 +476,180 @@ private fun ChangePasswordScreen(onBack: () -> Unit) {
 				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
 			) {
 				Text("Password updated", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
-				Text("Use it the next time you sign in. Sessions on other phones were signed out.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+				Text("Use it the next time you sign in.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
 			}
 			com.stak.demo.ui.onboarding.AuthCta(text = "Done", onClick = onBack)
 		} else {
-			com.stak.demo.ui.onboarding.AuthInput(value = current, onValueChange = { current = it }, placeholder = "Current password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) currentError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) nextError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it; serverError = null }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) nextError else null)
+			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it; serverError = null }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
 			Caption("At least ${com.stak.demo.ui.onboarding.AuthRules.PASSWORD_MIN} characters.")
-			com.stak.demo.ui.onboarding.AuthCta(text = "Update password", enabled = current.isNotEmpty() && next.isNotEmpty() && confirm.isNotEmpty(), onClick = {
-				attempted = true
-				if (currentError == null && nextError == null && confirmError == null) updated = true
-			})
+			if (serverError != null) {
+				Text(serverError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
+			}
+			com.stak.demo.ui.onboarding.AuthCta(
+				text = if (saving) "Updating\u2026" else "Update password",
+				enabled = next.isNotEmpty() && confirm.isNotEmpty() && !saving,
+				onClick = {
+					attempted = true
+					if (nextError == null && confirmError == null) {
+						saving = true
+						scope.launch {
+							val error = viewModel.changePassword(next)
+							saving = false
+							if (error == null) updated = true else serverError = error
+						}
+					}
+				},
+			)
 		}
 	}
 }
+
+private const val EDIT_NAME_MAX = 20
+
+@Composable
+private fun EditProfileScreen(onBack: () -> Unit) {
+	val viewModel: AuthViewModel = hiltViewModel()
+	val u = figmaUnit()
+	val context = LocalContext.current
+	val scope = rememberCoroutineScope()
+
+	var name by rememberSaveable { mutableStateOf(UserProfile.displayName) }
+	var photoUri by rememberSaveable { mutableStateOf(UserProfile.photoUri) }
+	var avatar by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+	var isSaving by rememberSaveable { mutableStateOf(false) }
+
+	LaunchedEffect(photoUri) {
+		avatar = withContext(Dispatchers.IO) {
+			photoUri?.let { stored ->
+				runCatching {
+					val uri = Uri.parse(stored)
+					val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+					context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+					val opts = BitmapFactory.Options().apply {
+						inSampleSize = maxOf(1, minOf(bounds.outWidth, bounds.outHeight) / 512)
+					}
+					context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+				}.getOrNull()
+			}
+		}
+	}
+
+	val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+		if (uri == null) return@rememberLauncherForActivityResult
+		scope.launch {
+			val copy = withContext(Dispatchers.IO) { copyAvatarEdit(context, uri) }
+			photoUri = copy ?: uri.toString()
+		}
+	}
+
+	SettingsPage(title = "Edit profile", onBack = onBack) {
+		Column(
+			horizontalAlignment = Alignment.CenterHorizontally,
+			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
+			modifier = Modifier.fillMaxWidth().padding(vertical = (8 * u).dp),
+		) {
+			Box(
+				modifier = Modifier
+					.size((96 * u).dp)
+					.background(Color(0xFF242B3D), CircleShape)
+					.border((2 * u).dp, Teal, CircleShape)
+					.clip(CircleShape)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+					),
+				contentAlignment = Alignment.Center,
+			) {
+				val bmp = avatar
+				if (bmp != null) {
+					Image(
+						bitmap = bmp.asImageBitmap(),
+						contentDescription = "Profile photo",
+						contentScale = ContentScale.Crop,
+						modifier = Modifier.size((96 * u).dp),
+					)
+				} else {
+					Text(
+						text = name.firstOrNull()?.uppercase() ?: "",
+						style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (36 * u).sp),
+						color = Color(0xFF9EADC7),
+					)
+				}
+			}
+			Text(
+				text = "Change photo",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+				color = Teal,
+				modifier = Modifier.clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = com.stak.demo.ui.theme.PressDim,
+					onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+				),
+			)
+		}
+
+		Text(
+			text = "DISPLAY NAME",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (1.2 * u).sp),
+			color = Muted,
+		)
+
+		Row(
+			verticalAlignment = Alignment.CenterVertically,
+			modifier = Modifier
+				.fillMaxWidth()
+				.background(Color(0xFF181F30), RoundedCornerShape((14 * u).dp))
+				.padding((16 * u).dp),
+		) {
+			BasicTextField(
+				value = name,
+				onValueChange = { name = it.take(EDIT_NAME_MAX) },
+				textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, color = StakColors.TextPrimary),
+				singleLine = true,
+				keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+				cursorBrush = SolidColor(StakColors.Accent),
+				modifier = Modifier.weight(1f),
+				decorationBox = { inner ->
+					Box(contentAlignment = Alignment.CenterStart) {
+						if (name.isEmpty()) {
+							Text(
+								text = "Your name",
+								style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp),
+								color = StakColors.Muted,
+							)
+						}
+						inner()
+					}
+				},
+			)
+			Text(
+				text = "${name.length} / $EDIT_NAME_MAX",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp),
+				color = Muted,
+			)
+		}
+
+		AuthCta(
+			text = if (isSaving) "Saving…" else "Save changes",
+			enabled = name.isNotBlank() && !isSaving,
+			onClick = {
+				isSaving = true
+				scope.launch {
+					UserProfile.displayName = name.trim().capitalizeWords()
+					UserProfile.photoUri = photoUri
+					Session.saveProfile()
+					viewModel.updateProfile()
+					onBack()
+				}
+			},
+		)
+	}
+}
+
+private fun copyAvatarEdit(context: android.content.Context, uri: Uri): String? = runCatching {
+	val file = File(context.filesDir, "avatar.jpg")
+	context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return null
+	Uri.fromFile(file).toString()
+}.getOrNull()

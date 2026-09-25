@@ -12,13 +12,15 @@ export interface SimplifiedArticle {
 	whyItMatters: string;
 	sentiment: "bullish" | "bearish" | "neutral";
 	type: "macro" | "sector" | "company";
+	ticker: string;
 }
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const BATCH_SIZE = 8;
 
 function getCacheKey(articles: FinnhubArticle[]): string {
-	return articles.map((a) => String(a.id || a.headline)).join("|");
+	// v2: the cached copy carries the headline, which is now cleaned when fetched.
+	return "v2|" + articles.map((a) => String(a.id || a.headline)).join("|");
 }
 
 /** Chunk an array into groups of `size` */
@@ -66,7 +68,7 @@ export function getGeminiKeys(): string[] {
 	].filter((k): k is string => !!k);
 }
 
-type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string };
+type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string; ticker: string };
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
 export const geminiUrl = (model: string, key: string) =>
@@ -112,6 +114,8 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 					explanation: "Could not simplify this article.",
 					whyItMatters: "Check the original source for details.",
 					sentiment: "neutral",
+					// Empty is what the prompt asks for when no single company is named.
+					ticker: "",
 				}));
 			}
 		} catch (e) {
@@ -146,9 +150,12 @@ Return a JSON array with exactly ${articles.length} objects in this format:
   {
     "explanation": "plain English explanation of what happened",
     "whyItMatters": "one sentence on why this could impact stock prices",
-    "sentiment": "bullish" | "bearish" | "neutral"
+    "sentiment": "bullish" | "bearish" | "neutral",
+    "ticker": "PRIMARY_TICKER_OR_EMPTY"
   }
 ]
+
+For "ticker": if the article is specifically about ONE publicly traded US company, return its stock ticker (e.g. "NVDA", "AAPL", "TSLA"). If it is macro/sector news or covers multiple companies, return "".
 
 Articles:
 ${articles.map((a, i) => `${i + 1}. Title: ${a.headline}\nSummary: ${a.summary}`).join("\n\n")}
@@ -166,6 +173,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 		explanation: a.summary,
 		whyItMatters: "Read the full article for more context.",
 		sentiment: "neutral",
+		ticker: "",
 	}));
 }
 
@@ -179,7 +187,10 @@ export async function simplifyArticles(
 
 	const cacheKey = getCacheKey(articles);
 	const cached = await cacheGet<SimplifiedArticle[]>(cacheKey);
-	if (cached) return cached;
+	// The key is the articles alone, but `type` is the caller's classification, not
+	// Gemini's output - so it is laid over the cached copy rather than served from it.
+	// Returning it as cached kept a relabelled story under its old label for 30 minutes.
+	if (cached) return types ? cached.map((c, i) => ({ ...c, type: types[i] ?? c.type })) : cached;
 
 	// Process batches in parallel for speed
 	const batches = chunk(articles, BATCH_SIZE);
@@ -191,6 +202,7 @@ export async function simplifyArticles(
 			explanation: article.summary,
 			whyItMatters: "Read more at the source.",
 			sentiment: "neutral",
+			ticker: "",
 		};
 		return {
 			headline: article.headline,
@@ -205,6 +217,7 @@ export async function simplifyArticles(
 				? s.sentiment
 				: "neutral") as "bullish" | "bearish" | "neutral",
 			type: types?.[i] ?? "sector",
+			ticker: typeof s.ticker === "string" ? s.ticker.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 10) : "",
 		};
 	});
 
