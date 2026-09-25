@@ -89,10 +89,29 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 					color = Stak.Muted,
 				)
 			}
+			// The Overview card says "paused" without saying what that means - this page
+			// said nothing about it at all and just showed the same breakdown as an active
+			// account's (device report, 2026-09-24). Explained here too, so a "paused" chip
+			// doesn't send someone to a page that reads as if nothing were wrong.
+			if (taste?.scenario == TasteGraph.Scenario.PAUSED) {
+				Text(
+					text = "Quiet for a while - this is built from saves and activity from before, not today. Save or explore a company in Discover to freshen it up.",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Stak.Muted,
+				)
+			}
 			if (taste == null || taste.isEmpty) {
 				TasteCardShell("What draws your attention") {
+					// "Save a few companies" wrongly told someone who's passed on plenty but
+					// never saved anything that they hadn't done anything yet (device report,
+					// 2026-09-24) - the real gap is nothing has stood out, not zero activity.
+					val text = when {
+						taste == null -> "Reading your activity…"
+						taste.totalSignals > 0 -> "Nothing you've saved or explored has stood out yet. Save a company you like in Discover."
+						else -> "Still learning your taste. Save a few companies in Discover and this fills in."
+					}
 					Text(
-						text = if (taste == null) "Reading your activity…" else "Still learning your taste. Save a few companies in Discover and this fills in.",
+						text = text,
 						style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Stak.Body,
 					)

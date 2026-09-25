@@ -51,6 +51,14 @@ object TasteGraph {
 		val totalSaves: Int = 0,
 		/** Too little activity to name a lead; the card says so instead of guessing. */
 		val learning: Boolean = true,
+		/**
+		 * Every save, swipe and open counted, whether or not any of it landed on a theme -
+		 * device report, 2026-09-24: an account that's passed on plenty but never saved or
+		 * right-swiped anything has real signals but zero POSITIVE ones, so [themes] comes
+		 * back empty exactly like a brand-new account's does. Kept so the copy can tell
+		 * "you haven't done anything yet" from "you have, just not toward anything yet".
+		 */
+		val totalSignals: Int = 0,
 	) {
 		val isEmpty: Boolean get() = themes.isEmpty()
 
@@ -76,11 +84,21 @@ object TasteGraph {
 				else -> Scenario.BROAD_MIX
 			}
 
+		/**
+		 * True when there's real activity behind an empty [themes] - passes and swipes that
+		 * just never landed positively on anything - so NO_SIGNAL's copy doesn't claim "you
+		 * haven't done anything" to someone who has (device report, 2026-09-24).
+		 */
+		private val activeButUnfocused: Boolean get() = themes.isEmpty() && totalSignals > 0
+
 		/** The one-sentence reading. Never states a lead the evidence doesn't carry. */
 		val summary: String
 			get() = when (scenario) {
-				Scenario.NO_SIGNAL -> "Your Taste starts here"
-				Scenario.PAUSED -> "Your Taste is paused"
+				Scenario.NO_SIGNAL -> if (activeButUnfocused) "Nothing's caught on yet" else "Your Taste starts here"
+				// Never "your LAST picture" - a web save from before this screen existed
+				// reads as stale the very first time it's ever shown here, and "last" would
+				// wrongly imply there was an earlier one they'd already seen.
+				Scenario.PAUSED -> "Quiet for a while"
 				Scenario.EARLY_SIGNAL -> "Your Taste is taking shape"
 				Scenario.ONE_DOMINANT -> "${themes[0].label} stands out"
 				Scenario.TWO_STRONG -> "${themes[0].label} + ${themes[1].label}"
@@ -89,8 +107,12 @@ object TasteGraph {
 
 		val subtitle: String
 			get() = when (scenario) {
-				Scenario.NO_SIGNAL -> "Explore and STAK companies to build your picture."
-				Scenario.PAUSED -> "Your last saved picture of your interests."
+				Scenario.NO_SIGNAL -> if (activeButUnfocused) {
+					"Nothing you've saved or explored has stood out yet. Save a company you like in Discover."
+				} else {
+					"Explore and STAK companies to build your picture."
+				}
+				Scenario.PAUSED -> "Based on saves from a while back - explore or save something to freshen this up."
 				Scenario.EARLY_SIGNAL -> "${themes[0].label} caught your attention. Keep exploring."
 				Scenario.ONE_DOMINANT -> "Updated to reflect your choices."
 				Scenario.TWO_STRONG -> "Based on what you STAK and explore."
@@ -183,6 +205,7 @@ object TasteGraph {
 		otherShare = dto.otherShare.toFloat(),
 		totalSaves = dto.totalSaves,
 		learning = dto.learning,
+		totalSignals = dto.signals,
 	)
 
 	/**
@@ -208,6 +231,7 @@ object TasteGraph {
 			otherShare = buckets.drop(5).sumOf { it.share.toDouble() }.toFloat(),
 			totalSaves = symbols.size,
 			learning = symbols.size < 3,
+			totalSignals = symbols.size,
 		)
 	}
 
