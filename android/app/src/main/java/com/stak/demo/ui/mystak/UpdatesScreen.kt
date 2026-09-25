@@ -25,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -164,6 +166,9 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val update = updates.first()
 	val unread = updates.any { !it.read }
+	// "+N more" now opens onto the rest of this same card, not a page that can't hold
+	// them either (device report, 2026-09-25: the detail page shows even fewer than this does).
+	var expanded by androidx.compose.runtime.saveable.rememberSaveable(update.ticker) { mutableStateOf(false) }
 	Column(
 		verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 		modifier = Modifier
@@ -195,8 +200,10 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 			if (unread) Box(modifier = Modifier.size((8 * u).dp).clip(CircleShape).background(Stak.Teal))
 		}
 		// Capped per card, not by dropping other companies (device report, 2026-09-25) -
-		// the rest live on the company's own page under "Since you saved" either way.
-		updates.take(MAX_CHANGES_PER_CARD).forEachIndexed { i, change ->
+		// "+N more" expands the rest of this same card below rather than pointing at a
+		// page that shows even fewer than this one already does.
+		val shown = if (expanded) updates else updates.take(MAX_CHANGES_PER_CARD)
+		shown.forEachIndexed { i, change ->
 			if (i > 0) Spacer(modifier = Modifier.height((4 * u).dp))
 			Text(
 				text = change.title,
@@ -215,21 +222,29 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 					color = Stak.Muted,
 				)
 			}
-			// Where it came from: STAK summarised these headlines, and says so rather than
-			// asking to be taken on trust.
-			updateSourceLine(change)?.let { line ->
+			// Each change carries its own age here, folded into the one caption line rather
+			// than a separate row: the card header's age is the newest change's alone, and
+			// without this a 4-day-old change sitting under a "5h ago" header would read as
+			// just as fresh (device report, 2026-09-25).
+			val meta = listOfNotNull(ageOf(change), updateSourceLine(change)).joinToString(" · ")
+			if (meta.isNotBlank()) {
 				Text(
-					text = line,
+					text = meta,
 					style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Faint,
 				)
 			}
 		}
-		if (updates.size > MAX_CHANGES_PER_CARD) {
+		if (!expanded && updates.size > MAX_CHANGES_PER_CARD) {
 			Text(
 				text = "+${updates.size - MAX_CHANGES_PER_CARD} more this week",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Stak.Muted,
+				color = Stak.Teal,
+				modifier = Modifier.clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = com.stak.demo.ui.theme.PressDim,
+					onClick = { expanded = true },
+				),
 			)
 		}
 		Spacer(modifier = Modifier.height((2 * u).dp))
