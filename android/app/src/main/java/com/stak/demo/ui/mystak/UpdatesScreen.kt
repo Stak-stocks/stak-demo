@@ -71,6 +71,14 @@ fun UpdatesScreen(
 				.padding(horizontal = (20 * u).dp)
 				.padding(top = (8 * u).dp, bottom = (32 * u).dp),
 		) {
+			// A company can't ever number more than a Stak holds (30), so capping the
+			// COMPANY count (device report, 2026-09-25: "accommodate all companies in My
+			// STAK") was always going to exclude someone at exactly the wrong time - a full
+			// Stak having a busy week is the case this screen most needs to handle. Every
+			// company with a change gets a card here; CompanyUpdateCard caps how many of
+			// ITS OWN changes it shows, so one chatty company still can't crowd the rest out.
+			val fresh = ui.updates.filter { !it.read }
+			val earlier = ui.updates.filter { it.read }
 			Column(verticalArrangement = Arrangement.spacedBy((4 * u).dp)) {
 				Text(
 					text = "What changed",
@@ -78,18 +86,11 @@ fun UpdatesScreen(
 					color = Color.White,
 				)
 				Text(
-					text = subtitleFor(ui.updates.filter { !it.read }),
+					text = subtitleFor(fresh),
 					style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Stak.Muted,
 				)
 			}
-			// New is what the user hasn't opened - not what arrived since they last looked
-			// here: opening a list is not reading the cards in it, and an update glanced at
-			// and backed out of shouldn't disappear from the top.
-			val fresh = ui.updates.filter { !it.read }
-			// Already opened, kept for a fortnight in case they want them again. Capped: a
-			// busy week across 30 saved companies would otherwise bury the new ones.
-			val earlier = ui.updates.filter { it.read }.take(EARLIER_SHOWN)
 			if (fresh.isNotEmpty()) {
 				UpdateSection("New", fresh, viewModel, onOpenStock)
 			}
@@ -111,8 +112,13 @@ fun UpdatesScreen(
 	}
 }
 
-/** How many already-opened updates stay on the page under "Earlier". */
-private const val EARLIER_SHOWN = 10
+/**
+ * How many of one company's own changes its card shows before "+N more" - also the
+ * card's own recency bias, not a separate rule: the server sends every update newest
+ * first (`order by occurred_at desc`) and nothing here re-sorts them, so `.take(n)` below
+ * always keeps the most recent ones and drops the oldest, never the other way round.
+ */
+private const val MAX_CHANGES_PER_CARD = 3
 
 /** One band of the inbox - its heading, then a card per company in it. */
 @Composable
@@ -144,7 +150,7 @@ private fun UpdateSection(
 
 /**
  * The line under the title. It says what is waiting, in words rather than a window:
- * "Last 14 days" told the user about STAK's rules instead of about their companies.
+ * "Last 7 days" told the user about STAK's rules instead of about their companies.
  */
 private fun subtitleFor(fresh: List<StockUpdateDto>): String {
 	if (fresh.isEmpty()) return "Nothing new at your saved companies."
@@ -188,7 +194,9 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 			// An unread dot, as on the overview's collections - gone once it is opened.
 			if (unread) Box(modifier = Modifier.size((8 * u).dp).clip(CircleShape).background(Stak.Teal))
 		}
-		updates.forEachIndexed { i, change ->
+		// Capped per card, not by dropping other companies (device report, 2026-09-25) -
+		// the rest live on the company's own page under "Since you saved" either way.
+		updates.take(MAX_CHANGES_PER_CARD).forEachIndexed { i, change ->
 			if (i > 0) Spacer(modifier = Modifier.height((4 * u).dp))
 			Text(
 				text = change.title,
@@ -216,6 +224,13 @@ private fun CompanyUpdateCard(updates: List<StockUpdateDto>, onOpen: () -> Unit)
 					color = Stak.Faint,
 				)
 			}
+		}
+		if (updates.size > MAX_CHANGES_PER_CARD) {
+			Text(
+				text = "+${updates.size - MAX_CHANGES_PER_CARD} more this week",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Stak.Muted,
+			)
 		}
 		Spacer(modifier = Modifier.height((2 * u).dp))
 		Text(
