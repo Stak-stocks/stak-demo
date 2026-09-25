@@ -3,8 +3,13 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="21dp" android:height="21dp"
     android:viewportWidth="21" android:viewportHeight="21">
-    <path android:pathData="M7.25,8.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" />
-    <path android:pathData="M13.75,12.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" />
-    <path android:pathData="M6,15 L15,6" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
-    <path android:pathData="M11.5,6 L15,6 L15,9.5" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <!-- Scaled 1.5x about its own center (device report, 2026-09-25: this one read
+         noticeably smaller than every sibling icon) rather than hand-rescaling every
+         point, which risked introducing an arithmetic error the other icons don't have. -->
+    <group android:pivotX="10.5" android:pivotY="10.5" android:scaleX="1.5" android:scaleY="1.5">
+        <path android:pathData="M7.25,8.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1" />
+        <path android:pathData="M13.75,12.5 m-1.75,0 a1.75,1.75 0 1,0 3.5,0 a1.75,1.75 0 1,0 -3.5,0" android:strokeColor="#819ABB" android:strokeWidth="1" />
+        <path android:pathData="M6,15 L15,6" android:strokeColor="#819ABB" android:strokeWidth="1" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M11.5,6 L15,6 L15,9.5" android:strokeColor="#819ABB" android:strokeWidth="1" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
 </vector>

@@ -3,11 +3,15 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="21dp" android:height="21dp"
     android:viewportWidth="21" android:viewportHeight="21">
-    <path android:pathData="M6,5 a4.5,1.5 0 1,0 9,0 a4.5,1.5 0 1,0 -9,0" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
-    <path android:pathData="M6,5 L6,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" />
-    <path android:pathData="M15,5 L15,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" />
-    <path android:pathData="M6,15.3 A4.5,1.5 0 0,0 15,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
-    <path android:pathData="M6.2,8.3 Q10.5,9.5 14.8,8.3" android:strokeColor="#819ABB" android:strokeWidth="1.2" android:strokeLineCap="round" />
-    <path android:pathData="M6.2,12.2 Q10.5,13.4 14.8,12.2" android:strokeColor="#819ABB" android:strokeWidth="1.2" android:strokeLineCap="round" />
-    <path android:pathData="M10.5,8.3 C10.5,8.3 9.1,10.3 9.1,11.4 C9.1,12.3 9.7,13 10.5,13 C11.3,13 11.9,12.3 11.9,11.4 C11.9,10.3 10.5,8.3 10.5,8.3 Z" android:strokeColor="#6FD3E8" android:strokeWidth="1.1" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <!-- Scaled 1.4x about its own center (device report, 2026-09-25: read noticeably
+         narrow next to every sibling icon) rather than hand-rescaling every point. -->
+    <group android:pivotX="10.5" android:pivotY="9.4" android:scaleX="1.4" android:scaleY="1.4">
+        <path android:pathData="M6,5 a4.5,1.5 0 1,0 9,0 a4.5,1.5 0 1,0 -9,0" android:strokeColor="#819ABB" android:strokeWidth="1.07" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M6,5 L6,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.07" android:strokeLineCap="round" />
+        <path android:pathData="M15,5 L15,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.07" android:strokeLineCap="round" />
+        <path android:pathData="M6,15.3 A4.5,1.5 0 0,0 15,15.3" android:strokeColor="#819ABB" android:strokeWidth="1.07" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M6.2,8.3 Q10.5,9.5 14.8,8.3" android:strokeColor="#819ABB" android:strokeWidth="0.86" android:strokeLineCap="round" />
+        <path android:pathData="M6.2,12.2 Q10.5,13.4 14.8,12.2" android:strokeColor="#819ABB" android:strokeWidth="0.86" android:strokeLineCap="round" />
+        <path android:pathData="M10.5,8.3 C10.5,8.3 9.1,10.3 9.1,11.4 C9.1,12.3 9.7,13 10.5,13 C11.3,13 11.9,12.3 11.9,11.4 C11.9,10.3 10.5,8.3 10.5,8.3 Z" android:strokeColor="#6FD3E8" android:strokeWidth="0.79" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
 </vector>
