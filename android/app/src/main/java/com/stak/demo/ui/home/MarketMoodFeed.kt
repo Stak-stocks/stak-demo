@@ -1,5 +1,6 @@
 package com.stak.demo.ui.home
 
+import androidx.compose.ui.graphics.Color
 import com.stak.demo.data.Session
 import com.stak.demo.ui.news.DailyBriefHolder
 
@@ -88,6 +89,29 @@ object MarketMoodFeed {
 
     /** Maps score band to gauge angle (0 = red/left, 180 = green/right). */
     fun angleFor(score: Float): Float = (score.coerceIn(0f, 100f) / 100f) * 180f
+
+    /**
+     * The needle's fraction of the arc (0 = red/left, 1 = green/right) - the same score
+     * Home's gauge angle comes from, so News's gauge can't point somewhere else for the
+     * same mood (device report, 2026-09-24: News plotted "volatile" at the same spot as
+     * "calm" under its own hand-rolled fraction table, while Home's score-based angle put
+     * them on opposite sides of the dial).
+     */
+    fun fractionFor(mood: String): Float = scoreForMood(mood) / 100f
+
+    /**
+     * The mood's colour - one definition for every screen that tints something by mood
+     * (device report, 2026-09-24: News had this table copied into two composables in the
+     * same file, and Home had no equivalent at all to check either copy against).
+     */
+    fun colorFor(mood: String): Color = when (mood.lowercase().trim()) {
+        "bullish", "risk-on" -> Color(0xFF2FD08A)
+        "mixed" -> Color(0xFFDEB940)
+        "cautious", "volatile" -> Color(0xFFF5A623)
+        "bearish" -> Color(0xFFFF5252)
+        "risk-off" -> Color(0xFFB06BE3)
+        else -> Color(0xFF69B3CA)
+    }
 
     /** No-op — score is now derived reactively from DailyBriefHolder. */
     suspend fun refresh() = Unit

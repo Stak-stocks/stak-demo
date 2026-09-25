@@ -732,8 +732,10 @@ private fun FirstRunOverlay(onSeeTodaysPick: () -> Unit, modifier: Modifier = Mo
  */
 @Composable
 internal fun MarketMoodGauge(u: Float) {
-	// Shared with the News mood row (Codex audit 2026-09-04), which passes a
-	// scaled unit so the compact 40.97x20.76 gauge is this same drawing.
+	// News draws its own compact gauge, not this one - but both read the same
+	// MarketMoodFeed score/angle/colour tables, so the two can't disagree about what a
+	// mood means (device report, 2026-09-24: News used to hand-roll its own numbers here
+	// and had drifted - "volatile" landed on opposite sides of the two dials).
 	// Starts at the design's default pose; moves to the live worldwide
 	// reading once it arrives (user's call, 2026-08-21).
 	val sweep = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(MarketMoodFeed.DEMO_ANGLE_DEG) }

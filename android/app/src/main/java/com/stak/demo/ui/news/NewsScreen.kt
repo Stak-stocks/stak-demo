@@ -365,26 +365,10 @@ private fun articleMatches(a: NewsArticleFeed.Article, q: String): Boolean {
 @Composable
 private fun MoodMiniRow(mood: String?) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val moodLabel = when (mood?.lowercase()) {
-		"bullish" -> "Bullish momentum"
-		"mixed" -> "Mixed signals"
-		"cautious" -> "Cautious tone"
-		"bearish" -> "Bearish pressure"
-		"volatile" -> "High volatility"
-		"calm" -> "Calm markets"
-		"risk-on" -> "Risk-On mode"
-		"risk-off" -> "Risk-Off tone"
-		null -> "Loading…"
-		else -> mood.replaceFirstChar { it.uppercase() }
-	}
-	val moodColor = when (mood?.lowercase()) {
-		"bullish", "risk-on" -> News.Green
-		"mixed" -> Color(0xFFDEB940)
-		"cautious", "volatile" -> Color(0xFFF5A623)
-		"bearish" -> Color(0xFFFF5252)
-		"risk-off" -> Color(0xFFB06BE3)
-		else -> News.Teal
-	}
+	// Same table Home reads (com.stak.demo.ui.home.MarketMoodFeed) - a hand-copied one
+	// here read differently for "volatile" than Home did (device report, 2026-09-24).
+	val moodLabel = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.leadForMood(it) } ?: "Loading…"
+	val moodColor = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.colorFor(it) } ?: News.Teal
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier
@@ -412,23 +396,11 @@ private fun MoodMiniRow(mood: String?) {
 
 @Composable
 private fun MoodGauge(mood: String?, u: Float) {
-	val moodColor = when (mood?.lowercase()) {
-		"bullish", "risk-on" -> News.Green
-		"mixed" -> Color(0xFFDEB940)
-		"cautious", "volatile" -> Color(0xFFF5A623)
-		"bearish" -> Color(0xFFFF5252)
-		"risk-off" -> Color(0xFFB06BE3)
-		else -> News.Teal
-	}
-	val fraction = when (mood?.lowercase()) {
-		"bullish" -> 0.9f
-		"risk-on" -> 0.78f
-		"mixed", "calm", "volatile" -> 0.55f
-		"cautious" -> 0.35f
-		"risk-off" -> 0.25f
-		"bearish" -> 0.1f
-		else -> 0.5f
-	}
+	// Same canonical mapping Home's gauge angle reads (device report, 2026-09-24: this
+	// gauge used to place "volatile" at the same spot as "calm"/"mixed" under its own
+	// hand-rolled fraction table, while Home's score put it clearly on the bad side).
+	val moodColor = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.colorFor(it) } ?: News.Teal
+	val fraction = mood?.let { com.stak.demo.ui.home.MarketMoodFeed.fractionFor(it) } ?: 0.5f
 	Canvas(modifier = androidx.compose.ui.Modifier.size((42 * u).dp, (22 * u).dp)) {
 		val stroke = (2.8f * u).dp.toPx()
 		val radius = size.height - stroke * 0.5f
