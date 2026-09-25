@@ -59,8 +59,11 @@ internal val CATEGORY_NAMES = mapOf(
 	"mega_cap_tech" to "Big Tech",
 	"etf_index" to "Index Funds",
 	"home_retail" to "Home Retail",
-	"default_tech" to "Tech",
-	"tech" to "Tech",
+	// Not just "Tech" - reads as a third, unrelated category next to "Big Tech" on the
+	// same grid (device report, 2026-09-25), when it's really the catch-all the other,
+	// more specific tech categories (Chips, AI, Big Tech, Software...) fall out of.
+	"default_tech" to "Tech Sector",
+	"tech" to "Tech Sector",
 	"adtech" to "Ad Tech",
 	"meme_stock" to "Meme Stocks",
 	"default_consumer" to "Consumer",
@@ -96,7 +99,7 @@ private val CONSUMER = CategoryArt(iconRes = R.drawable.ic_cat_consumer, heroRes
 
 private val ART_BY_NAME: Map<String, CategoryArt> = mapOf(
 	"Software" to TECH, "Chips" to TECH, "Cybersecurity" to TECH, "Data" to TECH,
-	"AI" to TECH, "Big Tech" to TECH, "Consumer Tech" to TECH, "Tech" to TECH,
+	"AI" to TECH, "Big Tech" to TECH, "Consumer Tech" to TECH, "Tech Sector" to TECH,
 	"Ad Tech" to TECH, "Social Media" to TECH, "Gaming" to TECH,
 	"Banks" to FINANCE, "Fintech" to FINANCE, "Markets" to FINANCE, "Asset Managers" to FINANCE,
 	"Financial Data" to FINANCE, "Payments" to FINANCE, "Insurance" to FINANCE, "Crypto" to FINANCE,
@@ -122,7 +125,8 @@ internal fun categoryIcon(name: String): Int = when (name) {
 	"E-commerce", "Retail", "Home Retail", "Staples", "Fashion", "Food", "Drinks", "Restaurants", "Consumer" -> R.drawable.ic_cat_consumer
 	"Chips", "Data", "AI" -> R.drawable.ic_cat_chips
 	"Cybersecurity" -> R.drawable.ic_risk_shield
-	"Big Tech", "Software", "Tech" -> R.drawable.ic_gist_sparkle
+	"Big Tech" -> R.drawable.ic_gist_sparkle
+	"Software", "Tech Sector" -> R.drawable.ic_cat_code
 	"Consumer Tech", "Ad Tech" -> R.drawable.ic_goal_grow
 	"Fintech" -> R.drawable.ic_cat_fintech
 	"Banks", "Payments", "Markets", "Asset Managers", "Financial Data", "Insurance",
