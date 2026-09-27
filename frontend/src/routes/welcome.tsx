@@ -7,6 +7,18 @@ export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
 });
 
+// The landing page's wordmark is the only place Orbitron is used, so it loads here rather than on every route.
+const ORBITRON_HREF = "https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&display=swap";
+function useOrbitron() {
+	useEffect(() => {
+		if (document.querySelector(`link[href="${ORBITRON_HREF}"]`)) return;
+		const link = document.createElement("link");
+		link.rel = "stylesheet";
+		link.href = ORBITRON_HREF;
+		document.head.appendChild(link);
+	}, []);
+}
+
 /* ─── ASSETS (downloaded from Figma to /public/images/landing-v2/) ──── */
 const A = {
 	// Hero
@@ -65,31 +77,18 @@ const A = {
 	ctaMqBb: "/images/landing-v2/cta-mq-bb.jpg",
 	navMenu: "/images/landing-v2/nav-button.svg",
 	// Problem
-	problemScreenshot: "/images/landing-v2/problem-screenshot.png",
-	problemEllipse: "/images/landing-v2/problem-ellipse.svg",
+	/** The STAK Home screen in a phone frame (Figma export, 2x, transparent). */
+	problemPhone: "/images/landing-v2/problem-phone.webp",
 	// How It Works
-	hiwEllipse1: "/images/landing-v2/hiw-ellipse-1.svg",
-	hiwEllipse2: "/images/landing-v2/hiw-ellipse-2.svg",
-	// Features (phone mockup parts)
-	featPhoneScreen: "/images/landing-v2/feat-phone-screen.svg",
-	featG1506: "/images/landing-v2/feat-iphone-g1506.svg",
-	featG1507: "/images/landing-v2/feat-iphone-g1507.svg",
-	featR2415499: "/images/landing-v2/feat-iphone-rect2415499.svg",
-	featR241549: "/images/landing-v2/feat-iphone-rect241549.svg",
-	featR2415496: "/images/landing-v2/feat-iphone-rect2415496.svg",
-	featR24154: "/images/landing-v2/feat-iphone-rect24154.svg",
-	featR2163: "/images/landing-v2/feat-iphone-rect2163.svg",
-	featR21631: "/images/landing-v2/feat-iphone-rect21631.svg",
-	featR2172: "/images/landing-v2/feat-iphone-rect2172.svg",
-	featR1093: "/images/landing-v2/feat-iphone-rect1093.svg",
-	featR3540: "/images/landing-v2/feat-iphone-rect3540.svg",
-	featR1030: "/images/landing-v2/feat-iphone-rect1030.svg",
-	featG2819: "/images/landing-v2/feat-iphone-g2819.svg",
-	featG2820: "/images/landing-v2/feat-iphone-g2820.svg",
-	featSubtract: "/images/landing-v2/feat-iphone-subtract.svg",
-	featVec: "/images/landing-v2/feat-iphone-vec.svg",
-	featG2170: "/images/landing-v2/feat-iphone-g2170.svg",
-	featG2171: "/images/landing-v2/feat-iphone-g2171.svg",
+	/** Card art (Figma exports, 2x, transparent): the brand quiz, the swipe deck, My STAK. */
+	how1: "/images/landing-v2/how-1.webp",
+	how2: "/images/landing-v2/how-2.webp",
+	how3: "/images/landing-v2/how-3.webp",
+	// Features: the four app screens in phone frames (Figma exports, 2x, transparent)
+	feat1: "/images/landing-v2/feat-1.webp",
+	feat2: "/images/landing-v2/feat-2.webp",
+	feat3: "/images/landing-v2/feat-3.webp",
+	feat4: "/images/landing-v2/feat-4.webp",
 	// Early Momentum
 	emAvatar: "/images/landing-v2/em-avatar.jpg",
 	emStatArrow: "/images/landing-v2/em-stat-arrow.svg",
@@ -132,7 +131,7 @@ const CTA_GRADIENT =
 	"linear-gradient(180deg, rgba(169,219,234,0.82) 8.8889%, rgb(60,152,180) 44.444%), linear-gradient(90deg, rgb(44,157,188) 0%, rgb(44,157,188) 100%)";
 const CTA_BORDER = "0.361px solid rgba(101,158,173,0.63)";
 const CTA_SHADOW =
-	"drop-shadow(0px 77.322px 10.839px rgba(82,170,199,0)) drop-shadow(0px 49.862px 9.756px rgba(82,170,199,0.01)) drop-shadow(0px 28.183px 8.31px rgba(82,170,199,0.05)) drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))";
+	"drop-shadow(0px 77.322px 10.839px rgba(105,179,202,0)) drop-shadow(0px 49.862px 9.756px rgba(105,179,202,0.01)) drop-shadow(0px 28.183px 8.31px rgba(105,179,202,0.05)) drop-shadow(0px 12.285px 6.142px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))";
 
 /* ─── SECTION VERTICAL ANCHORS (px from page top) ───────────────────── */
 const SEC = {
@@ -494,8 +493,8 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 				    filter to the image, but we render it crisp (no blur) per design
 				    intent — the blur in Figma was a stylization that obscured the
 				    actual screenshot content. */}
-				<div style={{ position: "absolute", left: "calc(50% + 1.48px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
-					<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 94%, transparent 96.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 94%, transparent 96.5%)" }} />
+				<div style={{ position: "absolute", left: "50%", top: 84, transform: "translateX(-50%)", width: 328.5, height: 661 }}>
+					<img src={A.problemPhone} alt={PROBLEM_PHONE_ALT} loading="lazy" style={{ width: "100%", height: "100%", display: "block", maskImage: "linear-gradient(to bottom, black 92%, transparent 94%)", WebkitMaskImage: "linear-gradient(to bottom, black 92%, transparent 94%)" }} />
 				</div>
 				{/* Bottom fade — Figma node 1:441, EXACT values. A `to top`
 				    gradient: solid #0a1020 up to 30.374%, fading to transparent
@@ -545,6 +544,7 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 					<div style={{ display: "flex", gap: 17 }}>
 						{cards.map((c, i) => (
 							<div key={i} style={{ background: CARD_BG, width: 389, height: 391, borderRadius: 12, overflow: "hidden", position: "relative" }}>
+								<HowArt step={i as 0 | 1 | 2} top={16} />
 								<div style={{ position: "absolute", bottom: i === 0 ? 37 : 32, left: "calc(50% + 0.5px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: i === 2 ? 13 : 17, width: 330 }}>
 									<p style={{ fontFamily: SQ, fontSize: 30, color: "#fff", margin: 0, lineHeight: "normal" }}>{c.n}</p>
 									<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, width: "100%" }}>
@@ -569,54 +569,26 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 4: FEATURES                                                 */
 /* ═══════════════════════════════════════════════════════════════════ */
-function PhoneMockup({ variant }: { variant: 1 | 2 }) {
-	const g1506 = variant === 1 ? A.featG1506 : A.featG1507;
-	const g2819 = variant === 1 ? A.featG2819 : A.featG2820;
-	const g2170 = variant === 1 ? A.featG2170 : A.featG2171;
+/** Which app screen each Features card shows: 1 Trends (News), 2 Swipe Deck (Discover), 3 Simulated STAK
+ *  (Simulate), 4 Intel Injections (Home). */
+type Feature = 1 | 2 | 3 | 4;
+const FEATURE_ART: Record<Feature, { src: string; alt: string }> = {
+	1: { src: A.feat1, alt: "STAK News: Market Mood, today's brief and stories on your stocks" },
+	2: { src: A.feat2, alt: "STAK Discover: a swipeable stock card for NVIDIA" },
+	3: { src: A.feat3, alt: "STAK Simulate: your practice score, its chart and your saved staks" },
+	4: { src: A.feat4, alt: "STAK Home: Market Mood with today's headlines and why they matter to you" },
+};
+
+/** A Features card's phone (515x490 box, phone centred near its top), fading into the card below its middle. */
+function PhoneMockup({ feature }: { feature: Feature }) {
+	const art = FEATURE_ART[feature];
 	return (
 		<div style={{ position: "absolute", left: "calc(50% - 0.39px)", top: "calc(50% - 28.76px)", transform: "translate(-50%, -50%)", width: 515.477, height: 490.504 }}>
-			<div style={{ position: "absolute", left: 140.03, top: 46.95, width: 219.369, height: 443.558 }}>
-				<div style={{ position: "absolute", top: "20.09%", bottom: "55.66%", left: 0, right: 0 }}><img src={g1506} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "29.92%", bottom: "58.54%", left: "97.2%", right: 0 }}><img src={A.featR2415499} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "27.52%", bottom: "65.36%", left: "0.02%", right: "97.18%" }}><img src={A.featR241549} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "37.13%", bottom: "55.76%", left: 0, right: "97.2%" }}><img src={A.featR2415496} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "20.23%", bottom: "76.19%", left: 0, right: "97.2%" }}><img src={A.featR24154} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "0.07%", bottom: "0.07%", left: "0.72%", right: "0.69%" }}>
-					<div style={{ position: "absolute", inset: "0 -0.14%" }}><img src={A.featR2163} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</div>
-				<div style={{ position: "absolute", top: "0.34%", bottom: "0.34%", left: "1.26%", right: "1.23%" }}>
-					<div style={{ position: "absolute", inset: "-0.27% -0.55%" }}><img src={A.featR21631} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</div>
-				<div style={{ position: "absolute", top: 0, bottom: 0, left: "0.58%", right: "0.55%" }}><img src={A.featR2172} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "0.66%", bottom: "98.65%", left: "41.51%", right: "40.95%" }}><img src={A.featR1093} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "0.7%", bottom: "0.7%", left: "1.86%", right: "1.84%" }}><img src={A.featR3540} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "0.7%", bottom: "98.33%", left: "42.15%", right: "41.59%" }}>
-					<div style={{ position: "absolute", inset: "-3.53% -0.43%" }}><img src={A.featR1030} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</div>
-				<div style={{ position: "absolute", top: "0.9%", bottom: "98.53%", left: "42.59%", right: "42.03%" }}>
-					<div style={{ position: "absolute", inset: "-50.03% -6.33% -49.48% -6.33%" }}><img src={g2819} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</div>
-				<div style={{ position: "absolute", top: "2.33%", bottom: "2.23%", left: "5.54%", right: "5.34%", background: "#fff", overflow: "hidden", borderRadius: 23 }}>
-					<img src={A.featPhoneScreen} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-				</div>
-				<div style={{ position: "absolute", top: "2.33%", bottom: "94.04%", left: "29.66%", right: "29.43%" }}><img src={A.featSubtract} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				<div style={{ position: "absolute", top: "2.82%", bottom: "95.61%", left: "35.68%", right: "61.14%" }}><img src={g2170} alt="" style={{ width: "100%", height: "100%" }} /></div>
+			{/* Clipped to the box: the phone runs 3px past it, and that bezel edge would show under the card's text. */}
+			<div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+				<img src={art.src} alt={art.alt} loading="lazy" style={{ position: "absolute", left: 138.2, top: 44, width: 223, height: 449, maxWidth: "none", display: "block" }} />
 			</div>
 			<div style={{ position: "absolute", inset: "0 0 -1px", background: "linear-gradient(to bottom, rgba(16,23,42,0) 40.429%, #10172a 73.762%)", borderRadius: 10.647, pointerEvents: "none" }} />
-		</div>
-	);
-}
-
-function SwipeDeckIllustration() {
-	return (
-		<div style={{ position: "absolute", left: "calc(50% + 0.07px)", top: 122.09, transform: "translateX(-50%)", width: 331.895, height: 184.655 }}>
-			<div style={{ position: "absolute", left: 180.19, top: 15.18, width: 151.696, height: 169.472, display: "flex", alignItems: "center", justifyContent: "center" }}>
-				<div style={{ transform: "rotate(12.75deg)", width: 122.486, height: 146.041, background: "#b4b4b4", borderRadius: 9.422 }} />
-			</div>
-			<div style={{ position: "absolute", left: 93.36, top: 0, width: 145.182, height: 173.101, background: "#d9d9d9", borderRadius: 11.168 }} />
-			<div style={{ position: "absolute", left: 0, top: 14, width: 151.696, height: 169.472, display: "flex", alignItems: "center", justifyContent: "center" }}>
-				<div style={{ transform: "rotate(-12.75deg)", width: 122.486, height: 146.041, background: "rgba(217,217,217,0.8)", borderRadius: 9.422 }} />
-			</div>
 		</div>
 	);
 }
@@ -634,7 +606,7 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
 					<div style={{ display: "flex", flexDirection: "column", gap: 27.13, width: "100%" }}>
 						<div style={{ display: "flex", gap: 27.13 }}>
 							<div style={{ position: "relative", width: 575.935, height: 548.033, background: CARD_BG, borderRadius: 11.895, overflow: "hidden" }}>
-								<PhoneMockup variant={1} />
+								<PhoneMockup feature={1} />
 								<div style={{ position: "absolute", left: "calc(50% + 0.07px)", top: "calc(50% + 150.73px)", transform: "translate(-50%, -50%)", width: 342.747, display: "flex", flexDirection: "column", gap: 18.087 }}>
 									<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0 }}>Trends</p>
 									<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: BODY_DIM, whiteSpace: "pre-wrap" }}>
@@ -644,7 +616,7 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
 								</div>
 							</div>
 							<div style={{ position: "relative", width: 575.935, height: 548.033, background: CARD_BG, borderRadius: 11.895, overflow: "hidden" }}>
-								<SwipeDeckIllustration />
+								<PhoneMockup feature={2} />
 								<div style={{ position: "absolute", left: "calc(50% + 0.06px)", top: 376.2, transform: "translateX(-50%)", width: 342.747, display: "flex", flexDirection: "column", gap: 18.087 }}>
 									<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0 }}>Swipe Deck</p>
 									<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: BODY_DIM, margin: 0 }}>Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed, your pace.</p>
@@ -653,14 +625,14 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
 						</div>
 						<div style={{ display: "flex", gap: 27.13 }}>
 							<div style={{ position: "relative", width: 575.935, height: 548.033, background: CARD_BG, borderRadius: 11.895, overflow: "hidden" }}>
-								<SwipeDeckIllustration />
+								<PhoneMockup feature={3} />
 								<div style={{ position: "absolute", left: "calc(50% + 0.06px)", top: 376.2, transform: "translateX(-50%)", width: 342.747, display: "flex", flexDirection: "column", gap: 18.087 }}>
 									<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0 }}>Simulated STAK</p>
 									<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: BODY_DIM, margin: 0 }}>Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.</p>
 								</div>
 							</div>
 							<div style={{ position: "relative", width: 575.935, height: 548.033, background: CARD_BG, borderRadius: 11.895, overflow: "hidden" }}>
-								<PhoneMockup variant={2} />
+								<PhoneMockup feature={4} />
 								<div style={{ position: "absolute", left: "calc(50% + 0.07px)", top: "calc(50% + 159.73px)", transform: "translate(-50%, -50%)", width: 342.747, display: "flex", flexDirection: "column", gap: 18.087 }}>
 									<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 20, color: "#fff", margin: 0 }}>Intel Injections</p>
 									<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, color: BODY_DIM, whiteSpace: "pre-wrap" }}>
@@ -1807,7 +1779,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 			</div>
 
 			<div style={{ position: "absolute", left: "50%", bottom: 39.55, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))" }} />
+				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))" }} />
 			</div>
 		</section>
 	);
@@ -1863,11 +1835,11 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 			{/* Phone — centered 611px window onto the 1238px mockup frame (Figma 1:1191) */}
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 642, transform: "translate(-50%, -50%)", width: 611, height: 598, overflow: "hidden" }}>
 				<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: "calc(50% - 10px)", transform: "translate(-50%, -50%)", width: 1238, height: 746 }}>
-					<div style={{ position: "absolute", left: "calc(50% + 1.46px)", top: 128.09, transform: "translateX(-50%)", width: 621.781, height: 639.024 }}>
+					<div style={{ position: "absolute", left: "50%", top: 128.09, transform: "translateX(-50%)", width: 300, height: 603.6 }}>
 						{/* mask rows sit entirely under the fade's solid zone (container y 574-590 < clip 598):
 						    visually invisible, but zeroes the photo at the clip row so no per-layer rounding
 						    hairline can leak — same treatment as the 390 mockup */}
-						<img src={A.problemScreenshot} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", maskImage: "linear-gradient(to bottom, black 83%, transparent 85.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 83%, transparent 85.5%)" }} />
+						<img src={A.problemPhone} alt={PROBLEM_PHONE_ALT} loading="lazy" style={{ width: "100%", height: "100%", display: "block", maskImage: "linear-gradient(to bottom, black 85%, transparent 86.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 85%, transparent 86.5%)" }} />
 					</div>
 					<div style={{ position: "absolute", bottom: 31, left: -84, width: 1400, height: 214, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(12.798px)", pointerEvents: "none" }} />
 				</div>
@@ -1903,6 +1875,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 				<div style={{ display: "flex", flexDirection: "column", gap: 12.952 }}>
 					<div style={{ display: "flex", gap: 12.952 }}>
 						<div style={{ ...cardBg, width: 296.366 }}>
+							<HowArt step={0} top={12} scale={0.76} />
 							<div style={{ position: "absolute", bottom: 28.19, left: "calc(50% + 0.38px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 10.666, alignItems: "flex-start", width: 251.415 }}>
 								<p style={numS}>01/</p>
 								<div style={{ display: "flex", flexDirection: "column", gap: 6.095, alignItems: "flex-start" }}>
@@ -1915,6 +1888,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 							</div>
 						</div>
 						<div style={{ ...cardBg, width: 296.366 }}>
+							<HowArt step={1} top={12} scale={0.76} />
 							<div style={{ position: "absolute", bottom: 24.38, left: "calc(50% + 0.38px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 10.666, alignItems: "flex-start", width: 251.415 }}>
 								<p style={numS}>02/</p>
 								<div style={{ display: "flex", flexDirection: "column", gap: 6.095, alignItems: "flex-start", width: "100%" }}>
@@ -1928,6 +1902,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 						</div>
 					</div>
 					<div style={{ ...cardBg, width: 605.683 }}>
+						<HowArt step={2} bottom={0} left="calc(50% + 150px)" scale={1.25} />
 						<div style={{ position: "absolute", bottom: 47.24, left: "calc(50% - 148.18px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 7.619, alignItems: "flex-start", width: 251.415 }}>
 							<p style={numS}>03/</p>
 							<div style={{ display: "flex", flexDirection: "column", gap: 6.095, alignItems: "flex-start", width: "100%" }}>
@@ -1937,7 +1912,7 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 						</div>
 					</div>
 				</div>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 21.471px 6.331px rgba(82,170,199,0.05)) drop-shadow(0px 9.359px 4.68px rgba(82,170,199,0.09)) drop-shadow(0px 2.202px 2.477px rgba(82,170,199,0.10))", cursor: "pointer" }}>
+				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 21.471px 6.331px rgba(105,179,202,0.05)) drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.202px 2.477px rgba(105,179,202,0.10))", cursor: "pointer" }}>
 					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
 					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</button>
@@ -1951,23 +1926,12 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 	const card: CSSProperties = { background: "#10172a", width: 295.539, height: 281.221, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 10.263, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" };
 	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, color: "rgba(255,255,255,0.62)", lineHeight: "normal", textAlign: "center", margin: 0 };
-	const renderPhone = (variant: 1 | 2) => (
+	const renderPhone = (feature: Feature) => (
 		<div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 0, top: 0, width: 575.935, height: 548.033, transform: "scale(0.5131)", transformOrigin: "top left" }}>
 				<div style={{ position: "relative", width: "100%", height: "100%" }}>
-					<PhoneMockup variant={variant} />
+					<PhoneMockup feature={feature} />
 				</div>
-			</div>
-		</div>
-	);
-	const renderStack = () => (
-		<div style={{ position: "absolute", left: "calc(50% + 0.04px)", top: 62.65, transform: "translateX(-50%)", width: 170.311, height: 94.755 }}>
-			<div style={{ position: "absolute", left: 92.47, top: 7.79, width: 77.843, height: 86.964, display: "flex", alignItems: "center", justifyContent: "center" }}>
-				<div style={{ transform: "rotate(12.75deg)", width: 62.853, height: 74.94, background: "#b4b4b4", borderRadius: 4.835 }} />
-			</div>
-			<div style={{ position: "absolute", left: 47.91, top: 0, width: 74.499, height: 88.826, background: "#d9d9d9", borderRadius: 5.731 }} />
-			<div style={{ position: "absolute", left: 0, top: 7.18, width: 77.842, height: 86.964, display: "flex", alignItems: "center", justifyContent: "center" }}>
-				<div style={{ transform: "rotate(-12.75deg)", width: 62.853, height: 74.94, background: "rgba(217,217,217,0.8)", borderRadius: 4.835 }} />
 			</div>
 		</div>
 	);
@@ -1998,7 +1962,7 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 							</div>
 						</div>
 						<div style={card}>
-							{renderStack()}
+							{renderPhone(2)}
 							<div style={{ position: "absolute", left: "50%", top: 193.05, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "center", width: 175.879 }}>
 								<p style={titleS}>Swipe Deck</p>
 								<p style={{ ...bodyS, fontSize: 7.184, width: "100%" }}>Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed, your pace.</p>
@@ -2007,14 +1971,14 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 					</div>
 					<div style={{ display: "flex", gap: 13.922 }}>
 						<div style={card}>
-							{renderStack()}
+							{renderPhone(3)}
 							<div style={{ position: "absolute", left: "50%", top: 193.05, transform: "translateX(-50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "center", width: 175.879 }}>
 								<p style={titleS}>Simulated STAK</p>
 								<p style={{ ...bodyS, fontSize: 7.184, width: "100%" }}>Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.</p>
 							</div>
 						</div>
 						<div style={card}>
-							{renderPhone(2)}
+							{renderPhone(4)}
 							<div style={{ position: "absolute", left: "50%", top: 222, transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "center", width: 175.879 }}>
 								<p style={titleS}>Intel Injections</p>
 								<div style={{ ...bodyS, fontSize: 7.184, width: "100%" }}>
@@ -2025,7 +1989,7 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 						</div>
 					</div>
 				</div>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))", cursor: "pointer" }}>
+				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))", cursor: "pointer" }}>
 					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
 					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</button>
@@ -2084,7 +2048,7 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 				<div style={{ position: "absolute", left: 0, top: 0, width: 183.516, height: 209.231, background: "linear-gradient(to right, rgba(10,16,32,1) 0%, rgba(18,29,58,0.75) 25%, rgba(26,42,83,0.5) 50%, rgba(34,54,108,0.25) 75%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
 			</div>
 			<div style={{ position: "absolute", left: "50%", top: 735.3, transform: "translateX(-50%)" }}>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.10))", cursor: "pointer" }}>
+				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))", cursor: "pointer" }}>
 					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
 					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</button>
@@ -2403,7 +2367,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 				{/* Figma 1:1659/1:1660 geometry, but the photo stays SHARP — the user rejected the
 				    design's layer blur (re-confirmed 2026-07-01). The bottom mask rows sit entirely
 				    under the solid overlay (kills a compositing hairline, invisible otherwise). */}
-				<img src={A.problemScreenshot} alt="" style={{ position: "absolute", left: "calc(50% + 1.29px)", top: 29.12, transform: "translateX(-50%)", width: 410.708, height: 422.098, objectFit: "cover", maskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 84%, transparent 86.5%)" }} />
+				<img src={A.problemPhone} alt={PROBLEM_PHONE_ALT} loading="lazy" style={{ position: "absolute", left: "50%", top: 29.12, transform: "translateX(-50%)", width: 210, height: 422.6, maxWidth: "none", maskImage: "linear-gradient(to bottom, black 80%, transparent 81.5%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 81.5%)" }} />
 				<div style={{ position: "absolute", left: "calc(50% + 1.21px)", bottom: -22, transform: "translateX(-50%)", width: 410, height: 142, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(8.453px)" }} />
 			</div>
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
@@ -2433,9 +2397,35 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 	);
 }
 
-function MobileHowCard390({ num, title, body, bottom }: { num: string; title: string; body: string; bottom: number }) {
+/** Each How it works card's picture, at its 1x size times `scale`, centred (or at `left`) near the card's top.
+ *  The quiz phone is cropped mid-screen in the export, so it fades out where the card cuts it. */
+const PROBLEM_PHONE_ALT = "The STAK Home screen: Market Mood with today's headlines, and why they matter to you";
+
+const HOW_ART = [
+	{ src: A.how1, w: 175.5, h: 187.5, alt: "The STAK quiz asking which brands you know or use", fade: true },
+	// Cropped to the card stack itself (no margins or "Swipe down" hint) and drawn larger than the phones.
+	{ src: A.how2, w: 140, h: 196.6, alt: "A STAK stock card for NVIDIA with its price and a tip", fade: false },
+	{ src: A.how3, w: 192, h: 194, alt: "My STAK with saved stocks grouped into collections", fade: false },
+] as const;
+
+function HowArt({ step, top, bottom, left = "50%", scale = 1 }: { step: 0 | 1 | 2; top?: number; bottom?: number; left?: string; scale?: number }) {
+	const art = HOW_ART[step];
+	if (!art) return null;
+	const mask = art.fade ? "linear-gradient(to bottom, black 78%, transparent 100%)" : undefined;
+	return (
+		<img
+			src={art.src}
+			alt={art.alt}
+			loading="lazy"
+			style={{ position: "absolute", left, top, bottom, transform: "translateX(-50%)", width: art.w * scale, height: art.h * scale, maxWidth: "none", display: "block", maskImage: mask, WebkitMaskImage: mask, pointerEvents: "none" }}
+		/>
+	);
+}
+
+function MobileHowCard390({ step, num, title, body, bottom }: { step: 0 | 1 | 2; num: string; title: string; body: string; bottom: number }) {
 	return (
 		<div style={{ background: "#10172a", height: 297.889, width: 296.366, borderRadius: 9.142, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+			<HowArt step={step} top={12} scale={0.76} />
 			<div style={{ position: "absolute", bottom, left: "calc(50% + 0.38px)", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10.666, width: 251.415 }}>
 				<p style={{ fontFamily: SQ, fontSize: 22.856, color: "#fff", margin: 0, whiteSpace: "nowrap" }}>{num}</p>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6.095, width: "100%" }}>
@@ -2464,9 +2454,9 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 12.952, alignItems: "flex-start" }}>
-						<MobileHowCard390 num="01/" title="Tell Us Who You Are" body={"Take a quick risk quiz. STAK learns your personality, your goals, and your vibe.\nNo spreadsheets. No jargon."} bottom={28.19} />
-						<MobileHowCard390 num="02/" title="Swipe Through Stocks" body="Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. It's that simple." bottom={24.38} />
-						<MobileHowCard390 num="03/" title="STAK Before You Spend" body="Practice with real market data and zero real money. Build confidence before you commit a single dollar." bottom={24.38} />
+						<MobileHowCard390 step={0} num="01/" title="Tell Us Who You Are" body={"Take a quick risk quiz. STAK learns your personality, your goals, and your vibe.\nNo spreadsheets. No jargon."} bottom={28.19} />
+						<MobileHowCard390 step={1} num="02/" title="Swipe Through Stocks" body="Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. It's that simple." bottom={24.38} />
+						<MobileHowCard390 step={2} num="03/" title="STAK Before You Spend" body="Practice with real market data and zero real money. Build confidence before you commit a single dollar." bottom={24.38} />
 					</div>
 					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
@@ -2482,33 +2472,17 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 	const card: CSSProperties = { background: "#10172a", width: 295, height: 338, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "normal" };
 	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 11, color: "rgba(255,255,255,0.62)", lineHeight: "normal", whiteSpace: "pre-line", margin: 0 };
-	const renderPhone = (variant: 1 | 2) => (
+	const renderPhone = (feature: Feature) => (
 		<div style={{ position: "absolute", left: 20.3, top: 24.2, width: 515.477, height: 490.504, transform: "scale(0.4928)", transformOrigin: "top left" }}>
-			<div style={{ position: "relative", width: "100%", height: "100%" }}><PhoneMockup variant={variant} /></div>
+			<div style={{ position: "relative", width: "100%", height: "100%" }}><PhoneMockup feature={feature} /></div>
 		</div>
 	);
-	const renderStack = () => (
-		<div style={{ position: "absolute", left: "50%", top: "calc(50% - 33.65px)", transform: "translate(-50%, -50%)", width: 205.149, height: 114.138 }}>
-			<div style={{ position: "absolute", left: 111.38, top: 9.38, width: 93.766, height: 104.753, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(12.75deg)", width: 75.71, height: 90.27, background: "#b4b4b4", borderRadius: 5.824 }} /></div>
-			<div style={{ position: "absolute", left: 57.72, top: 0, width: 89.739, height: 106.996, background: "#d9d9d9", borderRadius: 6.903 }} />
-			<div style={{ position: "absolute", left: 0, top: 8.65, width: 93.765, height: 104.753, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ transform: "rotate(-12.75deg)", width: 75.71, height: 90.27, background: "rgba(217,217,217,0.8)", borderRadius: 5.824 }} /></div>
-		</div>
-	);
-	const phoneCard = (variant: 1 | 2, title: string, body: string) => (
+	const phoneCard = (feature: Feature, title: string, body: string) => (
 		<div style={card}>
-			{renderPhone(variant)}
+			{renderPhone(feature)}
 			<div style={{ position: "absolute", left: "50%", top: "calc(50% + 101.7px)", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 259 }}>
 				<p style={titleS}>{title}</p>
 				<p style={{ ...bodyS, width: 231 }}>{body}</p>
-			</div>
-		</div>
-	);
-	const stackCard = (title: string, body: string) => (
-		<div style={card}>
-			{renderStack()}
-			<div style={{ position: "absolute", left: "50%", top: "calc(50% + 101.7px)", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", gap: 9.281, alignItems: "flex-start", width: 259 }}>
-				<p style={titleS}>{title}</p>
-				<p style={{ ...bodyS, width: 259 }}>{body}</p>
 			</div>
 		</div>
 	);
@@ -2529,9 +2503,9 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 13.922 }}>
 						{phoneCard(1, "Trends", "See what's moving, what's hot, and what the market is actually doing — in plain English. Stay in the loop without the noise")}
-						{stackCard("Swipe Deck", "Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed,\nyour pace.")}
-						{phoneCard(2, "Intel Injections", "Bite-sized lessons delivered in-app, right when you need them. No textbooks. No boring lectures. Just context that makes you smarter on the spot.")}
-						{stackCard("Simulated STAK", "Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.")}
+						{phoneCard(2, "Swipe Deck", "Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed,\nyour pace.")}
+						{phoneCard(4, "Intel Injections", "Bite-sized lessons delivered in-app, right when you need them. No textbooks. No boring lectures. Just context that makes you smarter on the spot.")}
+						{phoneCard(3, "Simulated STAK", "Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.")}
 					</div>
 					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
 						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
@@ -2773,6 +2747,7 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }:
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
 function LandingPage() {
+	useOrbitron();
 	const { appUser, loading } = useAuth();
 	const { account, accountLoading } = useAccount();
 	const navigate = useNavigate();

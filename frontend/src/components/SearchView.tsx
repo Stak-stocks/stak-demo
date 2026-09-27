@@ -1,14 +1,21 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { X, Search, Clock, Trash2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { X, Search, Clock, Trash2, Check, Plus, ArrowRight } from "lucide-react";
 import type { BrandSummary } from "@stak/shared";
 import { useBrandsList } from "@/hooks/useBrandsList";
-
-const MAX_RESULTS = 20;
-
-import { StockCard } from "./StockCard";
-import { BrandContextModal } from "./BrandContextModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
+import { getBatchQuotes, recordEngagement } from "@/lib/api";
+import { DiscoverCard } from "@/components/discover/DiscoverCard";
+import { QuickLookSheet } from "@/components/discover/QuickLookSheet";
+import { CARD_PALETTE, CARD_WIDTH, DISC } from "@/components/discover/discoverTheme";
+import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
+import { DESK } from "@/components/desktop/deskKit";
+
+const MAX_RESULTS = 20;
+const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]";
 
 interface SearchViewProps {
 	open: boolean;
@@ -16,16 +23,23 @@ interface SearchViewProps {
 	onSwipeRight?: (brand: BrandSummary) => void;
 }
 
+/**
+ * Company search: results are Discover's own cards, TIP included (Learn more opens the same Quick Look sheet), with Add
+ * to STAK and View stock under each. Prices for every result come from one batch request instead of one per card.
+ * Tips are cached server-side for 30 days per company (shared by every user), so only a company nobody has viewed in
+ * that time costs a Gemini call.
+ */
 export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
+	const navigate = useNavigate();
 	const { appUser } = useAuth();
 	const { account, addSearchHistory, removeSearchHistoryEntry, clearSearchHistory } = useAccount();
 	const { data: allBrands } = useBrandsList();
+	const isMobile = useIsMobile();
+	const phoneUnit = useFigmaUnit();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [debouncedQuery, setDebouncedQuery] = useState("");
-	const [results, setResults] = useState<BrandSummary[]>([]);
-	const [selectedBrand, setSelectedBrand] = useState<BrandSummary | null>(null);
-	const [modalOpen, setModalOpen] = useState(false);
+	const [quickLook, setQuickLook] = useState<BrandSummary | null>(null);
 
 	// Pre-built search index -- recomputed only when the catalog itself changes
 	// (effectively once per session, since useBrandsList has a 24h staleTime),
@@ -39,99 +53,93 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		[allBrands],
 	);
 
-	// Recent searches from Firestore (account-based, cross-device)
 	const recentSearches = (account?.searchHistory ?? []).map((e) => e.query);
+	const stakIds = useMemo(() => new Set(account?.stakBrandIds ?? []), [account?.stakBrandIds]);
 
 	// Clear search when closing; auto-focus when opening
 	useEffect(() => {
 		if (!open) {
 			setQuery("");
 			setDebouncedQuery("");
-			setResults([]);
+			setQuickLook(null);
 		} else {
 			const t = setTimeout(() => inputRef.current?.focus(), 120);
 			return () => clearTimeout(t);
 		}
 	}, [open]);
 
-	// Debounce query so heavy StockCard re-renders don't fire on every keystroke
+	// Debounce so the result cards (and their one price request) don't churn on every keystroke.
 	useEffect(() => {
 		const timer = setTimeout(() => setDebouncedQuery(query), 200);
 		return () => clearTimeout(timer);
 	}, [query]);
 
-	useEffect(() => {
-		if (!debouncedQuery.trim()) {
-			setResults([]);
-			return;
-		}
-
-		const q = debouncedQuery.toLowerCase();
-		const filtered = searchIndex
+	const results = useMemo(() => {
+		const q = debouncedQuery.trim().toLowerCase();
+		if (!q) return [];
+		return searchIndex
 			.filter(({ nameLower, tickerLower }) => nameLower.includes(q) || tickerLower.includes(q))
 			.map(({ brand }) => brand)
 			.slice(0, MAX_RESULTS);
-
-		setResults(filtered);
 	}, [debouncedQuery, searchIndex]);
 
-	// Save clicked brand name to search history (Firestore via AccountContext)
-	const handleLearnMore = useCallback((brand: BrandSummary) => {
-		if (appUser) {
-			addSearchHistory(brand.name).catch(() => {});
-		}
-		if (modalOpen && selectedBrand?.id === brand.id) {
-			setModalOpen(false);
-			setTimeout(() => setSelectedBrand(null), 200);
-		} else {
-			setSelectedBrand(brand);
-			setModalOpen(true);
-		}
-	}, [appUser, addSearchHistory, modalOpen, selectedBrand]);
+	const tickers = useMemo(() => results.map((b) => b.ticker), [results]);
+	const { data: quoteData } = useQuery({
+		queryKey: ["batch-quotes", tickers],
+		queryFn: () => getBatchQuotes(tickers),
+		enabled: open && tickers.length > 0,
+		staleTime: 60 * 1000,
+		retry: 1,
+	});
+	const quotes = quoteData?.quotes ?? {};
 
-	const handleCloseModal = () => {
-		setModalOpen(false);
-		setTimeout(() => setSelectedBrand(null), 200);
-	};
+	const remember = useCallback((brand: BrandSummary) => {
+		if (appUser) addSearchHistory(brand.name).catch(() => {});
+	}, [appUser, addSearchHistory]);
 
-	const handleRecentClick = (search: string) => {
-		setQuery(search);
-	};
+	const openQuickLook = useCallback((brand: BrandSummary) => {
+		remember(brand);
+		setQuickLook(brand);
+		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
+	}, [remember]);
 
-	const handleRemoveRecent = (search: string) => {
-		removeSearchHistoryEntry(search).catch(() => {});
-	};
-
-	const handleClearRecent = () => {
-		clearSearchHistory().catch(() => {});
-	};
+	// Esc closes the Quick Look sheet first (it handles its own Esc), then the search.
+	useEffect(() => {
+		if (!open || quickLook) return;
+		const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [open, quickLook, onClose]);
 
 	if (!open) return null;
 
+	const searching = query.trim().length > 0;
+
 	return (
 		<>
-			<div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-white dark:bg-background z-50 flex flex-col">
+			<div
+				className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:left-[220px] md:bottom-0 z-50 flex flex-col"
+				// Cards are drawn in figma units: the phone's own scale on mobile, 1:1 (a 350px card) on desktop.
+				style={{ background: DISC.pageBg, ["--u" as string]: `${isMobile ? phoneUnit : 1}px` }}
+			>
 				{/* Sticky header + search — never scrolls */}
-				<div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
-					{/* Header */}
-					<div className="mb-6 flex items-center gap-3">
+				<div className="mx-auto w-full max-w-6xl shrink-0 px-4 pb-4 pt-6 sm:px-6 lg:px-8">
+					<div className="mb-5 flex items-center gap-3">
 						<button
 							type="button"
 							onClick={onClose}
-							className="p-2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-white hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
+							className={`grid h-[36px] w-[36px] place-items-center rounded-full transition-opacity hover:opacity-80 ${focusRing}`}
+							style={{ background: DISC.navCircle }}
 							aria-label="Close search"
 							title="Cancel"
 						>
-							<X className="w-5 h-5" />
+							<X className="h-[18px] w-[18px]" style={{ color: "#AEAEAE" }} />
 						</button>
-						<h2 className="text-[22px] font-extrabold text-foreground">
-							Search Stocks
-						</h2>
+						<h2 className="font-heading text-[20px] font-semibold text-white">Search Stocks</h2>
 					</div>
 
-					{/* Search Input */}
-					<div className="relative overflow-hidden rounded-xl">
-						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 z-10" />
+					<div className="relative">
+						<Search className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2" style={{ color: DISC.muted }} aria-hidden="true" />
 						<input
 							ref={inputRef}
 							type="search"
@@ -139,115 +147,108 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Search by ticker or company name..."
+							aria-label="Search by ticker or company name"
 							autoComplete="off"
 							autoCorrect="off"
 							spellCheck={false}
-							className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-zinc-200 dark:dark:border-slate-700/50 border-slate-200 bg-white dark:bg-surface-1 text-foreground placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-colors"
+							className="h-[48px] w-full rounded-[12px] pl-11 pr-4 text-[14px] text-white outline-none transition-colors placeholder:text-[#819ABB] focus:border-[#69B3CA]"
+							style={{ background: DISC.sheet, border: "1px solid rgba(120,170,220,0.16)" }}
 						/>
 					</div>
 				</div>
 
 				{/* Scrollable results area */}
 				<div className="flex-1 overflow-y-auto">
-				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-
-					{/* Results */}
-					{query.trim() ? (
-						results.length > 0 ? (
-							<div className="space-y-6">
-								<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
-									Search results — tap to explore the vibe.
-								</p>
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-									{results.map((brand) => (
-										<div
-											key={brand.id}
-											className="h-[420px] cursor-pointer"
-											onClick={() => handleLearnMore(brand)}
-										>
-											<StockCard brand={brand} />
-										</div>
-									))}
+					<div className="mx-auto max-w-6xl px-4 pb-10 sm:px-6 lg:px-8">
+						{searching ? (
+							results.length > 0 ? (
+								<>
+									<p className="mb-4 text-[13px]" style={{ color: DISC.muted }}>
+										{results.length === MAX_RESULTS ? `Top ${MAX_RESULTS} matches` : `${results.length} ${results.length === 1 ? "match" : "matches"}`} — Learn more for a quick look.
+									</p>
+									<div className="grid justify-center gap-6" style={{ gridTemplateColumns: `repeat(auto-fill, calc(${CARD_WIDTH} * var(--u)))` }}>
+										{results.map((brand, i) => {
+											const saved = stakIds.has(brand.id);
+											const quote = quotes[brand.ticker] ?? null;
+											return (
+												<div key={brand.id} className="flex flex-col gap-3">
+													<DiscoverCard brand={brand} paletteIndex={i % CARD_PALETTE.length} quote={quote} onLearnMore={openQuickLook} />
+													<div className="flex gap-2">
+														<button
+															type="button"
+															disabled={saved || !onSwipeRight}
+															onClick={() => { remember(brand); onSwipeRight?.(brand); }}
+															className={`flex h-[40px] flex-1 items-center justify-center gap-[6px] rounded-[12px] text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-default disabled:hover:opacity-100 ${focusRing}`}
+															style={saved
+																? { background: "rgba(47,208,138,0.12)", color: DISC.green }
+																: { background: DESK.cta, color: DESK.ctaText }}
+														>
+															{saved ? <><Check className="h-[15px] w-[15px]" aria-hidden="true" /> In your STAK</> : <><Plus className="h-[15px] w-[15px]" aria-hidden="true" /> Add to STAK</>}
+														</button>
+														<button
+															type="button"
+															onClick={() => { remember(brand); navigate({ to: "/stock/$symbol", params: { symbol: brand.ticker } }); }}
+															className={`flex h-[40px] flex-1 items-center justify-center gap-[6px] rounded-[12px] text-[13px] font-medium text-white transition-colors hover:bg-white/[0.06] ${focusRing}`}
+															style={{ border: "1px solid rgba(120,170,220,0.22)" }}
+														>
+															View stock <ArrowRight className="h-[15px] w-[15px]" aria-hidden="true" />
+														</button>
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								</>
+							) : (
+								<div className="py-12 text-center">
+									<p className="text-[14px] text-white">No results found for "{query}"</p>
+									<p className="mt-2 text-[13px]" style={{ color: DISC.muted }}>Try a different ticker or company name</p>
 								</div>
+							)
+						) : recentSearches.length > 0 ? (
+							<div className="max-w-[560px]">
+								<div className="mb-3 flex items-center justify-between">
+									<h3 className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: DISC.muted }}>Recent searches</h3>
+									<button
+										type="button"
+										onClick={() => clearSearchHistory().catch(() => {})}
+										className={`flex items-center gap-1 rounded-md text-[12px] transition-colors hover:text-[#FF5A6A] ${focusRing}`}
+										style={{ color: DISC.muted }}
+									>
+										<Trash2 className="h-[14px] w-[14px]" aria-hidden="true" /> Clear
+									</button>
+								</div>
+								<ul className="flex flex-col gap-1">
+									{recentSearches.map((search) => (
+										<li key={search} className="group flex items-center gap-3 rounded-[10px] px-3 py-[10px] transition-colors hover:bg-white/[0.04]">
+											<button type="button" onClick={() => setQuery(search)} className={`flex min-w-0 flex-1 items-center gap-3 rounded-md text-left ${focusRing}`}>
+												<Clock className="h-[15px] w-[15px] shrink-0" style={{ color: DISC.muted }} aria-hidden="true" />
+												<span className="truncate text-[14px] text-white">{search}</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => removeSearchHistoryEntry(search).catch(() => {})}
+												className={`grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full transition-colors hover:bg-white/[0.08] ${focusRing}`}
+												aria-label={`Remove ${search}`}
+											>
+												<X className="h-[15px] w-[15px]" style={{ color: DISC.muted }} />
+											</button>
+										</li>
+									))}
+								</ul>
 							</div>
 						) : (
-							<div className="text-center py-12">
-								<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
-									No results found for "{query}"
-								</p>
-								<p className="text-sm dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-2">
-									Try searching for a different ticker or company name
-								</p>
+							<div className="py-12 text-center">
+								<Search className="mx-auto mb-4 h-[44px] w-[44px]" style={{ color: DISC.faint }} aria-hidden="true" />
+								<p className="text-[14px] text-white">Start typing to search stocks</p>
+								<p className="mt-2 text-[13px]" style={{ color: DISC.muted }}>Search by ticker (e.g., AAPL) or company name</p>
 							</div>
-						)
-					) : (
-						<div>
-							{recentSearches.length > 0 ? (
-								<div>
-									<div className="flex items-center justify-between mb-4">
-										<h3 className="text-sm font-semibold text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 uppercase tracking-wider">
-											Recent Searches
-										</h3>
-										<button
-											type="button"
-											onClick={handleClearRecent}
-											className="flex items-center gap-1 text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-										>
-											<Trash2 className="w-3.5 h-3.5" />
-											Clear
-										</button>
-									</div>
-									<div className="space-y-1">
-										{recentSearches.map((search) => (
-											<div
-												key={search}
-												className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-surface-2 transition-colors group"
-											>
-												<button
-													type="button"
-													onClick={() => handleRecentClick(search)}
-													className="flex items-center gap-3 flex-1 min-w-0 text-left"
-												>
-													<Clock className="w-4 h-4 dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 shrink-0" />
-													<span className="text-zinc-700 dark:dark:text-zinc-300 text-zinc-700 text-sm truncate group-hover:text-zinc-900 dark:group-hover:text-foreground transition-colors">
-														{search}
-													</span>
-												</button>
-												<button
-													type="button"
-													onClick={() => handleRemoveRecent(search)}
-													className="p-1.5 rounded-full dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:dark:bg-slate-700/50 bg-slate-200/70 transition-colors shrink-0"
-													aria-label={`Remove ${search}`}
-												>
-													<X className="w-4 h-4" />
-												</button>
-											</div>
-										))}
-									</div>
-								</div>
-							) : (
-								<div className="text-center py-12">
-									<Search className="w-16 h-16 dark:text-zinc-300 text-zinc-700 dark:text-zinc-700 mx-auto mb-4" />
-									<p className="text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
-										Start typing to search stocks
-									</p>
-									<p className="text-sm dark:text-zinc-400 text-zinc-600 dark:text-zinc-500 mt-2">
-										Search by ticker (e.g., AAPL) or company name
-									</p>
-								</div>
-							)}
-						</div>
-					)}
-				</div>
+						)}
+					</div>
 				</div>
 			</div>
 
-			<BrandContextModal
-				brand={selectedBrand}
-				open={modalOpen}
-				onClose={handleCloseModal}
-				onAddToStak={onSwipeRight}
-			/>
+			{quickLook && <QuickLookSheet brand={quickLook} onClose={() => setQuickLook(null)} />}
 		</>
 	);
 }

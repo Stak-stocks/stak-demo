@@ -8,6 +8,14 @@ async function getAuthToken(): Promise<string | null> {
 	return data.session?.access_token ?? null;
 }
 
+/** A failed API call. `status` lets callers tell the server refusing a request (4xx, with its own reason) from an outage. */
+export class ApiError extends Error {
+	constructor(message: string, readonly status: number) {
+		super(message);
+		this.name = "ApiError";
+	}
+}
+
 async function apiRequest<T>(
 	endpoint: string,
 	options: RequestInit = {},
@@ -34,7 +42,7 @@ async function apiRequest<T>(
 			const body = await response.json() as { error?: string };
 			if (body.error) message = body.error;
 		} catch { /* ignore parse failure */ }
-		throw new Error(message);
+		throw new ApiError(message, response.status);
 	}
 
 	return response.json();
@@ -42,10 +50,61 @@ async function apiRequest<T>(
 
 // User profile
 export function getProfile() {
-	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");
+	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; createdAt?: string; plan?: string; taste?: { goal: number; risk: number; riskStyle: string; picks: string[] } | null }>("/api/me");
 }
 
-export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }) {
+/** Deletes the account and every saved row (and, best-effort, the Supabase auth record). */
+export function deleteMe() {
+	return apiRequest<{ ok: boolean }>("/api/me", { method: "DELETE" });
+}
+
+// Browser push (Web Push): the VAPID public key to subscribe with, and this browser's registration
+export function getWebPushKey() {
+	return apiRequest<{ publicKey: string }>("/api/me/web-push-key");
+}
+
+export function putPushDevice(body: {
+	token: string;
+	platform: "web";
+	webKeys: { p256dh: string; auth: string };
+	timezone: string;
+	priceAlerts: boolean;
+	dailyDeck: boolean;
+}) {
+	return apiRequest<{ ok: boolean }>("/api/me/push-device", { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function deletePushDevice(token: string) {
+	return apiRequest<{ ok: boolean }>("/api/me/push-device", { method: "DELETE", body: JSON.stringify({ token }) });
+}
+
+// Cross-device inbox/saved-news state (the endpoint is named for Android, its first client; the
+// web reads/writes the same ids so read state follows the account). Omitted fields on PUT are left alone.
+export interface DeviceState {
+	portfolio: unknown;
+	notifRead: string[];
+	newsSaved: string[];
+}
+
+export function getDeviceState() {
+	return apiRequest<DeviceState>("/api/me/android-state");
+}
+
+export function putDeviceState(patch: { notifRead?: string[]; newsSaved?: string[] }) {
+	return apiRequest<{ ok: boolean }>("/api/me/android-state", {
+		method: "PUT",
+		body: JSON.stringify(patch),
+	});
+}
+
+export interface AndroidTaste {
+	goal: number;
+	risk: number;
+	riskStyle: string;
+	picks: string[];
+}
+
+export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; taste?: AndroidTaste }) {
 	return apiRequest("/api/me", {
 		method: "PUT",
 		body: JSON.stringify(data),
@@ -64,6 +123,25 @@ export function getBrandsList() {
 
 export function getBrandDetail(id: string) {
 	return apiRequest<import("@stak/shared").BrandProfile>(`/api/brands/${encodeURIComponent(id)}`);
+}
+
+/** Gemini-written two-sentence tip for a Discover card ("" when generation isn't available). */
+export function getBrandTip(id: string) {
+	return apiRequest<{ tip: string }>(`/api/brands/${encodeURIComponent(id)}/tip`);
+}
+
+export interface QuickLook {
+	in10Seconds: string;
+	whyNow: string;
+	setup: string;
+	catch: string;
+	whatToWatch: string;
+	keyThemes: string[];
+}
+
+/** The Quick Look sheet's 30-second overview; `quickLook` is null when generation isn't available. */
+export function getQuickLook(id: string) {
+	return apiRequest<{ quickLook: QuickLook | null }>(`/api/brands/${encodeURIComponent(id)}/quick-look`);
 }
 
 export function getPopularBrands() {
@@ -98,6 +176,8 @@ export interface TasteThemeDto {
 export interface TasteApiResponse {
 	themes: TasteThemeDto[];
 	otherShare: number;
+	/** The themes behind otherShare, one by one (newer backends only). */
+	otherThemes?: TasteThemeDto[];
 	totalSaves: number;
 	signals: number;
 	learning: boolean;
@@ -166,16 +246,20 @@ export function recordSwipe(
 	brandId: string,
 	direction: "left" | "right",
 	meta?: { ticker?: string; categories?: string[]; stakSize?: number; timeOnCardMs?: number; swipeVelocity?: number },
+	options?: { keepalive?: boolean },
 ) {
 	return apiRequest<RecordSwipeResponse>("/api/swipe", {
 		method: "POST",
+		keepalive: options?.keepalive,
 		body: JSON.stringify({ brandId, direction, todayKey: getTodayKey(), ...meta }),
 	});
 }
 
+/** Engagement events. Investing Taste counts `learn_more` (Quick Looks read) and `stock_detail_open` (company pages
+ *  opened) per ticker, the same events Android sends. */
 export function recordEngagement(
-	type: "learn_more" | "removed_from_stak",
-	brandId: string,
+	type: "learn_more" | "removed_from_stak" | "stock_detail_open",
+	brandId: string | undefined,
 	meta?: { ticker?: string; categories?: string[] },
 ) {
 	return apiRequest("/api/swipe/event", {
@@ -257,6 +341,14 @@ export function sandboxBuy(ticker: string, shares: number, thesis?: string) {
 	});
 }
 
+/** Android's wire format: dollars to spend; the server prices the fill. */
+export function sandboxBuyAmount(ticker: string, amount: number) {
+	return apiRequest<SandboxBuyResult>("/api/sandbox/buy", {
+		method: "POST",
+		body: JSON.stringify({ ticker, amount }),
+	});
+}
+
 export interface SandboxSellResult {
 	price: number;
 	sharesToSell: number;
@@ -271,8 +363,18 @@ export function sandboxSell(ticker: string, shares?: number) {
 	});
 }
 
+/** Android's wire format: the fraction of the position to sell (1 = all). */
+export function sandboxSellPortion(ticker: string, portion: number) {
+	return apiRequest<SandboxSellResult>("/api/sandbox/sell", {
+		method: "POST",
+		body: JSON.stringify({ ticker, portion }),
+	});
+}
+
 export function sandboxReset() {
-	return apiRequest<{ ok: boolean; cash: number; tier: number }>("/api/sandbox/reset", { method: "POST" });
+	return apiRequest<{ ok: boolean; cash: number; tier: number | null; name: string | null; strategy: string | null }>(
+		"/api/sandbox/reset", { method: "POST" },
+	);
 }
 
 export function sandboxMilestone(value: number) {
@@ -284,6 +386,51 @@ export function sandboxMilestone(value: number) {
 
 export function sandboxTierUpgrade() {
 	return apiRequest<{ ok: boolean; increase?: number; newTier?: number }>("/api/sandbox/tier-upgrade", { method: "POST" });
+}
+
+// Free-choice setup (Android's model, now on web too): user picks a starting balance,
+// name and strategy, opting out of XP-tier top-ups.
+export function sandboxSetup(startingBalance: number, name: string, strategy: string) {
+	return apiRequest<{ ok: boolean; cash: number; name: string; strategy: string }>("/api/sandbox/setup", {
+		method: "POST",
+		body: JSON.stringify({ startingBalance, name, strategy }),
+	});
+}
+
+export interface SandboxOrderResult {
+	id: number;
+	ticker: string;
+	amount: number;
+	limitPrice: number;
+	status: "open";
+	createdAt: string;
+	remainingCash: number;
+}
+
+export function sandboxPlaceOrder(ticker: string, amount: number, limitPrice: number) {
+	return apiRequest<SandboxOrderResult>("/api/sandbox/orders", {
+		method: "POST",
+		body: JSON.stringify({ ticker, amount, limitPrice }),
+	});
+}
+
+export function sandboxCancelOrder(id: number) {
+	return apiRequest<{ ok: boolean }>(`/api/sandbox/orders/${id}/cancel`, { method: "POST" });
+}
+
+export interface SandboxTrade {
+	id: number;
+	ticker: string;
+	side: "buy" | "sell";
+	shares: number;
+	price: number;
+	amount: number;
+	source: "market" | "limit";
+	executedAt: string;
+}
+
+export function getSandboxTrades(limit = 50) {
+	return apiRequest<{ trades: SandboxTrade[] }>(`/api/sandbox/trades?limit=${limit}`);
 }
 
 export function getDeckOrder() {
@@ -449,6 +596,17 @@ export function getDailyMove(symbol: string, changePercent?: number, name?: stri
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }
 
+/** The stock page's Risk snapshot and What to watch next (503 when it can't be built). */
+export interface RiskWatch {
+	risks: Array<{ label: string; level: string | null; note: string }>;
+	watch: Array<{ title: string; note: string }>;
+	rated?: boolean;
+}
+
+export function getRiskWatch(symbol: string) {
+	return apiRequest<RiskWatch>(`/api/stock/${encodeURIComponent(symbol)}/risk-watch`);
+}
+
 export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: string) {
 	const params = new URLSearchParams();
 	if (name) params.set("name", name);
@@ -500,6 +658,12 @@ export interface DailyBriefResponse {
 	moodExplanation: string;
 	plainEnglish: string;
 	personalizedImpact: string;
+	/** The Daily Brief page's "What actually happened" items (three at most). */
+	whatHappened?: Array<{ title: string; body: string }>;
+	/** "Why can the Dow rise while the Nasdaq falls?" - shown in the Ask STAK AI card. */
+	contextQuestion?: string;
+	/** "What to watch next" rows; `icon` is an emoji the app ignores in favour of its own glyphs. */
+	watchItems?: Array<{ icon: string; label: string; body: string }>;
 	decks: DailyBriefDeck[];
 	featuredLesson?: FeaturedLesson;
 	marketSnapshot: {
@@ -661,6 +825,19 @@ export function getBatchQuotes(tickers: string[]) {
 	return apiRequest<{ quotes: Record<string, { price: number; change: number; changePercent: number }> }>(
 		`/api/stock/batch-quotes?tickers=${encodeURIComponent(tickers.join(","))}`,
 	);
+}
+
+export interface TrendingStock {
+	ticker: string;
+	name: string;
+	price: number;
+	change: number;
+	changePercent: number;
+}
+
+/** Home's Trending strip — top movers, public, 3-min server cache. */
+export function getTrending() {
+	return apiRequest<{ trending: TrendingStock[] }>("/api/stock/trending");
 }
 
 // Search history — server manages dedup/cap (replaces 4 Supabase round-trips per add)

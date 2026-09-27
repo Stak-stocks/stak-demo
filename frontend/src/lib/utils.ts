@@ -64,3 +64,8 @@ export function getLastCloseRef(): "today" | "close" | "yesterday" | "Friday" {
 		return "Friday";
 	} catch { return "today"; }
 }
+
+/** Each word title-cased, blanks dropped: "gOODLUCK  b" -> "Goodluck B". */
+export function capitalizeWords(name: string): string {
+	return name.split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}

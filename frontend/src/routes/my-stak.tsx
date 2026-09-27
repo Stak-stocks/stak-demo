@@ -1,86 +1,83 @@
+import { FailedCard } from "@/components/mystak/FailedCard";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { useCollections } from "@/hooks/useCollections";
 import { useTaste } from "@/hooks/useTaste";
 import { useUpdates } from "@/hooks/useUpdates";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
-import { useStockDetailOverlay } from "@/hooks/useStockDetailOverlay";
-import { getStockData, patchStakBrandPrice } from "@/lib/api";
 import { CollectionGrid } from "@/components/mystak/CollectionGrid";
 import { EmptyStak } from "@/components/mystak/EmptyStak";
 import { UpdatesCard } from "@/components/mystak/UpdatesCard";
 import { TasteCard } from "@/components/mystak/TasteCard";
 import { DiscoverHandoff } from "@/components/mystak/DiscoverHandoff";
-import { EarningsCalendarButton } from "@/components/EarningsCalendar";
+import { DISC, cu } from "@/components/discover/discoverTheme";
+import { PhonePage, f } from "@/components/phone/phone";
+import { MyStakDesktop } from "@/components/mystak/desktop/MyStakDesktop";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { usePriceBackfill } from "@/hooks/usePriceBackfill";
 
 export const Route = createFileRoute("/my-stak")({
-	component: MyStakPage,
+	component: MyStakRoute,
 });
 
+/** The user's desktop design above the mobile breakpoint; Android's overview below it. */
+function MyStakRoute() {
+	const { account, allBrands } = useMyStakData();
+	usePriceBackfill(account?.stakSavedAt, allBrands);
+	return useIsMobile() ? <MyStakPage /> : <MyStakDesktop />;
+}
+
+/** Android shows six collections on the overview; "View all N ›" opens the rest. */
 const COLLECTIONS_SHOWN = 6;
 
 function MyStakPage() {
 	const { appUser } = useAuth();
 	const navigate = useNavigate();
-	const { allBrands, allBrandsLoading, swipedBrands, batchQuotes, account, accountLoading } = useMyStakData();
+	const { allBrandsLoading, allBrandsError, retryBrands, swipedBrands, batchQuotes, account, accountLoading } = useMyStakData();
 	const { groups } = useCollections(swipedBrands, batchQuotes);
 	const { taste, isError: tasteFailed, refetch: retryTaste } = useTaste();
-	const { updates, unread } = useUpdates();
+	const { updates, unread, isError: updatesError } = useUpdates();
 	const { remaining: cardsLeft } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
-	const { open: openStock, overlay: stockOverlay, loadingOverlay: stockLoadingOverlay } = useStockDetailOverlay(allBrands);
 
-	// One-time backfill: for saved stocks missing priceAtSave, fetch current price and patch Supabase
-	const BACKFILL_SS_KEY = "stak:price-backfill:done";
-	const backfilledRef = useRef(sessionStorage.getItem(BACKFILL_SS_KEY) === "1");
-	useEffect(() => {
-		if (backfilledRef.current || !account?.stakSavedAt || allBrands.length === 0) return;
-		const nullEntries = Object.entries(account.stakSavedAt).filter(([, e]) => e.priceAtSave === null);
-		if (nullEntries.length === 0) { backfilledRef.current = true; sessionStorage.setItem(BACKFILL_SS_KEY, "1"); return; }
-		backfilledRef.current = true;
-		sessionStorage.setItem(BACKFILL_SS_KEY, "1");
-		for (const [brandId] of nullEntries) {
-			const brand = allBrands.find(b => b.id === brandId);
-			if (!brand?.ticker) continue;
-			getStockData(brand.ticker)
-				.then(data => { if (data?.quote?.price) patchStakBrandPrice(brandId, data.quote.price); })
-				.catch(() => {});
-		}
-	}, [account?.stakSavedAt, allBrands]);
 
-	const unreadTickers = new Set(updates.filter((u) => !u.read).map((u) => u.ticker));
-	const unreadCompanies = new Set(updates.filter((u) => !u.read).map((u) => u.ticker)).size;
+	const unreadTickers = useMemo(() => new Set(updates.filter((u) => !u.read).map((u) => u.ticker)), [updates]);
 
 	const loading = accountLoading || allBrandsLoading;
-	const startSwiping = () => navigate({ to: "/" });
+	// Saves exist but the brand list they resolve against didn't load: an empty grid here would pass for "you have nothing saved".
+	const brandsFailed = allBrandsError && (account?.stakBrandIds?.length ?? 0) > 0;
+	const startSwiping = () => navigate({ to: "/discover" });
 
 	return (
-		<div className="min-h-full bg-background text-foreground">
-			<div className="flex items-start justify-between px-5 pt-5">
-				<div>
-					<h1 className="font-heading text-[26px] font-semibold leading-[33px] text-white">My STAK</h1>
-					<p className="mt-[4px] text-[13px] leading-[17px] text-mystak-muted">Companies you've STAK'd, all in one place.</p>
-				</div>
-				<EarningsCalendarButton onSelectBrand={(brand) => openStock(brand.id)} />
-			</div>
+		<PhonePage>
+			{/* Android's header is fixed; only the body scrolls. */}
+			<header className="sticky top-0 z-10 bg-background" style={{ padding: `${cu(20)} ${cu(20)} 0`, display: "flex", flexDirection: "column", gap: cu(4) }}>
+				<h1 style={{ font: f(600, 26, 33, "heading"), color: "#fff" }}>My STAK</h1>
+				<p style={{ font: f(400, 13, 17), color: DISC.muted }}>Companies you've STAK'd, all in one place.</p>
+			</header>
 
-			<div className="mx-auto flex max-w-lg flex-col gap-[16px] px-5 pt-5 pb-8">
+			<div style={{ display: "flex", flexDirection: "column", gap: cu(16), padding: `${cu(20)} ${cu(20)} ${cu(24)}` }}>
 				{loading ? (
-					<div className="grid grid-cols-2 gap-[10px] md:grid-cols-3 lg:grid-cols-4">
-						{[...Array(4)].map((_, i) => (
-							<div key={i} className="h-[62px] animate-pulse rounded-[12px] bg-mystak-card" />
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(10) }} aria-busy="true" aria-label="Loading your collections">
+						{[0, 1].map((row) => (
+							<div key={row} className="flex" style={{ gap: cu(10) }}>
+								{[0, 1].map((i) => <div key={i} className="flex-1 animate-pulse" style={{ height: cu(58), borderRadius: cu(12), background: DISC.sheet }} />)}
+							</div>
 						))}
 					</div>
+				) : brandsFailed ? (
+					<FailedCard title="Your collections" body="Couldn't load the company list right now, so your saved stocks can't be shown." onRetry={() => retryBrands()} />
 				) : groups.length > 0 ? (
-					<div className="flex flex-col gap-[8px]">
+					<>
 						<div className="flex items-center">
-							<p className="font-heading text-[16px] font-semibold leading-[20px] text-mystak-header-gray">Collections</p>
+							<h2 style={{ font: f(600, 16, 20, "heading"), color: DISC.headerGray }}>Collections</h2>
 							{groups.length > COLLECTIONS_SHOWN && (
 								<button
 									type="button"
 									onClick={() => navigate({ to: "/my-stak/collections" })}
-									className="ml-auto text-[12px] font-medium leading-[16px] text-mystak-teal"
+									className="ml-auto transition-opacity active:opacity-70"
+									style={{ font: f(500, 12, 16), color: DISC.teal }}
 								>
 									View all {groups.length} ›
 								</button>
@@ -91,16 +88,15 @@ function MyStakPage() {
 							unreadTickers={unreadTickers}
 							onOpen={(id) => navigate({ to: "/my-stak/collection/$id", params: { id } })}
 						/>
-					</div>
+					</>
 				) : (
 					<EmptyStak onStartSwiping={startSwiping} />
 				)}
 
 				{updates.length > 0 && (
 					<UpdatesCard
-						unreadCompanies={unreadCompanies}
+						unreadCompanies={unreadTickers.size}
 						unread={unread}
-						total={updates.length}
 						onOpen={() => navigate({ to: "/my-stak/updates" })}
 					/>
 				)}
@@ -112,11 +108,12 @@ function MyStakPage() {
 					onRetry={() => retryTaste()}
 				/>
 
+				{updatesError && updates.length === 0 && (
+					<FailedCard title="Updates in your STAK" body="Couldn't check your saved companies right now." />
+				)}
+
 				<DiscoverHandoff cardsLeft={cardsLeft} onStartSwiping={startSwiping} />
 			</div>
-
-			{stockOverlay}
-			{stockLoadingOverlay}
-		</div>
+		</PhonePage>
 	);
 }

@@ -12,6 +12,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./context/AuthContext";
 import { AccountProvider } from "./context/AccountContext";
+import { OnboardingProvider } from "./context/OnboardingContext";
 
 
 // Create a new router instance
@@ -41,10 +42,12 @@ if (rootElement && !rootElement.innerHTML) {
 			<ThemeProvider>
 				<AuthProvider>
 					<AccountProvider>
-						<QueryClientProvider client={queryClient}>
-							<RouterProvider router={router} />
-							<Analytics />
-						</QueryClientProvider>
+						<OnboardingProvider>
+							<QueryClientProvider client={queryClient}>
+								<RouterProvider router={router} />
+								<Analytics />
+							</QueryClientProvider>
+						</OnboardingProvider>
 					</AccountProvider>
 				</AuthProvider>
 			</ThemeProvider>

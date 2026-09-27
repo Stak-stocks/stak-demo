@@ -27,7 +27,7 @@ export const INTEREST_OPTIONS: InterestOption[] = [
 export const MOTIVATION_OPTIONS = [
 	{ id: "learn", label: "I want to learn about stocks", color: "bg-red-500", icon: "👤" },
 	{ id: "invest", label: "I want to start investing", color: "bg-green-500", icon: "👤" },
-	{ id: "insights", label: "I already invest but want better insights", color: "bg-teal-500", icon: "👤" },
+	{ id: "insights", label: "I already invest but want better insights", color: "bg-[#69B3CA]", icon: "👤" },
 	{ id: "curious", label: "Just curious", color: "bg-slate-600", icon: "💭" },
 ];
 

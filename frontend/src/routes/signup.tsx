@@ -1,227 +1,165 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect, useRef } from "react";
 import { getProfile } from "@/lib/api";
-import { StakLogo } from "@/components/StakLogo";
+import {
+	AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, GooglePill, OrDivider, ShowHide, SwitchRow,
+	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
+} from "@/components/auth/AuthKit";
+import { DISC, cu } from "@/components/discover/discoverTheme";
+import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
+	// login sends an unconfirmed account here (?confirm=<email>) to type the code it just re-sent.
+	validateSearch: (search: Record<string, unknown>): { confirm?: string } => ({
+		confirm: typeof search.confirm === "string" && search.confirm ? search.confirm : undefined,
+	}),
 });
 
+/** Android's Create account: Google or email + password, then a confirmation code from the email. */
 function SignUpPage() {
-	const { loading, signUpWithEmail, signInWithGoogleSupabase, supabaseUserId } = useAuth();
+	const { loading, signUpWithEmail, signInWithGoogleSupabase, verifySignupOtp, resendSignupOtp, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
-	const [signingUp, setSigningUp] = useState(false);
-	const [emailSent, setEmailSent] = useState(false);
-	const [email, setEmail] = useState("");
+	const { confirm: confirmEmail } = Route.useSearch();
+	const [mode, setMode] = useState<"form" | "confirm">(confirmEmail ? "confirm" : "form");
+	const [submitting, setSubmitting] = useState(false);
+	const [email, setEmail] = useState(confirmEmail ?? "");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
+	const [code, setCode] = useState("");
+	const [attempted, setAttempted] = useState(false);
+	const [serverError, setServerError] = useState<string | null>(null);
+	const { shown, toggle } = usePasswordVisibility();
 
-	// Already logged in — redirect to appropriate page
+	// Set for the whole verify -> navigate hop: confirming the code creates the session, which
+	// would otherwise trip the "already logged in" redirect below and race handleVerify's own
+	// navigation - whichever landed last won, sometimes dropping a new user back into the quiz.
+	const verifyingRef = useRef(false);
+
+	// Already logged in - redirect to the right page. A signed-in user who hasn't finished onboarding starts it at Intro,
+	// exactly as Android does after sign-in.
 	useEffect(() => {
-		if (loading || !supabaseUserId) return;
+		if (loading || !supabaseUserId || verifyingRef.current) return;
 		getProfile()
 			.then((profile) => {
+				if (verifyingRef.current) return;
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
 			})
 			.catch(() => navigate({ to: "/" }));
 	}, [loading, supabaseUserId, navigate]);
 
-	async function handleEmailSignUp(e: React.FormEvent) {
-		e.preventDefault();
-		if (!email || !password || !confirmPassword) return;
-		if (password !== confirmPassword) {
-			toast.error("Passwords don't match");
-			return;
-		}
-		if (password.length < 6) {
-			toast.error("Password must be at least 6 characters");
-			return;
-		}
-		setSigningUp(true);
+	const problems = { email: emailProblem(email), password: passwordProblem(password), confirm: confirmProblem(password, confirmPassword) };
+
+	async function handleEmailSignUp() {
+		setAttempted(true);
+		setServerError(null);
+		if (problems.email || problems.password || problems.confirm || submitting) return;
+		setSubmitting(true);
 		try {
-			await signUpWithEmail(email, password);
-			// Supabase sends a confirmation email — show "check your inbox" state
-			// instead of navigating. Once the user clicks the link, Supabase exchanges
-			// the code for a session and onAuthStateChange fires, which will trigger
-			// the supabaseUserId effect above to navigate to /onboarding.
-			setEmailSent(true);
-		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "";
-			if (message.toLowerCase().includes("already registered") || message.toLowerCase().includes("already been registered")) {
-				toast.error("Email already in use. Try signing in instead.");
-			} else {
-				toast.error("Sign up failed. Please try again.");
-			}
-			setSigningUp(false);
+			await signUpWithEmail(email.trim(), password);
+			setMode("confirm");
+			setAttempted(false);
+		} catch (error) {
+			setServerError(friendlyAuthError(error));
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleVerify() {
+		if (submitting || code.length < OTP_LENGTH) return;
+		setSubmitting(true);
+		setServerError(null);
+		verifyingRef.current = true;
+		try {
+			await verifySignupOtp(email.trim(), code);
+			// The account now exists: on to Intro, the first onboarding step.
+			navigate({ to: "/onboarding" });
+		} catch (error) {
+			verifyingRef.current = false;
+			setCode("");
+			setServerError(friendlyAuthError(error));
+			setSubmitting(false);
+		}
+	}
+
+	async function handleResend() {
+		setSubmitting(true);
+		setServerError(null);
+		try {
+			await resendSignupOtp(email.trim());
+		} catch (error) {
+			setServerError(friendlyAuthError(error));
+		} finally {
+			setSubmitting(false);
 		}
 	}
 
 	async function handleGoogleSignIn() {
-		setSigningUp(true);
+		setSubmitting(true);
+		setServerError(null);
 		try {
 			await signInWithGoogleSupabase();
-		} catch (error: unknown) {
-			toast.error("Sign in failed. Please try again.");
-			setSigningUp(false);
+		} catch (error) {
+			setServerError(friendlyAuthError(error));
+			setSubmitting(false);
 		}
 	}
 
 	if (loading) {
-		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
-				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-			</div>
-		);
+		return <PhonePage><div className="grid place-items-center" style={{ height: cu(300) }}><AuthSpinner size={32} /></div></PhonePage>;
 	}
 
-	if (emailSent) {
-		return (
-			<div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 text-center">
-				<StakLogo size={48} />
-				<h1 className="text-[26px] font-extrabold text-foreground mt-6">Check your inbox</h1>
-				<p className="dark:text-slate-400 text-slate-500 mt-2 max-w-xs">
-					We sent a confirmation link to <strong className="text-foreground">{email}</strong>. Click it to activate your account and get started.
-				</p>
-				<p className="text-slate-500 text-sm mt-6">
-					Didn't get it?{" "}
-					<button
-						type="button"
-						className="text-blue-400 hover:text-blue-300"
-						onClick={() => setEmailSent(false)}
-					>
-						Try again
-					</button>
-				</p>
-			</div>
-		);
-	}
-
+	const confirming = mode === "confirm";
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			{/* Logo — top left */}
-			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
-				<StakLogo size={28} />
-				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
-			</Link>
-
-			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
-				{/* Heading */}
-				<div>
-					<h1 className="text-[26px] font-extrabold text-foreground">Create Account</h1>
-					<p className="dark:text-slate-400 text-slate-500 mt-1">Start building your stak</p>
-				</div>
-
-				{/* Form */}
-				<form onSubmit={handleEmailSignUp} className="space-y-4 text-left">
-					<div>
-						<label htmlFor="email" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Email</label>
-						<input
-							id="email"
-							type="email"
-							placeholder="Email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-						/>
+		<AuthScreen
+			// On the code step, back returns to the form (email kept) rather than leaving sign-up.
+			nav={confirming ? <BackCircle label="Back to sign-up form" onClick={() => { setMode("form"); setServerError(null); }} /> : undefined}
+			bottom={
+				<>
+					{confirming
+						? <AuthCta label="Verify" onClick={handleVerify} disabled={submitting || code.length < OTP_LENGTH} />
+						: <AuthCta label="Create account" onClick={handleEmailSignUp} disabled={submitting} />}
+					{submitting && <AuthSpinner />}
+					{serverError && <ErrorText>{serverError}</ErrorText>}
+					<SwitchRow prefix="Already have an account?" link="Sign in" onClick={() => navigate({ to: "/login" })} />
+					<p className="text-center" style={{ padding: `0 ${cu(24)}`, font: f(400, 10), color: DISC.muted }}>By continuing you agree to the Terms and Privacy Policy.</p>
+				</>
+			}
+		>
+			{confirming ? (
+				<>
+					<AuthHeader title="Check your email" subtitle={`We sent a confirmation code to ${email.trim()}. Enter it below to confirm your account.`} />
+					<div style={{ height: cu(4) }} />
+					<AuthInput
+						value={code}
+						onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 10))}
+						placeholder="Confirmation code"
+						inputMode="numeric"
+						autoComplete="one-time-code"
+						autoFocus
+						onEnter={handleVerify}
+					/>
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+						<p style={{ font: f(500, 14), color: "#fff" }}>Didn’t get it?</p>
+						<p style={{ font: f(400, 11, 15), color: "#ACAFB1" }}>Check your spam folder, or</p>
+						<button type="button" onClick={handleResend} disabled={submitting} className={`w-fit disabled:opacity-50 ${PRESS}`} style={{ font: f(500, 12), color: DISC.teal, ...focusRing }}>
+							Resend confirmation email
+						</button>
 					</div>
-
-					<div>
-						<label htmlFor="password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Password</label>
-						<div className="relative">
-							<input
-								id="password"
-								type={showPassword ? "text" : "password"}
-								placeholder="At least 6 characters"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowPassword(!showPassword)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:dark:text-slate-300 text-slate-600"
-							>
-								{showPassword ? (
-									<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-										<path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-									</svg>
-								) : (
-									<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-										<path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-										<path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-									</svg>
-								)}
-							</button>
-						</div>
-					</div>
-
-					<div>
-						<label htmlFor="confirmPassword" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Confirm Password</label>
-						<input
-							id="confirmPassword"
-							type={showPassword ? "text" : "password"}
-							placeholder="Confirm password"
-							value={confirmPassword}
-							onChange={(e) => setConfirmPassword(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-						/>
-					</div>
-
-					{/* Sign Up Button */}
-					<button
-						type="submit"
-						disabled={signingUp || !email || !password || !confirmPassword}
-						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
-					>
-						{signingUp ? (
-							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-								Creating account...
-							</div>
-						) : (
-							"Sign Up"
-						)}
-					</button>
-				</form>
-
-				{/* Divider */}
-				<div className="flex items-center gap-3">
-					<div className="flex-1 h-px bg-slate-700" />
-					<span className="text-sm text-slate-500">or continue with</span>
-					<div className="flex-1 h-px bg-slate-700" />
-				</div>
-
-				{/* Social Buttons */}
-				<div className="space-y-3">
-					<button
-						type="button"
-						onClick={handleGoogleSignIn}
-						disabled={signingUp}
-						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
-					>
-						<svg className="w-5 h-5" viewBox="0 0 24 24">
-							<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-							<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-							<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-							<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-						</svg>
-						Sign up with Google
-					</button>
-
-				</div>
-
-				{/* Sign In Link */}
-				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
-					Already have an account?{" "}
-					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
-						Sign in
-					</Link>
-				</p>
-			</div>
-		</div>
+				</>
+			) : (
+				<>
+					<AuthHeader title="Create your account" subtitle="Enter your details below to continue" />
+					<div style={{ height: cu(4) }} />
+					<GooglePill onClick={handleGoogleSignIn} disabled={submitting} />
+					<OrDivider />
+					<AuthInput value={email} onChange={setEmail} placeholder="Email address" type="email" inputMode="email" autoComplete="email" error={attempted ? problems.email : null} onEnter={handleEmailSignUp} />
+					<AuthInput value={password} onChange={setPassword} placeholder="Password" type={shown ? "text" : "password"} autoComplete="new-password" error={attempted ? problems.password : null} trailing={<ShowHide shown={shown} onToggle={toggle} />} onEnter={handleEmailSignUp} />
+					<AuthInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm Password" type={shown ? "text" : "password"} autoComplete="new-password" error={attempted ? problems.confirm : null} onEnter={handleEmailSignUp} />
+				</>
+			)}
+		</AuthScreen>
 	);
 }

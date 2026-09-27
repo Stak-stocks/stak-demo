@@ -8,6 +8,7 @@ import {
 	type ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
+import { disableWebPush } from "../lib/webPush";
 
 export interface AppUser {
 	uid: string;
@@ -28,6 +29,9 @@ interface AuthContextType {
 	signInWithGoogleSupabase: () => Promise<void>;
 	resetPasswordSupabase: (email: string) => Promise<void>;
 	confirmResetSupabase: (newPassword: string) => Promise<void>;
+	verifySignupOtp: (email: string, code: string) => Promise<void>;
+	resendSignupOtp: (email: string) => Promise<void>;
+	verifyRecoveryOtp: (email: string, code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -133,8 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [supabaseUserId]);
 
 	async function signUpWithEmail(email: string, password: string) {
-		const { error } = await supabase.auth.signUp({ email, password });
+		const { data, error } = await supabase.auth.signUp({ email, password });
 		if (error) throw error;
+		// For an already-confirmed address Supabase answers success with an empty identities
+		// list (so signup can't be used to probe which emails exist) - and sends no code. Treat
+		// it as the duplicate it is, or the user waits on an email that never comes.
+		if (data.user && (data.user.identities?.length ?? 0) === 0) {
+			throw new Error("User already registered");
+		}
 	}
 
 	async function signInWithEmailSupabase(email: string, password: string) {
@@ -155,8 +165,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function resetPasswordSupabase(email: string) {
-		// No redirectTo — the email template uses {{ .TokenHash }} to point directly
-		// to /reset-password, so redirectTo is not needed.
+		// No redirectTo — the recovery email template emits {{ .Token }} (a code
+		// the user types into forgot-password.tsx's Step 2 via verifyRecoveryOtp),
+		// not a clickable link, so there's no browser redirect to configure.
 		const { error } = await supabase.auth.resetPasswordForEmail(email);
 		if (error) throw error;
 	}
@@ -166,7 +177,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		if (error) throw error;
 	}
 
+	// In-app numeric-code verification (matches Android's flow — no email
+	// links at all). Requires the Supabase Auth email templates for "Confirm
+	// signup" and "Reset password" to emit {{ .Token }} (a code) rather than
+	// a confirmation link, or these have nothing to verify against.
+	async function verifySignupOtp(email: string, code: string) {
+		const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "signup" });
+		if (error) throw error;
+	}
+
+	async function resendSignupOtp(email: string) {
+		const { error } = await supabase.auth.resend({ type: "signup", email });
+		if (error) throw error;
+	}
+
+	async function verifyRecoveryOtp(email: string, code: string) {
+		const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "recovery" });
+		if (error) throw error;
+	}
+
 	async function logout() {
+		// Another person signing in on this browser must not receive this account's alerts.
+		await disableWebPush().catch(() => {});
 		await supabase.auth.signOut();
 	}
 
@@ -189,6 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				signInWithGoogleSupabase,
 				resetPasswordSupabase,
 				confirmResetSupabase,
+				verifySignupOtp,
+				resendSignupOtp,
+				verifyRecoveryOtp,
 			}}
 		>
 			{children}

@@ -448,9 +448,9 @@ export interface DailyPack {
 
 export const TIER_XP: Record<number, { lesson: number; battle: number; lab: number; label: string; color: string }> = {
 	1: { ...BASE_TIER_XP[1], color: "border-slate-500/30 bg-slate-500/[0.07]"   },
-	2: { ...BASE_TIER_XP[2], color: "border-blue-500/30 bg-blue-500/[0.07]"     },
-	3: { ...BASE_TIER_XP[3], color: "border-cyan-500/30 bg-cyan-500/[0.07]"     },
-	4: { ...BASE_TIER_XP[4], color: "border-violet-500/30 bg-violet-500/[0.07]" },
+	2: { ...BASE_TIER_XP[2], color: "border-[#69B3CA]/30 bg-[#69B3CA]/[0.07]"     },
+	3: { ...BASE_TIER_XP[3], color: "border-[#2FD08A]/30 bg-[#2FD08A]/[0.07]"     },
+	4: { ...BASE_TIER_XP[4], color: "border-[#9E8CE5]/30 bg-[#9E8CE5]/[0.07]" },
 	5: { ...BASE_TIER_XP[5], color: "border-amber-500/30 bg-amber-500/[0.07]"   },
 };
 

@@ -122,7 +122,7 @@ export function PullToRefresh({ scrollRef, children, onRefresh }: PullToRefreshP
 						<RefreshCw
 							className={`w-5 h-5 ${
 								progress >= 1
-									? "text-cyan-500 dark:text-cyan-400"
+									? "text-[#69B3CA] dark:text-[#69B3CA]"
 									: "dark:text-zinc-400 text-zinc-600 dark:text-zinc-500"
 							}`}
 						/>

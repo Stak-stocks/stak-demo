@@ -14,10 +14,6 @@ vi.mock("@tanstack/react-router", () => ({
 	})),
 }));
 
-vi.mock("@/context/AccountContext", () => ({
-	useAccount: () => ({ account: null }),
-}));
-
 import { useRouterState } from "@tanstack/react-router";
 
 const mockedUseRouterState = vi.mocked(useRouterState);
@@ -30,13 +26,13 @@ describe("BottomNav", () => {
 		} as any);
 	});
 
-	it("renders all five nav items: Discover, My STAK, News, Playground, Profile", () => {
+	it("renders all five nav items: Home, News, Discover, My STAK, Simulate", () => {
 		render(<BottomNav />);
+		expect(screen.getByText("Home")).toBeInTheDocument();
+		expect(screen.getByText("News")).toBeInTheDocument();
 		expect(screen.getByText("Discover")).toBeInTheDocument();
 		expect(screen.getByText("My STAK")).toBeInTheDocument();
-		expect(screen.getByText("News")).toBeInTheDocument();
-		expect(screen.getByText("Playground")).toBeInTheDocument();
-		expect(screen.getByText("Profile")).toBeInTheDocument();
+		expect(screen.getByText("Simulate")).toBeInTheDocument();
 	});
 
 	it("renders My STAK as a Link to /my-stak", () => {
@@ -51,30 +47,32 @@ describe("BottomNav", () => {
 		expect(screen.queryByText("Search")).not.toBeInTheDocument();
 	});
 
-	it("shows Discover as active when on / path", () => {
+	it("shows Home as active when on / path", () => {
 		mockedUseRouterState.mockReturnValue({
 			location: { pathname: "/" },
 		} as any);
 		render(<BottomNav />);
-		const discoverLink = screen.getByText("Discover").closest("a")!;
-		expect(discoverLink.className).toContain("text-cyan-500");
+		const homeLink = screen.getByText("Home").closest("a")!;
+		expect(homeLink.getAttribute("aria-current")).toBe("page");
+		expect(screen.getByText("News").closest("a")!.getAttribute("aria-current")).toBeNull();
 	});
 
-	it("shows My STAK as active with a tinted icon background when on /my-stak path", () => {
+	it("marks My STAK as the current page on /my-stak, and draws its filled white icon", () => {
 		mockedUseRouterState.mockReturnValue({
 			location: { pathname: "/my-stak" },
 		} as any);
 		render(<BottomNav />);
 		const stakLink = screen.getByText("My STAK").closest("a")!;
-		expect(stakLink.className).toContain("text-violet-500");
-		const iconBg = stakLink.querySelector("div");
-		expect(iconBg?.className).toContain("bg-violet-500/10");
+		expect(stakLink.getAttribute("aria-current")).toBe("page");
+		// Android tells active from inactive by the icon alone: a filled white glyph, not the grey outline.
+		expect(stakLink.querySelector("path")?.getAttribute("fill")).toBe("#FFFFFF");
+		expect(screen.getByText("Home").closest("a")!.querySelector("path")?.getAttribute("stroke")).toBe("#AEAEAE");
 	});
 
 	it("calls onSearchClose when a nav item is clicked while search is active", () => {
 		const onSearchClose = vi.fn();
 		render(<BottomNav searchActive={true} onSearchClose={onSearchClose} />);
-		fireEvent.click(screen.getByText("Discover").closest("a")!);
+		fireEvent.click(screen.getByText("Home").closest("a")!);
 		expect(onSearchClose).toHaveBeenCalledTimes(1);
 	});
 

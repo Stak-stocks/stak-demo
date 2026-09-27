@@ -59,7 +59,7 @@ input::-webkit-credentials-auto-fill-button {
 	--card-foreground: #ffffff;
 	--popover: #172037;
 	--popover-foreground: #ffffff;
-	--primary: #39c5cb;
+	--primary: #69B3CA;
 	--primary-foreground: #0a1020;
 	--secondary: #172037;
 	--secondary-foreground: #ffffff;
@@ -71,28 +71,28 @@ input::-webkit-credentials-auto-fill-button {
 	--destructive-foreground: #ffffff;
 	--border: rgba(255, 255, 255, 0.08);
 	--input: rgba(255, 255, 255, 0.1);
-	--ring: #39c5cb;
-	--chart-1: #39c5cb;
+	--ring: #69B3CA;
+	--chart-1: #69B3CA;
 	--chart-2: #2fd08a;
-	--chart-3: #2c9dbc;
+	--chart-3: #69B3CA;
 	--chart-4: #a9dbea;
 	--chart-5: #819abb;
 	--radius: 0.625rem;
 	--sidebar: #10172a;
 	--sidebar-foreground: #ffffff;
-	--sidebar-primary: #39c5cb;
+	--sidebar-primary: #69B3CA;
 	--sidebar-primary-foreground: #0a1020;
 	--sidebar-accent: #172037;
 	--sidebar-accent-foreground: #ffffff;
 	--sidebar-border: rgba(255, 255, 255, 0.08);
-	--sidebar-ring: #39c5cb;
+	--sidebar-ring: #69B3CA;
 	/* Surface elevation scale */
 	--surface-1: #10172a;
 	--surface-2: #172037;
 	--surface-3: #181f30;
 
 	/* STAK brand tokens beyond the generic shadcn set */
-	--accent-blue: #2c9dbc;
+	--accent-blue: #69B3CA;
 	--muted-faint: #5c6b85;
 	--body-dim: #c8d2e0;
 	--text-faint: rgba(255, 255, 255, 0.4);
@@ -104,8 +104,8 @@ input::-webkit-credentials-auto-fill-button {
 	--cta-gradient-top: #a9dbea;
 	--cta-gradient-bottom: #3c98b4;
 	--cta-border: rgba(101, 158, 173, 0.63);
-	--cta-secondary-border: rgba(44, 157, 188, 0.45);
-	--cta-glow: #52aac7;
+	--cta-secondary-border: rgba(105,179,202, 0.45);
+	--cta-glow: #69B3CA;
 
 	/* My STAK pages' slightly different token set (same palette family) */
 	--mystak-card: #181f30;
@@ -295,4 +295,36 @@ input::-webkit-credentials-auto-fill-button {
 	100% {
 		background-position: 0% 50%;
 	}
+}
+
+/* Home's Market Mood gauge (Android's MarketMoodGauge): idle needle wobble and the loading arc pulse. */
+@keyframes mood-wobble {
+	from { transform: rotate(-0.8deg); }
+	to   { transform: rotate(0.8deg); }
+}
+
+@keyframes mood-pulse {
+	from { opacity: 0.3; }
+	to   { opacity: 0.8; }
+}
+
+/* Android's pulsing placeholder bars: the alpha runs between two values over 800ms, reversing. */
+@keyframes bar-pulse-deck {
+	from { opacity: 0.10; }
+	to   { opacity: 0.22; }
+}
+
+@keyframes bar-pulse-brief {
+	from { opacity: 0.25; }
+	to   { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mood-wobble, .mood-pulse, .bar-pulse-deck, .bar-pulse-brief { animation: none !important; }
+}
+
+/* Simulate's sheets morph ticket -> receipt with a 350ms fade. */
+@keyframes sheet-fade {
+	from { opacity: 0; }
+	to   { opacity: 1; }
 }
