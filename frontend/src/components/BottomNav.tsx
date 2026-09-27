@@ -1,65 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
-
-
-const NAV_ITEMS = [
-	{
-		to: "/",
-		label: "Discover",
-		icon: Compass,
-		activeColor: "text-cyan-500 dark:text-cyan-400",
-		activeBg: "bg-cyan-500/10",
-		dotColor: "bg-cyan-500 dark:bg-cyan-400",
-	},
-	{
-		to: "/my-stak",
-		label: "My STAK",
-		icon: Layers,
-		activeColor: "text-violet-500 dark:text-violet-400",
-		activeBg: "bg-violet-500/10",
-		dotColor: "bg-violet-500 dark:bg-violet-400",
-	},
-	{
-		to: "/feed",
-		label: "News",
-		icon: Newspaper,
-		activeColor: "text-orange-500 dark:text-orange-400",
-		activeBg: "bg-orange-500/10",
-		dotColor: "bg-orange-500 dark:bg-orange-400",
-	},
-	{
-		to: "/playground",
-		label: "Playground",
-		icon: Gamepad2,
-		activeColor: "text-pink-500 dark:text-pink-400",
-		activeBg: "bg-pink-500/10",
-		dotColor: "bg-pink-500 dark:bg-pink-400",
-	},
-	{
-		to: "/profile",
-		label: "Profile",
-		icon: UserCircle,
-		activeColor: "text-emerald-500 dark:text-emerald-400",
-		activeBg: "bg-emerald-500/10",
-		dotColor: "bg-emerald-500 dark:bg-emerald-400",
-	},
-] as const;
+import { NAV_ITEMS, isNavItemActive, hasCompletedTodaysChallenge } from "@/lib/navItems";
 
 export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
 	const { account } = useAccount();
 
-	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
-	);
+	const challengeDone = hasCompletedTodaysChallenge(account?.lessonProgress);
 
-	const isActive = (path: string) => {
-		if (path === "/") return currentPath === "/";
-		return currentPath.startsWith(path);
-	};
+	const isActive = (path: string) => isNavItemActive(currentPath, path);
 
 	return (
 		<nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground/[0.06] z-[60] pb-[env(safe-area-inset-bottom)]">

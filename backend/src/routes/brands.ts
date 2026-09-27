@@ -43,8 +43,12 @@ function toSummary(b: BrandProfile): BrandSummary {
 // GET /api/brands — lightweight summary of every brand in the catalog.
 // Was reading a Firestore "brands" collection that nothing in the backend ever
 // wrote to (always empty) -- the real catalog lives in @stak/shared.
+// The catalog is static for the life of a deploy, so the summaries are built once instead of on every request,
+// and clients/CDNs may reuse the response for a few minutes.
+const brandSummaries = brands.map(toSummary);
 brandsRouter.get("/", (_req, res) => {
-	res.json({ brands: brands.map(toSummary) });
+	res.set("Cache-Control", "public, max-age=300");
+	res.json({ brands: brandSummaries });
 });
 
 // GET /api/brands/popular — brand IDs saved by 50+ users (4h cache)
@@ -74,7 +78,13 @@ brandsRouter.get("/popular", async (_req, res) => {
 	}
 });
 
-// GET /api/brands/:id/tip — Gemini-generated 2-sentence investment tip (24h cache).
+// The tip is written only from catalog data (bio, beta, P/E, sectors) that rarely changes, so a generated one is kept
+// for 30 days instead of being regenerated daily. A failed or empty generation is remembered for 5 minutes, so a
+// Gemini outage doesn't turn every card view into another call.
+const TIP_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const TIP_FAILURE_TTL_MS = 5 * 60 * 1000;
+
+// GET /api/brands/:id/tip — Gemini-generated 2-sentence investment tip (30-day cache).
 brandsRouter.get("/:id/tip", async (req, res) => {
 	const brand = brands.find((b) => b.id === req.params.id);
 	if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
@@ -114,9 +124,10 @@ Return ONLY the two-sentence tip. Nothing else.`;
 		});
 		const data = await resp.json() as any;
 		const tip: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-		if (tip) await cacheSet(CACHE_KEY, { tip }, 24 * 60 * 60 * 1000);
+		await cacheSet(CACHE_KEY, { tip }, tip ? TIP_TTL_MS : TIP_FAILURE_TTL_MS);
 		res.json({ tip });
 	} catch {
+		await cacheSet(CACHE_KEY, { tip: "" }, TIP_FAILURE_TTL_MS);
 		res.json({ tip: "" });
 	}
 });
@@ -152,13 +163,16 @@ function normalizeQuickLook(p: Partial<QuickLook>): QuickLook | null {
 
 // GET /api/brands/:id/quick-look — Gemini-written 30-second overview for the Discover
 // Quick Look sheet (24h cache). Recent headlines keep "Why now" current without a
-// grounded search call. Returns { quickLook: null } on failure so clients fall back.
+// grounded search call. Returns { quickLook: null } on failure so clients fall back;
+// that failure is remembered for 30 minutes, because desktop Discover asks for every
+// card's Quick Look and each miss costs a news fetch plus a try on every Gemini key.
+const QUICK_LOOK_FAILURE_TTL_MS = 30 * 60 * 1000;
 brandsRouter.get("/:id/quick-look", async (req, res) => {
 	const brand = brands.find((b) => b.id === req.params.id);
 	if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
 	const CACHE_KEY = `brand:v1:${req.params.id}:quick-look`;
-	const cached = await cacheGet<{ quickLook: QuickLook }>(CACHE_KEY);
+	const cached = await cacheGet<{ quickLook: QuickLook | null }>(CACHE_KEY);
 	if (cached) { res.json(cached); return; }
 
 	const keys = getGeminiKeys();
@@ -189,7 +203,7 @@ Return JSON with exactly these keys:
 Plain words, no jargon. Use the bio as background only and write in your own neutral words, not its slang. No advice ("you should"), no disclaimers. Do not invent numbers or events that are not given above.`;
 
 	const quickLook = await withGeminiConcurrencyLimit(() => generateQuickLook(prompt, keys, brand.ticker));
-	if (quickLook) await cacheSet(CACHE_KEY, { quickLook }, 24 * 60 * 60 * 1000);
+	await cacheSet(CACHE_KEY, { quickLook }, quickLook ? 24 * 60 * 60 * 1000 : QUICK_LOOK_FAILURE_TTL_MS);
 	res.json({ quickLook });
 });
 

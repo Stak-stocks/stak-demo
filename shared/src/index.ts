@@ -45,7 +45,19 @@ export type { BrandProfile, BrandSummary, BrandIdentity, VibeMetric, FinancialMe
 export { STAK_WEIGHTED_STOCK_TAGS, ACTION_POINTS } from "./stockTags";
 export type { StakStockTagConfig, WeightedLearningTag, StakTicker } from "./stockTags";
 
+export { CATEGORY_NAMES, categoryName, categoryNameOf, categoryGroupId, categoryFamily } from "./stakCategories";
+export type { CategoryFamily } from "./stakCategories";
+
 export { getPeerTickers, buildPeerLookupIndex, MANUAL_PEER_OVERRIDES } from "./peerGroups";
 export type { PeerLookupIndex } from "./peerGroups";
 
 export { formatMarketCap, calcPercentChange } from "./financialFormat";
+
+export {
+	SANDBOX_STARTING_BALANCES,
+	SANDBOX_STRATEGIES,
+	SANDBOX_MAX_OPEN_ORDERS,
+	SANDBOX_MIN_SHARES,
+	SANDBOX_NAME_MAX_LENGTH,
+} from "./sandboxConfig";
+export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";

@@ -6,11 +6,12 @@ import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
 import { StakAiChat } from "@/components/StakAiChat";
+import { SideNav } from "@/components/SideNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { BrandProfile } from "@stak/shared";
 import { getEasternDateKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,7 +33,6 @@ function Root() {
 	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
-	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
@@ -44,24 +44,7 @@ function Root() {
 	const [refreshKey, setRefreshKey] = useState(0);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
-	const themeAppliedForUid = useRef<string | null>(null);
-
-	// Apply theme from Postgres (users.preferences) once per login — light by default, dark if user explicitly set it
-	useEffect(() => {
-		if (!account?.uid || themeAppliedForUid.current === account.uid) return;
-		themeAppliedForUid.current = account.uid;
-		setTheme(account.preferences?.theme ?? "light");
-	}, [account?.uid, account?.preferences?.theme, setTheme]);
-
-	// Auth/landing pages are always dark regardless of user theme preference
-	useEffect(() => {
-		if (isAuthPage) {
-			document.documentElement.classList.add("dark");
-		} else {
-			// Restore user's actual theme by triggering ThemeProvider re-apply
-			reapplyTheme();
-		}
-	}, [isAuthPage, reapplyTheme]);
+	const isMobile = useIsMobile();
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
@@ -235,7 +218,7 @@ function Root() {
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
+			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : isMobile ? "pb-[calc(4rem+env(safe-area-inset-bottom))]" : "pl-[220px]"}`}>
 				<PullToRefresh scrollRef={scrollRef} onRefresh={() => {
 						queryClient.invalidateQueries();
 						setRefreshKey((k) => k + 1);
@@ -247,15 +230,13 @@ function Root() {
 					</ErrorBoundary>
 				</PullToRefresh>
 			</div>
-			{!isAuthPage && <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
+			{!isAuthPage && (isMobile ? <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} /> : <SideNav />)}
 			<Toaster
 				position="top-center"
-				theme={resolvedTheme}
+				theme="dark"
 				richColors
 				toastOptions={{
-					style: resolvedTheme === "dark"
-						? { background: "#1a2744", border: "1px solid rgba(99,102,241,0.35)", color: "#f1f5f9", fontWeight: 600 }
-						: { background: "#ffffff", border: "1px solid rgba(99,102,241,0.2)", color: "#0f172a", fontWeight: 600 },
+					style: { background: "#1a2744", border: "1px solid rgba(99,102,241,0.35)", color: "#f1f5f9", fontWeight: 600 },
 				}}
 			/>
 			<TanStackRouterDevtools position="bottom-right" />

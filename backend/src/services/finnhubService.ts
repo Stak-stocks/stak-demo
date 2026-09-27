@@ -166,7 +166,7 @@ const COMMON_FIRST_WORDS = new Set([
  */
 const WORD_TICKERS = new Set([
 	"ALL", "AMP", "APP", "ARM", "BEN", "BILL", "BROS", "CAKE", "CART", "CAT", "COIN", "COST",
-	"DASH", "EAT", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
+	"DASH", "EAT", "ELF", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
 	"NOW", "PATH", "PLUG", "RIOT", "SAM", "SNOW", "SPOT", "TEAM", "WING",
 ]);
 
@@ -199,7 +199,7 @@ function nameVariants(name: string): string[] {
 /** Headlines mix straight and curly apostrophes; the catalogue writes straight ones. */
 const normaliseQuotes = (s: string) => s.replace(/[‘’ʼ]/g, "'");
 
-function mentionsName(headline: string, name: string): boolean {
+export function mentionsName(headline: string, name: string): boolean {
 	const text = normaliseQuotes(headline);
 	return nameVariants(normaliseQuotes(name)).some((n) => {
 		// An all-capitals name ("UPS", "IBM") is a symbol-like word: match it in capitals
@@ -209,7 +209,7 @@ function mentionsName(headline: string, name: string): boolean {
 	});
 }
 
-function mentionsTicker(headline: string, ticker: string): boolean {
+export function mentionsTicker(headline: string, ticker: string): boolean {
 	const upper = ticker.trim().toUpperCase();
 	const t = escapeRegExp(upper);
 	if (!t) return false;

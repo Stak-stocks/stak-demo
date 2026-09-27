@@ -1,3 +1,4 @@
+import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
@@ -591,11 +592,18 @@ meRouter.delete("/search-history/:query", authMiddleware, async (req: Authentica
 meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { token, platform, timezone, priceAlerts, dailyDeck } = req.body as {
-			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown;
+		const { token, platform, timezone, priceAlerts, dailyDeck, webKeys } = req.body as {
+			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown; webKeys?: unknown;
 		};
 		if (typeof token !== "string" || token.length < 20 || token.length > 4096) {
 			res.status(400).json({ error: "token is required" });
+			return;
+		}
+		// A browser subscription: the token is its endpoint URL, and the keys the payload is encrypted to must come with it.
+		const isWeb = platform === "web";
+		const keys = webKeys as { p256dh?: unknown; auth?: unknown } | undefined;
+		if (isWeb && !(typeof token === "string" && token.startsWith("https://") && typeof keys?.p256dh === "string" && typeof keys?.auth === "string")) {
+			res.status(400).json({ error: "a web subscription needs an https endpoint and its p256dh/auth keys" });
 			return;
 		}
 		// An unknown zone would make the morning reminder's local-time check throw.
@@ -607,17 +615,26 @@ meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, r
 		// The token is the install; if it was registered to another account on this phone,
 		// it now belongs to whoever is signed in.
 		await pgQuery(
-			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, updated_at)
-			values ($1, $2, $3, $4, $5, $6, now())
+			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, web_keys, updated_at)
+			values ($1, $2, $3, $4, $5, $6, $7, now())
 			on conflict (token) do update set uid = excluded.uid, platform = excluded.platform, timezone = excluded.timezone,
-				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, updated_at = now()`,
-			[token, uid, platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false],
+				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, web_keys = excluded.web_keys, updated_at = now()`,
+			[token, uid, isWeb ? "web" : platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false,
+				isWeb ? JSON.stringify({ p256dh: keys!.p256dh, auth: keys!.auth }) : null],
 		);
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error registering push device:", error);
 		res.status(500).json({ error: "Failed to register push device" });
 	}
+});
+
+// GET /api/me/web-push-key — the VAPID public key a browser subscribes with. 503 when this server has
+// no keys configured, so the web app can say notifications aren't available instead of failing oddly.
+meRouter.get("/web-push-key", authMiddleware, (_req, res) => {
+	const publicKey = getVapidPublicKey();
+	if (!publicKey) { res.status(503).json({ error: "web push isn't configured" }); return; }
+	res.json({ publicKey });
 });
 
 // DELETE /api/me/push-device — stop pushing to this install (sign-out). Body: { token }.

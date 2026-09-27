@@ -1,3 +1,4 @@
+import webpush from "web-push";
 import { pgQuery } from "../lib/postgres.js";
 
 /**
@@ -33,6 +34,49 @@ async function accessToken(): Promise<string | null> {
 
 export type PushResult = "sent" | "unregistered" | "failed";
 
+// ── Web Push (browsers) ────────────────────────────────────────────────────────────────────
+// VAPID keys identify this server to the browsers' push services. Without them web sends are skipped,
+// like FCM off Cloud Run - a missing key must never fail the job that also pushes to phones.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:support@thestak.org";
+const webPushConfigured = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (webPushConfigured) webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+/** The public half the browser needs to subscribe; null when web push isn't set up on this server. */
+export function getVapidPublicKey(): string | null {
+	return webPushConfigured ? VAPID_PUBLIC_KEY : null;
+}
+
+/** A web subscription's token is its endpoint URL; FCM registration tokens are never URLs. */
+const isWebToken = (token: string) => token.startsWith("https://");
+
+async function sendWebPush(endpoint: string, title: string, body: string, data: Record<string, string>): Promise<PushResult> {
+	if (!webPushConfigured) return "failed";
+	const row = await pgQuery<{ web_keys: { p256dh?: string; auth?: string } | null }>(
+		`select web_keys from push_devices where token = $1`, [endpoint],
+	).catch(() => null);
+	const keys = row?.rows[0]?.web_keys;
+	if (!keys?.p256dh || !keys?.auth) return "failed";
+	try {
+		await webpush.sendNotification(
+			{ endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
+			JSON.stringify({ title, body, data }),
+			{ TTL: 60 * 60 * 12, urgency: "normal" },
+		);
+		return "sent";
+	} catch (e) {
+		const status = (e as { statusCode?: number })?.statusCode;
+		// 404/410: the browser dropped the subscription (unsubscribed, cleared site data) - stop sending to it.
+		if (status === 404 || status === 410) {
+			await pgQuery(`delete from push_devices where token = $1`, [endpoint]).catch(() => {});
+			return "unregistered";
+		}
+		console.warn(`[push] web send failed ${status ?? ""}: ${(e as Error)?.message?.slice(0, 200)}`);
+		return "failed";
+	}
+}
+
 /**
  * One notification to one device. [data] rides along for the app to route the tap
  * (e.g. { kind: "move", ticker: "NVDA" }). A token FCM reports as no longer valid is
@@ -44,6 +88,7 @@ export async function sendPush(
 	body: string,
 	data: Record<string, string> = {},
 ): Promise<PushResult> {
+	if (isWebToken(token)) return sendWebPush(token, title, body, data);
 	const bearer = await accessToken();
 	if (!bearer) {
 		console.warn("[push] no access token (not on Cloud Run?) - skipping send");

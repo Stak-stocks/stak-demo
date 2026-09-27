@@ -147,6 +147,8 @@ tasteRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			themes: ranked.slice(0, 6),
 			/** Everything outside the top themes, as one share. */
 			otherShare: ranked.slice(6).reduce((sum, t) => sum + t.share, 0),
+			/** The themes behind otherShare, one by one (strongest first, capped), so the web can open "Other interests". */
+			otherThemes: ranked.slice(6, 30),
 			totalSaves,
 			signals,
 			/** Too little behaviour to name a lead yet. */

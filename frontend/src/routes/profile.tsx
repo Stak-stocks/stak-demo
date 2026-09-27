@@ -16,11 +16,8 @@ import {
 	BookOpen,
 	X,
 	Flame,
-	Moon,
-	Sun,
 	TrendingUp,
 } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
 import { computeDisplayCategoryPercentages } from "@stak/shared";
 
 const DISPLAY_CATEGORIES = [
@@ -48,8 +45,7 @@ function FloatingIcon({ src, className }: { src: string; className: string }) {
 
 function ProfilePage() {
 	const { appUser, loading, logout } = useAuth();
-	const { account, updatePreferences } = useAccount();
-	const { resolvedTheme, setTheme } = useTheme();
+	const { account } = useAccount();
 	const navigate = useNavigate();
 
 	// Stak brands — derived from Firestore account (only the count is ever used here)
@@ -281,45 +277,6 @@ function ProfilePage() {
 							<ChevronRight className="w-4 h-4 text-zinc-700 dark:text-zinc-600" />
 						</button>
 					))}
-
-					{/* Dark/Light mode toggle */}
-					<div className="flex items-center gap-3 px-3.5 py-3">
-						<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${resolvedTheme === "dark" ? "bg-indigo-500/15" : "bg-amber-500/15"}`}>
-							{resolvedTheme === "dark" ? (
-								<Moon className="w-4 h-4 text-indigo-400" />
-							) : (
-								<Sun className="w-4 h-4 text-amber-400" />
-							)}
-						</div>
-						<span
-							id="theme-toggle-label"
-							className="flex-1 text-sm font-medium"
-						>
-							{resolvedTheme === "dark" ? "Dark Mode" : "Light Mode"}
-						</span>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={resolvedTheme === "dark"}
-							aria-labelledby="theme-toggle-label"
-							onClick={() => {
-							const next = resolvedTheme === "dark" ? "light" : "dark";
-							setTheme(next);
-							updatePreferences({ ...account?.preferences, theme: next });
-						}}
-							className={`relative w-11 h-6 rounded-full transition-colors ${
-								resolvedTheme === "dark"
-									? "bg-violet-500"
-									: "bg-zinc-300"
-							}`}
-						>
-							<span
-								className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-									resolvedTheme === "dark" ? "translate-x-5" : "translate-x-0"
-								}`}
-							/>
-						</button>
-					</div>
 
 					<button
 						type="button"

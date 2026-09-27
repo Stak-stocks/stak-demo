@@ -4,6 +4,7 @@ import { recordActivity } from "../services/streakService.js";
 import { updateUserTasteProfile } from "../services/tasteProfileService.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
 import { pgQuery, ensureUserRow } from "../lib/postgres.js";
+import { cacheDelete } from "../lib/cache.js";
 
 export const swipeRouter = Router();
 
@@ -127,6 +128,12 @@ swipeRouter.post("/event", authMiddleware, async (req: AuthenticatedRequest, res
 			recordActivity(uid, "brand_tap", todayKey).catch(() => {});
 		} else if (type === "playground_activity") {
 			recordActivity(uid, "swipe", todayKey).catch(() => {});
+		}
+
+		// Investing Taste counts these (Quick Looks read, company pages opened): drop its 60s cached reading so the
+		// next look at the Taste page includes this one.
+		if (type === "learn_more" || type === "stock_detail_open") {
+			cacheDelete(`taste:v1:${uid}`).catch(() => {});
 		}
 
 		// Update weighted taste profile for brand-specific engagement events

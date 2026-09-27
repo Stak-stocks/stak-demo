@@ -1,7 +1,7 @@
 import { getEasternDateKey } from "@stak/shared";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
-import { getCompanyNews, type FinnhubArticle } from "./finnhubService.js";
+import { getCompanyNews, mentionsName, mentionsTicker, type FinnhubArticle } from "./finnhubService.js";
 import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit } from "./geminiService.js";
 
 /**
@@ -80,30 +80,42 @@ const NOT_A_CHANGE = [
 	// Someone talking about a company is not the company doing something.
 	"discusses", "discussed", "weighs in", "interview", "sits down", "talks to",
 	"on cnbc", "opinion", "explains why", "breaks down",
+	// "2 Reasons to Watch ELF and 1 to Stay Cautious" is a take on the stock, not results.
+	"reasons to", "to stay cautious", "stocks we like", "things to know",
+	// Marketing is not a business change: e.l.f.'s promo album became "Released new music album".
+	"album", "playlist", "music video", "brand ambassador", "ad campaign", "marketing campaign", "sweepstakes", "giveaway",
 ];
 
 /**
  * Opinion desks. Their pieces are analysis of a company, not news from it, and an
  * update built on one reads as STAK taking a view.
  */
-const OPINION_SOURCES = ["seekingalpha", "motley fool", "fool.com", "zacks", "simply wall st", "insider monkey"];
+const OPINION_SOURCES = ["seekingalpha", "motley fool", "fool.com", "zacks", "simply wall st", "insider monkey", "stockstory"];
+
+/** Accents off, case kept: "Estée" reads as "Estee" for the name matcher, which compares letters as written. */
+const stripAccents = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** Lower-case, accents gone, and the dots out of initials: "e.l.f. Beauty" reads as "elf beauty". */
+function normalise(text: string): string {
+	return stripAccents(text).toLowerCase().replace(/\b(?:[a-z]\.){2,}/g, (initials) => initials.replace(/\./g, ""));
+}
 
 /**
  * The article has to be about THIS company: the feed mixes in peers and sector pieces,
- * which produced updates about PepsiCo under Monster and Joby under Archer.
+ * which produced updates about PepsiCo under Monster and Joby under Archer - and stories that
+ * merely use a ticker as a word. The ticker and name rules are the news feed's own
+ * (finnhubService: short and everyday-word tickers count only when cited, generic first
+ * words don't stand for a company), plus two spellings they miss: initials written with
+ * dots ("e.l.f." for ELF) and the whole name without its dots ("Elf Beauty").
  */
-function isAboutCompany(article: FinnhubArticle, ticker: string, companyName: string): boolean {
-	const text = `${article.headline} ${article.summary ?? ""}`.toLowerCase();
-	if (new RegExp(`\\b${ticker.toLowerCase()}\\b`).test(text)) return true;
-	const name = companyName.toLowerCase();
-	if (text.includes(name)) return true;
-	// "Estée Lauder Companies" in the catalogue, "Estee Lauder" in the headline: the
-	// first distinctive word carries the company.
-	const first = name.split(/[\s.,]+/).find((w) => w.length >= 4);
-	return first != null && text.includes(first);
+export function isAboutCompany(article: Pick<FinnhubArticle, "headline" | "summary">, ticker: string, companyName: string): boolean {
+	const raw = `${article.headline} ${article.summary ?? ""}`;
+	if (mentionsTicker(raw, ticker) || mentionsName(stripAccents(raw), stripAccents(companyName))) return true;
+	if (/^[a-z]{2,5}$/i.test(ticker) && new RegExp(`\\b${ticker.split("").join("\\.")}\\.`, "i").test(raw)) return true;
+	return normalise(raw).includes(normalise(companyName));
 }
 
-function isChange(article: FinnhubArticle): boolean {
+export function isChange(article: Pick<FinnhubArticle, "headline" | "summary" | "source">): boolean {
 	const text = `${article.headline} ${article.summary ?? ""}`.toLowerCase();
 	if (OPINION_SOURCES.some((s) => (article.source ?? "").toLowerCase().includes(s))) return false;
 	return !NOT_A_CHANGE.some((t) => text.includes(t));
@@ -197,7 +209,7 @@ Reply with JSON only: {"kind": "...", "title": "...", "body": "...", "watch": ".
 - title: what changed, 2-5 words, plain English, no company name, no ticker, sentence case (e.g. "Cloud growth slowed", "Revenue outlook raised").
 - body: ONE sentence (max 22 words) saying what happened, in plain English a 20-year-old with no finance background understands. No jargon, no advice, no "investors should".
 - watch: ONE short sentence (max 14 words) on what this affects going forward (e.g. "Cloud demand is a key growth driver."). Never a prediction or a recommendation.
-Reply {"title": "", "body": "", "watch": ""} when the headlines are commentary, opinion, a share-price move, or about a different company - only something that actually happened at ${companyName} counts.
+Reply {"title": "", "body": "", "watch": ""} when the headlines are commentary, opinion, a share-price move, a marketing stunt or ad campaign, or about a different company - only something that actually happened at ${companyName} counts.
 The watch line must name a real driver of the business (demand, subscriptions, costs, a product, a court case). For an analyst update, name what the analysts are reacting to, never "sentiment" or "investor perception".
 Never state a share price, a price target, or a percentage move in the share price: describe what changed at the business.
 Speculation is not a change - reply empty for "could", "might", "suggests", "sees potential", or anything that has not happened yet.`;

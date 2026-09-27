@@ -82,6 +82,65 @@ export function saveStak(brandIds: string[]) {
 	});
 }
 
+// Investing Taste — GET /api/me/taste
+export interface TasteThemeDto {
+	category: string;
+	score: number;
+	share: number;
+	saves: number;
+	learnMores: number;
+	opens: number;
+	passes: number;
+	savedNames: string[];
+	lastSavedAt: string | null;
+}
+
+export interface TasteApiResponse {
+	themes: TasteThemeDto[];
+	otherShare: number;
+	totalSaves: number;
+	signals: number;
+	learning: boolean;
+}
+
+export function getTaste() {
+	return apiRequest<TasteApiResponse>("/api/me/taste");
+}
+
+// What Changed — GET /api/me/updates, POST /api/me/updates/:id/read
+export interface UpdateSourceDto {
+	source: string;
+	url: string;
+	headline: string;
+	datetime: number;
+}
+
+export interface StockUpdateDto {
+	id: number;
+	ticker: string;
+	company: string;
+	kind: string;
+	title: string;
+	body: string;
+	watch: string | null;
+	sources: UpdateSourceDto[];
+	occurredAt: string;
+	read: boolean;
+}
+
+export interface UpdatesApiResponse {
+	updates: StockUpdateDto[];
+	unread: number;
+}
+
+export function getUpdates() {
+	return apiRequest<UpdatesApiResponse>("/api/me/updates");
+}
+
+export function markUpdateRead(id: number) {
+	return apiRequest<{ ok: true }>(`/api/me/updates/${id}/read`, { method: "POST" });
+}
+
 // Passed brands (left-swiped)
 export function getPassedBrands() {
 	return apiRequest<{ entries: { id: string; at: number }[] }>("/api/me/passed");
