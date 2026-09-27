@@ -38,6 +38,10 @@ import com.stak.demo.ui.theme.Sora
 /** The three starting balances the board's "Choose balance" offers. */
 internal val SETUP_BALANCES = listOf(1_000.0, 10_000.0, 100_000.0)
 
+/** Matches shared/src/sandboxConfig.ts's SANDBOX_NAME_MAX_LENGTH - the backend's own limit
+ *  (Kotlin can't import that file directly; keep this in sync with it by hand). */
+private const val SETUP_NAME_MAX_LENGTH = 40
+
 /** One strategy the board's "Strategy" step offers - the label is the persisted value, the blurb its one-line read. */
 internal data class SetupStrategy(val label: String, val blurb: String)
 
@@ -84,7 +88,7 @@ internal fun PortfolioSetupCard() {
 		val style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, color = Color.White, lineHeightStyle = FIGMA_LINE_BOX)
 		BasicTextField(
 			value = name,
-			onValueChange = { name = it.take(24) },
+			onValueChange = { name = it.take(SETUP_NAME_MAX_LENGTH) },
 			singleLine = true,
 			textStyle = style,
 			cursorBrush = SolidColor(Sim.Teal),

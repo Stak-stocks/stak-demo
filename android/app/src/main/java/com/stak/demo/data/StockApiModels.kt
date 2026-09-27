@@ -327,4 +327,46 @@ data class QuickLookDto(
     val whatToWatch: String = "",
     val keyThemes: List<String> = emptyList(),
 )
+
+// ── Sandbox (paper trading) — shared backend with web's Simulate, unified 2026-09-25 ────
+
+data class SandboxSetupRequest(val startingBalance: Double, val name: String, val strategy: String)
+data class SandboxSetupResponse(val ok: Boolean = false, val cash: Double = 0.0, val name: String = "", val strategy: String = "")
+
+/** Either [shares] or [amount] (dollars) — Android always sends amount. */
+data class SandboxBuyRequest(val ticker: String, val shares: Double? = null, val thesis: String? = null, val amount: Double? = null)
+data class SandboxBuyResponse(val price: Double = 0.0, val shares: Double = 0.0, val costBasis: Double = 0.0, val cost: Double = 0.0, val remainingCash: Double = 0.0)
+
+/** Either [shares] or [portion] (0..1) — Android always sends portion. */
+data class SandboxSellRequest(val ticker: String, val shares: Double? = null, val portion: Double? = null)
+data class SandboxSellResponse(val price: Double = 0.0, val sharesToSell: Double = 0.0, val sellValue: Double = 0.0, val remaining: Double = 0.0)
+
+data class SandboxOrderRequest(val ticker: String, val amount: Double, val limitPrice: Double)
+data class SandboxOrderResponse(
+    val id: Long = 0L, val ticker: String = "", val amount: Double = 0.0, val limitPrice: Double = 0.0,
+    val status: String = "open", val createdAt: String = "", val remainingCash: Double = 0.0,
+)
+
+data class SandboxPositionDto(val ticker: String = "", val shares: Double = 0.0, val costBasis: Double = 0.0, val addedAt: String = "", val thesis: String? = null)
+data class SandboxOpenOrderDto(val id: Long = 0L, val ticker: String = "", val amount: Double = 0.0, val limitPrice: Double = 0.0, val createdAt: String = "")
+data class SandboxPortfolioResponse(
+    val initialized: Boolean = false,
+    val cash: Double? = null,
+    val tier: Int? = null,
+    val milestones: List<Int> = emptyList(),
+    val name: String? = null,
+    val strategy: String? = null,
+    val start: Double? = null,
+    val cashSource: String = "tier",
+    /** The newest trade's id - unchanged since the last poll means the ledger is too, so GET /trades can be skipped. Null before any trade. */
+    val tradeCursor: Long? = null,
+    val positions: List<SandboxPositionDto> = emptyList(),
+    val openOrders: List<SandboxOpenOrderDto> = emptyList(),
+)
+
+data class SandboxTradeDto(
+    val id: Long = 0L, val ticker: String = "", val side: String = "", val shares: Double = 0.0,
+    val price: Double = 0.0, val amount: Double = 0.0, val source: String = "market", val executedAt: String = "",
+)
+data class SandboxTradesResponse(val trades: List<SandboxTradeDto> = emptyList())
 data class QuickLookResponse(val quickLook: QuickLookDto? = null)
