@@ -49,4 +49,16 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun putPassed(entries: List<PassedEntry>): PassedResponse = api.putPassed(PassedPutRequest(entries))
     suspend fun getSwipes(since: String): SwipeHistoryResponse = api.getSwipes(since)
     suspend fun getBrandQuickLook(id: String): QuickLookResponse = api.getBrandQuickLook(id)
+
+    suspend fun sandboxSetup(startingBalance: Double, name: String, strategy: String): SandboxSetupResponse =
+        api.sandboxSetup(SandboxSetupRequest(startingBalance, name, strategy))
+    suspend fun sandboxBuy(ticker: String, amount: Double): SandboxBuyResponse =
+        api.sandboxBuy(SandboxBuyRequest(ticker = ticker, amount = amount))
+    suspend fun sandboxSell(ticker: String, portion: Double): SandboxSellResponse =
+        api.sandboxSell(SandboxSellRequest(ticker = ticker, portion = portion))
+    suspend fun sandboxPlaceOrder(ticker: String, amount: Double, limitPrice: Double): SandboxOrderResponse =
+        api.sandboxPlaceOrder(SandboxOrderRequest(ticker, amount, limitPrice))
+    suspend fun sandboxCancelOrder(id: Long): OkResponse = api.sandboxCancelOrder(id)
+    suspend fun getSandboxPortfolio(): SandboxPortfolioResponse = api.getSandboxPortfolio()
+    suspend fun getSandboxTrades(limit: Int = 100): SandboxTradesResponse = api.getSandboxTrades(limit)
 }
