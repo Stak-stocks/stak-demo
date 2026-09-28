@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
-import { useEffect, useState, useRef, useCallback, type CSSProperties } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback, type CSSProperties, type ReactNode } from "react";
+import { EarlyAccessModal } from "../components/landing/EarlyAccessModal";
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
@@ -17,6 +18,19 @@ function useOrbitron() {
 		link.href = ORBITRON_HREF;
 		document.head.appendChild(link);
 	}, []);
+}
+
+/** Opens the "Get early access" modal; provided once by LandingPage so every layout's hero pill can use it. */
+const EarlyAccessContext = createContext<() => void>(() => {});
+
+/** The hero's "Get early access" pill, as a button: the same look (its style is passed straight through), plus a click. */
+function EarlyAccessPill({ style, children }: { style: CSSProperties; children: ReactNode }) {
+	const open = useContext(EarlyAccessContext);
+	return (
+		<button type="button" onClick={open} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]" style={{ ...style, border: "none", cursor: "pointer", font: "inherit", color: "inherit" }}>
+			{children}
+		</button>
+	);
 }
 
 /* ─── ASSETS (downloaded from Figma to /public/images/landing-v2/) ──── */
@@ -383,7 +397,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 
 			{/* Hero text */}
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
-				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 36 }}>
+				<EarlyAccessPill style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 36 }}>
 					<div style={{ width: 12, height: 12, flexShrink: 0 }}>
 						<img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} />
 					</div>
@@ -397,7 +411,7 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 					<div style={{ width: 13.199, height: 10.999, flexShrink: 0 }}>
 						<img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} />
 					</div>
-				</div>
+				</EarlyAccessPill>
 
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
 					<Headline lines={["The Stock Market,", "Finally Speaks Your Language."]} style={{ fontSize: 50 }} />
@@ -1749,7 +1763,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 			<MobileNavBar onScrollTo={onScrollTo} />
 
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
-				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+				<EarlyAccessPill style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}>
 						<img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} />
 					</div>
@@ -1757,7 +1771,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}>
 						<img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} />
 					</div>
-				</div>
+				</EarlyAccessPill>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market</p>
@@ -2300,11 +2314,11 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 			</div>
 			<MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={onScrollTo} />
 			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
-				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
+				<EarlyAccessPill style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Get early access</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</div>
+				</EarlyAccessPill>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", width: "100%" }}>
 						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>The Stock Market</p>
@@ -2805,8 +2819,12 @@ function LandingPage() {
 		if (!email) return;
 		window.location.href = `mailto:hello@stakstocks.com?subject=Newsletter%20signup&body=${encodeURIComponent(email)}`;
 	}, []);
+	const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
+	const openEarlyAccess = useCallback(() => setEarlyAccessOpen(true), []);
+	const closeEarlyAccess = useCallback(() => setEarlyAccessOpen(false), []);
 
 	return (
+		<EarlyAccessContext.Provider value={openEarlyAccess}>
 		<div ref={scrollRef} className="landing-scroll" style={{ background: SECTION_BG, height: "100vh", overflowY: "auto", overflowX: "hidden", scrollbarWidth: "none" }}>
 			<link
 				href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@300;400;600;700&display=swap"
@@ -2862,5 +2880,7 @@ function LandingPage() {
 			</div>
 			)}
 		</div>
+		<EarlyAccessModal open={earlyAccessOpen} onClose={closeEarlyAccess} />
+		</EarlyAccessContext.Provider>
 	);
 }
