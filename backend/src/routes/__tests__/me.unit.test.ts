@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const pgQueryMock = vi.fn();
 const ensureUserRowMock = vi.fn();
+// /stak and /passed write inside a transaction on a pooled client; every query on it succeeds with no rows.
+const clientQueryMock = vi.fn(async () => ({ rows: [], rowCount: 0 }));
+const pgPoolConnectMock = vi.fn(async () => ({ query: clientQueryMock, release: vi.fn() }));
 vi.mock("../../lib/postgres.js", () => ({
 	pgQuery: pgQueryMock,
 	ensureUserRow: ensureUserRowMock,
+	pgPool: { connect: pgPoolConnectMock },
 }));
 
 const checkAndIncrementSwipeLimitMock = vi.fn();
@@ -108,6 +112,10 @@ describe("meRouter", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body.brandIds).toEqual(["aapl", "tsla"]);
+		const sql = clientQueryMock.mock.calls.map((c) => String((c as unknown[])[0]));
+		expect(sql[0]).toBe("BEGIN");
+		expect(sql.some((q) => /insert into stak_brands/i.test(q))).toBe(true);
+		expect(sql.at(-1)).toBe("COMMIT");
 	});
 
 	// ── PUT /passed ──────────────────────────────────────────────────────────────
@@ -129,6 +137,9 @@ describe("meRouter", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body.entries).toEqual(entries);
+		const sql = clientQueryMock.mock.calls.map((c) => String((c as unknown[])[0]));
+		expect(sql.some((q) => /insert into passed_brands/i.test(q))).toBe(true);
+		expect(sql.at(-1)).toBe("COMMIT");
 	});
 
 	// ── PUT /intel-state ─────────────────────────────────────────────────────────
