@@ -14,7 +14,9 @@ import pg from "pg";
 // the Cloud Run secret. node-postgres's URL parser appears to tolerate it in practice
 // (health check confirmed db:connected), but better safe than a hard-to-diagnose
 // connection failure on a stricter postgres client version.
-const pool = new pg.Pool({ connectionString: (process.env.SUPABASE_DB_URL ?? "").trim() });
+// A connection that can't be made fails after 10s (with a logged error) instead of hanging the request for ~2 minutes
+// on the OS's TCP timeout - which is what a broken network path did on 2026-09-28.
+const pool = new pg.Pool({ connectionString: (process.env.SUPABASE_DB_URL ?? "").trim(), connectionTimeoutMillis: 10_000 });
 
 pool.on("error", (err) => {
 	// A pooled, idle connection dying shouldn't crash the process -- pg already retries
