@@ -3,11 +3,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { getProfile } from "@/lib/api";
 import {
-	AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, GooglePill, OrDivider, ShowHide, SwitchRow,
+	AuthBackLink, AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, GooglePill, OrDivider, ShowHide, SwitchRow,
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -115,7 +115,7 @@ function SignUpPage() {
 	return (
 		<AuthScreen
 			// On the code step, back returns to the form (email kept) rather than leaving sign-up.
-			nav={confirming ? <BackCircle label="Back to sign-up form" onClick={() => { setMode("form"); setServerError(null); }} /> : undefined}
+			nav={confirming ? <AuthBackLink label="Back to sign-up" onClick={() => { setMode("form"); setServerError(null); }} /> : undefined}
 			bottom={
 				<>
 					{confirming

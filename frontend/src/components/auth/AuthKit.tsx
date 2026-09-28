@@ -1,7 +1,8 @@
 import { createContext, useContext, useId, useState, type ReactNode } from "react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { useNavigate } from "@tanstack/react-router";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { ArrowLeft } from "lucide-react";
+import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /** True inside the desktop (split-screen) auth frame, where a few pieces take the desktop design's look. */
@@ -165,13 +166,22 @@ export function AuthSpinner({ size = 24 }: { size?: number }) {
 	return <div className="mx-auto animate-spin rounded-full" role="status" aria-label="Loading" style={{ width: cu(size), height: cu(size), border: `${cu(size / 8)} solid ${DISC.teal}33`, borderTopColor: DISC.teal }} />;
 }
 
+/** "← Back to home": the auth pages' way out, a teal text link rather than a round back button. */
+export function AuthBackLink({ label, onClick }: { label: string; onClick: () => void }) {
+	return (
+		<button type="button" onClick={onClick} className={`inline-flex items-center hover:opacity-80 ${PRESS}`} style={{ gap: cu(6), minHeight: cu(40), font: f(500, 13), color: DISC.teal, ...focusRing }}>
+			<ArrowLeft style={{ width: cu(15), height: cu(15) }} aria-hidden="true" /> {label}
+		</button>
+	);
+}
+
 /** The sign-in / create-account / forgot-password frame: a faint tilted brand mark behind a 342u column on the
  *  phone; on desktop, the design's split screen (brand panel left, the same form in a centred column right).
  *  Auth pages share one frame. With no `nav` of its own, a page gets a back circle to the landing page, so
  *  someone who lands on sign-in or sign-up can always get back to what STAK is. */
 export function AuthScreen({ children, nav, bottom }: { children: ReactNode; nav?: ReactNode; bottom: ReactNode }) {
 	const navigate = useNavigate();
-	nav ??= <BackCircle label="Back to STAK home" onClick={() => navigate({ to: "/welcome" })} />;
+	nav ??= <AuthBackLink label="Back to home" onClick={() => navigate({ to: "/welcome" })} />;
 	if (!useIsMobile()) return <AuthDesktopFrame nav={nav} bottom={bottom}>{children}</AuthDesktopFrame>;
 	return (
 		<PhonePage>
@@ -211,7 +221,7 @@ function AuthDesktopFrame({ children, nav, bottom }: { children: ReactNode; nav:
 					</div>
 				</aside>
 				<div className="relative flex min-h-dvh min-w-0 flex-col" style={{ ["--u" as string]: "clamp(1px, calc(100vw / 1440), 1.25px)" }}>
-					<div className="absolute" style={{ left: cu(27), top: cu(63) }}>{nav}</div>
+					<div className="absolute" style={{ right: cu(40), top: cu(40) }}>{nav}</div>
 					<div className="m-auto flex w-full flex-col" style={{ maxWidth: cu(440), gap: cu(14), padding: `${cu(96)} 0 ${cu(48)}` }}>
 						{children}
 						<div style={{ height: cu(2) }} />

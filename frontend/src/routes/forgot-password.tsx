@@ -1,13 +1,13 @@
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-	AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, ShowHide,
+	AuthBackLink, AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, ShowHide,
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/forgot-password")({
 	component: ForgotPasswordPage,
@@ -24,7 +24,6 @@ const INFO_CARD = { display: "flex", flexDirection: "column", gap: cu(6), border
 function ForgotPasswordPage() {
 	const { resetPasswordSupabase, verifyRecoveryOtp, confirmResetSupabase } = useAuth();
 	const navigate = useNavigate();
-	const router = useRouter();
 	const [step, setStep] = useState<Step>("email");
 	const [busy, setBusy] = useState(false);
 	const [email, setEmail] = useState("");
@@ -35,7 +34,6 @@ function ForgotPasswordPage() {
 	const [error, setError] = useState<string | null>(null);
 	const { shown, toggle } = usePasswordVisibility();
 
-	const leave = () => (router.history.length > 1 ? router.history.back() : navigate({ to: "/login" }));
 
 	async function sendCode() {
 		setAttempted(true);
@@ -99,7 +97,7 @@ function ForgotPasswordPage() {
 
 	return (
 		<AuthScreen
-			nav={<BackCircle onClick={leave} />}
+			nav={<AuthBackLink label="Back to sign in" onClick={() => navigate({ to: "/login" })} />}
 			bottom={
 				<>
 					{cta}
