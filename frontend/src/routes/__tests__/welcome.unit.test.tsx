@@ -16,6 +16,8 @@ vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (opts: unknown) => opts,
 	useNavigate: () => mockNavigate,
 }));
+// The early-access modal saves through the API client, which needs Supabase settings at import; the landing tests don't.
+vi.mock("@/lib/api", () => ({ joinWaitlist: vi.fn() }));
 vi.mock("@/context/AuthContext", () => ({
 	useAuth: () => ({ appUser: null, loading: false }),
 }));
@@ -25,7 +27,7 @@ vi.mock("@/context/AccountContext", () => ({
 
 import { Route } from "../welcome";
 // createFileRoute mock above returns (opts) => opts, so Route is the raw options object
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const LandingPage = (Route as any).component as React.ComponentType;
 
 /* The page sizes itself from the scroll container's clientWidth (jsdom
@@ -250,9 +252,9 @@ describe("footer", () => {
 
 /* ─── design-review invariants ──────────────────────────────────────── */
 describe("design invariants", () => {
-	it.each(ALL)("%s: the problem mockup photo renders SHARP (no blur filter)", (_name, width) => {
+	it.each(ALL)("%s: the problem phone mockup renders SHARP (no blur filter)", (_name, width) => {
 		renderAt(width);
-		const img = document.querySelector('img[src*="problem-screenshot"]') as HTMLImageElement;
+		const img = document.querySelector('img[src*="problem-phone"]') as HTMLImageElement;
 		expect(img).not.toBeNull();
 		expect(img.style.filter || "").not.toContain("blur");
 	});
