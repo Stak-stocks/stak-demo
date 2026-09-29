@@ -94,6 +94,7 @@ const ProfileHelpSupportRoute = ProfileHelpSupportRouteImport.update({
   path: '/profile/help-support',
   getParentRoute: () => rootRouteImport,
 } as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/feed': typeof FeedRoute

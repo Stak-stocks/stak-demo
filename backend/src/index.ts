@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import cron from "node-cron";
 import { pgQuery } from "./lib/postgres.js";
 import { brandsRouter } from "./routes/brands.js";
+import { waitlistRouter } from "./routes/waitlist.js";
 import { swipeRouter } from "./routes/swipe.js";
 import { meRouter } from "./routes/me.js";
 import { tasteRouter } from "./routes/taste.js";
@@ -94,6 +95,8 @@ app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 app.use("/api/playground", authLimiter, playgroundRouter);
 app.use("/api/stak-ai", authLimiter, stakAiRouter);
 app.use("/api/sandbox", authLimiter, sandboxRouter);
+// Public early-access sign-up; the router applies its own, much tighter limit.
+app.use("/api/waitlist", waitlistRouter);
 
 // Convenience redirect: /analytics → /analytics.html
 app.get("/analytics", (_req, res) => res.redirect("/analytics.html"));
