@@ -139,10 +139,58 @@ describe("hero", () => {
 		expect(document.querySelector('img[src*="hero-box-frame124-t810-2x"]')).not.toBeNull();
 	});
 
-	it.each(ALL)("%s: 'Get started' navigates to /signup", (_name, width) => {
+	it.each(ALL)("%s: pre-launch, no section sends people to sign up or scroll with a button", (_name, width) => {
 		renderAt(width);
-		fireEvent.click(screen.getAllByText("Get started")[0]);
-		expect(mockNavigate).toHaveBeenCalledWith({ to: "/signup" });
+		for (const label of ["Get started", "Explore STAK", "Join our Community"]) {
+			expect(screen.queryByText(label)).toBeNull();
+		}
+	});
+});
+
+/* ─── header: pinned, and its CTA is early access ───────────────────── */
+describe("header", () => {
+	it.each(ALL)("%s: the header lives outside the scrolling canvas, in a sticky layer", (_name, width) => {
+		renderAt(width);
+		const logo = screen.getAllByAltText("STAK")[0];
+		expect(canvas().contains(logo)).toBe(false);
+		const sticky = [...document.querySelectorAll<HTMLElement>("div")].find((d) => d.style.position === "sticky");
+		expect(sticky?.contains(logo)).toBe(true);
+	});
+
+	it("desktop: 'Get early access' in the header opens the early-access form", () => {
+		renderAt(DESKTOP);
+		// The hero pill says the same thing; this is the one in the header.
+		const cta = screen.getAllByRole("button", { name: "Get early access" }).find((el) => el.closest("[style*='sticky']"));
+		fireEvent.click(cta!);
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(mockNavigate).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["phone", PHONE],
+		["tablet", TABLET],
+	] as const)("%s: the menu's 'Get early access' closes the menu and opens the form", (_name, width) => {
+		renderAt(width);
+		const burger = screen.getByLabelText("Menu");
+		fireEvent.click(burger);
+		const cta = screen.getAllByRole("button", { name: "Get early access" }).find((b) => b.closest("[style*='sticky']"));
+		fireEvent.click(cta!);
+		expect(burger).toHaveAttribute("aria-expanded", "false");
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+	});
+
+	it.each([
+		["phone", PHONE],
+		["tablet", TABLET],
+	] as const)("%s: tapping outside the open menu, or Escape, closes it", (_name, width) => {
+		renderAt(width);
+		const burger = screen.getByLabelText("Menu");
+		fireEvent.click(burger);
+		fireEvent.pointerDown(canvas());
+		expect(burger).toHaveAttribute("aria-expanded", "false");
+		fireEvent.click(burger);
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(burger).toHaveAttribute("aria-expanded", "false");
 	});
 });
 
@@ -182,8 +230,8 @@ describe("FAQ (hands-off section)", () => {
 /* ─── navigation: hamburger menu (phone/tablet) and desktop nav ─────── */
 describe("navigation", () => {
 	it.each([
-		["phone", PHONE, 6356], // PHONE_SEC.faq at scale 1
-		["tablet", TABLET, 5356], // TABLET_SEC.faq at scale 1
+		["phone", PHONE, 5640], // PHONE_SEC.faq at scale 1
+		["tablet", TABLET, 4883], // TABLET_SEC.faq at scale 1
 	] as const)("%s: hamburger opens the menu and FAQ scrolls the right layout anchor", (_name, width, expectedTop) => {
 		renderAt(width);
 		const burger = screen.getByLabelText("Menu");
@@ -202,7 +250,7 @@ describe("navigation", () => {
 		renderAt(DESKTOP);
 		const faqButtons = screen.getAllByText("FAQ");
 		fireEvent.click(faqButtons[0]);
-		expect(scrollToSpy).toHaveBeenCalledWith({ top: 6257 * (1440 / 1400), behavior: "smooth" });
+		expect(scrollToSpy).toHaveBeenCalledWith({ top: 5529 * (1440 / 1400), behavior: "smooth" });
 	});
 
 	it("desktop: nav 'Home' scrolls back to the top", () => {
@@ -265,23 +313,22 @@ describe("design invariants", () => {
 		expect(screen.getByText("Real Momentum.")).toBeInTheDocument();
 	});
 
-	it.each([
-		["phone", PHONE],
-		["tablet", TABLET],
-	] as const)("%s: chat bubbles carry Figma's exact strings", (_name, width) => {
+	it.each(ALL)("%s: chat bubbles carry the one shared set of lines", (_name, width) => {
 		renderAt(width);
-		expect(screen.getAllByText("Lets fvking STAK i!").length).toBeGreaterThan(0);
-		expect(screen.getByText("I love printing money")).toBeInTheDocument();
-		expect(screen.getByText("Whats the Buzz About?")).toBeInTheDocument();
+		for (const line of ["Just STAKed Amazon!", "What's the Buzz About?", "My portfolio is growing!", "This app is different!"]) {
+			expect(screen.getByText(line)).toBeInTheDocument();
+		}
+		expect(screen.queryByText("Lets fvking STAK i!")).toBeNull();
 	});
 
-	it("phone and tablet use lowercase Figma pills; hero subhead keeps the grammar fix", () => {
-		renderAt(PHONE);
-		expect(screen.getByText("The problem")).toBeInTheDocument();
-		expect(screen.getAllByText("How it works").length).toBeGreaterThan(0);
-		cleanup();
+	it("every layout labels its sections the same way; hero subhead keeps the grammar fix", () => {
+		for (const width of [PHONE, TABLET, DESKTOP]) {
+			renderAt(width);
+			expect(screen.getByText("The Problem")).toBeInTheDocument();
+			expect(screen.getAllByText("How It Works").length).toBeGreaterThan(0);
+			cleanup();
+		}
 		renderAt(TABLET);
-		expect(screen.getByText("The problem")).toBeInTheDocument();
 		expect(screen.getByText(/smart insights, and zero pressure\. Before you buy anything/)).toBeInTheDocument();
 	});
 });

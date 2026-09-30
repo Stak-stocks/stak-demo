@@ -104,7 +104,6 @@ const A = {
 	feat3: "/images/landing-v2/feat-3.webp",
 	feat4: "/images/landing-v2/feat-4.webp",
 	// Early Momentum
-	emAvatar: "/images/landing-v2/em-avatar.jpg",
 	emStatArrow: "/images/landing-v2/em-stat-arrow.svg",
 	// FAQ
 	faqPlus: "/images/landing-v2/faq-plus.svg",
@@ -150,15 +149,15 @@ const CTA_SHADOW =
 /* ─── SECTION VERTICAL ANCHORS (px from page top) ───────────────────── */
 const SEC = {
 	hero: 0,
-	problem: 1154,
-	howItWorks: 2417,
-	features: 3479,
-	earlyMomentum: 5267,
-	faq: 6257,
-	finalCta: 7476,
-	footer: 8906,
+	problem: 1060,
+	howItWorks: 2194,
+	features: 3101,
+	earlyMomentum: 4716,
+	faq: 5529,
+	finalCta: 6748,
+	footer: 8178,
 };
-const TOTAL_HEIGHT = 9589;
+const TOTAL_HEIGHT = 8861;
 const CANVAS_WIDTH = 1400;
 /* On screens wider than 1400 the canvas scales UP to fill the viewport —
    uncapped, so the page keeps Figma proportions edge-to-edge at any width. */
@@ -333,7 +332,8 @@ function CtaButton({
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  NAVIGATION BAR                                                      */
 /* ═══════════════════════════════════════════════════════════════════ */
-function NavBar({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function NavBar({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void }) {
+	const openEarlyAccess = useContext(EarlyAccessContext);
 	return (
 		<div
 			style={{
@@ -369,7 +369,7 @@ function NavBar({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k
 					<button type="button" onClick={() => onScrollTo("faq")} style={{ ...btnReset, marginLeft: 12 }}>FAQ</button>
 				</div>
 				{/* Figma navbar (node 1:315 / Frame 52) has NO Login button — */}
-				<CtaButton label="Get started" withArrow={false} fontSize={14.453} onClick={onSignup} />
+				<CtaButton label="Get early access" withArrow={false} fontSize={14.453} onClick={openEarlyAccess} />
 			</div>
 		</div>
 	);
@@ -378,9 +378,9 @@ function NavBar({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 1: HERO                                                     */
 /* ═══════════════════════════════════════════════════════════════════ */
-function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function Hero() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: SEC.hero, width: CANVAS_WIDTH, height: 1154, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: SEC.hero, width: CANVAS_WIDTH, height: 1060, background: SECTION_BG, overflow: "hidden" }}>
 			{/* Gradient 3 (Figma node 1:258) net effect — a SUBTLE glow strictly
 			    behind the box (Ellipse 103, #34B4BE) that grounds it, fading to
 			    #0a1020 well before the headline above and before the box base below,
@@ -392,8 +392,6 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 			<div style={{ position: "absolute", left: 879, top: 589, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", right: "-108.2%", bottom: "-179.01%", width: "auto", height: "auto", maxWidth: "none" }} />
 			</div>
-
-			<NavBar onSignup={onSignup} onScrollTo={onScrollTo} />
 
 			{/* Hero text */}
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
@@ -429,17 +427,13 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 				<img src={A.boxT810} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 			</div>
 
-			<div style={{ position: "absolute", left: "calc(50% - 0.43px)", top: 895, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} />
-			</div>
-
 			{/* Proof logos row — Figma node 1:380 "Frame 136", x=207, width=986.99,
 			    a single horizontal row of 6 partner logos with 79px gaps. Width is
 			    set explicitly to 986.99 so the row does NOT wrap: with only `left`
 			    + translateX(-50%) and no width, the browser caps an absolutely-
 			    positioned element's width at (containing-block − left ≈ 699px),
 			    which was forcing the 6 logos (987px total) onto two rows. */}
-			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 1024, transform: "translateX(-50%)", width: 986.99, display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "center", columnGap: 79 }}>
+			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 930, transform: "translateX(-50%)", width: 986.99, display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "center", columnGap: 79 }}>
 				{/* Block Wallet (Figma node 1:381) — icon (left ~14%) + wordmark
 				    (right ~81%) positioned side-by-side per Figma. The old generic
 				    overlay stretched BOTH to full size atop each other → garbled blob. */}
@@ -491,9 +485,9 @@ function ProofLogo({ width, height, label, multi }: { width: number; height: num
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 2: PROBLEM                                                  */
 /* ═══════════════════════════════════════════════════════════════════ */
-function Problem({ onSignup }: { onSignup: () => void }) {
+function Problem() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: SEC.problem, width: CANVAS_WIDTH, height: 1263, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: SEC.problem, width: CANVAS_WIDTH, height: 1134, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: "50%", top: 70, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", alignItems: "center", gap: 77 }}>
 				<Pill label="The Problem" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center", width: "100%" }}>
@@ -523,10 +517,6 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 			    radial-glow halo behind the phone. The user explicitly asked for
 			    it to be removed since the glow was visible as a faint oval on
 			    the left side of the section at typical viewport widths. */}
-
-			<div style={{ position: "absolute", left: "calc(50% - 0.43px)", top: 1130, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} />
-			</div>
 		</section>
 	);
 }
@@ -534,7 +524,7 @@ function Problem({ onSignup }: { onSignup: () => void }) {
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 3: HOW IT WORKS                                             */
 /* ═══════════════════════════════════════════════════════════════════ */
-function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void }) {
+function HowItWorks() {
 	const cards = [
 		{ n: "01/", title: "Tell Us Who You Are", body: ["Take a quick risk quiz. STAK learns your personality, your goals, and your vibe. ", "No spreadsheets. No jargon."] },
 		{ n: "02/", title: "Swipe Through Stocks", body: ["Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. ", "It's that simple."] },
@@ -542,7 +532,7 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 	];
 
 	return (
-		<section style={{ position: "absolute", left: 0, top: SEC.howItWorks, width: CANVAS_WIDTH, height: 1062, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: SEC.howItWorks, width: CANVAS_WIDTH, height: 907, background: SECTION_BG, overflow: "hidden" }}>
 			{/* Removed: hiwEllipse1 + hiwEllipse2 — two decorative radial-glow
 			    ovals in this section (one at left:839 top:529, one at left:329
 			    top:368). Both were producing faint "lights" at the left and
@@ -573,7 +563,6 @@ function HowItWorks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void 
 							</div>
 						))}
 					</div>
-					<CtaButton label="Explore STAK" onClick={() => onScrollTo("features")} />
 				</div>
 			</div>
 		</section>
@@ -607,9 +596,9 @@ function PhoneMockup({ feature }: { feature: Feature }) {
 	);
 }
 
-function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void }) {
+function Features() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: SEC.features, width: CANVAS_WIDTH, height: 1788, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: SEC.features, width: CANVAS_WIDTH, height: 1615, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 111, top: 70, width: 1179, display: "flex", flexDirection: "column", alignItems: "center", gap: 110 }}>
 				<div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 159 }}>
 					<div style={{ width: 926, display: "flex", flexDirection: "column", gap: 77, alignItems: "center" }}>
@@ -658,7 +647,6 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
 						</div>
 					</div>
 				</div>
-				<CtaButton label="Explore STAK" onClick={() => onScrollTo("earlyMomentum")} />
 			</div>
 		</section>
 	);
@@ -667,38 +655,38 @@ function Features({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) => void })
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  SECTION 5: EARLY MOMENTUM                                           */
 /* ═══════════════════════════════════════════════════════════════════ */
-/* Per Figma section 5 (node 1:680) — three staggered rows of chat bubbles.
-   Row 1 (top, node 1:750):  STAK / Time / Woooo / STAK / STAK
-   Row 2 (middle, 1:792):    Buzz / Tsla / STAK / STAK / STAK
-   Row 3 (bottom, 1:771):    Bullish / printing / Gold / STAK / STAK */
+/* Section 5's three staggered rows of chat bubbles (Figma 1:680): row 1 on top, row 2 in the middle, row 3 at
+   the bottom. Every layout reads these, so the copy can't drift between desktop, tablet and phone. `a` picks the
+   bubble's avatar (em-avatar-01..15: Open Peeps, CC0, one person per bubble). */
+const emAvatar = (a: number) => `/images/landing-v2/em-avatar-${String(a).padStart(2, "0")}.webp`;
 const CHAT_BUBBLES_R1 = [
-	{ t: "Just STAKed Amazon!", dark: false },
-	{ t: "Time to save more!", dark: true },
-	{ t: "Woooo!!", dark: false },
-	{ t: "Portfolio up this week!", dark: false },
-	{ t: "New to STAK, loving it!", dark: false },
+	{ t: "Just STAKed Amazon!", dark: false, a: 1 },
+	{ t: "Time to save more!", dark: true, a: 2 },
+	{ t: "Woooo!!", dark: false, a: 3 },
+	{ t: "Portfolio up this week!", dark: false, a: 4 },
+	{ t: "New to STAK, loving it!", dark: false, a: 5 },
 ];
 const CHAT_BUBBLES_R2 = [
-	{ t: "What's the Buzz About?", dark: true },
-	{ t: "Is $Tsla a good buy?", dark: false },
-	{ t: "Bullish on tech stocks!", dark: true },
-	{ t: "STAKed Apple today!", dark: false },
-	{ t: "Up 12% this month!", dark: false },
+	{ t: "What's the Buzz About?", dark: true, a: 6 },
+	{ t: "Is $Tsla a good buy?", dark: false, a: 7 },
+	{ t: "Bullish on tech stocks!", dark: true, a: 8 },
+	{ t: "STAKed Apple today!", dark: false, a: 9 },
+	{ t: "Up 12% this month!", dark: false, a: 10 },
 ];
 const CHAT_BUBBLES_R3 = [
-	{ t: "Bullish! on S&P 500", dark: false },
-	{ t: "My portfolio is growing!", dark: true },
-	{ t: "Gold, Google", dark: false },
-	{ t: "Big gains incoming!", dark: false },
-	{ t: "This app is different!", dark: false },
+	{ t: "Bullish! on S&P 500", dark: false, a: 11 },
+	{ t: "My portfolio is growing!", dark: true, a: 12 },
+	{ t: "Gold, Google", dark: false, a: 13 },
+	{ t: "Big gains incoming!", dark: false, a: 14 },
+	{ t: "This app is different!", dark: false, a: 15 },
 ];
 
-function ChatBubble({ text, dark }: { text: string; dark: boolean }) {
+function ChatBubble({ text, dark, avatar }: { text: string; dark: boolean; avatar: number }) {
 	return (
 		<div style={{ background: dark ? "rgba(169,191,254,0.37)" : "#fff", width: 249.91, height: 70.682, borderRadius: 53.011, overflow: "hidden", position: "relative", flexShrink: 0 }}>
 			<div style={{ position: "absolute", left: 15.15, top: 11.36, display: "flex", alignItems: "center", gap: 25.243 }}>
 				<div style={{ width: 47.963, height: 47.963, borderRadius: 63.109, overflow: "hidden", flexShrink: 0 }}>
-					<img src={A.emAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 63.109 }} />
+					<img src={emAvatar(avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 63.109 }} />
 				</div>
 				<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 10.351, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
 			</div>
@@ -706,9 +694,9 @@ function ChatBubble({ text, dark }: { text: string; dark: boolean }) {
 	);
 }
 
-function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
+function EarlyMomentum() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: SEC.earlyMomentum, width: CANVAS_WIDTH, height: 990, background: SECTION_BG, overflow: "visible" }}>
+		<section style={{ position: "absolute", left: 0, top: SEC.earlyMomentum, width: CANVAS_WIDTH, height: 813, background: SECTION_BG, overflow: "visible" }}>
 			{/* Inner wrapper — Figma node 1:728 "Frame 190" at section x=96. */}
 			<div style={{ position: "absolute", left: 96, top: 70, width: 1747.269, height: 615.698 }}>
 				<div style={{ position: "absolute", left: "calc(50% - 269.63px)", top: 0, transform: "translateX(-50%)", width: 926, display: "flex", flexDirection: "column", gap: 77, alignItems: "center" }}>
@@ -733,13 +721,13 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 						    (= 96.858 Figma-spec inter-row spacing − 70.682 bubble height). */}
 						<div style={{ marginLeft: 32.53 }}>
 							<div style={{ marginLeft: 8.13, display: "flex", gap: 13.309, alignItems: "center" }}>
-								{CHAT_BUBBLES_R1.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} />)}
+								{CHAT_BUBBLES_R1.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} avatar={b.a} />)}
 							</div>
 							<div style={{ marginLeft: 74.68, marginTop: 26.178, display: "flex", gap: 13.309, alignItems: "center" }}>
-								{CHAT_BUBBLES_R2.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} />)}
+								{CHAT_BUBBLES_R2.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} avatar={b.a} />)}
 							</div>
 							<div style={{ marginLeft: 0, marginTop: 26.178, display: "flex", gap: 13.309, alignItems: "center" }}>
-								{CHAT_BUBBLES_R3.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} />)}
+								{CHAT_BUBBLES_R3.map((b, i) => <ChatBubble key={i} text={b.t} dark={b.dark} avatar={b.a} />)}
 							</div>
 						</div>
 						{/* Figma node 1:813 — LEFT-side fade overlay (the dark gradient
@@ -794,10 +782,6 @@ function EarlyMomentum({ onSignup }: { onSignup: () => void }) {
 						/>
 					</div>
 				</div>
-			</div>
-
-			<div style={{ position: "absolute", left: "calc(50% - 0.5px)", top: 795.7, transform: "translateX(-50%)" }}>
-				<CtaButton label="Join our Community" onClick={onSignup} />
 			</div>
 		</section>
 	);
@@ -1706,18 +1690,35 @@ function FooterUsefulLinks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) =
 const MOBILE_WIDTH = 810;
 const MOBILE390_WIDTH = 390;
 
-function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onSignup }: { width?: number; left?: number; padX?: number; onScrollTo?: (k: keyof typeof SEC) => void; onSignup?: () => void } = {}) {
-	/* Figma-exact mobile/tablet bar: logo + hamburger only (Frames 220/222 have
-	   no nav CTA). The hamburger opens a real menu (Home / Features / How It
-	   Works / FAQ wired to onScrollTo). onSignup is accepted so a layout CAN
-	   opt into a bar CTA, but none do by design — do not pass it to match Figma. */
+function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo }: { width?: number; left?: number; padX?: number; onScrollTo?: (k: keyof typeof SEC) => void } = {}) {
+	/* Figma-exact mobile/tablet bar: logo + hamburger only (Frames 220/222 have no
+	   nav CTA). The hamburger opens a menu of the page's sections plus "Get early
+	   access". The menu stays mounted so it can fade/slide out as well as in, and a
+	   tap anywhere outside the bar or menu (or Escape) closes it. */
+	const openEarlyAccess = useContext(EarlyAccessContext);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const rootRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (!menuOpen) return;
+		const onPointerDown = (e: PointerEvent) => {
+			if (rootRef.current && !rootRef.current.contains(e.target as Node)) setMenuOpen(false);
+		};
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setMenuOpen(false);
+		};
+		document.addEventListener("pointerdown", onPointerDown);
+		document.addEventListener("keydown", onKey);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKey);
+		};
+	}, [menuOpen]);
 	const go = (k: keyof typeof SEC) => {
 		setMenuOpen(false);
 		if (onScrollTo) onScrollTo(k);
 	};
 	return (
-		<div style={{ position: "absolute", left, top: 26, width, zIndex: 20 }}>
+		<div ref={rootRef} style={{ position: "absolute", left, top: 26, width, zIndex: 20 }}>
 			<div style={{ width: "100%", height: 45.899, background: "#1a1d31", borderRadius: 10.752, display: "flex", alignItems: "center", justifyContent: "space-between", padding: `12px ${padX}px`, boxSizing: "border-box" }}>
 				<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
 					<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
@@ -1727,31 +1728,53 @@ function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onS
 						<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 					</div>
 				</div>
-				<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-					{onSignup && (
-						<CtaButton label="Get started" withArrow={false} fontSize={12} onClick={onSignup} style={{ padding: "5px 10px", borderRadius: 5 }} />
-					)}
-					<button type="button" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} style={{ ...btnReset, width: 31.922, height: 14.188, flexShrink: 0, cursor: "pointer" }}>
-						<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+				<button type="button" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} style={{ ...btnReset, width: 31.922, height: 14.188, flexShrink: 0, cursor: "pointer" }}>
+					<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+				</button>
+			</div>
+			<div
+				style={{
+					marginTop: 8,
+					background: "#1a1d31",
+					borderRadius: 10.752,
+					padding: "8px 0 14px",
+					display: "flex",
+					flexDirection: "column",
+					boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
+					transformOrigin: "top right",
+					opacity: menuOpen ? 1 : 0,
+					transform: menuOpen ? "translateY(0) scale(1)" : "translateY(-8px) scale(0.97)",
+					visibility: menuOpen ? "visible" : "hidden",
+					pointerEvents: menuOpen ? "auto" : "none",
+					// Hide only after the fade-out, so closing animates instead of snapping away.
+					transition: `opacity 200ms ease, transform 200ms ease, visibility 0s linear ${menuOpen ? "0s" : "200ms"}`,
+				}}
+			>
+				{([["Home", "hero"], ["Features", "features"], ["How It Works", "howItWorks"], ["FAQ", "faq"]] as [string, keyof typeof SEC][]).map(([label, k]) => (
+					<button key={k} type="button" onClick={() => go(k)} style={{ ...btnReset, textAlign: "left", padding: "10px 18px", fontFamily: SR, fontWeight: 400, fontSize: 15, color: "#fff", cursor: "pointer" }}>
+						{label}
 					</button>
+				))}
+				<div style={{ padding: "8px 18px 0" }}>
+					<CtaButton
+						label="Get early access"
+						withArrow={false}
+						fontSize={14.453}
+						onClick={() => {
+							setMenuOpen(false);
+							openEarlyAccess();
+						}}
+						style={{ width: "100%", boxSizing: "border-box", padding: "9px 14.453px" }}
+					/>
 				</div>
 			</div>
-			{menuOpen && (
-				<div style={{ marginTop: 8, background: "#1a1d31", borderRadius: 10.752, padding: "8px 0", display: "flex", flexDirection: "column", boxShadow: "0 12px 32px rgba(0,0,0,0.45)" }}>
-					{([["Home", "hero"], ["Features", "features"], ["How It Works", "howItWorks"], ["FAQ", "faq"]] as [string, keyof typeof SEC][]).map(([label, k]) => (
-						<button key={k} type="button" onClick={() => go(k)} style={{ ...btnReset, textAlign: "left", padding: "10px 18px", fontFamily: SR, fontWeight: 400, fontSize: 15, color: "#fff", cursor: "pointer" }}>
-							{label}
-						</button>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }
 
-function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileHero() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE_WIDTH, height: 924, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE_WIDTH, height: 870, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(46% 20% at 50% 55%, rgba(70,118,162,0.12) 0%, rgba(45,86,130,0.045) 46%, rgba(10,16,32,0) 72%)" }} />
 			<div style={{ position: "absolute", left: -80, top: 206, width: 470, height: 231, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse108} alt="" style={{ position: "absolute", top: "-199.08%", left: "-97.85%", width: "295.7%", height: "498.16%", maxWidth: "none" }} />
@@ -1759,8 +1782,6 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 			<div style={{ position: "absolute", left: 531, top: 301, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
-
-			<MobileNavBar onScrollTo={onScrollTo} />
 
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<EarlyAccessPill style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -1774,7 +1795,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 				</EarlyAccessPill>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market</p>
+						<p style={{ margin: 0, lineHeight: "37px" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "37px" }}>Finally Speaks Your Language.</p>
 					</div>
 					<div style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center" }}>
@@ -1791,19 +1812,32 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 			<div style={{ position: "absolute", left: 111, top: 284, width: 587.309, height: 563.5, pointerEvents: "none" }}>
 				<img src={A.boxT810} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 			</div>
-
-			<div style={{ position: "absolute", left: "50%", bottom: 39.55, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} style={{ filter: "drop-shadow(0px 12.285px 6.142px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))" }} />
-			</div>
 		</section>
+	);
+}
+
+/**
+ * A row of logos that scrolls slowly and endlessly: on phone and tablet the partner row is wider than the screen,
+ * so it loops instead of sitting cut off at both edges. Two copies side by side, the track sliding by one copy's
+ * width; the second copy is hidden from screen readers. Still for anyone who prefers reduced motion.
+ */
+function Marquee({ top, gap, children }: { top: number; gap: number; children: ReactNode }) {
+	const row: CSSProperties = { display: "flex", alignItems: "center", gap, paddingRight: gap, flexShrink: 0 };
+	return (
+		<div style={{ position: "absolute", left: 0, right: 0, top, overflow: "hidden" }}>
+			<div className="landing-marquee" style={{ display: "flex", width: "max-content" }}>
+				<div style={row}>{children}</div>
+				<div style={row} aria-hidden="true">{children}</div>
+			</div>
+		</div>
 	);
 }
 
 /* Mobile partner-logos strip — Figma node 1:1170 (Frame 219), 810×115 */
 function MobileProofStrip() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 924, width: MOBILE_WIDTH, height: 115, background: SECTION_BG, overflow: "hidden" }}>
-			<div style={{ position: "absolute", left: "calc(50% + 5.5px)", top: 47, transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 50 }}>
+		<section style={{ position: "absolute", left: 0, top: 870, width: MOBILE_WIDTH, height: 115, background: SECTION_BG, overflow: "hidden" }}>
+			<Marquee top={47} gap={50}>
 				<div style={{ width: 150, height: 21, position: "relative", flexShrink: 0 }} aria-label="Block Wallet">
 					<div style={{ position: "absolute", inset: "0 85.94% 0 0" }}><img src={A.proofBwIcon} alt="Block Wallet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 					<div style={{ position: "absolute", inset: "9.07% 0 11.2% 18.72%" }}><img src={A.proofBwWord} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
@@ -1816,7 +1850,7 @@ function MobileProofStrip() {
 				</div>
 				<div style={{ width: 56.1, height: 19.513, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
 				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div></div>
-			</div>
+			</Marquee>
 			<div style={{ position: "absolute", left: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to right, rgba(10,16,32,0.99) 41.41%, rgba(10,16,32,0.12) 74.22%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", right: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to left, rgb(10,16,32) 27.344%, rgba(10,16,32,0.79) 133.59%)", pointerEvents: "none" }} />
 		</section>
@@ -1824,15 +1858,15 @@ function MobileProofStrip() {
 }
 
 /* Mobile Problem — Figma node 1:1180 (Frame 221), 810×1041 */
-function MobileProblem({ onSignup }: { onSignup: () => void }) {
+function MobileProblem() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 1039, width: MOBILE_WIDTH, height: 1041, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 985, width: MOBILE_WIDTH, height: 1002, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 231, top: 201, width: 359, height: 148, overflow: "visible", pointerEvents: "none" }}><img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-262.47%", left: "-108.2%", width: "316.4%", height: "624.94%", maxWidth: "none" }} /></div>
 			<div style={{ position: "absolute", left: 226, top: 512, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}><img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} /></div>
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The problem</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The Problem</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", width: "100%" }}>
@@ -1858,26 +1892,23 @@ function MobileProblem({ onSignup }: { onSignup: () => void }) {
 					<div style={{ position: "absolute", bottom: 31, left: -84, width: 1400, height: 214, background: "linear-gradient(to top, #0a1020 30.374%, rgba(10,16,32,0) 96.262%)", filter: "blur(12.798px)", pointerEvents: "none" }} />
 				</div>
 			</div>
-			<div style={{ position: "absolute", left: "calc(50% + 0.45px)", bottom: 44.55, transform: "translateX(-50%)" }}>
-				<CtaButton label="Get started" onClick={onSignup} withArrow={false} fontSize={14.453} />
-			</div>
 		</section>
 	);
 }
 
 /* Mobile How It Works — Figma node 1:1199 (Frame 220), 810×1218 */
-function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
+function MobileHowItWorks() {
 	const cardBg: CSSProperties = { background: "#10172a", height: 297.889, borderRadius: 9.142, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const numS: CSSProperties = { fontFamily: SQ, fontSize: 22.856, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 400, fontSize: 16, color: "#fff", margin: 0, lineHeight: "normal" };
 	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 12, color: "rgba(255,255,255,0.62)", lineHeight: "normal", margin: 0 };
 	return (
-		<section style={{ position: "absolute", left: 0, top: 2080, width: MOBILE_WIDTH, height: 1218, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 1987, width: MOBILE_WIDTH, height: 1115, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 231, top: 201, width: 359, height: 148, overflow: "visible", pointerEvents: "none" }}><img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-262.47%", left: "-108.2%", width: "316.4%", height: "624.94%", maxWidth: "none" }} /></div>
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "10px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ fontFamily: SQ, fontSize: 32, color: "#fff", textAlign: "center", width: "100%" }}>
@@ -1926,17 +1957,13 @@ function MobileHowItWorks({ onSignup }: { onSignup: () => void }) {
 						</div>
 					</div>
 				</div>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 21.471px 6.331px rgba(105,179,202,0.05)) drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.202px 2.477px rgba(105,179,202,0.10))", cursor: "pointer" }}>
-					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
-					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</button>
 			</div>
 		</section>
 	);
 }
 
 /* Mobile Features — Figma node 1:1232 (Frame 222), 810×1185 */
-function MobileFeatures({ onSignup }: { onSignup: () => void }) {
+function MobileFeatures() {
 	const card: CSSProperties = { background: "#10172a", width: 295.539, height: 281.221, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 10.263, color: "#fff", margin: 0, lineHeight: "normal", whiteSpace: "nowrap" };
 	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, color: "rgba(255,255,255,0.62)", lineHeight: "normal", textAlign: "center", margin: 0 };
@@ -1950,7 +1977,7 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 3298, width: MOBILE_WIDTH, height: 1185, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 3102, width: MOBILE_WIDTH, height: 1051, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2003,30 +2030,25 @@ function MobileFeatures({ onSignup }: { onSignup: () => void }) {
 						</div>
 					</div>
 				</div>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))", cursor: "pointer" }}>
-					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
-					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</button>
 			</div>
 		</section>
 	);
 }
 
 /* Mobile Early Momentum — Figma node 1:1350 (Frame 223), 810×873 */
-function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
-	const bubble = (text: string, dark: boolean, key: number) => (
+function MobileEarlyMomentum() {
+	const bubble = (text: string, dark: boolean, avatar: number, key: number) => (
 		<div key={key} style={{ background: dark ? "rgba(169,191,254,0.37)" : "#fff", width: 197.542, height: 55.871, borderRadius: 41.903, overflow: "hidden", position: "relative", flexShrink: 0 }}>
 			<div style={{ position: "absolute", left: 11.97, top: 8.98, display: "flex", alignItems: "center", gap: 19.954 }}>
 				<div style={{ width: 37.912, height: 37.912, borderRadius: 49.884, overflow: "hidden", flexShrink: 0 }}>
-					<img src={A.emAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
+					<img src={emAvatar(avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
 				</div>
 				<p style={{ fontFamily: SR, fontWeight: 400, fontSize: 8.182, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
 			</div>
 		</div>
 	);
-	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	// Here r1 is the top row, r3 the middle and r2 the bottom.
+	const [r1, r3, r2] = [CHAT_BUBBLES_R1, CHAT_BUBBLES_R2, CHAT_BUBBLES_R3].map((row) => row.map((b): [string, boolean, number] => [b.t, b.dark, b.a]));
 	const stat = (arrow: string, num: string, label: string) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 20.075, alignItems: "center", width: "100%" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
@@ -2037,7 +2059,7 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 4483, width: MOBILE_WIDTH, height: 873, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 4153, width: MOBILE_WIDTH, height: 730, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2056,16 +2078,10 @@ function MobileEarlyMomentum({ onSignup }: { onSignup: () => void }) {
 			</div>
 			{/* chat bubbles (3 staggered rows, overflow right with fade) */}
 			<div style={{ position: "absolute", left: 315.6, top: 402, width: 494.4, height: 209.231, overflow: "hidden" }}>
-				<div style={{ position: "absolute", left: 32.15, top: 0, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
-				<div style={{ position: "absolute", left: 84.75, top: 76.56, display: "flex", gap: 10.52 }}>{r3.map(([t, d], i) => bubble(t, d, i))}</div>
-				<div style={{ position: "absolute", left: 25.72, top: 153.12, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
+				<div style={{ position: "absolute", left: 32.15, top: 0, display: "flex", gap: 10.52 }}>{r1.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
+				<div style={{ position: "absolute", left: 84.75, top: 76.56, display: "flex", gap: 10.52 }}>{r3.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
+				<div style={{ position: "absolute", left: 25.72, top: 153.12, display: "flex", gap: 10.52 }}>{r2.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
 				<div style={{ position: "absolute", left: 0, top: 0, width: 183.516, height: 209.231, background: "linear-gradient(to right, rgba(10,16,32,1) 0%, rgba(18,29,58,0.75) 25%, rgba(26,42,83,0.5) 50%, rgba(34,54,108,0.25) 75%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
-			</div>
-			<div style={{ position: "absolute", left: "50%", top: 735.3, transform: "translateX(-50%)" }}>
-				<button type="button" onClick={onSignup} style={{ background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: "drop-shadow(0px 9.359px 4.68px rgba(105,179,202,0.09)) drop-shadow(0px 2.891px 3.252px rgba(105,179,202,0.10))", cursor: "pointer" }}>
-					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, lineHeight: "17px", color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
-					<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-				</button>
 			</div>
 		</section>
 	);
@@ -2104,7 +2120,7 @@ function MobileFaqRow({ q, a, open, onToggle, width = 586, qSize = 20, aSize = 1
 function MobileFaq({ onEmail }: { onEmail: () => void }) {
 	const [openIdx, setOpenIdx] = useState<number | null>(null);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 5356, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 4883, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 183 }}>
 				<div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -2159,7 +2175,7 @@ function MobileFinalCta() {
 		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 13.876, alignItems: "center" }}>{tiles}</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 6592, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 6119, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 60, zIndex: 2 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2218,7 +2234,7 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 7828, width: MOBILE_WIDTH, height: 589, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
+		<section style={{ position: "absolute", left: 0, top: 7355, width: MOBILE_WIDTH, height: 589, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
 			<div style={{ display: "flex", flexDirection: "column", gap: 58, padding: "40px 0", width: "100%" }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: 59, width: 686 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
@@ -2282,18 +2298,18 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 	);
 }
 
-function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileLanding({ scale, onEmail, onSubscribe, onScrollTo }: { scale: number; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	// full mobile canvas height (Figma node 1:1123 / Frame 220)
-	const H = 8417.48;
+	const H = 7944.48;
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
-				<MobileHero onSignup={onSignup} onScrollTo={onScrollTo} />
+				<MobileHero />
 				<MobileProofStrip />
-				<MobileProblem onSignup={onSignup} />
-				<MobileHowItWorks onSignup={onSignup} />
-				<MobileFeatures onSignup={onSignup} />
-				<MobileEarlyMomentum onSignup={onSignup} />
+				<MobileProblem />
+				<MobileHowItWorks />
+				<MobileFeatures />
+				<MobileEarlyMomentum />
 				<MobileFaq onEmail={onEmail} />
 				<MobileFinalCta />
 				<MobileFooter onSubscribe={onSubscribe} onScrollTo={onScrollTo} />
@@ -2303,16 +2319,15 @@ function MobileLanding({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { 
 }
 
 /* === 390px PHONE LAYOUT (Figma node 1:1586 / Frame 222, 390px wide) === */
-function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileHero390() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE390_WIDTH, height: 925, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 0, width: MOBILE390_WIDTH, height: 840, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: -216, top: 180, width: 470, height: 231, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse108} alt="" style={{ position: "absolute", top: "-199.08%", left: "-97.85%", width: "295.7%", height: "498.16%", maxWidth: "none" }} />
 			</div>
 			<div style={{ position: "absolute", left: 191, top: 441, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
-			<MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={onScrollTo} />
 			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<EarlyAccessPill style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2321,7 +2336,7 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 				</EarlyAccessPill>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", width: "100%" }}>
 					<div style={{ fontFamily: SQ, fontSize: 30, color: "#fff", width: "100%" }}>
-						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>The Stock Market</p>
+						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>The Stock Market,</p>
 						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Finally Speaks</p>
 						<p style={{ margin: 0, lineHeight: "35px", whiteSpace: "nowrap" }}>Your Language.</p>
 					</div>
@@ -2341,17 +2356,14 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 			<div style={{ position: "absolute", left: 0, top: 375, width: 390, height: 422.5, pointerEvents: "none" }}>
 				<img src={A.boxM390} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 			</div>
-			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.6, top: 849, width: 112.905, height: 32.453, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer", boxSizing: "border-box" }}>
-				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
-			</button>
 		</section>
 	);
 }
 
 function MobileProofStrip390() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 925, width: MOBILE390_WIDTH, height: 115, background: "#0a1020", overflow: "hidden" }}>
-			<div style={{ position: "absolute", left: "calc(50% + 168.5px)", top: 47, transform: "translateX(-50%)", display: "flex", gap: 34, alignItems: "center" }}>
+		<section style={{ position: "absolute", left: 0, top: 840, width: MOBILE390_WIDTH, height: 115, background: "#0a1020", overflow: "hidden" }}>
+			<Marquee top={47} gap={34}>
 				<div style={{ width: 150, height: 21, position: "relative", flexShrink: 0 }} aria-label="Block Wallet">
 					<div style={{ position: "absolute", inset: "0 85.94% 0 0" }}><img src={A.proofBwIcon} alt="Block Wallet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
 					<div style={{ position: "absolute", inset: "9.07% 0 11.2% 18.72%" }}><img src={A.proofBwWord} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div>
@@ -2364,20 +2376,20 @@ function MobileProofStrip390() {
 				</div>
 				<div style={{ width: 56.1, height: 19.513, position: "relative", overflow: "hidden", flexShrink: 0 }}><img src={A.proofDeel} alt="Deel" style={{ width: "100%", height: "100%", objectFit: "contain" }} /></div>
 				<div style={{ width: 69, height: 21.923, position: "relative", overflow: "hidden", flexShrink: 0 }}><div style={{ position: "absolute", inset: "1.52% 3.8% 4.37% 0.15%" }}><img src={A.proofSpotify} alt="Spotify" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} /></div></div>
-			</div>
+			</Marquee>
 			<div style={{ position: "absolute", left: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to right, rgba(10,16,32,0.99) 41.41%, rgba(10,16,32,0.12) 74.22%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", right: 0, top: 0, width: 64, height: 115, background: "linear-gradient(to left, rgb(10,16,32) 27.344%, rgba(10,16,32,0.79) 133.59%)", pointerEvents: "none" }} />
 		</section>
 	);
 }
 
-function MobileProblem390({ onSignup }: { onSignup: () => void }) {
+function MobileProblem390() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 1040, width: MOBILE390_WIDTH, height: 924, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 955, width: MOBILE390_WIDTH, height: 829, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 267, transform: "translateX(-50%) scaleY(-1)", width: 359, height: 115, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-337.79%", left: "-108.2%", width: "316.4%", height: "775.58%", maxWidth: "none" }} />
 			</div>
-			<div style={{ position: "absolute", left: "calc(50% - 0.21px)", top: "calc(50% + 128.5px)", transform: "translate(-50%, -50%)", width: 403.587, height: 395, overflow: "hidden" }}>
+			<div style={{ position: "absolute", left: "calc(50% - 0.21px)", top: 590.5, transform: "translate(-50%, -50%)", width: 403.587, height: 395, overflow: "hidden" }}>
 				{/* Figma 1:1659/1:1660 geometry, but the photo stays SHARP — the user rejected the
 				    design's layer blur (re-confirmed 2026-07-01). The bottom mask rows sit entirely
 				    under the solid overlay (kills a compositing hairline, invisible otherwise). */}
@@ -2387,7 +2399,7 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 			<div style={{ position: "absolute", left: "calc(50% + 0.5px)", top: 70, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The problem</p>
+					<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>The Problem</p>
 					<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 15, alignItems: "center", textAlign: "center", color: "#fff", width: "100%" }}>
@@ -2404,9 +2416,6 @@ function MobileProblem390({ onSignup }: { onSignup: () => void }) {
 					</div>
 				</div>
 			</div>
-			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: 138.63, bottom: 51.55, background: CTA_GRADIENT, border: CTA_BORDER, borderRadius: 5.781, padding: "7.226px 14.453px", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer" }}>
-				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
-			</button>
 		</section>
 	);
 }
@@ -2451,14 +2460,14 @@ function MobileHowCard390({ step, num, title, body, bottom }: { step: 0 | 1 | 2;
 	);
 }
 
-function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
+function MobileHowItWorks390() {
 	return (
-		<section style={{ position: "absolute", left: 0, top: 1964, width: MOBILE390_WIDTH, height: 1575, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 1784, width: MOBILE390_WIDTH, height: 1266, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 70 }}>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
 					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 						<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
-						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How it works</p>
+						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 12, lineHeight: "12px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>How It Works</p>
 						<div style={{ width: 10.338, height: 8.615, flexShrink: 0 }}><img src={A.pillArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
 					</div>
 					<div style={{ fontFamily: SQ, fontSize: 30, textAlign: "center", width: "100%" }}>
@@ -2472,17 +2481,13 @@ function MobileHowItWorks390({ onSignup }: { onSignup: () => void }) {
 						<MobileHowCard390 step={1} num="02/" title="Swipe Through Stocks" body="Like a stock? Swipe right. Not feeling it? Swipe left. Want to know more? Swipe up. It's that simple." bottom={24.38} />
 						<MobileHowCard390 step={2} num="03/" title="STAK Before You Spend" body="Practice with real market data and zero real money. Build confidence before you commit a single dollar." bottom={24.38} />
 					</div>
-					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
-						<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					</button>
 				</div>
 			</div>
 		</section>
 	);
 }
 
-function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
+function MobileFeatures390() {
 	const card: CSSProperties = { background: "#10172a", width: 295, height: 338, borderRadius: 6.104, overflow: "hidden", position: "relative", flexShrink: 0 };
 	const titleS: CSSProperties = { fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "normal" };
 	const bodyS: CSSProperties = { fontFamily: SR, fontWeight: 300, fontSize: 11, color: "rgba(255,255,255,0.62)", lineHeight: "normal", whiteSpace: "pre-line", margin: 0 };
@@ -2501,7 +2506,7 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 3539, width: MOBILE390_WIDTH, height: 1934, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 3050, width: MOBILE390_WIDTH, height: 1808, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 70 }}>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
 					<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -2518,33 +2523,28 @@ function MobileFeatures390({ onSignup }: { onSignup: () => void }) {
 					<div style={{ display: "flex", flexDirection: "column", gap: 13.922 }}>
 						{phoneCard(1, "Trends", "See what's moving, what's hot, and what the market is actually doing — in plain English. Stay in the loop without the noise")}
 						{phoneCard(2, "Swipe Deck", "Discover stocks the way you discover everything else by swiping. Right to STAK it. Left to pass. Up to go deeper. Your feed,\nyour pace.")}
-						{phoneCard(4, "Intel Injections", "Bite-sized lessons delivered in-app, right when you need them. No textbooks. No boring lectures. Just context that makes you smarter on the spot.")}
 						{phoneCard(3, "Simulated STAK", "Buy. Sell. Watch. Learn. All with fake money, real market data. Zero risk, full experience. Build your portfolio before it counts.")}
+						{phoneCard(4, "Intel Injections", "Bite-sized lessons delivered in-app, right when you need them. No textbooks. No boring lectures. Just context that makes you smarter on the spot.")}
 					</div>
-					<button type="button" onClick={onSignup} style={{ ...btnReset, border: CTA_BORDER, background: CTA_GRADIENT, borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
-						<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Explore STAK</span>
-						<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-					</button>
 				</div>
 			</div>
 		</section>
 	);
 }
 
-function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
-	const bubble = (text: string, dark: boolean, key: number) => (
+function MobileEarlyMomentum390() {
+	const bubble = (text: string, dark: boolean, avatar: number, key: number) => (
 		<div key={key} style={{ background: dark ? "rgba(169,191,254,0.37)" : "#fff", width: 197.542, height: 55.871, borderRadius: 41.903, overflow: "hidden", position: "relative", flexShrink: 0 }}>
 			<div style={{ position: "absolute", left: 11.97, top: 8.98, display: "flex", alignItems: "center", gap: 19.954 }}>
 				<div style={{ width: 37.912, height: 37.912, borderRadius: 49.884, overflow: "hidden", flexShrink: 0 }}>
-					<img src={A.emAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
+					<img src={emAvatar(avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 49.884 }} />
 				</div>
 				<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 8.182, color: dark ? "#fff" : "#323232", whiteSpace: "nowrap", margin: 0 }}>{text}</p>
 			</div>
 		</div>
 	);
-	const r1: [string, boolean][] = [["Lets fvking STAK i!", false], ["Time to save more!", true], ["Woooo!!", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r2: [string, boolean][] = [["Bullish! on S&P 500", false], ["I love printing money", true], ["Gold, Google", false], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
-	const r3: [string, boolean][] = [["Whats the Buzz About?", true], ["Is $Tsla a good buy?", false], ["Lets fvking STAK i!", true], ["Lets fvking STAK i!", false], ["Lets fvking STAK i!", false]];
+	// Here r1 is the top row, r3 the middle and r2 the bottom.
+	const [r1, r3, r2] = [CHAT_BUBBLES_R1, CHAT_BUBBLES_R2, CHAT_BUBBLES_R3].map((row) => row.map((b): [string, boolean, number] => [b.t, b.dark, b.a]));
 	const stat = (num: string, label: string) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 0.838, alignItems: "center", justifyContent: "center" }}>
 			<div style={{ display: "flex", alignItems: "center" }}>
@@ -2555,7 +2555,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 5473, width: MOBILE390_WIDTH, height: 883, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 4858, width: MOBILE390_WIDTH, height: 782, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2567,18 +2567,14 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 					<p style={{ margin: 0, lineHeight: "35px" }}>Real Momentum.</p>
 				</div>
 			</div>
-			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d], i) => bubble(t, d, i))}</div>
-			<div style={{ position: "absolute", left: 82.97, top: 435.36, display: "flex", gap: 10.52 }}>{r3.map(([t, d], i) => bubble(t, d, i))}</div>
-			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d], i) => bubble(t, d, i))}</div>
+			<div style={{ position: "absolute", left: 30.37, top: 358.8, display: "flex", gap: 10.52 }}>{r1.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
+			<div style={{ position: "absolute", left: 82.97, top: 435.36, display: "flex", gap: 10.52 }}>{r3.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
+			<div style={{ position: "absolute", left: 23.94, top: 511.92, display: "flex", gap: 10.52 }}>{r2.map(([t, d, a], i) => bubble(t, d, a, i))}</div>
 			<div style={{ position: "absolute", left: -1.78, top: 358.8, width: 183.516, height: 209.231, background: "linear-gradient(to right, rgba(10,16,32,1) 0%, rgba(18,29,58,0.75) 25%, rgba(26,42,83,0.5) 50%, rgba(34,54,108,0.25) 75%, rgba(42,67,134,0) 100%)", pointerEvents: "none" }} />
 			<div style={{ position: "absolute", left: "calc(50% - 0.03px)", top: 623.22, transform: "translateX(-50%)", display: "flex", gap: 27.243, alignItems: "flex-start" }}>
 				{stat("50M+", "Millennials & Gen Z investing today")}
 				{stat("30M+", "Investors seeking better tools")}
 			</div>
-			<button type="button" onClick={onSignup} style={{ ...btnReset, position: "absolute", left: "50%", top: 785.1, transform: "translateX(-50%)", background: CTA_GRADIENT, border: "0.275px solid rgba(101,158,173,0.63)", borderRadius: 4.404, padding: "5.505px 11.011px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5.505, filter: CTA_SHADOW, cursor: "pointer" }}>
-				<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 13.714, color: "#fff", whiteSpace: "nowrap" }}>Join our Community</span>
-				<div style={{ width: 14.48, height: 12.067, flexShrink: 0 }}><img src={A.ctaArrow} alt="" style={{ width: "100%", height: "100%" }} /></div>
-			</button>
 		</section>
 	);
 }
@@ -2586,7 +2582,7 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 function MobileFaq390({ onEmail }: { onEmail: () => void }) {
 	const [openIdx, setOpenIdx] = useState<number | null>(null);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 6356, width: MOBILE390_WIDTH, height: 1230, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 5640, width: MOBILE390_WIDTH, height: 1230, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 160 }}>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 60, width: "100%" }}>
 					<Pill label="STAK FAQ" />
@@ -2632,7 +2628,7 @@ function MobileFinalCta390() {
 		<div style={{ position: "absolute", left, top, transform: "translateX(-50%)", width: w, display: "flex", gap: 10.532, alignItems: "center" }}>{tiles}</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 7586, width: MOBILE390_WIDTH, height: 1067, background: SECTION_BG, overflow: "hidden" }}>
+		<section style={{ position: "absolute", left: 0, top: 6870, width: MOBILE390_WIDTH, height: 1067, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 60, zIndex: 2 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2685,7 +2681,7 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 		</div>
 	);
 	return (
-		<section style={{ position: "absolute", left: 0, top: 8653, width: MOBILE390_WIDTH, height: 1173.93, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
+		<section style={{ position: "absolute", left: 0, top: 7937, width: MOBILE390_WIDTH, height: 1173.93, background: SECTION_BG, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: 24, paddingRight: 24, boxSizing: "border-box" }}>
 			<div style={{ display: "flex", flexDirection: "column", gap: 58, alignItems: "flex-start", padding: "40px 0", width: "100%" }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: 59, alignItems: "flex-start", justifyContent: "center", width: 310 }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 40, alignItems: "flex-start", width: "100%" }}>
@@ -2736,23 +2732,38 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 	);
 }
 
-function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }: { scale: number; onSignup: () => void; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
+function MobileLanding390({ scale, onEmail, onSubscribe }: { scale: number; onEmail: () => void; onSubscribe: (email: string) => void }) {
 	// 390px phone canvas (Figma node 1:1586 / Frame 222). Height grows as sections are added.
 	void onEmail; void onSubscribe;
-	const H = 9826.93;
+	const H = 9110.93;
 	return (
 		<div className="landing-wrapper" style={{ width: "100%", height: H * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 			<div className="landing-canvas" style={{ width: MOBILE390_WIDTH, height: H, position: "relative", flexShrink: 0, background: SECTION_BG, transform: `scale(${scale})`, transformOrigin: "top center" }}>
-				<MobileHero390 onSignup={onSignup} onScrollTo={onScrollTo} />
+				<MobileHero390 />
 				<MobileProofStrip390 />
-				<MobileProblem390 onSignup={onSignup} />
-				<MobileHowItWorks390 onSignup={onSignup} />
-				<MobileFeatures390 onSignup={onSignup} />
-				<MobileEarlyMomentum390 onSignup={onSignup} />
+				<MobileProblem390 />
+				<MobileHowItWorks390 />
+				<MobileFeatures390 />
+				<MobileEarlyMomentum390 />
 				<MobileFaq390 onEmail={onEmail} />
 				<MobileFinalCta390 />
 				<MobileFooter390 onSubscribe={onSubscribe} />
 			</div>
+		</div>
+	);
+}
+
+/**
+ * Keeps a layout's header on screen while the page scrolls: a zero-height sticky layer with the same width and
+ * scale as that layout's canvas, so the bar sits exactly where the design puts it and simply stays there. Behind
+ * it, a page-coloured band (`bandHeight`, in canvas px) fading out at its foot, so content scrolls away under the
+ * bar instead of showing around it.
+ */
+function StickyHeader({ canvasWidth, scale, bandHeight, children }: { canvasWidth: number; scale: number; bandHeight: number; children: ReactNode }) {
+	return (
+		<div style={{ position: "sticky", top: 0, height: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
+			<div aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: bandHeight * scale, background: `linear-gradient(to bottom, ${SECTION_BG} 0%, ${SECTION_BG} 80%, rgba(10,16,32,0) 100%)`, pointerEvents: "none" }} />
+			<div style={{ position: "relative", width: canvasWidth, height: 0, flexShrink: 0, transform: `scale(${scale})`, transformOrigin: "top center" }}>{children}</div>
 		</div>
 	);
 }
@@ -2804,14 +2815,12 @@ function LandingPage() {
 		const w = el.clientWidth;
 		/* Per-layout section anchors — each breakpoint has its own canvas with its
 		   own section tops, so links must scroll against the ACTIVE layout. */
-		const PHONE_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 1040, howItWorks: 1964, features: 3539, earlyMomentum: 5473, faq: 6356, finalCta: 7586, footer: 8653 };
-		const TABLET_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 1039, howItWorks: 2080, features: 3298, earlyMomentum: 4483, faq: 5356, finalCta: 6592, footer: 7828 };
+		const PHONE_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 955, howItWorks: 1784, features: 3050, earlyMomentum: 4858, faq: 5640, finalCta: 6870, footer: 7937 };
+		const TABLET_SEC: Record<keyof typeof SEC, number> = { hero: 0, problem: 985, howItWorks: 1987, features: 3102, earlyMomentum: 4153, faq: 4883, finalCta: 6119, footer: 7355 };
 		const top = w < 600 ? PHONE_SEC[key] * (w / MOBILE390_WIDTH) : w <= 1024 ? TABLET_SEC[key] * (w / MOBILE_WIDTH) : SEC[key] * (w / CANVAS_WIDTH);
 		el.scrollTo({ top, behavior: "smooth" });
 	}, []);
 
-	const handleLogin = useCallback(() => navigate({ to: "/login" }), [navigate]);
-	const handleSignup = useCallback(() => navigate({ to: "/signup" }), [navigate]);
 	const handleEmail = useCallback(() => {
 		window.location.href = "mailto:support@thestak.org";
 	}, []);
@@ -2846,14 +2855,27 @@ function LandingPage() {
 				.landing-scroll::-webkit-scrollbar {
 					display: none;
 				}
+				@keyframes landing-marquee {
+					from { transform: translateX(0); }
+					to { transform: translateX(-50%); }
+				}
+				.landing-marquee {
+					animation: landing-marquee 30s linear infinite;
+				}
+				@media (prefers-reduced-motion: reduce) {
+					.landing-marquee { animation: none; }
+				}
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);
 				}
 			`}</style>
+			<StickyHeader canvasWidth={isPhone ? MOBILE390_WIDTH : isMobile ? MOBILE_WIDTH : CANVAS_WIDTH} scale={scale} bandHeight={isPhone || isMobile ? 88 : 76}>
+				{isPhone ? <MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={scrollTo} /> : isMobile ? <MobileNavBar onScrollTo={scrollTo} /> : <NavBar onScrollTo={scrollTo} />}
+			</StickyHeader>
 			{isPhone ? (
-				<MobileLanding390 scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
+				<MobileLanding390 scale={scale} onEmail={handleEmail} onSubscribe={handleSubscribe} />
 			) : isMobile ? (
-				<MobileLanding scale={scale} onSignup={handleSignup} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
+				<MobileLanding scale={scale} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 			) : (
 			<div className="landing-wrapper" style={{ width: "100%", height: TOTAL_HEIGHT * scale, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
 				<div
@@ -2868,11 +2890,11 @@ function LandingPage() {
 						transformOrigin: "top center",
 					}}
 				>
-					<Hero onLogin={handleLogin} onSignup={handleSignup} onScrollTo={scrollTo} />
-					<Problem onSignup={handleSignup} />
-					<HowItWorks onScrollTo={scrollTo} />
-					<Features onScrollTo={scrollTo} />
-					<EarlyMomentum onSignup={handleSignup} />
+					<Hero />
+					<Problem />
+					<HowItWorks />
+					<Features />
+					<EarlyMomentum />
 					<Faq onEmail={handleEmail} />
 					<FinalCta />
 					<Footer onSubscribe={handleSubscribe} onScrollTo={scrollTo} />

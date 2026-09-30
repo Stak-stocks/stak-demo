@@ -8,7 +8,6 @@ import { useAccount } from "../context/AccountContext";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
-import { PullToRefresh } from "@/components/PullToRefresh";
 import { DailyBriefModal } from "@/components/DailyBriefModal";
 import { StakAiChat } from "@/components/StakAiChat";
 import type { BrandProfile } from "@stak/shared";
@@ -41,7 +40,6 @@ function Root() {
 	const [briefOpen, setBriefOpen] = useState(false);
 	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
 	const briefShownRef = useRef(false);
-	const [refreshKey, setRefreshKey] = useState(0);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const themeAppliedForUid = useRef<string | null>(null);
@@ -236,16 +234,11 @@ function Root() {
 		<div className="fixed inset-0 flex flex-col bg-background">
 
 			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
-				<PullToRefresh scrollRef={scrollRef} onRefresh={() => {
-						queryClient.invalidateQueries();
-						setRefreshKey((k) => k + 1);
-					}}>
-					<ErrorBoundary tagName="main" className="min-h-full">
-						<PageTransition pathname={location.pathname}>
-							<Outlet key={refreshKey} />
-						</PageTransition>
-					</ErrorBoundary>
-				</PullToRefresh>
+				<ErrorBoundary tagName="main" className="min-h-full">
+					<PageTransition pathname={location.pathname}>
+						<Outlet />
+					</PageTransition>
+				</ErrorBoundary>
 			</div>
 			{!isAuthPage && <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
 			<Toaster
