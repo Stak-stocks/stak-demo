@@ -2813,11 +2813,11 @@ function LandingPage() {
 	const handleLogin = useCallback(() => navigate({ to: "/login" }), [navigate]);
 	const handleSignup = useCallback(() => navigate({ to: "/signup" }), [navigate]);
 	const handleEmail = useCallback(() => {
-		window.location.href = "mailto:hello@stakstocks.com";
+		window.location.href = "mailto:support@thestak.org";
 	}, []);
 	const handleSubscribe = useCallback((email: string) => {
 		if (!email) return;
-		window.location.href = `mailto:hello@stakstocks.com?subject=Newsletter%20signup&body=${encodeURIComponent(email)}`;
+		window.location.href = `mailto:favour@thestak.org?subject=Newsletter%20signup&body=${encodeURIComponent(email)}`;
 	}, []);
 	const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
 	const openEarlyAccess = useCallback(() => setEarlyAccessOpen(true), []);

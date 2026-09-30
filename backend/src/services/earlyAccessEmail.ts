@@ -6,7 +6,7 @@ import { renderEarlyAccessConfirmation, type RenderedEmail } from "@stak/emails"
  *
  * Settings (Cloud Run env):
  *   EARLY_ACCESS_RESEND_KEY - Resend API key (sending access; its own key, not the Supabase one) (secret). Without it nothing is sent and sign-ups still succeed.
- *   EARLY_ACCESS_FROM       - sender, default "STAK <noreply@thestak.org>" (the domain must be verified in Resend)
+ *   EARLY_ACCESS_FROM       - sender, default "Favour from STAK <favour@thestak.org>" (a real Zoho inbox, so replies land)
  *   TALLY_FORM_URL          - the beta profile form, e.g. https://tally.so/r/abc123
  *   WAITLIST_TOKEN_SECRET   - signs unsubscribe links (secret)
  *   PUBLIC_API_URL          - where this backend is reachable, for the unsubscribe link
@@ -79,7 +79,7 @@ export async function sendEarlyAccessEmail(email: string): Promise<SendResult> {
 			method: "POST",
 			headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
 			body: JSON.stringify({
-				from: process.env.EARLY_ACCESS_FROM?.trim() || "STAK <noreply@thestak.org>",
+				from: process.env.EARLY_ACCESS_FROM?.trim() || "Favour from STAK <favour@thestak.org>",
 				to: [email],
 				subject,
 				html,

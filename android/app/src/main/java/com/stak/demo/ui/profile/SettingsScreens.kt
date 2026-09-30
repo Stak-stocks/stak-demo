@@ -295,12 +295,12 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 				FaqRow("Is my data private?", "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
 			}
 			SettingsLinkRow(label = "Email support") {
-				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
+				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
 				runCatching { context.startActivity(intent) }
 			}
 			// Contact / report and the legal links (FigJam Profile board, 2026-09-14).
 			SettingsLinkRow(label = "Report a problem") {
-				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@stak.app"))
+				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org"))
 					.putExtra(Intent.EXTRA_SUBJECT, "STAK problem report")
 					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\nApp version $version")
 				runCatching { context.startActivity(intent) }
@@ -337,8 +337,8 @@ private fun FaqRow(question: String, answer: String) {
 }
 
 /** Where the legal pages live - the landing site's routes. */
-private const val TERMS_URL = "https://stak.app/terms"
-private const val PRIVACY_URL = "https://stak.app/privacy"
+private const val TERMS_URL = "https://thestak.org/terms"
+private const val PRIVACY_URL = "https://thestak.org/privacy"
 
 /** A small selectable chip - the notification threshold, the portfolio setup's balances. */
 @Composable

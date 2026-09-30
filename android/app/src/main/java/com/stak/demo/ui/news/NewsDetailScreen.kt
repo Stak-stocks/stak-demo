@@ -1285,7 +1285,7 @@ private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifie
 						<iframe src="$embed" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
 						</body></html>
 					""".trimIndent()
-					loadDataWithBaseURL("https://stak.app", html, "text/html", "utf-8", null)
+					loadDataWithBaseURL("https://thestak.org", html, "text/html", "utf-8", null)
 				}
 			},
 			// Backing out of the article must stop playback and free the
