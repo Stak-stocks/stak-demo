@@ -56,14 +56,14 @@ private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == Paper
 /**
  * Portfolio setup (FigJam Simulate board, 2026-09-14: Portfolio setup -> Choose
  * balance, Name, Strategy). A NEW account sees it on Simulate home until it
- * starts practising; the demo persona's authored $10,000 portfolio is already
+ * starts practicing; the demo persona's authored $10,000 portfolio is already
  * set up. Mirrors ios Simulate/PortfolioSetupCard.swift.
  */
 @Composable
 internal fun PortfolioSetupCard() {
 	val u = figmaUnit()
 	// The half-filled form is remembered on the phone too, so a relaunch or a log out / in
-	// doesn't send the picks back to the defaults before "Start practising" is tapped.
+	// doesn't send the picks back to the defaults before "Start practicing" is tapped.
 	var balance by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_balance", DEFAULT_BALANCE).coerceIn(SETUP_BALANCES.indices)) }
 	var name by rememberSaveable { mutableStateOf(StakStore.getString("setup_draft_name") ?: "") }
 	var strategy by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_strategy", DEFAULT_STRATEGY).coerceIn(SETUP_STRATEGIES.indices)) }
@@ -128,7 +128,7 @@ internal fun PortfolioSetupCard() {
 				}
 				.padding(vertical = (14 * u).dp),
 		) {
-			Text("Start practising", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp), color = Color.White)
+			Text("Start practicing", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp), color = Color.White)
 		}
 	}
 }

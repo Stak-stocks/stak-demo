@@ -47,7 +47,7 @@ internal object StockLessons {
 			"Why chip stocks swing so hard",
 			"Demand for AI hardware comes in waves, and prices ride every wave up and down.",
 			listOf(
-				"Chipmakers sell into cycles: when data centres and phone makers stock up, orders surge; when they have enough, orders stall. The stock price tends to run ahead of both turns.",
+				"Chipmakers sell into cycles: when data centers and phone makers stock up, orders surge; when they have enough, orders stall. The stock price tends to run ahead of both turns.",
 				"That is why a great company can still be a bumpy stock. Nothing changed about the business - the market changed its guess about the next order book.",
 				"What to do with it: size a chip position so a 20% drop is uncomfortable, not ruinous, and judge the company on multi-year demand rather than one quarter.",
 			),
@@ -75,7 +75,7 @@ internal object StockLessons {
 			"A real-estate trust passes most of its rent to shareholders, so it behaves like a bond with a growth kicker.",
 			listOf(
 				"REITs must pay out most of their income as dividends, which is why their yields look high. The trade-off: they raise money by borrowing, so higher rates squeeze them twice - dearer debt and more competition from bonds.",
-				"Warehouses, data centres and shops behave differently. Logistics rents track online shopping; retail rents track footfall; both track the economy.",
+				"Warehouses, data centers and shops behave differently. Logistics rents track online shopping; retail rents track footfall; both track the economy.",
 				"What to do with it: judge a REIT by occupancy, lease length and debt cost, and expect the price to move opposite to interest-rate news.",
 			),
 		),
@@ -85,7 +85,7 @@ internal object StockLessons {
 			listOf(
 				"A blockbuster drug earns for as long as its patent holds, then generic copies arrive and revenue falls off a cliff. Investors watch the cliff dates as closely as the sales.",
 				"The pipeline - drugs in trials - is the replacement. Trial results are binary: a pass can add billions overnight, a fail can erase them. Insurers and hospital groups are the calmer end of healthcare.",
-				"What to do with it: for drug makers, know the patent calendar and the next trial readout; for the rest, follow enrolment and pricing, not headlines.",
+				"What to do with it: for drug makers, know the patent calendar and the next trial readout; for the rest, follow enrollment and pricing, not headlines.",
 			),
 		),
 		"consumer" to Lesson(
