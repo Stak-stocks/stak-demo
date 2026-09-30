@@ -14,7 +14,7 @@ const FAQS = [
 	{ q: "Is my data private?", a: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK never sells your data." },
 ];
 
-const SUPPORT_EMAIL = "support@stak.app";
+const SUPPORT_EMAIL = "support@thestak.org";
 const APP_VERSION = "web";
 const enc = encodeURIComponent;
 
@@ -46,8 +46,8 @@ function HelpSupportPage() {
 				{FAQS.map((item) => <FaqRow key={item.q} q={item.q} a={item.a} />)}
 				<SettingsLinkRow label="Email support" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK support")}`)} />
 				<SettingsLinkRow label="Report a problem" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK problem report")}&body=${enc(`What happened:\n\nWhere in the app:\n\nApp version ${APP_VERSION}`)}`)} />
-				<SettingsLinkRow label="Terms of service" onClick={() => window.open("https://stak.app/terms", "_blank", "noopener,noreferrer")} />
-				<SettingsLinkRow label="Privacy policy" onClick={() => window.open("https://stak.app/privacy", "_blank", "noopener,noreferrer")} />
+				<SettingsLinkRow label="Terms of service" onClick={() => window.open("https://thestak.org/terms", "_blank", "noopener,noreferrer")} />
+				<SettingsLinkRow label="Privacy policy" onClick={() => window.open("https://thestak.org/privacy", "_blank", "noopener,noreferrer")} />
 				<SettingsLinkRow label="Version" value={APP_VERSION} chevron={false} />
 			</SettingsCard>
 		</SettingsScaffold>
