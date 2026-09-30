@@ -16,6 +16,8 @@ vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (opts: unknown) => opts,
 	useNavigate: () => mockNavigate,
 }));
+// The early-access modal saves through the API client, which needs Supabase settings at import; the landing tests don't.
+vi.mock("@/lib/api", () => ({ joinWaitlist: vi.fn() }));
 vi.mock("@/context/AuthContext", () => ({
 	useAuth: () => ({ appUser: null, loading: false }),
 }));

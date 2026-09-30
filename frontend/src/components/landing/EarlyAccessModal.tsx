@@ -2,7 +2,14 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, CircleCheck, Instagram, Mail, X } from "lucide-react";
 import { joinWaitlist } from "@/lib/api";
-import { DISC } from "@/components/discover/discoverTheme";
+
+// The app's palette, kept here so the landing page (and this modal) need nothing from the signed-in app.
+const DISC = {
+	teal: "#69B3CA",
+	body: "#C8D2E0",
+	muted: "#819ABB",
+	cta: "linear-gradient(to bottom, #A6E4F7 8.9%, #5DA8BF 39.2%, #3C98B4 72.6%, #3C98B4 100%)",
+} as const;
 
 const INSTAGRAM_URL = "https://www.instagram.com/just_stak";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
@@ -19,6 +26,8 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 	const [error, setError] = useState<string | null>(null);
 	// A repeat sign-up is told so, rather than thanked as if new (a deliberate choice over hiding who has joined).
 	const [already, setAlready] = useState(false);
+	// Only claim an email went out when the server says it did.
+	const [emailed, setEmailed] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const titleId = useId();
@@ -31,6 +40,7 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 		setState("form");
 		setError(null);
 		setAlready(false);
+		setEmailed(false);
 		requestAnimationFrame(() => inputRef.current?.focus());
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") onClose();
@@ -65,6 +75,7 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 		try {
 			const result = await joinWaitlist(value);
 			setAlready(result.already);
+			setEmailed(!!result.emailed);
 			setState("done");
 		} catch (err) {
 			setError(err instanceof Error && err.message && !err.message.startsWith("API error") ? err.message : "Couldn't add you just now. Try again.");
@@ -96,7 +107,8 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 						</span>
 						<h2 id={titleId} className="mt-5 text-[24px] font-semibold leading-[30px] text-white">{already ? "You're already on the list!" : "You're on the list!"}</h2>
 						<p role="status" className="mt-2 text-[14px] leading-[21px]" style={{ color: DISC.body }}>
-							{already ? "This email already has early access saved." : "Thanks for joining early access."}<br />We'll be in touch soon with next steps.
+							{already ? "This email already has early access saved." : "Thanks for joining early access."}<br />
+							{emailed ? "Check your inbox for your next step." : "We'll be in touch soon with next steps."}
 						</p>
 						<a
 							href={INSTAGRAM_URL}

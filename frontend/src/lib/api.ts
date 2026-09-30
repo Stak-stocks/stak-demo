@@ -50,7 +50,7 @@ async function apiRequest<T>(
 
 /** Joins the early-access list (public, no account needed). Joining twice answers the same as joining once. */
 export function joinWaitlist(email: string) {
-	return apiRequest<{ ok: boolean; already: boolean }>("/api/waitlist", { method: "POST", body: JSON.stringify({ email, source: "landing" }) });
+	return apiRequest<{ ok: boolean; already: boolean; emailed?: boolean }>("/api/waitlist", { method: "POST", body: JSON.stringify({ email, source: "landing" }) });
 }
 
 // User profile
