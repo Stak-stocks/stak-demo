@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 import { createContext, useContext, useEffect, useState, useRef, useCallback, type CSSProperties, type ReactNode } from "react";
-import { EarlyAccessModal } from "../components/landing/EarlyAccessModal";
+import { EarlyAccessModal, INSTAGRAM_URL } from "../components/landing/EarlyAccessModal";
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
@@ -1322,9 +1322,11 @@ function FooterStoreButtons() {
          ├── "Download on the" (1:1051)
          └── "App Store" (1:1052) */
 function FooterAppleStoreButton() {
+	const openEarlyAccess = useContext(EarlyAccessContext);
 	return (
 		<button
 			type="button"
+			onClick={openEarlyAccess}
 			aria-label="Download on the App Store"
 			data-node-id="1:1046"
 			style={{ background: "#fff", border: "1px solid #000", width: 120, height: 40, borderRadius: 6, overflow: "hidden", position: "relative", padding: 0, cursor: "pointer" }}
@@ -1385,9 +1387,11 @@ function FooterAppleStoreButton() {
          ├── "GET IT ON" label (1:1044)
          └── Google Play wordmark (1:1045) */
 function FooterPlayStoreButton() {
+	const openEarlyAccess = useContext(EarlyAccessContext);
 	return (
 		<button
 			type="button"
+			onClick={openEarlyAccess}
 			aria-label="Get it on Google Play"
 			data-node-id="1:1037"
 			style={{ background: "#fff", border: "1px solid #000", width: 120, height: 40, borderRadius: 6, overflow: "hidden", position: "relative", padding: 0, cursor: "pointer" }}
@@ -1645,11 +1649,11 @@ function FooterSocialLinks() {
 				style={{ display: "flex", flexDirection: "column", gap: 18, alignItems: "flex-start", justifyContent: "center", width: "100%", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }}
 				data-node-id="1:1063"
 			>
-				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1064">Facebook</a>
-				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1065">Instagram</a>
-				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1066">X</a>
-				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1067">Tiktok</a>
-				<a href="#" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1068">Discord</a>
+				<span style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1064">Facebook</span>
+				<a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1065">Instagram</a>
+				<span style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1066">X</span>
+				<span style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1067">Tiktok</span>
+				<span style={{ color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }} data-node-id="1:1068">Discord</span>
 			</div>
 		</div>
 	);
@@ -1732,9 +1736,14 @@ function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo }: {
 					<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
 				</button>
 			</div>
+			{/* Positioned under the bar rather than in flow: while closed it stays mounted (so it can animate out),
+			    and in flow it would stretch this wrapper down over the hero and swallow taps there. */}
 			<div
 				style={{
-					marginTop: 8,
+					position: "absolute",
+					top: "calc(100% + 8px)",
+					left: 0,
+					right: 0,
 					background: "#1a1d31",
 					borderRadius: 10.752,
 					padding: "8px 0 14px",
@@ -2221,12 +2230,15 @@ function MobileFinalCta() {
 /* Mobile Footer — Figma node 1:1520 (Frame 238), 810×589 */
 function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	const [email, setEmail] = useState("");
+	const openEarlyAccess = useContext(EarlyAccessContext);
 	const itemStyle: CSSProperties = { margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff", textAlign: "left" };
-	const linkCol = (title: string, items: { label: string; onClick?: () => void }[]) => (
+	const linkCol = (title: string, items: { label: string; onClick?: () => void; href?: string }[]) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
 			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
 			<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-				{items.map((it, i) => it.onClick
+				{items.map((it, i) => it.href
+					? <a key={i} href={it.href} target="_blank" rel="noopener noreferrer" style={{ ...itemStyle, textDecoration: "none" }}>{it.label}</a>
+					: it.onClick
 					? <button key={i} type="button" onClick={it.onClick} style={{ ...btnReset, ...itemStyle, ...(it.label === "Home" ? { fontSize: 14 } : {}) }}>{it.label}</button>
 					: <p key={i} style={itemStyle}>{it.label}</p>
 				)}
@@ -2245,20 +2257,20 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "25px", color: "#fff", margin: 0, width: "100%" }}>{`You've heard the advice — "invest early, invest often." But nobody tells you how. Every platform you open hits you with charts, tickers, and jargon that feels designed to make you feel dumb`}</p>
 					</div>
 					<div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+						<button type="button" onClick={openEarlyAccess} aria-label="Get it on Google Play" style={{ ...btnReset, background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
 								<p style={{ fontFamily: "'Product Sans', Arial, sans-serif", fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
 								<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
 							</div>
-						</div>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+						</button>
+						<button type="button" onClick={openEarlyAccess} aria-label="Download on the App Store" style={{ ...btnReset, background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
 								<p style={{ fontFamily: "'SF Compact Text', -apple-system, sans-serif", fontWeight: 500, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
 								<p style={{ fontFamily: "'SF Compact Display', -apple-system, sans-serif", fontWeight: 500, fontSize: 18, margin: 0, lineHeight: "1", letterSpacing: -0.47 }}>App Store</p>
 							</div>
-						</div>
+						</button>
 					</div>
 				</div>
 				<div style={{ display: "flex", gap: 134, alignItems: "flex-start" }}>
@@ -2272,7 +2284,7 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 						])}
 						{linkCol("Social Links", [
 							{ label: "Facebook" },
-							{ label: "Instagram" },
+							{ label: "Instagram", href: INSTAGRAM_URL },
 							{ label: "X" },
 							{ label: "Tiktok" },
 							{ label: "Discord" },
@@ -2670,13 +2682,23 @@ function MobileFinalCta390() {
 	);
 }
 
-function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void }) {
+function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	const [email, setEmail] = useState("");
+	const openEarlyAccess = useContext(EarlyAccessContext);
+	// Page links scroll to their section and Instagram links out; the rest (no page or account behind them yet) stay text.
+	const SCROLL: Partial<Record<string, keyof typeof SEC>> = { Home: "hero", "How it works": "howItWorks", Features: "features", FAQ: "faq" };
 	const linkCol = (title: string, items: string[]) => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
 			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, color: "#fff", margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
 			<div style={{ display: "flex", flexDirection: "column", gap: 14, fontFamily: SR, fontWeight: 300, fontSize: 16, color: "#fff", lineHeight: "25px" }}>
-				{items.map((it, i) => <p key={i} style={{ margin: 0, whiteSpace: "nowrap", ...(it === "Home" ? { fontSize: 14 } : {}) }}>{it}</p>)}
+				{items.map((it, i) => {
+					const style: CSSProperties = { margin: 0, whiteSpace: "nowrap", ...(it === "Home" ? { fontSize: 14 } : {}) };
+					const key = SCROLL[it];
+					if (it === "Instagram") return <a key={i} href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ ...style, color: "inherit", textDecoration: "none" }}>{it}</a>;
+					return key
+						? <button key={i} type="button" onClick={() => onScrollTo(key)} style={{ ...btnReset, ...style, textAlign: "left", font: "inherit", fontSize: style.fontSize ?? "inherit", color: "inherit", cursor: "pointer" }}>{it}</button>
+						: <p key={i} style={style}>{it}</p>;
+				})}
 			</div>
 		</div>
 	);
@@ -2695,20 +2717,20 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 						</div>
 					</div>
 					<div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+						<button type="button" onClick={openEarlyAccess} aria-label="Get it on Google Play" style={{ ...btnReset, background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 21, height: 24 }}><img src={A.footerPlay} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: 4, display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
 								<p style={{ fontFamily: "'Product Sans', Arial, sans-serif", fontSize: 10, color: "#000", margin: 0, textTransform: "uppercase", lineHeight: "normal" }}>GET IT ON</p>
 								<div style={{ width: 74, height: 15, transform: "scaleY(-1)" }}><img src={A.footerPlayText} alt="Google Play" style={{ width: "100%", height: "100%" }} /></div>
 							</div>
-						</div>
-						<div style={{ background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+						</button>
+						<button type="button" onClick={openEarlyAccess} aria-label="Download on the App Store" style={{ ...btnReset, background: "#fff", border: "1px solid #000", height: 40, width: 120, borderRadius: 6, overflow: "hidden", position: "relative", flexShrink: 0, cursor: "pointer" }}>
 							<div style={{ position: "absolute", left: 7, top: 7, width: 20, height: 24 }}><img src={A.footerApple} alt="" style={{ width: "100%", height: "100%" }} /></div>
 							<div style={{ position: "absolute", left: 35, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", color: "#000", width: 78 }}>
 								<p style={{ fontFamily: "'SF Compact Text', -apple-system, sans-serif", fontWeight: 500, fontSize: 9, margin: 0, lineHeight: "9px" }}>Download on the</p>
 								<p style={{ fontFamily: "'SF Compact Display', -apple-system, sans-serif", fontWeight: 500, fontSize: 18, margin: 0, lineHeight: "1", letterSpacing: -0.47 }}>App Store</p>
 							</div>
-						</div>
+						</button>
 					</div>
 				</div>
 				{linkCol("Useful Links", ["Home", "How it works", "Features", "FAQ", "Privacy terms"])}
@@ -2732,7 +2754,7 @@ function MobileFooter390({ onSubscribe }: { onSubscribe: (email: string) => void
 	);
 }
 
-function MobileLanding390({ scale, onEmail, onSubscribe }: { scale: number; onEmail: () => void; onSubscribe: (email: string) => void }) {
+function MobileLanding390({ scale, onEmail, onSubscribe, onScrollTo }: { scale: number; onEmail: () => void; onSubscribe: (email: string) => void; onScrollTo: (k: keyof typeof SEC) => void }) {
 	// 390px phone canvas (Figma node 1:1586 / Frame 222). Height grows as sections are added.
 	void onEmail; void onSubscribe;
 	const H = 9110.93;
@@ -2747,7 +2769,7 @@ function MobileLanding390({ scale, onEmail, onSubscribe }: { scale: number; onEm
 				<MobileEarlyMomentum390 />
 				<MobileFaq390 onEmail={onEmail} />
 				<MobileFinalCta390 />
-				<MobileFooter390 onSubscribe={onSubscribe} />
+				<MobileFooter390 onSubscribe={onSubscribe} onScrollTo={onScrollTo} />
 			</div>
 		</div>
 	);
@@ -2873,7 +2895,7 @@ function LandingPage() {
 				{isPhone ? <MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={scrollTo} /> : isMobile ? <MobileNavBar onScrollTo={scrollTo} /> : <NavBar onScrollTo={scrollTo} />}
 			</StickyHeader>
 			{isPhone ? (
-				<MobileLanding390 scale={scale} onEmail={handleEmail} onSubscribe={handleSubscribe} />
+				<MobileLanding390 scale={scale} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 			) : isMobile ? (
 				<MobileLanding scale={scale} onEmail={handleEmail} onSubscribe={handleSubscribe} onScrollTo={scrollTo} />
 			) : (

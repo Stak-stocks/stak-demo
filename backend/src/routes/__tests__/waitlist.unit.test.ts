@@ -3,6 +3,9 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The first test renders the React Email template, which loads the email library cold: seconds on a busy full-suite run.
+vi.setConfig({ testTimeout: 20_000 });
+
 const pgQueryMock = vi.fn();
 vi.mock("../../lib/postgres.js", () => ({ pgQuery: pgQueryMock }));
 

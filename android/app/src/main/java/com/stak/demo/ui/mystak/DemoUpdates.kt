@@ -29,7 +29,7 @@ internal object DemoUpdates {
 			company = "Alphabet",
 			kind = "earnings",
 			title = "Cloud profit improved",
-			body = "More of Google's cloud revenue is turning into profit as its data centres fill up.",
+			body = "More of Google's cloud revenue is turning into profit as its data centers fill up.",
 			watch = "Watch whether those margins hold.",
 			sources = listOf(UpdateSourceDto(source = "CNBC", url = "", headline = "Google Cloud margins improve again")),
 			occurredAt = "",

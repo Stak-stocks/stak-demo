@@ -9,8 +9,10 @@ const getConsensusEarningsResultMock = vi.fn();
 const getEarningsBeatMissFromWebMock = vi.fn();
 const hasSameDayEarningsArticleMock = vi.fn();
 
-vi.mock("../../services/earningsConsensus.js", () => ({
+vi.mock("../../services/earningsConsensus.js", async (importActual) => ({
 	getConsensusEarningsDate: getConsensusEarningsDateMock,
+	// stock.ts builds its FMP URLs from this; without it every FMP fetch threw before sending.
+	FMP_BASE: (await importActual<typeof import("../../services/earningsConsensus.js")>()).FMP_BASE,
 }));
 
 vi.mock("../../services/earningsResultConsensus.js", () => ({
