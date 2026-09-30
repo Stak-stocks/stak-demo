@@ -7,6 +7,7 @@ COPY package.json package-lock.json ./
 
 # Copy shared package source (resolved as @stak/shared via workspaces)
 COPY shared/ ./shared/
+COPY emails/ ./emails/
 
 # Copy backend source
 COPY backend/package.json ./backend/

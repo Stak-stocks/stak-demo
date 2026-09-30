@@ -265,7 +265,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 								if (kind == INVITE) {
 									// The system share sheet with the invite line (FigJam: Your profile -> Invite a friend).
 									val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practise with paper money. https://stak.app")
+										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practise with paper money. https://thestak.org")
 									runCatching { context.startActivity(android.content.Intent.createChooser(send, "Invite a friend")) }
 								} else {
 									onOpenSetting(kind)

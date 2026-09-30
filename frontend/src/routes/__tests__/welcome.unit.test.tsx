@@ -175,7 +175,7 @@ describe("FAQ (hands-off section)", () => {
 		Object.defineProperty(window, "location", { configurable: true, value: loc });
 		renderAt(width);
 		fireEvent.click(screen.getByText("Email Us"));
-		expect(loc.href).toBe("mailto:hello@stakstocks.com");
+		expect(loc.href).toBe("mailto:support@thestak.org");
 	});
 });
 
@@ -237,7 +237,7 @@ describe("footer", () => {
 		renderAt(width);
 		fireEvent.change(screen.getByPlaceholderText("Your email address"), { target: { value: "a@b.co" } });
 		fireEvent.click(screen.getByText("Subscribe"));
-		expect(loc.href).toContain("mailto:hello@stakstocks.com");
+		expect(loc.href).toContain("mailto:favour@thestak.org");
 		expect(loc.href).toContain(encodeURIComponent("a@b.co"));
 	});
 

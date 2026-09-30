@@ -13,6 +13,7 @@ frontend/.next/
 node_modules/
 backend/node_modules/
 shared/node_modules/
+emails/node_modules/
 
 # Dev/local files
 *.local
@@ -24,3 +25,5 @@ backend/.env
 *.log
 flyer.html
 stak_flyer.jpeg
+emails/assets/
+emails/scripts/

@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY shared/ ./shared/
+# Email templates (React Email), imported from source by the backend like @stak/shared.
+COPY emails/package.json ./emails/
+COPY emails/tsconfig.json ./emails/
+COPY emails/src/ ./emails/src/
 COPY backend/package.json ./backend/
 COPY backend/src/ ./backend/src/
 COPY backend/tsconfig.json ./backend/

@@ -1,5 +1,13 @@
 {
 	"name": "stak",
 	"private": true,
-	"workspaces": ["frontend", "backend", "shared"]
+	"workspaces": [
+		"frontend",
+		"backend",
+		"shared",
+		"emails"
+	],
+	"scripts": {
+		"email:dev": "npm run dev -w @stak/emails"
+	}
 }

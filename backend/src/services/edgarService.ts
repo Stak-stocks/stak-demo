@@ -1,7 +1,7 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
 // SEC requires a descriptive User-Agent for all API requests
-const SEC_UA = "Stak noreply@thestak.org";
+const SEC_UA = "Stak support@thestak.org";
 
 // ── CIK lookup ───────────────────────────────────────────────────────────────
 

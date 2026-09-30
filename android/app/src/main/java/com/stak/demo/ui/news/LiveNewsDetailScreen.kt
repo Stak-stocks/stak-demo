@@ -203,7 +203,9 @@ fun LiveNewsDetailScreen(
                             ) {
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, article.url)
+                                    // The publisher's link, with STAK named so the person receiving it sees where it came from.
+                                    val text = if (article.headline.isNotBlank()) "${article.headline} (via STAK)\n${article.url}" else "${article.url}\n(via STAK)"
+                                    putExtra(Intent.EXTRA_TEXT, text)
                                 }
                                 context.startActivity(Intent.createChooser(intent, "Share"))
                             },

@@ -33,6 +33,13 @@ describe("EarlyAccessModal", () => {
 		expect(screen.getByRole("link", { name: /follow us on instagram/i })).toHaveAttribute("href", "https://www.instagram.com/just_stak");
 	});
 
+	it("says to check the inbox only when the confirmation email went out", async () => {
+		joinWaitlist.mockResolvedValue({ ok: true, already: false, emailed: true });
+		render(<EarlyAccessModal open onClose={() => {}} />);
+		submit("ada@example.com");
+		expect(await screen.findByText(/check your inbox/i)).toBeInTheDocument();
+	});
+
 	it("an email already on the list is told so", async () => {
 		joinWaitlist.mockResolvedValue({ ok: true, already: true });
 		render(<EarlyAccessModal open onClose={() => {}} />);
