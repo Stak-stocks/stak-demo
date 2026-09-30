@@ -25,3 +25,5 @@ backend/.env
 *.log
 flyer.html
 stak_flyer.jpeg
+emails/assets/
+emails/scripts/
