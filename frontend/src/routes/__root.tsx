@@ -8,7 +8,6 @@ import { useAccount } from "../context/AccountContext";
 import { useOnboarding } from "../context/OnboardingContext";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { SearchView } from "@/components/SearchView";
-import { PullToRefresh } from "@/components/PullToRefresh";
 import { PaperTradeErrorBanner } from "@/components/simulate/PaperTradeErrorBanner";
 import { SideNav } from "@/components/SideNav";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -42,7 +41,6 @@ function Root() {
 	const needsAuthForOnboardingStep = isOnboardingRoute;
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute;
 	const [searchOpen, setSearchOpen] = useState(false);
-	const [refreshKey, setRefreshKey] = useState(0);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const isMobile = useIsMobile();
@@ -204,17 +202,11 @@ function Root() {
 		<div className="fixed inset-0 flex flex-col bg-background">
 
 			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : isMobile ? (showTabBar ? "pb-[calc(96px+env(safe-area-inset-bottom))]" : "") : "pl-[220px]"}`}>
-				<PullToRefresh scrollRef={scrollRef} onRefresh={() => {
-						// The 333-brand catalog has a 24h cache on purpose - a pull-to-refresh shouldn't re-download it.
-						queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "brands-list" });
-						setRefreshKey((k) => k + 1);
-					}}>
-					<ErrorBoundary tagName="main" className="min-h-full">
-						<PageTransition pathname={location.pathname}>
-							<Outlet key={refreshKey} />
-						</PageTransition>
-					</ErrorBoundary>
-				</PullToRefresh>
+				<ErrorBoundary tagName="main" className="min-h-full">
+					<PageTransition pathname={location.pathname}>
+						<Outlet />
+					</PageTransition>
+				</ErrorBoundary>
 			</div>
 			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} /> : null) : <SideNav />)}
 			<Toaster
