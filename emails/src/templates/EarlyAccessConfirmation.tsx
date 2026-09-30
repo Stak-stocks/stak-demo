@@ -4,7 +4,7 @@
 
 import { Column, Heading, Row, Section, Text } from "@react-email/components";
 import { EmailLayout } from "../components/EmailLayout";
-import { CtaButton, Divider, Footer, SectionLabel, Wordmark } from "../components/parts";
+import { CircleIcon, CtaButton, Divider, Footer, HeroBanner, SectionLabel } from "../components/parts";
 import { C, FONT } from "../theme";
 
 export interface EarlyAccessConfirmationProps {
@@ -17,9 +17,9 @@ export const EARLY_ACCESS_SUBJECT = "You’re on the STAK early-access list";
 export const EARLY_ACCESS_PREVIEW = "We’re almost ready. Here’s what happens next.";
 
 const NEXT = [
-	{ title: "Beta waves", body: "We’ll invite early users in small groups." },
-	{ title: "Product updates", body: "You’ll hear when something meaningful ships." },
-	{ title: "Help shape STAK", body: "Your feedback will influence what we build next." },
+	{ icon: "icon-beta", title: "Beta waves", body: "We’ll invite early users in small groups." },
+	{ icon: "icon-updates", title: "Product updates", body: "You’ll hear when something meaningful ships." },
+	{ icon: "icon-feedback", title: "Help shape STAK", body: "Your feedback will influence what we build next." },
 ];
 
 /** Sent when someone joins the early-access list from the landing page. One action: complete the beta profile. */
@@ -27,11 +27,11 @@ export default function EarlyAccessConfirmation({ betaProfileUrl, unsubscribeUrl
 	const body = { margin: 0, fontFamily: FONT, fontSize: 16, lineHeight: "26px", color: C.text };
 	return (
 		<EmailLayout preview={EARLY_ACCESS_PREVIEW}>
-			<Section className="px" style={{ padding: "32px 40px 8px" }}>
-				<Wordmark />
+			<Section>
+				<HeroBanner />
 			</Section>
 
-			<Section className="px" style={{ padding: "24px 40px 28px" }}>
+			<Section className="px" style={{ padding: "12px 40px 28px" }}>
 				<Text style={{ display: "inline-block", margin: 0, padding: "7px 14px", borderRadius: 999, backgroundColor: C.card2, fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.white }}>
 					<span style={{ color: C.teal }}>●</span>&nbsp; You’re in.
 				</Text>
@@ -61,6 +61,7 @@ export default function EarlyAccessConfirmation({ betaProfileUrl, unsubscribeUrl
 				<Row>
 					{NEXT.map((n) => (
 						<Column key={n.title} className="stack" width="33%" style={{ padding: "0 8px 16px", textAlign: "center", verticalAlign: "top" }}>
+							<CircleIcon name={n.icon} />
 							<Text style={{ margin: "0 0 6px", fontFamily: FONT, fontSize: 16, fontWeight: 700, lineHeight: "22px", color: C.white, textAlign: "center" }}>{n.title}</Text>
 							<Text style={{ margin: 0, fontFamily: FONT, fontSize: 14, lineHeight: "21px", color: C.text, textAlign: "center" }}>{n.body}</Text>
 						</Column>

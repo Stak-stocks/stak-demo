@@ -14,3 +14,9 @@ export const C = {
 export const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 export const INSTAGRAM_URL = "https://www.instagram.com/just_stak";
+
+/**
+ * Where the email images live: the website serves frontend/public/email at /email (built by
+ * `node emails/scripts/build-images.mjs`). EMAIL_ASSET_BASE points the preview at a local dev server.
+ */
+export const ASSET_BASE = (typeof process !== "undefined" && process.env.EMAIL_ASSET_BASE) || "https://thestak.org/email";
