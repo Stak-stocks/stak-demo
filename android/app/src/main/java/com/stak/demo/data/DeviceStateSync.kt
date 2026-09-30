@@ -8,10 +8,16 @@ import kotlinx.coroutines.withContext
 
 /**
  * Carries the phone-only state that used to be lost on a new device or a reinstall -
- * the practice portfolio ledger, the notification inbox's read ids, and saved news -
- * to and from the server (device report, 2026-09-19: "what if I use it on another
- * phone, the portfolio resets?"). Each of those stays local-first and instant; this
- * just keeps a copy on the account so a second phone isn't starting from nothing.
+ * the notification inbox's read ids and saved news - to and from the server (device
+ * report, 2026-09-19: "what if I use it on another phone, the portfolio resets?").
+ * Each of those stays local-first and instant; this just keeps a copy on the account
+ * so a second phone isn't starting from nothing.
+ *
+ * The practice portfolio ledger no longer rides along here (2026-09-25 unification):
+ * a real account's portfolio now lives entirely server-side in the sandbox tables and
+ * hydrates via PaperPortfolio.refresh()/hydrate(), the same backend web's Simulate
+ * uses - there's no local copy left to carry between devices. android_device_state's
+ * `portfolio` column is left in place, unused, rather than dropped outright.
  */
 object DeviceStateSync {
 	private var repository: StockRepository? = null
@@ -22,24 +28,18 @@ object DeviceStateSync {
 	}
 
 	/**
-	 * Called once per real sign-in, after MyStakHoldings/PaperPortfolio/StakNotifications/
-	 * NewsSaves have already loaded whatever this phone has locally for the account. A
-	 * brand-new phone has none of their StakStore keys yet - if the server holds this
-	 * account's copy, that's exactly what's missing here, so pull it down and reload the
-	 * singletons that were missing it. A phone that already has local data leaves it alone
-	 * (it's what's showing) and just pushes it, so the server catches up instead of a
-	 * second, older copy winning.
+	 * Called once per real sign-in, after MyStakHoldings/StakNotifications/NewsSaves have
+	 * already loaded whatever this phone has locally for the account. A brand-new phone has
+	 * none of their StakStore keys yet - if the server holds this account's copy, that's
+	 * exactly what's missing here, so pull it down and reload the singletons that were
+	 * missing it. A phone that already has local data leaves it alone (it's what's showing)
+	 * and just pushes it, so the server catches up instead of a second, older copy winning.
 	 */
 	fun sync() {
 		val repo = repository ?: return
 		if (Session.demoAccount || Session.token == null) return
 		scope.launch {
 			val remote = runCatching { repo.getAndroidState() }.getOrNull() ?: return@launch
-			var pulledPortfolio = false
-			if (StakStore.getString("portfolio") == null && remote.portfolio != null) {
-				StakStore.putString("portfolio", remote.portfolio.toString())
-				pulledPortfolio = true
-			}
 			if (StakStore.getSet("notif.read") == null && remote.notifRead.isNotEmpty()) {
 				StakStore.putSet("notif.read", remote.notifRead.toSet())
 			}
@@ -47,7 +47,6 @@ object DeviceStateSync {
 				StakStore.putSet("news.saved", remote.newsSaved.toSet())
 			}
 			withContext(Dispatchers.Main) {
-				if (pulledPortfolio) com.stak.demo.ui.simulate.PaperPortfolio.reset(demo = false)
 				StakNotifications.load()
 				com.stak.demo.ui.news.NewsSaves.load()
 			}
@@ -63,9 +62,6 @@ object DeviceStateSync {
 			runCatching {
 				repo.putAndroidState(
 					AndroidStatePutRequest(
-						portfolio = StakStore.getString("portfolio")?.let { json ->
-							runCatching { com.google.gson.JsonParser.parseString(json).asJsonObject }.getOrNull()
-						},
 						notifRead = StakStore.getSet("notif.read")?.toList(),
 						newsSaved = StakStore.getSet("news.saved")?.toList(),
 					),

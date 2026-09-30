@@ -139,4 +139,26 @@ interface StockApiService {
 
     @GET("api/brands/{id}/quick-look")
     suspend fun getBrandQuickLook(@Path("id") id: String): QuickLookResponse
+
+    // ── Sandbox (paper trading) — shared backend with web's Simulate ──────────
+    @POST("api/sandbox/setup")
+    suspend fun sandboxSetup(@Body body: SandboxSetupRequest): SandboxSetupResponse
+
+    @POST("api/sandbox/buy")
+    suspend fun sandboxBuy(@Body body: SandboxBuyRequest): SandboxBuyResponse
+
+    @POST("api/sandbox/sell")
+    suspend fun sandboxSell(@Body body: SandboxSellRequest): SandboxSellResponse
+
+    @POST("api/sandbox/orders")
+    suspend fun sandboxPlaceOrder(@Body body: SandboxOrderRequest): SandboxOrderResponse
+
+    @POST("api/sandbox/orders/{id}/cancel")
+    suspend fun sandboxCancelOrder(@Path("id") id: Long): OkResponse
+
+    @GET("api/sandbox/portfolio")
+    suspend fun getSandboxPortfolio(): SandboxPortfolioResponse
+
+    @GET("api/sandbox/trades")
+    suspend fun getSandboxTrades(@Query("limit") limit: Int = 100): SandboxTradesResponse
 }

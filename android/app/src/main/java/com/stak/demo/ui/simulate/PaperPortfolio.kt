@@ -1,11 +1,23 @@
-﻿package com.stak.demo.ui.simulate
+package com.stak.demo.ui.simulate
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.stak.demo.data.SandboxPositionDto
+import com.stak.demo.data.StockRepository
 import com.stak.demo.ui.discover.BuySpec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
@@ -123,8 +135,26 @@ private val SEED_ROWS = listOf(
  * every host move the same cash and rows the Simulate, Portfolio and Pick
  * detail pages read. Mirrors
  * ios/StakDemo/Simulate/PaperPortfolio.swift.
+ *
+ * Backend unification (2026-09-25): a real (non-demo) account's cash, positions,
+ * open orders and trade log are no longer a local-only ledger - they're hydrated
+ * from and mutated through the sandbox endpoints (the same backend web's Simulate uses).
+ * Every mutating function keeps its existing synchronous signature and applies its
+ * local optimistic update exactly as before (so every call site - DiscoverBuyFlow,
+ * SellFlowHost, PortfolioSetupCard, TradeHistory's Cancel - needs no changes at all),
+ * then fires the real request in the background and reconciles with [hydrate] once
+ * it resolves, the same fire-and-forget pattern DeviceStateSync already uses. The
+ * demo persona is untouched - it never goes near [repository].
  */
 internal object PaperPortfolio {
+	private var repository: StockRepository? = null
+	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+	private val marketZone = ZoneId.of("America/New_York")
+
+	fun init(repo: StockRepository) {
+		repository = repo
+	}
+
 	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
 	const val PAPER_START = 10000.0
 	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
@@ -134,8 +164,8 @@ internal object PaperPortfolio {
 	/**
 	 * Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
 	 * Strategy). A NEW account picks its starting balance before its first
-	 * trade; the demo persona is the authored $10,000 portfolio. Persisted with
-	 * the ledger.
+	 * trade; the demo persona is the authored $10,000 portfolio. A real account's
+	 * setup is persisted server-side (free-choice, same model as web's Simulate).
 	 */
 	var paperStart by mutableDoubleStateOf(PAPER_START)
 		private set
@@ -146,24 +176,62 @@ internal object PaperPortfolio {
 	var setupDone by mutableStateOf(false)
 		private set
 
+	/** True while a hydrate() (initial load or post-mutation reconcile) is in flight. */
+	var loading by mutableStateOf(false)
+		private set
+
 	/**
-	 * The setup card shows until the account has set up or touched its ledger - a trade, a held
-	 * position (a pre-2026-09-14 ledger has positions but no trade log) or a reserved limit order
-	 * (placeLimit records no trade). Review 2026-09-14: setup() must never rebase cash under a reservation.
+	 * Set when a real account's background buy/sell/setup/limit-order/cancel request
+	 * actually failed server-side - buy()/sell()/etc. already applied their optimistic
+	 * local update and returned before this can be known, so this is the only signal the
+	 * UI gets that what it just showed as done didn't really happen (the next hydrate()
+	 * silently corrects the numbers regardless; this at least explains why they moved).
 	 */
-	val needsSetup: Boolean get() = !demo && !setupDone && untouched
-	private val untouched: Boolean get() = trades.isEmpty() && positions.isEmpty() && openOrders.isEmpty()
+	var lastError by mutableStateOf<String?>(null)
+		private set
+
+	fun dismissError() {
+		lastError = null
+	}
+
+	/**
+	 * Runs a real account's background mutation, then reconciles with the server via hydrate()
+	 * either way - on success clears any previous error, on failure sets [lastError] instead of
+	 * failing silently. A 4xx carries the server's own reason (e.g. a limit order the live price
+	 * has already crossed, which the ticket's cached quote couldn't know); anything else gets a
+	 * generic retry line. True when the request succeeded.
+	 */
+	private suspend fun runMutation(action: suspend () -> Unit): Boolean {
+		val failure = runCatching { action() }.exceptionOrNull()
+		val message = failure?.let { serverReason(it) ?: "That didn't go through — try again" }
+		withContext(Dispatchers.Main) { lastError = message }
+		hydrate()
+		return failure == null
+	}
+
+	private fun serverReason(e: Throwable): String? {
+		val http = e as? retrofit2.HttpException ?: return null
+		if (http.code() !in 400..499) return null
+		val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull() ?: return null
+		return runCatching { org.json.JSONObject(body).optString("error") }.getOrNull()?.takeIf { it.isNotBlank() }
+	}
+
+	/** The setup card shows until a real account has set up (server-confirmed or the local default from ensureSetup()). */
+	val needsSetup: Boolean get() = !demo && !setupDone
 
 	/**
 	 * An order placed before the setup card was used records the default setup with it
 	 * (Codex review, PR #167 mirror): the card never hides on an account that reads as
-	 * unset, and the hero's name line has something true to say.
+	 * unset, and the hero's name line has something true to say. For a real account this
+	 * also tells the server, sequentially before the mutation that triggered it (buy()/
+	 * placeLimit() await both in the same coroutine, so the setup always lands first).
 	 */
-	private fun ensureSetup() {
-		if (demo || setupDone) return
+	private fun ensureSetup(): Boolean {
+		if (demo || setupDone) return false
 		portfolioName = DEFAULT_PORTFOLIO_NAME
 		strategy = DEFAULT_STRATEGY
 		setupDone = true
+		return true
 	}
 
 	fun setup(balance: Double, name: String, strategy: String) {
@@ -175,7 +243,13 @@ internal object PaperPortfolio {
 		portfolioName = name
 		this.strategy = strategy
 		setupDone = true
+		positions = emptyList()
+		realized = emptyList()
+		trades = emptyList()
+		openOrders = emptyList()
+		baseHoldings = 0.0
 		persist()
+		if (!demo) scope.launch { runMutation { repository?.sandboxSetup(balance, name, strategyToId(strategy)) } }
 	}
 
 	/** Every buy and sell, newest first (FigJam: Trade history). */
@@ -236,18 +310,16 @@ internal object PaperPortfolio {
 	// never lists, so value is tracked as the authored number plus moves.
 	private var baseHoldings: Double = positions.sumOf { it.stake }
 
-	/** Seeds the authored demo history or clears everything to $10,000 of untouched paper cash. */
+	/** Seeds the authored demo history, or (real account) clears to a loading shell and hydrates from the server. */
 	fun reset(demo: Boolean) {
 		this.demo = demo
-		paperStart = PAPER_START
-		portfolioName = if (demo) "Hamza\u2019s paper" else ""
-		strategy = if (demo) "Balanced" else ""
-		setupDone = demo
-		openOrders = emptyList()
-		// The persona's authored history as a trade log: a buy per seeded row on its
-		// picked day, a sell per realized row (undated seeds order by their rows).
-		trades = if (demo) seedTrades() else emptyList()
 		if (demo) {
+			paperStart = PAPER_START
+			portfolioName = "Hamza’s paper"
+			strategy = "Balanced"
+			setupDone = true
+			openOrders = emptyList()
+			trades = seedTrades()
 			cash = SEED_CASH
 			positions = SEED_ROWS.map { row -> Position(PICK_SPECS.first { it.symbol == row.ticker }, row) }
 			realized = listOf(
@@ -256,25 +328,206 @@ internal object PaperPortfolio {
 			)
 			baseValue = AUTHORED_VALUE
 			baseCash = SEED_CASH
-		} else {
-			cash = PAPER_START
-			positions = emptyList()
-			realized = emptyList()
-			baseValue = PAPER_START
-			baseCash = PAPER_START
+			baseHoldings = positions.sumOf { it.stake }
+			// The persisted ledger (buys, sells, cash) wins over the seed - product audit
+			// 2026-09-05; a demo ledger persisted before the trade log existed reseeds once
+			// with its authored history; the next persist() rewrites it in the current shape.
+			com.stak.demo.data.StakStore.getString("portfolio")?.let { runCatching { val o = org.json.JSONObject(it); if (o.has("trades")) restore(o) } }
+			return
 		}
-		baseHoldings = positions.sumOf { it.stake }
-		// The persisted ledger (buys, sells, cash) wins over the seed - product
-		// audit 2026-09-05; the seed baseline above is what value grows from.
-		// A demo ledger persisted before the trade log existed (no "trades" key) reseeds once with its
-		// authored history; the next persist() rewrites it in the current shape (review 2026-09-14).
-		com.stak.demo.data.StakStore.getString("portfolio")?.let { runCatching { val o = org.json.JSONObject(it); if (!(demo && !o.has("trades"))) restore(o) } }
+		// Real account: the local JSON ledger is retired (2026-09-25 unification) - the
+		// server is the only source of truth now. cash = 0 until hydrate() confirms either
+		// way, so nothing can be bought against a stale/guessed number in the interim.
+		paperStart = PAPER_START
+		portfolioName = ""
+		strategy = ""
+		setupDone = false
+		cash = 0.0
+		positions = emptyList()
+		realized = emptyList()
+		trades = emptyList()
+		openOrders = emptyList()
+		baseValue = 0.0
+		baseCash = 0.0
+		baseHoldings = 0.0
+		// Set synchronously, not left for hydrate()'s own coroutine to flip a moment later -
+		// SimulateScreen gates the setup card / hero on this so neither ever renders against
+		// these placeholder values in the gap before that coroutine actually starts.
+		loading = true
+		serverTrades = emptyList()
+		serverTradeCursor = null
+		refresh()
 	}
+
+	/** Real accounts only - re-pulls cash/positions/orders/trades from the server. Fire-and-forget (Compose state updates reactively once it resolves); safe to call repeatedly (e.g. on tab re-entry). */
+	fun refresh() {
+		if (demo || repository == null) return
+		scope.launch { hydrate() }
+	}
+
+	// Rapid back-to-back mutations (e.g. buy then immediately sell) each launch their own
+	// hydrate() independently, and their network round-trips can resolve out of order.
+	// Every call claims the next generation; before applying, a call checks it's still the
+	// latest one issued - an older hydrate that happens to finish last is discarded rather
+	// than clobbering the newer snapshot a still-in-flight (or already-applied) call has.
+	private val hydrateGeneration = java.util.concurrent.atomic.AtomicLong(0)
+
+	// The last ledger pulled from the server and the newest-trade id it was current as of.
+	// Kept apart from [trades] (which buy()/sell() also edit optimistically) so a failed
+	// mutation's guessed row can't be mistaken for server truth when a poll reuses it.
+	@Volatile private var serverTrades: List<Trade> = emptyList()
+	@Volatile private var serverTradeCursor: Long? = null
+
+	private suspend fun hydrate() {
+		val repo = repository ?: return
+		if (demo) return
+		val myGeneration = hydrateGeneration.incrementAndGet()
+		withContext(Dispatchers.Main) { loading = true }
+		val fetched = runCatching {
+			val portfolio = repo.getSandboxPortfolio()
+			// The ledger only changes when a trade lands, and /portfolio says whether one did
+			// (its newest trade's id) - so a poll that finds it unchanged skips the up-to-100-row pull.
+			val unchanged = portfolio.tradeCursor != null && portfolio.tradeCursor == serverTradeCursor
+			val tradesResp = if (unchanged) null else repo.getSandboxTrades(100)
+			portfolio to tradesResp
+		}.getOrNull()
+		if (fetched == null) {
+			if (myGeneration == hydrateGeneration.get()) withContext(Dispatchers.Main) { loading = false }
+			return
+		}
+		val (portfolio, tradesResp) = fetched
+
+		val mappedTrades = tradesResp?.trades?.map { t ->
+			Trade(
+				side = t.side.uppercase(Locale.US), symbol = t.ticker, badge = t.ticker.take(1),
+				amount = t.amount, shares = t.shares, price = t.price,
+				day = dayLabelOf(t.executedAt), epochDay = epochDayOf(t.executedAt),
+			)
+		} ?: serverTrades
+		val mappedOrders = portfolio.openOrders.map { o ->
+			OpenOrder(id = o.id.toString(), symbol = o.ticker, badge = o.ticker.take(1), name = o.ticker, amount = o.amount, limit = o.limitPrice, change = "", day = dayLabelOf(o.createdAt))
+		}
+		// One batched quote request for whatever isn't already warm in LiveQuotes (the same
+		// cache SimulateScreen's own 15s poll keeps filled) - not a per-position /api/stock/{symbol}
+		// call on every hydrate, which would needlessly re-fetch each position's unchanging
+		// company name and fundamentals just to read its price.
+		val missingQuotes = portfolio.positions.map { it.ticker }.distinct().filter { com.stak.demo.data.LiveQuotes.cached(it) == null }
+		if (missingQuotes.isNotEmpty()) com.stak.demo.data.LiveQuotes.refresh(missingQuotes)
+		val mappedPositions = coroutineScope {
+			portfolio.positions.map { p -> async { buildPosition(p) } }.awaitAll()
+		}.filterNotNull()
+		val mappedRealized = computeRealized(mappedTrades)
+		val holdings = mappedPositions.sumOf { it.stake }
+		val resolvedCash = if (portfolio.initialized) (portfolio.cash ?: 0.0) else PAPER_START
+
+		if (myGeneration != hydrateGeneration.get()) return
+
+		withContext(Dispatchers.Main) {
+			serverTrades = mappedTrades
+			serverTradeCursor = portfolio.tradeCursor
+			setupDone = portfolio.initialized
+			cash = resolvedCash
+			paperStart = portfolio.start ?: PAPER_START
+			portfolioName = portfolio.name ?: ""
+			strategy = strategyFromId(portfolio.strategy)
+			positions = mappedPositions
+			trades = mappedTrades
+			openOrders = mappedOrders
+			realized = mappedRealized
+			baseHoldings = holdings
+			baseCash = resolvedCash
+			baseValue = resolvedCash + holdings
+			loading = false
+		}
+	}
+
+	/** A held position's display spec, built from the server's ticker/shares/cost-basis plus a fresh quote for its name and today's price. Null if the quote can't be fetched right now - dropped rather than shown with guessed numbers. */
+	private suspend fun buildPosition(p: SandboxPositionDto): Position? {
+		val repo = repository ?: return null
+		val detail = runCatching { repo.getStock(p.ticker) }.getOrNull()
+		val price = detail?.quote?.price?.takeIf { it > 0.0 } ?: p.costBasis
+		val name = detail?.name?.takeIf { it.isNotBlank() } ?: p.ticker
+		val badge = p.ticker.take(1)
+		val stakeBasisTotal = p.costBasis * p.shares
+		val currentValue = price * p.shares
+		val gain = currentValue - stakeBasisTotal
+		val gainPctAbs = if (stakeBasisTotal > 0.0) abs(gain / stakeBasisTotal * 100.0) else 0.0
+		val dayChangePct = detail?.quote?.changePercent ?: 0.0
+		val pickedDay = dayLabelOf(p.addedAt)
+		val spec = PickSpec(
+			symbol = p.ticker, badge = badge, company = name,
+			priceNow = usd(price),
+			pickedLine = "Picked $pickedDay at ${usd(p.costBasis)}",
+			priceThen = usd(p.costBasis),
+			gain = signedUsd(gain),
+			gainPct = String.format(Locale.US, "%.1f%%", gainPctAbs),
+			up = gain >= 0.0,
+			shares = String.format(Locale.US, "%.4f", p.shares),
+			stakeValue = usd(currentValue),
+			vsMarket = "Even",
+			ahead = true,
+			dayChange = (if (dayChangePct >= 0.0) "▲ " else "▼ ") + String.format(Locale.US, "%.1f", abs(dayChangePct)) + "%",
+			stakeBasis = stakeLabel(stakeBasisTotal),
+			weekGain = "+$0.00",
+		)
+		val row = SimPick(
+			badge = badge, ticker = p.ticker,
+			sub = "Picked $pickedDay · ${if (gain >= 0.0) "up" else "down"} ${String.format(Locale.US, "%.0f", gainPctAbs)}% since",
+			amount = signedUsd(gain),
+			pct = String.format(Locale.US, "%+.1f%%", if (gain >= 0.0) gainPctAbs else -gainPctAbs),
+			up = gain >= 0.0,
+		)
+		return Position(spec, row)
+	}
+
+	/**
+	 * Realized gains for the SOLD · REALIZED list, replayed from the trade ledger itself
+	 * (the server doesn't store a per-sale P&L) using the same weighted-average cost
+	 * basis the backend's own /buy applies, so a sale's banked gain is measured against
+	 * what was actually paid for those shares, not their price at some other time.
+	 *
+	 * [newestFirst] must be exact-timestamp order (as GET /trades returns it) - simply
+	 * reversed to get true chronological order. Re-sorting by [Trade.epochDay] instead
+	 * (day granularity only) would leave two same-day trades in their newest-first input
+	 * order via sortedBy's stable sort, silently processing a same-day sell before its
+	 * own buy.
+	 */
+	private fun computeRealized(newestFirst: List<Trade>): List<Realized> {
+		val chronological = newestFirst.asReversed()
+		val sharesHeld = mutableMapOf<String, Double>()
+		val costBasisPerShare = mutableMapOf<String, Double>()
+		val out = mutableListOf<Realized>()
+		for (t in chronological) {
+			if (t.isBuy) {
+				val prevShares = sharesHeld.getOrDefault(t.symbol, 0.0)
+				val prevBasis = costBasisPerShare.getOrDefault(t.symbol, 0.0)
+				val newShares = prevShares + t.shares
+				costBasisPerShare[t.symbol] = if (newShares > 0.0) (prevBasis * prevShares + t.price * t.shares) / newShares else t.price
+				sharesHeld[t.symbol] = newShares
+			} else {
+				val basis = costBasisPerShare[t.symbol] ?: t.price
+				val gain = (t.price - basis) * t.shares
+				sharesHeld[t.symbol] = (sharesHeld[t.symbol] ?: 0.0) - t.shares
+				out.add(Realized(badge = t.badge, ticker = t.symbol, sub = "Sold ${t.day} · ${if (gain >= 0.0) "profit banked" else "loss realized"}", amount = signedUsd(gain), up = gain >= 0.0))
+			}
+		}
+		return out.reversed()
+	}
+
+	private fun dayLabelOf(iso: String): String =
+		runCatching { Instant.parse(iso).atZone(marketZone).toLocalDate().format(DateTimeFormatter.ofPattern("MMM d", Locale.US)) }.getOrDefault("")
+
+	private fun epochDayOf(iso: String): Long =
+		runCatching { Instant.parse(iso).atZone(marketZone).toLocalDate().toEpochDay() }.getOrDefault(0L)
+
+	/** "Balanced" <-> "balanced" - Android's capitalized label, the backend's lowercase id. */
+	private fun strategyToId(label: String): String = label.lowercase(Locale.US)
+	private fun strategyFromId(id: String?): String = id?.replaceFirstChar { it.uppercase(Locale.US) } ?: ""
 
 	private fun seedTrades(): List<Trade> {
 		val buys = SEED_ROWS.map { row ->
 			val spec = PICK_SPECS.first { it.symbol == row.ticker }
-			Trade("BUY", row.ticker, row.badge, parseUsd(spec.stakeBasis), spec.shares.toDoubleOrNull() ?: 0.0, parseUsd(spec.priceThen), row.sub.substringAfter("Picked ").substringBefore(" \u00b7"), 0L)
+			Trade("BUY", row.ticker, row.badge, parseUsd(spec.stakeBasis), spec.shares.toDoubleOrNull() ?: 0.0, parseUsd(spec.priceThen), row.sub.substringAfter("Picked ").substringBefore(" ·"), 0L)
 		}
 		val sells = listOf(
 			Trade("SELL", "SHOP", "S", 112.0, 1.4, 80.0, "May 30", 0L),
@@ -290,10 +543,16 @@ internal object PaperPortfolio {
 	/** True when the cash on hand covers the stake reserved for a limit order too. */
 	fun placeLimit(spec: BuySpec, amount: Double, limit: Double): Boolean {
 		if (!canBuy(amount) || limit <= 0.0) return false
-		ensureSetup()
+		val neededSetup = ensureSetup()
 		cash -= amount
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
+		if (!demo) scope.launch {
+			runMutation {
+				if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+				repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
+			}
+		}
 		return true
 	}
 
@@ -303,10 +562,20 @@ internal object PaperPortfolio {
 		openOrders = openOrders.filterNot { it.id == id }
 		cash += order.amount
 		persist()
+		if (!demo) scope.launch {
+			runMutation { id.toLongOrNull()?.let { repository?.sandboxCancelOrder(it) } }
+		}
 	}
 
 	// ---- persistence ------------------------------------------------------------------------
+	// Real accounts no longer keep a local ledger copy (2026-09-25 unification) - the server
+	// is the only source of truth, hydrated via refresh()/hydrate(). The demo persona is
+	// untouched: still a local StakStore-backed JSON blob, exactly as before.
 	private fun persist() {
+		if (!demo) {
+			com.stak.demo.data.DeviceStateSync.push()
+			return
+		}
 		val o = org.json.JSONObject()
 		o.put("cash", cash)
 		o.put("paperStart", paperStart)
@@ -358,8 +627,8 @@ internal object PaperPortfolio {
 		// Fields the FigJam Simulate work added (2026-09-14) - a ledger persisted before them keeps its defaults.
 		if (o.has("paperStart")) {
 			paperStart = o.getDouble("paperStart")
-			baseValue = if (demo) AUTHORED_VALUE else paperStart
-			baseCash = if (demo) SEED_CASH else paperStart
+			baseValue = AUTHORED_VALUE
+			baseCash = SEED_CASH
 		}
 		if (o.has("name")) portfolioName = o.getString("name")
 		if (o.has("strategy")) strategy = o.getString("strategy")
@@ -423,10 +692,12 @@ internal object PaperPortfolio {
 
 	fun buy(spec: BuySpec, amount: Double) {
 		if (!canBuy(amount)) return
-		ensureSetup()
+		val neededSetup = ensureSetup()
 		// A bought stock is in your STAK (Codex review, PR #167 mirror): the receipt's
-		// "View in My STAK" lands on a page that lists it, not on an empty one.
-		com.stak.demo.data.MyStakHoldings.add(spec.symbol)
+		// "View in My STAK" lands on a page that lists it, not on an empty one. A real
+		// account adds it only once the server has confirmed the buy (below), so a
+		// rejected order can't leave a saved stock with no position behind it.
+		if (demo) com.stak.demo.data.MyStakHoldings.add(spec.symbol)
 		val price = spec.price
 		val shares = if (price > 0.0) amount / price else 0.0
 		cash -= amount
@@ -452,36 +723,43 @@ internal object PaperPortfolio {
 			)
 			positions = positions.map { if (it === held) grown else it }
 			persist()
-			return
+		} else {
+			val priceText = usd(price)
+			val day = today()
+			val fresh = Position(
+				spec = PickSpec(
+					symbol = spec.symbol,
+					badge = spec.badge,
+					company = spec.name,
+					priceNow = priceText,
+					pickedLine = "Picked $day at $priceText",
+					priceThen = priceText,
+					gain = "+$0.00",
+					gainPct = "0.0%",
+					up = true,
+					shares = String.format(Locale.US, "%.4f", shares),
+					stakeValue = usd(amount),
+					// Short on purpose (device report, 2026-09-18): the stat's own label already
+					// says "vs the market" - "Even with the market" wrapped inside the fixed-height
+					// cell and its second line got clipped, reading as the cut-off "Even with the".
+					vsMarket = "Even",
+					ahead = true,
+					dayChange = spec.change,
+					stakeBasis = stakeLabel(amount),
+					weekGain = "+$0.00",
+				),
+				row = SimPick(spec.badge, spec.symbol, "Picked $day · just bought", "+$0.00", "+0.0%", true),
+			)
+			positions = listOf(fresh) + positions
+			persist()
 		}
-		val priceText = usd(price)
-		val day = today()
-		val fresh = Position(
-			spec = PickSpec(
-				symbol = spec.symbol,
-				badge = spec.badge,
-				company = spec.name,
-				priceNow = priceText,
-				pickedLine = "Picked $day at $priceText",
-				priceThen = priceText,
-				gain = "+$0.00",
-				gainPct = "0.0%",
-				up = true,
-				shares = String.format(Locale.US, "%.4f", shares),
-				stakeValue = usd(amount),
-				// Short on purpose (device report, 2026-09-18): the stat's own label already
-				// says "vs the market" - "Even with the market" wrapped inside the fixed-height
-				// cell and its second line got clipped, reading as the cut-off "Even with the".
-				vsMarket = "Even",
-				ahead = true,
-				dayChange = spec.change,
-				stakeBasis = stakeLabel(amount),
-				weekGain = "+$0.00",
-			),
-			row = SimPick(spec.badge, spec.symbol, "Picked $day · just bought", "+$0.00", "+0.0%", true),
-		)
-		positions = listOf(fresh) + positions
-		persist()
+		if (!demo) scope.launch {
+			val ok = runMutation {
+				if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+				repository?.sandboxBuy(spec.symbol, amount)
+			}
+			if (ok) withContext(Dispatchers.Main) { com.stak.demo.data.MyStakHoldings.add(spec.symbol) }
+		}
 	}
 
 	/**
@@ -524,6 +802,7 @@ internal object PaperPortfolio {
 			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = signedUsd(gain * p), up = banked)) + realized
 		}
 		persist()
+		if (!demo) scope.launch { runMutation { repository?.sandboxSell(symbol, p) } }
 		return true
 	}
 }

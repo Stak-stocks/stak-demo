@@ -146,6 +146,12 @@ internal fun SimulateScreen(
 		com.stak.demo.ui.components.RefreshWhileVisible(key = quoteSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
 			scope.launch { com.stak.demo.data.LiveQuotes.refresh(quoteSymbols) }
 		}
+		// Re-pulls cash/positions/open orders/trades from the server (2026-09-25 unification) -
+		// the same cadence as the quotes tick above, so a limit order filled by the scheduled
+		// /api/sandbox/fill-orders job shows up here without needing an app relaunch.
+		com.stak.demo.ui.components.RefreshWhileVisible(key = Unit, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
+			PaperPortfolio.refresh()
+		}
 	}
 	// A company handed over by a stock page's "Practice with ..." - opened on today's
 	// price, or not at all: a paper order must never fill at a price STAK doesn't have.
@@ -224,11 +230,22 @@ internal fun SimulateScreen(
 						Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
 					}
 				}
-				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
-				// chooses its balance, name and strategy before its first trade.
-				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
-				ScoreHero()
-				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
+				// A real account's initial hydrate() (sign-in, or a fresh install) briefly
+				// leaves cash/setupDone at their pre-load placeholders - without this gate a
+				// returning, already-set-up user would flash the setup card and "$10,000
+				// paper" for a moment before their real numbers land (device report,
+				// 2026-09-25 unification review).
+				if (!PaperPortfolio.demo && PaperPortfolio.loading) {
+					Box(modifier = Modifier.fillMaxWidth().height((160 * u).dp), contentAlignment = Alignment.Center) {
+						androidx.compose.material3.CircularProgressIndicator(color = Sim.Teal)
+					}
+				} else {
+					// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
+					// chooses its balance, name and strategy before its first trade.
+					if (PaperPortfolio.needsSetup) PortfolioSetupCard()
+					ScoreHero()
+					if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
+				}
 				SectionHeader("Saved staks")
 				if (savedRows.isEmpty()) {
 					// Product audit (2026-09-05): a new account has saved nothing yet.

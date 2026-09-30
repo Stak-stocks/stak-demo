@@ -123,6 +123,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// The persisted session (sign-in state + profile) is restored in
 	// StakApp.onCreate, before any composition - composition must not
 	// mutate app state (RememberReturnType lint, audit 2026-09-04).
+	Box(modifier = Modifier.fillMaxSize()) {
 	NavHost(
 		navController = navController,
 		startDestination = StakRoutes.SPLASH,
@@ -712,6 +713,11 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onOpenArticle = { id -> navController.navigate(StakRoutes.newsDetail(id)) },
 			)
 		}
+	}
+	// A paper order's background server call failed after the ticket already showed it
+	// filled - shown over every screen, not only Simulate, since the ticket also opens
+	// from Discover and the stock page.
+	com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
 	}
 }
 
