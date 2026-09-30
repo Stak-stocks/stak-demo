@@ -94,7 +94,11 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 				style={{ background: "#0E1626", border: "1px solid rgba(105,179,202,0.28)", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", fontFamily: "'Sora', sans-serif" }}
 			>
 				<div className="flex items-center justify-between">
-					<img src="/images/landing-v2/nav-logo-word.svg" alt="STAK" style={{ width: 70, height: 13.4 }} />
+					{/* The landing nav's lockup (icon + wordmark), at the wordmark's size here. */}
+					<div className="flex items-center" style={{ gap: 4 }}>
+						<img src="/images/landing-v2/nav-logo-icon.svg" alt="" style={{ width: 23.7, height: 23.7 }} />
+						<img src="/images/landing-v2/nav-logo-word.svg" alt="STAK" style={{ width: 70, height: 13.4 }} />
+					</div>
 					<button type="button" onClick={onClose} aria-label="Close" className={`grid h-[32px] w-[32px] place-items-center rounded-full transition-colors hover:bg-white/[0.06] ${FOCUS}`}>
 						<X className="h-[18px] w-[18px]" style={{ color: DISC.muted }} aria-hidden="true" />
 					</button>
