@@ -206,7 +206,7 @@ playgroundRouter.post("/generate", authMiddleware, async (req: import("../authMi
 
 	// Explicit difficulty guidance per tier — used across all prompt types
 	const DIFFICULTY_GUIDE: Record<number, string> = {
-		1: `BEGINNER level: Use only well-known household brands recognisable to everyday consumers. Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognisable company names.`,
+		1: `BEGINNER level: Use only well-known household brands recognizable to everyday consumers. Avoid jargon — explain every term in plain English. Questions should have one obviously correct answer and clearly wrong distractors. Topics: what stocks are, basic market mechanics, recognizable company names.`,
 		2: `LEARNER level: Use well-known companies and introduce basic metrics (P/E ratio, revenue growth, dividend yield). One or two wrong options should be plausible to someone new. Topics: valuation basics, earnings beats/misses, sector categories, simple risk concepts.`,
 		3: `INVESTOR level: Assume familiarity with P/E, EPS, revenue growth, market cap, beta. Use moderately complex scenarios with plausible distractors that require real understanding to eliminate. Topics: comparing companies on metrics, reading earnings context, sector rotation, basic macro.`,
 		4: `ANALYST level: Assume solid investing knowledge. Use nuanced scenarios where multiple answers seem reasonable — only someone who deeply understands the concept can distinguish the best answer. Topics: advanced valuation, guidance vs actuals, macro impact on sectors, portfolio construction principles.`,
@@ -260,7 +260,7 @@ Return a JSON array of exactly ${rawCount} objects:
   "company": "McDonald's",
   "ticker": "MCD",
   "context": "2-3 sentences giving real context for THIS report — segment-level trends, valuation level heading in, or analyst/market sentiment. Do NOT include guidance here; that goes in forwardGuidance.",
-  "forwardGuidance": "1 sentence summarising what management guided for the NEXT quarter — e.g. 'Management guided same-store sales growth of 2%, below the 3.5% analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
+  "forwardGuidance": "1 sentence summarizing what management guided for the NEXT quarter — e.g. 'Management guided same-store sales growth of 2%, below the 3.5% analyst consensus.' If guidance was strong or in-line, say so. This is shown to the player before they predict the stock's reaction.",
   "revenueExpected": "$6.6B",
   "epsExpected": "$3.10",
   "revenueActual": "$6.5B",

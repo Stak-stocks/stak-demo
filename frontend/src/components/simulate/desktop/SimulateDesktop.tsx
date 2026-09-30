@@ -242,7 +242,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 											<span className="w-[60px] font-semibold text-white">{o.ticker}</span>
 											<span className="flex-1" style={{ color: DESK.body }}>Buy {usd(o.amount)} at {usd(o.limitPrice)} or below</span>
 											<button type="button" onClick={() => { void cancelOrder(o.id); }} disabled={isCancelling(o.id)} aria-label={`Cancel ${o.ticker} order`} className={`flex items-center gap-1 rounded-md text-[12.5px] hover:text-white disabled:opacity-60 ${deskFocus}`} style={{ color: DESK.muted }}>
-												<X className="h-[13px] w-[13px]" aria-hidden="true" /> {isCancelling(o.id) ? "Cancelling…" : "Cancel"}
+												<X className="h-[13px] w-[13px]" aria-hidden="true" /> {isCancelling(o.id) ? "Canceling…" : "Cancel"}
 											</button>
 										</div>
 									))}
@@ -253,7 +253,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 						<Panel label="Watchlist and saved ideas" className="gap-4 p-5">
 							<PanelHeader icon={Star} title="Watchlist / Saved Ideas" subtitle="Companies you've saved. Click + to set up a practice trade." action={saved.length ? "View all" : undefined} onAction={() => navigate({ to: "/my-stak" })} />
 							{saved.length === 0 ? (
-								<p className="text-[13px]" style={{ color: DESK.muted }}>Save companies in Discover and they show up here to practise with.</p>
+								<p className="text-[13px]" style={{ color: DESK.muted }}>Save companies in Discover and they show up here to practice with.</p>
 							) : (
 								<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
 									{saved.slice(0, WATCHLIST_SHOWN).map((b) => {

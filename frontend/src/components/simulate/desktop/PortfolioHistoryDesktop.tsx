@@ -129,7 +129,7 @@ export function PortfolioHistoryDesktop() {
 										<span className="block text-[12px]" style={{ color: DESK.muted }}>{usd(o.amount)} reserved · placed {monthDayYear(o.createdAt)}</span>
 									</span>
 									<button type="button" onClick={() => { void cancelOrder(o.id); }} disabled={isCancelling(o.id)} aria-label={`Cancel ${o.ticker} order`} className={`flex items-center gap-1 rounded-md text-[12.5px] hover:text-white disabled:opacity-60 ${deskFocus}`} style={{ color: DESK.muted }}>
-										<X className="h-[13px] w-[13px]" aria-hidden="true" /> {isCancelling(o.id) ? "Cancelling…" : "Cancel"}
+										<X className="h-[13px] w-[13px]" aria-hidden="true" /> {isCancelling(o.id) ? "Canceling…" : "Cancel"}
 									</button>
 								</div>
 							))}

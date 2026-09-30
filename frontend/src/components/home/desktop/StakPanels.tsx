@@ -353,7 +353,7 @@ export function PracticePanel({ onOpen }: { onOpen: () => void }) {
 				<div className="flex flex-col gap-3"><SkeletonBar width={140} height={28} /><SkeletonBar width="100%" height={120} /></div>
 			) : paper.needsSetup ? (
 				<div className="flex flex-col items-start gap-3 py-2">
-					<p className="text-[13px] leading-[19px]" style={{ color: DESK.body }}>Practise with a pretend balance. Pick a starting amount and a strategy, then buy and sell real companies at live prices.</p>
+					<p className="text-[13px] leading-[19px]" style={{ color: DESK.body }}>Practice with a pretend balance. Pick a starting amount and a strategy, then buy and sell real companies at live prices.</p>
 					<DeskButton size="sm" onClick={onOpen}>Set up your portfolio</DeskButton>
 				</div>
 			) : (

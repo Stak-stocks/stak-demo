@@ -134,7 +134,7 @@ export function SheetCta({ children, onClick, disabled, height = 52, shadow = te
 	);
 }
 
-/** The dark navy button (Sell, Confirm sell, Start practising). */
+/** The dark navy button (Sell, Confirm sell, Start practicing). */
 export function DarkCta({ children, onClick, height = 51, shadow, dim = true }: { children: ReactNode; onClick: () => void; height?: number; shadow?: string; dim?: boolean }) {
 	return (
 		<button

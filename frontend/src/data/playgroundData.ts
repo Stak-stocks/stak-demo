@@ -235,7 +235,7 @@ export const DAILY_CHALLENGES: DailyChallenge[] = [
 		prompt: "Which tells you more about a company's true size?",
 		options: [
 			{ id: "a", text: "Its stock price" },
-			{ id: "b", text: "Its market capitalisation" },
+			{ id: "b", text: "Its market capitalization" },
 		],
 		correctId: "b",
 		explanation: "Market cap (price × shares) tells you the total value the market assigns to the company. A $1 stock can represent a company worth billions if it has billions of shares.",
@@ -345,7 +345,7 @@ export const PRACTICE_TICKERS = [
 	{ ticker: "TSLA",  name: "Tesla",     prompt: "EV pioneer with high growth, high valuation, and volatile earnings. Elon Musk drives both the brand and the swings." },
 	{ ticker: "NVDA",  name: "NVIDIA",    prompt: "AI chip leader seeing unprecedented demand. Revenue and margins have exploded. Valuation is stretched by historical standards." },
 	{ ticker: "META",  name: "Meta",      prompt: "Ad-revenue giant with strong AI infrastructure. Trades at a reasonable multiple for its growth rate." },
-	{ ticker: "NFLX",  name: "Netflix",   prompt: "Streaming leader with improving margins from ad-tier and password sharing crackdown. Subscriber growth stabilising." },
+	{ ticker: "NFLX",  name: "Netflix",   prompt: "Streaming leader with improving margins from ad-tier and password sharing crackdown. Subscriber growth stabilizing." },
 	{ ticker: "MSFT",  name: "Microsoft", prompt: "Cloud, AI, Office, and Xbox. One of the most diversified mega-cap tech companies with a growing dividend." },
 	{ ticker: "AMZN",  name: "Amazon",    prompt: "E-commerce and AWS cloud in one. AWS is the profit engine; retail is the customer flywheel." },
 	{ ticker: "GOOGL", name: "Alphabet",  prompt: "Search, YouTube, and Google Cloud. Advertising is 80% of revenue — rate-sensitive to ad market cycles." },

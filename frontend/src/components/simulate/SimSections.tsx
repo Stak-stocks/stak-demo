@@ -59,7 +59,7 @@ export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, n
 				{SANDBOX_STRATEGIES.map((s, i) => <SettingsChip key={s.id} label={s.label} selected={i === strategyIndex} onClick={() => setStrategyIndex(i)} />)}
 			</div>
 			<p style={{ font: f(400, 11, 15), color: DISC.muted }}>{BLURB[strategy.id]}</p>
-			<DarkCta dim={false} height={49} onClick={() => onSubmit(SANDBOX_STARTING_BALANCES[balanceIndex]!, name.trim() || "My first portfolio", strategy.id)}>Start practising</DarkCta>
+			<DarkCta dim={false} height={49} onClick={() => onSubmit(SANDBOX_STARTING_BALANCES[balanceIndex]!, name.trim() || "My first portfolio", strategy.id)}>Start practicing</DarkCta>
 		</section>
 	);
 }
