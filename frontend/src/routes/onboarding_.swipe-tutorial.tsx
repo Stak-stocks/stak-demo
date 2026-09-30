@@ -5,6 +5,9 @@ import stakMark from "@/assets/stak-logo-icon.svg";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { PRESS, f } from "@/components/phone/phone";
 import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { focusRing } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/onboarding_/swipe-tutorial")({
 	component: SwipeTutorialPage,
@@ -74,6 +77,88 @@ function FlyingGhost({ ghost, onDone }: { ghost: Ghost; onDone: (key: number) =>
  * Purely illustrative: nothing is saved and Continue is always available.
  */
 function SwipeTutorialPage() {
+	return useIsMobile() ? <PhoneSwipeTutorial /> : <DesktopSwipeTutorial />;
+}
+
+/**
+ * Desktop, from the design: the sample deck as a carousel - the card in front, its neighbours tilted behind -
+ * browsed with the arrow buttons or the keyboard's arrow keys, with a Save chip on the card. Still illustrative:
+ * nothing is saved for real, and Continue is always available.
+ */
+function DesktopSwipeTutorial() {
+	const navigate = useNavigate();
+	const [at, setAt] = useState(0);
+	const [saved, setSaved] = useState<Set<number>>(new Set());
+	const n = DECK.length;
+	const go = useCallback((d: 1 | -1) => setAt((i) => (i + d + n) % n), [n]);
+
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.target instanceof HTMLElement && e.target.closest("input, textarea")) return;
+			if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+			if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [go]);
+
+	const toggleSave = () => setSaved((cur) => { const next = new Set(cur); if (next.has(at)) next.delete(at); else next.add(at); return next; });
+	const side = (offset: -1 | 1) => (
+		<div
+			className="pointer-events-none absolute left-1/2 top-0 select-none"
+			style={{ transform: `translateX(calc(-50% + ${offset * 200}px)) translateY(10px) rotate(${offset * 4}deg) scale(0.9)`, opacity: 0.55, filter: "brightness(0.8)", zIndex: 0 }}
+			aria-hidden="true"
+		>
+			<div style={{ transform: "scale(1.2)", transformOrigin: "top center" }}><TutorialCard card={DECK[(at + offset + n) % n]!} /></div>
+		</div>
+	);
+	const isSaved = saved.has(at);
+
+	return (
+		<QuizStepShell
+			stepLabel="STEP 3 OF 6"
+			title="Now try a few swipes."
+			subtitle="Use ← → keys or click. Save what you like."
+			onBack={() => navigate({ to: "/onboarding/brand-picks" })}
+			onContinue={() => navigate({ to: "/onboarding/goal" })}
+			contentWidth={960}
+		>
+			<div className="flex flex-col items-center">
+				<div className="relative w-full" style={{ height: cu(470) }} role="group" aria-roledescription="carousel" aria-label="Sample stock cards">
+					{side(-1)}
+					{side(1)}
+					<div className="absolute left-1/2 top-0 -translate-x-1/2" style={{ zIndex: 1 }} aria-live="polite">
+						<div style={{ transform: "scale(1.2)", transformOrigin: "top center" }}>
+							<div className="relative">
+								<TutorialCard card={DECK[at]!} />
+								<button
+									type="button"
+									onClick={toggleSave}
+									aria-pressed={isSaved}
+									className={`absolute flex items-center ${PRESS}`}
+									style={{ right: s(14), top: s(14), gap: s(6), padding: `${s(7)} ${s(12)}`, borderRadius: 999, background: isSaved ? "rgba(105,179,202,0.9)" : "rgba(12,21,38,0.72)", font: `500 ${s(12)} var(--font-body)`, color: isSaved ? DISC.pageBg : "#fff", ...focusRing }}
+								>
+									{isSaved ? "Saved" : "Save"}
+									{isSaved ? <BookmarkCheck style={{ width: s(13), height: s(13) }} aria-hidden="true" /> : <Bookmark style={{ width: s(13), height: s(13) }} aria-hidden="true" />}
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div className="flex items-center" style={{ gap: cu(128), marginTop: cu(8) }}>
+					<button type="button" onClick={() => go(-1)} aria-label="Previous card" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: cu(40), height: cu(40), background: DISC.navCircle, ...focusRing }}>
+						<ChevronLeft style={{ width: cu(18), height: cu(18), color: "#AEAEAE" }} aria-hidden="true" />
+					</button>
+					<button type="button" onClick={() => go(1)} aria-label="Next card" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: cu(40), height: cu(40), background: DISC.navCircle, ...focusRing }}>
+						<ChevronRight style={{ width: cu(18), height: cu(18), color: "#AEAEAE" }} aria-hidden="true" />
+					</button>
+				</div>
+			</div>
+		</QuizStepShell>
+	);
+}
+
+function PhoneSwipeTutorial() {
 	const navigate = useNavigate();
 	const unit = useFigmaUnit();
 	const [swiped, setSwiped] = useState(0);

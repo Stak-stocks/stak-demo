@@ -26,6 +26,7 @@ function GoalPage() {
 			title="What brings you here?"
 			subtitle="Pick one. You can change it any time."
 			gap={16}
+			contentWidth={780}
 			continueDisabled={goal == null}
 			onBack={back}
 			secondary={{ label: "Back", onClick: back }}

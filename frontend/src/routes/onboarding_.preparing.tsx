@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PhonePage, f } from "@/components/phone/phone";
 
@@ -13,10 +14,31 @@ const AUTO_ADVANCE_MS = 1800;
 function PreparingDeckPage() {
 	const navigate = useNavigate();
 
+	const isMobile = useIsMobile();
+	const [filled, setFilled] = useState(false);
+
 	useEffect(() => {
 		const t = setTimeout(() => navigate({ to: "/onboarding/taste-reveal", replace: true }), AUTO_ADVANCE_MS);
-		return () => clearTimeout(t);
+		// Starts the desktop bar's fill on the next frame, so it animates from empty.
+		const raf = requestAnimationFrame(() => setFilled(true));
+		return () => { clearTimeout(t); cancelAnimationFrame(raf); };
 	}, [navigate]);
+
+	// Desktop, from the design: the box art, the headline, what it's doing, and a bar that fills over the wait.
+	if (!isMobile) {
+		return (
+			<div className="grid min-h-dvh place-items-center" style={{ background: DISC.pageBg, ["--u" as string]: "clamp(1px, calc(100vw / 1440), 1.25px)" }} role="status" aria-label="Building your first deck">
+				<div className="flex flex-col items-center text-center">
+					<img src="/app/intro_hero_box.webp" alt="" draggable={false} className="select-none object-contain" style={{ width: cu(360), height: cu(514) }} />
+					<h1 style={{ marginTop: cu(8), font: f(600, 32, 40, "heading"), color: "#fff" }}>Building your first deck...</h1>
+					<p style={{ marginTop: cu(12), font: f(400, 14, 20), color: DISC.muted }}>Reading your brand picks</p>
+					<div style={{ marginTop: cu(48), width: cu(420), height: cu(5), borderRadius: cu(3), background: DISC.divider, overflow: "hidden" }}>
+						<div style={{ width: filled ? "100%" : "0%", height: "100%", borderRadius: cu(3), background: DISC.teal, transition: `width ${AUTO_ADVANCE_MS}ms linear` }} />
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<PhonePage>

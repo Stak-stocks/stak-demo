@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { useQuizDesktop } from "./QuizStepShell";
 
 const S = "#819ABB";
 const stroke = { stroke: S, strokeWidth: 1.5, fill: "none" } as const;
@@ -53,8 +54,40 @@ export function MatrixQuizOption({ option, selected, onClick }: { option: QuizOp
 	);
 }
 
+/** Desktop: the icon beside the title and reason, in a wider card. */
+function DesktopQuizOption({ option, selected, onClick }: { option: QuizOption; selected: boolean; onClick: () => void }) {
+	const icon = QUIZ_ICONS[option.icon];
+	// Each glyph is drawn to its own circle on the phone; keep that proportion in the 56u desktop circle.
+	const glyph = (option.iconSize / option.circle) * 56;
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-pressed={selected}
+			className={`flex items-center text-left transition-colors hover:brightness-110 ${PRESS}`}
+			style={{ gap: cu(24), minHeight: cu(140), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(24)} ${cu(40)}`, border: `1px solid ${selected ? "rgba(105,179,202,0.55)" : "transparent"}`, ...focusRing }}
+		>
+			<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(56), height: cu(56), background: DISC.avatar }} aria-hidden="true">
+				<svg viewBox={`0 0 ${icon.view} ${icon.view}`} style={{ width: cu(glyph), height: cu(glyph) }}>{icon.node}</svg>
+			</span>
+			<span style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
+				<span style={{ font: f(500, 16, 22), color: "#fff" }}>{option.title}</span>
+				<span style={{ font: f(400, 13, 18), color: DISC.muted }}>{option.subtitle}</span>
+			</span>
+		</button>
+	);
+}
+
 /** Two equal columns, each row as tall as its taller card. */
 export function MatrixGrid({ options, selected, onSelect }: { options: QuizOption[]; selected: number | null; onSelect: (index: number) => void }) {
+	const desk = useQuizDesktop();
+	if (desk) {
+		return (
+			<div className="grid grid-cols-2" style={{ gap: cu(20) }} role="radiogroup">
+				{options.map((o) => <DesktopQuizOption key={o.index} option={o} selected={selected === o.index} onClick={() => onSelect(o.index)} />)}
+			</div>
+		);
+	}
 	return (
 		<div className="grid grid-cols-2" style={{ gap: `${cu(12)} ${cu(13)}`, paddingTop: cu(4) }} role="radiogroup">
 			{options.map((o) => <MatrixQuizOption key={o.index} option={o} selected={selected === o.index} onClick={() => onSelect(o.index)} />)}

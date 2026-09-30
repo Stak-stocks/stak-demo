@@ -19,6 +19,7 @@ function RiskPage() {
 			title="A stock you’re watching drops 10% overnight."
 			subtitle="No wrong answer. This helps STAK understand your risk style."
 			gap={16}
+			contentWidth={780}
 			continueDisabled={risk == null}
 			onBack={back}
 			secondary={{ label: "Back", onClick: back }}
