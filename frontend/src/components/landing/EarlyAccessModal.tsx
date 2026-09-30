@@ -11,7 +11,7 @@ const DISC = {
 	cta: "linear-gradient(to bottom, #A6E4F7 8.9%, #5DA8BF 39.2%, #3C98B4 72.6%, #3C98B4 100%)",
 } as const;
 
-const INSTAGRAM_URL = "https://www.instagram.com/just_stak";
+export const INSTAGRAM_URL = "https://www.instagram.com/just_stak";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 const FOCUS = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]";
 

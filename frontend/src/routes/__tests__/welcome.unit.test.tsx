@@ -227,6 +227,26 @@ describe("FAQ (hands-off section)", () => {
 	});
 });
 
+/* ─── footer: pre-launch links ───────────────────────────────────────── */
+describe("footer links before launch", () => {
+	it.each(ALL)("%s: Instagram links out; the other socials are plain text", (_name, width) => {
+		renderAt(width);
+		expect(screen.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://www.instagram.com/just_stak");
+		for (const name of ["Facebook", "X", "Tiktok", "Discord"]) {
+			expect(screen.queryByRole("link", { name })).toBeNull();
+		}
+	});
+
+	it.each(ALL)("%s: the store badges open the early-access form", (_name, width) => {
+		renderAt(width);
+		fireEvent.click(screen.getByRole("button", { name: "Get it on Google Play" }));
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		fireEvent.click(screen.getByRole("button", { name: "Download on the App Store" }));
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+	});
+});
+
 /* ─── navigation: hamburger menu (phone/tablet) and desktop nav ─────── */
 describe("navigation", () => {
 	it.each([
@@ -251,6 +271,13 @@ describe("navigation", () => {
 		const faqButtons = screen.getAllByText("FAQ");
 		fireEvent.click(faqButtons[0]);
 		expect(scrollToSpy).toHaveBeenCalledWith({ top: 5529 * (1440 / 1400), behavior: "smooth" });
+	});
+
+	it("phone: footer 'Features' scrolls to the phone Features anchor", () => {
+		renderAt(PHONE);
+		const links = screen.getAllByRole("button", { name: "Features" });
+		fireEvent.click(links[links.length - 1]); // the footer's; the menu's comes first
+		expect(scrollToSpy).toHaveBeenCalledWith({ top: 3050, behavior: "smooth" });
 	});
 
 	it("desktop: nav 'Home' scrolls back to the top", () => {
