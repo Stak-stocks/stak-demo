@@ -9,6 +9,8 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { CARD_ART_FALLBACK } from "@/components/discover/discoverTheme";
 import { DESK, DeskButton, Panel, PanelHeader, changeColor, deskFocus, deskPageBg, signedPctLabel } from "@/components/desktop/deskKit";
 import { Sparkline } from "@/components/desktop/Sparkline";
+import { AskAiCard } from "@/components/stakAi/StakAiThread";
+import { articleContext, useOpenStakAi } from "@/components/stakAi/open";
 
 export interface ArticleDesktopProps {
 	article: StoredArticle;
@@ -42,6 +44,7 @@ export interface ArticleDesktopProps {
  */
 export function ArticleDesktop(p: ArticleDesktopProps) {
 	const { article } = p;
+	const openStakAi = useOpenStakAi();
 	const [imageFailed, setImageFailed] = useState(false);
 	const { data: chart } = useQuery({
 		queryKey: ["stock-chart", p.ticker, "1d"],
@@ -165,6 +168,9 @@ export function ArticleDesktop(p: ArticleDesktopProps) {
 								{p.sentimentTag && <span className="rounded-full px-3 py-[4px] text-[12px] text-white" style={{ border: `1px solid ${DESK.border}` }}>{p.sentimentTag}</span>}
 							</div>
 						)}
+
+						{/* STAK AI (2026-10-01): questions about this story, with the story as context. */}
+						<AskAiCard variant="desktop" title="Ask STAK AI about this" subtitle="Plain-English answers, starting from this story." onOpen={() => openStakAi(articleContext(article))} />
 
 						{p.readNext.length > 0 && (
 							<Panel label="Read next" className="gap-2 p-4">

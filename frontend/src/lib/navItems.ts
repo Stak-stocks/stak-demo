@@ -1,7 +1,7 @@
 // The app's nav entries. Mobile (BottomNav.tsx) shows Android's five tabs, Home/News/Discover/My STAK/Simulate,
 // all backed by the same server data as Android (Simulate shares /api/sandbox/* with it). Desktop (SideNav.tsx)
 // follows the user's desktop design instead: DESKTOP_NAV_ITEMS below adds Learn (Playground) and Settings (Profile).
-import { Newspaper, LayoutDashboard, Search, Bookmark, BarChart3, BookOpen, Settings, type LucideIcon } from "lucide-react";
+import { Newspaper, LayoutDashboard, Search, Bookmark, BarChart3, BookOpen, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
 	to: string;
@@ -33,6 +33,8 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
 	{ to: "/my-stak", label: "My STAK", icon: Bookmark },
 	{ to: "/simulate", label: "Simulate", icon: BarChart3 },
 	{ to: "/playground", label: "Learn", icon: BookOpen },
+	// STAK AI (2026-10-01): its own way in on desktop; the phone opens it from the Home and News headers.
+	{ to: "/stak-ai", label: "STAK AI", icon: Sparkles },
 	{ to: "/profile", label: "Settings", icon: Settings, alsoActiveOn: ["/notifications"] },
 ];
 

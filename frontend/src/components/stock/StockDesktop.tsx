@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Bookmark, BookmarkCheck, LineChart } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, LineChart, Sparkles } from "lucide-react";
 import type { ChartRange, LiveMetrics, StockUpdateDto } from "@/lib/api";
 import { usd } from "@/lib/simFormat";
 import { rangeChangeText, type sinceSavedFor } from "@/lib/stockPage";
@@ -48,6 +48,8 @@ export interface StockDesktopProps {
 	onSave: () => void;
 	onUnsave: () => void;
 	onPractice: () => void;
+	/** STAK AI with this stock as context. */
+	onAskAi?: () => void;
 }
 
 /**
@@ -101,6 +103,11 @@ export function StockDesktop(p: StockDesktopProps) {
 										<LineChart className="h-[15px] w-[15px]" aria-hidden="true" /> Practice buy
 									</button>
 								</>
+							)}
+							{p.onAskAi && (
+								<button type="button" onClick={p.onAskAi} className={secondary} style={{ border: `1px solid ${DESK.borderStrong}`, color: DESK.cyan }}>
+									<Sparkles className="h-[15px] w-[15px]" aria-hidden="true" /> Ask STAK AI
+								</button>
 							)}
 						</div>
 						{p.fullNotice && <p role="status" className="text-[12px]" style={{ color: DESK.muted }}>Your STAK is full — remove a stock to save another</p>}

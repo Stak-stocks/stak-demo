@@ -4,6 +4,7 @@ import { moodColor, moodStatus } from "@/lib/marketMood";
 import { watchIcon } from "@/lib/dailyBriefWatch";
 import { DESK, Kicker, Panel, PanelHeader, deskFocus, deskPageBg } from "@/components/desktop/deskKit";
 import { AskStakAi } from "./AskStakAi";
+import { briefContext } from "@/components/stakAi/open";
 
 /**
  * The full Daily Brief on desktop: the headline read with its mood, then the gist and what actually happened beside why
@@ -101,7 +102,7 @@ export function DailyBriefDesktop({ brief, dayPart, happened, watch, tickers, on
 								})}
 							</ul>
 						</Panel>
-						<AskStakAi suggestions={suggestions} />
+						<AskStakAi suggestions={suggestions} context={briefContext(brief)} />
 					</aside>
 				</div>
 			</div>

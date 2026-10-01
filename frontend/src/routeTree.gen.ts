@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as StakAiRouteImport } from './routes/stak-ai'
 import { Route as SimulateRouteImport } from './routes/simulate'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -23,6 +24,7 @@ import { Route as FeedRouteImport } from './routes/feed'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StockSymbolRouteImport } from './routes/stock.$symbol'
+import { Route as StakAiHistoryRouteImport } from './routes/stak-ai_.history'
 import { Route as SimulatePortfolioRouteImport } from './routes/simulate_.portfolio'
 import { Route as ProfileSignInRouteImport } from './routes/profile_.sign-in'
 import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
@@ -50,6 +52,11 @@ import { Route as MyStakCollectionIdRouteImport } from './routes/my-stak_.collec
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StakAiRoute = StakAiRouteImport.update({
+  id: '/stak-ai',
+  path: '/stak-ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SimulateRoute = SimulateRouteImport.update({
@@ -115,6 +122,11 @@ const IndexRoute = IndexRouteImport.update({
 const StockSymbolRoute = StockSymbolRouteImport.update({
   id: '/stock/$symbol',
   path: '/stock/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StakAiHistoryRoute = StakAiHistoryRouteImport.update({
+  id: '/stak-ai_/history',
+  path: '/stak-ai/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SimulatePortfolioRoute = SimulatePortfolioRouteImport.update({
@@ -246,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
   '/feed/daily-brief': typeof FeedDailyBriefRoute
@@ -268,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/profile/security': typeof ProfileSecurityRoute
   '/profile/sign-in': typeof ProfileSignInRoute
   '/simulate/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
   '/my-stak/collection/$id': typeof MyStakCollectionIdRoute
   '/simulate/pick/$symbol': typeof SimulatePickSymbolRoute
@@ -285,6 +299,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
   '/feed/daily-brief': typeof FeedDailyBriefRoute
@@ -307,6 +322,7 @@ export interface FileRoutesByTo {
   '/profile/security': typeof ProfileSecurityRoute
   '/profile/sign-in': typeof ProfileSignInRoute
   '/simulate/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
   '/my-stak/collection/$id': typeof MyStakCollectionIdRoute
   '/simulate/pick/$symbol': typeof SimulatePickSymbolRoute
@@ -325,6 +341,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
   '/welcome': typeof WelcomeRoute
   '/feed_/article': typeof FeedArticleRoute
   '/feed_/daily-brief': typeof FeedDailyBriefRoute
@@ -347,6 +364,7 @@ export interface FileRoutesById {
   '/profile_/security': typeof ProfileSecurityRoute
   '/profile_/sign-in': typeof ProfileSignInRoute
   '/simulate_/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai_/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
   '/my-stak_/collection/$id': typeof MyStakCollectionIdRoute
   '/simulate_/pick/$symbol': typeof SimulatePickSymbolRoute
@@ -366,6 +384,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/simulate'
+    | '/stak-ai'
     | '/welcome'
     | '/feed/article'
     | '/feed/daily-brief'
@@ -388,6 +407,7 @@ export interface FileRouteTypes {
     | '/profile/security'
     | '/profile/sign-in'
     | '/simulate/portfolio'
+    | '/stak-ai/history'
     | '/stock/$symbol'
     | '/my-stak/collection/$id'
     | '/simulate/pick/$symbol'
@@ -405,6 +425,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/simulate'
+    | '/stak-ai'
     | '/welcome'
     | '/feed/article'
     | '/feed/daily-brief'
@@ -427,6 +448,7 @@ export interface FileRouteTypes {
     | '/profile/security'
     | '/profile/sign-in'
     | '/simulate/portfolio'
+    | '/stak-ai/history'
     | '/stock/$symbol'
     | '/my-stak/collection/$id'
     | '/simulate/pick/$symbol'
@@ -444,6 +466,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/simulate'
+    | '/stak-ai'
     | '/welcome'
     | '/feed_/article'
     | '/feed_/daily-brief'
@@ -466,6 +489,7 @@ export interface FileRouteTypes {
     | '/profile_/security'
     | '/profile_/sign-in'
     | '/simulate_/portfolio'
+    | '/stak-ai_/history'
     | '/stock/$symbol'
     | '/my-stak_/collection/$id'
     | '/simulate_/pick/$symbol'
@@ -484,6 +508,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   SimulateRoute: typeof SimulateRoute
+  StakAiRoute: typeof StakAiRoute
   WelcomeRoute: typeof WelcomeRoute
   FeedArticleRoute: typeof FeedArticleRoute
   FeedDailyBriefRoute: typeof FeedDailyBriefRoute
@@ -506,6 +531,7 @@ export interface RootRouteChildren {
   ProfileSecurityRoute: typeof ProfileSecurityRoute
   ProfileSignInRoute: typeof ProfileSignInRoute
   SimulatePortfolioRoute: typeof SimulatePortfolioRoute
+  StakAiHistoryRoute: typeof StakAiHistoryRoute
   StockSymbolRoute: typeof StockSymbolRoute
   MyStakCollectionIdRoute: typeof MyStakCollectionIdRoute
   SimulatePickSymbolRoute: typeof SimulatePickSymbolRoute
@@ -518,6 +544,13 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stak-ai': {
+      id: '/stak-ai'
+      path: '/stak-ai'
+      fullPath: '/stak-ai'
+      preLoaderRoute: typeof StakAiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/simulate': {
@@ -609,6 +642,13 @@ declare module '@tanstack/react-router' {
       path: '/stock/$symbol'
       fullPath: '/stock/$symbol'
       preLoaderRoute: typeof StockSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stak-ai_/history': {
+      id: '/stak-ai_/history'
+      path: '/stak-ai/history'
+      fullPath: '/stak-ai/history'
+      preLoaderRoute: typeof StakAiHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/simulate_/portfolio': {
@@ -788,6 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   SimulateRoute: SimulateRoute,
+  StakAiRoute: StakAiRoute,
   WelcomeRoute: WelcomeRoute,
   FeedArticleRoute: FeedArticleRoute,
   FeedDailyBriefRoute: FeedDailyBriefRoute,
@@ -810,6 +851,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileSecurityRoute: ProfileSecurityRoute,
   ProfileSignInRoute: ProfileSignInRoute,
   SimulatePortfolioRoute: SimulatePortfolioRoute,
+  StakAiHistoryRoute: StakAiHistoryRoute,
   StockSymbolRoute: StockSymbolRoute,
   MyStakCollectionIdRoute: MyStakCollectionIdRoute,
   SimulatePickSymbolRoute: SimulatePickSymbolRoute,

@@ -7,10 +7,12 @@ import { getDailyBrief } from "@/lib/api";
 import { marketSessionBucket, getEasternDateKey } from "@/lib/utils";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PhonePage, f } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DailyBriefDesktop } from "@/components/news/DailyBriefDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AskAiCard } from "@/components/stakAi/StakAiThread";
+import { briefContext, useOpenStakAi } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/feed_/daily-brief")({
 	component: DailyBriefPage,
@@ -34,6 +36,7 @@ const Body = ({ children }: { children: ReactNode }) => <p style={{ font: f(400,
 
 function DailyBriefPage() {
 	const navigate = useNavigate();
+	const openStakAi = useOpenStakAi();
 	const isMobile = useIsMobile();
 	const { swipedBrands } = useMyStakData();
 	const { data: brief, isPending } = useQuery({
@@ -160,8 +163,9 @@ function DailyBriefPage() {
 					</div>
 				</Card>
 
+				{/* STAK AI (2026-10-01): the suggested question asks itself, with today's brief as context. */}
 				{brief.contextQuestion?.trim() && (
-					<section className="flex items-center" style={{ gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(18) }}>
+					<button type="button" onClick={() => openStakAi(briefContext(brief), brief.contextQuestion)} className={`flex w-full items-center text-left ${PRESS}`} style={{ gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(18), ...focusRing }}>
 						<div className="flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(8) }}>
 							<div className="flex items-center" style={{ gap: cu(9) }}>
 								<div className="grid place-items-center" style={{ width: cu(28), height: cu(28), borderRadius: cu(8), background: "#1A2235" }} aria-hidden="true"><Sparkle size={14} /></div>
@@ -172,8 +176,9 @@ function DailyBriefPage() {
 						<svg viewBox="0 0 16 16" style={{ width: cu(16), height: cu(16) }} fill="none" aria-hidden="true">
 							<path d="M3.33333 8H12.6667M8 12.6667L12.6667 8L8 3.33333" stroke={DISC.muted} strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round" />
 						</svg>
-					</section>
+					</button>
 				)}
+				<AskAiCard variant="phone" title="Ask a follow-up" subtitle="STAK AI answers questions about today's brief in plain English." onOpen={() => openStakAi(briefContext(brief))} />
 			</div>
 		</PhonePage>
 	);

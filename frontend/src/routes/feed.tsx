@@ -8,6 +8,7 @@ import { BriefCardView, BriefLoadingCard, BriefUnavailableCard, MoodMiniRow, New
 import { NewsDesktop } from "@/components/news/NewsDesktop";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { AskAiHeaderButton } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/feed")({
 	component: FeedRoute,
@@ -79,6 +80,9 @@ function FeedPage() {
 							</p>
 						</div>
 						<div className="flex-1" />
+						{/* STAK AI (2026-10-01): beside search, as on Android. */}
+						<AskAiHeaderButton size={40} background={DISC.sheet} />
+						<div style={{ width: cu(8) }} />
 						<SearchGlass open={searchOpen} onClick={toggleSearch} />
 					</div>
 					{searchOpen && (

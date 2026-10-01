@@ -12,6 +12,8 @@ import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 import { ArticleDesktop } from "@/components/news/ArticleDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AskAiCard } from "@/components/stakAi/StakAiThread";
+import { articleContext, useOpenStakAi } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/feed_/article")({
 	component: ArticlePage,
@@ -79,6 +81,7 @@ function StatCell({ label, value }: { label: string; value: string }) {
 function ArticlePage() {
 	const { u } = Route.useSearch();
 	const navigate = useNavigate();
+	const openStakAi = useOpenStakAi();
 	const isMobile = useIsMobile();
 	const { account, saveToStak } = useAccount();
 	const { data: brands } = useBrandsList();
@@ -336,6 +339,9 @@ function ArticlePage() {
 						{sentimentTag && <Chip>{sentimentTag}</Chip>}
 					</div>
 				)}
+
+				{/* STAK AI (2026-10-01): questions about this story, with the story as context. */}
+				<AskAiCard variant="phone" title="Ask STAK AI about this" subtitle="Plain-English answers, starting from this story." onOpen={() => openStakAi(articleContext(article))} />
 
 				{readNext.length > 0 && (
 					<>

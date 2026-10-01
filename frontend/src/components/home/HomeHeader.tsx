@@ -6,6 +6,7 @@ import { capitalizeWords } from "@/lib/utils";
 import stakMark from "@/assets/stak-logo-icon.svg";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { AskAiHeaderButton } from "@/components/stakAi/open";
 
 /** "Good Morning" 5-11, "Good Afternoon" 12-16, otherwise "Good Evening" (Android's Greeting.kt). */
 export function greetingFor(hour: number): string {
@@ -53,6 +54,9 @@ export function HomeHeader() {
 				<div style={{ width: cu(4.49) }} />
 				<Wordmark />
 				<div className="flex-1" />
+				{/* STAK AI (2026-10-01): its own way in, beside the bell - as on Android. */}
+				<AskAiHeaderButton size={35} background={DISC.navCircle} />
+				<div style={{ width: cu(4) }} />
 				<button
 					type="button"
 					onClick={() => navigate({ to: "/notifications" })}

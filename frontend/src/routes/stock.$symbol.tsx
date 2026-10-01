@@ -19,6 +19,8 @@ import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f } from "@/components/phone/phone";
 import { StockDesktop } from "@/components/stock/StockDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AskAiCard } from "@/components/stakAi/StakAiThread";
+import { stockContext, useOpenStakAi } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/stock/$symbol")({
 	component: StockDetailPage,
@@ -42,6 +44,7 @@ function StockDetailPage() {
 	const { symbol: raw } = Route.useParams();
 	const symbol = raw.toUpperCase();
 	const navigate = useNavigate();
+	const openStakAi = useOpenStakAi();
 	const router = useRouter();
 	const isMobile = useIsMobile();
 	const { account, saveToStak, removeFromStak } = useAccount();
@@ -205,6 +208,7 @@ function StockDetailPage() {
 					onSave={startSave}
 					onUnsave={unsave}
 					onPractice={held ? () => navigate({ to: "/simulate", search: { buy: symbol } }) : startBuy}
+					onAskAi={() => openStakAi(stockContext(symbol))}
 				/>
 				{sheets}
 			</>
@@ -257,6 +261,8 @@ function StockDetailPage() {
 			</div>
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(10), padding: `${cu(4)} ${cu(20)} ${cu(16)}` }}>
+				{/* STAK AI (2026-10-01): the chat about this stock, "Why is it moving today?" first among its suggestions. */}
+				<AskAiCard variant="phone" title={`Why is ${symbol} moving?`} subtitle="Ask STAK AI · plain English, today's numbers" onOpen={() => openStakAi(stockContext(symbol))} />
 				{held ? (
 					<>
 						<SheetCta onClick={() => navigate({ to: "/simulate", search: { buy: symbol } })}>Practice with {name} · paper money</SheetCta>
