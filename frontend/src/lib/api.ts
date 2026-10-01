@@ -8,9 +8,12 @@ async function getAuthToken(): Promise<string | null> {
 	return data.session?.access_token ?? null;
 }
 
-/** A failed API call. `status` lets callers tell the server refusing a request (4xx, with its own reason) from an outage. */
+/**
+ * A failed API call. `status` lets callers tell the server refusing a request (4xx, with its own reason) from an outage;
+ * `body` is the server's JSON reply, when it sent one (e.g. STAK AI's `usage` with a 429).
+ */
 export class ApiError extends Error {
-	constructor(message: string, readonly status: number) {
+	constructor(message: string, readonly status: number, readonly body?: unknown) {
 		super(message);
 		this.name = "ApiError";
 	}
@@ -38,11 +41,13 @@ async function apiRequest<T>(
 
 	if (!response.ok) {
 		let message = `API error: ${response.status} ${response.statusText}`;
+		let body: unknown;
 		try {
-			const body = await response.json() as { error?: string };
-			if (body.error) message = body.error;
+			body = await response.json();
+			const error = (body as { error?: unknown } | null)?.error;
+			if (typeof error === "string" && error) message = error;
 		} catch { /* ignore parse failure */ }
-		throw new ApiError(message, response.status);
+		throw new ApiError(message, response.status, body);
 	}
 
 	return response.json();
@@ -751,9 +756,24 @@ export function getRecommendationDebug(limit = 50) {
 }
 
 // Stak AI
+/** What a chat was opened from; the server adds that context (and the stock's live data) to the question. */
+export type StakAiContext =
+	| { type: "article"; headline: string; summary?: string; source?: string; url?: string; tickers?: string[] }
+	| { type: "stock"; ticker: string }
+	| { type: "brief"; title?: string; points: string[] };
+
+/** Questions left in the rolling window; `resetsAt` is when the oldest one frees a slot (null when none are used). */
+export interface StakAiUsage {
+	limit: number;
+	used: number;
+	remaining: number;
+	resetsAt: string | null;
+}
+
 export interface StakAiConversation {
 	id: string;
 	title: string;
+	context_type: StakAiContext["type"] | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -762,14 +782,21 @@ export interface StakAiMessage {
 	id: number;
 	role: "user" | "assistant";
 	content: string;
+	/** Thumbs on an answer: 1 up, -1 down, null unrated. */
+	feedback: 1 | -1 | null;
 	created_at: string;
 }
 
-export function sendStakAiMessage(message: string, conversationId?: string) {
-	return apiRequest<{ response: string; conversationId: string }>("/api/stak-ai/chat", {
+/** Ask a question. A 429 is an ApiError whose `body.usage` says when a question frees up. */
+export function sendStakAiMessage(message: string, conversationId?: string, context?: StakAiContext) {
+	return apiRequest<{ response: string; conversationId: string; messageId: number | null; usage: StakAiUsage }>("/api/stak-ai/chat", {
 		method: "POST",
-		body: JSON.stringify({ message, conversationId }),
+		body: JSON.stringify({ message, conversationId, context }),
 	});
+}
+
+export function getStakAiUsage() {
+	return apiRequest<StakAiUsage>("/api/stak-ai/usage");
 }
 
 export function getStakAiConversations() {
@@ -777,7 +804,19 @@ export function getStakAiConversations() {
 }
 
 export function getStakAiMessages(conversationId: string) {
-	return apiRequest<{ messages: StakAiMessage[] }>(`/api/stak-ai/conversations/${conversationId}/messages`);
+	return apiRequest<{ messages: StakAiMessage[]; context: StakAiContext | null }>(`/api/stak-ai/conversations/${conversationId}/messages`);
+}
+
+export function renameStakAiConversation(conversationId: string, title: string) {
+	return apiRequest<{ ok: true; title: string }>(`/api/stak-ai/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export function deleteStakAiConversation(conversationId: string) {
+	return apiRequest<{ ok: true }>(`/api/stak-ai/conversations/${conversationId}`, { method: "DELETE" });
+}
+
+export function sendStakAiFeedback(messageId: number, value: 1 | -1 | null) {
+	return apiRequest<{ ok: true }>(`/api/stak-ai/messages/${messageId}/feedback`, { method: "POST", body: JSON.stringify({ value }) });
 }
 
 export async function generatePlaygroundQuestions(
