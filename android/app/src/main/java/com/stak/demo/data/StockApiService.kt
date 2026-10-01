@@ -161,4 +161,26 @@ interface StockApiService {
 
     @GET("api/sandbox/trades")
     suspend fun getSandboxTrades(@Query("limit") limit: Int = 100): SandboxTradesResponse
+
+    // STAK AI - see StakAiModels.kt (mirrors shared/src/stakAi.ts).
+    @POST("api/stak-ai/chat")
+    suspend fun stakAiChat(@Body body: StakAiChatRequest): StakAiChatReply
+
+    @GET("api/stak-ai/usage")
+    suspend fun stakAiUsage(): StakAiUsage
+
+    @GET("api/stak-ai/conversations")
+    suspend fun stakAiConversations(@Query("before") before: String? = null): StakAiConversationsResponse
+
+    @GET("api/stak-ai/conversations/{id}/messages")
+    suspend fun stakAiMessages(@Path("id") id: String): StakAiMessagesResponse
+
+    @PATCH("api/stak-ai/conversations/{id}")
+    suspend fun stakAiRename(@Path("id") id: String, @Body body: StakAiRenameRequest): OkResponse
+
+    @DELETE("api/stak-ai/conversations/{id}")
+    suspend fun stakAiDelete(@Path("id") id: String): OkResponse
+
+    @POST("api/stak-ai/messages/{id}/feedback")
+    suspend fun stakAiFeedback(@Path("id") id: Long, @Body body: StakAiFeedbackRequest): OkResponse
 }

@@ -116,6 +116,7 @@ private val LiveCtaBorder = Brush.verticalGradient(
 fun LiveNewsDetailScreen(
     onBack: () -> Unit,
     onOpenLiveArticle: (NewsArticleDto) -> Unit = {},
+    onAskAi: () -> Unit = {},
     viewModel: LiveNewsDetailViewModel = hiltViewModel(),
 ) {
     val u = figmaUnit()
@@ -371,6 +372,14 @@ fun LiveNewsDetailScreen(
                         )
                     }
                 }
+
+                // STAK AI (2026-10-01): questions about this story, with the story as context.
+                com.stak.demo.ui.ai.AskAiCard(
+                    title = "Ask STAK AI about this",
+                    subtitle = "Plain-English answers, starting from this story.",
+                    context = com.stak.demo.data.StakAiContext.article(article),
+                    onOpen = onAskAi,
+                )
 
                 // Key stats (when ticker + any data present)
                 val hasQuote = quote != null

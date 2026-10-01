@@ -426,6 +426,10 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onOpenProfile = { navController.navigate(StakRoutes.PROFILE) },
 				// Product audit (2026-09-05): the bell opens the inbox.
 				onOpenNotifications = { navController.navigate(StakRoutes.NOTIFICATIONS) },
+				onAskAi = {
+					com.stak.demo.ui.ai.StakAiLauncher.reset()
+					navController.navigate(StakRoutes.STAK_AI)
+				},
 				onOpenSimPortfolio = { navController.navigate(StakRoutes.SIM_PORTFOLIO) },
 				onOpenSimPick = { symbol -> navController.navigate(StakRoutes.simPick(symbol)) },
 				// B20 (85:895 Motion): the ticket's View portfolio pushes the
@@ -525,6 +529,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// B13 (71:949/71:994 Motion): View in My STAK forward-pushes
 				// the Overview - the detail (and Collection) pop to the shell.
 				onViewInMyStak = { popToShell(PopStyle.FORWARD_PUSH, MainTab.MySTAK) },
+				onAskAi = { navController.navigate(StakRoutes.STAK_AI) },
 			)
 		}
 		composable(
@@ -642,6 +647,23 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			}
 			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
 		}
+		composable(StakRoutes.STAK_AI) {
+			com.stak.demo.ui.ai.StakAiChatScreen(
+				onBack = { navController.popBackStack() },
+				onOpenHistory = { navController.navigate(StakRoutes.STAK_AI_HISTORY) },
+			)
+		}
+		composable(StakRoutes.STAK_AI_HISTORY) {
+			com.stak.demo.ui.ai.StakAiHistoryScreen(
+				onBack = { navController.popBackStack() },
+				// Reopen a past chat in place of the current one, so Back from it still returns to where STAK AI was opened.
+				onOpen = { id ->
+					com.stak.demo.ui.ai.StakAiLauncher.conversationId = id
+					navController.popBackStack(StakRoutes.STAK_AI, inclusive = true)
+					navController.navigate(StakRoutes.STAK_AI)
+				},
+			)
+		}
 		composable(StakRoutes.NOTIFICATIONS) {
 			com.stak.demo.ui.inbox.NotificationsScreen(
 				onBack = { navController.popBackStack() },
@@ -672,6 +694,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					LiveNewsHolder.current = article
 					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
 				},
+				onAskAi = { navController.navigate(StakRoutes.STAK_AI) },
 			)
 		}
 		composable(
@@ -687,6 +710,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 					LiveNewsHolder.current = article
 					navController.navigate(StakRoutes.NEWS_LIVE_DETAIL)
 				},
+				onAskAi = { navController.navigate(StakRoutes.STAK_AI) },
 			)
 		}
 		composable(
@@ -783,6 +807,7 @@ private fun MainShell(
 	onOpenUpdates: () -> Unit,
 	onOpenProfile: () -> Unit,
 	onOpenNotifications: () -> Unit,
+	onAskAi: () -> Unit,
 	onOpenSimPortfolio: () -> Unit,
 	// Codex parity audit (2026-09-04): the tapped pick's ticker.
 	onOpenSimPick: (String) -> Unit,
@@ -897,6 +922,7 @@ private fun MainShell(
 							onSeeTodaysPick = { endFirstRun(); switchTab(MainTab.Discover) },
 							onProfile = onOpenProfile,
 							onBell = onOpenNotifications,
+							onAskAi = onAskAi,
 							onOpenNews = { endFirstRun(); switchTab(MainTab.News) },
 							onOpenMyStak = { endFirstRun(); switchTab(MainTab.MySTAK) },
 							onOpenDeck = { endFirstRun(); switchTab(MainTab.Discover) },
@@ -908,6 +934,7 @@ private fun MainShell(
 								onOpenArticle = onOpenArticle,
 								onOpenLiveArticle = onOpenLiveArticle,
 								onOpenDailyBrief = onOpenDailyBrief,
+								onAskAi = onAskAi,
 							)
 						MainTab.Discover -> DiscoverScreen(
 							resetKey = discoverResetKey,
