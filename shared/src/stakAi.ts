@@ -48,5 +48,17 @@ export interface StakAiChatReply {
 	usage: StakAiUsage;
 }
 
+/** A stored message, as GET /conversations/:id/messages returns it. */
+export interface StakAiStoredMessage {
+	id: number;
+	role: "user" | "assistant";
+	content: string;
+	/** For answers: what kind it was (user messages are "answer"). */
+	kind: StakAiAnswerKind;
+	/** Thumbs on an answer: 1 up, -1 down, null unrated. */
+	feedback: 1 | -1 | null;
+	created_at: string;
+}
+
 /** Every error carries one of these, so the apps choose their own wording rather than showing the server's. */
 export type StakAiErrorCode = "limit_reached" | "ai_unavailable" | "not_found" | "bad_request" | "server_error";

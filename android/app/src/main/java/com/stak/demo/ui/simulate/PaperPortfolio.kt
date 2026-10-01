@@ -210,9 +210,8 @@ internal object PaperPortfolio {
 	}
 
 	private fun serverReason(e: Throwable): String? {
-		val http = e as? retrofit2.HttpException ?: return null
-		if (http.code() !in 400..499) return null
-		val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull() ?: return null
+		if ((e as? retrofit2.HttpException)?.code() !in 400..499) return null
+		val body = com.stak.demo.data.httpErrorBody(e) ?: return null
 		return runCatching { org.json.JSONObject(body).optString("error") }.getOrNull()?.takeIf { it.isNotBlank() }
 	}
 

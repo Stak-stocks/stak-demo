@@ -9,18 +9,23 @@ import com.google.gson.Gson
 import com.stak.demo.data.StakAiChatRequest
 import com.stak.demo.data.StakAiContext
 import com.stak.demo.data.StakAiError
-import com.stak.demo.data.StakAiFeedbackRequest
+import com.stak.demo.data.StakAiRepository
 import com.stak.demo.data.StakAiSource
 import com.stak.demo.data.StakAiUsage
-import com.stak.demo.data.StockApiService
+import com.stak.demo.data.httpErrorBody
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 
 /**
- * How a screen opens STAK AI: set what it's opened from (and, for a chip like "Why is NVDA moving?", the first
- * question), or a past conversation to reopen, then navigate to StakRoutes.STAK_AI. The chat takes these once.
+ * How a screen opens STAK AI: set what it's opened from (and optionally a first question to ask at once), or a past
+ * conversation to reopen, then navigate to StakRoutes.STAK_AI. The chat takes these once, in its ViewModel's init.
  */
 object StakAiLauncher {
 	var context: StakAiContext? = null
@@ -45,7 +50,7 @@ data class AiMessage(
 	val kind: String = "answer",
 	val followUps: List<String> = emptyList(),
 	val sources: List<StakAiSource> = emptyList(),
-	/** A question that didn't get an answer (offline, or the AI failed); the chat offers to resend it. */
+	/** A question that got no answer; the chat offers to resend it. */
 	val failed: Boolean = false,
 )
 
@@ -53,14 +58,16 @@ data class AiMessage(
 sealed interface AiNotice {
 	/** Out of questions until [resetsAt] (ISO). */
 	data class LimitReached(val resetsAt: String?) : AiNotice
-	/** The last question got no answer; [offline] picks the wording. It didn't count. */
+	/** The last question got no answer. It didn't count. */
 	data class Failed(val offline: Boolean) : AiNotice
+	/** The answer took too long to arrive; it may still have been saved, so check before asking again. */
+	data object Slow : AiNotice
 	/** A past conversation couldn't be loaded. */
 	data object LoadFailed : AiNotice
 }
 
 @HiltViewModel
-class StakAiViewModel @Inject constructor(private val api: StockApiService) : ViewModel() {
+class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : ViewModel() {
 	var messages by mutableStateOf<List<AiMessage>>(emptyList())
 		private set
 	/** What this chat was opened from (shown as a chip); sent with the first question only. */
@@ -70,16 +77,23 @@ class StakAiViewModel @Inject constructor(private val api: StockApiService) : Vi
 		private set
 	var sending by mutableStateOf(false)
 		private set
+	/** A past conversation is loading. */
 	var loading by mutableStateOf(false)
 		private set
 	var notice by mutableStateOf<AiNotice?>(null)
 		private set
-	/** A question that couldn't be asked (out of questions), handed back for the input box to show again. */
+	/** A question that couldn't be asked (out of questions), handed back for the input box; take it with [consumeReturnedDraft]. */
 	var returnedDraft by mutableStateOf<String?>(null)
+		private set
 
 	private var conversationId: String? = null
+	private var openedId: String? = null
 	private var contextSent = false
 	private var nextKey = 0L
+	private var openJob: Job? = null
+	private var usageRefresh: Job? = null
+	/** Bumped by every reply; a usage read started before one can't overwrite the newer count it carries. */
+	private var usageVersion = 0
 	private val gson = Gson()
 
 	init {
@@ -92,39 +106,61 @@ class StakAiViewModel @Inject constructor(private val api: StockApiService) : Vi
 	}
 
 	val outOfQuestions: Boolean get() = (usage?.remaining ?: 1) <= 0
+	/** The input takes questions: not mid-answer, not loading a chat, and questions left. */
+	val canAsk: Boolean get() = !sending && !loading && !outOfQuestions
+
+	fun consumeReturnedDraft(): String? = returnedDraft.also { returnedDraft = null }
 
 	fun send(text: String) {
 		val question = text.trim()
-		if (question.isEmpty() || sending) return
+		if (question.isEmpty() || sending || loading) return
 		// A resend replaces the failed line rather than repeating it.
 		messages = messages.filterNot { it.failed } + AiMessage(key = nextKey++, fromUser = true, text = question)
 		notice = null
 		sending = true
 		viewModelScope.launch {
-			runCatching {
-				api.stakAiChat(StakAiChatRequest(message = question, conversationId = conversationId, context = context.takeIf { !contextSent }))
-			}.onSuccess { r ->
-				contextSent = true
-				conversationId = r.conversationId
-				usage = r.usage
-				messages = messages + AiMessage(
-					key = nextKey++, fromUser = false, text = r.response, id = r.messageId,
-					kind = r.answerKind, followUps = r.followUps, sources = r.sources,
-				)
-			}.onFailure { e ->
-				val err = errorBody(e)
-				if (err?.code == "limit_reached") {
-					err.usage?.let { usage = it }
-					// The question wasn't asked: take it off the screen and hand it back to the input box.
+			ask(question, allowRestart = true)
+			sending = false
+		}
+	}
+
+	private suspend fun ask(question: String, allowRestart: Boolean) {
+		runCatching {
+			repo.chat(StakAiChatRequest(message = question, conversationId = conversationId, context = context.takeIf { !contextSent }))
+		}.onSuccess { r ->
+			contextSent = true
+			conversationId = r.conversationId
+			usageVersion++
+			applyUsage(r.usage)
+			messages = messages + AiMessage(
+				key = nextKey++, fromUser = false, text = r.response, id = r.messageId,
+				kind = r.answerKind, followUps = r.followUps, sources = r.sources,
+			)
+		}.onFailure { e ->
+			val err = errorBody(e)
+			when {
+				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
+				err?.code == "not_found" && allowRestart && conversationId != null -> {
+					conversationId = null
+					contextSent = false
+					ask(question, allowRestart = false)
+				}
+				err?.code == "limit_reached" -> {
+					usageVersion++
+					applyUsage(err.usage ?: usage)
 					messages = messages.dropLast(1)
 					returnedDraft = question
-					notice = AiNotice.LimitReached(err.usage?.resetsAt ?: usage?.resetsAt)
-				} else {
-					messages = messages.dropLast(1) + messages.last().copy(failed = true)
+				}
+				// Too slow to arrive: the server may have answered and counted it, so don't say it didn't count.
+				e is InterruptedIOException -> {
+					markLastFailed()
+					notice = AiNotice.Slow
+				}
+				else -> {
+					markLastFailed()
 					notice = AiNotice.Failed(offline = e is IOException)
 				}
 			}
-			sending = false
 		}
 	}
 
@@ -140,31 +176,39 @@ class StakAiViewModel @Inject constructor(private val api: StockApiService) : Vi
 		val next = if (before == value) null else value
 		setFeedback(message.key, next)
 		viewModelScope.launch {
-			runCatching { api.stakAiFeedback(id, StakAiFeedbackRequest(next)) }.onFailure { setFeedback(message.key, before) }
+			runCatching { repo.feedback(id, next) }.onFailure { setFeedback(message.key, before) }
 		}
 	}
 
-	/** Start over: a fresh conversation with no page context. */
+	/** Start over: a fresh conversation with no page context (and stop loading a past one). */
 	fun newChat() {
 		if (sending) return
+		openJob?.cancel()
+		loading = false
 		messages = emptyList()
 		conversationId = null
+		openedId = null
 		context = null
 		contextSent = false
 		notice = if (outOfQuestions) AiNotice.LimitReached(usage?.resetsAt) else null
 	}
 
 	fun open(id: String) {
+		openJob?.cancel()
+		openedId = id
 		loading = true
 		notice = null
-		viewModelScope.launch {
-			runCatching { api.stakAiMessages(id) }
+		openJob = viewModelScope.launch {
+			runCatching { repo.messages(id) }
 				.onSuccess { r ->
 					conversationId = id
 					context = r.context
 					contextSent = true
 					messages = r.messages.map { m ->
-						AiMessage(key = nextKey++, fromUser = m.role == "user", text = m.content, id = m.id.takeIf { m.role == "assistant" }, feedback = m.feedback)
+						AiMessage(
+							key = nextKey++, fromUser = m.role == "user", text = m.content,
+							id = m.id.takeIf { m.role == "assistant" }, feedback = m.feedback, kind = m.kind,
+						)
 					}
 				}
 				.onFailure { notice = AiNotice.LoadFailed }
@@ -172,13 +216,39 @@ class StakAiViewModel @Inject constructor(private val api: StockApiService) : Vi
 		}
 	}
 
+	/** Try the past chat that failed to load again. */
+	fun retryOpen() {
+		openedId?.let { open(it) }
+	}
+
 	private fun refreshUsage() {
+		val version = usageVersion
 		viewModelScope.launch {
-			runCatching { api.stakAiUsage() }.onSuccess { u ->
-				usage = u
-				if (u.remaining <= 0 && messages.isEmpty()) notice = AiNotice.LimitReached(u.resetsAt)
-			}
+			runCatching { repo.usage() }.onSuccess { u -> if (version == usageVersion) applyUsage(u) }
 		}
+	}
+
+	/**
+	 * Takes a new count. Out of questions: say when the next frees up, and check again at that moment, so the box
+	 * unlocks on its own instead of waiting for the person to leave and come back.
+	 */
+	private fun applyUsage(u: StakAiUsage?) {
+		usage = u
+		usageRefresh?.cancel()
+		if (u == null || u.remaining > 0) {
+			if (notice is AiNotice.LimitReached) notice = null
+			return
+		}
+		notice = AiNotice.LimitReached(u.resetsAt)
+		val wait = u.resetsAt?.let { runCatching { Duration.between(Instant.now(), Instant.parse(it)).toMillis() }.getOrNull() } ?: return
+		usageRefresh = viewModelScope.launch {
+			delay(wait.coerceAtLeast(0) + 2_000)
+			refreshUsage()
+		}
+	}
+
+	private fun markLastFailed() {
+		messages = messages.dropLast(1) + messages.last().copy(failed = true)
 	}
 
 	private fun setFeedback(key: Long, value: Int?) {
@@ -186,9 +256,6 @@ class StakAiViewModel @Inject constructor(private val api: StockApiService) : Vi
 	}
 
 	/** The server's error body ({ error, code, usage }) from a failed call, when it sent one. */
-	private fun errorBody(e: Throwable): StakAiError? {
-		val http = e as? retrofit2.HttpException ?: return null
-		val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull() ?: return null
-		return runCatching { gson.fromJson(body, StakAiError::class.java) }.getOrNull()
-	}
+	private fun errorBody(e: Throwable): StakAiError? =
+		httpErrorBody(e)?.let { body -> runCatching { gson.fromJson(body, StakAiError::class.java) }.getOrNull() }
 }

@@ -65,7 +65,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 	if (/FROM stak_ai_conversations c/.test(s)) {
 		return rows([{ id: CONV_1, title: "NVIDIA: Why is it down?", context: { type: "stock", ticker: "NVDA" }, preview: "It fell on export curbs.", created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:05:00Z" }]);
 	}
-	if (/FROM stak_ai_messages WHERE conversation_id = \$1 AND uid/.test(s)) return rows([{ id: 12, role: "assistant", content: "Hi", feedback: 1, created_at: "x" }]);
+	if (/FROM stak_ai_messages WHERE conversation_id = \$1 AND uid/.test(s)) return rows([{ id: 12, role: "assistant", content: "Hi", kind: "declined", feedback: 1, created_at: "x" }]);
 	if (/^(DELETE|UPDATE) .*stak_ai_conversations/s.test(s)) {
 		const c = db.conversation;
 		return rows(c && c.id === params[0] && c.uid === params[1] ? [{ id: c.id }] : []);
@@ -199,6 +199,7 @@ describe("POST /chat", () => {
 		geminiReply = "[[DECLINED]] I can't tell you whether to buy it, but I can explain what's been moving it.";
 		const res = await request(await buildApp()).post("/chat").send({ message: "Should I buy Tesla?" });
 		expect(res.body.answerKind).toBe("declined");
+		expect(calls(/^\s*INSERT INTO stak_ai_messages/)[0]![1][4]).toBe("declined");
 		expect(res.body.response).toBe("I can't tell you whether to buy it, but I can explain what's been moving it.");
 		expect(res.body.followUps).toEqual([]);
 		expect(res.body.usage).toMatchObject({ used: 0, remaining: 5 });
@@ -292,7 +293,7 @@ describe("conversations, usage and feedback", () => {
 		db.conversation = { id: CONV_1, uid: "u1", title: "NVIDIA chat", context: { type: "stock", ticker: "NVDA" }, last_tickers: [] };
 		const res = await request(await buildApp()).get(`/conversations/${CONV_1}/messages`);
 		expect(res.body).toMatchObject({ title: "NVIDIA chat", context: { type: "stock", ticker: "NVDA" } });
-		expect(res.body.messages[0]).toMatchObject({ id: 12, feedback: 1 });
+		expect(res.body.messages[0]).toMatchObject({ id: 12, kind: "declined", feedback: 1 });
 	});
 
 	it("rename and delete only touch the owner's conversation", async () => {

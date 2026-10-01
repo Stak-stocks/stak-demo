@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
-import type { StakAiChatReply, StakAiContext, StakAiUsage } from "@stak/shared";
-export type { StakAiChatReply, StakAiContext, StakAiErrorCode, StakAiSource, StakAiUsage } from "@stak/shared";
+import type { StakAiChatReply, StakAiContext, StakAiStoredMessage, StakAiUsage } from "@stak/shared";
+export type { StakAiChatReply, StakAiContext, StakAiErrorCode, StakAiSource, StakAiStoredMessage, StakAiUsage } from "@stak/shared";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -770,14 +770,8 @@ export interface StakAiConversation {
 	updated_at: string;
 }
 
-export interface StakAiMessage {
-	id: number;
-	role: "user" | "assistant";
-	content: string;
-	/** Thumbs on an answer: 1 up, -1 down, null unrated. */
-	feedback: 1 | -1 | null;
-	created_at: string;
-}
+/** A stored message (with `kind` and `feedback`), as reopening a conversation returns it. */
+export type StakAiMessage = StakAiStoredMessage;
 
 /** Ask a question. Send `context` with the first question only. A failure is an ApiError whose `body.code` is a StakAiErrorCode (and, for limit_reached, `body.usage`). */
 export function sendStakAiMessage(message: string, conversationId?: string, context?: StakAiContext) {

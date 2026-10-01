@@ -63,4 +63,4 @@ export {
 export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS } from "./stakAi";
-export type { StakAiContext, StakAiUsage, StakAiAnswerKind, StakAiSource, StakAiChatReply, StakAiErrorCode } from "./stakAi";
+export type { StakAiContext, StakAiUsage, StakAiAnswerKind, StakAiSource, StakAiChatReply, StakAiErrorCode, StakAiStoredMessage } from "./stakAi";

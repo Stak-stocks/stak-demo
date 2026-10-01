@@ -433,13 +433,13 @@ fun StockDetailScreen(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (4 * u).dp, bottom = (16 * u).dp),
 				) {
-					// STAK AI (2026-10-01): "Why is it moving?" asked straight away, with this stock as context.
+					// STAK AI (2026-10-01): opens the chat about this stock with "Why is it moving today?" as the
+					// first suggestion - not asked on tap, since every answer spends one of five questions.
 					if (onAskAi != null && !demo) {
 						com.stak.demo.ui.ai.AskAiCard(
 							title = "Why is $symbol moving?",
 							subtitle = "Ask STAK AI · plain English, today's numbers",
-							context = com.stak.demo.data.StakAiContext.stock(symbol),
-							question = "Why is $symbol moving today?",
+							context = { com.stak.demo.data.StakAiContext.stock(symbol) },
 							onOpen = onAskAi,
 						)
 					}

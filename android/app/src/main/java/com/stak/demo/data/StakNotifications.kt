@@ -146,11 +146,7 @@ object StakNotifications {
 		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", ago(createdAt))
 	}
 
-	/** "Just now", "5m ago", "3h ago", "2d ago". */
-	private fun ago(atMs: Long): String {
-		val age = StakClock.newsAge(atMs / 1000)
-		return if (age == "0m") "Just now" else "$age ago"
-	}
+	private fun ago(atMs: Long): String = StakClock.ago(atMs / 1000)
 
 	/** Opening the inbox reads everything - like an activity feed. */
 	fun markAllRead() {

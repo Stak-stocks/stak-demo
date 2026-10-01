@@ -25,6 +25,12 @@ object StakColors {
 
 	/** Muted blue-gray: secondary text, placeholders, inactive tabs. */
 	val Muted = Color(0xFF819ABB)
+	/** The house teal for links, chips and icons (#69B3CA) - declared privately in many screens before this token. */
+	val Teal = Color(0xFF69B3CA)
+	/** Body copy on navy cards (#C8D2E0). */
+	val Body = Color(0xFFC8D2E0)
+	/** Card borders on navy (#243049). */
+	val CardBorder = Color(0xFF243049)
 
 	val TextPrimary = Color.White
 	/** rgba(255,255,255,0.62) body copy on cards. */

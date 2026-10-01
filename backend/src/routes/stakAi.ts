@@ -504,8 +504,8 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 				)).rows[0]!.id;
 			}
 			const inserted = await client.query<{ id: number; role: string }>(
-				`INSERT INTO stak_ai_messages (conversation_id, uid, role, content) VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4) RETURNING id::int AS id, role`,
-				[savedConversationId, uid, question, parsed.text],
+				`INSERT INTO stak_ai_messages (conversation_id, uid, role, content, kind) VALUES ($1, $2, 'user', $3, 'answer'), ($1, $2, 'assistant', $4, $5) RETURNING id::int AS id, role`,
+				[savedConversationId, uid, question, parsed.text, parsed.kind],
 			);
 			messageId = inserted.rows.find((r) => r.role === "assistant")?.id ?? null;
 			await client.query("COMMIT");
@@ -595,8 +595,8 @@ stakAiRouter.get("/conversations/:id/messages", authMiddleware, async (req: Auth
 			[id, uid],
 		);
 		if (convResult.rows.length === 0) { fail(res, 404, "not_found", "Conversation not found"); return; }
-		const msgResult = await pgQuery<{ id: number; role: string; content: string; feedback: number | null; created_at: string }>(
-			`SELECT id::int AS id, role, content, feedback, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC`,
+		const msgResult = await pgQuery<{ id: number; role: string; content: string; kind: StakAiAnswerKind; feedback: number | null; created_at: string }>(
+			`SELECT id::int AS id, role, content, kind, feedback, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC`,
 			[id, uid],
 		);
 		const conv = convResult.rows[0]!;

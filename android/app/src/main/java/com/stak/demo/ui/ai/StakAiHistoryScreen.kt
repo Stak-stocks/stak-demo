@@ -6,7 +6,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -46,22 +48,24 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stak.demo.data.StakAiConversation
-import com.stak.demo.data.StakAiRenameRequest
-import com.stak.demo.data.StockApiService
+import com.stak.demo.data.StakAiRepository
+import com.stak.demo.data.StakClock
 import com.stak.demo.ui.onboarding.figmaUnit
 import com.stak.demo.ui.profile.SettingsScaffold
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
+import com.stak.demo.ui.theme.PressDim
 import com.stak.demo.ui.theme.Sora
+import com.stak.demo.ui.theme.StakColors
+import com.stak.demo.ui.onboarding.Auth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
-import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import javax.inject.Inject
 
 @HiltViewModel
-class StakAiHistoryViewModel @Inject constructor(private val api: StockApiService) : ViewModel() {
+class StakAiHistoryViewModel @Inject constructor(private val repo: StakAiRepository) : ViewModel() {
 	var conversations by mutableStateOf<List<StakAiConversation>>(emptyList())
 		private set
 	var loading by mutableStateOf(true)
@@ -78,7 +82,7 @@ class StakAiHistoryViewModel @Inject constructor(private val api: StockApiServic
 		loading = true
 		failed = false
 		viewModelScope.launch {
-			runCatching { api.stakAiConversations(if (more) nextBefore else null) }
+			runCatching { repo.conversations(if (more) nextBefore else null) }
 				.onSuccess { r ->
 					conversations = if (more) conversations + r.conversations else r.conversations
 					nextBefore = r.nextBefore
@@ -94,7 +98,7 @@ class StakAiHistoryViewModel @Inject constructor(private val api: StockApiServic
 		if (t.isEmpty() || t == c.title) return
 		replace(c.id) { it.copy(title = t) }
 		viewModelScope.launch {
-			runCatching { api.stakAiRename(c.id, StakAiRenameRequest(t)) }.onFailure { replace(c.id) { it.copy(title = c.title) } }
+			runCatching { repo.rename(c.id, t) }.onFailure { replace(c.id) { it.copy(title = c.title) } }
 		}
 	}
 
@@ -103,7 +107,7 @@ class StakAiHistoryViewModel @Inject constructor(private val api: StockApiServic
 		val before = conversations
 		conversations = conversations.filterNot { it.id == c.id }
 		viewModelScope.launch {
-			runCatching { api.stakAiDelete(c.id) }.onFailure { conversations = before }
+			runCatching { repo.delete(c.id) }.onFailure { conversations = before }
 		}
 	}
 
@@ -123,10 +127,10 @@ fun StakAiHistoryScreen(onBack: () -> Unit, onOpen: (String) -> Unit, vm: StakAi
 		LazyColumn(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
 			modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = (20 * u).dp),
-			contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = (26 * u).dp),
+			contentPadding = PaddingValues(bottom = (26 * u).dp),
 		) {
 			when {
-				vm.conversations.isEmpty() && vm.loading -> item { Text("Loading…", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = AiMuted) }
+				vm.conversations.isEmpty() && vm.loading -> item { Text("Loading…", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = StakColors.Muted) }
 				vm.conversations.isEmpty() && vm.failed -> item { MessageCard("Couldn't load your chats.", "Try again") { vm.load() } }
 				vm.conversations.isEmpty() -> item { MessageCard("No chats yet. Ask STAK AI something and it'll show up here.", null) {} }
 				else -> {
@@ -137,8 +141,8 @@ fun StakAiHistoryScreen(onBack: () -> Unit, onOpen: (String) -> Unit, vm: StakAi
 						Text(
 							if (vm.loading) "Loading…" else "Show older chats",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp),
-							color = AiTeal,
-							modifier = Modifier.fillMaxWidth().clickable(enabled = !vm.loading) { vm.load(more = true) }.padding(vertical = (12 * u).dp),
+							color = StakColors.Teal,
+							modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = !vm.loading, interactionSource = remember { MutableInteractionSource() }, indication = PressDim) { vm.load(more = true) }.padding(vertical = (12 * u).dp),
 						)
 					}
 				}
@@ -150,11 +154,11 @@ fun StakAiHistoryScreen(onBack: () -> Unit, onOpen: (String) -> Unit, vm: StakAi
 	deleting?.let { c ->
 		AlertDialog(
 			onDismissRequest = { deleting = null },
-			containerColor = AiCardRaised,
+			containerColor = StakColors.SurfaceAlt,
 			title = { Text("Delete this chat?", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (17 * u).sp), color = Color.White) },
-			text = { Text("\"${c.title}\" will be gone for good.", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = AiBody) },
-			confirmButton = { TextButton(onClick = { vm.delete(c); deleting = null }) { Text("Delete", color = Color(0xFFE5484D)) } },
-			dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel", color = AiMuted) } },
+			text = { Text("\"${c.title}\" will be gone for good.", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = StakColors.Body) },
+			confirmButton = { TextButton(onClick = { vm.delete(c); deleting = null }) { Text("Delete", color = Auth.ErrorRed) } },
+			dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel", color = StakColors.Muted) } },
 		)
 	}
 }
@@ -165,34 +169,34 @@ private fun ChatRow(c: StakAiConversation, onOpen: () -> Unit, onRename: () -> U
 	var menu by remember { mutableStateOf(false) }
 	Row(
 		verticalAlignment = Alignment.Top,
-		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((14 * u).dp)).background(AiCard)
-			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onOpen)
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((14 * u).dp)).background(StakColors.Surface)
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = PressDim, onClick = onOpen)
 			.padding(start = (14 * u).dp, top = (12 * u).dp, bottom = (12 * u).dp),
 	) {
 		Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp), modifier = Modifier.weight(1f)) {
 			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 				c.contextLabel?.let {
-					Text(it, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = AiTeal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-					Box(modifier = Modifier.size((3 * u).dp).background(AiMuted, CircleShape))
+					Text(it, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp), color = StakColors.Teal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+					Box(modifier = Modifier.size((3 * u).dp).background(StakColors.Muted, CircleShape))
 				}
-				Text(ago(c.updatedAt), style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = AiMuted, maxLines = 1)
+				Text(ago(c.updatedAt), style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = StakColors.Muted, maxLines = 1)
 			}
 			Text(c.title, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
 			c.preview?.let {
-				Text(it.replace("**", "").replace("\n", " "), style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = AiBody, maxLines = 2, overflow = TextOverflow.Ellipsis)
+				Text(it.replace("**", "").replace("\n", " "), style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = StakColors.Body, maxLines = 2, overflow = TextOverflow.Ellipsis)
 			}
 		}
 		Box {
 			Box(
 				contentAlignment = Alignment.Center,
-				modifier = Modifier.size((40 * u).dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) { menu = true }
+				modifier = Modifier.size((40 * u).dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = PressDim) { menu = true }
 					.semantics { contentDescription = "More options for ${c.title}" },
 			) {
-				Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = AiMuted, modifier = Modifier.size((18 * u).dp))
+				Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = StakColors.Muted, modifier = Modifier.size((18 * u).dp))
 			}
-			DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = AiCardRaised) {
+			DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = StakColors.SurfaceAlt) {
 				DropdownMenuItem(text = { Text("Rename", color = Color.White) }, onClick = { menu = false; onRename() })
-				DropdownMenuItem(text = { Text("Delete", color = Color(0xFFE5484D)) }, onClick = { menu = false; onDelete() })
+				DropdownMenuItem(text = { Text("Delete", color = Auth.ErrorRed) }, onClick = { menu = false; onDelete() })
 			}
 		}
 	}
@@ -203,10 +207,10 @@ private fun MessageCard(text: String, action: String?, onAction: () -> Unit) {
 	val u = figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((8 * u).dp),
-		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(AiCard).padding((16 * u).dp),
+		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(StakColors.Surface).padding((16 * u).dp),
 	) {
-		Text(text, style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = AiBody)
-		action?.let { Text(it, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp), color = AiTeal, modifier = Modifier.clickable(onClick = onAction)) }
+		Text(text, style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = StakColors.Body)
+		action?.let { Text(it, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp), color = StakColors.Teal, modifier = Modifier.heightIn(min = 48.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = PressDim, onClick = onAction).padding(vertical = (14 * u).dp)) }
 	}
 }
 
@@ -215,30 +219,23 @@ private fun RenameDialog(c: StakAiConversation, onDismiss: () -> Unit, onSave: (
 	var title by remember { mutableStateOf(c.title) }
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		containerColor = AiCardRaised,
-		title = { Text("Rename chat", color = Color.White) },
+		containerColor = StakColors.SurfaceAlt,
+		title = { Text("Rename chat", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (17 * figmaUnit()).sp), color = Color.White) },
 		text = {
 			OutlinedTextField(
 				value = title,
 				onValueChange = { if (it.length <= 80) title = it },
 				singleLine = true,
-				colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AiTeal, unfocusedBorderColor = AiBorder, cursorColor = AiTeal),
+				colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = StakColors.Teal, unfocusedBorderColor = StakColors.CardBorder, cursorColor = StakColors.Teal),
 			)
 		},
-		confirmButton = { TextButton(enabled = title.isNotBlank(), onClick = { onSave(title) }) { Text("Save", color = AiTeal) } },
-		dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = AiMuted) } },
+		confirmButton = { TextButton(enabled = title.isNotBlank(), onClick = { onSave(title) }) { Text("Save", color = StakColors.Teal) } },
+		dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = StakColors.Muted) } },
 	)
 }
 
-/** "Just now", "12m ago", "3h ago", "2d ago" or the date, from the server's timestamp. */
+/** "Just now", "12m ago", "3h ago", "2d ago" (StakClock.ago) from the server's ISO timestamp; "" if it won't parse. */
 internal fun ago(iso: String): String {
 	val then = runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: runCatching { Instant.parse(iso) }.getOrNull() ?: return ""
-	val d = Duration.between(then, Instant.now())
-	return when {
-		d.toMinutes() < 1 -> "Just now"
-		d.toHours() < 1 -> "${d.toMinutes()}m ago"
-		d.toDays() < 1 -> "${d.toHours()}h ago"
-		d.toDays() < 7 -> "${d.toDays()}d ago"
-		else -> then.atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
-	}
+	return StakClock.ago(then.epochSecond)
 }

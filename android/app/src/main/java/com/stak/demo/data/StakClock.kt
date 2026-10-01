@@ -104,6 +104,12 @@ object StakClock {
 		}
 	}
 
+	/** "Just now", "5m ago", "3h ago", "2d ago" - a feed's age line, from epoch seconds. */
+	fun ago(epochSeconds: Long): String {
+		val age = newsAge(epochSeconds)
+		return if (age == "0m" || age.startsWith("-")) "Just now" else "$age ago"
+	}
+
 	/** "September 2026" - the month an account was created. */
 	fun monthYear(date: LocalDate = LocalDate.now()): String = date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
 }

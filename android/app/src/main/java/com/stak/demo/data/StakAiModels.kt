@@ -97,6 +97,8 @@ data class StakAiMessageDto(
 	val id: Long = 0,
 	val role: String = "",
 	val content: String = "",
+	/** For answers: "answer", "declined" or "clarify". */
+	val kind: String = "answer",
 	/** 1 up, -1 down, null unrated. */
 	val feedback: Int? = null,
 )

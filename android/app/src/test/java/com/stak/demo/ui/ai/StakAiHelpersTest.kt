@@ -60,6 +60,15 @@ class StakAiHelpersTest {
 	}
 
 	@Test
+	fun aListAfterAnIntroLineKeepsItsBullets() {
+		val blocks = parseMarkdown(listOf("Here's why:", "- Chips fell", "- Rates rose", "", "That's the gist.").joinToString("\n"))
+		assertEquals(3, blocks.size)
+		assertEquals("Here's why:", (blocks[0] as MdBlock.Paragraph).text.text)
+		assertEquals(listOf("Chips fell", "Rates rose"), (blocks[1] as MdBlock.Bullets).items.map { it.text })
+		assertEquals("That's the gist.", (blocks[2] as MdBlock.Paragraph).text.text)
+	}
+
+	@Test
 	fun starterQuestionsFollowWhereTheChatWasOpened() {
 		assertEquals("Why is NVDA moving today?", starterQuestions(StakAiContext.stock("nvda")).first())
 		assertEquals(3, starterQuestions(null).size)
