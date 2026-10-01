@@ -1,18 +1,33 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { forwardRef, memo, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowRight, ArrowUp, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { DESK, deskFocus } from "@/components/desktop/deskKit";
+import { PRESS, focusRing } from "@/components/phone/phone";
 import { useBrandsList } from "@/hooks/useBrandsList";
-import { nextQuestionText, starterQuestions, type AiMessage, type AiNotice, type StakAiChat } from "./useStakAiChat";
+import { limitRule, nextQuestionText, starterQuestions, type AiMessage, type AiNotice, type StakAiChat } from "./useStakAiChat";
 import type { StakAiContext } from "@/lib/api";
 
 const USER_BUBBLE = "#1C3A4A";
 const WARN = "#E5A54B";
-const FOCUS = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]";
 
-/** Sizes in the phone's scaled units (cu) or plain desktop pixels. */
+/** Sizes in the phone's scaled units (cu) or plain desktop pixels, and each side's colours and focus treatment. */
 type Variant = "phone" | "desktop";
-const sizer = (v: Variant) => (n: number) => (v === "phone" ? cu(n) : `${n}px`);
+interface Look {
+	s: (n: number) => string;
+	card: string;
+	raised: string;
+	border: string;
+	body: string;
+	/** Focus ring classes; the phone adds the press dim (PRESS) and its ring colour via `ring`. */
+	focus: string;
+	ring: CSSProperties;
+}
+const LOOKS: Record<Variant, Look> = {
+	phone: { s: (n) => cu(n), card: DISC.cardDark, raised: DISC.surfaceAlt, border: DISC.cardBorder, body: DISC.body, focus: PRESS, ring: focusRing },
+	desktop: { s: (n) => `${n}px`, card: DESK.panel, raised: DESK.panelRaised, border: DESK.border, body: DESK.body, focus: deskFocus, ring: {} },
+};
+/** Every tap target is at least this tall (WCAG / Android's 48dp minimum, rounded for the web). */
+const TAP = 44;
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -51,9 +66,10 @@ export function BoldText({ text }: { text: string }) {
 	return <>{parts}</>;
 }
 
-function AiMarkdown({ text, s }: { text: string; s: (n: number) => string }) {
-	const blocks = parseMarkdown(text);
-	const body: CSSProperties = { fontSize: s(14), lineHeight: s(21), color: DISC.body };
+function AiMarkdown({ text, look }: { text: string; look: Look }) {
+	const { s } = look;
+	const blocks = useMemo(() => parseMarkdown(text), [text]);
+	const body: CSSProperties = { fontSize: s(14), lineHeight: s(21), color: look.body };
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: s(8) }}>
 			{blocks.map((b, i) =>
@@ -90,148 +106,166 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 	/** Inside a panel: no big empty-state heading, just the questions. */
 	compact?: boolean;
 }) {
-	const s = sizer(variant);
+	const look = LOOKS[variant];
+	const { s } = look;
 	const scroller = useRef<HTMLDivElement>(null);
-	const [draft, setDraft] = useState("");
+	const composer = useRef<ComposerHandle>(null);
 	const { data: brandsList } = useBrandsList();
 	const nameOf = (t: string) => brandsList?.find((b) => b.ticker === t)?.name ?? t;
 
-	// A question that couldn't be asked comes back into the box.
-	useEffect(() => {
-		if (!chat.returnedDraft) return;
-		const d = chat.consumeReturnedDraft();
-		if (d) setDraft((cur) => cur || d);
-	}, [chat.returnedDraft, chat]);
-	// Keep the newest line in view.
+	// Keep the newest line in view: jump when a past chat loads, glide as the conversation grows.
+	const wasLoading = useRef(false);
 	useLayoutEffect(() => {
 		const el = scroller.current;
-		el?.scrollTo?.({ top: el.scrollHeight, behavior: "smooth" });
+		el?.scrollTo?.({ top: el.scrollHeight, behavior: wasLoading.current ? "auto" : "smooth" });
+		wasLoading.current = chat.loading;
 	}, [chat.messages.length, chat.sending, chat.loading]);
 
-	const submit = () => {
-		if (!draft.trim() || !chat.canAsk) return;
-		chat.send(draft);
-		setDraft("");
+	// Tapping a suggestion or follow-up removes the button that had focus: put focus in the box instead.
+	const askAndFocus = (q: string) => {
+		chat.send(q);
+		composer.current?.focus();
 	};
-	const lastAnswer = [...chat.messages].reverse().find((m) => !m.fromUser);
+	const lastAnswerKey = useMemo(() => [...chat.messages].reverse().find((m) => !m.fromUser)?.key, [chat.messages]);
+	const failedOffline = chat.notice?.type === "failed" && chat.notice.offline;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div ref={scroller} role="log" aria-live="polite" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
+			{/* role="log" is a polite live region: answers added here are announced. */}
+			<div ref={scroller} role="log" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: s(16) }}>
 					{chat.messages.length === 0 && !chat.loading && !chat.sending && chat.notice?.type !== "loadFailed" && (
-						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} nameOf={nameOf} s={s} onAsk={chat.send} starters={starters} compact={compact} />
+						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askAndFocus} starters={starters} compact={compact} />
 					)}
 					{chat.messages.map((m) =>
 						m.fromUser
-							? <UserLine key={m.key} m={m} offline={chat.notice?.type === "failed" && chat.notice.offline} s={s} />
-							: <AnswerLine key={m.key} m={m} s={s} showFollowUps={m.key === lastAnswer?.key && chat.canAsk} onRate={(v) => chat.rate(m, v)} onFollowUp={chat.send} />,
+							? <UserLine key={m.key} m={m} offline={failedOffline} look={look} />
+							: <AnswerLine key={m.key} m={m} look={look} showFollowUps={m.key === lastAnswerKey && chat.canAsk} onRate={chat.rate} onFollowUp={askAndFocus} />,
 					)}
 					{chat.loading && <p style={{ fontSize: s(13), color: DISC.muted }}>Loading chat…</p>}
 					{chat.sending && <TypingDots s={s} />}
 				</div>
 			</div>
 
-			{chat.notice && <NoticeBar notice={chat.notice} s={s} onRetry={chat.retry} onRetryOpen={chat.retryOpen} onNewChat={chat.newChat} />}
+			{chat.notice && <NoticeBar notice={chat.notice} limit={chat.usage?.limit} look={look} onRetry={chat.retry} onRetryOpen={chat.retryOpen} onNewChat={chat.newChat} />}
 
-			<div style={{ padding: `${s(8)} ${s(20)} ${s(variant === "phone" ? 10 : 14)}` }}>
-				<div className="flex items-end" style={{ borderRadius: s(22), background: variant === "phone" ? "#172037" : DESK.panelRaised, border: `1px solid ${variant === "phone" ? "#243049" : DESK.border}`, padding: `${s(4)} ${s(4)} ${s(4)} ${s(16)}` }}>
-					<AutoGrowTextarea
-						value={draft}
-						onChange={setDraft}
-						onSubmit={submit}
-						disabled={chat.outOfQuestions || chat.loading}
-						placeholder={chat.outOfQuestions ? "You're out of questions for now" : "Ask about a stock, the news or a term…"}
-						autoFocus={autoFocus}
-						s={s}
-					/>
-					<button
-						type="button"
-						onClick={submit}
-						disabled={!draft.trim() || !chat.canAsk}
-						aria-label="Send"
-						className={`grid shrink-0 place-items-center rounded-full transition-colors disabled:cursor-not-allowed ${FOCUS}`}
-						style={{ width: s(40), height: s(40), background: draft.trim() && chat.canAsk ? DISC.teal : "#243049", color: draft.trim() && chat.canAsk ? DISC.pageBg : DISC.muted }}
-					>
-						<ArrowUp style={{ width: s(18), height: s(18) }} aria-hidden="true" />
-					</button>
-				</div>
-				<div className="flex justify-between" style={{ marginTop: s(6), fontSize: s(11), color: DISC.muted }}>
-					<span>Educational, not financial advice.</span>
-					{chat.usage && <span style={{ color: chat.usage.remaining <= 1 ? WARN : DISC.muted }}>{chat.usage.remaining} of {chat.usage.limit} questions left</span>}
-				</div>
-			</div>
+			<Composer ref={composer} chat={chat} look={look} variant={variant} autoFocus={autoFocus} />
 		</div>
 	);
 }
 
-function AutoGrowTextarea({ value, onChange, onSubmit, disabled, placeholder, autoFocus, s }: {
-	value: string; onChange: (v: string) => void; onSubmit: () => void; disabled: boolean; placeholder: string; autoFocus: boolean; s: (n: number) => string;
-}) {
-	const ref = useRef<HTMLTextAreaElement>(null);
+interface ComposerHandle { focus: () => void }
+
+/** The input, the questions left and the disclaimer. Holds the draft, so typing doesn't re-render the conversation. */
+const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; variant: Variant; autoFocus: boolean }>(function Composer({ chat, look, variant, autoFocus }, ref) {
+	const { s } = look;
+	const [draft, setDraft] = useState("");
+	const box = useRef<HTMLTextAreaElement>(null);
+	useImperativeHandle(ref, () => ({ focus: () => box.current?.focus() }), []);
+
+	// A question handed back (out of questions) or left by the page that opened the chat comes into the box.
+	useEffect(() => {
+		if (!chat.returnedDraft) return;
+		const d = chat.consumeReturnedDraft();
+		if (d) setDraft((cur) => cur || d);
+	}, [chat.returnedDraft, chat.consumeReturnedDraft]);
 	useLayoutEffect(() => {
-		const el = ref.current;
+		const el = box.current;
 		if (!el) return;
 		el.style.height = "auto";
 		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-	}, [value]);
+	}, [draft]);
+
+	const ready = !!draft.trim() && chat.canAsk;
+	const submit = () => {
+		if (!ready) return;
+		chat.send(draft);
+		setDraft("");
+	};
 	const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
 		// Enter sends; Shift+Enter makes a new line.
-		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSubmit(); }
+		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
 	};
-	return (
-		<textarea
-			ref={ref}
-			rows={1}
-			value={value}
-			onChange={(e) => onChange(e.target.value.slice(0, 1000))}
-			onKeyDown={onKeyDown}
-			disabled={disabled}
-			placeholder={placeholder}
-			aria-label="Ask STAK AI"
-			autoFocus={autoFocus}
-			autoCapitalize="sentences"
-			className="min-w-0 flex-1 resize-none bg-transparent text-white outline-none placeholder:text-[#819ABB] disabled:cursor-not-allowed"
-			style={{ fontSize: s(14), lineHeight: s(20), padding: `${s(10)} 0`, maxHeight: 120 }}
-		/>
-	);
-}
+	const left = chat.usage?.remaining;
 
-function EmptyState({ title, context, enabled, nameOf, s, onAsk, starters, compact }: { title: string; context: StakAiContext | null; enabled: boolean; nameOf: (t: string) => string; s: (n: number) => string; onAsk: (q: string) => void; starters?: string[]; compact?: boolean }) {
+	return (
+		<div style={{ padding: `${s(8)} ${s(20)}`, paddingBottom: variant === "phone" ? `max(${s(10)}, env(safe-area-inset-bottom))` : s(14) }}>
+			<div className="flex items-end focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#69B3CA]" style={{ borderRadius: s(22), background: look.raised, border: `1px solid ${look.border}`, padding: `${s(2)} ${s(2)} ${s(2)} ${s(16)}` }}>
+				<textarea
+					ref={box}
+					rows={1}
+					value={draft}
+					onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
+					onKeyDown={onKeyDown}
+					disabled={chat.outOfQuestions || chat.loading}
+					placeholder={chat.outOfQuestions ? "You're out of questions for now" : "Ask about a stock, the news or a term…"}
+					aria-label="Ask STAK AI"
+					autoFocus={autoFocus}
+					autoCapitalize="sentences"
+					className="min-w-0 flex-1 resize-none bg-transparent text-white outline-none placeholder:text-[#819ABB] disabled:cursor-not-allowed"
+					style={{ fontSize: s(14), lineHeight: s(20), padding: `${s(12)} 0`, maxHeight: 120 }}
+				/>
+				<button
+					type="button"
+					onClick={submit}
+					disabled={!ready}
+					aria-label="Send"
+					className={`grid shrink-0 place-items-center rounded-full disabled:cursor-not-allowed ${look.focus}`}
+					style={{ width: TAP, height: TAP, ...look.ring }}
+				>
+					<span className="grid place-items-center rounded-full transition-colors" style={{ width: s(36), height: s(36), background: ready ? DISC.teal : look.border, color: ready ? DISC.pageBg : DISC.muted }}>
+						<ArrowUp style={{ width: s(18), height: s(18) }} aria-hidden="true" />
+					</span>
+				</button>
+			</div>
+			<div className="flex justify-between" style={{ marginTop: s(6), fontSize: s(11), color: DISC.muted }}>
+				<span>Educational, not financial advice.</span>
+				{chat.usage && <span style={{ color: chat.usage.remaining <= 1 ? WARN : DISC.muted }}>{chat.usage.remaining} of {chat.usage.limit} questions left</span>}
+			</div>
+			{/* Say it out loud when the count gets low; the line above changes silently. */}
+			<span className="sr-only" aria-live="polite">{left === 1 ? "One question left." : left === 0 ? "No questions left for now." : ""}</span>
+		</div>
+	);
+});
+
+function EmptyState({ title, context, enabled, limit, nameOf, look, onAsk, starters, compact }: {
+	title: string; context: StakAiContext | null; enabled: boolean; limit?: number; nameOf: (t: string) => string; look: Look; onAsk: (q: string) => void; starters?: string[]; compact?: boolean;
+}) {
+	const { s } = look;
 	const questions = starters ?? starterQuestions(context, nameOf);
+	const rule = <p style={{ fontSize: s(11), lineHeight: s(16), color: DISC.muted, marginTop: s(compact ? 4 : 16), padding: compact ? 0 : `0 ${s(8)}` }}>{limitRule(limit)}</p>;
 	if (compact) {
 		return (
 			<div className="flex flex-col" style={{ gap: s(8) }}>
-				{questions.map((q) => <StarterButton key={q} q={q} enabled={enabled} s={s} onAsk={onAsk} />)}
-				<p style={{ fontSize: s(11), lineHeight: s(16), color: DISC.muted, marginTop: s(4) }}>5 questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.</p>
+				{questions.map((q) => <StarterButton key={q} q={q} enabled={enabled} look={look} onAsk={onAsk} />)}
+				{rule}
 			</div>
 		);
 	}
 	return (
 		<div className="flex flex-col items-center text-center" style={{ paddingTop: s(24) }}>
-			<span className="grid place-items-center rounded-full" style={{ width: s(56), height: s(56), background: DISC.cardDark }} aria-hidden="true">
+			<span className="grid place-items-center rounded-full" style={{ width: s(56), height: s(56), background: look.card }} aria-hidden="true">
 				<Sparkles style={{ width: s(26), height: s(26), color: DISC.teal }} />
 			</span>
 			<h2 className="font-semibold text-white" style={{ fontSize: s(20), marginTop: s(14) }}>{title}</h2>
 			<p style={{ fontSize: s(13), lineHeight: s(19), color: DISC.muted, marginTop: s(6), padding: `0 ${s(12)}` }}>Plain-English answers about stocks, the news and investing terms.</p>
 			<div className="flex w-full flex-col" style={{ gap: s(8), marginTop: s(22) }}>
-				{questions.map((q) => <StarterButton key={q} q={q} enabled={enabled} s={s} onAsk={onAsk} />)}
+				{questions.map((q) => <StarterButton key={q} q={q} enabled={enabled} look={look} onAsk={onAsk} />)}
 			</div>
-			<p style={{ fontSize: s(11), lineHeight: s(16), color: DISC.muted, marginTop: s(16), padding: `0 ${s(8)}` }}>
-				You get 5 questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.
-			</p>
+			{rule}
 		</div>
 	);
 }
 
-function StarterButton({ q, enabled, s, onAsk }: { q: string; enabled: boolean; s: (n: number) => string; onAsk: (q: string) => void }) {
+function StarterButton({ q, enabled, look, onAsk }: { q: string; enabled: boolean; look: Look; onAsk: (q: string) => void }) {
+	const { s } = look;
 	return (
 		<button
 			type="button"
 			disabled={!enabled}
 			onClick={() => onAsk(q)}
-			className={`flex items-center text-left transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS}`}
-			style={{ minHeight: 48, borderRadius: s(12), background: DISC.cardDark, border: "1px solid #243049", padding: `${s(10)} ${s(14)}`, fontSize: s(13), fontWeight: 500, color: "#fff" }}
+			className={`flex items-center text-left transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${look.focus}`}
+			style={{ minHeight: TAP + 4, borderRadius: s(12), background: look.card, border: `1px solid ${look.border}`, padding: `${s(10)} ${s(14)}`, fontSize: s(13), fontWeight: 500, color: "#fff", ...look.ring }}
 		>
 			<span className="flex-1">{q}</span>
 			<ArrowRight style={{ width: s(16), height: s(16), color: DISC.teal }} aria-hidden="true" />
@@ -239,7 +273,8 @@ function StarterButton({ q, enabled, s, onAsk }: { q: string; enabled: boolean; 
 	);
 }
 
-function UserLine({ m, offline, s }: { m: AiMessage; offline: boolean; s: (n: number) => string }) {
+function UserLine({ m, offline, look }: { m: AiMessage; offline: boolean; look: Look }) {
+	const { s } = look;
 	return (
 		<div className="flex flex-col items-end">
 			<p className="whitespace-pre-wrap text-white" style={{ maxWidth: "80%", fontSize: s(14), lineHeight: s(20), background: USER_BUBBLE, borderRadius: `${s(16)} ${s(16)} ${s(4)} ${s(16)}`, padding: `${s(10)} ${s(14)}`, opacity: m.failed ? 0.6 : 1 }}>
@@ -250,45 +285,47 @@ function UserLine({ m, offline, s }: { m: AiMessage; offline: boolean; s: (n: nu
 	);
 }
 
-function AnswerLine({ m, s, showFollowUps, onRate, onFollowUp }: { m: AiMessage; s: (n: number) => string; showFollowUps: boolean; onRate: (v: 1 | -1) => void; onFollowUp: (q: string) => void }) {
+/** One answer. Memoised: it only re-renders when its own message (or whether it shows follow-ups) changes. */
+const AnswerLine = memo(function AnswerLine({ m, look, showFollowUps, onRate, onFollowUp }: { m: AiMessage; look: Look; showFollowUps: boolean; onRate: (m: AiMessage, v: 1 | -1) => void; onFollowUp: (q: string) => void }) {
+	const { s } = look;
+	const source: CSSProperties = { minHeight: TAP, fontSize: s(12), lineHeight: s(17), color: look.body };
 	return (
 		<div className="flex flex-col" style={{ gap: s(8) }}>
 			<div className="flex items-center" style={{ gap: s(6) }}>
-				<span className="grid place-items-center rounded-full" style={{ width: s(22), height: s(22), background: DISC.cardDark }} aria-hidden="true">
+				<span className="grid place-items-center rounded-full" style={{ width: s(22), height: s(22), background: look.card }} aria-hidden="true">
 					<Sparkles style={{ width: s(12), height: s(12), color: DISC.teal }} />
 				</span>
 				<span className="font-semibold" style={{ fontSize: s(12), color: DISC.muted }}>STAK AI</span>
 			</div>
-			<AiMarkdown text={m.text} s={s} />
+			<AiMarkdown text={m.text} look={look} />
 			{m.kind !== "answer" && <p style={{ fontSize: s(11), color: DISC.muted }}>This one didn't count toward your questions.</p>}
 			{m.sources.length > 0 && (
-				<div style={{ borderRadius: s(12), background: DISC.cardDark, padding: `${s(6)} ${s(12)}` }}>
+				<div style={{ borderRadius: s(12), background: look.card, padding: `${s(6)} ${s(12)}` }}>
 					<p className="font-semibold" style={{ fontSize: s(10), letterSpacing: s(1), color: DISC.muted, padding: `${s(4)} 0` }}>BASED ON</p>
 					<ul>
-						{m.sources.map((src) => (
-							<li key={`${src.ticker}-${src.headline}`}>
-								{src.url ? (
-									<a href={src.url} target="_blank" rel="noopener noreferrer" className={`flex items-center rounded-md hover:underline ${FOCUS}`} style={{ minHeight: 40, fontSize: s(12), lineHeight: s(17), color: DISC.body }}>
-										<span><span className="font-semibold" style={{ color: DISC.teal }}>{src.ticker}</span>&nbsp; {src.headline}</span>
-									</a>
-								) : (
-									<p className="flex items-center" style={{ minHeight: 40, fontSize: s(12), lineHeight: s(17), color: DISC.body }}><span><span className="font-semibold" style={{ color: DISC.teal }}>{src.ticker}</span>&nbsp; {src.headline}</span></p>
-								)}
-							</li>
-						))}
+						{m.sources.map((src) => {
+							const line = <span><span className="font-semibold" style={{ color: DISC.teal }}>{src.ticker}</span>&nbsp; {src.headline}</span>;
+							return (
+								<li key={`${src.ticker}-${src.headline}`}>
+									{src.url
+										? <a href={src.url} target="_blank" rel="noopener noreferrer" className={`flex items-center rounded-md hover:underline ${look.focus}`} style={{ ...source, ...look.ring }}>{line}</a>
+										: <p className="flex items-center" style={source}>{line}</p>}
+								</li>
+							);
+						})}
 					</ul>
 				</div>
 			)}
 			{m.id != null && m.kind === "answer" && (
-				<div className="flex" style={{ marginLeft: s(-10) }}>
-					<ThumbButton label="Helpful" pressed={m.feedback === 1} onClick={() => onRate(1)} s={s}><ThumbsUp style={{ width: s(16), height: s(16) }} fill={m.feedback === 1 ? "currentColor" : "none"} aria-hidden="true" /></ThumbButton>
-					<ThumbButton label="Not helpful" pressed={m.feedback === -1} onClick={() => onRate(-1)} s={s}><ThumbsDown style={{ width: s(16), height: s(16) }} fill={m.feedback === -1 ? "currentColor" : "none"} aria-hidden="true" /></ThumbButton>
+				<div className="flex" style={{ marginLeft: -10 }}>
+					<ThumbButton label="Helpful" pressed={m.feedback === 1} onClick={() => onRate(m, 1)} look={look}><ThumbsUp style={{ width: s(16), height: s(16) }} fill={m.feedback === 1 ? "currentColor" : "none"} aria-hidden="true" /></ThumbButton>
+					<ThumbButton label="Not helpful" pressed={m.feedback === -1} onClick={() => onRate(m, -1)} look={look}><ThumbsDown style={{ width: s(16), height: s(16) }} fill={m.feedback === -1 ? "currentColor" : "none"} aria-hidden="true" /></ThumbButton>
 				</div>
 			)}
 			{showFollowUps && m.followUps.length > 0 && (
 				<div className="flex flex-wrap" style={{ gap: s(8) }}>
 					{m.followUps.map((q) => (
-						<button key={q} type="button" onClick={() => onFollowUp(q)} className={`rounded-full transition-colors hover:bg-white/[0.05] ${FOCUS}`} style={{ minHeight: 36, border: `1px solid rgba(105,179,202,0.45)`, padding: `${s(7)} ${s(12)}`, fontSize: s(12), color: DISC.teal }}>
+						<button key={q} type="button" onClick={() => onFollowUp(q)} className={`flex items-center rounded-full transition-colors hover:bg-white/[0.05] ${look.focus}`} style={{ minHeight: TAP, border: "1px solid rgba(105,179,202,0.45)", padding: `0 ${s(14)}`, fontSize: s(12), color: DISC.teal, ...look.ring }}>
 							{q}
 						</button>
 					))}
@@ -296,19 +333,20 @@ function AnswerLine({ m, s, showFollowUps, onRate, onFollowUp }: { m: AiMessage;
 			)}
 		</div>
 	);
-}
+});
 
-function ThumbButton({ label, pressed, onClick, s, children }: { label: string; pressed: boolean; onClick: () => void; s: (n: number) => string; children: ReactNode }) {
+function ThumbButton({ label, pressed, onClick, look, children }: { label: string; pressed: boolean; onClick: () => void; look: Look; children: ReactNode }) {
 	return (
-		<button type="button" onClick={onClick} aria-label={label} aria-pressed={pressed} className={`grid place-items-center rounded-full transition-colors hover:bg-white/[0.05] ${FOCUS}`} style={{ width: s(40), height: s(40), color: pressed ? DISC.teal : DISC.muted }}>
+		<button type="button" onClick={onClick} aria-label={label} aria-pressed={pressed} className={`grid place-items-center rounded-full transition-colors hover:bg-white/[0.05] ${look.focus}`} style={{ width: TAP, height: TAP, color: pressed ? DISC.teal : DISC.muted, ...look.ring }}>
 			{children}
 		</button>
 	);
 }
 
+/** Pulsing dots while the answer is on its way (decorative: the log announces the answer itself). */
 function TypingDots({ s }: { s: (n: number) => string }) {
 	return (
-		<div className="flex" style={{ gap: s(5), padding: `${s(6)} 0` }} role="status" aria-label="STAK AI is answering">
+		<div className="flex" style={{ gap: s(5), padding: `${s(6)} 0` }} aria-hidden="true">
 			{[0, 150, 300].map((delay) => (
 				<span key={delay} className="animate-pulse rounded-full motion-reduce:animate-none" style={{ width: s(7), height: s(7), background: DISC.teal, animationDelay: `${delay}ms` }} />
 			))}
@@ -316,18 +354,21 @@ function TypingDots({ s }: { s: (n: number) => string }) {
 	);
 }
 
-function NoticeBar({ notice, s, onRetry, onRetryOpen, onNewChat }: { notice: AiNotice; s: (n: number) => string; onRetry: () => void; onRetryOpen: () => void; onNewChat: () => void }) {
+function NoticeBar({ notice, limit, look, onRetry, onRetryOpen, onNewChat }: { notice: AiNotice; limit?: number; look: Look; onRetry: () => void; onRetryOpen: () => void; onNewChat: () => void }) {
+	const { s } = look;
 	const text = notice.type === "limit"
-		? `You've used your 5 questions for now. ${nextQuestionText(notice.resetsAt)}`
+		? `You've used your ${limit ?? 5} questions for now. ${nextQuestionText(notice.resetsAt)}`
 		: notice.type === "failed"
 			? notice.offline ? "You're offline, so that didn't send. It didn't count." : "STAK AI couldn't answer just now. That one didn't count."
-			: "Couldn't open that chat.";
+			: notice.type === "slow"
+				? "STAK AI is taking longer than usual. Check your chats in a moment before asking again."
+				: "Couldn't open that chat.";
 	const action = (label: string, onClick: () => void) => (
-		<button type="button" onClick={onClick} className={`shrink-0 rounded-md font-semibold ${FOCUS}`} style={{ minHeight: 40, padding: `0 ${s(10)}`, fontSize: s(12), color: DISC.teal }}>{label}</button>
+		<button type="button" onClick={onClick} className={`shrink-0 rounded-md font-semibold ${look.focus}`} style={{ minHeight: TAP, padding: `0 ${s(10)}`, fontSize: s(12), color: DISC.teal, ...look.ring }}>{label}</button>
 	);
 	return (
-		<div role="status" aria-live="polite" className="flex items-center" style={{ margin: `0 ${s(20)}`, borderRadius: s(12), background: DISC.cardDark, padding: `${s(2)} ${s(4)} ${s(2)} ${s(14)}` }}>
-			<p className="flex-1" style={{ fontSize: s(12), lineHeight: s(17), color: DISC.body, padding: `${s(10)} 0` }}>{text}</p>
+		<div role="status" className="flex items-center" style={{ margin: `0 ${s(20)}`, borderRadius: s(12), background: look.card, padding: `0 ${s(4)} 0 ${s(14)}` }}>
+			<p className="flex-1" style={{ fontSize: s(12), lineHeight: s(17), color: look.body, padding: `${s(10)} 0` }}>{text}</p>
 			{notice.type === "failed" && action("Try again", onRetry)}
 			{notice.type === "loadFailed" && <>{action("Try again", onRetryOpen)}{action("New chat", onNewChat)}</>}
 		</div>
@@ -336,13 +377,13 @@ function NoticeBar({ notice, s, onRetry, onRetryOpen, onNewChat }: { notice: AiN
 
 /** "Asking about NVIDIA" - what the chat was opened from. */
 export function ContextChip({ context, variant }: { context: StakAiContext; variant: Variant }) {
-	const s = sizer(variant);
+	const { s, card, body } = LOOKS[variant];
 	const { data: brandsList } = useBrandsList();
 	const label = context.type === "stock"
 		? `Asking about ${brandsList?.find((b) => b.ticker === context.ticker)?.name ?? context.ticker}`
 		: context.type === "article" ? `About: ${context.headline}` : "About today's Daily Brief";
 	return (
-		<p className="flex max-w-full items-center self-start overflow-hidden" style={{ gap: s(6), margin: `0 ${s(20)}`, borderRadius: s(14), background: DISC.cardDark, padding: `${s(6)} ${s(12)}`, fontSize: s(12), color: DISC.body }}>
+		<p className="flex max-w-full items-center self-start overflow-hidden" style={{ gap: s(6), margin: `0 ${s(20)}`, borderRadius: s(14), background: card, padding: `${s(6)} ${s(12)}`, fontSize: s(12), color: body }}>
 			<span className="shrink-0 rounded-full" style={{ width: s(6), height: s(6), background: DISC.teal }} aria-hidden="true" />
 			<span className="truncate">{label}</span>
 		</p>
@@ -351,15 +392,16 @@ export function ContextChip({ context, variant }: { context: StakAiContext; vari
 
 /** The way into STAK AI from a page (an article, a stock, the Daily Brief): opens the chat with that page as context. */
 export function AskAiCard({ title, subtitle, onOpen, variant }: { title: string; subtitle: string; onOpen: () => void; variant: Variant }) {
-	const s = sizer(variant);
+	const look = LOOKS[variant];
+	const { s } = look;
 	return (
 		<button
 			type="button"
 			onClick={onOpen}
-			className={`flex w-full items-center text-left transition-colors hover:bg-white/[0.03] ${variant === "desktop" ? deskFocus : FOCUS}`}
-			style={{ gap: s(12), borderRadius: s(14), background: variant === "desktop" ? DESK.panel : DISC.cardDark, border: "1px solid rgba(105,179,202,0.35)", padding: `${s(12)} ${s(14)}` }}
+			className={`flex w-full items-center text-left transition-colors hover:bg-white/[0.03] ${look.focus}`}
+			style={{ gap: s(12), borderRadius: s(14), background: look.card, border: "1px solid rgba(105,179,202,0.35)", padding: `${s(12)} ${s(14)}`, ...look.ring }}
 		>
-			<span className="grid shrink-0 place-items-center rounded-full" style={{ width: s(34), height: s(34), background: "#172037" }} aria-hidden="true">
+			<span className="grid shrink-0 place-items-center rounded-full" style={{ width: s(34), height: s(34), background: look.raised }} aria-hidden="true">
 				<Sparkles style={{ width: s(17), height: s(17), color: DISC.teal }} />
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col" style={{ gap: s(2) }}>

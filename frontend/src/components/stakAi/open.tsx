@@ -7,13 +7,16 @@ import type { DailyBriefResponse, StakAiContext } from "@/lib/api";
 import type { StoredArticle } from "@/lib/openedArticle";
 import { resetStakAiLauncher, stakAiLauncher } from "./useStakAiChat";
 
-/** Opens /stak-ai: fresh, or about a page (its context goes with the first question), optionally asking [question] at once. */
+/**
+ * Opens /stak-ai: fresh, or about a page (its context goes with the first question). [draft] leaves a question in
+ * the box for the person to send - every answer costs one of their questions, so a tap never spends one for them.
+ */
 export function useOpenStakAi() {
 	const navigate = useNavigate();
-	return useCallback((context?: StakAiContext | null, question?: string) => {
+	return useCallback((context?: StakAiContext | null, draft?: string) => {
 		resetStakAiLauncher();
 		stakAiLauncher.context = context ?? null;
-		stakAiLauncher.question = question ?? null;
+		stakAiLauncher.draft = draft ?? null;
 		void navigate({ to: "/stak-ai" });
 	}, [navigate]);
 }

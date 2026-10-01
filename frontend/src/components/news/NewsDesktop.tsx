@@ -123,7 +123,9 @@ export function NewsDesktop() {
 	const impact = brief.data?.personalizedImpact?.trim();
 	const watch = brief.data?.watchItems ?? [];
 	const updatedMs = brief.data?.generatedAt ? Date.parse(brief.data.generatedAt) : market.dataUpdatedAt || null;
-	const suggestions = [brief.data?.contextQuestion?.trim(), "What does today mean for my STAK?", "Which sectors could benefit?"].filter((s): s is string => !!s).slice(0, 3);
+	// Stable between renders, so typing in search doesn't redraw the Ask STAK AI panel.
+	const contextQuestion = brief.data?.contextQuestion?.trim();
+	const suggestions = useMemo(() => [contextQuestion, "What does today mean for my STAK?", "Which sectors could benefit?"].filter((s): s is string => !!s).slice(0, 3), [contextQuestion]);
 	const topicIcons: LucideIcon[] = [TrendingUp, BarChart3, Eye];
 
 	function readLead() {

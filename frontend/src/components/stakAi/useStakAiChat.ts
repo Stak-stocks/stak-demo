@@ -1,33 +1,52 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ApiError,
 	getStakAiMessages,
 	getStakAiUsage,
 	sendStakAiFeedback,
 	sendStakAiMessage,
+	type StakAiChatReply,
 	type StakAiContext,
 	type StakAiSource,
 	type StakAiUsage,
 } from "@/lib/api";
 
 /**
- * How a page opens STAK AI: set what it's opened from (and optionally a first question to ask at once), or a past
- * conversation to reopen, then go to /stak-ai. The chat takes these once, when it mounts. Mirrors Android's
+ * How a page opens STAK AI: set what it's opened from (plus a first question to ask, or one to leave in the box), or
+ * a past conversation to reopen, then go to /stak-ai. The chat takes these once, when it mounts. Mirrors Android's
  * StakAiLauncher; kept in memory, so a reload opens a plain chat.
  */
 export const stakAiLauncher: {
 	context: StakAiContext | null;
+	/** Asked as soon as the chat opens. */
 	question: string | null;
+	/** Left in the input box for the person to send (or change) - it costs a question, so it isn't sent for them. */
+	draft: string | null;
 	conversationId: string | null;
 	/** The chat that was open when /stak-ai was left (for its history page, say): reopened on return. */
 	resume: string | null;
-} = { context: null, question: null, conversationId: null, resume: null };
+	/** /stak-ai/history was opened from the chat, so going back returns to it. */
+	historyFromChat: boolean;
+} = { context: null, question: null, draft: null, conversationId: null, resume: null, historyFromChat: false };
 
 export function resetStakAiLauncher() {
 	stakAiLauncher.context = null;
 	stakAiLauncher.question = null;
+	stakAiLauncher.draft = null;
 	stakAiLauncher.conversationId = null;
 	stakAiLauncher.resume = null;
+	stakAiLauncher.historyFromChat = false;
+}
+
+export const STAK_AI_USAGE_KEY = ["stakAi", "usage"] as const;
+export const STAK_AI_CONVERSATIONS_KEY = ["stakAi", "conversations"] as const;
+/** Past this, an answer is reported as slow - it may still arrive and count, so the chat doesn't say it didn't. */
+const SLOW_MS = 45_000;
+
+/** The questions-left count, shared by every chat on screen (the /stak-ai page and the desktop panels). */
+export function useStakAiUsage() {
+	return useQuery({ queryKey: STAK_AI_USAGE_KEY, queryFn: getStakAiUsage, staleTime: 60_000 });
 }
 
 /** One line in the chat. `id` is the server's message id (answers only), for thumbs. */
@@ -48,6 +67,7 @@ export interface AiMessage {
 export type AiNotice =
 	| { type: "limit"; resetsAt: string | null }
 	| { type: "failed"; offline: boolean }
+	| { type: "slow" }
 	| { type: "loadFailed" };
 
 interface Options {
@@ -57,18 +77,22 @@ interface Options {
 	context?: StakAiContext | null;
 }
 
+class SlowAnswer extends Error {}
+
 /**
  * STAK AI's chat state - the web twin of Android's StakAiViewModel. Context goes with the first question only; a
- * failed question is retried in place; out of questions hands the question back and unlocks itself when a slot frees;
- * nothing sends while a past chat loads; a deleted chat carries on in a fresh one.
+ * failed question is retried in place; out of questions hands the question back and unlocks itself when a slot
+ * frees; nothing sends while a past chat loads; switching chats mid-answer leaves that answer in its own chat; a
+ * deleted chat carries on in a fresh one.
  */
 export function useStakAiChat({ fromLauncher = false, context: given = null }: Options = {}) {
+	const qc = useQueryClient();
+	const { data: usage = null } = useStakAiUsage();
 	const [messages, setMessages] = useState<AiMessage[]>([]);
 	const [context, setContext] = useState<StakAiContext | null>(() => (fromLauncher ? stakAiLauncher.context : given));
-	const [usage, setUsage] = useState<StakAiUsage | null>(null);
 	const [sending, setSending] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [notice, setNotice] = useState<AiNotice | null>(null);
+	const [problem, setProblem] = useState<Exclude<AiNotice, { type: "limit" }> | null>(null);
 	const [returnedDraft, setReturnedDraft] = useState<string | null>(null);
 
 	const conversationId = useRef<string | null>(null);
@@ -76,41 +100,45 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 	const contextSent = useRef(false);
 	const contextRef = useRef(context);
 	contextRef.current = context;
-	const nextKey = useRef(0);
-	const usageVersion = useRef(0);
-	const openToken = useRef(0);
-	const unlockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
+	const nextKey = useRef(0);
+	/** Bumped by open() and newChat(): a reply for an earlier chat no longer lands on screen. */
+	const session = useRef(0);
 	const busy = useRef({ sending: false, loading: false });
-	busy.current = { sending, loading };
+	const mounted = useRef(true);
 
-	const applyUsage = useCallback((u: StakAiUsage | null) => {
-		setUsage(u);
-		if (unlockTimer.current) clearTimeout(unlockTimer.current);
-		if (!u || u.remaining > 0) {
-			setNotice((n) => (n?.type === "limit" ? null : n));
-			return;
-		}
-		setNotice({ type: "limit", resetsAt: u.resetsAt });
-		const wait = u.resetsAt ? Date.parse(u.resetsAt) - Date.now() : NaN;
-		if (Number.isFinite(wait)) {
-			// Check again when the oldest question drops out, so the box unlocks without a reload.
-			unlockTimer.current = setTimeout(() => {
-				const version = usageVersion.current;
-				getStakAiUsage().then((fresh) => { if (version === usageVersion.current) applyUsage(fresh); }).catch(() => {});
-			}, Math.min(Math.max(wait, 0) + 2_000, 2 ** 31 - 1));
-		}
-	}, []);
+	const setUsage = useCallback((u: StakAiUsage | null | undefined) => {
+		if (u) qc.setQueryData(STAK_AI_USAGE_KEY, u);
+	}, [qc]);
+
+	// Out of questions: check again when the oldest one drops out (30s at the soonest, in case clocks disagree), so
+	// the box unlocks without a reload.
+	useEffect(() => {
+		if (!usage || usage.remaining > 0 || !usage.resetsAt) return;
+		const wait = Math.max(Date.parse(usage.resetsAt) - Date.now() + 2_000, 30_000);
+		const t = setTimeout(() => { void qc.invalidateQueries({ queryKey: STAK_AI_USAGE_KEY }); }, Math.min(wait, 2 ** 31 - 1));
+		return () => clearTimeout(t);
+	}, [usage, qc]);
+
+	/** Stop whatever was in flight from landing here: the next reply or load belongs to a chat no longer shown. */
+	const moveOn = () => {
+		session.current++;
+		busy.current = { sending: false, loading: false };
+		setSending(false);
+		setLoading(false);
+	};
 
 	const open = useCallback((id: string) => {
-		const token = ++openToken.current;
+		moveOn();
+		const mine = session.current;
 		openedId.current = id;
+		busy.current.loading = true;
 		setLoading(true);
-		setNotice(null);
+		setProblem(null);
 		getStakAiMessages(id)
 			.then((r) => {
-				if (token !== openToken.current) return;
+				if (mine !== session.current) return;
 				conversationId.current = id;
 				contextSent.current = true;
 				setContext(r.context);
@@ -125,50 +153,69 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 					sources: [],
 				})));
 			})
-			.catch(() => { if (token === openToken.current) setNotice({ type: "loadFailed" }); })
-			.finally(() => { if (token === openToken.current) setLoading(false); });
+			.catch(() => { if (mine === session.current) setProblem({ type: "loadFailed" }); })
+			.finally(() => { if (mine === session.current) { busy.current.loading = false; setLoading(false); } });
 	}, []);
 
-	const ask = useCallback(async (question: string, allowRestart: boolean): Promise<void> => {
+	const ask = useCallback(async (question: string, allowRestart: boolean, mine: number): Promise<void> => {
+		let r: StakAiChatReply;
 		try {
-			const r = await sendStakAiMessage(question, conversationId.current ?? undefined, contextSent.current ? undefined : contextRef.current ?? undefined);
-			contextSent.current = true;
-			conversationId.current = r.conversationId;
-			usageVersion.current++;
-			applyUsage(r.usage);
-			setMessages((ms) => [...ms, {
-				key: nextKey.current++, fromUser: false, text: r.response, id: r.messageId,
-				kind: r.answerKind, followUps: r.followUps, sources: r.sources,
-			}]);
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const slow = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SlowAnswer()), SLOW_MS); });
+			try {
+				r = await Promise.race([
+					sendStakAiMessage(question, conversationId.current ?? undefined, contextSent.current ? undefined : contextRef.current ?? undefined),
+					slow,
+				]);
+			} finally {
+				clearTimeout(timer);
+			}
 		} catch (e) {
+			if (mine !== session.current) return;
 			const body = e instanceof ApiError ? (e.body as { code?: string; usage?: StakAiUsage } | undefined) : undefined;
 			if (body?.code === "not_found" && allowRestart && conversationId.current) {
 				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
 				conversationId.current = null;
 				contextSent.current = false;
-				return ask(question, false);
+				return ask(question, false, mine);
 			}
 			if (body?.code === "limit_reached") {
-				usageVersion.current++;
-				applyUsage(body.usage ?? null);
+				setUsage(body.usage);
 				setMessages((ms) => ms.slice(0, -1));
 				setReturnedDraft(question);
 				return;
 			}
 			setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 ? { ...m, failed: true } : m)));
-			setNotice({ type: "failed", offline: !(e instanceof ApiError) });
+			setProblem(e instanceof SlowAnswer ? { type: "slow" } : { type: "failed", offline: !(e instanceof ApiError) });
+			return;
 		}
-	}, [applyUsage]);
+		setUsage(r.usage);
+		void qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY });
+		if (mine !== session.current) return;
+		contextSent.current = true;
+		conversationId.current = r.conversationId;
+		// Left the page before the first answer came back: reopen this chat on return.
+		if (!mounted.current && fromLauncher && !stakAiLauncher.conversationId && !stakAiLauncher.context) stakAiLauncher.resume = r.conversationId;
+		setMessages((ms) => [...ms, {
+			key: nextKey.current++, fromUser: false, text: r.response, id: r.messageId,
+			kind: r.answerKind, followUps: r.followUps, sources: r.sources,
+		}]);
+	}, [qc, setUsage, fromLauncher]);
 
 	const send = useCallback((text: string) => {
 		const question = text.trim();
 		if (!question || busy.current.sending || busy.current.loading) return;
 		busy.current.sending = true;
+		const mine = session.current;
 		// A resend replaces the failed line rather than repeating it.
 		setMessages((ms) => [...ms.filter((m) => !m.failed), { key: nextKey.current++, fromUser: true, text: question, kind: "answer", followUps: [], sources: [] }]);
-		setNotice(null);
+		setProblem(null);
 		setSending(true);
-		void ask(question, true).finally(() => setSending(false));
+		void ask(question, true, mine).finally(() => {
+			if (mine !== session.current) return;
+			busy.current.sending = false;
+			setSending(false);
+		});
 	}, [ask]);
 
 	/** Ask the failed question again. */
@@ -187,47 +234,48 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 		sendStakAiFeedback(m.id, next).catch(() => set(before));
 	}, []);
 
-	/** Start over: a fresh conversation with no page context (and stop loading a past one). */
+	/** Start over: a fresh conversation with no page context (an answer still on its way stays in its own chat). */
 	const newChat = useCallback(() => {
-		if (busy.current.sending) return;
-		openToken.current++;
-		setLoading(false);
+		moveOn();
 		setMessages([]);
 		conversationId.current = null;
 		openedId.current = null;
 		contextSent.current = false;
 		setContext(null);
-		setNotice(() => (usage && usage.remaining <= 0 ? { type: "limit", resetsAt: usage.resetsAt } : null));
-	}, [usage]);
+		setProblem(null);
+	}, []);
 
 	const retryOpen = useCallback(() => { if (openedId.current) open(openedId.current); }, [open]);
 
+	/** Takes the question handed back to the input box (out of questions, or left there by the page that opened this). */
 	const consumeReturnedDraft = useCallback(() => {
 		const d = returnedDraft;
 		setReturnedDraft(null);
 		return d;
 	}, [returnedDraft]);
 
-	// Mount: the questions-left count, then a past chat to reopen or a first question to ask.
+	// Mount: a past chat to reopen, a first question to ask, or a question to leave in the box.
 	useEffect(() => {
-		const version = usageVersion.current;
-		getStakAiUsage().then((u) => { if (version === usageVersion.current) applyUsage(u); }).catch(() => {});
+		mounted.current = true;
 		if (fromLauncher) {
 			const reopen = stakAiLauncher.conversationId ?? stakAiLauncher.resume;
 			const first = stakAiLauncher.question;
+			const draft = stakAiLauncher.draft;
 			resetStakAiLauncher();
 			if (reopen) open(reopen);
 			else if (first) send(first);
+			else if (draft) setReturnedDraft(draft);
 		}
 		return () => {
-			if (unlockTimer.current) clearTimeout(unlockTimer.current);
+			mounted.current = false;
 			// Leaving the page (to its history, say): come back to this conversation.
-			if (fromLauncher && !stakAiLauncher.conversationId && !stakAiLauncher.context) stakAiLauncher.resume = conversationId.current;
+			if (fromLauncher && !stakAiLauncher.conversationId && !stakAiLauncher.context && conversationId.current) stakAiLauncher.resume = conversationId.current;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
 	}, []);
 
 	const outOfQuestions = (usage?.remaining ?? 1) <= 0;
+	const notice: AiNotice | null = problem ?? (outOfQuestions && usage ? { type: "limit", resetsAt: usage.resetsAt } : null);
 	return {
 		messages, context, usage, sending, loading, notice, returnedDraft,
 		outOfQuestions,
@@ -254,4 +302,9 @@ export function nextQuestionText(resetsAt: string | null): string {
 	if (!at || Number.isNaN(at.getTime())) return "Check back in a few hours.";
 	const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 	return at.toDateString() === new Date().toDateString() ? `Your next one is at ${time}.` : `Your next one is tomorrow at ${time}.`;
+}
+
+/** "You get 5 questions every 6 hours…" - from the live limit, so the copy can't drift from the server. */
+export function limitRule(limit: number | undefined): string {
+	return `You get ${limit ?? 5} questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.`;
 }

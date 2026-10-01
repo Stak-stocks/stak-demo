@@ -1,52 +1,58 @@
-import { useCallback, useEffect, useState } from "react";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { deleteStakAiConversation, getStakAiConversations, renameStakAiConversation, type StakAiConversation } from "@/lib/api";
+import { newsAge } from "@/lib/newsText";
+import { STAK_AI_CONVERSATIONS_KEY } from "./useStakAiChat";
 
-/** STAK AI's past chats, newest first, 20 at a time; rename and delete show at once and are put back if they fail. */
+type Page = Awaited<ReturnType<typeof getStakAiConversations>>;
+
+/**
+ * STAK AI's past chats, newest first, 20 at a time (React Query: an answer elsewhere invalidates it, and a refetch
+ * keeps every page already loaded). Rename and delete show at once and are put right if they fail.
+ */
 export function useStakAiHistory() {
-	const [conversations, setConversations] = useState<StakAiConversation[]>([]);
-	const [nextBefore, setNextBefore] = useState<string | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [failed, setFailed] = useState(false);
+	const qc = useQueryClient();
+	const query = useInfiniteQuery({
+		queryKey: STAK_AI_CONVERSATIONS_KEY,
+		queryFn: ({ pageParam }) => getStakAiConversations(pageParam),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (last) => last.nextBefore ?? undefined,
+	});
+	const conversations = query.data?.pages.flatMap((p) => p.conversations) ?? [];
 
-	const load = useCallback((before?: string) => {
-		setLoading(true);
-		setFailed(false);
-		getStakAiConversations(before)
-			.then((r) => {
-				setConversations((cur) => (before ? [...cur, ...r.conversations] : r.conversations));
-				setNextBefore(r.nextBefore);
-			})
-			.catch(() => setFailed(true))
-			.finally(() => setLoading(false));
-	}, []);
-
-	useEffect(() => { load(); }, [load]);
+	const edit = useCallback((change: (c: StakAiConversation[]) => StakAiConversation[]) => {
+		qc.setQueryData<InfiniteData<Page>>(STAK_AI_CONVERSATIONS_KEY, (d) => d && { ...d, pages: d.pages.map((p) => ({ ...p, conversations: change(p.conversations) })) });
+	}, [qc]);
 
 	const rename = useCallback((c: StakAiConversation, title: string) => {
 		const t = title.trim().slice(0, 80);
 		if (!t || t === c.title) return;
-		const put = (v: string) => setConversations((cur) => cur.map((x) => (x.id === c.id ? { ...x, title: v } : x)));
-		put(t);
-		renameStakAiConversation(c.id, t).catch(() => put(c.title));
-	}, []);
+		edit((cs) => cs.map((x) => (x.id === c.id ? { ...x, title: t } : x)));
+		renameStakAiConversation(c.id, t).catch(() => edit((cs) => cs.map((x) => (x.id === c.id ? { ...x, title: c.title } : x))));
+	}, [edit]);
 
 	const remove = useCallback((c: StakAiConversation) => {
-		let before: StakAiConversation[] = [];
-		setConversations((cur) => { before = cur; return cur.filter((x) => x.id !== c.id); });
-		deleteStakAiConversation(c.id).catch(() => setConversations(before));
-	}, []);
+		edit((cs) => cs.filter((x) => x.id !== c.id));
+		// Failed: fetch the list again rather than restore a snapshot that may predate other changes.
+		deleteStakAiConversation(c.id).catch(() => qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY }));
+	}, [edit, qc]);
 
-	return { conversations, loading, failed, hasMore: nextBefore != null, reload: () => load(), loadMore: () => { if (nextBefore) load(nextBefore); }, rename, remove };
+	return {
+		conversations,
+		loading: query.isPending || query.isFetchingNextPage,
+		failed: query.isError,
+		hasMore: query.hasNextPage,
+		reload: () => { void query.refetch(); },
+		loadMore: () => { void query.fetchNextPage(); },
+		rename,
+		remove,
+	};
 }
 
-/** "Just now", "12m ago", "3h ago", "2d ago", or the date. */
+/** "Just now", "12m ago", "3h ago", "30d ago" - Android's StakClock.ago, from lib/newsText's shared newsAge. */
 export function ago(iso: string, now = Date.now()): string {
 	const t = Date.parse(iso);
 	if (Number.isNaN(t)) return "";
-	const mins = Math.floor((now - t) / 60_000);
-	if (mins < 1) return "Just now";
-	if (mins < 60) return `${mins}m ago`;
-	if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
-	if (mins < 10_080) return `${Math.floor(mins / 1440)}d ago`;
-	return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+	const age = newsAge(t / 1000, now);
+	return age === "0m" ? "Just now" : `${age} ago`;
 }

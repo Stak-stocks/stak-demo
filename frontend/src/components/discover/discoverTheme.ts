@@ -36,6 +36,12 @@ export const DISC = {
 	passInk: "#B0B8CC",
 	saveTint: "#69B3CA",
 	noticeInk: "#D7DEEA",
+	/** Android's StakColors.SurfaceAlt: raised inputs and chips on a card. */
+	surfaceAlt: "#172037",
+	/** Android's StakColors.CardBorder: hairlines on navy cards. */
+	cardBorder: "#243049",
+	/** Destructive text (Delete) that stays readable on dark panels (redDown is too dim at small sizes). */
+	dangerText: "#FF6B6B",
 	cta: "linear-gradient(to bottom, #A6E4F7 8.9%, #5DA8BF 39.2%, #3C98B4 72.6%, #3C98B4 100%)",
 } as const;
 

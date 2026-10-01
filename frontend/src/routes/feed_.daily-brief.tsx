@@ -163,7 +163,7 @@ function DailyBriefPage() {
 					</div>
 				</Card>
 
-				{/* STAK AI (2026-10-01): the suggested question asks itself, with today's brief as context. */}
+				{/* STAK AI (2026-10-01): the suggested question goes into the chat's box (with today's brief as context) for the person to send. */}
 				{brief.contextQuestion?.trim() && (
 					<button type="button" onClick={() => openStakAi(briefContext(brief), brief.contextQuestion)} className={`flex w-full items-center text-left ${PRESS}`} style={{ gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(18), ...focusRing }}>
 						<div className="flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(8) }}>
@@ -178,7 +178,7 @@ function DailyBriefPage() {
 						</svg>
 					</button>
 				)}
-				<AskAiCard variant="phone" title="Ask a follow-up" subtitle="STAK AI answers questions about today's brief in plain English." onOpen={() => openStakAi(briefContext(brief))} />
+				<AskAiCard variant="phone" title="Ask your own question" subtitle="STAK AI answers questions about today's brief in plain English." onOpen={() => openStakAi(briefContext(brief))} />
 			</div>
 		</PhonePage>
 	);
