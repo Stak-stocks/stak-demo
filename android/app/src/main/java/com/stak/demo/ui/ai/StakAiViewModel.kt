@@ -11,6 +11,8 @@ import com.stak.demo.data.StakAiContext
 import com.stak.demo.data.StakAiError
 import com.stak.demo.data.StakAiRepository
 import com.stak.demo.data.StakAiSource
+import com.stak.demo.data.StakAiStreamEvent
+import com.stak.demo.data.StakAiStreamException
 import com.stak.demo.data.StakAiUsage
 import com.stak.demo.data.httpErrorBody
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,11 +33,14 @@ object StakAiLauncher {
 	var context: StakAiContext? = null
 	var question: String? = null
 	var conversationId: String? = null
+	/** Where it was opened from, for the usage stats: "header", "stock", "article" or "brief". */
+	var entry: String? = null
 
 	fun reset() {
 		context = null
 		question = null
 		conversationId = null
+		entry = null
 	}
 }
 
@@ -52,6 +57,8 @@ data class AiMessage(
 	val sources: List<StakAiSource> = emptyList(),
 	/** A question that got no answer; the chat offers to resend it. */
 	val failed: Boolean = false,
+	/** An answer still being written (streamed); replaced by the finished one. */
+	val streaming: Boolean = false,
 )
 
 /** Something the chat needs to tell the person, shown above the input. */
@@ -99,8 +106,11 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 	init {
 		val reopen = StakAiLauncher.conversationId
 		val first = StakAiLauncher.question
+		val entry = StakAiLauncher.entry
 		context = StakAiLauncher.context
 		StakAiLauncher.reset()
+		// A fresh open (not a past chat reopened from history) counts toward the usage stats.
+		if (reopen == null) viewModelScope.launch { repo.trackOpen(entry ?: "header") }
 		refreshUsage()
 		if (reopen != null) open(reopen) else if (!first.isNullOrBlank()) send(first)
 	}
@@ -111,7 +121,8 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 
 	fun consumeReturnedDraft(): String? = returnedDraft.also { returnedDraft = null }
 
-	fun send(text: String) {
+	/** [via] says how it was asked, for the usage stats: "typed", "starter", "followup" or "retry". */
+	fun send(text: String, via: String = "typed") {
 		val question = text.trim()
 		if (question.isEmpty() || sending || loading) return
 		// A resend replaces the failed line rather than repeating it.
@@ -119,31 +130,46 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 		notice = null
 		sending = true
 		viewModelScope.launch {
-			ask(question, allowRestart = true)
+			ask(question, allowRestart = true, via = via)
 			sending = false
 		}
 	}
 
-	private suspend fun ask(question: String, allowRestart: Boolean) {
+	private suspend fun ask(question: String, allowRestart: Boolean, via: String) {
+		// The answer appears as it's written, in a line of its own that the finished answer replaces.
+		val streamKey = nextKey++
+		var reply: com.stak.demo.data.StakAiChatReply? = null
 		runCatching {
-			repo.chat(StakAiChatRequest(message = question, conversationId = conversationId, context = context.takeIf { !contextSent }))
-		}.onSuccess { r ->
+			repo.chatStream(StakAiChatRequest(message = question, conversationId = conversationId, context = context.takeIf { !contextSent }, via = via)).collect { ev ->
+				when (ev) {
+					is StakAiStreamEvent.Text -> {
+						val line = AiMessage(key = streamKey, fromUser = false, text = ev.soFar, streaming = true)
+						messages = if (messages.any { it.key == streamKey }) messages.map { if (it.key == streamKey) line else it } else messages + line
+					}
+					is StakAiStreamEvent.Done -> reply = ev.reply
+				}
+			}
+		}.onSuccess {
+			val r = reply ?: return@onSuccess
 			contextSent = true
 			conversationId = r.conversationId
 			usageVersion++
 			applyUsage(r.usage)
-			messages = messages + AiMessage(
-				key = nextKey++, fromUser = false, text = r.response, id = r.messageId,
+			val finished = AiMessage(
+				key = streamKey, fromUser = false, text = r.response, id = r.messageId,
 				kind = r.answerKind, followUps = r.followUps, sources = r.sources,
 			)
+			messages = if (messages.any { it.key == streamKey }) messages.map { if (it.key == streamKey) finished else it } else messages + finished
 		}.onFailure { e ->
+			// A half-written answer that didn't finish comes off the screen.
+			messages = messages.filterNot { it.key == streamKey }
 			val err = errorBody(e)
 			when {
 				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
 				err?.code == "not_found" && allowRestart && conversationId != null -> {
 					conversationId = null
 					contextSent = false
-					ask(question, allowRestart = false)
+					ask(question, allowRestart = false, via = via)
 				}
 				err?.code == "limit_reached" -> {
 					usageVersion++
@@ -158,7 +184,7 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 				}
 				else -> {
 					markLastFailed()
-					notice = AiNotice.Failed(offline = e is IOException)
+					notice = AiNotice.Failed(offline = e is IOException && e !is StakAiStreamException)
 				}
 			}
 		}
@@ -166,7 +192,7 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 
 	/** Ask the failed question again. */
 	fun retry() {
-		messages.lastOrNull { it.failed }?.let { send(it.text) }
+		messages.lastOrNull { it.failed }?.let { send(it.text, via = "retry") }
 	}
 
 	/** Thumbs on an answer; tapping the same thumb again clears it. Shown at once, put back if the save fails. */

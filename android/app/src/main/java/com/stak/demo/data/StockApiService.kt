@@ -8,6 +8,7 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface StockApiService {
     @GET("api/stock/batch-quotes")
@@ -165,6 +166,11 @@ interface StockApiService {
     // STAK AI - see StakAiModels.kt (mirrors shared/src/stakAi.ts).
     @POST("api/stak-ai/chat")
     suspend fun stakAiChat(@Body body: StakAiChatRequest): StakAiChatReply
+
+    /** The same answer as server-sent events (`delta`, then `done` or `error`) - read with StakAiRepository.chatStream. */
+    @Streaming
+    @POST("api/stak-ai/chat/stream")
+    suspend fun stakAiChatStream(@Body body: StakAiChatRequest): retrofit2.Response<okhttp3.ResponseBody>
 
     @GET("api/stak-ai/usage")
     suspend fun stakAiUsage(): StakAiUsage

@@ -48,7 +48,18 @@ data class StakAiChatRequest(
 	val message: String,
 	val conversationId: String? = null,
 	val context: StakAiContext? = null,
+	/** How it was asked, for the usage stats: "typed", "starter", "followup" or "retry". */
+	val via: String? = null,
 )
+
+/** What a streamed answer sends: the answer so far as it's written, then the finished reply. */
+sealed interface StakAiStreamEvent {
+	data class Text(val soFar: String) : StakAiStreamEvent
+	data class Done(val reply: StakAiChatReply) : StakAiStreamEvent
+}
+
+/** A streamed answer that failed part-way (its `error` event): [code] is a StakAiErrorCode. */
+class StakAiStreamException(val code: String, message: String) : Exception(message)
 
 /** Questions left in the rolling window; `resetsAt` (ISO) is when the oldest counted one frees a slot. */
 data class StakAiUsage(

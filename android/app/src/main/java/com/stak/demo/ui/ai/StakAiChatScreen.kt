@@ -157,7 +157,7 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 			contentPadding = PaddingValues(top = (12 * u).dp, bottom = (16 * u).dp),
 		) {
 			if (vm.messages.isEmpty() && !vm.loading && !vm.sending && vm.notice != AiNotice.LoadFailed) {
-				item { EmptyState(vm.context, enabled = vm.canAsk) { q -> vm.send(q) } }
+				item { EmptyState(vm.context, enabled = vm.canAsk) { q -> vm.send(q, via = "starter") } }
 			}
 			val lastAnswerKey = vm.messages.lastOrNull { !it.fromUser }?.key
 			items(vm.messages, key = { it.key }) { m ->
@@ -170,12 +170,13 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 						latest = latest,
 						showFollowUps = latest && vm.canAsk,
 						onRate = { v -> vm.rate(m, v) },
-						onFollowUp = { q -> vm.send(q) },
+						onFollowUp = { q -> vm.send(q, via = "followup") },
 					)
 				}
 			}
 			if (vm.loading) item { Text("Loading chat…", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = StakColors.Muted) }
-			if (vm.sending) item { TypingDots() }
+			// The dots until the first words arrive; then the answer writes itself out.
+			if (vm.sending && vm.messages.lastOrNull()?.streaming != true) item { TypingDots() }
 		}
 
 		vm.notice?.let { NoticeCard(it, onRetry = vm::retry, onRetryOpen = vm::retryOpen, onNewChat = vm::newChat) }
@@ -577,7 +578,9 @@ fun AskAiCard(title: String, subtitle: String, context: () -> StakAiContext, onO
 		modifier = modifier.fillMaxWidth().clip(RoundedCornerShape((14 * u).dp)).background(StakColors.Surface).border((1 * u).dp, StakColors.Teal.copy(alpha = 0.35f), RoundedCornerShape((14 * u).dp))
 			.clickable(role = Role.Button, interactionSource = remember { MutableInteractionSource() }, indication = PressDim) {
 				StakAiLauncher.reset()
-				StakAiLauncher.context = context()
+				val ctx = context()
+				StakAiLauncher.context = ctx
+				StakAiLauncher.entry = ctx.type
 				onOpen()
 			}
 			.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),

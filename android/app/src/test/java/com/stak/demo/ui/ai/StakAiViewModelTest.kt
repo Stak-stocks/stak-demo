@@ -9,7 +9,10 @@ import com.stak.demo.data.StakAiConversationsResponse
 import com.stak.demo.data.StakAiMessageDto
 import com.stak.demo.data.StakAiMessagesResponse
 import com.stak.demo.data.StakAiRepository
+import com.stak.demo.data.StakAiStreamEvent
 import com.stak.demo.data.StakAiUsage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,11 +40,24 @@ private class FakeRepo : StakAiRepository {
 	var messagesGate: CompletableDeferred<StakAiMessagesResponse>? = null
 	var failFeedback = false
 	var failDelete = false
+	/** Text the next streamed answer writes before it finishes (or fails). */
+	var streamFirst: List<String> = emptyList()
+	/** Holds a streamed answer open after its text, until completed (to see it mid-stream). */
+	var streamGate: CompletableDeferred<Unit>? = null
+	val opens = mutableListOf<String>()
 
 	override suspend fun chat(request: StakAiChatRequest): StakAiChatReply {
 		requests += request
 		return outcomes.removeFirst()()
 	}
+	override fun chatStream(request: StakAiChatRequest): Flow<StakAiStreamEvent> = flow {
+		requests += request
+		streamFirst.forEach { emit(StakAiStreamEvent.Text(it)) }
+		streamFirst = emptyList()
+		streamGate?.await()
+		emit(StakAiStreamEvent.Done(outcomes.removeFirst()()))
+	}
+	override suspend fun trackOpen(entry: String) { opens += entry }
 	override suspend fun usage() = usage
 	override suspend fun conversations(before: String?) = StakAiConversationsResponse(listOf(StakAiConversation(id = "c1", title = "One"), StakAiConversation(id = "c2", title = "Two")))
 	override suspend fun messages(conversationId: String) = messagesGate?.await() ?: StakAiMessagesResponse(
@@ -79,6 +95,52 @@ class StakAiViewModelTest {
 		assertEquals(listOf(true, false), vm.messages.map { it.fromUser })
 		assertEquals(4, vm.usage?.remaining)
 		assertFalse(vm.sending)
+	}
+
+	@Test fun theAnswerIsWrittenOutThenReplacedByTheFinishedOne() {
+		val gate = CompletableDeferred<Unit>()
+		repo.streamFirst = listOf("Chips", "Chips fell")
+		repo.streamGate = gate
+		repo.outcomes += { reply(text = "Chips fell on export curbs.") }
+		val vm = StakAiViewModel(repo)
+		vm.send("Why?", via = "starter")
+		// Mid-stream: the words so far, marked as still being written.
+		assertEquals("Chips fell", vm.messages.last().text)
+		assertTrue(vm.messages.last().streaming)
+		gate.complete(Unit)
+		val last = vm.messages.last()
+		assertEquals("Chips fell on export curbs.", last.text)
+		assertFalse(last.streaming)
+		assertEquals(2, vm.messages.size)
+		assertEquals("starter", repo.requests.single().via)
+	}
+
+	@Test fun aHalfWrittenAnswerThatFailsComesOffTheScreen() {
+		repo.streamFirst = listOf("Chips fe")
+		repo.outcomes += { throw IOException("cut off") }
+		val vm = StakAiViewModel(repo)
+		vm.send("Why?")
+		assertEquals(1, vm.messages.size)
+		assertTrue(vm.messages.single().failed)
+	}
+
+	@Test fun openingCountsWhereItCameFromButReopeningDoesNot() {
+		StakAiLauncher.context = StakAiContext.stock("nvda")
+		StakAiLauncher.entry = "stock"
+		StakAiViewModel(repo)
+		assertEquals(listOf("stock"), repo.opens)
+		StakAiLauncher.conversationId = "old"
+		StakAiViewModel(repo)
+		assertEquals(listOf("stock"), repo.opens)
+	}
+
+	@Test fun aRetryIsMarkedAsOne() {
+		repo.outcomes += { throw IOException("offline") }
+		repo.outcomes += { reply() }
+		val vm = StakAiViewModel(repo)
+		vm.send("What is beta?")
+		vm.retry()
+		assertEquals(listOf("typed", "retry"), repo.requests.map { it.via })
 	}
 
 	@Test fun thePageContextGoesWithTheFirstQuestionOnly() {
