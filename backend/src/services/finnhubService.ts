@@ -330,9 +330,13 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	const quotedName = encodeURIComponent('"' + companyName + '"');
 	const url = `https://newsapi.org/v2/everything?q=${quotedName}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
-	const res = await fetch(url);
-	if (!res.ok) {
-		console.warn(`NewsAPI error: ${res.status}`);
+	// A slow NewsAPI mustn't hold up the page (or STAK AI) behind it.
+	const res = await fetch(url, { signal: AbortSignal.timeout(6000) }).catch((e: Error) => {
+		console.warn(`NewsAPI request failed: ${e.message}`);
+		return null;
+	});
+	if (!res?.ok) {
+		if (res) console.warn(`NewsAPI error: ${res.status}`);
 		return [];
 	}
 
@@ -374,7 +378,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 	const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=10&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
 	try {
-		const res = await fetch(url);
+		const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
 		if (!res.ok) return [];
 		const data = await res.json();
 		const articles: FinnhubArticle[] = (data.articles ?? [])

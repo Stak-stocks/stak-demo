@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
+import type { StakAiChatReply, StakAiContext, StakAiUsage } from "@stak/shared";
+export type { StakAiChatReply, StakAiContext, StakAiErrorCode, StakAiSource, StakAiUsage } from "@stak/shared";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -755,25 +757,15 @@ export function getRecommendationDebug(limit = 50) {
 	}>(`/api/recommendations/debug?limit=${limit}`);
 }
 
-// Stak AI
-/** What a chat was opened from; the server adds that context (and the stock's live data) to the question. */
-export type StakAiContext =
-	| { type: "article"; headline: string; summary?: string; source?: string; url?: string; tickers?: string[] }
-	| { type: "stock"; ticker: string }
-	| { type: "brief"; title?: string; points: string[] };
-
-/** Questions left in the rolling window; `resetsAt` is when the oldest one frees a slot (null when none are used). */
-export interface StakAiUsage {
-	limit: number;
-	used: number;
-	remaining: number;
-	resetsAt: string | null;
-}
-
+// Stak AI — the contract (context shapes, usage, the reply, error codes) lives in @stak/shared/stakAi.
 export interface StakAiConversation {
 	id: string;
 	title: string;
 	context_type: StakAiContext["type"] | null;
+	/** The stock's name, the article's headline or "Daily Brief"; null for a chat started from the header. */
+	context_label: string | null;
+	/** The start of the latest answer. */
+	preview: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -787,9 +779,9 @@ export interface StakAiMessage {
 	created_at: string;
 }
 
-/** Ask a question. A 429 is an ApiError whose `body.usage` says when a question frees up. */
+/** Ask a question. Send `context` with the first question only. A failure is an ApiError whose `body.code` is a StakAiErrorCode (and, for limit_reached, `body.usage`). */
 export function sendStakAiMessage(message: string, conversationId?: string, context?: StakAiContext) {
-	return apiRequest<{ response: string; conversationId: string; messageId: number | null; usage: StakAiUsage }>("/api/stak-ai/chat", {
+	return apiRequest<StakAiChatReply>("/api/stak-ai/chat", {
 		method: "POST",
 		body: JSON.stringify({ message, conversationId, context }),
 	});
@@ -799,12 +791,13 @@ export function getStakAiUsage() {
 	return apiRequest<StakAiUsage>("/api/stak-ai/usage");
 }
 
-export function getStakAiConversations() {
-	return apiRequest<{ conversations: StakAiConversation[] }>("/api/stak-ai/conversations");
+/** 20 at a time, newest first; pass the previous page's `nextBefore` for older ones (null when there are no more). */
+export function getStakAiConversations(before?: string) {
+	return apiRequest<{ conversations: StakAiConversation[]; nextBefore: string | null }>(`/api/stak-ai/conversations${before ? `?before=${encodeURIComponent(before)}` : ""}`);
 }
 
 export function getStakAiMessages(conversationId: string) {
-	return apiRequest<{ messages: StakAiMessage[]; context: StakAiContext | null }>(`/api/stak-ai/conversations/${conversationId}/messages`);
+	return apiRequest<{ title: string; context: StakAiContext | null; messages: StakAiMessage[] }>(`/api/stak-ai/conversations/${conversationId}/messages`);
 }
 
 export function renameStakAiConversation(conversationId: string, title: string) {

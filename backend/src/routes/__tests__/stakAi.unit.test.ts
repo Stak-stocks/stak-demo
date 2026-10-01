@@ -2,8 +2,12 @@ import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Every query, from pgQuery or a transaction's client, lands in this one mock so tests can see them all in order.
 const pgQueryMock = vi.fn();
-vi.mock("../../lib/postgres.js", () => ({ pgQuery: pgQueryMock }));
+vi.mock("../../lib/postgres.js", () => ({
+	pgQuery: pgQueryMock,
+	pgPool: { connect: async () => ({ query: pgQueryMock, release: () => {} }) },
+}));
 vi.mock("../../authMiddleware.js", () => ({
 	authMiddleware: (req: any, _res: any, next: any) => {
 		req.user = { uid: "u1", email: "u1@test.com" };
@@ -13,55 +17,72 @@ vi.mock("../../authMiddleware.js", () => ({
 vi.mock("../../services/geminiService.js", () => ({
 	getGeminiKeys: () => ["key-1"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
-	GEMINI_REFUSAL_RE: /^I can't help with that$/,
+	GEMINI_REFUSAL_RE: /^I'm sorry/,
 	GEMINI_MODEL: "gemini-test",
 	geminiUrl: () => "https://gemini.test/generate",
 }));
 const newsMock = vi.fn();
 vi.mock("../../services/finnhubService.js", () => ({ getCompanyNews: newsMock }));
+const stockLookups: string[] = [];
+vi.mock("../stock.js", () => ({
+	getStockSnapshot: async (t: string) => {
+		stockLookups.push(t);
+		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1 } };
+	},
+}));
 
-/** What the fake database holds for the test: the window's usage, and an optional existing conversation. */
+const CONV_1 = "11111111-1111-4111-8111-111111111111";
+const CONV_2 = "22222222-2222-4222-8222-222222222222";
+
+/** What the fake database holds: the window's usage, an optional existing conversation, and failure switches. */
 interface Db {
 	used: number;
-	oldest?: string | null;
-	conversation?: { id: string; uid: string; context: unknown; last_tickers: string[] } | null;
+	conversation?: { id: string; uid: string; title?: string; context: unknown; last_tickers: string[] } | null;
+	failMessageInsert?: boolean;
 }
 let db: Db;
 
-/** Routes each query by its SQL, the way the real tables would answer it. */
+/** Answers each query by its SQL, the way the real tables would. */
 function fakePg(sql: string, params: unknown[] = []) {
 	const rows = (r: unknown[]) => Promise.resolve({ rows: r, rowCount: r.length });
-	if (/FROM stak_ai_usage/.test(sql)) return rows([{ used: db.used, oldest: db.oldest ?? (db.used ? "2026-10-01T10:00:00.000Z" : null) }]);
-	if (/SELECT id, context, last_tickers FROM stak_ai_conversations/.test(sql)) {
+	const s = sql.trim();
+	if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(s) || /pg_advisory_xact_lock/.test(s)) return rows([]);
+	if (/FROM stak_ai_usage/.test(s)) return rows([{ used: db.used, oldest: db.used ? "2026-10-01T10:00:00.000Z" : null }]);
+	if (/^INSERT INTO stak_ai_usage/.test(s)) return rows([{ id: 77 }]);
+	if (/^DELETE FROM stak_ai_usage/.test(s)) return rows([]);
+	if (/SELECT id, context, last_tickers FROM stak_ai_conversations/.test(s) || /SELECT id, title, context FROM stak_ai_conversations/.test(s)) {
 		const c = db.conversation;
-		return rows(c && c.id === params[0] && c.uid === params[1] ? [c] : []);
+		return rows(c && c.id === params[0] && c.uid === params[1] ? [{ title: "A chat", ...c }] : []);
 	}
-	if (/FROM users WHERE uid/.test(sql)) return rows([{ tag_scores: { tech: 3 }, preferences: { familiarity: "beginner" }, research_cohort: true }]);
-	if (/FROM stak_brands/.test(sql)) return rows([]);
-	if (/FROM stak_ai_messages WHERE conversation_id/.test(sql)) return rows([]);
-	if (/INSERT INTO stak_ai_conversations/.test(sql)) return rows([{ id: "conv-new" }]);
-	if (/INSERT INTO stak_ai_messages/.test(sql)) return rows([{ id: 11, role: "user" }, { id: 12, role: "assistant" }]);
-	if (/^(DELETE|UPDATE) .*stak_ai_conversations/s.test(sql.trim())) {
+	if (/FROM users WHERE uid/.test(s)) return rows([{ tag_scores: { tech: 3 }, preferences: {}, research_cohort: true }]);
+	if (/FROM stak_brands/.test(s)) return rows([]);
+	if (/FROM stak_ai_messages WHERE conversation_id = \$1 ORDER BY created_at DESC/.test(s)) return rows([]);
+	if (/^INSERT INTO stak_ai_conversations/.test(s)) return rows([{ id: "conv-new" }]);
+	if (/^INSERT INTO stak_ai_messages/.test(s)) {
+		if (db.failMessageInsert) return Promise.reject(new Error("insert failed"));
+		return rows([{ id: 11, role: "user" }, { id: 12, role: "assistant" }]);
+	}
+	if (/FROM stak_ai_conversations c/.test(s)) {
+		return rows([{ id: CONV_1, title: "NVIDIA: Why is it down?", context: { type: "stock", ticker: "NVDA" }, preview: "It fell on export curbs.", created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:05:00Z" }]);
+	}
+	if (/FROM stak_ai_messages WHERE conversation_id = \$1 AND uid/.test(s)) return rows([{ id: 12, role: "assistant", content: "Hi", feedback: 1, created_at: "x" }]);
+	if (/^(DELETE|UPDATE) .*stak_ai_conversations/s.test(s)) {
 		const c = db.conversation;
 		return rows(c && c.id === params[0] && c.uid === params[1] ? [{ id: c.id }] : []);
 	}
-	if (/UPDATE stak_ai_messages SET feedback/.test(sql)) return rows(params[0] === 12 ? [{ id: 12 }] : []);
+	if (/UPDATE stak_ai_messages SET feedback/.test(s)) return rows(params[0] === 12 && params[1] === "u1" ? [{ id: 12 }] : []);
 	return rows([]);
 }
 
-/** Every request body sent to Gemini, and every stock looked up, so tests can see what the model was given. */
+/** Every request body sent to Gemini; the model's next reply text (null makes the call fail). */
 let geminiBodies: any[];
-let stockLookups: string[];
+let geminiReply: string | null;
 function stubFetch() {
 	geminiBodies = [];
-	stockLookups = [];
-	vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { body?: string }) => {
-		if (url.includes("/api/stock/")) {
-			stockLookups.push(decodeURIComponent(url.split("/api/stock/")[1]!));
-			return new Response(JSON.stringify({ quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1 } }));
-		}
+	vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: { body?: string }) => {
 		geminiBodies.push(JSON.parse(init!.body!));
-		return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Here's what happened." }] } }] }));
+		if (geminiReply === null) return new Response("boom", { status: 500 });
+		return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: geminiReply }] } }] }));
 	}));
 }
 
@@ -74,54 +95,83 @@ async function buildApp() {
 	return app;
 }
 
-/** All the text the model saw for the latest question, notes included. */
 const promptText = () => JSON.stringify(geminiBodies.at(-1)!.contents);
+const calls = (re: RegExp) => pgQueryMock.mock.calls.filter(([sql]) => re.test(sql));
 
 beforeEach(() => {
 	db = { used: 0, conversation: null };
+	stockLookups.length = 0;
 	pgQueryMock.mockReset();
 	pgQueryMock.mockImplementation(fakePg);
 	newsMock.mockReset();
-	newsMock.mockResolvedValue([{ headline: "Chip stocks slide on export curbs" }]);
+	newsMock.mockResolvedValue([{ headline: "Chip stocks slide on export curbs", url: "https://news.test/a" }]);
+	geminiReply = "It fell on export curbs.\n[[FOLLOWUPS]] What are export curbs? | Did other chip stocks fall?";
 	stubFetch();
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("POST /chat", () => {
-	it("refuses once the window is used up, and says when a slot frees", async () => {
+	it("refuses once the window is used up, with a code and when a slot frees", async () => {
 		db.used = 5;
 		const res = await request(await buildApp()).post("/chat").send({ message: "Why did Nvidia drop?" });
 		expect(res.status).toBe(429);
+		expect(res.body.code).toBe("limit_reached");
 		expect(res.body.usage).toEqual({ limit: 5, used: 5, remaining: 0, resetsAt: "2026-10-01T16:00:00.000Z" });
 		expect(geminiBodies).toHaveLength(0);
+		expect(calls(/^INSERT INTO stak_ai_usage/)).toHaveLength(0);
 	});
 
-	it("opened from a stock page, it gets that stock's live data and remembers the page", async () => {
-		const res = await request(await buildApp()).post("/chat").send({ message: "Why is it down today?", context: { type: "stock", ticker: "nvda" } });
+	it("claims the question under a per-user lock before calling the AI", async () => {
+		await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		const sqls = pgQueryMock.mock.calls.map(([sql]) => String(sql).trim());
+		const lock = sqls.findIndex((s) => /pg_advisory_xact_lock/.test(s));
+		const claim = sqls.findIndex((s) => /^INSERT INTO stak_ai_usage/.test(s));
+		expect(lock).toBeGreaterThan(-1);
+		expect(claim).toBeGreaterThan(lock);
+	});
+
+	it("opened from a stock page: that stock's data, a labelled title, follow-ups and sources", async () => {
+		const res = await request(await buildApp()).post("/chat").send({ message: "why is it down today?", context: { type: "stock", ticker: "nvda" } });
 		expect(res.status).toBe(200);
-		expect(res.body).toMatchObject({ response: "Here's what happened.", conversationId: "conv-new", messageId: 12 });
+		expect(res.body).toMatchObject({ response: "It fell on export curbs.", conversationId: "conv-new", messageId: 12, answerKind: "answer" });
+		expect(res.body.followUps).toEqual(["What are export curbs?", "Did other chip stocks fall?"]);
+		expect(res.body.sources).toEqual([{ ticker: "NVDA", headline: "Chip stocks slide on export curbs", url: "https://news.test/a" }]);
 		expect(res.body.usage).toMatchObject({ used: 1, remaining: 4 });
 		expect(stockLookups).toEqual(["NVDA"]);
 		expect(promptText()).toContain("stock page");
-		expect(promptText()).toContain("Chip stocks slide on export curbs");
-		const insert = pgQueryMock.mock.calls.find(([sql]) => /INSERT INTO stak_ai_conversations/.test(sql))!;
+		const insert = calls(/^\s*INSERT INTO stak_ai_conversations/)[0]!;
+		expect(insert[1][1]).toMatch(/^.+: Why is it down today\?$/);
 		expect(JSON.parse(insert[1][2])).toEqual({ type: "stock", ticker: "NVDA" });
 		expect(insert[1][3]).toEqual(["NVDA"]);
-		expect(pgQueryMock.mock.calls.some(([sql]) => /INSERT INTO stak_ai_usage/.test(sql))).toBe(true);
+		// The stored answer has no markers.
+		expect(calls(/^\s*INSERT INTO stak_ai_messages/)[0]![1][3]).toBe("It fell on export curbs.");
 	});
 
-	it("a follow-up that doesn't name a company keeps the one the conversation was about", async () => {
-		db.conversation = { id: "conv-1", uid: "u1", context: null, last_tickers: ["AAPL"] };
-		const res = await request(await buildApp()).post("/chat").send({ message: "Is that normal for it?", conversationId: "conv-1" });
+	it("a follow-up that points back keeps the conversation's company — even with a word like 'now'", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["AAPL"] };
+		const res = await request(await buildApp()).post("/chat").send({ message: "is that normal for it now?", conversationId: CONV_1 });
 		expect(res.status).toBe(200);
 		expect(stockLookups).toEqual(["AAPL"]);
-		const update = pgQueryMock.mock.calls.find(([sql]) => /UPDATE stak_ai_conversations SET updated_at/.test(sql))!;
-		expect(update[1][1]).toEqual(["AAPL"]);
 	});
 
 	it("naming a new company switches to it", async () => {
-		db.conversation = { id: "conv-1", uid: "u1", context: null, last_tickers: ["AAPL"] };
-		await request(await buildApp()).post("/chat").send({ message: "What about Nvidia?", conversationId: "conv-1" });
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["AAPL"] };
+		await request(await buildApp()).post("/chat").send({ message: "What about Nvidia?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["NVDA"]);
+		expect(calls(/UPDATE stak_ai_conversations SET updated_at/)[0]![1][1]).toEqual(["NVDA"]);
+	});
+
+	it("a general question, or a company it can't recognise, gets no stale data from the last one", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["AAPL"] };
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "What's a P/E ratio?", conversationId: CONV_1 });
+		await request(app).post("/chat").send({ message: "Why is Foobarco moving?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual([]);
+	});
+
+	it("re-sending the same page context doesn't drag a follow-up back to it", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: { type: "stock", ticker: "TSLA" }, last_tickers: ["NVDA"] };
+		await request(await buildApp()).post("/chat").send({ message: "is that normal for it?", conversationId: CONV_1, context: { type: "stock", ticker: "TSLA" } });
 		expect(stockLookups).toEqual(["NVDA"]);
 	});
 
@@ -130,55 +180,130 @@ describe("POST /chat", () => {
 		expect(stockLookups).toEqual(["ZZQX"]);
 	});
 
-	it("an article's headline and summary reach the model; a non-web link is dropped", async () => {
+	it("an article's text reaches the model and titles the chat; a non-web link is dropped", async () => {
 		await request(await buildApp()).post("/chat").send({
 			message: "What does this mean for me?",
-			context: { type: "article", headline: "Apple raises foldable orders", summary: "Suppliers told to prepare 10M units.", source: "Bloomberg", url: "javascript:alert(1)", tickers: ["aapl", "not a ticker", "AAPL"] },
+			context: { type: "article", headline: "Apple raises foldable orders", summary: "Suppliers told to prepare 10M units.", url: "javascript:alert(1)", tickers: ["aapl", "not a ticker", "AAPL"] },
 		});
-		expect(promptText()).toContain("Apple raises foldable orders");
 		expect(promptText()).toContain("Suppliers told to prepare 10M units.");
 		expect(stockLookups).toEqual(["AAPL"]);
-		const insert = pgQueryMock.mock.calls.find(([sql]) => /INSERT INTO stak_ai_conversations/.test(sql))!;
+		const insert = calls(/^\s*INSERT INTO stak_ai_conversations/)[0]!;
+		expect(insert[1][1]).toBe("Apple raises foldable orders");
 		const saved = JSON.parse(insert[1][2]);
 		expect(saved.url).toBeUndefined();
 		expect(saved.tickers).toEqual(["AAPL"]);
+		expect(JSON.parse(calls(/INSERT INTO stak_ai_research_log/)[0]![1][7]).type).toBe("article");
 	});
 
-	it("a malformed context is ignored rather than failing the question", async () => {
-		const res = await request(await buildApp()).post("/chat").send({ message: "What is a P/E ratio?", context: { type: "stock", ticker: "<script>" } });
-		expect(res.status).toBe(200);
-		expect(stockLookups).toEqual([]);
+	it("a declined answer doesn't count and comes back marked", async () => {
+		geminiReply = "[[DECLINED]] I can't tell you whether to buy it, but I can explain what's been moving it.";
+		const res = await request(await buildApp()).post("/chat").send({ message: "Should I buy Tesla?" });
+		expect(res.body.answerKind).toBe("declined");
+		expect(res.body.response).toBe("I can't tell you whether to buy it, but I can explain what's been moving it.");
+		expect(res.body.followUps).toEqual([]);
+		expect(res.body.usage).toMatchObject({ used: 0, remaining: 5 });
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
 	});
 
-	it("someone else's conversation is not found", async () => {
-		db.conversation = { id: "conv-1", uid: "other", context: null, last_tickers: [] };
-		const res = await request(await buildApp()).post("/chat").send({ message: "Hi", conversationId: "conv-1" });
+	it("when the AI fails, nothing is saved and the question is handed back", async () => {
+		geminiReply = null;
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(503);
+		expect(res.body.code).toBe("ai_unavailable");
+		expect(res.body.error).toMatch(/didn't count/);
+		expect(calls(/^\s*INSERT INTO stak_ai_conversations/)).toHaveLength(0);
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
+	});
+
+	it("if saving fails, the whole exchange rolls back and the question is handed back", async () => {
+		db.failMessageInsert = true;
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(500);
+		expect(res.body.code).toBe("server_error");
+		expect(calls(/^ROLLBACK$/).length).toBeGreaterThan(0);
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
+	});
+
+	it("bad input is a 400/404, not a crash", async () => {
+		const app = await buildApp();
+		expect((await request(app).post("/chat").send({ message: 123 })).status).toBe(400);
+		expect((await request(app).post("/chat").send({ message: "Hi", conversationId: "not-a-uuid" })).status).toBe(404);
+	});
+
+	it("someone else's conversation is not found, and the claim is handed back", async () => {
+		db.conversation = { id: CONV_1, uid: "other", context: null, last_tickers: [] };
+		const res = await request(await buildApp()).post("/chat").send({ message: "Hi", conversationId: CONV_1 });
 		expect(res.status).toBe(404);
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
 	});
 
-	it("the instructions the model gets are clean text", async () => {
+	it("the instructions are clean, educational and never advice", async () => {
 		await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
 		const system = geminiBodies[0].system_instruction.parts[0].text as string;
 		expect(system).not.toMatch(/[ÂÃâ][\u0080-¿ -⃿]/);
-		expect(system).toContain("━━━ STYLE ━━━");
-		expect(system).toContain("American English");
+		expect(system).toContain("Comparisons and financial-health questions are welcome");
+		expect(system).toContain("Never tell someone what to do with their money");
+		expect(system).toContain("assume a beginner");
+		// The fixed rules come before the per-user profile.
+		expect(system.indexOf("━━━ STYLE ━━━")).toBeLessThan(system.indexOf("━━━ ABOUT THIS USER ━━━"));
+	});
+});
+
+describe("helpers", () => {
+	it("word-like tickers only count as $cashtags; names that are words need a capital", async () => {
+		const { detectNamedTickers } = await import("../stakAi.js");
+		expect(detectNamedTickers("is that normal for it now? so what?")).toEqual([]);
+		expect(detectNamedTickers("Why did $NOW jump?")).toEqual(["NOW"]);
+		expect(detectNamedTickers("analysts raised the price target")).toEqual([]);
+		expect(detectNamedTickers("why is apple up")).toEqual(["AAPL"]);
+	});
+
+	it("titles are capitalized and cut on a word with an ellipsis", async () => {
+		const { makeTitle } = await import("../stakAi.js");
+		expect(makeTitle("what is beta", null)).toBe("What is beta");
+		const long = makeTitle("how do interest rate decisions by the federal reserve affect tech stocks over time", null);
+		expect(long.length).toBeLessThanOrEqual(61);
+		expect(long.endsWith("…")).toBe(true);
+	});
+
+	it("parseAnswer strips markers wherever they are", async () => {
+		const { parseAnswer } = await import("../stakAi.js");
+		expect(parseAnswer("[[CLARIFY]] Do you mean Apple or Alphabet?")).toEqual({ text: "Do you mean Apple or Alphabet?", kind: "clarify", followUps: [] });
+		expect(parseAnswer("Answer.\n\n[[FOLLOWUPS]] - One? | Two? ")).toEqual({ text: "Answer.", kind: "answer", followUps: ["One?", "Two?"] });
+		expect(parseAnswer("Plain answer.")).toEqual({ text: "Plain answer.", kind: "answer", followUps: [] });
 	});
 });
 
 describe("conversations, usage and feedback", () => {
 	it("usage reports what's left in the window", async () => {
 		db.used = 2;
-		const res = await request(await buildApp()).get("/usage");
-		expect(res.body).toEqual({ limit: 5, used: 2, remaining: 3, resetsAt: "2026-10-01T16:00:00.000Z" });
+		expect((await request(await buildApp()).get("/usage")).body).toEqual({ limit: 5, used: 2, remaining: 3, resetsAt: "2026-10-01T16:00:00.000Z" });
 	});
 
-	it("deletes and renames only the owner's conversation", async () => {
-		db.conversation = { id: "conv-1", uid: "u1", context: null, last_tickers: [] };
+	it("the list labels what each chat was opened from and previews its latest answer", async () => {
+		const res = await request(await buildApp()).get("/conversations");
+		expect(res.body.conversations[0]).toMatchObject({ id: CONV_1, context_type: "stock", preview: "It fell on export curbs." });
+		expect(res.body.conversations[0].context_label).toBeTruthy();
+		expect(res.body.conversations[0].context).toBeUndefined();
+		expect(res.body.nextBefore).toBeNull();
+	});
+
+	it("a conversation's messages come with its title, context and feedback", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", title: "NVIDIA chat", context: { type: "stock", ticker: "NVDA" }, last_tickers: [] };
+		const res = await request(await buildApp()).get(`/conversations/${CONV_1}/messages`);
+		expect(res.body).toMatchObject({ title: "NVIDIA chat", context: { type: "stock", ticker: "NVDA" } });
+		expect(res.body.messages[0]).toMatchObject({ id: 12, feedback: 1 });
+	});
+
+	it("rename and delete only touch the owner's conversation", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: [] };
 		const app = await buildApp();
-		expect((await request(app).patch("/conversations/conv-1").send({ title: "  Nvidia questions  " })).body).toEqual({ ok: true, title: "Nvidia questions" });
-		expect((await request(app).patch("/conversations/conv-1").send({ title: "  " })).status).toBe(400);
-		expect((await request(app).delete("/conversations/conv-2")).status).toBe(404);
-		expect((await request(app).delete("/conversations/conv-1")).body).toEqual({ ok: true });
+		expect((await request(app).patch(`/conversations/${CONV_1}`).send({ title: "  Nvidia questions  " })).body).toEqual({ ok: true, title: "Nvidia questions" });
+		expect((await request(app).patch(`/conversations/${CONV_1}`).send({ title: "  " })).status).toBe(400);
+		expect((await request(app).patch(`/conversations/${CONV_2}`).send({ title: "Mine now" })).status).toBe(404);
+		expect((await request(app).delete(`/conversations/${CONV_2}`)).status).toBe(404);
+		expect((await request(app).delete("/conversations/not-a-uuid")).status).toBe(404);
+		expect((await request(app).delete(`/conversations/${CONV_1}`)).body).toEqual({ ok: true });
 	});
 
 	it("thumbs on an answer: 1, -1 or null; anything else is refused", async () => {
@@ -186,6 +311,7 @@ describe("conversations, usage and feedback", () => {
 		expect((await request(app).post("/messages/12/feedback").send({ value: 1 })).body).toEqual({ ok: true });
 		expect((await request(app).post("/messages/12/feedback").send({ value: null })).status).toBe(200);
 		expect((await request(app).post("/messages/12/feedback").send({ value: 5 })).status).toBe(400);
+		expect((await request(app).post("/messages/1e20/feedback").send({ value: 1 })).status).toBe(400);
 		expect((await request(app).post("/messages/99/feedback").send({ value: -1 })).status).toBe(404);
 	});
 });

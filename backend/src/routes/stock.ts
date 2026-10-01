@@ -893,89 +893,95 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
 
-stockRouter.get("/:symbol", async (req, res) => {
-	const raw = req.params.symbol.toUpperCase();
-	const symbol = resolveSymbol(raw);
+/**
+ * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (cached: quote per quoteTtlMs, metrics 6h).
+ * STAK AI calls this directly rather than over HTTP, which would queue behind the public rate limiter.
+ */
+export async function getStockSnapshot(rawSymbol: string) {
+	const symbol = resolveSymbol(rawSymbol.toUpperCase());
+	const extended = isExtendedHours();
 
-	try {
-		const extended = isExtendedHours();
+	// Finnhub for regular market price (fast, reliable)
+	const fbKey = `quote:fb:${symbol}`;
+	let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
+	if (!finnhubQuoteRaw) {
+		finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+		if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
+	}
 
-		// Finnhub for regular market price (fast, reliable)
-		const fbKey = `quote:fb:${symbol}`;
-		let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
-		if (!finnhubQuoteRaw) {
-			finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-			if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
+	// Yahoo only during extended hours — gets pre/after-market prices
+	let yahooExt: YahooExtended | null = null;
+	if (extended) {
+		const yKey = `quote:ext:${symbol}`;
+		yahooExt = await cacheGet<YahooExtended>(yKey);
+		if (!yahooExt) {
+			yahooExt = await fetchYahooExtended(symbol);
+			if (yahooExt) await cacheSet(yKey, yahooExt, quoteTtlMs());
 		}
+	}
 
-		// Yahoo only during extended hours — gets pre/after-market prices
-		let yahooExt: YahooExtended | null = null;
-		if (extended) {
-			const yKey = `quote:ext:${symbol}`;
-			yahooExt = await cacheGet<YahooExtended>(yKey);
-			if (!yahooExt) {
-				yahooExt = await fetchYahooExtended(symbol);
-				if (yahooExt) await cacheSet(yKey, yahooExt, quoteTtlMs());
+	// Fundamentals (6-hour cache) — Finnhub
+	const metricsKey = `metrics:${symbol}`;
+	let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
+	if (!metricsRaw) {
+		metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
+		if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
+	}
+
+	const m = metricsRaw?.metric ?? {};
+	const fb = finnhubQuoteRaw ?? {};
+
+	const quote = fb.c
+		? {
+				// Regular hours: Finnhub price. Extended hours: Yahoo extended price if available, else last Finnhub close
+				price: extended && yahooExt ? yahooExt.extendedPrice : fb.c,
+				change: fb.d,
+				changePercent: fb.dp,
+				high: fb.h,
+				low: fb.l,
+				open: fb.o,
+				prevClose: fb.pc,
+				marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
+				extendedPrice: yahooExt?.extendedPrice ?? null,
+				extendedChange: yahooExt?.extendedChange ?? null,
+				extendedChangePercent: yahooExt?.extendedChangePercent ?? null,
 			}
-		}
+		: null;
 
-		// Fundamentals (6-hour cache) — Finnhub
-		const metricsKey = `metrics:${symbol}`;
-		let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
-		if (!metricsRaw) {
-			metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
-			if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
-		}
+	const peRatio = m.peTTM ?? null;
+	const marketCapRaw = m.marketCapitalization ?? null;
 
-		const m = metricsRaw?.metric ?? {};
-		const fb = finnhubQuoteRaw ?? {};
+	// The catalogue entry behind this symbol: the name titles the page with the
+	// stock being shown rather than another company's (Android's Stock Detail
+	// borrowed Apple's whole fact sheet for unknown symbols), and the id is the
+	// key the brand endpoints - tip, quick look - are addressed by.
+	const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
 
-		const quote = fb.c
-			? {
-					// Regular hours: Finnhub price. Extended hours: Yahoo extended price if available, else last Finnhub close
-					price: extended && yahooExt ? yahooExt.extendedPrice : fb.c,
-					change: fb.d,
-					changePercent: fb.dp,
-					high: fb.h,
-					low: fb.l,
-					open: fb.o,
-					prevClose: fb.pc,
-					marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
-					extendedPrice: yahooExt?.extendedPrice ?? null,
-					extendedChange: yahooExt?.extendedChange ?? null,
-					extendedChangePercent: yahooExt?.extendedChangePercent ?? null,
-				}
-			: null;
+	return {
+		name: brand?.name ?? null,
+		brandId: brand?.id ?? null,
+		quote,
+		metrics: {
+			peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,
+			marketCap: marketCapRaw != null ? formatMarketCap(marketCapRaw) : null,
+			revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
+			// Cap extreme margins — pre-revenue companies can show -10000%+ which is meaningless
+			profitMargin: m.netProfitMarginTTM != null && Math.abs(m.netProfitMarginTTM) <= 500
+				? `${m.netProfitMarginTTM.toFixed(1)}%`
+				: m.netProfitMarginTTM != null
+				? null
+				: null,
+			beta: m.beta != null ? Number(m.beta.toFixed(2)) : null,
+			dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
+			week52High: m["52WeekHigh"] ?? null,
+			week52Low: m["52WeekLow"] ?? null,
+		},
+	};
+}
 
-		const peRatio = m.peTTM ?? null;
-		const marketCapRaw = m.marketCapitalization ?? null;
-
-		// The catalogue entry behind this symbol: the name titles the page with the
-		// stock being shown rather than another company's (Android's Stock Detail
-		// borrowed Apple's whole fact sheet for unknown symbols), and the id is the
-		// key the brand endpoints - tip, quick look - are addressed by.
-		const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
-
-		res.json({
-			name: brand?.name ?? null,
-			brandId: brand?.id ?? null,
-			quote,
-			metrics: {
-				peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,
-				marketCap: marketCapRaw != null ? formatMarketCap(marketCapRaw) : null,
-				revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
-				// Cap extreme margins — pre-revenue companies can show -10000%+ which is meaningless
-				profitMargin: m.netProfitMarginTTM != null && Math.abs(m.netProfitMarginTTM) <= 500
-					? `${m.netProfitMarginTTM.toFixed(1)}%`
-					: m.netProfitMarginTTM != null
-					? null
-					: null,
-				beta: m.beta != null ? Number(m.beta.toFixed(2)) : null,
-				dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
-				week52High: m["52WeekHigh"] ?? null,
-				week52Low: m["52WeekLow"] ?? null,
-			},
-		});
+stockRouter.get("/:symbol", async (req, res) => {
+	try {
+		res.json(await getStockSnapshot(req.params.symbol));
 	} catch (error) {
 		console.error("Error fetching stock data:", error);
 		res.status(500).json({ error: "Failed to fetch stock data" });

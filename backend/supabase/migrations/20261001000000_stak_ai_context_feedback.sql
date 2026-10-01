@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS stak_ai_usage (
   uid text NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Only the backend (service role) reads or writes it, like the other STAK AI tables.
+ALTER TABLE stak_ai_usage ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS stak_ai_usage_uid_created ON stak_ai_usage (uid, created_at DESC);
 INSERT INTO stak_ai_usage (uid, created_at)
   SELECT m.uid, m.created_at FROM stak_ai_messages m
