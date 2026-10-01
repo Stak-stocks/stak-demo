@@ -781,6 +781,61 @@ export function sendStakAiMessage(message: string, conversationId?: string, cont
 	});
 }
 
+/** How a question was asked, for the usage stats. */
+export type StakAiVia = "typed" | "starter" | "followup" | "retry";
+
+/**
+ * Ask with the answer streamed: [onText] gets the answer so far as it's written, and the promise resolves with the
+ * finished reply (whose `response` replaces the streamed text). Errors before the answer starts (out of questions,
+ * not found…) come back as an ApiError like sendStakAiMessage's; one mid-answer is an ApiError with that event's code.
+ */
+export async function streamStakAiMessage(
+	message: string,
+	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; signal?: AbortSignal },
+): Promise<StakAiChatReply> {
+	const token = await getAuthToken();
+	const res = await fetch(`${API_BASE_URL}/api/stak-ai/chat/stream`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+		body: JSON.stringify({ message, conversationId: opts.conversationId, context: opts.context, via: opts.via }),
+		signal: opts.signal,
+	});
+	if (!res.ok || !res.body) {
+		let body: unknown;
+		try { body = await res.json(); } catch { /* not JSON */ }
+		const error = (body as { error?: unknown } | undefined)?.error;
+		throw new ApiError(typeof error === "string" ? error : `API error: ${res.status}`, res.status, body);
+	}
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let soFar = "";
+	for (;;) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		let gap: number;
+		while ((gap = buffer.indexOf("\n\n")) >= 0) {
+			const block = buffer.slice(0, gap);
+			buffer = buffer.slice(gap + 2);
+			const event = /^event: (.*)$/m.exec(block)?.[1];
+			const data = /^data: (.*)$/m.exec(block)?.[1];
+			if (!event || !data) continue;
+			const payload = JSON.parse(data) as { text?: string; code?: string; error?: string } & StakAiChatReply;
+			if (event === "delta" && payload.text) { soFar += payload.text; opts.onText(soFar); }
+			else if (event === "done") return payload;
+			else if (event === "error") throw new ApiError(payload.error ?? "STAK AI couldn't answer", 503, { code: payload.code ?? "ai_unavailable" });
+		}
+	}
+	// The stream ended without a reply (the connection dropped).
+	throw new TypeError("STAK AI's answer was cut off");
+}
+
+/** Where STAK AI was opened from, for the usage stats (the backend logs the questions themselves). */
+export function trackStakAiOpen(entry: "header" | "nav" | "stock" | "article" | "brief" | "panel" | "direct") {
+	return trackEvent("stak_ai_open", { entry, platform: "web" }).catch(() => {});
+}
+
 export function getStakAiUsage() {
 	return apiRequest<StakAiUsage>("/api/stak-ai/usage");
 }

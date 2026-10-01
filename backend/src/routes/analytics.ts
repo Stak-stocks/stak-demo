@@ -351,3 +351,59 @@ analyticsRouter.get("/events", async (req: Request, res: Response) => {
 		res.status(500).json({ error: "Failed to fetch event analytics" });
 	}
 });
+
+// GET /api/admin/analytics/stak-ai?days=30 — how STAK AI is used: questions (and by whom), where they're asked from,
+// how they were asked, how they went (answered / declined / asked back), speed, opens by entry point, and thumbs.
+// Built from the `stak_ai_ask` / `stak_ai_open` events and the messages' feedback; excluded accounts left out.
+analyticsRouter.get("/stak-ai", async (req: Request, res: Response) => {
+	if (!checkAdminSecret(req, res)) return;
+	const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+	try {
+		const excluded = [...(await getExcludedUids())];
+		const since = `now() - make_interval(days => $1)`;
+		const [asks, byDay, opens, thumbs] = await Promise.all([
+			pgQuery<{ questions: number; people: number; by_context: Record<string, number> | null; by_via: Record<string, number> | null; by_kind: Record<string, number> | null; streamed: number; median_ms: number | null }>(
+				`select count(*)::int as questions, count(distinct uid)::int as people,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'context', 'none') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_context,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'via', 'typed') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_via,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'kind', 'answer') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_kind,
+				   count(*) filter (where (params->>'streamed')::boolean)::int as streamed,
+				   percentile_cont(0.5) within group (order by (params->>'ms')::numeric) as median_ms
+				 from events where type = 'stak_ai_ask' and occurred_at >= ${since} and not (uid = any($2))`,
+				[days, excluded],
+			),
+			pgQuery<{ day: string; questions: number; people: number }>(
+				`select to_char(occurred_at at time zone 'America/New_York', 'YYYY-MM-DD') as day, count(*)::int as questions, count(distinct uid)::int as people
+				 from events where type = 'stak_ai_ask' and occurred_at >= ${since} and not (uid = any($2)) group by 1 order by 1`,
+				[days, excluded],
+			),
+			pgQuery<{ entry: string; platform: string; opens: number; people: number }>(
+				`select coalesce(params->>'entry', 'unknown') as entry, coalesce(params->>'platform', 'unknown') as platform, count(*)::int as opens, count(distinct uid)::int as people
+				 from events where type = 'stak_ai_open' and occurred_at >= ${since} and not (uid = any($2)) group by 1, 2 order by opens desc`,
+				[days, excluded],
+			),
+			pgQuery<{ up: number; down: number; answers: number }>(
+				`select count(*) filter (where feedback = 1)::int as up, count(*) filter (where feedback = -1)::int as down, count(*)::int as answers
+				 from stak_ai_messages where role = 'assistant' and created_at >= ${since} and not (uid = any($2))`,
+				[days, excluded],
+			),
+		]);
+		const a = asks.rows[0];
+		res.json({
+			days,
+			questions: a?.questions ?? 0,
+			people: a?.people ?? 0,
+			byContext: a?.by_context ?? {},
+			byVia: a?.by_via ?? {},
+			byKind: a?.by_kind ?? {},
+			streamedShare: a && a.questions ? a.streamed / a.questions : 0,
+			medianMs: a?.median_ms != null ? Math.round(Number(a.median_ms)) : null,
+			byDay: byDay.rows,
+			opens: opens.rows,
+			thumbs: thumbs.rows[0] ?? { up: 0, down: 0, answers: 0 },
+		});
+	} catch (e) {
+		console.error("[analytics] stak-ai error:", e);
+		res.status(500).json({ error: "Failed to load STAK AI analytics" });
+	}
+});

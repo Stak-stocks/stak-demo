@@ -17,6 +17,7 @@ export function useOpenStakAi() {
 		resetStakAiLauncher();
 		stakAiLauncher.context = context ?? null;
 		stakAiLauncher.draft = draft ?? null;
+		stakAiLauncher.entry = context?.type ?? "header";
 		void navigate({ to: "/stak-ai" });
 	}, [navigate]);
 }

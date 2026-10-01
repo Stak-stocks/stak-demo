@@ -20,6 +20,7 @@ vi.mock("../../services/geminiService.js", () => ({
 	GEMINI_REFUSAL_RE: /^I'm sorry/,
 	GEMINI_MODEL: "gemini-test",
 	geminiUrl: () => "https://gemini.test/generate",
+	geminiStreamUrl: () => "https://gemini.test/stream",
 }));
 const newsMock = vi.fn();
 vi.mock("../../services/finnhubService.js", () => ({ getCompanyNews: newsMock }));
@@ -314,5 +315,82 @@ describe("conversations, usage and feedback", () => {
 		expect((await request(app).post("/messages/12/feedback").send({ value: 5 })).status).toBe(400);
 		expect((await request(app).post("/messages/1e20/feedback").send({ value: 1 })).status).toBe(400);
 		expect((await request(app).post("/messages/99/feedback").send({ value: -1 })).status).toBe(404);
+	});
+});
+
+// ── Streaming ───────────────────────────────────────────────────────────────
+
+/** Gemini's streamGenerateContent?alt=sse reply, split into the given text pieces. */
+function geminiSse(pieces: string[]) {
+	const body = pieces.map((t) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] } }] })}\r\n\r\n`).join("");
+	return new Response(new ReadableStream({
+		start(c) {
+			const bytes = new TextEncoder().encode(body);
+			// Cut mid-line too, as the network would.
+			for (let i = 0; i < bytes.length; i += 37) c.enqueue(bytes.slice(i, i + 37));
+			c.close();
+		},
+	}), { headers: { "Content-Type": "text/event-stream" } });
+}
+
+/** The SSE events in a response body, in order. */
+function events(text: string) {
+	return text.split("\n\n").filter(Boolean).map((block) => {
+		const event = block.match(/^event: (.*)$/m)?.[1];
+		const data = block.match(/^data: (.*)$/m)?.[1];
+		return { event, data: data ? JSON.parse(data) : null };
+	});
+}
+
+describe("POST /chat/stream", () => {
+	it("streams the answer without the markers, then the clean reply", async () => {
+		vi.stubGlobal("fetch", vi.fn(async () => geminiSse(["Chips **fell** on ", "export curbs.\n[[FOLL", "OWUPS]] What are curbs? | Who else fell?"])));
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "Why is NVDA down?", via: "starter" });
+		expect(res.status).toBe(200);
+		expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
+		const evs = events(res.text);
+		const streamed = evs.filter((e) => e.event === "delta").map((e) => e.data.text).join("");
+		expect(streamed).not.toMatch(/\[\[|FOLLOWUPS/);
+		expect(streamed).toContain("Chips **fell** on export curbs.");
+		const done = evs.find((e) => e.event === "done")!.data;
+		expect(done).toMatchObject({ response: "Chips **fell** on export curbs.", answerKind: "answer", followUps: ["What are curbs?", "Who else fell?"], messageId: 12 });
+		const usageEvent = calls(/INSERT INTO events/)[0]!;
+		expect(JSON.parse(usageEvent[1][1])).toMatchObject({ via: "starter", kind: "answer", streamed: true });
+	});
+
+	it("a decline streams without its marker and doesn't count", async () => {
+		vi.stubGlobal("fetch", vi.fn(async () => geminiSse(["[[DECL", "INED]] I can't tell you ", "whether to buy it."])));
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "Should I buy Tesla?" });
+		const evs = events(res.text);
+		expect(evs.filter((e) => e.event === "delta").map((e) => e.data.text).join("")).toBe("I can't tell you whether to buy it.");
+		expect(evs.find((e) => e.event === "done")!.data.answerKind).toBe("declined");
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
+	});
+
+	it("out of questions is a plain 429 before any stream starts", async () => {
+		db.used = 5;
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "One more?" });
+		expect(res.status).toBe(429);
+		expect(res.body.code).toBe("limit_reached");
+	});
+
+	it("when the AI fails mid-way, the stream ends with an error and the question is handed back", async () => {
+		vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 500 })));
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "What is beta?" });
+		const evs = events(res.text);
+		expect(evs.at(-1)).toMatchObject({ event: "error", data: { code: "ai_unavailable" } });
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
+		expect(calls(/^\s*INSERT INTO stak_ai_conversations/)).toHaveLength(0);
+	});
+});
+
+describe("streamableText", () => {
+	it("holds back what might be a marker", async () => {
+		const { streamableText } = await import("../stakAi.js");
+		expect(streamableText("[[DEC")).toBe("");
+		expect(streamableText("[[CLARIFY]] Do you mean")).toBe("Do you mean");
+		expect(streamableText("Answer here.\n[")).toBe("Answer here.\n");
+		expect(streamableText("Answer.\n[[FOLLOWUPS]] a | b")).toBe("Answer.\n");
+		expect(streamableText("[Note] plain text after a bracket")).toBe("[Note] plain text after a bracket");
 	});
 });

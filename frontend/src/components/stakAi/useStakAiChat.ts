@@ -5,11 +5,13 @@ import {
 	getStakAiMessages,
 	getStakAiUsage,
 	sendStakAiFeedback,
-	sendStakAiMessage,
+	streamStakAiMessage,
+	trackStakAiOpen,
 	type StakAiChatReply,
 	type StakAiContext,
 	type StakAiSource,
 	type StakAiUsage,
+	type StakAiVia,
 } from "@/lib/api";
 
 /**
@@ -28,7 +30,9 @@ export const stakAiLauncher: {
 	resume: string | null;
 	/** /stak-ai/history was opened from the chat, so going back returns to it. */
 	historyFromChat: boolean;
-} = { context: null, question: null, draft: null, conversationId: null, resume: null, historyFromChat: false };
+	/** Where it was opened from, for the usage stats (header, stock, article, brief). */
+	entry: Parameters<typeof trackStakAiOpen>[0] | null;
+} = { context: null, question: null, draft: null, conversationId: null, resume: null, historyFromChat: false, entry: null };
 
 export function resetStakAiLauncher() {
 	stakAiLauncher.context = null;
@@ -37,11 +41,12 @@ export function resetStakAiLauncher() {
 	stakAiLauncher.conversationId = null;
 	stakAiLauncher.resume = null;
 	stakAiLauncher.historyFromChat = false;
+	stakAiLauncher.entry = null;
 }
 
 export const STAK_AI_USAGE_KEY = ["stakAi", "usage"] as const;
 export const STAK_AI_CONVERSATIONS_KEY = ["stakAi", "conversations"] as const;
-/** Past this, an answer is reported as slow - it may still arrive and count, so the chat doesn't say it didn't. */
+/** No text by now: report the answer as slow - it may still be saved and count, so the chat doesn't say it didn't. */
 const SLOW_MS = 45_000;
 
 /** The questions-left count, shared by every chat on screen (the /stak-ai page and the desktop panels). */
@@ -62,6 +67,8 @@ export interface AiMessage {
 	sources: StakAiSource[];
 	/** A question that got no answer; the chat offers to resend it. */
 	failed?: boolean;
+	/** An answer still being written (streamed); replaced by the finished one. */
+	streaming?: boolean;
 }
 
 export type AiNotice =
@@ -75,6 +82,8 @@ interface Options {
 	fromLauncher?: boolean;
 	/** For an embedded panel: the page it sits on. */
 	context?: StakAiContext | null;
+	/** The /stak-ai page: where it counts an open from when the launcher doesn't say (desktop's nav, a direct link). */
+	defaultEntry?: Parameters<typeof trackStakAiOpen>[0];
 }
 
 class SlowAnswer extends Error {}
@@ -85,7 +94,7 @@ class SlowAnswer extends Error {}
  * frees; nothing sends while a past chat loads; switching chats mid-answer leaves that answer in its own chat; a
  * deleted chat carries on in a fresh one.
  */
-export function useStakAiChat({ fromLauncher = false, context: given = null }: Options = {}) {
+export function useStakAiChat({ fromLauncher = false, context: given = null, defaultEntry = "direct" }: Options = {}) {
 	const qc = useQueryClient();
 	const { data: usage = null } = useStakAiUsage();
 	const [messages, setMessages] = useState<AiMessage[]>([]);
@@ -108,8 +117,12 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 	const busy = useRef({ sending: false, loading: false });
 	const mounted = useRef(true);
 
+	// A reply's count is the newest. A count fetch already in flight (the one on opening, say) would land after it
+	// and put the older number back, so stop that fetch and write this count again once it has settled.
 	const setUsage = useCallback((u: StakAiUsage | null | undefined) => {
-		if (u) qc.setQueryData(STAK_AI_USAGE_KEY, u);
+		if (!u) return;
+		qc.setQueryData(STAK_AI_USAGE_KEY, u);
+		void qc.cancelQueries({ queryKey: STAK_AI_USAGE_KEY }, { revert: false }).finally(() => qc.setQueryData(STAK_AI_USAGE_KEY, u));
 	}, [qc]);
 
 	// Out of questions: check again when the oldest one drops out (30s at the soonest, in case clocks disagree), so
@@ -157,27 +170,41 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 			.finally(() => { if (mine === session.current) { busy.current.loading = false; setLoading(false); } });
 	}, []);
 
-	const ask = useCallback(async (question: string, allowRestart: boolean, mine: number): Promise<void> => {
+	const ask = useCallback(async (question: string, allowRestart: boolean, mine: number, via: StakAiVia): Promise<void> => {
 		let r: StakAiChatReply;
+		const controller = new AbortController();
+		let slow = false;
+		// No text within SLOW_MS: stop waiting (the server keeps going and saves it, so the chat says "check back").
+		let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => { slow = true; controller.abort(); }, SLOW_MS);
+		// The answer appears as it's written, in a line of its own that the finished answer replaces.
+		const streamKey = nextKey.current++;
 		try {
-			let timer: ReturnType<typeof setTimeout> | undefined;
-			const slow = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SlowAnswer()), SLOW_MS); });
-			try {
-				r = await Promise.race([
-					sendStakAiMessage(question, conversationId.current ?? undefined, contextSent.current ? undefined : contextRef.current ?? undefined),
-					slow,
-				]);
-			} finally {
-				clearTimeout(timer);
-			}
+			r = await streamStakAiMessage(question, {
+				conversationId: conversationId.current ?? undefined,
+				context: contextSent.current ? undefined : contextRef.current ?? undefined,
+				via,
+				signal: controller.signal,
+				onText: (soFar) => {
+					clearTimeout(timer);
+					timer = undefined;
+					if (mine !== session.current) return;
+					setMessages((ms) => {
+						const line: AiMessage = { key: streamKey, fromUser: false, text: soFar, kind: "answer", followUps: [], sources: [], streaming: true };
+						return ms.some((m) => m.key === streamKey) ? ms.map((m) => (m.key === streamKey ? line : m)) : [...ms, line];
+					});
+				},
+			});
 		} catch (e) {
+			clearTimeout(timer);
 			if (mine !== session.current) return;
+			// A half-written answer that didn't finish comes off the screen; the question is marked unanswered.
+			setMessages((ms) => ms.filter((m) => m.key !== streamKey));
 			const body = e instanceof ApiError ? (e.body as { code?: string; usage?: StakAiUsage } | undefined) : undefined;
 			if (body?.code === "not_found" && allowRestart && conversationId.current) {
 				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
 				conversationId.current = null;
 				contextSent.current = false;
-				return ask(question, false, mine);
+				return ask(question, false, mine, via);
 			}
 			if (body?.code === "limit_reached") {
 				setUsage(body.usage);
@@ -186,9 +213,10 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 				return;
 			}
 			setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 ? { ...m, failed: true } : m)));
-			setProblem(e instanceof SlowAnswer ? { type: "slow" } : { type: "failed", offline: !(e instanceof ApiError) });
+			setProblem(slow ? { type: "slow" } : { type: "failed", offline: !(e instanceof ApiError) });
 			return;
 		}
+		clearTimeout(timer);
 		setUsage(r.usage);
 		void qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY });
 		if (mine !== session.current) return;
@@ -196,13 +224,14 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 		conversationId.current = r.conversationId;
 		// Left the page before the first answer came back: reopen this chat on return.
 		if (!mounted.current && fromLauncher && !stakAiLauncher.conversationId && !stakAiLauncher.context) stakAiLauncher.resume = r.conversationId;
-		setMessages((ms) => [...ms, {
-			key: nextKey.current++, fromUser: false, text: r.response, id: r.messageId,
+		const finished: AiMessage = {
+			key: streamKey, fromUser: false, text: r.response, id: r.messageId,
 			kind: r.answerKind, followUps: r.followUps, sources: r.sources,
-		}]);
+		};
+		setMessages((ms) => (ms.some((m) => m.key === streamKey) ? ms.map((m) => (m.key === streamKey ? finished : m)) : [...ms, finished]));
 	}, [qc, setUsage, fromLauncher]);
 
-	const send = useCallback((text: string) => {
+	const send = useCallback((text: string, via: StakAiVia = "typed") => {
 		const question = text.trim();
 		if (!question || busy.current.sending || busy.current.loading) return;
 		busy.current.sending = true;
@@ -211,7 +240,7 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 		setMessages((ms) => [...ms.filter((m) => !m.failed), { key: nextKey.current++, fromUser: true, text: question, kind: "answer", followUps: [], sources: [] }]);
 		setProblem(null);
 		setSending(true);
-		void ask(question, true, mine).finally(() => {
+		void ask(question, true, mine, via).finally(() => {
 			if (mine !== session.current) return;
 			busy.current.sending = false;
 			setSending(false);
@@ -221,7 +250,7 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 	/** Ask the failed question again. */
 	const retry = useCallback(() => {
 		const failed = [...messagesRef.current].reverse().find((m) => m.failed);
-		if (failed) send(failed.text);
+		if (failed) send(failed.text, "retry");
 	}, [send]);
 
 	/** Thumbs on an answer; tapping the same thumb again clears it. Shown at once, put back if the save fails. */
@@ -261,6 +290,8 @@ export function useStakAiChat({ fromLauncher = false, context: given = null }: O
 			const reopen = stakAiLauncher.conversationId ?? stakAiLauncher.resume;
 			const first = stakAiLauncher.question;
 			const draft = stakAiLauncher.draft;
+			// A fresh open (not a return from its own history page) counts toward the usage stats.
+			if (!reopen) void trackStakAiOpen(stakAiLauncher.entry ?? defaultEntry);
 			resetStakAiLauncher();
 			if (reopen) open(reopen);
 			else if (first) send(first);

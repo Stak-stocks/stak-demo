@@ -59,7 +59,8 @@ app.use(cors({
 }));
 // Cloud Run doesn't compress responses. The brand catalog alone is a few hundred KB of JSON that every
 // visitor downloads on load, and it shrinks roughly 5-8x gzipped.
-app.use(compression());
+// …except event streams (STAK AI's streamed answers), which compression would hold back until the end.
+app.use(compression({ filter: (req, res) => !req.path.endsWith("/stream") && compression.filter(req, res) }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "../public")));
 

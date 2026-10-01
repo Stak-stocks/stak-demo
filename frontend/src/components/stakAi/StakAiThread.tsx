@@ -122,8 +122,8 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 	}, [chat.messages.length, chat.sending, chat.loading]);
 
 	// Tapping a suggestion or follow-up removes the button that had focus: put focus in the box instead.
-	const askAndFocus = (q: string) => {
-		chat.send(q);
+	const askAndFocus = (via: "starter" | "followup") => (q: string) => {
+		chat.send(q, via);
 		composer.current?.focus();
 	};
 	const lastAnswerKey = useMemo(() => [...chat.messages].reverse().find((m) => !m.fromUser)?.key, [chat.messages]);
@@ -135,15 +135,16 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 			<div ref={scroller} role="log" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: s(16) }}>
 					{chat.messages.length === 0 && !chat.loading && !chat.sending && chat.notice?.type !== "loadFailed" && (
-						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askAndFocus} starters={starters} compact={compact} />
+						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askAndFocus("starter")} starters={starters} compact={compact} />
 					)}
 					{chat.messages.map((m) =>
 						m.fromUser
 							? <UserLine key={m.key} m={m} offline={failedOffline} look={look} />
-							: <AnswerLine key={m.key} m={m} look={look} showFollowUps={m.key === lastAnswerKey && chat.canAsk} onRate={chat.rate} onFollowUp={askAndFocus} />,
+							: <AnswerLine key={m.key} m={m} look={look} showFollowUps={m.key === lastAnswerKey && chat.canAsk} onRate={chat.rate} onFollowUp={askAndFocus("followup")} />,
 					)}
 					{chat.loading && <p style={{ fontSize: s(13), color: DISC.muted }}>Loading chat…</p>}
-					{chat.sending && <TypingDots s={s} />}
+					{/* The dots until the first words arrive; then the answer writes itself out. */}
+					{chat.sending && !chat.messages.at(-1)?.streaming && <TypingDots s={s} />}
 				</div>
 			</div>
 

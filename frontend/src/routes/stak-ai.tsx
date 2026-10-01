@@ -58,7 +58,8 @@ function StakAiPhonePage() {
 
 /** Desktop: the conversation, with your chats in a sidebar (the app shell already supplies <main>). */
 function StakAiDesktopPage() {
-	const chat = useStakAiChat({ fromLauncher: true });
+	// Desktop reaches /stak-ai from the side nav (pages set their own entry through the launcher).
+	const chat = useStakAiChat({ fromLauncher: true, defaultEntry: "nav" });
 	// The list refreshes itself when an answer lands (the chat invalidates it); opening a chat doesn't reload it.
 	const history = useStakAiHistory();
 	return (

@@ -73,6 +73,9 @@ type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: st
 export const GEMINI_MODEL = "gemini-2.5-flash";
 export const geminiUrl = (model: string, key: string) =>
 	`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+/** The same call, answered as server-sent events while it's written (STAK AI's streamed answers). */
+export const geminiStreamUrl = (model: string, key: string) =>
+	`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
 // Use the lite model for high-volume article simplification — faster and cheaper
 const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";

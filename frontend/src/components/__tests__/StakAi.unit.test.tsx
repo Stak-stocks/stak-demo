@@ -10,7 +10,8 @@ const api = vi.hoisted(() => {
 	}
 	return {
 		ApiError,
-		sendStakAiMessage: vi.fn(),
+		streamStakAiMessage: vi.fn(),
+		trackStakAiOpen: vi.fn(() => Promise.resolve()),
 		getStakAiUsage: vi.fn(),
 		getStakAiMessages: vi.fn(),
 		sendStakAiFeedback: vi.fn(),
@@ -51,7 +52,7 @@ async function ask(result: ReturnType<typeof renderHook<ReturnType<typeof useSta
 
 describe("useStakAiChat", () => {
 	it("an answer arrives and the count updates", async () => {
-		api.sendStakAiMessage.mockResolvedValueOnce(reply());
+		api.streamStakAiMessage.mockResolvedValueOnce(reply());
 		const { result } = hook();
 		await ask(result, "What is beta?");
 		expect(result.current.messages.map((m) => m.fromUser)).toEqual([true, false]);
@@ -60,25 +61,25 @@ describe("useStakAiChat", () => {
 
 	it("the page context goes with the first question only", async () => {
 		stakAiLauncher.context = { type: "stock", ticker: "NVDA" };
-		api.sendStakAiMessage.mockResolvedValue(reply());
+		api.streamStakAiMessage.mockResolvedValue(reply());
 		const { result } = hook({ fromLauncher: true });
 		await ask(result, "Why is it down?");
 		await ask(result, "Is that normal?");
-		expect(api.sendStakAiMessage.mock.calls[0]![2]).toEqual({ type: "stock", ticker: "NVDA" });
-		expect(api.sendStakAiMessage.mock.calls[1]![2]).toBeUndefined();
-		expect(api.sendStakAiMessage.mock.calls[1]![1]).toBe("conv-1");
+		expect(api.streamStakAiMessage.mock.calls[0]![1].context).toEqual({ type: "stock", ticker: "NVDA" });
+		expect(api.streamStakAiMessage.mock.calls[1]![1].context).toBeUndefined();
+		expect(api.streamStakAiMessage.mock.calls[1]![1].conversationId).toBe("conv-1");
 	});
 
 	it("a page's suggested question waits in the box instead of spending one", async () => {
 		stakAiLauncher.draft = "Why can the Dow rise while the Nasdaq falls?";
 		const { result } = hook({ fromLauncher: true });
 		await waitFor(() => expect(result.current.returnedDraft).toBe("Why can the Dow rise while the Nasdaq falls?"));
-		expect(api.sendStakAiMessage).not.toHaveBeenCalled();
+		expect(api.streamStakAiMessage).not.toHaveBeenCalled();
 	});
 
 	it("switching chats mid-answer keeps that answer out of the chat now on screen", async () => {
 		let answer: (v: unknown) => void = () => {};
-		api.sendStakAiMessage.mockReturnValueOnce(new Promise((r) => { answer = r; }));
+		api.streamStakAiMessage.mockReturnValueOnce(new Promise((r) => { answer = r; }));
 		api.getStakAiMessages.mockResolvedValueOnce({ title: "B", context: null, messages: [{ id: 5, role: "user", content: "Chat B", kind: "answer", feedback: null, created_at: "" }] });
 		const { result } = hook();
 		act(() => result.current.send("Question in A"));
@@ -90,16 +91,55 @@ describe("useStakAiChat", () => {
 		expect(result.current.sending).toBe(false);
 	});
 
+	it("the answer shows as it's written, then the finished one replaces it", async () => {
+		let finish: (v: unknown) => void = () => {};
+		api.streamStakAiMessage.mockImplementationOnce((_q: string, opts: { onText: (t: string) => void }) => {
+			opts.onText("Chips fell");
+			return new Promise((r) => { finish = r; });
+		});
+		const { result } = hook();
+		await act(async () => { result.current.send("Why?", "starter"); });
+		expect(result.current.messages.at(-1)).toMatchObject({ fromUser: false, text: "Chips fell", streaming: true });
+		await act(async () => finish(reply({ response: "Chips fell on export curbs." })));
+		expect(result.current.messages).toHaveLength(2);
+		expect(result.current.messages.at(-1)).toMatchObject({ text: "Chips fell on export curbs.", id: 10 });
+		expect(result.current.messages.at(-1)!.streaming).toBeFalsy();
+		expect(api.streamStakAiMessage.mock.calls[0]![1].via).toBe("starter");
+	});
+
+	it("a half-written answer that fails comes off the screen", async () => {
+		api.streamStakAiMessage.mockImplementationOnce((_q: string, opts: { onText: (t: string) => void }) => {
+			opts.onText("Chips fe");
+			return Promise.reject(new TypeError("cut off"));
+		});
+		const { result } = hook();
+		await ask(result, "Why?");
+		expect(result.current.messages).toHaveLength(1);
+		expect(result.current.messages[0]!.failed).toBe(true);
+	});
+
+	it("opening from a page counts where it came from; returning from history doesn't", async () => {
+		stakAiLauncher.context = { type: "stock", ticker: "NVDA" };
+		stakAiLauncher.entry = "stock";
+		hook({ fromLauncher: true });
+		expect(api.trackStakAiOpen).toHaveBeenCalledWith("stock");
+		api.trackStakAiOpen.mockClear();
+		stakAiLauncher.conversationId = "old";
+		api.getStakAiMessages.mockResolvedValueOnce({ title: "Old", context: null, messages: [] });
+		hook({ fromLauncher: true });
+		expect(api.trackStakAiOpen).not.toHaveBeenCalled();
+	});
+
 	it("a question from the launcher is asked on open", async () => {
 		stakAiLauncher.question = "Why is NVDA moving today?";
-		api.sendStakAiMessage.mockResolvedValueOnce(reply());
+		api.streamStakAiMessage.mockResolvedValueOnce(reply());
 		const { result } = hook({ fromLauncher: true });
 		await waitFor(() => expect(result.current.messages).toHaveLength(2));
 		expect(stakAiLauncher.question).toBeNull();
 	});
 
 	it("out of questions hands the question back and says when", async () => {
-		api.sendStakAiMessage.mockRejectedValueOnce(limitError());
+		api.streamStakAiMessage.mockRejectedValueOnce(limitError());
 		const { result } = hook();
 		await ask(result, "One more?");
 		expect(result.current.messages).toEqual([]);
@@ -109,7 +149,7 @@ describe("useStakAiChat", () => {
 	});
 
 	it("a failed question is retried in place, not duplicated", async () => {
-		api.sendStakAiMessage.mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(reply());
+		api.streamStakAiMessage.mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(reply());
 		const { result } = hook();
 		await ask(result, "What is beta?");
 		expect(result.current.messages[0]!.failed).toBe(true);
@@ -123,14 +163,14 @@ describe("useStakAiChat", () => {
 	it("asking in a deleted chat carries on in a fresh one", async () => {
 		stakAiLauncher.conversationId = "gone";
 		api.getStakAiMessages.mockResolvedValueOnce({ title: "Old", context: null, messages: [] });
-		api.sendStakAiMessage
+		api.streamStakAiMessage
 			.mockRejectedValueOnce(new api.ApiError("nf", 404, { code: "not_found" }))
 			.mockResolvedValueOnce(reply({ conversationId: "fresh" }));
 		const { result } = hook({ fromLauncher: true });
 		await waitFor(() => expect(result.current.loading).toBe(false));
 		await ask(result, "And now?");
-		expect(api.sendStakAiMessage.mock.calls[0]![1]).toBe("gone");
-		expect(api.sendStakAiMessage.mock.calls[1]![1]).toBeUndefined();
+		expect(api.streamStakAiMessage.mock.calls[0]![1].conversationId).toBe("gone");
+		expect(api.streamStakAiMessage.mock.calls[1]![1].conversationId).toBeUndefined();
 		expect(result.current.currentConversationId()).toBe("fresh");
 	});
 
@@ -141,7 +181,7 @@ describe("useStakAiChat", () => {
 		const { result } = hook({ fromLauncher: true });
 		expect(result.current.loading).toBe(true);
 		act(() => result.current.send("Too early"));
-		expect(api.sendStakAiMessage).not.toHaveBeenCalled();
+		expect(api.streamStakAiMessage).not.toHaveBeenCalled();
 		await act(async () => release({ title: "Old", context: null, messages: [{ id: 1, role: "user", content: "Buy?", kind: "answer", feedback: null, created_at: "" }, { id: 2, role: "assistant", content: "I can't advise that.", kind: "declined", feedback: null, created_at: "" }] }));
 		expect(result.current.messages.at(-1)!.kind).toBe("declined");
 		expect(result.current.messages[0]!.id).toBeNull();
@@ -159,7 +199,7 @@ describe("useStakAiChat", () => {
 	});
 
 	it("thumbs toggle, and a save that fails is put back", async () => {
-		api.sendStakAiMessage.mockResolvedValueOnce(reply());
+		api.streamStakAiMessage.mockResolvedValueOnce(reply());
 		const { result } = hook();
 		await ask(result, "What is beta?");
 		act(() => result.current.rate(result.current.messages.at(-1)!, 1));
@@ -179,7 +219,7 @@ describe("StakAiThread", () => {
 	}
 
 	it("starts with questions for the page and asks one when tapped", async () => {
-		api.sendStakAiMessage.mockResolvedValueOnce(reply({ response: "Chips **fell** today.\n- Export curbs\n- Weak guidance" }));
+		api.streamStakAiMessage.mockResolvedValueOnce(reply({ response: "Chips **fell** today.\n- Export curbs\n- Weak guidance" }));
 		render(<Harness />, { wrapper });
 		expect(screen.getByText("How does NVIDIA make money?")).toBeInTheDocument();
 		expect(screen.getByText("Educational, not financial advice.")).toBeInTheDocument();
@@ -192,14 +232,15 @@ describe("StakAiThread", () => {
 	});
 
 	it("Enter sends; the count shows what's left", async () => {
-		api.sendStakAiMessage.mockResolvedValueOnce(reply());
+		api.streamStakAiMessage.mockResolvedValueOnce(reply());
 		render(<Harness />, { wrapper });
 		await waitFor(() => expect(screen.getByText("5 of 5 questions left")).toBeInTheDocument());
 		const box = screen.getByRole("textbox", { name: "Ask STAK AI" });
 		fireEvent.change(box, { target: { value: "What is beta?" } });
 		await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
 		await waitFor(() => expect(screen.getByText("4 of 5 questions left")).toBeInTheDocument());
-		expect(api.sendStakAiMessage.mock.calls[0]![0]).toBe("What is beta?");
+		expect(api.streamStakAiMessage.mock.calls[0]![0]).toBe("What is beta?");
+		expect(api.streamStakAiMessage.mock.calls[0]![1].via).toBe("typed");
 	});
 });
 

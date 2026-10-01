@@ -2,7 +2,7 @@ import { Router, type Response } from "express";
 import { pgQuery, pgPool } from "../lib/postgres.js";
 import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
-import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
+import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl, geminiUrl } from "../services/geminiService.js";
 import { getCompanyNews, type FinnhubArticle } from "../services/finnhubService.js";
 import { getStockSnapshot } from "./stock.js";
 import {
@@ -340,40 +340,69 @@ On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 
-// POST /api/stak-ai/chat
-// Body: { message, conversationId?, context? }. Send `context` (see StakAiContext) with the first question only.
-// Answers a StakAiChatReply. Errors carry a StakAiErrorCode; limit_reached also carries `usage`.
-stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	const uid = req.user!.uid;
-	const { message, conversationId: existingConvId, context: rawContext } = (req.body ?? {}) as { message?: unknown; conversationId?: unknown; context?: unknown };
+// POST /api/stak-ai/chat           → a StakAiChatReply as JSON.
+// POST /api/stak-ai/chat/stream    → the same answer as server-sent events: `delta` ({ text }) as it's written, then
+//                                     `done` (the StakAiChatReply, whose `response` is authoritative) or `error`.
+// Body: { message, conversationId?, context?, via? }. Send `context` (see StakAiContext) with the first question only;
+// `via` says how it was asked (typed, starter, followup, retry) for the usage stats. Errors found before the answer
+// starts (bad input, limit_reached with `usage`, not_found) are ordinary JSON responses on both routes.
 
-	if (typeof message !== "string" || !message.trim()) { fail(res, 400, "bad_request", "message is required"); return; }
-	if (existingConvId != null && (typeof existingConvId !== "string" || !UUID_RE.test(existingConvId))) { fail(res, 404, "not_found", "Conversation not found"); return; }
+const VIA = new Set(["typed", "starter", "followup", "retry"]);
+
+/** Everything a question needs before the model is called: its claim on the limit, the conversation and the prompt. */
+interface Prepared {
+	uid: string;
+	question: string;
+	via: string;
+	usageId: number;
+	usageBefore: StakAiUsage;
+	conversationId: string | null;
+	newContext: StakAiContext | null;
+	contextIsNew: boolean;
+	context: StakAiContext | null;
+	lastTickers: string[];
+	tickers: string[];
+	sources: StakAiSource[];
+	liveContextLog: Record<string, string>;
+	inCohort: boolean;
+	systemInstruction: string;
+	contents: { role: string; parts: { text: string }[] }[];
+	startedAt: number;
+}
+
+/** Validates the request and builds the prompt; answers the request itself (and returns null) when it can't go on. */
+async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Prepared | null> {
+	const uid = req.user!.uid;
+	const { message, conversationId: existingConvId, context: rawContext, via: rawVia } = (req.body ?? {}) as { message?: unknown; conversationId?: unknown; context?: unknown; via?: unknown };
+
+	if (typeof message !== "string" || !message.trim()) { fail(res, 400, "bad_request", "message is required"); return null; }
+	if (existingConvId != null && (typeof existingConvId !== "string" || !UUID_RE.test(existingConvId))) { fail(res, 404, "not_found", "Conversation not found"); return null; }
 	const question = message.trim().slice(0, 1000);
 	const newContext = parseContext(rawContext);
+	const via = typeof rawVia === "string" && VIA.has(rawVia) ? rawVia : "typed";
+	const startedAt = Date.now();
 
-	let usageId: number | null = null;
+	// Claim a question and load the conversation together.
+	const [reservation, convResult] = await Promise.all([
+		reserveQuestion(uid),
+		existingConvId
+			? pgQuery<{ id: string; context: StakAiContext | null; last_tickers: string[] | null }>(
+				`SELECT id, context, last_tickers FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
+				[existingConvId, uid],
+			)
+			: Promise.resolve(null),
+	]);
+	const usageId = reservation.usageId;
+	if (usageId === null) {
+		fail(res, 429, "limit_reached", `You've used your ${STAK_AI_WINDOW_LIMIT} STAK AI questions for now.`, { usage: reservation.usage });
+		return null;
+	}
+	if (convResult && convResult.rows.length === 0) {
+		void releaseQuestion(usageId);
+		fail(res, 404, "not_found", "Conversation not found");
+		return null;
+	}
 	try {
-		// Claim a question and load the conversation together.
-		const [reservation, convResult] = await Promise.all([
-			reserveQuestion(uid),
-			existingConvId
-				? pgQuery<{ id: string; context: StakAiContext | null; last_tickers: string[] | null }>(
-					`SELECT id, context, last_tickers FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
-					[existingConvId, uid],
-				)
-				: Promise.resolve(null),
-		]);
-		usageId = reservation.usageId;
-		if (usageId === null) {
-			fail(res, 429, "limit_reached", `You've used your ${STAK_AI_WINDOW_LIMIT} STAK AI questions for now.`, { usage: reservation.usage });
-			return;
-		}
-		if (convResult && convResult.rows.length === 0) {
-			void releaseQuestion(usageId);
-			fail(res, 404, "not_found", "Conversation not found");
-			return;
-		}
 		const conversationId = (existingConvId as string | undefined) ?? null;
 		const storedContext = convResult?.rows[0]?.context ?? null;
 		const lastTickers = convResult?.rows[0]?.last_tickers ?? [];
@@ -472,83 +501,227 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 		}
 		contents.push({ role: "user", parts: [{ text: question }] });
 
-		const ai = await callGemini(contents, systemInstruction);
-		if (!ai) {
-			void releaseQuestion(usageId);
-			fail(res, 503, "ai_unavailable", "STAK AI couldn't answer just now. That one didn't count — try again in a moment.");
-			return;
-		}
-		const parsed = ai.refused ? { text: ai.text, kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
-		if (!parsed.text) {
-			void releaseQuestion(usageId);
-			fail(res, 503, "ai_unavailable", "STAK AI couldn't answer just now. That one didn't count — try again in a moment.");
-			return;
-		}
-
-		// Save the exchange as one unit: conversation, both messages, and what it's now about.
-		const client = await pgPool.connect();
-		let savedConversationId: string;
-		let messageId: number | null;
-		try {
-			await client.query("BEGIN");
-			if (conversationId) {
-				await client.query(
-					`UPDATE stak_ai_conversations SET updated_at = now(), last_tickers = $2, context = COALESCE($3::jsonb, context) WHERE id = $1`,
-					[conversationId, tickers.length > 0 ? tickers : lastTickers, contextIsNew ? JSON.stringify(newContext) : null],
-				);
-				savedConversationId = conversationId;
-			} else {
-				savedConversationId = (await client.query<{ id: string }>(
-					`INSERT INTO stak_ai_conversations (uid, title, context, last_tickers) VALUES ($1, $2, $3, $4) RETURNING id`,
-					[uid, makeTitle(question, context), context ? JSON.stringify(context) : null, tickers],
-				)).rows[0]!.id;
-			}
-			const inserted = await client.query<{ id: number; role: string }>(
-				`INSERT INTO stak_ai_messages (conversation_id, uid, role, content, kind) VALUES ($1, $2, 'user', $3, 'answer'), ($1, $2, 'assistant', $4, $5) RETURNING id::int AS id, role`,
-				[savedConversationId, uid, question, parsed.text, parsed.kind],
-			);
-			messageId = inserted.rows.find((r) => r.role === "assistant")?.id ?? null;
-			await client.query("COMMIT");
-		} catch (e) {
-			await client.query("ROLLBACK").catch(() => {});
-			void releaseQuestion(usageId);
-			throw e;
-		} finally {
-			client.release();
-		}
-
-		// Only real answers count against the limit; a decline or a question back is handed back.
-		const counts = parsed.kind === "answer";
-		if (!counts) void releaseQuestion(usageId);
-		const before = reservation.usage;
-		const usage: StakAiUsage = counts
-			? { ...before, used: before.used + 1, remaining: Math.max(0, before.remaining - 1), resetsAt: before.resetsAt ?? windowEnd(new Date()) }
-			: before;
-
-		// Research cohort: what the AI saw vs. what it said (fire-and-forget — never blocks the response).
-		if (inCohort) {
-			pgQuery(
-				`INSERT INTO stak_ai_research_log
-				 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response, context)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-				[uid, savedConversationId, question, tickers, JSON.stringify(sources.map(({ ticker, headline }) => ({ ticker, headline }))), JSON.stringify(liveContextLog), parsed.text, context ? JSON.stringify(context) : null],
-			).catch((e) => console.warn("[STAK AI] research log write failed:", e));
-		}
-
-		const reply: StakAiChatReply = {
-			response: parsed.text,
-			conversationId: savedConversationId,
-			messageId,
-			answerKind: parsed.kind,
-			followUps: parsed.followUps,
-			sources: sources.slice(0, 4),
-			usage,
+		return {
+			uid, question, via, usageId, usageBefore: reservation.usage, conversationId, newContext, contextIsNew, context,
+			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt,
 		};
+	} catch (e) {
+		void releaseQuestion(usageId);
+		throw e;
+	}
+}
+
+/**
+ * Saves the exchange (as one unit: conversation, both messages, what it's now about), settles the limit (only real
+ * answers count), and logs it - the research cohort's log and the usage event. Hands the question back if it throws.
+ */
+async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, streamed: boolean): Promise<StakAiChatReply | null> {
+	const parsed = ai.refused ? { text: ai.text, kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
+	if (!parsed.text) {
+		void releaseQuestion(p.usageId);
+		return null;
+	}
+	const client = await pgPool.connect();
+	let savedConversationId: string;
+	let messageId: number | null;
+	try {
+		await client.query("BEGIN");
+		if (p.conversationId) {
+			await client.query(
+				`UPDATE stak_ai_conversations SET updated_at = now(), last_tickers = $2, context = COALESCE($3::jsonb, context) WHERE id = $1`,
+				[p.conversationId, p.tickers.length > 0 ? p.tickers : p.lastTickers, p.contextIsNew ? JSON.stringify(p.newContext) : null],
+			);
+			savedConversationId = p.conversationId;
+		} else {
+			savedConversationId = (await client.query<{ id: string }>(
+				`INSERT INTO stak_ai_conversations (uid, title, context, last_tickers) VALUES ($1, $2, $3, $4) RETURNING id`,
+				[p.uid, makeTitle(p.question, p.context), p.context ? JSON.stringify(p.context) : null, p.tickers],
+			)).rows[0]!.id;
+		}
+		const inserted = await client.query<{ id: number; role: string }>(
+			`INSERT INTO stak_ai_messages (conversation_id, uid, role, content, kind) VALUES ($1, $2, 'user', $3, 'answer'), ($1, $2, 'assistant', $4, $5) RETURNING id::int AS id, role`,
+			[savedConversationId, p.uid, p.question, parsed.text, parsed.kind],
+		);
+		messageId = inserted.rows.find((r) => r.role === "assistant")?.id ?? null;
+		await client.query("COMMIT");
+	} catch (e) {
+		await client.query("ROLLBACK").catch(() => {});
+		void releaseQuestion(p.usageId);
+		throw e;
+	} finally {
+		client.release();
+	}
+
+	// Only real answers count against the limit; a decline or a question back is handed back.
+	const counts = parsed.kind === "answer";
+	if (!counts) void releaseQuestion(p.usageId);
+	const before = p.usageBefore;
+	const usage: StakAiUsage = counts
+		? { ...before, used: before.used + 1, remaining: Math.max(0, before.remaining - 1), resetsAt: before.resetsAt ?? windowEnd(new Date()) }
+		: before;
+
+	// Research cohort: what the AI saw vs. what it said (fire-and-forget — never blocks the response).
+	if (p.inCohort) {
+		pgQuery(
+			`INSERT INTO stak_ai_research_log
+			 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response, context)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			[p.uid, savedConversationId, p.question, p.tickers, JSON.stringify(p.sources.map(({ ticker, headline }) => ({ ticker, headline }))), JSON.stringify(p.liveContextLog), parsed.text, p.context ? JSON.stringify(p.context) : null],
+		).catch((e) => console.warn("[STAK AI] research log write failed:", e));
+	}
+	// Usage stats (the events table, read by /api/admin/analytics): how it was asked, from where, and how it went.
+	pgQuery(
+		`INSERT INTO events (uid, type, params) VALUES ($1, 'stak_ai_ask', $2)`,
+		[p.uid, JSON.stringify({ via: p.via, context: p.context?.type ?? null, kind: parsed.kind, streamed, ms: Date.now() - p.startedAt, live: p.tickers.length > 0 })],
+	).catch((e) => console.warn("[STAK AI] usage event write failed:", e));
+
+	return {
+		response: parsed.text,
+		conversationId: savedConversationId,
+		messageId,
+		answerKind: parsed.kind,
+		followUps: parsed.followUps,
+		sources: p.sources.slice(0, 4),
+		usage,
+	};
+}
+
+const UNAVAILABLE = "STAK AI couldn't answer just now. That one didn't count — try again in a moment.";
+const SERVER_ERROR = "Something went wrong on our side. That one didn't count.";
+
+stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	let p: Prepared | null = null;
+	try {
+		p = await prepareChat(req, res);
+		if (!p) return;
+		const ai = await callGemini(p.contents, p.systemInstruction);
+		if (!ai) {
+			void releaseQuestion(p.usageId);
+			fail(res, 503, "ai_unavailable", UNAVAILABLE);
+			return;
+		}
+		const reply = await saveChat(p, ai, false);
+		if (!reply) { fail(res, 503, "ai_unavailable", UNAVAILABLE); return; }
 		res.json(reply);
 	} catch (e) {
 		console.error("[STAK AI] chat error:", e);
-		if (!res.headersSent) fail(res, 500, "server_error", "Something went wrong on our side. That one didn't count.");
+		if (!res.headersSent) fail(res, 500, "server_error", SERVER_ERROR);
 	}
+});
+
+/**
+ * What of the model's text so far can be shown: the leading [[DECLINED]]/[[CLARIFY]] marker is dropped, and nothing
+ * from the first "[[" on (the closing [[FOLLOWUPS]] line) - or a lone trailing "[" - goes out until the end, when
+ * the `done` event's clean `response` replaces the streamed text anyway.
+ */
+export function streamableText(full: string): string {
+	const t = full.trimStart();
+	// Might still be reading a leading [[DECLINED]] / [[CLARIFY]]: wait until it's complete or clearly isn't one.
+	if (t.startsWith("[") && !t.includes("]]") && t.length < 14) return "";
+	const lead = t.match(/^\[\[(DECLINED|CLARIFY)\]\]\s*/i);
+	const body = lead ? t.slice(lead[0].length) : t;
+	const cut = body.indexOf("[[");
+	const end = cut >= 0 ? cut : body.endsWith("[") ? body.length - 1 : body.length;
+	return body.slice(0, end);
+}
+
+/** Streams the model's reply through [onText] (the whole text so far); resolves with it, or null if no key answered. */
+async function streamGemini(
+	contents: { role: string; parts: { text: string }[] }[],
+	systemInstruction: string,
+	onText: (full: string) => void,
+): Promise<{ text: string; refused: boolean } | null> {
+	return withGeminiConcurrencyLimit(async () => {
+		const started = Date.now();
+		for (const key of getGeminiKeys()) {
+			const left = GEMINI_DEADLINE_MS - (Date.now() - started);
+			if (left < 2_000) break;
+			try {
+				const res = await fetch(geminiStreamUrl(GEMINI_MODEL, key), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						system_instruction: { parts: [{ text: systemInstruction }] },
+						contents,
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
+					}),
+					// The first byte must come within the deadline; once text flows, allow up to a minute in all.
+					signal: AbortSignal.timeout(60_000),
+				});
+				if (!res.ok || !res.body) {
+					console.warn(`[STAK AI] Gemini stream ${res.status} on key ...${key.slice(-4)}${res.status === 429 ? " — trying next" : ""}`);
+					continue;
+				}
+				let full = "";
+				let buffer = "";
+				const decoder = new TextDecoder();
+				const reader = res.body.getReader();
+				for (;;) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					let nl: number;
+					while ((nl = buffer.indexOf("\n")) >= 0) {
+						const line = buffer.slice(0, nl).trim();
+						buffer = buffer.slice(nl + 1);
+						if (!line.startsWith("data:")) continue;
+						try {
+							const chunk = JSON.parse(line.slice(5)) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+							const piece = chunk.candidates?.[0]?.content?.parts?.map((x) => x.text ?? "").join("") ?? "";
+							if (piece) { full += piece; onText(full); }
+						} catch { /* a partial or keep-alive line */ }
+					}
+				}
+				const text = full.trim();
+				if (!text) { console.warn(`[STAK AI] Gemini stream empty on key ...${key.slice(-4)}`); continue; }
+				return { text, refused: GEMINI_REFUSAL_RE.test(text) };
+			} catch (e) {
+				console.warn(`[STAK AI] Gemini stream error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
+			}
+		}
+		return null;
+	});
+}
+
+stakAiRouter.post("/chat/stream", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	let p: Prepared | null = null;
+	try {
+		p = await prepareChat(req, res);
+		if (!p) return;
+	} catch (e) {
+		console.error("[STAK AI] stream prepare error:", e);
+		if (!res.headersSent) fail(res, 500, "server_error", SERVER_ERROR);
+		return;
+	}
+	res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+	res.flushHeaders();
+	const send = (event: string, data: unknown) => {
+		if (res.writableEnded) return;
+		res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+	};
+	let shown = 0;
+	try {
+		const ai = await streamGemini(p.contents, p.systemInstruction, (full) => {
+			const safe = streamableText(full);
+			if (safe.length > shown) {
+				send("delta", { text: safe.slice(shown) });
+				shown = safe.length;
+			}
+		});
+		if (!ai) {
+			void releaseQuestion(p.usageId);
+			send("error", { code: "ai_unavailable", error: UNAVAILABLE });
+		} else {
+			// Saved even if the person has gone: the answer is in their history, and it counted.
+			const reply = await saveChat(p, ai, true);
+			if (reply) send("done", reply);
+			else send("error", { code: "ai_unavailable", error: UNAVAILABLE });
+		}
+	} catch (e) {
+		console.error("[STAK AI] stream error:", e);
+		send("error", { code: "server_error", error: SERVER_ERROR });
+	}
+	res.end();
 });
 
 // GET /api/stak-ai/usage — questions left in the current window, for the counter in the chat.
