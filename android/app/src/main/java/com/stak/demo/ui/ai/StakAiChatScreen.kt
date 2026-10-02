@@ -1,5 +1,6 @@
 package com.stak.demo.ui.ai
 
+import android.provider.Settings
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -64,10 +65,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -90,6 +93,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.stak.demo.data.BrandNames
 import com.stak.demo.data.StakAiContext
 import com.stak.demo.data.StakAiSource
+import com.stak.demo.data.StakAiEntry
 import com.stak.demo.data.StakAiVia
 import com.stak.demo.ui.onboarding.AuthBackCircle
 import com.stak.demo.ui.onboarding.figmaUnit
@@ -123,19 +127,30 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 	// Keep the newest line in view as the conversation grows, while the dots show, and when the keyboard opens.
 	var follow by remember { mutableStateOf(true) }
 	val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-	LaunchedEffect(vm.messages.size, vm.sending, keyboardOpen) {
-		val last = vm.messages.size + (if (vm.sending) 1 else 0) - 1
-		if (last >= 0) list.animateScrollToItem(last)
-		follow = true
-	}
-	// Follow an answer as it's written, unless the person has scrolled up to read: wherever a scroll they make
-	// comes to rest decides it.
+	// Asking glides to the question; anything else (words arriving, the finished answer's thumbs and follow-ups, the
+	// keyboard opening, a past chat loading) keeps the bottom in view - for someone already there. Where a scroll the
+	// person makes comes to rest (within 80dp of the end or not) decides whether they're there.
+	val nearEndPx = with(LocalDensity.current) { 80.dp.toPx() }
 	LaunchedEffect(list) {
-		snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = !list.canScrollForward }
+		snapshotFlow { list.isScrollInProgress }.collect { scrolling ->
+			if (scrolling) return@collect
+			val info = list.layoutInfo
+			val end = info.visibleItemsInfo.lastOrNull()
+			follow = end == null || (end.index == info.totalItemsCount - 1 && end.offset + end.size - info.viewportEndOffset < nearEndPx)
+		}
 	}
-	val streamingLength = vm.messages.lastOrNull()?.takeIf { it.streaming }?.text?.length
-	LaunchedEffect(streamingLength) {
-		if (streamingLength != null && follow) list.scrollToItem(vm.messages.size - 1, Int.MAX_VALUE)
+	val lastLine = vm.messages.lastOrNull()
+	// The dots are an item of their own until the first words arrive.
+	val dots = vm.sending && lastLine?.streaming != true
+	LaunchedEffect(vm.messages.size, vm.sending, keyboardOpen, lastLine?.text?.length) {
+		val last = vm.messages.size + (if (dots) 1 else 0) - 1
+		if (last < 0) return@LaunchedEffect
+		if (vm.sending && lastLine?.fromUser == true) {
+			follow = true
+			list.animateScrollToItem(last)
+		} else if (follow) {
+			list.scrollToItem(last, Int.MAX_VALUE)
+		}
 	}
 	val submit = {
 		if (draft.isNotBlank() && vm.canAsk) {
@@ -189,10 +204,10 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 			}
 			if (vm.loading) item { Text("Loading chat…", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = StakColors.Muted) }
 			// The dots until the first words arrive; then the answer writes itself out.
-			if (vm.sending && vm.messages.lastOrNull()?.streaming != true) item { TypingDots() }
+			if (dots) item { TypingDots() }
 		}
 
-		vm.notice?.let { NoticeCard(it, onRetry = vm::retry, onRetryOpen = vm::retryOpen, onNewChat = vm::newChat) }
+		vm.notice?.let { NoticeCard(it, limit = vm.usage?.limit, onRetry = vm::retry, onRetryOpen = vm::retryOpen, onNewChat = vm::newChat) }
 
 		// Input, questions left, and the fixed disclaimer.
 		Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = (20 * u).dp).padding(top = (8 * u).dp, bottom = (6 * u).dp)) {
@@ -359,8 +374,9 @@ private fun AnswerLine(m: AiMessage, latest: Boolean, showFollowUps: Boolean, on
 	val uri = LocalUriHandler.current
 	Column(
 		verticalArrangement = Arrangement.spacedBy((8 * u).dp),
-		// The newest answer is announced once, when it's finished - not chunk by chunk as it's written.
-		modifier = Modifier.fillMaxWidth().then(if (latest && !m.streaming) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier),
+		// The newest answer is announced when it arrives: while it's written it reads only as "STAK AI is answering",
+		// so its words are read once, finished, not chunk by chunk.
+		modifier = Modifier.fillMaxWidth().then(if (latest) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier),
 	) {
 		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((6 * u).dp)) {
 			Box(contentAlignment = Alignment.Center, modifier = Modifier.size((22 * u).dp).background(StakColors.Surface, CircleShape)) {
@@ -368,8 +384,18 @@ private fun AnswerLine(m: AiMessage, latest: Boolean, showFollowUps: Boolean, on
 			}
 			Text("STAK AI", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (12 * u).sp), color = StakColors.Muted)
 		}
-		AiMarkdown(m.text, streaming = m.streaming)
-		if (m.streaming) WritingCaret()
+		if (m.streaming) {
+			Column(
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier.clearAndSetSemantics { contentDescription = "STAK AI is answering" },
+			) {
+				AiMarkdown(m.text, streaming = true)
+				WritingCaret()
+			}
+		} else {
+			Box(Modifier.alpha(if (m.cutOff) 0.6f else 1f)) { AiMarkdown(m.text, streaming = m.cutOff) }
+		}
+		if (m.cutOff) Text("Cut off. The full answer may be in your chats.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = Warn)
 		if (m.kind != "answer") {
 			Text("This one didn't count toward your questions.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = StakColors.Muted)
 		}
@@ -458,10 +484,10 @@ private fun TypingDots() {
 }
 
 @Composable
-private fun NoticeCard(notice: AiNotice, onRetry: () -> Unit, onRetryOpen: () -> Unit, onNewChat: () -> Unit) {
+private fun NoticeCard(notice: AiNotice, limit: Int?, onRetry: () -> Unit, onRetryOpen: () -> Unit, onNewChat: () -> Unit) {
 	val u = figmaUnit()
 	val text = when (notice) {
-		is AiNotice.LimitReached -> "You've used your 5 questions for now. ${nextQuestionText(notice.resetsAt)}"
+		is AiNotice.LimitReached -> "You've used your ${limit ?: 5} questions for now. ${nextQuestionText(notice.resetsAt)}"
 		is AiNotice.Failed -> if (notice.offline) "You're offline, so that didn't send. It didn't count." else "STAK AI couldn't answer just now. That one didn't count."
 		AiNotice.Slow -> "STAK AI is taking longer than usual. Check your chats in a moment before asking again."
 		AiNotice.LoadFailed -> "Couldn't open that chat."
@@ -535,24 +561,31 @@ internal fun parseMarkdown(text: String): List<MdBlock> {
  * marker on a line with nothing after it yet.
  */
 internal fun tidyStreaming(text: String): String {
-	var t = text.replace(Regex("\\n[ \\t]*[-*•]?[ \\t]*$"), "")
-	if (Regex("\\*\\*").findAll(t).count() % 2 == 1) {
+	var t = UNFINISHED_BULLET.replaceFirst(text, "")
+	if (BOLD_MARK.findAll(t).count() % 2 == 1) {
 		val at = t.lastIndexOf("**")
 		t = t.removeRange(at, at + 2)
 	}
-	return t.removeSuffix("*")
+	// A lone "*" may be the start of the next "**"; a just-closed "**" stays.
+	return if (t.endsWith("*") && !t.endsWith("**")) t.dropLast(1) else t
 }
 
-/** A soft caret under an answer still being written; it tells TalkBack what's happening instead of each chunk. */
+// The web's tidyStreaming (StakAiThread.tsx) uses the same patterns; \z is JavaScript's "$" without the m flag.
+private val UNFINISHED_BULLET = Regex("\\n[ \\t]*[-*•]?[ \\t]*\\z")
+private val BOLD_MARK = Regex("\\*\\*")
+
+/** A soft caret under an answer still being written: pulsing in the draw phase, steady with animations turned off. */
 @Composable
 private fun WritingCaret() {
 	val u = figmaUnit()
-	val pulse by rememberInfiniteTransition(label = "caret").animateFloat(
+	val resolver = LocalContext.current.contentResolver
+	val still = remember { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+	val pulse = rememberInfiniteTransition(label = "caret").animateFloat(
 		initialValue = 1f, targetValue = 0.3f, animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "caret",
 	)
 	Box(
-		Modifier.size(width = (8 * u).dp, height = (16 * u).dp).alpha(pulse).background(StakColors.Teal, RoundedCornerShape((2 * u).dp))
-			.semantics { contentDescription = "STAK AI is answering" },
+		Modifier.size(width = (8 * u).dp, height = (16 * u).dp).graphicsLayer { alpha = if (still) 1f else pulse.value }
+			.background(StakColors.Teal, RoundedCornerShape((2 * u).dp)),
 	)
 }
 
@@ -620,7 +653,11 @@ fun AskAiCard(title: String, subtitle: String, context: () -> StakAiContext, onO
 				StakAiLauncher.reset()
 				val ctx = context()
 				StakAiLauncher.context = ctx
-				StakAiLauncher.entry = ctx.type
+				StakAiLauncher.entry = when (ctx.type) {
+					"stock" -> StakAiEntry.STOCK
+					"article" -> StakAiEntry.ARTICLE
+					else -> StakAiEntry.BRIEF
+				}
 				onOpen()
 			}
 			.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),

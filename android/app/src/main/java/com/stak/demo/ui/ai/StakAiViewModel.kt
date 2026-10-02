@@ -61,6 +61,8 @@ data class AiMessage(
 	val failed: Boolean = false,
 	/** An answer still being written (streamed); replaced by the finished one. */
 	val streaming: Boolean = false,
+	/** What was written of an answer before the connection went quiet or dropped; the full one may be in the chats. */
+	val cutOff: Boolean = false,
 )
 
 /** Something the chat needs to tell the person, shown above the input. */
@@ -74,6 +76,9 @@ sealed interface AiNotice {
 	/** A past conversation couldn't be loaded. */
 	data object LoadFailed : AiNotice
 }
+
+/** After a slow answer, look again at the count once the server has surely finished. */
+private const val RECHECK_MS = 60_000L
 
 @HiltViewModel
 class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : ViewModel() {
@@ -165,8 +170,12 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 			)
 			messages = if (messages.any { it.key == streamKey }) messages.map { if (it.key == streamKey) finished else it } else messages + finished
 		}.onFailure { e ->
-			// A half-written answer that didn't finish comes off the screen.
-			messages = messages.filterNot { it.key == streamKey }
+			// Too slow, or the connection dropped after words arrived: the server may well have finished, saved and
+			// counted it. (A failure the server reports part-way is a StakAiStreamException: that one really didn't count.)
+			val mayHaveCounted = e is InterruptedIOException || (gotText && e is IOException)
+			// A half-written answer that failed comes off the screen; one that may have been saved stays, marked cut off.
+			messages = if (mayHaveCounted) messages.map { if (it.key == streamKey) it.copy(streaming = false, cutOff = true) else it }
+			else messages.filterNot { it.key == streamKey }
 			val err = errorBody(e)
 			when {
 				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
@@ -181,13 +190,16 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 					messages = messages.dropLast(1)
 					returnedDraft = question
 				}
-				// Too slow, or the connection dropped after words arrived: the server may well have finished, saved and
-				// counted it - so don't say it didn't count; refresh the count instead. (A failure the server reports
-				// part-way is a StakAiStreamException: that one really didn't count.)
-				e is InterruptedIOException || (gotText && e is IOException) -> {
-					markLastFailed()
+				// Don't say it didn't count: refresh the count now, and again once the server has surely finished (now, it
+				// may still be writing - or not count it after all). The question is unanswered only if nothing showed.
+				mayHaveCounted -> {
+					if (!gotText) markLastFailed()
 					notice = AiNotice.Slow
 					refreshUsage()
+					viewModelScope.launch {
+						delay(RECHECK_MS)
+						refreshUsage()
+					}
 				}
 				else -> {
 					markLastFailed()

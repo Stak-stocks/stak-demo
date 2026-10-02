@@ -30,6 +30,8 @@ class StakAiHelpersTest {
 		assertEquals("It's **very** high", tidyStreaming("It's **very** high"))
 		assertEquals("Reasons:\n- one", tidyStreaming("Reasons:\n- one\n- "))
 		assertEquals("Hmm ", tidyStreaming("Hmm *"))
+		assertEquals("A **bold**", tidyStreaming("A **bold**"))
+		assertEquals("a\n", tidyStreaming("a\n\n"))
 	}
 
 	@Test

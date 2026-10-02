@@ -112,14 +112,14 @@ class StakAiViewModelTest {
 		assertEquals("starter", repo.requests.single().via)
 	}
 
-	@Test fun aHalfWrittenAnswerThatFailsComesOffTheScreen() {
+	@Test fun aDroppedConnectionKeepsWhatWasWrittenMarkedCutOff() {
 		repo.streamFirst = listOf("Chips fe")
 		repo.outcomes += { throw IOException("cut off") }
 		val vm = StakAiViewModel(repo)
 		vm.send("Why?")
-		assertEquals(1, vm.messages.size)
-		assertTrue(vm.messages.single().failed)
-		// The connection dropped after words arrived: it may have been saved and counted, so it's "check your chats".
+		// The connection dropped after words arrived: it may have been saved and counted, so what was written stays,
+		// marked cut off, and it's "check your chats".
+		assertEquals(listOf(Triple("Why?", false, false), Triple("Chips fe", false, true)), vm.messages.map { Triple(it.text, it.failed, it.cutOff) })
 		assertEquals(AiNotice.Slow, vm.notice)
 	}
 
@@ -129,6 +129,9 @@ class StakAiViewModelTest {
 		val vm = StakAiViewModel(repo)
 		vm.send("Why?")
 		assertEquals(AiNotice.Failed(offline = false), vm.notice)
+		// A half-written answer that failed comes off the screen.
+		assertEquals(1, vm.messages.size)
+		assertTrue(vm.messages.single().failed)
 	}
 
 	@Test fun openingCountsWhereItCameFromButReopeningDoesNot() {
