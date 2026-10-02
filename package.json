@@ -8,6 +8,7 @@
 		"emails"
 	],
 	"scripts": {
-		"email:dev": "npm run dev -w @stak/emails"
+		"email:dev": "npm run dev -w @stak/emails",
+		"deploy:backend": "bash scripts/deploy-backend.sh"
 	}
 }
