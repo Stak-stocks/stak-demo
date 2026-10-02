@@ -47,10 +47,13 @@ export function resetStakAiLauncher() {
 
 export const STAK_AI_USAGE_KEY = ["stakAi", "usage"] as const;
 export const STAK_AI_CONVERSATIONS_KEY = ["stakAi", "conversations"] as const;
-/** No first words by now, or no new words for IDLE_MS once they've started: report the answer as slow. It may still be
- *  saved and count, so the chat says "check your chats" rather than that it didn't count. */
+/** No first words by now, or no new words for STALL_MS once they've started: report the answer as slow. It may still be
+ *  saved and count, so the chat says "check your chats" rather than that it didn't count. STALL_MS is twice the
+ *  server's own 15s idle limit, so a stalled answer normally ends with the server's `error` event first. */
 const SLOW_MS = 45_000;
-const IDLE_MS = 30_000;
+const STALL_MS = 30_000;
+/** After a slow answer, look again for it (and the count) once the server has surely finished. */
+const RECHECK_MS = 60_000;
 
 /** The questions-left count, shared by every chat on screen (the /stak-ai page and the desktop panels). */
 export function useStakAiUsage() {
@@ -72,6 +75,8 @@ export interface AiMessage {
 	failed?: boolean;
 	/** An answer still being written (streamed); replaced by the finished one. */
 	streaming?: boolean;
+	/** What was written of an answer before the connection went quiet or dropped; the full one may be in the chats. */
+	cutOff?: boolean;
 }
 
 export type AiNotice =
@@ -190,7 +195,7 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 				signal: controller.signal,
 				onText: (soFar) => {
 					clearTimeout(timer);
-					timer = setTimeout(giveUp, IDLE_MS);
+					timer = setTimeout(giveUp, STALL_MS);
 					gotText = true;
 					if (mine !== session.current) return;
 					setMessages((ms) => {
@@ -202,8 +207,13 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 		} catch (e) {
 			clearTimeout(timer);
 			if (mine !== session.current) return;
-			// A half-written answer that didn't finish comes off the screen; the question is marked unanswered.
-			setMessages((ms) => ms.filter((m) => m.key !== streamKey));
+			// Gone quiet, or the connection dropped after words had arrived: the server may well have finished, saved and
+			// counted it. (A mid-answer `error` event is an ApiError: that one really didn't count.)
+			const mayHaveCounted = slow || (gotText && !(e instanceof ApiError));
+			// A half-written answer that failed comes off the screen; one that may have been saved stays, marked cut off.
+			setMessages((ms) => mayHaveCounted
+				? ms.map((m) => (m.key === streamKey ? { ...m, streaming: false, cutOff: true } : m))
+				: ms.filter((m) => m.key !== streamKey));
 			const body = e instanceof ApiError ? (e.body as { code?: string; usage?: StakAiUsage } | undefined) : undefined;
 			if (body?.code === "not_found" && allowRestart && conversationId.current) {
 				// The chat was deleted (from history) while open: carry on in a fresh one, asking the same question.
@@ -217,14 +227,18 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 				setReturnedDraft(question);
 				return;
 			}
-			setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 ? { ...m, failed: true } : m)));
-			// Gone quiet, or the connection dropped after words had arrived: the server may well have finished, saved
-			// and counted it - say so, and refresh the count and the chat list rather than claim it didn't count. (A
-			// mid-answer `error` event is an ApiError: that one really didn't count.)
-			if (slow || (gotText && !(e instanceof ApiError))) {
+			// The question is marked unanswered - unless part of its answer is showing.
+			if (!(mayHaveCounted && gotText)) setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 && m.fromUser ? { ...m, failed: true } : m)));
+			if (mayHaveCounted) {
+				// Say so, and refresh the count and the chat list now and again once the server has surely finished
+				// (now, it may still be writing: counted, but not in the list yet - or not counted after all).
 				setProblem({ type: "slow" });
-				void qc.invalidateQueries({ queryKey: STAK_AI_USAGE_KEY });
-				void qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY });
+				const recheck = () => {
+					void qc.invalidateQueries({ queryKey: STAK_AI_USAGE_KEY });
+					void qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY });
+				};
+				recheck();
+				setTimeout(recheck, RECHECK_MS);
 			} else {
 				setProblem({ type: "failed", offline: !(e instanceof ApiError) });
 			}

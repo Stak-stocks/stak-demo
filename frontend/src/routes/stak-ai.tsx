@@ -79,7 +79,7 @@ function StakAiDesktopPage() {
 					</button>
 				</div>
 				<div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
-					<StakAiHistoryList history={history} variant="desktop" activeId={chat.currentConversationId()} onOpen={(id) => chat.open(id)} />
+					<StakAiHistoryList history={history} variant="desktop" activeId={chat.currentConversationId()} onOpen={chat.open} />
 				</div>
 			</aside>
 		</div>

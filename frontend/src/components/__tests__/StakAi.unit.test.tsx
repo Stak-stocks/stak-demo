@@ -107,16 +107,14 @@ describe("useStakAiChat", () => {
 		expect(api.streamStakAiMessage.mock.calls[0]![1].via).toBe("starter");
 	});
 
-	it("a half-written answer that fails comes off the screen", async () => {
+	it("a dropped connection keeps what was written, marked cut off (it may have been saved)", async () => {
 		api.streamStakAiMessage.mockImplementationOnce((_q: string, opts: { onText: (t: string) => void }) => {
 			opts.onText("Chips fe");
 			return Promise.reject(new TypeError("cut off"));
 		});
 		const { result } = hook();
 		await ask(result, "Why?");
-		expect(result.current.messages).toHaveLength(1);
-		expect(result.current.messages[0]!.failed).toBe(true);
-		// The connection dropped after words arrived: it may have been saved and counted, so it's "check your chats".
+		expect(result.current.messages.map((m) => [m.text, !!m.failed, !!m.cutOff])).toEqual([["Why?", false, false], ["Chips fe", false, true]]);
 		expect(result.current.notice).toEqual({ type: "slow" });
 	});
 
@@ -128,6 +126,9 @@ describe("useStakAiChat", () => {
 		const { result } = hook();
 		await ask(result, "Why?");
 		expect(result.current.notice).toEqual({ type: "failed", offline: false });
+		// A half-written answer that failed comes off the screen.
+		expect(result.current.messages).toHaveLength(1);
+		expect(result.current.messages[0]!.failed).toBe(true);
 	});
 
 	it("opening from a page counts where it came from; returning from history doesn't", async () => {
@@ -262,6 +263,8 @@ describe("helpers", () => {
 		expect(tidyStreaming("It's **very** high")).toBe("It's **very** high");
 		expect(tidyStreaming("Reasons:\n- one\n- ")).toBe("Reasons:\n- one");
 		expect(tidyStreaming("Hmm *")).toBe("Hmm ");
+		expect(tidyStreaming("A **bold**")).toBe("A **bold**");
+		expect(tidyStreaming("a\n\n")).toBe("a\n");
 	});
 
 	it("a list after an intro line keeps its bullets", () => {

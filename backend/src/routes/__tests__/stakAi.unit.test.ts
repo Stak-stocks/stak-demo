@@ -19,7 +19,6 @@ vi.mock("../../services/geminiService.js", () => ({
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
 	GEMINI_REFUSAL_RE: /^I'm sorry/,
 	GEMINI_MODEL: "gemini-test",
-	geminiUrl: () => "https://gemini.test/generate",
 	geminiStreamUrl: () => "https://gemini.test/stream",
 }));
 const newsMock = vi.fn();

@@ -76,7 +76,7 @@ export function tidyStreaming(text: string): string {
 		const at = t.lastIndexOf("**");
 		t = t.slice(0, at) + t.slice(at + 2);
 	}
-	return t.replace(/\*$/, "");
+	return t.replace(/(?<!\*)\*$/, "");
 }
 
 function AiMarkdown({ text, look, streaming = false }: { text: string; look: Look; streaming?: boolean }) {
@@ -130,16 +130,23 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 	// as it's written - unless the person has scrolled up to read, when the view stays where they put it.
 	const wasLoading = useRef(false);
 	const nearBottom = useRef(true);
+	const shownCount = useRef(0);
 	const last = chat.messages.at(-1);
 	const streaming = !!last?.streaming;
 	useLayoutEffect(() => {
 		const el = scroller.current;
-		if (el && (nearBottom.current || !streaming)) {
-			const instant = wasLoading.current || streaming || matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+		// Asking, or a past chat opening, always brings the bottom into view; anything else (words arriving, the
+		// finished answer's thumbs and follow-ups) only for someone already there.
+		const asked = chat.messages.length > shownCount.current && !!last?.fromUser;
+		const opened = wasLoading.current && !chat.loading;
+		if (el && (asked || opened || nearBottom.current)) {
+			const instant = opened || streaming || matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 			el.scrollTo?.({ top: el.scrollHeight, behavior: instant ? "auto" : "smooth" });
+			nearBottom.current = true;
 		}
+		shownCount.current = chat.messages.length;
 		wasLoading.current = chat.loading;
-	}, [chat.messages.length, chat.sending, chat.loading, last?.text.length, streaming]);
+	}, [chat.messages.length, chat.sending, chat.loading, last?.text.length, streaming, last?.fromUser]);
 	const onScroll = () => {
 		const el = scroller.current;
 		if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -155,9 +162,9 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			{/* role="log" is a polite live region: answers added here are announced. */}
-			{/* aria-busy while an answer streams in, so it's read once, finished, not chunk by chunk. */}
-			<div ref={scroller} onScroll={onScroll} role="log" aria-label="STAK AI conversation" aria-busy={streaming} className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
+			{/* role="log" is a polite live region: answers added here are announced. A streaming answer is only "STAK AI is
+			    answering" to screen readers; its words arrive as new nodes once finished, so they're read once, whole. */}
+			<div ref={scroller} onScroll={onScroll} role="log" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: s(16) }}>
 					{chat.messages.length === 0 && !chat.loading && !chat.sending && chat.notice?.type !== "loadFailed" && (
 						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askStarter} starters={starters} compact={compact} />
@@ -323,9 +330,21 @@ const AnswerLine = memo(function AnswerLine({ m, look, showFollowUps, onRate, on
 				</span>
 				<span className="font-semibold" style={{ fontSize: s(12), color: DISC.muted }}>STAK AI</span>
 			</div>
-			<AiMarkdown text={m.text} look={look} streaming={m.streaming} />
-			{/* Still being written: a soft caret (steady under reduced motion). */}
-			{m.streaming && <span aria-hidden="true" className="inline-block animate-pulse motion-reduce:animate-none" style={{ width: s(8), height: s(16), borderRadius: 2, background: DISC.teal, marginTop: s(-4) }} />}
+			{m.streaming ? (
+				<>
+					<span className="sr-only">STAK AI is answering…</span>
+					<div aria-hidden="true" className="flex flex-col" style={{ gap: s(8) }}>
+						<AiMarkdown text={m.text} look={look} streaming />
+						{/* Still being written: a soft caret (steady under reduced motion). */}
+						<span className="inline-block animate-pulse motion-reduce:animate-none" style={{ width: s(8), height: s(16), borderRadius: 2, background: DISC.teal, marginTop: s(-4) }} />
+					</div>
+				</>
+			) : (
+				<div style={{ opacity: m.cutOff ? 0.6 : 1 }}>
+					<AiMarkdown text={m.text} look={look} streaming={m.cutOff} />
+				</div>
+			)}
+			{m.cutOff && <p style={{ fontSize: s(11), color: WARN }}>Cut off. The full answer may be in your chats.</p>}
 			{m.kind !== "answer" && <p style={{ fontSize: s(11), color: DISC.muted }}>This one didn't count toward your questions.</p>}
 			{m.sources.length > 0 && (
 				<div style={{ borderRadius: s(12), background: look.card, padding: `${s(6)} ${s(12)}` }}>

@@ -28,6 +28,8 @@ const TICKER_RE = /^[A-Z][A-Z0-9.-]{0,9}$/;
 const HISTORY_TURNS = 20;
 /** The whole answer, across every Gemini key, must land within this; a stuck call shouldn't hold the screen for minutes. */
 const GEMINI_DEADLINE_MS = 25_000;
+/** Longest a plain (not streamed) answer may take, all keys included: inside the apps' 45s read timeout. */
+const PLAIN_ANSWER_MS = 38_000;
 /** News is context, not the answer: past this, answer without it. */
 const NEWS_DEADLINE_MS = 3_000;
 
@@ -244,6 +246,9 @@ async function askGemini(
 			const tag = `key ...${key.slice(-4)}`;
 			const controller = new AbortController();
 			let timer = setTimeout(() => controller.abort(), Math.min(FIRST_CHUNK_MS, left));
+			// Without [onText] (plain /chat: older app versions, which give up after 45s) nothing reaches the person until
+			// the end, so the whole answer has to fit in PLAIN_ANSWER_MS, however steadily it's arriving.
+			const cap = onText ? undefined : setTimeout(() => controller.abort(), PLAIN_ANSWER_MS - (Date.now() - started));
 			const stillTalking = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), IDLE_MS); };
 			try {
 				const res = await fetch(geminiStreamUrl(GEMINI_MODEL, key), {
@@ -315,6 +320,7 @@ async function askGemini(
 				console.warn(`[STAK AI] Gemini error on ${tag}: ${(e as Error)?.message}`);
 			} finally {
 				clearTimeout(timer);
+				clearTimeout(cap);
 			}
 		}
 		console.warn("[STAK AI] No complete Gemini answer");

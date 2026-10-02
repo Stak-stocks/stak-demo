@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { MoreVertical } from "lucide-react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { DESK, deskFocus } from "@/components/desktop/deskKit";
@@ -17,9 +17,10 @@ const TAP = 44;
 
 /**
  * STAK AI's past chats: what each was about, its latest answer and when, with rename and delete behind a ⋯ menu
- * (Radix: Escape, outside clicks, arrow keys and focus return come with it). [activeId] marks the open one.
+ * (Radix: Escape, outside clicks, arrow keys and focus return come with it). [activeId] marks the open one. Memoised:
+ * the desktop page re-renders with every streamed word, the list needn't.
  */
-export function StakAiHistoryList({ history, onOpen, variant, activeId, disabled = false }: {
+export const StakAiHistoryList = memo(function StakAiHistoryList({ history, onOpen, variant, activeId, disabled = false }: {
 	history: ReturnType<typeof useStakAiHistory>;
 	onOpen: (id: string) => void;
 	variant: "phone" | "desktop";
@@ -104,7 +105,7 @@ export function StakAiHistoryList({ history, onOpen, variant, activeId, disabled
 			</AlertDialog>
 		</>
 	);
-}
+});
 
 function RenameDialog({ c, onClose, onSave }: { c: StakAiConversation | null; onClose: () => void; onSave: (c: StakAiConversation, title: string) => void }) {
 	const [title, setTitle] = useState(c?.title ?? "");

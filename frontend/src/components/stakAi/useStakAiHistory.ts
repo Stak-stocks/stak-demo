@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { deleteStakAiConversation, getStakAiConversations, renameStakAiConversation, type StakAiConversation } from "@/lib/api";
 import { newsAge } from "@/lib/newsText";
 import { STAK_AI_CONVERSATIONS_KEY } from "./useStakAiChat";
@@ -18,7 +18,7 @@ export function useStakAiHistory() {
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (last) => last.nextBefore ?? undefined,
 	});
-	const conversations = query.data?.pages.flatMap((p) => p.conversations) ?? [];
+	const conversations = useMemo(() => query.data?.pages.flatMap((p) => p.conversations) ?? [], [query.data]);
 
 	const edit = useCallback((change: (c: StakAiConversation[]) => StakAiConversation[]) => {
 		qc.setQueryData<InfiniteData<Page>>(STAK_AI_CONVERSATIONS_KEY, (d) => d && { ...d, pages: d.pages.map((p) => ({ ...p, conversations: change(p.conversations) })) });
@@ -37,16 +37,19 @@ export function useStakAiHistory() {
 		deleteStakAiConversation(c.id).catch(() => qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY }));
 	}, [edit, qc]);
 
-	return {
+	const { refetch, fetchNextPage, isPending, isFetchingNextPage, isError, hasNextPage } = query;
+	const reload = useCallback(() => { void refetch(); }, [refetch]);
+	const loadMore = useCallback(() => { void fetchNextPage(); }, [fetchNextPage]);
+	return useMemo(() => ({
 		conversations,
-		loading: query.isPending || query.isFetchingNextPage,
-		failed: query.isError,
-		hasMore: query.hasNextPage,
-		reload: () => { void query.refetch(); },
-		loadMore: () => { void query.fetchNextPage(); },
+		loading: isPending || isFetchingNextPage,
+		failed: isError,
+		hasMore: hasNextPage,
+		reload,
+		loadMore,
 		rename,
 		remove,
-	};
+	}), [conversations, isPending, isFetchingNextPage, isError, hasNextPage, reload, loadMore, rename, remove]);
 }
 
 /** "Just now", "12m ago", "3h ago", "30d ago" - Android's StakClock.ago, from lib/newsText's shared newsAge. */
