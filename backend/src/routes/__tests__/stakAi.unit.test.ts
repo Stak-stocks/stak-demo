@@ -37,6 +37,8 @@ const CONV_2 = "22222222-2222-4222-8222-222222222222";
 /** What the fake database holds: the window's usage, an optional existing conversation, and failure switches. */
 interface Db {
 	used: number;
+	/** The account's own question limit (stak_ai_limits), if it has one. */
+	ownLimit?: number | null;
 	conversation?: { id: string; uid: string; title?: string; context: unknown; last_tickers: string[] } | null;
 	failMessageInsert?: boolean;
 }
@@ -47,7 +49,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 	const rows = (r: unknown[]) => Promise.resolve({ rows: r, rowCount: r.length });
 	const s = sql.trim();
 	if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(s) || /pg_advisory_xact_lock/.test(s)) return rows([]);
-	if (/FROM stak_ai_usage/.test(s)) return rows([{ used: db.used, oldest: db.used ? "2026-10-01T10:00:00.000Z" : null }]);
+	if (/FROM stak_ai_usage/.test(s)) return rows([{ used: db.used, oldest: db.used ? "2026-10-01T10:00:00.000Z" : null, own_limit: db.ownLimit ?? null }]);
 	if (/^INSERT INTO stak_ai_usage/.test(s)) return rows([{ id: 77 }]);
 	if (/^DELETE FROM stak_ai_usage/.test(s)) return rows([]);
 	if (/SELECT id, context, last_tickers FROM stak_ai_conversations/.test(s) || /SELECT id, title, context FROM stak_ai_conversations/.test(s)) {
@@ -279,6 +281,18 @@ describe("conversations, usage and feedback", () => {
 	it("usage reports what's left in the window", async () => {
 		db.used = 2;
 		expect((await request(await buildApp()).get("/usage")).body).toEqual({ limit: 5, used: 2, remaining: 3, resetsAt: "2026-10-01T16:00:00.000Z" });
+	});
+
+	it("an account with its own limit gets that many, and is only stopped there", async () => {
+		db.ownLimit = 50;
+		db.used = 5;
+		expect((await request(await buildApp()).get("/usage")).body).toMatchObject({ limit: 50, remaining: 45 });
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(200);
+		db.used = 50;
+		const full = await request(await buildApp()).post("/chat").send({ message: "One more?" });
+		expect(full.status).toBe(429);
+		expect(full.body.error).toBe("You've used your 50 STAK AI questions for now.");
 	});
 
 	it("the list labels what each chat was opened from and previews its latest answer", async () => {

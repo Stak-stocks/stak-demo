@@ -143,18 +143,22 @@ function contextLabel(ctx: StakAiContext | null): string | null {
 }
 
 // ── Usage: STAK_AI_WINDOW_LIMIT questions per rolling window ────────────────
+// (or an account's own limit from stak_ai_limits - teammates testing, say)
 
+type UsageRow = { used: number; oldest: string | Date | null; own_limit: number | null };
 const windowEnd = (from: Date | string) => new Date(new Date(from).getTime() + STAK_AI_WINDOW_HOURS * 3_600_000).toISOString();
-const USAGE_SQL = `SELECT COUNT(*)::int AS used, MIN(created_at) AS oldest FROM stak_ai_usage
-	WHERE uid = $1 AND created_at >= NOW() - INTERVAL '${STAK_AI_WINDOW_HOURS} hours'`;
+const USAGE_SQL = `SELECT COUNT(*)::int AS used, MIN(created_at) AS oldest,
+	(SELECT window_limit FROM stak_ai_limits WHERE uid = $1) AS own_limit
+	FROM stak_ai_usage WHERE uid = $1 AND created_at >= NOW() - INTERVAL '${STAK_AI_WINDOW_HOURS} hours'`;
 
-function toUsage(row: { used: number; oldest: string | Date | null } | undefined): StakAiUsage {
+function toUsage(row: UsageRow | undefined): StakAiUsage {
 	const used = Number(row?.used ?? 0);
-	return { limit: STAK_AI_WINDOW_LIMIT, used, remaining: Math.max(0, STAK_AI_WINDOW_LIMIT - used), resetsAt: row?.oldest ? windowEnd(row.oldest) : null };
+	const limit = row?.own_limit ?? STAK_AI_WINDOW_LIMIT;
+	return { limit, used, remaining: Math.max(0, limit - used), resetsAt: row?.oldest ? windowEnd(row.oldest) : null };
 }
 
 async function getUsage(uid: string): Promise<StakAiUsage> {
-	return toUsage((await pgQuery<{ used: number; oldest: string | null }>(USAGE_SQL, [uid])).rows[0]);
+	return toUsage((await pgQuery<UsageRow>(USAGE_SQL, [uid])).rows[0]);
 }
 
 /**
@@ -167,7 +171,7 @@ async function reserveQuestion(uid: string): Promise<{ usageId: number | null; u
 	try {
 		await client.query("BEGIN");
 		await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`stak-ai:${uid}`]);
-		const usage = toUsage((await client.query<{ used: number; oldest: string | null }>(USAGE_SQL, [uid])).rows[0]);
+		const usage = toUsage((await client.query<UsageRow>(USAGE_SQL, [uid])).rows[0]);
 		let usageId: number | null = null;
 		if (usage.remaining > 0) {
 			usageId = (await client.query<{ id: number }>(`INSERT INTO stak_ai_usage (uid) VALUES ($1) RETURNING id::int AS id`, [uid])).rows[0]!.id;
@@ -458,7 +462,7 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 	]);
 	const usageId = reservation.usageId;
 	if (usageId === null) {
-		fail(res, 429, "limit_reached", `You've used your ${STAK_AI_WINDOW_LIMIT} STAK AI questions for now.`, { usage: reservation.usage });
+		fail(res, 429, "limit_reached", `You've used your ${reservation.usage.limit} STAK AI questions for now.`, { usage: reservation.usage });
 		return null;
 	}
 	if (convResult && convResult.rows.length === 0) {
