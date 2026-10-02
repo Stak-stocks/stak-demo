@@ -37,8 +37,8 @@ const CONV_2 = "22222222-2222-4222-8222-222222222222";
 /** What the fake database holds: the window's usage, an optional existing conversation, and failure switches. */
 interface Db {
 	used: number;
-	/** The account's own question limit (stak_ai_limits), if it has one. */
-	ownLimit?: number | null;
+	/** The account's own question limit (stak_ai_limits), if it has one; "none" for no limit. */
+	ownLimit?: number | "none" | null;
 	conversation?: { id: string; uid: string; title?: string; context: unknown; last_tickers: string[] } | null;
 	failMessageInsert?: boolean;
 }
@@ -49,7 +49,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 	const rows = (r: unknown[]) => Promise.resolve({ rows: r, rowCount: r.length });
 	const s = sql.trim();
 	if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(s) || /pg_advisory_xact_lock/.test(s)) return rows([]);
-	if (/FROM stak_ai_usage/.test(s)) return rows([{ used: db.used, oldest: db.used ? "2026-10-01T10:00:00.000Z" : null, own_limit: db.ownLimit ?? null }]);
+	if (/FROM stak_ai_usage/.test(s)) return rows([{ used: db.used, oldest: db.used ? "2026-10-01T10:00:00.000Z" : null, own_limit: typeof db.ownLimit === "number" ? db.ownLimit : null, unlimited: db.ownLimit === "none" }]);
 	if (/^INSERT INTO stak_ai_usage/.test(s)) return rows([{ id: 77 }]);
 	if (/^DELETE FROM stak_ai_usage/.test(s)) return rows([]);
 	if (/SELECT id, context, last_tickers FROM stak_ai_conversations/.test(s) || /SELECT id, title, context FROM stak_ai_conversations/.test(s)) {
@@ -293,6 +293,15 @@ describe("conversations, usage and feedback", () => {
 		const full = await request(await buildApp()).post("/chat").send({ message: "One more?" });
 		expect(full.status).toBe(429);
 		expect(full.body.error).toBe("You've used your 50 STAK AI questions for now.");
+	});
+
+	it("an account with no limit is never stopped, and says so", async () => {
+		db.ownLimit = "none";
+		db.used = 400;
+		expect((await request(await buildApp()).get("/usage")).body).toEqual({ limit: 999, used: 400, remaining: 999, resetsAt: null, unlimited: true });
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(200);
+		expect(res.body.usage.unlimited).toBe(true);
 	});
 
 	it("the list labels what each chat was opened from and previews its latest answer", async () => {

@@ -83,6 +83,8 @@ data class StakAiUsage(
 	val used: Int = 0,
 	val remaining: Int = 5,
 	val resetsAt: String? = null,
+	/** No limit on this account: the count is hidden (limit and remaining then hold a big constant). */
+	val unlimited: Boolean = false,
 )
 
 /** A headline the answer was given, for the "Based on" row. */

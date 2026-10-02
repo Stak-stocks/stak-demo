@@ -167,7 +167,7 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 			<div ref={scroller} onScroll={onScroll} role="log" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: s(16) }}>
 					{chat.messages.length === 0 && !chat.loading && !chat.sending && chat.notice?.type !== "loadFailed" && (
-						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askStarter} starters={starters} compact={compact} />
+						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} unlimited={!!chat.usage?.unlimited} nameOf={nameOf} look={look} onAsk={askStarter} starters={starters} compact={compact} />
 					)}
 					{chat.messages.map((m) =>
 						m.fromUser
@@ -253,7 +253,7 @@ const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; vari
 			</div>
 			<div className="flex justify-between" style={{ marginTop: s(6), fontSize: s(11), color: DISC.muted }}>
 				<span>Educational, not financial advice.</span>
-				{chat.usage && <span style={{ color: chat.usage.remaining <= 1 ? WARN : DISC.muted }}>{chat.usage.remaining} of {chat.usage.limit} questions left</span>}
+				{chat.usage && !chat.usage.unlimited && <span style={{ color: chat.usage.remaining <= 1 ? WARN : DISC.muted }}>{chat.usage.remaining} of {chat.usage.limit} questions left</span>}
 			</div>
 			{/* Say it out loud when the count gets low; the line above changes silently. */}
 			<span className="sr-only" aria-live="polite">{left === 1 ? "One question left." : left === 0 ? "No questions left for now." : ""}</span>
@@ -261,12 +261,12 @@ const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; vari
 	);
 });
 
-function EmptyState({ title, context, enabled, limit, nameOf, look, onAsk, starters, compact }: {
-	title: string; context: StakAiContext | null; enabled: boolean; limit?: number; nameOf: (t: string) => string; look: Look; onAsk: (q: string) => void; starters?: string[]; compact?: boolean;
+function EmptyState({ title, context, enabled, limit, unlimited, nameOf, look, onAsk, starters, compact }: {
+	title: string; context: StakAiContext | null; enabled: boolean; limit?: number; unlimited: boolean; nameOf: (t: string) => string; look: Look; onAsk: (q: string) => void; starters?: string[]; compact?: boolean;
 }) {
 	const { s } = look;
 	const questions = starters ?? starterQuestions(context, nameOf);
-	const rule = <p style={{ fontSize: s(11), lineHeight: s(16), color: DISC.muted, marginTop: s(compact ? 4 : 16), padding: compact ? 0 : `0 ${s(8)}` }}>{limitRule(limit)}</p>;
+	const rule = <p style={{ fontSize: s(11), lineHeight: s(16), color: DISC.muted, marginTop: s(compact ? 4 : 16), padding: compact ? 0 : `0 ${s(8)}` }}>{limitRule(limit, unlimited)}</p>;
 	if (compact) {
 		return (
 			<div className="flex flex-col" style={{ gap: s(8) }}>

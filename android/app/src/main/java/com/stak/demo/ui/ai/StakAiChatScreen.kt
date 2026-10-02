@@ -93,6 +93,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.stak.demo.data.BrandNames
 import com.stak.demo.data.StakAiContext
 import com.stak.demo.data.StakAiSource
+import com.stak.demo.data.StakAiUsage
 import com.stak.demo.data.StakAiEntry
 import com.stak.demo.data.StakAiVia
 import com.stak.demo.ui.onboarding.AuthBackCircle
@@ -185,7 +186,7 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 			contentPadding = PaddingValues(top = (12 * u).dp, bottom = (16 * u).dp),
 		) {
 			if (vm.messages.isEmpty() && !vm.loading && !vm.sending && vm.notice != AiNotice.LoadFailed) {
-				item { EmptyState(vm.context, enabled = vm.canAsk) { q -> vm.send(q, via = StakAiVia.STARTER) } }
+				item { EmptyState(vm.context, enabled = vm.canAsk, usage = vm.usage) { q -> vm.send(q, via = StakAiVia.STARTER) } }
 			}
 			val lastAnswerKey = vm.messages.lastOrNull { !it.fromUser }?.key
 			items(vm.messages, key = { it.key }) { m ->
@@ -245,7 +246,7 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 			}
 			Row(modifier = Modifier.fillMaxWidth().padding(top = (6 * u).dp), horizontalArrangement = Arrangement.SpaceBetween) {
 				Text("Educational, not financial advice.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = StakColors.Muted)
-				vm.usage?.let { usage ->
+				vm.usage?.takeIf { !it.unlimited }?.let { usage ->
 					Text(
 						"${usage.remaining} of ${usage.limit} questions left",
 						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
@@ -312,7 +313,7 @@ internal fun starterQuestions(ctx: StakAiContext?): List<String> = when (ctx?.ty
 }
 
 @Composable
-private fun EmptyState(ctx: StakAiContext?, enabled: Boolean, onAsk: (String) -> Unit) {
+private fun EmptyState(ctx: StakAiContext?, enabled: Boolean, usage: StakAiUsage?, onAsk: (String) -> Unit) {
 	val u = figmaUnit()
 	Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = (28 * u).dp)) {
 		Box(contentAlignment = Alignment.Center, modifier = Modifier.size((56 * u).dp).background(StakColors.Surface, CircleShape)) {
@@ -329,7 +330,8 @@ private fun EmptyState(ctx: StakAiContext?, enabled: Boolean, onAsk: (String) ->
 			starterQuestions(ctx).forEach { q -> SuggestionRow(q, enabled) { onAsk(q) } }
 		}
 		Text(
-			"You get 5 questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.",
+			if (usage?.unlimited == true) "No question limit on this account. When STAK AI can't help, it'll say so."
+			else "You get ${usage?.limit ?: 5} questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.",
 			style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX, textAlign = TextAlign.Center),
 			color = StakColors.Muted,
 			modifier = Modifier.padding(top = (16 * u).dp, start = (8 * u).dp, end = (8 * u).dp),

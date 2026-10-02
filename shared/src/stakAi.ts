@@ -24,6 +24,9 @@ export interface StakAiUsage {
 	used: number;
 	remaining: number;
 	resetsAt: string | null;
+	/** No limit on this account (stak_ai_limits): the apps hide the count. `limit` and `remaining` then hold a big
+	 *  constant, so app versions that don't know this field still never stop. */
+	unlimited?: boolean;
 }
 
 /** "answer": a normal reply. "declined": it couldn't help (advice, predictions). "clarify": it asked a question back. Only answers count against the limit. */

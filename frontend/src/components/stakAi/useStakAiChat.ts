@@ -364,6 +364,7 @@ export function nextQuestionText(resetsAt: string | null): string {
 }
 
 /** "You get 5 questions every 6 hours…" - from the live limit, so the copy can't drift from the server. */
-export function limitRule(limit: number | undefined): string {
+export function limitRule(limit: number | undefined, unlimited = false): string {
+	if (unlimited) return "No question limit on this account. When STAK AI can't help, it'll say so.";
 	return `You get ${limit ?? 5} questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count.`;
 }

@@ -143,16 +143,20 @@ function contextLabel(ctx: StakAiContext | null): string | null {
 }
 
 // ── Usage: STAK_AI_WINDOW_LIMIT questions per rolling window ────────────────
-// (or an account's own limit from stak_ai_limits - teammates testing, say)
+// (or an account's own limit from stak_ai_limits - teammates testing, say - where a null limit means none)
 
-type UsageRow = { used: number; oldest: string | Date | null; own_limit: number | null };
+type UsageRow = { used: number; oldest: string | Date | null; own_limit: number | null; unlimited: boolean | null };
+/** What an unlimited account's `limit` and `remaining` say, for app versions that don't read `unlimited`. */
+const UNLIMITED_SHOWN = 999;
 const windowEnd = (from: Date | string) => new Date(new Date(from).getTime() + STAK_AI_WINDOW_HOURS * 3_600_000).toISOString();
 const USAGE_SQL = `SELECT COUNT(*)::int AS used, MIN(created_at) AS oldest,
-	(SELECT window_limit FROM stak_ai_limits WHERE uid = $1) AS own_limit
+	(SELECT window_limit FROM stak_ai_limits WHERE uid = $1) AS own_limit,
+	EXISTS (SELECT 1 FROM stak_ai_limits WHERE uid = $1 AND window_limit IS NULL) AS unlimited
 	FROM stak_ai_usage WHERE uid = $1 AND created_at >= NOW() - INTERVAL '${STAK_AI_WINDOW_HOURS} hours'`;
 
 function toUsage(row: UsageRow | undefined): StakAiUsage {
 	const used = Number(row?.used ?? 0);
+	if (row?.unlimited) return { limit: UNLIMITED_SHOWN, used, remaining: UNLIMITED_SHOWN, resetsAt: null, unlimited: true };
 	const limit = row?.own_limit ?? STAK_AI_WINDOW_LIMIT;
 	return { limit, used, remaining: Math.max(0, limit - used), resetsAt: row?.oldest ? windowEnd(row.oldest) : null };
 }
