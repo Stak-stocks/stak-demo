@@ -25,6 +25,14 @@ class StakAiHelpersTest {
 	}
 
 	@Test
+	fun aStreamingAnswerHidesHalfFinishedBoldAndBullets() {
+		assertEquals("It's very", tidyStreaming("It's **very"))
+		assertEquals("It's **very** high", tidyStreaming("It's **very** high"))
+		assertEquals("Reasons:\n- one", tidyStreaming("Reasons:\n- one\n- "))
+		assertEquals("Hmm ", tidyStreaming("Hmm *"))
+	}
+
+	@Test
 	fun nextQuestionTextNamesATimeOrFallsBack() {
 		val soon = Instant.now().plus(1, ChronoUnit.MINUTES).toString()
 		assertTrue(nextQuestionText(soon).startsWith("Your next one is"))

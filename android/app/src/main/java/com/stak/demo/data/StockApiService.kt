@@ -163,10 +163,8 @@ interface StockApiService {
     @GET("api/sandbox/trades")
     suspend fun getSandboxTrades(@Query("limit") limit: Int = 100): SandboxTradesResponse
 
-    // STAK AI - see StakAiModels.kt (mirrors shared/src/stakAi.ts).
-    @POST("api/stak-ai/chat")
-    suspend fun stakAiChat(@Body body: StakAiChatRequest): StakAiChatReply
-
+    // STAK AI - see StakAiModels.kt (mirrors shared/src/stakAi.ts). The backend's plain POST /chat stays for older
+    // app versions; this one streams.
     /** The same answer as server-sent events (`delta`, then `done` or `error`) - read with StakAiRepository.chatStream. */
     @Streaming
     @POST("api/stak-ai/chat/stream")

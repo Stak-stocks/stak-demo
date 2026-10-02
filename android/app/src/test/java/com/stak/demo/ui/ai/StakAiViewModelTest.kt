@@ -10,6 +10,7 @@ import com.stak.demo.data.StakAiMessageDto
 import com.stak.demo.data.StakAiMessagesResponse
 import com.stak.demo.data.StakAiRepository
 import com.stak.demo.data.StakAiStreamEvent
+import com.stak.demo.data.StakAiStreamException
 import com.stak.demo.data.StakAiUsage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -46,10 +47,6 @@ private class FakeRepo : StakAiRepository {
 	var streamGate: CompletableDeferred<Unit>? = null
 	val opens = mutableListOf<String>()
 
-	override suspend fun chat(request: StakAiChatRequest): StakAiChatReply {
-		requests += request
-		return outcomes.removeFirst()()
-	}
 	override fun chatStream(request: StakAiChatRequest): Flow<StakAiStreamEvent> = flow {
 		requests += request
 		streamFirst.forEach { emit(StakAiStreamEvent.Text(it)) }
@@ -122,6 +119,16 @@ class StakAiViewModelTest {
 		vm.send("Why?")
 		assertEquals(1, vm.messages.size)
 		assertTrue(vm.messages.single().failed)
+		// The connection dropped after words arrived: it may have been saved and counted, so it's "check your chats".
+		assertEquals(AiNotice.Slow, vm.notice)
+	}
+
+	@Test fun anErrorFromTheServerMidAnswerSaysItDidNotCount() {
+		repo.streamFirst = listOf("Chips fe")
+		repo.outcomes += { throw StakAiStreamException("ai_unavailable", "no answer") }
+		val vm = StakAiViewModel(repo)
+		vm.send("Why?")
+		assertEquals(AiNotice.Failed(offline = false), vm.notice)
 	}
 
 	@Test fun openingCountsWhereItCameFromButReopeningDoesNot() {

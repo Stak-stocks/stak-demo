@@ -61,6 +61,22 @@ sealed interface StakAiStreamEvent {
 /** A streamed answer that failed part-way (its `error` event): [code] is a StakAiErrorCode. */
 class StakAiStreamException(val code: String, message: String) : Exception(message)
 
+/** How a question was asked, for the usage stats (shared STAK_AI_VIA). */
+object StakAiVia {
+	const val TYPED = "typed"
+	const val STARTER = "starter"
+	const val FOLLOWUP = "followup"
+	const val RETRY = "retry"
+}
+
+/** Where STAK AI was opened from, for the usage stats (shared StakAiEntry; a context's type doubles as one). */
+object StakAiEntry {
+	const val HEADER = "header"
+	const val STOCK = "stock"
+	const val ARTICLE = "article"
+	const val BRIEF = "brief"
+}
+
 /** Questions left in the rolling window; `resetsAt` (ISO) is when the oldest counted one frees a slot. */
 data class StakAiUsage(
 	val limit: Int = 5,

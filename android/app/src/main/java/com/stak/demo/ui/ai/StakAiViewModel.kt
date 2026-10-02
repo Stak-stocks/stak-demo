@@ -8,12 +8,14 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.stak.demo.data.StakAiChatRequest
 import com.stak.demo.data.StakAiContext
+import com.stak.demo.data.StakAiEntry
 import com.stak.demo.data.StakAiError
 import com.stak.demo.data.StakAiRepository
 import com.stak.demo.data.StakAiSource
 import com.stak.demo.data.StakAiStreamEvent
 import com.stak.demo.data.StakAiStreamException
 import com.stak.demo.data.StakAiUsage
+import com.stak.demo.data.StakAiVia
 import com.stak.demo.data.httpErrorBody
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -33,7 +35,7 @@ object StakAiLauncher {
 	var context: StakAiContext? = null
 	var question: String? = null
 	var conversationId: String? = null
-	/** Where it was opened from, for the usage stats: "header", "stock", "article" or "brief". */
+	/** Where it was opened from, for the usage stats (a StakAiEntry). */
 	var entry: String? = null
 
 	fun reset() {
@@ -110,7 +112,7 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 		context = StakAiLauncher.context
 		StakAiLauncher.reset()
 		// A fresh open (not a past chat reopened from history) counts toward the usage stats.
-		if (reopen == null) viewModelScope.launch { repo.trackOpen(entry ?: "header") }
+		if (reopen == null) viewModelScope.launch { repo.trackOpen(entry ?: StakAiEntry.HEADER) }
 		refreshUsage()
 		if (reopen != null) open(reopen) else if (!first.isNullOrBlank()) send(first)
 	}
@@ -121,8 +123,8 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 
 	fun consumeReturnedDraft(): String? = returnedDraft.also { returnedDraft = null }
 
-	/** [via] says how it was asked, for the usage stats: "typed", "starter", "followup" or "retry". */
-	fun send(text: String, via: String = "typed") {
+	/** [via] says how it was asked, for the usage stats (a StakAiVia). */
+	fun send(text: String, via: String = StakAiVia.TYPED) {
 		val question = text.trim()
 		if (question.isEmpty() || sending || loading) return
 		// A resend replaces the failed line rather than repeating it.
@@ -139,10 +141,12 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 		// The answer appears as it's written, in a line of its own that the finished answer replaces.
 		val streamKey = nextKey++
 		var reply: com.stak.demo.data.StakAiChatReply? = null
+		var gotText = false
 		runCatching {
 			repo.chatStream(StakAiChatRequest(message = question, conversationId = conversationId, context = context.takeIf { !contextSent }, via = via)).collect { ev ->
 				when (ev) {
 					is StakAiStreamEvent.Text -> {
+						gotText = true
 						val line = AiMessage(key = streamKey, fromUser = false, text = ev.soFar, streaming = true)
 						messages = if (messages.any { it.key == streamKey }) messages.map { if (it.key == streamKey) line else it } else messages + line
 					}
@@ -177,10 +181,13 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 					messages = messages.dropLast(1)
 					returnedDraft = question
 				}
-				// Too slow to arrive: the server may have answered and counted it, so don't say it didn't count.
-				e is InterruptedIOException -> {
+				// Too slow, or the connection dropped after words arrived: the server may well have finished, saved and
+				// counted it - so don't say it didn't count; refresh the count instead. (A failure the server reports
+				// part-way is a StakAiStreamException: that one really didn't count.)
+				e is InterruptedIOException || (gotText && e is IOException) -> {
 					markLastFailed()
 					notice = AiNotice.Slow
+					refreshUsage()
 				}
 				else -> {
 					markLastFailed()
@@ -192,7 +199,7 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 
 	/** Ask the failed question again. */
 	fun retry() {
-		messages.lastOrNull { it.failed }?.let { send(it.text, via = "retry") }
+		messages.lastOrNull { it.failed }?.let { send(it.text, via = StakAiVia.RETRY) }
 	}
 
 	/** Thumbs on an answer; tapping the same thumb again clears it. Shown at once, put back if the save fails. */

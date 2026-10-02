@@ -18,10 +18,9 @@ import javax.inject.Singleton
  * see StakAiViewModelTest.
  */
 interface StakAiRepository {
-	suspend fun chat(request: StakAiChatRequest): StakAiChatReply
 	/**
 	 * Asks with the answer streamed. Emits the text so far as it's written, then the finished reply. A refusal before
-	 * the answer starts (out of questions, not found...) throws an HttpException like [chat]; a failure part-way
+	 * the answer starts (out of questions, not found...) throws an HttpException; a failure part-way
 	 * throws [StakAiStreamException].
 	 */
 	fun chatStream(request: StakAiChatRequest): Flow<StakAiStreamEvent>
@@ -37,7 +36,6 @@ interface StakAiRepository {
 
 @Singleton
 class StakAiRepositoryImpl @Inject constructor(private val api: StockApiService) : StakAiRepository {
-	override suspend fun chat(request: StakAiChatRequest) = api.stakAiChat(request)
 
 	override fun chatStream(request: StakAiChatRequest): Flow<StakAiStreamEvent> = flow {
 		val response = api.stakAiChatStream(request)
@@ -77,8 +75,9 @@ class StakAiRepositoryImpl @Inject constructor(private val api: StockApiService)
 		throw java.io.IOException("STAK AI's answer was cut off")
 	}.flowOn(Dispatchers.IO)
 
+	// Through the engagement log, so the demo account and signed-out sessions log nothing, like every other event.
 	override suspend fun trackOpen(entry: String) {
-		runCatching { api.recordEvent(EngagementEventRequest(type = "stak_ai_open", params = mapOf("entry" to entry, "platform" to "android"))) }
+		StakEvents.log(StakEvents.STAK_AI_OPEN, params = mapOf("entry" to entry, "platform" to "android"))
 	}
 	override suspend fun usage() = api.stakAiUsage()
 	override suspend fun conversations(before: String?) = api.stakAiConversations(before)

@@ -21,6 +21,8 @@ object StakEvents {
 	const val ANALYST_OPEN = "analyst_open"
 	const val UPDATE_OPEN = "update_open"
 	const val TASTE_GRAPH_OPEN = "taste_graph_open"
+	/** params: entry (StakAiEntry), platform. */
+	const val STAK_AI_OPEN = "stak_ai_open"
 
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
