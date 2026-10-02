@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
-import type { StakAiChatReply, StakAiContext, StakAiStoredMessage, StakAiUsage } from "@stak/shared";
-export type { StakAiChatReply, StakAiContext, StakAiErrorCode, StakAiSource, StakAiStoredMessage, StakAiUsage } from "@stak/shared";
+import type { StakAiChatReply, StakAiContext, StakAiEntry, StakAiStoredMessage, StakAiUsage, StakAiVia } from "@stak/shared";
+export type { StakAiChatReply, StakAiContext, StakAiEntry, StakAiErrorCode, StakAiSource, StakAiStoredMessage, StakAiUsage, StakAiVia } from "@stak/shared";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -773,21 +773,11 @@ export interface StakAiConversation {
 /** A stored message (with `kind` and `feedback`), as reopening a conversation returns it. */
 export type StakAiMessage = StakAiStoredMessage;
 
-/** Ask a question. Send `context` with the first question only. A failure is an ApiError whose `body.code` is a StakAiErrorCode (and, for limit_reached, `body.usage`). */
-export function sendStakAiMessage(message: string, conversationId?: string, context?: StakAiContext) {
-	return apiRequest<StakAiChatReply>("/api/stak-ai/chat", {
-		method: "POST",
-		body: JSON.stringify({ message, conversationId, context }),
-	});
-}
-
-/** How a question was asked, for the usage stats. */
-export type StakAiVia = "typed" | "starter" | "followup" | "retry";
-
 /**
  * Ask with the answer streamed: [onText] gets the answer so far as it's written, and the promise resolves with the
  * finished reply (whose `response` replaces the streamed text). Errors before the answer starts (out of questions,
- * not found…) come back as an ApiError like sendStakAiMessage's; one mid-answer is an ApiError with that event's code.
+ * not found…) come back as an ApiError with the server's body (`code`, and `usage` when out of questions); one mid-answer
+ * is an ApiError with that event's code. (The backend's plain POST /chat stays for older app versions.)
  */
 export async function streamStakAiMessage(
 	message: string,
@@ -832,7 +822,7 @@ export async function streamStakAiMessage(
 }
 
 /** Where STAK AI was opened from, for the usage stats (the backend logs the questions themselves). */
-export function trackStakAiOpen(entry: "header" | "nav" | "stock" | "article" | "brief" | "panel" | "direct") {
+export function trackStakAiOpen(entry: StakAiEntry) {
 	return trackEvent("stak_ai_open", { entry, platform: "web" }).catch(() => {});
 }
 

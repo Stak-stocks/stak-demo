@@ -15,7 +15,7 @@ vi.mock("../../authMiddleware.js", () => ({
 	},
 }));
 vi.mock("../../services/geminiService.js", () => ({
-	getGeminiKeys: () => ["key-1"],
+	getGeminiKeys: () => ["key-1", "key-2"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
 	GEMINI_REFUSAL_RE: /^I'm sorry/,
 	GEMINI_MODEL: "gemini-test",
@@ -75,7 +75,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 	return rows([]);
 }
 
-/** Every request body sent to Gemini; the model's next reply text (null makes the call fail). */
+/** Every request body sent to Gemini; the model's next reply text (null makes every key fail). */
 let geminiBodies: any[];
 let geminiReply: string | null;
 function stubFetch() {
@@ -83,7 +83,7 @@ function stubFetch() {
 	vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: { body?: string }) => {
 		geminiBodies.push(JSON.parse(init!.body!));
 		if (geminiReply === null) return new Response("boom", { status: 500 });
-		return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: geminiReply }] } }] }));
+		return geminiSse([geminiReply]);
 	}));
 }
 
@@ -320,9 +320,9 @@ describe("conversations, usage and feedback", () => {
 
 // ── Streaming ───────────────────────────────────────────────────────────────
 
-/** Gemini's streamGenerateContent?alt=sse reply, split into the given text pieces. */
-function geminiSse(pieces: string[]) {
-	const body = pieces.map((t) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] } }] })}\r\n\r\n`).join("");
+/** Gemini's streamGenerateContent?alt=sse reply, split into the given text pieces; the last carries [finish]. */
+function geminiSse(pieces: string[], finish: string | null = "STOP") {
+	const body = pieces.map((t, i) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] }, ...(i === pieces.length - 1 && finish ? { finishReason: finish } : {}) }] })}\r\n\r\n`).join("");
 	return new Response(new ReadableStream({
 		start(c) {
 			const bytes = new TextEncoder().encode(body);
@@ -381,6 +381,47 @@ describe("POST /chat/stream", () => {
 		expect(evs.at(-1)).toMatchObject({ event: "error", data: { code: "ai_unavailable" } });
 		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
 		expect(calls(/^\s*INSERT INTO stak_ai_conversations/)).toHaveLength(0);
+	});
+});
+
+describe("Gemini keys and incomplete answers", () => {
+	it("a plain question falls back to the next key when the first fails", async () => {
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce(new Response("busy", { status: 429 }))
+			.mockResolvedValueOnce(geminiSse(["Beta measures swings."]));
+		vi.stubGlobal("fetch", fetchMock);
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(200);
+		expect(res.body.response).toBe("Beta measures swings.");
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("once words are on screen, a failure isn't retried on another key (it would restart under them)", async () => {
+		const fetchMock = vi.fn().mockResolvedValue(geminiSse(["Chips fell on ", "export"], null));
+		vi.stubGlobal("fetch", fetchMock);
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "Why is NVDA down?" });
+		const evs = events(res.text);
+		expect(evs.some((e) => e.event === "delta")).toBe(true);
+		expect(evs.at(-1)).toMatchObject({ event: "error", data: { code: "ai_unavailable" } });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(calls(/^DELETE FROM stak_ai_usage/)).toHaveLength(1);
+		expect(calls(/^\s*INSERT INTO stak_ai_messages/)).toHaveLength(0);
+	});
+
+	it("an answer cut off by a safety stop isn't saved as complete", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(geminiSse(["Here's a partial"], "SAFETY")));
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(503);
+		expect(calls(/^\s*INSERT INTO stak_ai_messages/)).toHaveLength(0);
+	});
+
+	it("a blocked prompt isn't retried on the other keys", async () => {
+		const blocked = new Response(`data: ${JSON.stringify({ promptFeedback: { blockReason: "SAFETY" } })}\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+		const fetchMock = vi.fn().mockResolvedValue(blocked);
+		vi.stubGlobal("fetch", fetchMock);
+		const res = await request(await buildApp()).post("/chat").send({ message: "something" });
+		expect(res.status).toBe(503);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });
 

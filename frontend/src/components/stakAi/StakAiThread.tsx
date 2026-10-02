@@ -1,4 +1,4 @@
-import { forwardRef, memo, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowRight, ArrowUp, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { DESK, deskFocus } from "@/components/desktop/deskKit";
@@ -66,9 +66,22 @@ export function BoldText({ text }: { text: string }) {
 	return <>{parts}</>;
 }
 
-function AiMarkdown({ text, look }: { text: string; look: Look }) {
+/**
+ * A streaming answer, minus what would flash and then change: an unclosed "**" (shown as bold only once it closes) and
+ * a list marker on a line that has nothing after it yet.
+ */
+export function tidyStreaming(text: string): string {
+	let t = text.replace(/\n[ \t]*[-*•]?[ \t]*$/, "");
+	if ((t.match(/\*\*/g)?.length ?? 0) % 2 === 1) {
+		const at = t.lastIndexOf("**");
+		t = t.slice(0, at) + t.slice(at + 2);
+	}
+	return t.replace(/\*$/, "");
+}
+
+function AiMarkdown({ text, look, streaming = false }: { text: string; look: Look; streaming?: boolean }) {
 	const { s } = look;
-	const blocks = useMemo(() => parseMarkdown(text), [text]);
+	const blocks = useMemo(() => parseMarkdown(streaming ? tidyStreaming(text) : text), [text, streaming]);
 	const body: CSSProperties = { fontSize: s(14), lineHeight: s(21), color: look.body };
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: s(8) }}>
@@ -113,34 +126,46 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 	const { data: brandsList } = useBrandsList();
 	const nameOf = (t: string) => brandsList?.find((b) => b.ticker === t)?.name ?? t;
 
-	// Keep the newest line in view: jump when a past chat loads, glide as the conversation grows.
+	// Keep the newest line in view: jump when a past chat loads, glide as the conversation grows, and follow an answer
+	// as it's written - unless the person has scrolled up to read, when the view stays where they put it.
 	const wasLoading = useRef(false);
+	const nearBottom = useRef(true);
+	const last = chat.messages.at(-1);
+	const streaming = !!last?.streaming;
 	useLayoutEffect(() => {
 		const el = scroller.current;
-		el?.scrollTo?.({ top: el.scrollHeight, behavior: wasLoading.current ? "auto" : "smooth" });
+		if (el && (nearBottom.current || !streaming)) {
+			const instant = wasLoading.current || streaming || matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+			el.scrollTo?.({ top: el.scrollHeight, behavior: instant ? "auto" : "smooth" });
+		}
 		wasLoading.current = chat.loading;
-	}, [chat.messages.length, chat.sending, chat.loading]);
-
-	// Tapping a suggestion or follow-up removes the button that had focus: put focus in the box instead.
-	const askAndFocus = (via: "starter" | "followup") => (q: string) => {
-		chat.send(q, via);
-		composer.current?.focus();
+	}, [chat.messages.length, chat.sending, chat.loading, last?.text.length, streaming]);
+	const onScroll = () => {
+		const el = scroller.current;
+		if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 	};
+
+	// Tapping a suggestion or follow-up removes the button that had focus: put focus in the box instead. Stable, so
+	// finished answers don't re-render while a new one streams in.
+	const send = chat.send;
+	const askStarter = useCallback((q: string) => { send(q, "starter"); composer.current?.focus(); }, [send]);
+	const askFollowUp = useCallback((q: string) => { send(q, "followup"); composer.current?.focus(); }, [send]);
 	const lastAnswerKey = useMemo(() => [...chat.messages].reverse().find((m) => !m.fromUser)?.key, [chat.messages]);
 	const failedOffline = chat.notice?.type === "failed" && chat.notice.offline;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			{/* role="log" is a polite live region: answers added here are announced. */}
-			<div ref={scroller} role="log" aria-label="STAK AI conversation" className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
+			{/* aria-busy while an answer streams in, so it's read once, finished, not chunk by chunk. */}
+			<div ref={scroller} onScroll={onScroll} role="log" aria-label="STAK AI conversation" aria-busy={streaming} className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]" style={{ padding: `${s(12)} ${s(20)} ${s(16)}` }}>
 				<div style={{ display: "flex", flexDirection: "column", gap: s(16) }}>
 					{chat.messages.length === 0 && !chat.loading && !chat.sending && chat.notice?.type !== "loadFailed" && (
-						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askAndFocus("starter")} starters={starters} compact={compact} />
+						<EmptyState title={emptyTitle} context={chat.context} enabled={chat.canAsk} limit={chat.usage?.limit} nameOf={nameOf} look={look} onAsk={askStarter} starters={starters} compact={compact} />
 					)}
 					{chat.messages.map((m) =>
 						m.fromUser
 							? <UserLine key={m.key} m={m} offline={failedOffline} look={look} />
-							: <AnswerLine key={m.key} m={m} look={look} showFollowUps={m.key === lastAnswerKey && chat.canAsk} onRate={chat.rate} onFollowUp={askAndFocus("followup")} />,
+							: <AnswerLine key={m.key} m={m} look={look} showFollowUps={m.key === lastAnswerKey && chat.canAsk} onRate={chat.rate} onFollowUp={askFollowUp} />,
 					)}
 					{chat.loading && <p style={{ fontSize: s(13), color: DISC.muted }}>Loading chat…</p>}
 					{/* The dots until the first words arrive; then the answer writes itself out. */}
@@ -298,7 +323,9 @@ const AnswerLine = memo(function AnswerLine({ m, look, showFollowUps, onRate, on
 				</span>
 				<span className="font-semibold" style={{ fontSize: s(12), color: DISC.muted }}>STAK AI</span>
 			</div>
-			<AiMarkdown text={m.text} look={look} />
+			<AiMarkdown text={m.text} look={look} streaming={m.streaming} />
+			{/* Still being written: a soft caret (steady under reduced motion). */}
+			{m.streaming && <span aria-hidden="true" className="inline-block animate-pulse motion-reduce:animate-none" style={{ width: s(8), height: s(16), borderRadius: 2, background: DISC.teal, marginTop: s(-4) }} />}
 			{m.kind !== "answer" && <p style={{ fontSize: s(11), color: DISC.muted }}>This one didn't count toward your questions.</p>}
 			{m.sources.length > 0 && (
 				<div style={{ borderRadius: s(12), background: look.card, padding: `${s(6)} ${s(12)}` }}>

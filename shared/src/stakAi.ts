@@ -60,5 +60,12 @@ export interface StakAiStoredMessage {
 	created_at: string;
 }
 
+/** How a question was asked, for the usage stats: typed in, a starting suggestion, a follow-up chip, or a retry. */
+export type StakAiVia = "typed" | "starter" | "followup" | "retry";
+export const STAK_AI_VIA: readonly StakAiVia[] = ["typed", "starter", "followup", "retry"];
+
+/** Where STAK AI was opened from, for the usage stats (the `stak_ai_open` event). */
+export type StakAiEntry = "header" | "nav" | "stock" | "article" | "brief" | "direct";
+
 /** Every error carries one of these, so the apps choose their own wording rather than showing the server's. */
 export type StakAiErrorCode = "limit_reached" | "ai_unavailable" | "not_found" | "bad_request" | "server_error";

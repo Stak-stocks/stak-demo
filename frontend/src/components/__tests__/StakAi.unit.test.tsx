@@ -21,7 +21,7 @@ vi.mock("@/lib/api", () => api);
 vi.mock("@/hooks/useBrandsList", () => ({ useBrandsList: () => ({ data: [{ ticker: "NVDA", name: "NVIDIA" }] }) }));
 
 import { resetStakAiLauncher, stakAiLauncher, useStakAiChat, nextQuestionText } from "@/components/stakAi/useStakAiChat";
-import { StakAiThread, parseMarkdown } from "@/components/stakAi/StakAiThread";
+import { StakAiThread, parseMarkdown, tidyStreaming } from "@/components/stakAi/StakAiThread";
 import { ago } from "@/components/stakAi/useStakAiHistory";
 import { articleContext, briefContext } from "@/components/stakAi/open";
 
@@ -116,6 +116,18 @@ describe("useStakAiChat", () => {
 		await ask(result, "Why?");
 		expect(result.current.messages).toHaveLength(1);
 		expect(result.current.messages[0]!.failed).toBe(true);
+		// The connection dropped after words arrived: it may have been saved and counted, so it's "check your chats".
+		expect(result.current.notice).toEqual({ type: "slow" });
+	});
+
+	it("an error from the server mid-answer says it didn't count", async () => {
+		api.streamStakAiMessage.mockImplementationOnce((_q: string, opts: { onText: (t: string) => void }) => {
+			opts.onText("Chips fe");
+			return Promise.reject(new api.ApiError("ai", 503, { code: "ai_unavailable" }));
+		});
+		const { result } = hook();
+		await ask(result, "Why?");
+		expect(result.current.notice).toEqual({ type: "failed", offline: false });
 	});
 
 	it("opening from a page counts where it came from; returning from history doesn't", async () => {
@@ -245,6 +257,13 @@ describe("StakAiThread", () => {
 });
 
 describe("helpers", () => {
+	it("a streaming answer hides half-finished bold and bullets", () => {
+		expect(tidyStreaming("It's **very")).toBe("It's very");
+		expect(tidyStreaming("It's **very** high")).toBe("It's **very** high");
+		expect(tidyStreaming("Reasons:\n- one\n- ")).toBe("Reasons:\n- one");
+		expect(tidyStreaming("Hmm *")).toBe("Hmm ");
+	});
+
 	it("a list after an intro line keeps its bullets", () => {
 		expect(parseMarkdown("Here's why:\n- Chips fell\n- Rates rose\n\nThat's the gist.")).toEqual([
 			{ type: "p", text: "Here's why:" },

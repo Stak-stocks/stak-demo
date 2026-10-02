@@ -357,19 +357,23 @@ analyticsRouter.get("/events", async (req: Request, res: Response) => {
 // Built from the `stak_ai_ask` / `stak_ai_open` events and the messages' feedback; excluded accounts left out.
 analyticsRouter.get("/stak-ai", async (req: Request, res: Response) => {
 	if (!checkAdminSecret(req, res)) return;
-	const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+	const days = Math.floor(Math.min(Math.max(Number(req.query.days) || 30, 1), 365));
 	try {
 		const excluded = [...(await getExcludedUids())];
-		const since = `now() - make_interval(days => $1)`;
+		const since = `now() - make_interval(days => $1::int)`;
 		const [asks, byDay, opens, thumbs] = await Promise.all([
+			// One pass over the window's asks; the breakdowns are grouped from it.
 			pgQuery<{ questions: number; people: number; by_context: Record<string, number> | null; by_via: Record<string, number> | null; by_kind: Record<string, number> | null; streamed: number; median_ms: number | null }>(
-				`select count(*)::int as questions, count(distinct uid)::int as people,
-				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'context', 'none') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_context,
-				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'via', 'typed') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_via,
-				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'kind', 'answer') k, count(*)::int n from events e2 where e2.type = 'stak_ai_ask' and e2.occurred_at >= ${since} and not (e2.uid = any($2)) group by 1) a) as by_kind,
-				   count(*) filter (where (params->>'streamed')::boolean)::int as streamed,
-				   percentile_cont(0.5) within group (order by (params->>'ms')::numeric) as median_ms
-				 from events where type = 'stak_ai_ask' and occurred_at >= ${since} and not (uid = any($2))`,
+				`with asks as (
+				   select uid, params from events where type = 'stak_ai_ask' and occurred_at >= ${since} and not (uid = any($2))
+				 )
+				 select (select count(*)::int from asks) as questions,
+				   (select count(distinct uid)::int from asks) as people,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'context', 'none') k, count(*)::int n from asks group by 1) a) as by_context,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'via', 'typed') k, count(*)::int n from asks group by 1) a) as by_via,
+				   (select jsonb_object_agg(k, n) from (select coalesce(params->>'kind', 'answer') k, count(*)::int n from asks group by 1) a) as by_kind,
+				   (select count(*)::int from asks where (params->>'streamed')::boolean) as streamed,
+				   (select percentile_cont(0.5) within group (order by (params->>'ms')::numeric) from asks) as median_ms`,
 				[days, excluded],
 			),
 			pgQuery<{ day: string; questions: number; people: number }>(

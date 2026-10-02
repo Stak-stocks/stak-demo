@@ -2,13 +2,14 @@ import { Router, type Response } from "express";
 import { pgQuery, pgPool } from "../lib/postgres.js";
 import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
-import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl, geminiUrl } from "../services/geminiService.js";
+import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl } from "../services/geminiService.js";
 import { getCompanyNews, type FinnhubArticle } from "../services/finnhubService.js";
 import { getStockSnapshot } from "./stock.js";
 import {
 	getEasternDateKey,
 	STAK_AI_WINDOW_HOURS,
 	STAK_AI_WINDOW_LIMIT,
+	STAK_AI_VIA,
 	type BrandProfile,
 	type StakAiAnswerKind,
 	type StakAiChatReply,
@@ -215,16 +216,37 @@ function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 
 // ── Gemini ──────────────────────────────────────────────────────────────────
 
-/** The model's reply, or null when no key produced one in time. `refused` marks a canned refusal (treated as declined). */
-async function callGemini(contents: { role: string; parts: { text: string }[] }[], systemInstruction: string): Promise<{ text: string; refused: boolean } | null> {
+/** No first words from a key by now: try the next. */
+const FIRST_CHUNK_MS = 20_000;
+/** Words stopped arriving for this long: give up on the answer. */
+const IDLE_MS = 15_000;
+
+/**
+ * Asks Gemini (streamGenerateContent, so text can be shown as it's written), trying each key in turn. The reply is
+ * the finished text - `refused` marks a canned refusal, shown as a decline - or null when there's no complete answer:
+ * every key failed, the prompt was blocked, or the answer was cut off (an error chunk, or a finish other than STOP).
+ * With [onText] (the streamed route), once words have been shown a failure is final: another key would start the
+ * answer over under them, and bill it twice. Each try must start within FIRST_CHUNK_MS (and the whole thing within
+ * GEMINI_DEADLINE_MS), and an answer that goes quiet for IDLE_MS is abandoned.
+ */
+async function askGemini(
+	contents: { role: string; parts: { text: string }[] }[],
+	systemInstruction: string,
+	onText?: (full: string) => void,
+): Promise<{ text: string; refused: boolean } | null> {
 	return withGeminiConcurrencyLimit(async () => {
-		const keys = getGeminiKeys();
 		const started = Date.now();
-		for (const key of keys) {
+		let shownAny = false;
+		for (const key of getGeminiKeys()) {
+			if (shownAny) break;
 			const left = GEMINI_DEADLINE_MS - (Date.now() - started);
 			if (left < 2_000) break;
+			const tag = `key ...${key.slice(-4)}`;
+			const controller = new AbortController();
+			let timer = setTimeout(() => controller.abort(), Math.min(FIRST_CHUNK_MS, left));
+			const stillTalking = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), IDLE_MS); };
 			try {
-				const res = await fetch(geminiUrl(GEMINI_MODEL, key), {
+				const res = await fetch(geminiStreamUrl(GEMINI_MODEL, key), {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -232,34 +254,70 @@ async function callGemini(contents: { role: string; parts: { text: string }[] }[
 						contents,
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
 					}),
-					signal: AbortSignal.timeout(Math.min(20_000, left)),
+					signal: controller.signal,
 				});
-				if (res.status === 429) {
-					console.warn(`[STAK AI] Gemini rate limited (429) on key ...${key.slice(-4)} — trying next`);
+				if (!res.ok || !res.body) {
+					const body = await res.text().catch(() => "");
+					console.warn(`[STAK AI] Gemini ${res.status} on ${tag}${res.status === 429 ? " — trying next" : `: ${body.slice(0, 300)}`}`);
 					continue;
 				}
-				if (!res.ok) {
-					const body = await res.text().catch(() => "(unreadable)");
-					console.warn(`[STAK AI] Gemini error ${res.status} on key ...${key.slice(-4)}: ${body.slice(0, 400)}`);
+				let full = "";
+				let finish: string | undefined;
+				let blocked: string | undefined;
+				let errored = false;
+				const take = (raw: string) => {
+					const line = raw.trim();
+					if (!line.startsWith("data:")) return;
+					let chunk: { error?: unknown; promptFeedback?: { blockReason?: string }; candidates?: { finishReason?: string; content?: { parts?: { text?: string }[] } }[] };
+					try { chunk = JSON.parse(line.slice(5)); } catch { return; }
+					if (chunk.error) errored = true;
+					if (chunk.promptFeedback?.blockReason) blocked = chunk.promptFeedback.blockReason;
+					const candidate = chunk.candidates?.[0];
+					const piece = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+					if (piece) {
+						full += piece;
+						stillTalking();
+						if (onText) {
+							onText(full);
+							shownAny ||= streamableText(full).length > 0;
+						}
+					}
+					if (candidate?.finishReason) finish = candidate.finishReason;
+				};
+				const reader = res.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+				for (;;) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					let nl: number;
+					while ((nl = buffer.indexOf("\n")) >= 0) {
+						take(buffer.slice(0, nl));
+						buffer = buffer.slice(nl + 1);
+					}
+				}
+				// The last line, if the stream didn't end with a newline.
+				for (const line of (buffer + decoder.decode()).split("\n")) take(line);
+
+				if (blocked) {
+					// Every key would block the same prompt.
+					console.warn(`[STAK AI] Gemini blocked the prompt on ${tag}: ${blocked}`);
+					return null;
+				}
+				const text = full.trim();
+				if (errored || finish !== "STOP" || !text) {
+					console.warn(`[STAK AI] Gemini answer incomplete on ${tag} (finish: ${finish ?? "none"}${errored ? ", error chunk" : ""})`);
 					continue;
 				}
-				const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]; promptFeedback?: { blockReason?: string } };
-				if (data?.promptFeedback?.blockReason) {
-					console.warn(`[STAK AI] Gemini blocked prompt on key ...${key.slice(-4)}: ${data.promptFeedback.blockReason}`);
-					continue;
-				}
-				const text = data?.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() ?? "";
-				if (!text) {
-					console.warn(`[STAK AI] Gemini empty response on key ...${key.slice(-4)}, finishReason: ${data?.candidates?.[0]?.finishReason ?? "unknown"}`);
-					continue;
-				}
-				// A canned refusal: another key would refuse the same question, so stop and show it as a decline.
 				return { text, refused: GEMINI_REFUSAL_RE.test(text) };
 			} catch (e) {
-				console.warn(`[STAK AI] Gemini error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
+				console.warn(`[STAK AI] Gemini error on ${tag}: ${(e as Error)?.message}`);
+			} finally {
+				clearTimeout(timer);
 			}
 		}
-		console.warn("[STAK AI] No Gemini key answered in time");
+		console.warn("[STAK AI] No complete Gemini answer");
 		return null;
 	});
 }
@@ -347,7 +405,7 @@ On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [
 // `via` says how it was asked (typed, starter, followup, retry) for the usage stats. Errors found before the answer
 // starts (bad input, limit_reached with `usage`, not_found) are ordinary JSON responses on both routes.
 
-const VIA = new Set(["typed", "starter", "followup", "retry"]);
+const VIA = new Set<string>(STAK_AI_VIA);
 
 /** Everything a question needs before the model is called: its claim on the limit, the conversation and the prompt. */
 interface Prepared {
@@ -569,7 +627,7 @@ async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, str
 			[p.uid, savedConversationId, p.question, p.tickers, JSON.stringify(p.sources.map(({ ticker, headline }) => ({ ticker, headline }))), JSON.stringify(p.liveContextLog), parsed.text, p.context ? JSON.stringify(p.context) : null],
 		).catch((e) => console.warn("[STAK AI] research log write failed:", e));
 	}
-	// Usage stats (the events table, read by /api/admin/analytics): how it was asked, from where, and how it went.
+	// Usage stats (the events table, read by /api/admin/analytics/stak-ai): how it was asked, from where, and how it went.
 	pgQuery(
 		`INSERT INTO events (uid, type, params) VALUES ($1, 'stak_ai_ask', $2)`,
 		[p.uid, JSON.stringify({ via: p.via, context: p.context?.type ?? null, kind: parsed.kind, streamed, ms: Date.now() - p.startedAt, live: p.tickers.length > 0 })],
@@ -594,7 +652,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 	try {
 		p = await prepareChat(req, res);
 		if (!p) return;
-		const ai = await callGemini(p.contents, p.systemInstruction);
+		const ai = await askGemini(p.contents, p.systemInstruction);
 		if (!ai) {
 			void releaseQuestion(p.usageId);
 			fail(res, 503, "ai_unavailable", UNAVAILABLE);
@@ -625,64 +683,6 @@ export function streamableText(full: string): string {
 	return body.slice(0, end);
 }
 
-/** Streams the model's reply through [onText] (the whole text so far); resolves with it, or null if no key answered. */
-async function streamGemini(
-	contents: { role: string; parts: { text: string }[] }[],
-	systemInstruction: string,
-	onText: (full: string) => void,
-): Promise<{ text: string; refused: boolean } | null> {
-	return withGeminiConcurrencyLimit(async () => {
-		const started = Date.now();
-		for (const key of getGeminiKeys()) {
-			const left = GEMINI_DEADLINE_MS - (Date.now() - started);
-			if (left < 2_000) break;
-			try {
-				const res = await fetch(geminiStreamUrl(GEMINI_MODEL, key), {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						system_instruction: { parts: [{ text: systemInstruction }] },
-						contents,
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
-					}),
-					// The first byte must come within the deadline; once text flows, allow up to a minute in all.
-					signal: AbortSignal.timeout(60_000),
-				});
-				if (!res.ok || !res.body) {
-					console.warn(`[STAK AI] Gemini stream ${res.status} on key ...${key.slice(-4)}${res.status === 429 ? " — trying next" : ""}`);
-					continue;
-				}
-				let full = "";
-				let buffer = "";
-				const decoder = new TextDecoder();
-				const reader = res.body.getReader();
-				for (;;) {
-					const { value, done } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
-					let nl: number;
-					while ((nl = buffer.indexOf("\n")) >= 0) {
-						const line = buffer.slice(0, nl).trim();
-						buffer = buffer.slice(nl + 1);
-						if (!line.startsWith("data:")) continue;
-						try {
-							const chunk = JSON.parse(line.slice(5)) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-							const piece = chunk.candidates?.[0]?.content?.parts?.map((x) => x.text ?? "").join("") ?? "";
-							if (piece) { full += piece; onText(full); }
-						} catch { /* a partial or keep-alive line */ }
-					}
-				}
-				const text = full.trim();
-				if (!text) { console.warn(`[STAK AI] Gemini stream empty on key ...${key.slice(-4)}`); continue; }
-				return { text, refused: GEMINI_REFUSAL_RE.test(text) };
-			} catch (e) {
-				console.warn(`[STAK AI] Gemini stream error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
-			}
-		}
-		return null;
-	});
-}
-
 stakAiRouter.post("/chat/stream", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	let p: Prepared | null = null;
 	try {
@@ -701,7 +701,7 @@ stakAiRouter.post("/chat/stream", authMiddleware, async (req: AuthenticatedReque
 	};
 	let shown = 0;
 	try {
-		const ai = await streamGemini(p.contents, p.systemInstruction, (full) => {
+		const ai = await askGemini(p.contents, p.systemInstruction, (full) => {
 			const safe = streamableText(full);
 			if (safe.length > shown) {
 				send("delta", { text: safe.slice(shown) });

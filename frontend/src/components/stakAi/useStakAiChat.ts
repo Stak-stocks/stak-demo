@@ -10,6 +10,7 @@ import {
 	type StakAiChatReply,
 	type StakAiContext,
 	type StakAiSource,
+	type StakAiEntry,
 	type StakAiUsage,
 	type StakAiVia,
 } from "@/lib/api";
@@ -31,7 +32,7 @@ export const stakAiLauncher: {
 	/** /stak-ai/history was opened from the chat, so going back returns to it. */
 	historyFromChat: boolean;
 	/** Where it was opened from, for the usage stats (header, stock, article, brief). */
-	entry: Parameters<typeof trackStakAiOpen>[0] | null;
+	entry: StakAiEntry | null;
 } = { context: null, question: null, draft: null, conversationId: null, resume: null, historyFromChat: false, entry: null };
 
 export function resetStakAiLauncher() {
@@ -46,8 +47,10 @@ export function resetStakAiLauncher() {
 
 export const STAK_AI_USAGE_KEY = ["stakAi", "usage"] as const;
 export const STAK_AI_CONVERSATIONS_KEY = ["stakAi", "conversations"] as const;
-/** No text by now: report the answer as slow - it may still be saved and count, so the chat doesn't say it didn't. */
+/** No first words by now, or no new words for IDLE_MS once they've started: report the answer as slow. It may still be
+ *  saved and count, so the chat says "check your chats" rather than that it didn't count. */
 const SLOW_MS = 45_000;
+const IDLE_MS = 30_000;
 
 /** The questions-left count, shared by every chat on screen (the /stak-ai page and the desktop panels). */
 export function useStakAiUsage() {
@@ -83,10 +86,8 @@ interface Options {
 	/** For an embedded panel: the page it sits on. */
 	context?: StakAiContext | null;
 	/** The /stak-ai page: where it counts an open from when the launcher doesn't say (desktop's nav, a direct link). */
-	defaultEntry?: Parameters<typeof trackStakAiOpen>[0];
+	defaultEntry?: StakAiEntry;
 }
-
-class SlowAnswer extends Error {}
 
 /**
  * STAK AI's chat state - the web twin of Android's StakAiViewModel. Context goes with the first question only; a
@@ -174,8 +175,11 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 		let r: StakAiChatReply;
 		const controller = new AbortController();
 		let slow = false;
-		// No text within SLOW_MS: stop waiting (the server keeps going and saves it, so the chat says "check back").
-		let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => { slow = true; controller.abort(); }, SLOW_MS);
+		let gotText = false;
+		// Quiet for too long (before the first words, or between them): stop waiting. The server keeps going and saves
+		// the answer, so the chat says "check back" rather than that it didn't count.
+		const giveUp = () => { slow = true; controller.abort(); };
+		let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(giveUp, SLOW_MS);
 		// The answer appears as it's written, in a line of its own that the finished answer replaces.
 		const streamKey = nextKey.current++;
 		try {
@@ -186,7 +190,8 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 				signal: controller.signal,
 				onText: (soFar) => {
 					clearTimeout(timer);
-					timer = undefined;
+					timer = setTimeout(giveUp, IDLE_MS);
+					gotText = true;
 					if (mine !== session.current) return;
 					setMessages((ms) => {
 						const line: AiMessage = { key: streamKey, fromUser: false, text: soFar, kind: "answer", followUps: [], sources: [], streaming: true };
@@ -213,7 +218,16 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 				return;
 			}
 			setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 ? { ...m, failed: true } : m)));
-			setProblem(slow ? { type: "slow" } : { type: "failed", offline: !(e instanceof ApiError) });
+			// Gone quiet, or the connection dropped after words had arrived: the server may well have finished, saved
+			// and counted it - say so, and refresh the count and the chat list rather than claim it didn't count. (A
+			// mid-answer `error` event is an ApiError: that one really didn't count.)
+			if (slow || (gotText && !(e instanceof ApiError))) {
+				setProblem({ type: "slow" });
+				void qc.invalidateQueries({ queryKey: STAK_AI_USAGE_KEY });
+				void qc.invalidateQueries({ queryKey: STAK_AI_CONVERSATIONS_KEY });
+			} else {
+				setProblem({ type: "failed", offline: !(e instanceof ApiError) });
+			}
 			return;
 		}
 		clearTimeout(timer);
