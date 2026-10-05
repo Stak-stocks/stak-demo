@@ -8,7 +8,7 @@ import { useMyStakData } from "@/hooks/useMyStakData";
 import type { StockUpdateDto } from "@/lib/api";
 import { ageOf, groupByCompany, kindLabel, subtitleFor, updateSourceLine } from "@/lib/updatesText";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, PhonePage, SubPageBar, f, focusRing } from "@/components/phone/phone";
+import { PRESS, PhonePage, SubPageBar, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/my-stak_/updates")({
 	component: UpdatesRoute,
@@ -55,7 +55,7 @@ function CompanyUpdateCard({ updates, logo, onOpen }: { updates: StockUpdateDto[
 			onClick={open}
 			onKeyDown={onKey}
 			className={`cursor-pointer text-left ${PRESS}`}
-			style={{ display: "flex", flexDirection: "column", gap: cu(8), borderRadius: cu(16), background: DISC.sheet, padding: cu(16), ...focusRing }}
+			style={{ display: "flex", flexDirection: "column", gap: cu(8), ...sheetCard(16), padding: cu(16), ...focusRing }}
 		>
 			<div className="flex items-start" style={{ gap: cu(10) }}>
 				<LogoTile ticker={first.ticker} company={first.company} logo={logo} />

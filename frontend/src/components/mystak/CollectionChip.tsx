@@ -1,7 +1,7 @@
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { Group } from "@/lib/collections";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { IconTile, PRESS, f, focusRing } from "@/components/phone/phone";
+import { IconTile, PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export function heldCountLabel(count: number): string {
 	return `${count} ${count === 1 ? "company" : "companies"}`;
@@ -15,7 +15,7 @@ export function CollectionChip({ group, hasUpdate, onClick }: { group: Group; ha
 			type="button"
 			onClick={onClick}
 			className={`relative flex min-w-0 flex-1 items-center text-left ${PRESS}`}
-			style={{ gap: cu(10), padding: cu(12), borderRadius: cu(12), background: DISC.sheet, ...focusRing }}
+			style={{ gap: cu(10), padding: cu(12), ...sheetCard(12), ...focusRing }}
 		>
 			<IconTile icon={categoryIcon(group.name)} />
 			<div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>

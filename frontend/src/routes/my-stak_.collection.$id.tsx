@@ -11,7 +11,7 @@ import { COLLECTION_SORTS as SORTS, groupChangePct, sortHoldings, type Collectio
 import { signedPct, usd } from "@/lib/simFormat";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { IconTile, PRESS, PhonePage, BackCircle, f, focusRing } from "@/components/phone/phone";
+import { IconTile, PRESS, PhonePage, BackCircle, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/my-stak_/collection/$id")({
 	component: CollectionRoute,
@@ -37,7 +37,7 @@ function StockTile({ holding, onOpen, onRemove }: { holding: Holding; onOpen: ()
 			type="button"
 			aria-label={`${holding.name}. Press and hold, or press Delete, to remove from My STAK.`}
 			className={`flex min-w-0 flex-1 select-none flex-col text-left ${PRESS}`}
-			style={{ height: cu(144), gap: cu(10), padding: cu(14), borderRadius: cu(16), background: DISC.sheet, touchAction: "manipulation", ...focusRing }}
+			style={{ height: cu(144), gap: cu(10), padding: cu(14), ...sheetCard(16), touchAction: "manipulation", ...focusRing }}
 			onPointerDown={() => {
 				longPressed.current = false;
 				cancel();
@@ -162,7 +162,7 @@ function CollectionDetailPage() {
 				)}
 
 				{removing && (
-					<div role="alertdialog" aria-label={`Remove ${removing} from My STAK?`} className="flex items-center" style={{ gap: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(12)} ${cu(14)}` }}>
+					<div role="alertdialog" aria-label={`Remove ${removing} from My STAK?`} className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}` }}>
 						<span className="flex-1" style={{ font: f(500, 13), color: "#fff" }}>Remove {removing} from My STAK?</span>
 						<button type="button" onClick={() => setRemoving(null)} className={PRESS} style={{ font: f(500, 13), color: DISC.muted, ...focusRing }}>Keep</button>
 						<button type="button" onClick={() => confirmRemove(removing)} className={PRESS} style={{ font: f(500, 13), color: DISC.redDown, ...focusRing }}>Remove</button>

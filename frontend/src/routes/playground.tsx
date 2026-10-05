@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { DISC } from "@/components/discover/discoverTheme";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
 	BookOpen, Zap, Swords, FlaskConical, ShieldAlert,
 	Brain, TrendingUp, ChevronRight, Star, Lock,
@@ -31,6 +31,10 @@ import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
 	component: PlaygroundPage,
+	// Off until v2 (user, 2026-10-05): nothing links here, and an old link goes Home. The page is kept as it was.
+	beforeLoad: () => {
+		throw redirect({ to: "/" });
+	},
 });
 
 // ── Section card colours ──────────────────────────────────────────────────────

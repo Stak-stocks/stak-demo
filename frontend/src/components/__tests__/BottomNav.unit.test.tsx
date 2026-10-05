@@ -69,13 +69,6 @@ describe("BottomNav", () => {
 		expect(screen.getByText("Home").closest("a")!.querySelector("path")?.getAttribute("stroke")).toBe("#AEAEAE");
 	});
 
-	it("calls onSearchClose when a nav item is clicked while search is active", () => {
-		const onSearchClose = vi.fn();
-		render(<BottomNav searchActive={true} onSearchClose={onSearchClose} />);
-		fireEvent.click(screen.getByText("Home").closest("a")!);
-		expect(onSearchClose).toHaveBeenCalledTimes(1);
-	});
-
 	it("has z-[60] on the nav element to stay above search overlay", () => {
 		render(<BottomNav />);
 		const nav = screen.getByRole("navigation");

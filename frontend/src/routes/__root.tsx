@@ -13,11 +13,13 @@ import { SideNav } from "@/components/SideNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { BrandProfile } from "@stak/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMarketEarnings, getStockData } from "@/lib/api";
+import { getMarketEarnings, getStockData, removeTurnedAwayAccount } from "@/lib/api";
 import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
+import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
+import { useFirstRunPending } from "@/lib/firstRun";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -28,7 +30,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { appUser, loading } = useAuth();
+	const { appUser, loading, logout } = useAuth();
 	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak } = useAccount();
 	const { reset: resetOnboarding } = useOnboarding();
@@ -44,8 +46,10 @@ function Root() {
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const isMobile = useIsMobile();
-	// Android shows its tab bar only on the five tab pages; every detail page is full-screen.
-	const showTabBar = isMobile && NAV_ITEMS.some((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.replace(/\/$/, "") === item.to));
+	// Android shows its tab bar only on the five tab pages; every detail page is full-screen. Home's first run swaps it
+	// for the "See Today's Pick" scrim.
+	const firstRun = useFirstRunPending(appUser?.uid);
+	const showTabBar = isMobile && !(firstRun && location.pathname === "/") && NAV_ITEMS.some((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.replace(/\/$/, "") === item.to));
 
 	// Signing out clears what the last person left behind: their half-finished quiz would
 	// otherwise pre-fill (and be saved as) the next account's taste in this tab.
@@ -118,17 +122,39 @@ function Root() {
 	// All sessions are now Supabase — onboarding completion is stored in Postgres and
 	// reflected in account.onboardingCompleted via the Supabase Realtime subscription.
 	const onboardingCheckApplies = !!appUser;
+	// Early access: a brand-new account (a first Google sign-in) is signed back out rather than onboarded.
+	const turningAway = isLoggedIn && !loading && !accountLoading && isBrandNewAccount(appUser?.createdAt, account?.onboardingCompleted);
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
 		if (!loading && !accountLoading && !isLoggedIn && needsAuthForOnboardingStep) {
-			navigate({ to: "/signup" });
+			navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST);
 		}
-		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && !turningAway && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAway, navigate]);
+
+	// Sign the brand-new account back out (once - the ref clears only when the session is actually gone) and offer
+	// the waitlist with the form open.
+	const turnedAway = useRef(false);
+	useEffect(() => {
+		if (!isLoggedIn) { turnedAway.current = false; return; }
+		if (!turningAway || turnedAway.current) return;
+		turnedAway.current = true;
+		const who = appUser?.email ? ` for ${appUser.email}` : "";
+		// Only an account this tab's own Google sign-in just made is removed (the server checks again); any other
+		// brand-new account - say an Android sign-up still in its quiz - is only signed out of the web.
+		let mine = false;
+		try { mine = sessionStorage.getItem(WEB_GOOGLE_SIGN_IN_KEY) === "1"; sessionStorage.removeItem(WEB_GOOGLE_SIGN_IN_KEY); } catch { /* no storage */ }
+		void (mine ? removeTurnedAwayAccount().catch(() => {}) : Promise.resolve())
+			.then(() => logout().catch(() => {}))
+			.finally(() => {
+				navigate(JOIN_WAITLIST);
+				toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
+			});
+	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -163,6 +189,15 @@ function Root() {
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [isMobile, isAuthPage]);
+
+	// Turning a brand-new account away: nothing of the app shows on its way out.
+	if (turningAway) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
 
 	// Auth pages stay mounted while auth/account (re)load: verifying a code or a recovery code
 	// creates a session, which flips `loading`, and unmounting the page then threw away the
@@ -208,7 +243,7 @@ function Root() {
 					</PageTransition>
 				</ErrorBoundary>
 			</div>
-			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} /> : null) : <SideNav />)}
+			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav /> : null) : <SideNav />)}
 			<Toaster
 				position="top-center"
 				theme="dark"
@@ -219,8 +254,9 @@ function Root() {
 			/>
 			<TanStackRouterDevtools position="bottom-right" />
 
+		{/* Search is desktop-only (the top bar's field and Ctrl/Cmd+K); the phone, like Android, has none. */}
 		<SearchView
-			open={searchOpen}
+			open={searchOpen && !isMobile}
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>

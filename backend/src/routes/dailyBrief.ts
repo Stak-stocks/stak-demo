@@ -10,7 +10,7 @@ import {
 } from "../services/marketMood.js";
 import { getISOWeek } from "../services/streakService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
-import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
 
 export const dailyBriefRouter = Router();
 
@@ -176,6 +176,7 @@ Return ONLY the raw JSON object, no markdown, no code fences.`;
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
 					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 				}),
@@ -394,6 +395,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						tools: [{ google_search: {} }],
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
 					}),
@@ -487,6 +489,7 @@ No financial advice. No disclaimers. Just describe what happened clearly.`;
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 					}),
@@ -679,6 +682,7 @@ CRITICAL RULES:
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 200 },
 					}),
@@ -881,6 +885,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							tools: [{ google_search: {} }],
+							system_instruction: AMERICAN_ENGLISH,
 							contents: [{ parts: [{ text: prompt }] }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
 						}),
@@ -1050,6 +1055,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: {
 							responseMimeType: "application/json",

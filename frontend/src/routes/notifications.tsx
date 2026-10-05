@@ -5,7 +5,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { NotificationsDesktop } from "@/components/profile/NotificationsDesktop";
 import { SettingsCard, SettingsLinkRow, SettingsScaffold } from "@/components/profile/ProfileKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { f } from "@/components/phone/phone";
+import { f, darkCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/notifications")({
 	component: NotificationsRoute,
@@ -37,12 +37,12 @@ function NotificationsPage() {
 	return (
 		<SettingsScaffold title="Notifications" backTo="/" gap={14}>
 			{items.length === 0 ? (
-				<section style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(16), background: DISC.cardDark, padding: cu(16) }}>
+				<section style={{ display: "flex", flexDirection: "column", gap: cu(6), ...darkCard(16), padding: cu(16) }}>
 					<p style={{ font: f(600, 15, undefined, "heading"), color: "#fff" }}>You’re all caught up.</p>
 					<p style={{ font: f(400, 13, 19), color: DISC.muted }}>Price moves on your picks and your daily deck land here.</p>
 				</section>
 			) : (
-				<section style={{ borderRadius: cu(16), background: DISC.cardDark }}>
+				<section style={{ ...darkCard(16) }}>
 					<ul>
 						{items.map((item, i) => (
 							<li key={item.id}>

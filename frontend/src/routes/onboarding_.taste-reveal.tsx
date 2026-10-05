@@ -7,7 +7,7 @@ import { RISK_OPTIONS } from "@/components/onboarding/quizOptions";
 import { SheetScaffold } from "@/components/simulate/simKit";
 import { bars, riskStyle } from "@/lib/tasteModel";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/onboarding_/taste-reveal")({
 	component: TasteRevealPage,
@@ -47,7 +47,7 @@ function TasteRevealPage() {
 			)}
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(desk ? 14 : 0) }}>
-			<section style={{ display: "flex", flexDirection: "column", gap: cu(desk ? 22 : 14), borderRadius: cu(16), background: DISC.sheet, padding: cu(desk ? 24 : 16), marginBottom: desk ? 0 : cu(16) }} aria-label="Your taste">
+			<section style={{ display: "flex", flexDirection: "column", gap: cu(desk ? 22 : 14), ...sheetCard(16), padding: cu(desk ? 24 : 16), marginBottom: desk ? 0 : cu(16) }} aria-label="Your taste">
 				{revealBars.map((bar) => (
 					<div key={bar.label} style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
 						<div className="flex items-center justify-between">
@@ -65,7 +65,7 @@ function TasteRevealPage() {
 				type="button"
 				onClick={() => setPickingRisk(true)}
 				className={`flex items-center text-left ${PRESS}`}
-				style={{ gap: cu(10), borderRadius: cu(14), background: DISC.sheet, padding: `${cu(13)} ${cu(14)} ${cu(13)} ${cu(16)}`, ...focusRing }}
+				style={{ gap: cu(10), ...sheetCard(14), padding: `${cu(13)} ${cu(14)} ${cu(13)} ${cu(16)}`, ...focusRing }}
 			>
 				<span className="flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
 					<span style={{ font: f(400, desk ? 12 : 11), color: DISC.muted }}>Risk style</span>

@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { AuthCta, AuthSecondary } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, GradientCta, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /** True inside the desktop onboarding frame, where a step lays its content out for a wide window. */
@@ -80,17 +80,7 @@ export function QuizStepShell(props: ShellProps) {
 
 /** The design's CTA: Android's gradient, full width of the 440 button column. */
 export function QuizCta({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={disabled}
-			className={`w-full transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 ${disabled ? "" : PRESS}`}
-			style={{ height: cu(52), borderRadius: cu(6), background: DISC.cta, boxShadow: "0 22px 32px rgba(82,170,199,0.06)", font: f(500, 15), color: "#fff", ...focusRing }}
-		>
-			{label}
-		</button>
-	);
+	return <GradientCta onClick={onClick} disabled={disabled} shadow="0 22px 32px rgba(82,170,199,0.06)" fontSize={15}>{label}</GradientCta>;
 }
 
 /**

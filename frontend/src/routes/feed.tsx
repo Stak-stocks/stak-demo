@@ -7,7 +7,7 @@ import { expandQuery, matchesBrief, matchesLive } from "@/lib/newsSearch";
 import { BriefCardView, BriefLoadingCard, BriefUnavailableCard, MoodMiniRow, NewsSection } from "@/components/news/NewsParts";
 import { NewsDesktop } from "@/components/news/NewsDesktop";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { AskAiHeaderButton } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/feed")({
@@ -95,7 +95,7 @@ function FeedPage() {
 							placeholder="Search news"
 							aria-label="Search news"
 							className="w-full outline-none placeholder:text-[#5C6B85]"
-							style={{ marginTop: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(13)} ${cu(16)}`, font: f(400, 13), color: "#fff", caretColor: DISC.teal }}
+							style={{ marginTop: cu(12), ...sheetCard(12), padding: `${cu(13)} ${cu(16)}`, font: f(400, 13), color: "#fff", caretColor: DISC.teal }}
 						/>
 					)}
 				</header>
@@ -109,7 +109,7 @@ function FeedPage() {
 				{marketsShown.length > 0 && <NewsSection title="Markets" articles={marketsShown} onOpen={openStory} />}
 
 				{noResults && (
-					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(14), padding: cu(16) }}>
 						<p style={{ font: f(600, 15, undefined, "heading"), color: "#fff" }}>No results for “{query.trim()}”</p>
 						<p style={{ font: f(400, 13, 19), color: DISC.muted }}>Try a different keyword — ticker, topic or source.</p>
 					</div>

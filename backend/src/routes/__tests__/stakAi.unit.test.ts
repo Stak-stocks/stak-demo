@@ -15,6 +15,7 @@ vi.mock("../../authMiddleware.js", () => ({
 	},
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["key-1", "key-2"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
 	GEMINI_REFUSAL_RE: /^I'm sorry/,

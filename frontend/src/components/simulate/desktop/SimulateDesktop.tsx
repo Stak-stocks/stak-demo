@@ -290,9 +290,6 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 										? "A buy order is how you purchase shares of a company - at the current market price (a market order) or only at a price you choose or lower (a limit order). In this simulator you use real market prices, but no real money is involved."
 										: "A sell order turns shares you hold back into cash at the current market price. Selling part of a holding keeps the rest invested. In this simulator no real money is involved."}
 								</p>
-								<button type="button" onClick={() => navigate({ to: "/playground" })} className={`self-start rounded-md text-[13px] font-medium hover:opacity-80 ${deskFocus}`} style={{ color: DESK.cyan }}>
-									Learn more about investing →
-								</button>
 							</Panel>
 						)}
 					</aside>

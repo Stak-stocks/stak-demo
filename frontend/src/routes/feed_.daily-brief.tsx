@@ -7,7 +7,7 @@ import { getDailyBrief } from "@/lib/api";
 import { marketSessionBucket, getEasternDateKey } from "@/lib/utils";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DailyBriefDesktop } from "@/components/news/DailyBriefDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,7 +22,7 @@ const GLYPH = "#8B9AB8";
 
 function Card({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
 	return (
-		<section style={{ display: "flex", flexDirection: "column", gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(18) }}>
+		<section style={{ display: "flex", flexDirection: "column", gap: cu(12), ...sheetCard(16), padding: cu(18) }}>
 			<div className="flex items-center" style={{ gap: cu(9) }}>
 				<div className="grid place-items-center" style={{ width: cu(28), height: cu(28), borderRadius: cu(8), background: "#1A2235" }} aria-hidden="true">{icon}</div>
 				<h2 style={{ font: f(600, 14, 18, "heading"), color: "#fff" }}>{label}</h2>
@@ -165,7 +165,7 @@ function DailyBriefPage() {
 
 				{/* STAK AI (2026-10-01): the suggested question goes into the chat's box (with today's brief as context) for the person to send. */}
 				{brief.contextQuestion?.trim() && (
-					<button type="button" onClick={() => openStakAi(briefContext(brief), brief.contextQuestion)} className={`flex w-full items-center text-left ${PRESS}`} style={{ gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(18), ...focusRing }}>
+					<button type="button" onClick={() => openStakAi(briefContext(brief), brief.contextQuestion)} className={`flex w-full items-center text-left ${PRESS}`} style={{ gap: cu(12), ...sheetCard(16), padding: cu(18), ...focusRing }}>
 						<div className="flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(8) }}>
 							<div className="flex items-center" style={{ gap: cu(9) }}>
 								<div className="grid place-items-center" style={{ width: cu(28), height: cu(28), borderRadius: cu(8), background: "#1A2235" }} aria-hidden="true"><Sparkle size={14} /></div>

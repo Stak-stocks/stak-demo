@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { useQuizDesktop } from "./QuizStepShell";
 
 const S = "#819ABB";
@@ -38,7 +38,7 @@ export function MatrixQuizOption({ option, selected, onClick }: { option: QuizOp
 			onClick={onClick}
 			aria-pressed={selected}
 			className={`relative flex h-full flex-col items-start text-left ${PRESS}`}
-			style={{ minHeight: cu(155.81), borderRadius: cu(16.85), background: DISC.sheet, padding: `${cu(15.27)} ${cu(14.74)}`, ...focusRing }}
+			style={{ minHeight: cu(155.81), ...sheetCard(16.85), padding: `${cu(15.27)} ${cu(14.74)}`, ...focusRing }}
 		>
 			<span style={{ height: cu(option.iconDy) }} aria-hidden="true" />
 			<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(option.circle), height: cu(option.circle), background: DISC.avatar }} aria-hidden="true">
@@ -65,7 +65,7 @@ function DesktopQuizOption({ option, selected, onClick }: { option: QuizOption; 
 			onClick={onClick}
 			aria-pressed={selected}
 			className={`flex items-center text-left transition-colors hover:brightness-110 ${PRESS}`}
-			style={{ gap: cu(24), minHeight: cu(140), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(24)} ${cu(40)}`, border: `1px solid ${selected ? "rgba(105,179,202,0.55)" : "transparent"}`, ...focusRing }}
+			style={{ gap: cu(24), minHeight: cu(140), ...sheetCard(16), padding: `${cu(24)} ${cu(40)}`, border: `1px solid ${selected ? "rgba(105,179,202,0.55)" : "transparent"}`, ...focusRing }}
 		>
 			<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(56), height: cu(56), background: DISC.avatar }} aria-hidden="true">
 				<svg viewBox={`0 0 ${icon.view} ${icon.view}`} style={{ width: cu(glyph), height: cu(glyph) }}>{icon.node}</svg>

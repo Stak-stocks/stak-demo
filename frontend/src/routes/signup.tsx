@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { getProfile } from "@/lib/api";
@@ -7,7 +8,7 @@ import {
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/signup")({
 	validateSearch: (search: Record<string, unknown>): { confirm?: string } => ({
 		confirm: typeof search.confirm === "string" && search.confirm ? search.confirm : undefined,
 	}),
+	// Early access: no new accounts on the web. Only finishing one already started (typing its code) gets through.
+	beforeLoad: ({ search }) => {
+		if (!WEB_SIGNUP_OPEN && !search.confirm) throw redirect(JOIN_WAITLIST);
+	},
 });
 
 /** Android's Create account: Google or email + password, then a confirmation code from the email. */
@@ -115,7 +120,12 @@ function SignUpPage() {
 	return (
 		<AuthScreen
 			// On the code step, back returns to the form (email kept) rather than leaving sign-up.
-			nav={confirming ? <AuthBackLink label="Back to sign-up" onClick={() => { setMode("form"); setServerError(null); }} /> : undefined}
+			nav={confirming
+				? WEB_SIGNUP_OPEN
+					? <AuthBackLink label="Back to sign-up" onClick={() => { setMode("form"); setServerError(null); }} />
+					// Early access: finishing an account already started is allowed; the form that makes a new one isn't.
+					: <AuthBackLink label="Back to sign in" onClick={() => navigate({ to: "/login" })} />
+				: undefined}
 			bottom={
 				<>
 					{confirming
@@ -141,7 +151,7 @@ function SignUpPage() {
 						autoFocus
 						onEnter={handleVerify}
 					/>
-					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(14), padding: cu(16) }}>
 						<p style={{ font: f(500, 14), color: "#fff" }}>Didn’t get it?</p>
 						<p style={{ font: f(400, 11, 15), color: "#ACAFB1" }}>Check your spam folder, or</p>
 						<button type="button" onClick={handleResend} disabled={submitting} className={`w-fit disabled:opacity-50 ${PRESS}`} style={{ font: f(500, 12), color: DISC.teal, ...focusRing }}>

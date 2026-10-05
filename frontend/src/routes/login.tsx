@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getProfile } from "@/lib/api";
+import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
 import {
 	AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, GooglePill, OrDivider, ShowHide, SwitchRow,
 	emailError as emailProblem, friendlyAuthError, usePasswordVisibility,
@@ -75,11 +76,15 @@ function LoginPage() {
 					<AuthCta label="Sign in" onClick={handleEmailSignIn} disabled={signingIn} />
 					{signingIn && <AuthSpinner />}
 					{serverError && <ErrorText>{serverError}</ErrorText>}
-					<SwitchRow prefix="New to STAK?" link="Create account" onClick={() => navigate({ to: "/signup" })} />
+					<SwitchRow
+						prefix="New to STAK?"
+						link={WEB_SIGNUP_OPEN ? "Create account" : "Get early access"}
+						onClick={() => navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST)}
+					/>
 				</>
 			}
 		>
-			<AuthHeader title="Welcome back" subtitle="Your deck kept learning while you were away." />
+			<AuthHeader title="Welcome back" subtitle={WEB_SIGNUP_OPEN ? "Your deck kept learning while you were away." : "STAK is in early access: sign in with an existing account."} />
 			<div style={{ height: cu(4) }} />
 			<GooglePill onClick={handleGoogleSignIn} disabled={signingIn} />
 			<OrDivider />

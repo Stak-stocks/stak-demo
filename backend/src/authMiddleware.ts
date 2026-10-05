@@ -33,6 +33,11 @@ function tokenExpiryMs(token: string): number | null {
 	}
 }
 
+/** Forgets a token at once - for an account just deleted, so its last token can't still pass for up to 2 minutes. */
+export function forgetVerifiedToken(token: string): void {
+	verified.delete(tokenKey(token));
+}
+
 function rememberVerified(token: string, user: VerifiedUser): void {
 	const now = Date.now();
 	const exp = tokenExpiryMs(token);

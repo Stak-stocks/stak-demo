@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { singleFlight } from "../lib/singleFlight.js";
 import { pgQuery } from "../lib/postgres.js";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
 import { getBrandLogoUrl, getBrandHeroUrl } from "@stak/shared";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit, AMERICAN_ENGLISH } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
 
 export const brandsRouter = Router();
@@ -93,8 +94,14 @@ brandsRouter.get("/:id/tip", async (req, res) => {
 	const cached = await cacheGet<{ tip: string }>(CACHE_KEY);
 	if (cached) { res.json(cached); return; }
 
+	// Many people opening the same card while its tip is cold share one generation.
+	res.json(await singleFlight(CACHE_KEY, () => generateTip(brand, CACHE_KEY)));
+});
+
+/** Writes a stock's tip with Gemini and caches it: 30 days, or 5 minutes when generation failed or came back empty. */
+async function generateTip(brand: (typeof brands)[number], cacheKey: string): Promise<{ tip: string }> {
 	const keys = getGeminiKeys();
-	if (!keys.length) { res.json({ tip: "" }); return; }
+	if (!keys.length) return { tip: "" };
 
 	const prompt = `You write investment tip cards for a finance app for young retail investors.
 Write a TWO-SENTENCE tip for ${brand.name} (${brand.ticker}).
@@ -118,19 +125,20 @@ Return ONLY the two-sentence tip. Nothing else.`;
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
+				system_instruction: AMERICAN_ENGLISH,
 				contents: [{ parts: [{ text: prompt }] }],
 				generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 80 },
 			}),
 		});
 		const data = await resp.json() as any;
 		const tip: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-		await cacheSet(CACHE_KEY, { tip }, tip ? TIP_TTL_MS : TIP_FAILURE_TTL_MS);
-		res.json({ tip });
+		await cacheSet(cacheKey, { tip }, tip ? TIP_TTL_MS : TIP_FAILURE_TTL_MS);
+		return { tip };
 	} catch {
-		await cacheSet(CACHE_KEY, { tip: "" }, TIP_FAILURE_TTL_MS);
-		res.json({ tip: "" });
+		await cacheSet(cacheKey, { tip: "" }, TIP_FAILURE_TTL_MS);
+		return { tip: "" };
 	}
-});
+}
 
 // Themes the Quick Look may tag a brand with - a closed set so clients can style them consistently.
 const QUICK_LOOK_THEMES = [
@@ -217,6 +225,7 @@ async function generateQuickLook(prompt: string, keys: string[], ticker: string)
 				// Gemini 503s can hang; bound each attempt so the next key gets a turn.
 				signal: AbortSignal.timeout(15_000),
 				body: JSON.stringify({
+					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
 					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 				}),

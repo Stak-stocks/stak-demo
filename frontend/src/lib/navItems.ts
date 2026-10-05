@@ -1,7 +1,7 @@
 // The app's nav entries. Mobile (BottomNav.tsx) shows Android's five tabs, Home/News/Discover/My STAK/Simulate,
 // all backed by the same server data as Android (Simulate shares /api/sandbox/* with it). Desktop (SideNav.tsx)
-// follows the user's desktop design instead: DESKTOP_NAV_ITEMS below adds Learn (Playground) and Settings (Profile).
-import { Newspaper, LayoutDashboard, Search, Bookmark, BarChart3, BookOpen, Settings, Sparkles, type LucideIcon } from "lucide-react";
+// follows the user's desktop design instead: DESKTOP_NAV_ITEMS below adds STAK AI and Settings (Profile).
+import { Newspaper, LayoutDashboard, Search, Bookmark, BarChart3, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
 	to: string;
@@ -24,15 +24,14 @@ export interface DesktopNavItem {
 	alsoActiveOn?: string[];
 }
 
-/** The desktop sidebar (the user's desktop design): Learn opens Playground's
- *  lessons, Settings is the Profile hub. Mobile keeps Android's five tabs above. */
+/** The desktop sidebar (the user's desktop design): Settings is the Profile hub. Mobile keeps Android's five tabs
+ *  above. Learn (Playground) is off until v2 (user, 2026-10-05). */
 export const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
 	{ to: "/", label: "Home", icon: LayoutDashboard },
 	{ to: "/feed", label: "News", icon: Newspaper },
 	{ to: "/discover", label: "Discover", icon: Search },
 	{ to: "/my-stak", label: "My STAK", icon: Bookmark },
 	{ to: "/simulate", label: "Simulate", icon: BarChart3 },
-	{ to: "/playground", label: "Learn", icon: BookOpen },
 	// STAK AI (2026-10-01): its own way in on desktop; the phone opens it from the Home and News headers.
 	{ to: "/stak-ai", label: "STAK AI", icon: Sparkles },
 	{ to: "/profile", label: "Settings", icon: Settings, alsoActiveOn: ["/notifications"] },
@@ -43,10 +42,3 @@ export function isNavItemActive(currentPath: string, itemPath: string): boolean 
 	return currentPath.startsWith(itemPath);
 }
 
-/** True once today's "featured today" lesson is completed; until then the desktop Learn entry shows a dot. */
-export function hasCompletedTodaysChallenge(lessonProgress: Record<string, { completed: boolean; completedAt: number }> | undefined): boolean {
-	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-	return Object.entries(lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
-	);
-}

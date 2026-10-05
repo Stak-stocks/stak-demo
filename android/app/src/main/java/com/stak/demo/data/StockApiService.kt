@@ -105,6 +105,9 @@ interface StockApiService {
     @GET("api/news/company/{symbol}")
     suspend fun getCompanyNews(@Path("symbol") symbol: String): CompanyNewsResponse
 
+    @POST("api/news/for-you")
+    suspend fun getForYouNews(@Body body: ForYouNewsRequest): ForYouNewsResponse
+
     @GET("api/daily-brief")
     suspend fun getDailyBrief(): DailyBriefResponse
 

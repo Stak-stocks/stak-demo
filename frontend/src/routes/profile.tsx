@@ -14,7 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAccount } from "@/context/AccountContext";
 import { readNotificationPrefs } from "@/lib/notificationPrefs";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, f, focusRing, darkCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile")({
 	component: ProfilePage,
@@ -70,7 +70,7 @@ function ProfilePage() {
 			<span style={{ font: f(400, 11, 14), color: DISC.muted }}>{label}</span>
 		</div>
 	);
-	const card = { display: "flex", flexDirection: "column", gap: cu(10), borderRadius: cu(16), background: DISC.cardDark, padding: cu(14) } as const;
+	const card = { display: "flex", flexDirection: "column", gap: cu(10), ...darkCard(16), padding: cu(14) } as const;
 
 	return (
 		<PhonePage>
@@ -127,8 +127,6 @@ function ProfilePage() {
 					<SettingsLinkRow label="App settings" onClick={() => navigate({ to: "/profile/app-settings" })} />
 					<SettingsLinkRow label="Help & support" onClick={() => navigate({ to: "/profile/help-support" })} />
 					<SettingsLinkRow label="Invite a friend" onClick={shareInvite} />
-					{/* Not on Android; kept so the web-only Playground stays reachable. */}
-					<SettingsLinkRow label="Playground" onClick={() => navigate({ to: "/playground" })} />
 				</SettingsCard>
 
 				<button

@@ -8,14 +8,14 @@ import {
 import { beatsPeers, lessonFor, newsCloseLine, parsePct } from "@/lib/stockPage";
 import { newsAge } from "@/lib/newsText";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { IconTile, PRESS, f, focusRing } from "@/components/phone/phone";
+import { IconTile, PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 const INK = "#F2F6FC";
 const GREEN = DISC.green;
 const RED = "#FF5A6A";
 
 function Card({ children, gap = 12, onClick, label }: { children: ReactNode; gap?: number; onClick?: () => void; label?: string }) {
-	const style = { display: "flex", flexDirection: "column", gap: cu(gap), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(14)} ${cu(16)}`, textAlign: "left" } as const;
+	const style = { display: "flex", flexDirection: "column", gap: cu(gap), ...sheetCard(16), padding: `${cu(14)} ${cu(16)}`, textAlign: "left" } as const;
 	return onClick ? (
 		<button type="button" onClick={onClick} aria-label={label} className={`w-full ${PRESS}`} style={{ ...style, ...focusRing }}>{children}</button>
 	) : (
@@ -171,7 +171,7 @@ export function NewsSignalCard({ symbol, name, changePct }: { symbol: string; na
 			{stories.length > 0 && (
 				<div className="flex overflow-x-auto" style={{ gap: cu(12), scrollbarWidth: "none" }}>
 					{stories.map((a) => (
-						<div key={a.url} className="shrink-0" style={{ width: cu(205), borderRadius: cu(12), background: DISC.sheet, padding: cu(12), display: "flex", flexDirection: "column", gap: cu(8) }}>
+						<div key={a.url} className="shrink-0" style={{ width: cu(205), ...sheetCard(12), padding: cu(12), display: "flex", flexDirection: "column", gap: cu(8) }}>
 							<div className="flex items-center">
 								<span style={{ font: f(400, 10), color: DISC.muted }}>{a.source} · {newsAge(a.datetime)} ago</span>
 								<span className="flex-1" />
@@ -190,7 +190,7 @@ export function NewsSignalCard({ symbol, name, changePct }: { symbol: string; na
 export function NumbersCard({ symbol, metrics }: { symbol: string; metrics: LiveMetrics | undefined }) {
 	const { data: peers } = useQuery({ queryKey: ["peer-metrics", symbol], queryFn: () => getPeerMetrics(symbol), staleTime: 24 * 60 * 60 * 1000, retry: 0 });
 	const cell = (label: string, value: string, verdict: string | null, good: boolean) => (
-		<div className="min-w-0 flex-1" style={{ borderRadius: cu(12), background: DISC.sheet, padding: cu(10), display: "flex", flexDirection: "column", gap: cu(4) }}>
+		<div className="min-w-0 flex-1" style={{ ...sheetCard(12), padding: cu(10), display: "flex", flexDirection: "column", gap: cu(4) }}>
 			<span style={{ font: f(400, 10), color: DISC.muted }}>{label}</span>
 			<span style={{ font: f(600, 17, undefined, "heading"), color: INK }}>{value}</span>
 			<span style={{ font: f(500, 10), color: good ? GREEN : DISC.muted }}>{verdict ?? " "}</span>
@@ -271,7 +271,7 @@ export function AnalystCard({ symbol, name, price }: { symbol: string; name: str
 						<>
 							<Kicker>RECENT ACTIONS</Kicker>
 							{actions.data!.slice(0, 5).map((a, i) => (
-								<div key={`${a.firm}-${i}`} className="flex items-center" style={{ height: cu(38), borderRadius: cu(10), background: DISC.sheet, padding: `0 ${cu(12)}`, gap: cu(10) }}>
+								<div key={`${a.firm}-${i}`} className="flex items-center" style={{ height: cu(38), ...sheetCard(10), padding: `0 ${cu(12)}`, gap: cu(10) }}>
 									<span className="min-w-0 flex-1 truncate" style={{ font: f(500, 12), color: INK }}>{a.firm}</span>
 									<span className="text-right" style={{ width: cu(64), font: f(500, 11), color: POSITIVE.has(a.action) ? GREEN : DISC.muted }}>{a.action}</span>
 									<span className="text-right" style={{ width: cu(52), font: f(500, 12), color: INK }}>{dollars(a.priceTarget)}</span>
@@ -344,7 +344,7 @@ export function LessonCard({ symbol }: { symbol: string }) {
 			onClick={() => setOpen((v) => !v)}
 			aria-expanded={open}
 			className={`w-full text-left ${PRESS}`}
-			style={{ display: "flex", flexDirection: "column", gap: cu(8), borderRadius: cu(12), background: DISC.sheet, padding: cu(14), ...focusRing }}
+			style={{ display: "flex", flexDirection: "column", gap: cu(8), ...sheetCard(12), padding: cu(14), ...focusRing }}
 		>
 			<span style={{ font: f(500, 11), color: "#5BD7E4" }}>RELATED LESSON</span>
 			<span style={{ font: f(600, 15, 19, "heading"), color: "#fff" }}>{lesson.title}</span>

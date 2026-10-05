@@ -33,7 +33,7 @@ function TabIcon({ to, active }: { to: string; active: boolean }) {
 }
 
 /** Android's bottom tab bar: 86u, #060C1D, five tabs 30u apart, white Inter labels; only the icon shows which is active. */
-export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
+export function BottomNav() {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
 	const unit = useFigmaUnit();
@@ -52,7 +52,6 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 							key={item.to}
 							to={item.to}
 							aria-current={active ? "page" : undefined}
-							onClick={searchActive ? onSearchClose : undefined}
 							className="flex flex-col items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 							style={{ gap: cu(10), width: item.to === "/" ? cu(34) : undefined, outlineColor: DISC.teal }}
 						>

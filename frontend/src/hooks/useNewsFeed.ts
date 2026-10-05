@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { getCompanyNews, getDailyBrief, getMarketNews } from "@/lib/api";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { getDailyBrief, getForYouNews, getMarketNews } from "@/lib/api";
 import { getEasternDateKey, marketSessionBucket } from "@/lib/utils";
 import { rememberArticles, type StoredArticle } from "@/lib/openedArticle";
 import { sourceBriefs } from "@/components/news/NewsParts";
@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
 
 const FOR_YOU_LIMIT = 10;
-/** Each held stock costs the server a news lookup (and a Gemini summary when cold), so For You reads the most recent saves. */
+/** Each held stock can cost the server a news lookup (and a Gemini summary when cold), so For You reads the most recent saves. */
 const FOR_YOU_TICKER_CAP = 10;
 
 /**
@@ -30,32 +30,34 @@ export function useNewsFeed() {
 	});
 	const market = useQuery({ queryKey: ["market-news"], queryFn: getMarketNews, staleTime: 60 * 1000, retry: 1 });
 
-	// For You: the newest stories about your most recently saved stocks, one request per stock.
-	const forYouBrands = useMemo(() => swipedBrands.slice(-FOR_YOU_TICKER_CAP), [swipedBrands]);
-	const companyNews = useQueries({
-		queries: forYouBrands.map((b) => ({
-			queryKey: ["company-news", b.ticker],
-			queryFn: () => getCompanyNews(b.ticker),
-			staleTime: 10 * 60 * 1000,
-			retry: 0,
-		})),
+	// For You: the newest stories about your most recently saved stocks, all of them in one request.
+	const forYouTickers = useMemo(() => swipedBrands.slice(-FOR_YOU_TICKER_CAP).map((b) => b.ticker), [swipedBrands]);
+	const forYouNews = useQuery({
+		queryKey: ["for-you-news", forYouTickers.join(",")],
+		queryFn: () => getForYouNews(forYouTickers),
+		enabled: forYouTickers.length > 0,
+		staleTime: 10 * 60 * 1000,
+		retry: 0,
+		// Saving another company keeps the current list up while the new one loads.
+		placeholderData: keepPreviousData,
+		// Companies the server was still writing up come back `pending`: ask again shortly (a few times at most).
+		refetchInterval: (q) => ((q.state.data?.pending?.length ?? 0) > 0 && q.state.dataUpdateCount < 4 ? 8_000 : false),
 	});
-	const companyVersion = companyNews.map((q) => q.dataUpdatedAt).join(",");
 	const forYou = useMemo(() => {
 		const seen = new Set<string>();
 		const out: StoredArticle[] = [];
-		companyNews.forEach((q, i) => {
-			const ticker = forYouBrands[i]?.ticker;
-			for (const a of q.data?.articles ?? []) {
+		for (const { ticker, articles } of forYouNews.data?.results ?? []) {
+			for (const a of articles) {
+				// Only stories about the company itself carry its ticker; ones merely near it stay in Markets.
 				if (a.type !== "company" || !a.url || seen.has(a.url)) continue;
 				seen.add(a.url);
 				out.push({ ...a, ticker });
 			}
-		});
+		}
 		return out.sort((a, b) => b.datetime - a.datetime).slice(0, FOR_YOU_LIMIT);
-		// Keyed on when each company's news last arrived: useQueries hands back a new array every render.
-	}, [forYouBrands, companyVersion]);
-	const forYouLoading = companyNews.some((q) => q.isPending);
+	}, [forYouNews.data]);
+	const forYouLoading = forYouTickers.length > 0 && forYouNews.isPending;
+	const forYouFailed = forYouNews.isError && !forYouNews.data;
 
 	const marketArticles = useMemo<StoredArticle[]>(() => market.data?.articles ?? [], [market.data]);
 	const briefItems = sourceBriefs(brief.data, marketArticles);
@@ -72,6 +74,8 @@ export function useNewsFeed() {
 		market,
 		forYou,
 		forYouLoading,
+		forYouFailed,
+		retryForYou: () => { void forYouNews.refetch(); },
 		marketArticles,
 		briefItems,
 		aiBrief,

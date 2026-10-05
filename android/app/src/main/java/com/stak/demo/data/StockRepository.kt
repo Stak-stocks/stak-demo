@@ -37,6 +37,7 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun putMe(displayName: String? = null, onboardingCompleted: Boolean? = null, taste: TasteDto? = null): MeResponse =
         api.putMe(MePutRequest(displayName = displayName, onboardingCompleted = onboardingCompleted, taste = taste))
     suspend fun getCompanyNews(symbol: String): CompanyNewsResponse = api.getCompanyNews(symbol)
+    suspend fun getForYouNews(tickers: List<String>): ForYouNewsResponse = api.getForYouNews(ForYouNewsRequest(tickers))
     suspend fun getDailyBrief(): DailyBriefResponse = api.getDailyBrief()
     suspend fun getDailySwipes(): DailySwipesResponse = api.getDailySwipes()
     suspend fun getBrands(): BrandsListResponse = api.getBrands()

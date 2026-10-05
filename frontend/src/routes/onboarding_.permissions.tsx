@@ -7,7 +7,7 @@ import { Bell } from "lucide-react";
 import { enableWebPush } from "@/lib/webPush";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPrefs";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { f } from "@/components/phone/phone";
+import { f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/onboarding_/permissions")({
 	component: PermissionsPage,
@@ -45,7 +45,7 @@ function PermissionsPage() {
 			caption={desk ? "You can change this anytime in Settings." : undefined}
 		>
 			{desk ? (
-				<div className="flex items-center" style={{ gap: cu(20), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(28)} ${cu(28)}` }}>
+				<div className="flex items-center" style={{ gap: cu(20), ...sheetCard(16), padding: `${cu(28)} ${cu(28)}` }}>
 					<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(56), height: cu(56), background: DISC.avatar }} aria-hidden="true">
 						<Bell style={{ width: cu(20), height: cu(20), color: DISC.muted }} />
 					</span>
