@@ -28,13 +28,13 @@ vi.mock("@tanstack/react-query", () => ({
 	useQuery: ({ queryKey }: { queryKey: unknown[] }) =>
 		queryKey[0] === "market-news"
 			? { data: { articles: [article("Fed holds rates steady"), article("Chipmakers rally on AI demand")] }, isPending: false, isError: false }
-			: { data: undefined, isPending: false, isError: false },
-	useQueries: () => [],
+			: { data: undefined, isPending: false, isError: false, refetch: vi.fn() },
+	keepPreviousData: (d: unknown) => d,
 }));
 
 vi.mock("@/lib/api", () => ({
 	getMarketNews: vi.fn(),
-	getCompanyNews: vi.fn(),
+	getForYouNews: vi.fn(),
 	getDailyBrief: vi.fn(),
 }));
 

@@ -1085,7 +1085,6 @@ async function fetchGeminiEarningsDates(
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
 						generationConfig: { temperature: 0.1 },
@@ -1524,7 +1523,6 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							system_instruction: AMERICAN_ENGLISH,
 							contents: [{ parts: [{ text: prompt }] }],
 							tools: [{ google_search: {} }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
@@ -1637,7 +1635,6 @@ Rules:
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 500 },

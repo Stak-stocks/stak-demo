@@ -35,12 +35,13 @@ export function GradientCta({ children, onClick, disabled, type = "button", heig
 			type={type}
 			onClick={onClick}
 			disabled={disabled}
-			className={`w-full transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed ${disabled ? "" : PRESS}`}
+			className={`w-full disabled:cursor-not-allowed disabled:opacity-50 ${disabled ? "" : `${PRESS} hover:brightness-105`}`}
 			style={{
 				height: cu(height), borderRadius: cu(6),
 				// DISC.cta is already a gradient: it's a background layer as is (wrapping it in linear-gradient() drew nothing).
 				...(rim ? { border: `${cu(0.36)} solid transparent`, background: `${DISC.cta} padding-box, ${rim} border-box` } : { background: DISC.cta }),
-				boxShadow: shadow, opacity: disabled ? 0.5 : 1, font: f(500, fontSize), color: "#fff", ...focusRing,
+				// No inline opacity: it would beat PRESS's active:opacity-70 and the press would show nothing.
+				boxShadow: shadow, font: f(500, fontSize), color: "#fff", ...focusRing,
 			}}
 		>
 			{children}
@@ -111,7 +112,7 @@ export function IconTile({ icon: Icon, tint = DISC.teal, glyphColor, size = 34, 
 
 /** Card recipe most screens share: radius 16u, #181F30, 16u padding. */
 export const cardStyle = (gap = 12): CSSProperties => ({
-	display: "flex", flexDirection: "column", gap: cu(gap), borderRadius: cu(16), background: DISC.sheet, padding: cu(16),
+	display: "flex", flexDirection: "column", gap: cu(gap), ...sheetCard(16), padding: cu(16),
 });
 
 /** Android's SettingsChip: teal outline when selected, a plain dark pill otherwise. */

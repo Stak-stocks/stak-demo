@@ -8,6 +8,7 @@ import com.stak.demo.data.NewsArticleDto
 import com.stak.demo.data.Session
 import com.stak.demo.data.StockRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,6 +16,9 @@ import javax.inject.Inject
 
 /** For You reads the newest saves, at most this many companies (the server caps the request the same). */
 private const val FOR_YOU_TICKER_CAP = 10
+/** Companies still being written up come back `pending`; For You asks again after this long, this many times. */
+private const val FOR_YOU_PENDING_DELAY_MS = 8_000L
+private const val FOR_YOU_PENDING_RETRIES = 3
 
 @HiltViewModel
 class NewsViewModel @Inject constructor(
@@ -77,8 +81,8 @@ class NewsViewModel @Inject constructor(
 
     /**
      * Called from NewsScreen on each entry so new holdings from Discover are picked up.
-     * It is one request per holding, so the same holdings are reloaded at most once a
-     * minute; a change of holdings reloads at once.
+     * The same holdings are reloaded at most once a minute after a successful load; a
+     * change of holdings, or a load that failed, reloads at once.
      */
     fun refreshForYou() {
         val sameHoldings = forYouFor == MyStakHoldings.tickers
@@ -86,26 +90,27 @@ class NewsViewModel @Inject constructor(
         fetchForYouNews()
     }
 
-    private fun fetchForYouNews() {
+    private fun fetchForYouNews(attempt: Int = 0) {
         val held = MyStakHoldings.tickers.toList()
         forYouFor = MyStakHoldings.tickers
-        forYouAt = System.currentTimeMillis()
         // Nothing held, nothing for you: stories about stocks since removed don't linger.
         if (held.isEmpty()) {
             _forYouNews.value = emptyList()
             return
         }
         viewModelScope.launch {
-            // One request for every held company (the server caps it at the 10 newest saves, like the web).
-            val allArticles = runCatching { repository.getForYouNews(held.takeLast(FOR_YOU_TICKER_CAP)) }
-                .getOrNull()?.results.orEmpty()
-                .flatMap { company ->
-                    // A company query also returns stories that are only near the
-                    // company ("sector"). Stamping the queried ticker on every one
-                    // labelled a Joby story as NVIDIA news, with NVIDIA's price
-                    // beside it; only a story about the company carries its ticker.
-                    company.articles.map { it.copy(ticker = if (it.type == "company") company.ticker else "") }
-                }
+            // One request for the newest saves (the server takes 10 at most, like the web).
+            val response = runCatching { repository.getForYouNews(held.takeLast(FOR_YOU_TICKER_CAP)) }.getOrNull()
+                // Failed: keep what's showing, and let the next visit try again straight away.
+                ?: return@launch
+            forYouAt = System.currentTimeMillis()
+            val allArticles = response.results.flatMap { company ->
+                // A company query also returns stories that are only near the
+                // company ("sector"). Stamping the queried ticker on every one
+                // labelled a Joby story as NVIDIA news, with NVIDIA's price
+                // beside it; only a story about the company carries its ticker.
+                company.articles.map { it.copy(ticker = if (it.type == "company") company.ticker else "") }
+            }
             val seen = mutableSetOf<String>()
             _forYouNews.value = allArticles
                 // For You is news about the user's own stocks. A company query also returns
@@ -116,6 +121,11 @@ class NewsViewModel @Inject constructor(
                 .filter { it.url.isNotBlank() && seen.add(it.url) }
                 .sortedByDescending { it.datetime }
                 .take(10)
+            // Companies the server was still writing up: ask again shortly (a few times at most).
+            if (response.pending.isNotEmpty() && attempt < FOR_YOU_PENDING_RETRIES) {
+                delay(FOR_YOU_PENDING_DELAY_MS)
+                if (forYouFor == MyStakHoldings.tickers) fetchForYouNews(attempt + 1)
+            }
         }
     }
 }

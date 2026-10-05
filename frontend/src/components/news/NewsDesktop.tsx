@@ -29,13 +29,15 @@ function Thumb({ article, className }: { article: StoredArticle; className: stri
 }
 
 /** A list of stories (For You, Markets): picture, source label and age, headline; "View all" shows the rest. */
-function StoryList({ icon, title, articles, loading, empty, onOpen }: {
+function StoryList({ icon, title, articles, loading, empty, onOpen, onRetry }: {
 	icon: LucideIcon;
 	title: string;
 	articles: StoredArticle[];
 	loading: boolean;
 	empty: string;
 	onOpen: (a: StoredArticle) => void;
+	/** The list failed to load: the empty line says so and offers to try again. */
+	onRetry?: () => void;
 }) {
 	const [all, setAll] = useState(false);
 	const shown = all ? articles : articles.slice(0, LIST_SHOWN);
@@ -45,7 +47,10 @@ function StoryList({ icon, title, articles, loading, empty, onOpen }: {
 			{loading && articles.length === 0 ? (
 				<div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <SkeletonBar key={i} width="100%" height={56} />)}</div>
 			) : articles.length === 0 ? (
-				<p className="py-2 text-[13px]" style={{ color: DESK.muted }}>{empty}</p>
+				<p className="py-2 text-[13px]" style={{ color: DESK.muted }}>
+					{empty}
+					{onRetry && <> <button type="button" onClick={onRetry} className={`rounded font-medium ${deskFocus}`} style={{ color: DESK.cyan }}>Try again</button></>}
+				</p>
 			) : (
 				<ul className="flex flex-col">
 					{shown.map((a, i) => (
@@ -91,7 +96,7 @@ function MoodDial({ mood }: { mood: string | undefined }) {
  */
 export function NewsDesktop() {
 	const navigate = useNavigate();
-	const { brief, market, forYou, forYouLoading, marketArticles, briefItems, aiBrief, briefLoading, mood, openStory } = useNewsFeed();
+	const { brief, market, forYou, forYouLoading, forYouFailed, retryForYou, marketArticles, briefItems, aiBrief, briefLoading, mood, openStory } = useNewsFeed();
 	const { swipedBrands } = useMyStakData();
 	const { data: brands } = useBrandsList();
 	const [query, setQuery] = useState("");
@@ -189,7 +194,7 @@ export function NewsDesktop() {
 							</Panel>
 						) : null}
 
-						<StoryList icon={Star} title="For You" articles={forYouShown} loading={forYouLoading} empty={searching ? "No stories about your saved companies match." : swipedBrands.length ? "No new stories about your saved companies yet." : "Save companies in Discover and their news shows up here."} onOpen={openStory} />
+						<StoryList icon={Star} title="For You" articles={forYouShown} loading={forYouLoading} empty={forYouFailed ? "Couldn't load stories about your saved companies." : searching ? "No stories about your saved companies match." : swipedBrands.length ? "No new stories about your saved companies yet." : "Save companies in Discover and their news shows up here."} onRetry={forYouFailed ? retryForYou : undefined} onOpen={openStory} />
 						<StoryList icon={Newspaper} title="Markets" articles={marketsShown} loading={market.isPending} empty={searching ? "No market stories match." : "No market stories right now."} onOpen={openStory} />
 					</div>
 

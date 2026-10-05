@@ -65,6 +65,31 @@ describe("POST /for-you", () => {
 		]);
 	});
 
+	it("a company still building after the wait comes back pending while the others answer", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		try {
+			getCompanyNews.mockImplementation((t: string) => (t === "TSLA" ? new Promise(() => {}) : Promise.resolve([story(`${t} news`)])));
+			let body: { pending?: string[]; results?: unknown } | undefined;
+			const res = request(await buildApp()).post("/for-you").send({ tickers: ["TSLA", "AAPL"] }).then((r) => { body = r.body; });
+			// The request reaches the route a few ticks after it's sent: keep the clock moving until it answers.
+			for (let i = 0; i < 40 && !body; i++) await vi.advanceTimersByTimeAsync(500);
+			await res;
+			expect(body!.pending).toEqual(["TSLA"]);
+			expect(body!.results).toEqual([
+				{ ticker: "TSLA", articles: [] },
+				{ ticker: "AAPL", articles: [expect.objectContaining({ headline: "AAPL news" })] },
+			]);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("a company with nothing to show is remembered for 5 minutes, apart from named callers", async () => {
+		getCompanyNews.mockResolvedValue([]);
+		await request(await buildApp()).post("/for-you").send({ tickers: ["AAPL"] });
+		expect(cacheSet).toHaveBeenCalledWith("news:company:v3:AAPL:empty:", expect.objectContaining({ articles: [] }), 5 * 60 * 1000);
+	});
+
 	it("caps the list at 10 companies and rejects a body without a tickers array", async () => {
 		getCompanyNews.mockResolvedValue([]);
 		const app = await buildApp();

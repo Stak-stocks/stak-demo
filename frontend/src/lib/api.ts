@@ -310,7 +310,8 @@ export function getCompanyNews(symbol: string, name?: string) {
 
 /** Every saved company's news for For You in one request (the same cached entries getCompanyNews reads). */
 export function getForYouNews(tickers: string[]) {
-	return apiRequest<{ results: { ticker: string; articles: import("@stak/shared").NewsArticle[] }[] }>("/api/news/for-you", {
+	// `pending`: companies the server was still writing up when it answered - ask again shortly for them.
+	return apiRequest<{ results: { ticker: string; articles: import("@stak/shared").NewsArticle[] }[]; pending?: string[] }>("/api/news/for-you", {
 		method: "POST",
 		body: JSON.stringify({ tickers }),
 	});

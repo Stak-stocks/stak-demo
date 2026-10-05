@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getDailyBrief, getForYouNews, getMarketNews } from "@/lib/api";
 import { getEasternDateKey, marketSessionBucket } from "@/lib/utils";
 import { rememberArticles, type StoredArticle } from "@/lib/openedArticle";
@@ -38,6 +38,10 @@ export function useNewsFeed() {
 		enabled: forYouTickers.length > 0,
 		staleTime: 10 * 60 * 1000,
 		retry: 0,
+		// Saving another company keeps the current list up while the new one loads.
+		placeholderData: keepPreviousData,
+		// Companies the server was still writing up come back `pending`: ask again shortly (a few times at most).
+		refetchInterval: (q) => ((q.state.data?.pending?.length ?? 0) > 0 && q.state.dataUpdateCount < 4 ? 8_000 : false),
 	});
 	const forYou = useMemo(() => {
 		const seen = new Set<string>();
@@ -53,6 +57,7 @@ export function useNewsFeed() {
 		return out.sort((a, b) => b.datetime - a.datetime).slice(0, FOR_YOU_LIMIT);
 	}, [forYouNews.data]);
 	const forYouLoading = forYouTickers.length > 0 && forYouNews.isPending;
+	const forYouFailed = forYouNews.isError && !forYouNews.data;
 
 	const marketArticles = useMemo<StoredArticle[]>(() => market.data?.articles ?? [], [market.data]);
 	const briefItems = sourceBriefs(brief.data, marketArticles);
@@ -69,6 +74,8 @@ export function useNewsFeed() {
 		market,
 		forYou,
 		forYouLoading,
+		forYouFailed,
+		retryForYou: () => { void forYouNews.refetch(); },
 		marketArticles,
 		briefItems,
 		aiBrief,
