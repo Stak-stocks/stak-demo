@@ -11,6 +11,43 @@ export const f = (weight: number, size: number, lineHeight?: number, family: "bo
 export const PRESS = "transition-opacity active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
 export const focusRing: CSSProperties = { outlineColor: DISC.teal };
 
+/** Android's two card surfaces at a corner radius in figma units: the sheet (most cards) and the darker card. */
+export const sheetCard = (radius: number): CSSProperties => ({ borderRadius: cu(radius), background: DISC.sheet });
+export const darkCard = (radius: number): CSSProperties => ({ borderRadius: cu(radius), background: DISC.cardDark });
+
+/**
+ * The house primary button: Android's CTA gradient, white label, faded to half when disabled. Each Android frame's
+ * version (AuthCta, SheetCta, QuizCta) passes its own height, hairline rim and glow.
+ */
+export function GradientCta({ children, onClick, disabled, type = "button", height = 52, rim, shadow, fontSize = 14 }: {
+	children: ReactNode;
+	onClick?: () => void;
+	disabled?: boolean;
+	type?: "button" | "submit";
+	height?: number;
+	/** A gradient for the 0.36u border; none draws the fill edge to edge. */
+	rim?: string;
+	shadow?: string;
+	fontSize?: number;
+}) {
+	return (
+		<button
+			type={type}
+			onClick={onClick}
+			disabled={disabled}
+			className={`w-full transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed ${disabled ? "" : PRESS}`}
+			style={{
+				height: cu(height), borderRadius: cu(6),
+				// DISC.cta is already a gradient: it's a background layer as is (wrapping it in linear-gradient() drew nothing).
+				...(rim ? { border: `${cu(0.36)} solid transparent`, background: `${DISC.cta} padding-box, ${rim} border-box` } : { background: DISC.cta }),
+				boxShadow: shadow, opacity: disabled ? 0.5 : 1, font: f(500, fontSize), color: "#fff", ...focusRing,
+			}}
+		>
+			{children}
+		</button>
+	);
+}
+
 /**
  * Every Android screen is drawn for a phone; on the web it renders as a phone-width column, centred, with
  * `--u` (px per figma unit) set for the `cu()` sizes inside it. The page's own scroll container does the scrolling.

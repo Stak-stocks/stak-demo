@@ -9,7 +9,7 @@ import { capitalizeWords } from "@/lib/utils";
 import { SettingsScaffold } from "@/components/profile/ProfileKit";
 import { SheetCta } from "@/components/simulate/simKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { f } from "@/components/phone/phone";
+import { f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile_/personal-details")({
 	component: EditProfilePage,
@@ -51,7 +51,7 @@ function EditProfilePage() {
 			</span>
 			<label style={{ display: "flex", flexDirection: "column", gap: cu(8) }}>
 				<span style={{ font: f(500, 10, 13), letterSpacing: cu(1.2), color: DISC.muted }}>DISPLAY NAME</span>
-				<span className="flex items-center" style={{ gap: cu(8), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+				<span className="flex items-center" style={{ gap: cu(8), ...sheetCard(14), padding: cu(16) }}>
 					<input
 						value={name}
 						onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}

@@ -6,8 +6,8 @@ import { updateProfile } from "@/lib/api";
 import { PRICE_THRESHOLDS, readNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPrefs";
 import { currentSubscription, disableWebPush, enableWebPush, syncWebPushPrefs, webPushSupported } from "@/lib/webPush";
 import { Caption, NoticeCard, PermissionCard, SettingsScaffold } from "@/components/profile/ProfileKit";
-import { DISC, cu } from "@/components/discover/discoverTheme";
-import { SettingsChip, f } from "@/components/phone/phone";
+import { cu } from "@/components/discover/discoverTheme";
+import { SettingsChip, f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile_/notifications")({
 	component: NotificationSettingsPage,
@@ -69,7 +69,7 @@ function NotificationSettingsPage() {
 				checked={prefs.priceAlerts}
 				onChange={(v) => change({ ...prefs, priceAlerts: v })}
 			/>
-			<div style={{ display: "flex", flexDirection: "column", gap: cu(10), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: cu(10), ...sheetCard(14), padding: cu(16) }}>
 				<span style={{ font: f(500, 14), color: "#fff" }}>Price threshold</span>
 				<span style={{ font: f(400, 11), color: "#ACAFB1" }}>Only moves at least this big get a nudge.</span>
 				<div className="flex" style={{ gap: cu(8) }} role="radiogroup" aria-label="Price threshold">

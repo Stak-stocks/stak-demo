@@ -1,5 +1,5 @@
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 /** "N saved companies have something new." - companies counted, never rounded up (Android's UpdatesCard). */
 function updatesLine(unreadCompanies: number): string {
@@ -15,7 +15,7 @@ export function UpdatesCard({ unreadCompanies, unread, onOpen }: { unreadCompani
 			type="button"
 			onClick={onOpen}
 			className={`flex w-full flex-col text-left ${PRESS}`}
-			style={{ gap: cu(12), borderRadius: cu(16), background: DISC.sheet, border: `${cu(1)} solid rgba(105,179,202,0.27)`, padding: cu(16), ...focusRing }}
+			style={{ gap: cu(12), ...sheetCard(16), border: `${cu(1)} solid rgba(105,179,202,0.27)`, padding: cu(16), ...focusRing }}
 		>
 			<div className="flex items-center" style={{ gap: cu(8) }}>
 				<span style={{ font: f(400, 15) }} aria-hidden="true">🔔</span>

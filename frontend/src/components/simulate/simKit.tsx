@@ -4,7 +4,7 @@ import type { ChartRange } from "@/lib/api";
 import { chartFractions } from "@/lib/chartSeries";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit, useShellInset } from "@/components/discover/useFigmaUnit";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { GradientCta, PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const SIM = {
 	ctaBorder: "linear-gradient(to bottom, rgba(101,158,173,0.63), rgba(22,54,63,0.43))",
@@ -51,7 +51,7 @@ export function Badge({ letter, size = 38, fontSize = 15, alpha = 1 }: { letter:
 
 export function EmptyStateCard({ title, body, link, onLink }: { title: string; body: string; link?: string; onLink?: () => void }) {
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(14), padding: cu(16) }}>
 			<p style={{ font: f(600, 15, 19, "heading"), color: "#fff" }}>{title}</p>
 			<p style={{ font: f(400, 13, 19), color: DISC.muted }}>{body}</p>
 			{link && (
@@ -121,17 +121,7 @@ export function SheetCta({ children, onClick, disabled, height = 52, shadow = te
 	height?: number;
 	shadow?: string;
 }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={disabled}
-			className={`w-full ${disabled ? "" : PRESS}`}
-			style={{ height: cu(height), borderRadius: cu(6), ...gradientBorder(DISC.cta), boxShadow: shadow, opacity: disabled ? 0.5 : 1, font: f(500, 14), color: "#fff", ...focusRing }}
-		>
-			{children}
-		</button>
-	);
+	return <GradientCta onClick={onClick} disabled={disabled} height={height} rim={SIM.ctaBorder} shadow={shadow}>{children}</GradientCta>;
 }
 
 /** The dark navy button (Sell, Confirm sell, Start practicing). */

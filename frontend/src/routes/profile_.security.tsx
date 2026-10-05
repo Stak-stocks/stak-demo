@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { NoticeCard, SettingsScaffold } from "@/components/profile/ProfileKit";
 import { SheetCta } from "@/components/simulate/simKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { f } from "@/components/phone/phone";
+import { f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile_/security")({
 	component: ChangePasswordPage,
@@ -33,7 +33,7 @@ function Field({ value, onChange, placeholder, hidden, error, trailing }: {
 	const errorId = useId();
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
-			<div className="flex items-center" style={{ gap: cu(8), borderRadius: cu(14), background: DISC.sheet, padding: cu(16), border: error ? `${cu(1)} solid ${DISC.redDown}` : `${cu(1)} solid transparent` }}>
+			<div className="flex items-center" style={{ gap: cu(8), ...sheetCard(14), padding: cu(16), border: error ? `${cu(1)} solid ${DISC.redDown}` : `${cu(1)} solid transparent` }}>
 				<input
 					type={hidden ? "password" : "text"}
 					value={value}

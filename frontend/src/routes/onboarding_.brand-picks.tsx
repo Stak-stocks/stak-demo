@@ -3,7 +3,7 @@ import { useOnboarding } from "@/context/OnboardingContext";
 import { QuizStepShell, useQuizDesktop } from "@/components/onboarding/QuizStepShell";
 import { BRAND_PICK_NAMES } from "@/lib/tasteModel";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/onboarding_/brand-picks")({
 	component: BrandPicksPage,
@@ -66,7 +66,7 @@ function BrandGrid({ picks, onToggle }: { picks: string[]; onToggle: (name: stri
 							onClick={() => toggle(name)}
 							aria-pressed={selected}
 							className={`flex items-center justify-center transition-colors hover:brightness-110 ${PRESS}`}
-							style={{ gap: cu(12), height: cu(76), borderRadius: cu(12), background: DISC.sheet, border: `1px solid ${selected ? "rgba(105,179,202,0.55)" : "transparent"}`, ...focusRing }}
+							style={{ gap: cu(12), height: cu(76), ...sheetCard(12), border: `1px solid ${selected ? "rgba(105,179,202,0.55)" : "transparent"}`, ...focusRing }}
 						>
 							<img src={`/app/brands/brand_${art.file}.png`} alt="" draggable={false} style={{ width: cu(26), height: cu(26) }} />
 							<span style={{ font: f(500, 15), color: selected ? DISC.teal : "#fff" }}>{art.label}</span>
@@ -88,7 +88,7 @@ function BrandGrid({ picks, onToggle }: { picks: string[]; onToggle: (name: stri
 							onClick={() => toggle(name)}
 							aria-pressed={selected}
 							className={`relative flex flex-col items-center ${PRESS}`}
-							style={{ gap: cu(7), borderRadius: cu(14), background: DISC.sheet, padding: `${cu(13)} ${cu(4)} ${cu(11)}`, ...focusRing }}
+							style={{ gap: cu(7), ...sheetCard(14), padding: `${cu(13)} ${cu(4)} ${cu(11)}`, ...focusRing }}
 						>
 							<img src={`/app/brands/brand_${art.file}.png`} alt="" draggable={false} style={{ width: cu(34), height: cu(34) }} />
 							<span style={{ font: f(400, 11, 14), color: selected ? "#fff" : DISC.muted }}>{art.label}</span>

@@ -7,7 +7,7 @@ import { monthDay, signedUsd, usd } from "@/lib/simFormat";
 import { Badge, EmptyStateCard, Kicker, SIM } from "@/components/simulate/simKit";
 import { PortfolioRow } from "@/components/simulate/SimSections";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, SettingsChip, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/simulate_/portfolio")({
 	component: PortfolioRoute,
@@ -95,7 +95,7 @@ function PortfolioPage() {
 							<>
 								<Kicker>SOLD · REALIZED</Kicker>
 								{paper.realized.map((r, i) => (
-									<div key={`${r.ticker}-${r.executedAt}-${i}`} className="flex items-center" style={{ gap: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(12)} ${cu(14)}`, opacity: 0.72 }}>
+									<div key={`${r.ticker}-${r.executedAt}-${i}`} className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}`, opacity: 0.72 }}>
 										<Badge letter={r.ticker} size={36} fontSize={14} alpha={0.55} />
 										<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
 											<span style={{ font: f(600, 12, 15, "heading"), color: DISC.headerGray }}>{r.ticker}</span>

@@ -9,7 +9,7 @@ import { STAK_CAPACITY } from "@/lib/constants";
 import { readRememberedArticle, rememberArticles, type StoredArticle } from "@/lib/openedArticle";
 import { summaryBeyondHeadline } from "@/lib/newsText";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { ArticleDesktop } from "@/components/news/ArticleDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AskAiCard } from "@/components/stakAi/StakAiThread";
@@ -245,7 +245,7 @@ function ArticlePage() {
 				)}
 
 				{ticker && (
-					<div style={{ display: "flex", flexDirection: "column", gap: cu(13), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(16)} ${cu(16)} ${cu(14)}` }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(13), ...sheetCard(16), padding: `${cu(16)} ${cu(16)} ${cu(14)}` }}>
 						<div className="flex items-center" style={{ gap: cu(12) }}>
 							<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(44), height: cu(44), background: DISC.avatar, font: f(600, 18, 23, "heading"), color: DISC.badgeInk }}>
 								{ticker.slice(0, 1)}
@@ -270,7 +270,7 @@ function ArticlePage() {
 				<Divider />
 
 				{gist.length > 0 && (
-					<section style={{ display: "flex", flexDirection: "column", gap: cu(12), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }} aria-label="The gist">
+					<section style={{ display: "flex", flexDirection: "column", gap: cu(12), ...sheetCard(14), padding: cu(16) }} aria-label="The gist">
 						<div className="flex items-center" style={{ gap: cu(8) }}>
 							<img src="/app/ic_gist_sparkle.png" alt="" style={{ width: cu(18), height: cu(18) }} draggable={false} />
 							<h2 style={{ font: f(600, 14, 18, "heading"), color: "#fff" }}>The gist</h2>
@@ -354,7 +354,7 @@ function ArticlePage() {
 									type="button"
 									onClick={() => openStory(a)}
 									className={`flex w-full items-center text-left ${PRESS}`}
-									style={{ gap: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: cu(12), ...focusRing }}
+									style={{ gap: cu(12), ...sheetCard(12), padding: cu(12), ...focusRing }}
 								>
 									{a.image ? (
 										<img src={a.image} alt="" loading="lazy" className="shrink-0 object-cover" style={{ width: cu(72), height: cu(54), borderRadius: cu(8) }} />

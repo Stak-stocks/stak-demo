@@ -11,7 +11,7 @@ import { usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, SettingsChip, f, focusRing } from "@/components/phone/phone";
+import { PRESS, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { Badge, ChartNote, DarkCta, Kicker, RangeChart, RangeChips, SIM, gradientBorder, tealShadow } from "./simKit";
 
 const pickCountText = (n: number) => (n === 1 ? "1 pick" : `${n} picks`);
@@ -38,7 +38,7 @@ export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, n
 
 	const label = (text: string) => <p style={{ font: f(500, 13), color: "#fff" }}>{text}</p>;
 	return (
-		<section style={{ display: "flex", flexDirection: "column", gap: cu(12), borderRadius: cu(16), background: DISC.sheet, padding: cu(16) }} aria-label="Set up your paper portfolio">
+		<section style={{ display: "flex", flexDirection: "column", gap: cu(12), ...sheetCard(16), padding: cu(16) }} aria-label="Set up your paper portfolio">
 			<p style={{ font: f(500, 11, 14), color: DISC.teal }}>SET UP YOUR PAPER PORTFOLIO</p>
 			<p style={{ font: f(400, 12, 17), color: DISC.body }}>Pick a starting balance, name it and choose how you want to play. Nothing here is real money.</p>
 			{label("Starting balance")}
@@ -79,7 +79,7 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 	const up = gain >= 0;
 	const pad = { padding: `0 ${cu(20)}` };
 	return (
-		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), borderRadius: cu(18), background: DISC.sheet, padding: `${cu(20)} 0` }} aria-label="Portfolio value">
+		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), ...sheetCard(18), padding: `${cu(20)} 0` }} aria-label="Portfolio value">
 			<div style={pad}><Kicker>PORTFOLIO VALUE</Kicker></div>
 			<div className="flex items-end" style={pad}>
 				<span style={{ font: f(600, 44, 55, "heading"), color: "#fff" }}>{whole}</span>
@@ -106,7 +106,7 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 // ── Rows ─────────────────────────────────────────────────────────────────────────────────────────
 export function SavedStakRow({ ticker, sub, onBuy }: { ticker: string; sub: string; onBuy: () => void }) {
 	return (
-		<div className="flex items-center" style={{ gap: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(11)} ${cu(14)}` }}>
+		<div className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(11)} ${cu(14)}` }}>
 			<Badge letter={ticker} />
 			<div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(3) }}>
 				<span style={{ font: f(500, 12, undefined, "heading"), color: "#fff" }}>{ticker}</span>
@@ -127,7 +127,7 @@ export function SavedStakRow({ ticker, sub, onBuy }: { ticker: string; sub: stri
 
 export function InsightCard({ tickers }: { tickers: string[] }) {
 	return (
-		<section style={{ display: "flex", flexDirection: "column", gap: cu(8), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(15)} ${cu(16)}` }} aria-label="Insight">
+		<section style={{ display: "flex", flexDirection: "column", gap: cu(8), ...sheetCard(16), padding: `${cu(15)} ${cu(16)}` }} aria-label="Insight">
 			<div className="flex items-center" style={{ gap: cu(7) }}><Sparkle size={16} /><Kicker>INSIGHT</Kicker></div>
 			<p style={{ font: f(400, 12, 20), color: DISC.body }}>{simInsight(tickers)}</p>
 		</section>
@@ -143,7 +143,7 @@ export function PickDuo({ best, worst, onOpen }: { best: Pick; worst: Pick; onOp
 				type="button"
 				onClick={() => onOpen(pick.ticker)}
 				className={`min-w-0 flex-1 text-left ${PRESS}`}
-				style={{ display: "flex", flexDirection: "column", gap: cu(7), borderRadius: cu(16), background: DISC.sheet, padding: cu(14), ...focusRing }}
+				style={{ display: "flex", flexDirection: "column", gap: cu(7), ...sheetCard(16), padding: cu(14), ...focusRing }}
 			>
 				<div className="flex items-center justify-between">
 					<Kicker>{kicker}</Kicker>
@@ -165,7 +165,7 @@ export function PickDuo({ best, worst, onOpen }: { best: Pick; worst: Pick; onOp
 export function HowItWorks() {
 	const steps = ["Buy a stock with paper dollars. It starts that day.", "Your shares move with the real price, up or down.", "Sell anytime and the cash returns to your balance."];
 	return (
-		<section style={{ display: "flex", flexDirection: "column", gap: cu(10), borderRadius: cu(16), background: DISC.sheet, padding: `${cu(15)} ${cu(16)}` }} aria-label="How paper trading works">
+		<section style={{ display: "flex", flexDirection: "column", gap: cu(10), ...sheetCard(16), padding: `${cu(15)} ${cu(16)}` }} aria-label="How paper trading works">
 			<Kicker>HOW PAPER TRADING WORKS</Kicker>
 			{steps.map((text, i) => (
 				<div key={i} className="flex items-start" style={{ gap: cu(10) }}>
@@ -182,7 +182,7 @@ export function PortfolioRow({ pick, onOpen, trailing, subLight }: { pick: Pick;
 	const up = pick.gain >= 0;
 	const sub = `Picked ${new Date(pick.addedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })} · ${up ? "up" : "down"} ${Math.abs(pick.gainPct).toFixed(0)}% since`;
 	return (
-		<div className="flex items-center" style={{ gap: cu(12), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(12)} ${cu(14)}` }}>
+		<div className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}` }}>
 			<button type="button" onClick={onOpen} className={`flex min-w-0 flex-1 items-center text-left ${PRESS}`} style={{ gap: cu(12), ...focusRing }} aria-label={`${pick.ticker}, ${signedUsd(pick.gain)}`}>
 				<Badge letter={pick.ticker} size={40} fontSize={16} />
 				<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(3) }}>
@@ -204,7 +204,7 @@ export function AllocationCard({ tickers }: { tickers: string[] }) {
 	const unit = useFigmaUnit();
 	const all = buckets(tickers);
 	return (
-		<section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: cu(16), borderRadius: cu(16), background: DISC.sheet, padding: cu(18) }} aria-label="Allocation">
+		<section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: cu(16), ...sheetCard(16), padding: cu(18) }} aria-label="Allocation">
 			<h3 style={{ font: f(600, 15, undefined, "heading"), color: "#fff" }}>Allocation</h3>
 			<DonutRing shares={all.map((b) => b.share)} colors={all.map((b) => bucketColor(b.id))} size={150 * unit} strokeWidth={28 * unit} gapDegrees={5} />
 			<div className="w-full" style={{ display: "flex", flexDirection: "column", gap: cu(12) }}>

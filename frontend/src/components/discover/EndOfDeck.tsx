@@ -1,9 +1,10 @@
 import { countWord } from "@/lib/simFormat";
+import { sheetCard } from "@/components/phone/phone";
 import { DISC, cu, nextDeckNote } from "./discoverTheme";
 
 function Tile({ label, value }: { label: string; value: number }) {
 	return (
-		<div style={{ width: cu(110), borderRadius: cu(12), background: DISC.sheet, padding: `${cu(14)} ${cu(10)}`, display: "flex", flexDirection: "column", alignItems: "center", gap: cu(4) }}>
+		<div style={{ width: cu(110), ...sheetCard(12), padding: `${cu(14)} ${cu(10)}`, display: "flex", flexDirection: "column", alignItems: "center", gap: cu(4) }}>
 			<span style={{ font: `400 ${cu(10)} var(--font-body)`, color: DISC.muted }}>{label}</span>
 			<span style={{ font: `600 ${cu(20)} var(--font-heading)`, color: "#fff" }}>{value}</span>
 		</div>

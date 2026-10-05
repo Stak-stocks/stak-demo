@@ -13,7 +13,7 @@ import { UpdatesCard } from "@/components/mystak/UpdatesCard";
 import { TasteCard } from "@/components/mystak/TasteCard";
 import { DiscoverHandoff } from "@/components/mystak/DiscoverHandoff";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PhonePage, f } from "@/components/phone/phone";
+import { PhonePage, f, sheetCard } from "@/components/phone/phone";
 import { MyStakDesktop } from "@/components/mystak/desktop/MyStakDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePriceBackfill } from "@/hooks/usePriceBackfill";
@@ -62,7 +62,7 @@ function MyStakPage() {
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(10) }} aria-busy="true" aria-label="Loading your collections">
 						{[0, 1].map((row) => (
 							<div key={row} className="flex" style={{ gap: cu(10) }}>
-								{[0, 1].map((i) => <div key={i} className="flex-1 animate-pulse" style={{ height: cu(58), borderRadius: cu(12), background: DISC.sheet }} />)}
+								{[0, 1].map((i) => <div key={i} className="flex-1 animate-pulse" style={{ height: cu(58), ...sheetCard(12) }} />)}
 							</div>
 						))}
 					</div>

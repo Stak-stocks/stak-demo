@@ -7,7 +7,7 @@ import {
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/forgot-password")({
 	component: ForgotPasswordPage,
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/forgot-password")({
 
 type Step = "email" | "code" | "new-password" | "done";
 
-const INFO_CARD = { display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) } as const;
+const INFO_CARD = { display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(14), padding: cu(16) } as const;
 
 /**
  * Android's Forgot password: four steps, all by emailed code, no links. Forward-only: a failed step shows its error in

@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { BackCircle, PRESS, PhonePage, f, focusRing, sheetCard, darkCard } from "@/components/phone/phone";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsDesktopShell } from "./SettingsDesktopShell";
 
@@ -26,7 +26,7 @@ export function SettingsScaffold({ title, backTo = "/profile", gap = 12, childre
 /** The dark rounded card settings rows live in. */
 export function SettingsCard({ children, padding = "4u 0" }: { children: ReactNode; padding?: string }) {
 	const [v, h] = padding.replace(/u/g, "").split(" ").map(Number);
-	return <section style={{ borderRadius: cu(16), background: DISC.cardDark, padding: `${cu(v)} ${cu(h ?? 0)}` }}>{children}</section>;
+	return <section style={{ ...darkCard(16), padding: `${cu(v)} ${cu(h ?? 0)}` }}>{children}</section>;
 }
 
 /** A 48u row: label on the left; a chevron, a value, or nothing on the right. Not a button unless it has an action. */
@@ -68,7 +68,7 @@ export function StakToggle({ checked, onChange, label, disabled }: { checked: bo
 /** Android's PermissionCard: a title and description with a toggle. */
 export function PermissionCard({ title, sub, checked, onChange, disabled }: { title: string; sub: string; checked: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
 	return (
-		<div className="flex items-center" style={{ gap: cu(12), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+		<div className="flex items-center" style={{ gap: cu(12), ...sheetCard(14), padding: cu(16) }}>
 			<div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(4) }}>
 				<span style={{ font: f(500, 14), color: "#fff" }}>{title}</span>
 				<span style={{ font: f(400, 11), color: "#ACAFB1" }}>{sub}</span>
@@ -85,7 +85,7 @@ export const Caption = ({ children }: { children: ReactNode }) => (
 /** A titled explanation card ("Password managed by Google", "Notifications are off for STAK"). */
 export function NoticeCard({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: cu(8), borderRadius: cu(16), background: DISC.cardDark, padding: cu(16) }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: cu(8), ...darkCard(16), padding: cu(16) }}>
 			<p style={{ font: f(600, 15, undefined, "heading"), color: "#fff" }}>{title}</p>
 			<p style={{ font: f(400, 13, 19), color: DISC.body }}>{body}</p>
 			{children}

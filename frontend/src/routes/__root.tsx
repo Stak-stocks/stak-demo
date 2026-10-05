@@ -235,7 +235,7 @@ function Root() {
 					</PageTransition>
 				</ErrorBoundary>
 			</div>
-			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} /> : null) : <SideNav />)}
+			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav /> : null) : <SideNav />)}
 			<Toaster
 				position="top-center"
 				theme="dark"
@@ -246,8 +246,9 @@ function Root() {
 			/>
 			<TanStackRouterDevtools position="bottom-right" />
 
+		{/* Search is desktop-only (the top bar's field and Ctrl/Cmd+K); the phone, like Android, has none. */}
 		<SearchView
-			open={searchOpen}
+			open={searchOpen && !isMobile}
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>

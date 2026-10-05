@@ -12,7 +12,7 @@ import { useMyStakData } from "@/hooks/useMyStakData";
 import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, SheetSecondary, tealShadow } from "@/components/simulate/simKit";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { BackCircle, PhonePage, f } from "@/components/phone/phone";
+import { BackCircle, PhonePage, f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/simulate_/pick/$symbol")({
 	component: PickPage,
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/simulate_/pick/$symbol")({
 
 function StatBox({ label, value, color = "#fff" }: { label: string; value: string; color?: string }) {
 	return (
-		<div className="min-w-0 flex-1" style={{ height: cu(61), borderRadius: cu(14), background: DISC.sheet, padding: `${cu(13)} ${cu(14)}`, display: "flex", flexDirection: "column", gap: cu(4) }}>
+		<div className="min-w-0 flex-1" style={{ height: cu(61), ...sheetCard(14), padding: `${cu(13)} ${cu(14)}`, display: "flex", flexDirection: "column", gap: cu(4) }}>
 			<span style={{ font: f(400, 10, 13), color: DISC.muted }}>{label}</span>
 			<span className="truncate" style={{ font: f(400, 14, 18), color }}>{value}</span>
 		</div>
@@ -125,7 +125,7 @@ function PickPage() {
 		<PhonePage>
 			{header}
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(16), padding: `${cu(6)} ${cu(20)} ${cu(26)}` }}>
-				<section className="flex flex-col" style={{ height: cu(307), borderRadius: cu(16), background: DISC.sheet, padding: cu(18) }} aria-label={`${pick.ticker} performance`}>
+				<section className="flex flex-col" style={{ height: cu(307), ...sheetCard(16), padding: cu(18) }} aria-label={`${pick.ticker} performance`}>
 					<div className="flex items-center" style={{ gap: cu(9) }}>
 						<Badge letter={pick.ticker} />
 						<span style={{ font: f(400, 12, 16), color: DISC.muted }}>Picked {monthDay(pick.addedAt)} at {usd(pick.costPerShare)}</span>

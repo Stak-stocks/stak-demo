@@ -8,7 +8,7 @@ import {
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
@@ -151,7 +151,7 @@ function SignUpPage() {
 						autoFocus
 						onEnter={handleVerify}
 					/>
-					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(14), background: DISC.sheet, padding: cu(16) }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(14), padding: cu(16) }}>
 						<p style={{ font: f(500, 14), color: "#fff" }}>Didn’t get it?</p>
 						<p style={{ font: f(400, 11, 15), color: "#ACAFB1" }}>Check your spam folder, or</p>
 						<button type="button" onClick={handleResend} disabled={submitting} className={`w-fit disabled:opacity-50 ${PRESS}`} style={{ font: f(500, 12), color: DISC.teal, ...focusRing }}>

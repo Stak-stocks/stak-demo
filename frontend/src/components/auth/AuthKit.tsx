@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useState, type ReactNode } from "reac
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
+import { GradientCta, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /** True inside the desktop (split-screen) auth frame, where a few pieces take the desktop design's look. */
@@ -13,29 +13,22 @@ export const OTP_LENGTH = 6;
 
 const SUBTITLE = "#ACAFB1";
 export const AUTH_ERROR = "#E5484D";
-const FILL = DISC.cta;
 const BORDER = "linear-gradient(to bottom, rgba(101,158,173,0.631), rgba(22,54,63,0.431))";
 
 /** Android's AuthCta: a 52u gradient button, 20u in from each side, with a faint teal glow beneath. */
 export function AuthCta({ label, onClick, disabled, type = "button" }: { label: string; onClick?: () => void; disabled?: boolean; type?: "button" | "submit" }) {
 	const desk = useContext(AuthDesktop);
 	return (
-		<div style={{ margin: desk ? 0 : `0 ${cu(20)}`, opacity: disabled ? 0.5 : 1 }}>
-			<button
+		<div style={{ margin: desk ? 0 : `0 ${cu(20)}` }}>
+			<GradientCta
 				type={type}
 				onClick={onClick}
 				disabled={disabled}
-				className="relative w-full transition-[filter] active:brightness-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-				style={{
-					height: cu(52), borderRadius: cu(6), border: `${cu(0.36)} solid transparent`,
-					// FILL is already a gradient; wrapping it in another linear-gradient() is invalid CSS and drew no fill.
-					background: `${FILL} padding-box, ${BORDER} border-box`,
-					boxShadow: `0 ${cu(28.18)} ${cu(16.6)} 0 rgba(105,179,202,0.03), 0 ${cu(49.86)} ${cu(19.5)} 0 rgba(105,179,202,0.01)`,
-					font: f(500, 14), color: "#fff", outlineColor: DISC.teal,
-				}}
+				rim={BORDER}
+				shadow={`0 ${cu(28.18)} ${cu(16.6)} 0 rgba(105,179,202,0.03), 0 ${cu(49.86)} ${cu(19.5)} 0 rgba(105,179,202,0.01)`}
 			>
 				{label}
-			</button>
+			</GradientCta>
 		</div>
 	);
 }
@@ -118,7 +111,7 @@ export function GooglePill({ onClick, disabled }: { onClick: () => void; disable
 				onClick={onClick}
 				disabled={disabled}
 				className="flex w-full items-center justify-center transition-[filter] hover:brightness-110 active:brightness-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-				style={{ gap: cu(10), padding: `${cu(14.5)} 0`, borderRadius: cu(10), background: DISC.sheet, font: f(500, 14), color: "#fff", outlineColor: DISC.teal }}
+				style={{ gap: cu(10), padding: `${cu(14.5)} 0`, ...sheetCard(10), font: f(500, 14), color: "#fff", outlineColor: DISC.teal }}
 			>
 				<img src="/app/ic_google_g.png" alt="" draggable={false} style={{ width: cu(18), height: cu(18) }} />
 				Continue with Google

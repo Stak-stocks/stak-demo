@@ -38,29 +38,8 @@ function EarlyAccessPill({ style, children }: { style: CSSProperties; children: 
 /* ─── ASSETS (downloaded from Figma to /public/images/landing-v2/) ──── */
 const A = {
 	// Hero
-	box3d: "/images/landing-v2/hero-box-3d.png",
-	gif: "/images/landing-v2/hero-gif.gif",
-	gifAlpha: "/images/landing-v2/hero-gif-alpha.png",
-	boxBeamComposite: "/images/landing-v2/hero-beam-composite-2xb.png",
-	boxFlareComposite: "/images/landing-v2/hero-flare-composite-2xb.png",
-	boxM390: "/images/landing-v2/hero-box-frame124-m390-2x.png",
-	boxT810: "/images/landing-v2/hero-box-frame124-t810-2x.png",
-	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
-	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
-	boxFlap3: "/images/landing-v2/hero-box-flap-3.svg",
-	boxFlap4: "/images/landing-v2/hero-box-flap-4.svg",
-	boxFlap5: "/images/landing-v2/hero-box-flap-5.svg",
-	boxGlow: "/images/landing-v2/hero-box-glow.svg",
-	inner111: "/images/landing-v2/hero-inner-111.svg",
-	innerVec7: "/images/landing-v2/hero-inner-vec7.svg",
-	inner113: "/images/landing-v2/hero-inner-113.svg",
-	inner114: "/images/landing-v2/hero-inner-114.svg",
-	brandAmazon: "/images/landing-v2/hero-brand-amazon.png",
-	brandNvidia: "/images/landing-v2/hero-brand-nvidia.png",
-	brandTwitch: "/images/landing-v2/hero-brand-twitch.png",
-	brandShopify: "/images/landing-v2/hero-brand-shopify.png",
-	brandGoogle: "/images/landing-v2/hero-brand-google.png",
-	brandApple: "/images/landing-v2/hero-brand-apple.png",
+	boxM390: "/images/landing-v2/hero-box-frame124-m390-2x.webp",
+	boxT810: "/images/landing-v2/hero-box-frame124-t810-2x.webp",
 	ellipse108: "/images/landing-v2/hero-ellipse-108.svg",
 	ellipse109: "/images/landing-v2/hero-ellipse-109.svg",
 	pillDot: "/images/landing-v2/hero-pill-dot.svg",
@@ -71,10 +50,6 @@ const A = {
 	// Social proof
 	proofAmplitude: "/images/landing-v2/proof-amplitude.svg",
 	proofSpotify: "/images/landing-v2/proof-spotify.svg",
-	proofBlockWallet1: "/images/landing-v2/proof-blockwallet-1.svg",
-	proofBlockWallet2: "/images/landing-v2/proof-blockwallet-2.svg",
-	proofBrex1: "/images/landing-v2/proof-brex-1.svg",
-	proofBrex2: "/images/landing-v2/proof-brex-2.svg",
 	proofBwIcon: "/images/landing-v2/proof-bw-icon.svg",
 	proofBwWord: "/images/landing-v2/proof-bw-word.svg",
 	proofBrexMain: "/images/landing-v2/proof-brex-main.svg",
@@ -108,11 +83,7 @@ const A = {
 	// Early Momentum
 	emStatArrow: "/images/landing-v2/em-stat-arrow.svg",
 	// FAQ
-	faqPlus: "/images/landing-v2/faq-plus.svg",
-	faqMinus: "/images/landing-v2/faq-minus.svg",
-	faqDivider: "/images/landing-v2/faq-divider.svg",
 	// Final CTA marquee
-	ctaMask: "/images/landing-v2/cta-mask.svg",
 	ctaTile1: "/images/landing-v2/cta-tile-1.jpg",
 	ctaTile2: "/images/landing-v2/cta-tile-2.jpg",
 	ctaTile3: "/images/landing-v2/cta-tile-3.jpg",
@@ -123,13 +94,11 @@ const A = {
 	ctaTile8: "/images/landing-v2/cta-tile-8.jpg",
 	ctaTile9: "/images/landing-v2/cta-tile-9.jpg",
 	// Footer
-	footerWatermark: "/images/landing-v2/footer-stak-watermark.png",
 	footerLogoIcon: "/images/landing-v2/footer-logo-icon.svg",
 	footerLogoWord: "/images/landing-v2/footer-logo-wordmark.svg",
 	footerPlay: "/images/landing-v2/footer-playstore.svg",
 	footerPlayText: "/images/landing-v2/footer-playstore-text.svg",
 	footerApple: "/images/landing-v2/footer-apple.svg",
-	footerDivider: "/images/landing-v2/footer-divider.svg",
 };
 
 /* ─── FONTS ─────────────────────────────────────────────────────────── */
@@ -471,16 +440,6 @@ function Hero() {
 				</div>
 			</div>
 		</section>
-	);
-}
-
-function ProofLogo({ width, height, label, multi }: { width: number; height: number; label: string; multi: string[] }) {
-	return (
-		<div style={{ width, height, position: "relative", overflow: "hidden" }} aria-label={label}>
-			{multi.map((src, i) => (
-				<img key={i} src={src} alt={i === 0 ? label : ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
-			))}
-		</div>
 	);
 }
 

@@ -5,7 +5,7 @@ import { moodColor, moodScore, moodStatus } from "@/lib/marketMood";
 import { newsAge, summaryBeyondHeadline } from "@/lib/newsText";
 import type { StoredArticle } from "@/lib/openedArticle";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { HOME } from "@/components/home/MarketMoodCard";
 
 const INK = "#0E162B";
@@ -113,7 +113,7 @@ export function BriefLoadingCard() {
 
 export function BriefUnavailableCard({ newsFailed }: { newsFailed: boolean }) {
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: cu(6), borderRadius: cu(18), background: DISC.sheet, padding: cu(18) }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: cu(6), ...sheetCard(18), padding: cu(18) }}>
 			<p style={{ font: f(600, 15, undefined, "heading"), color: "#fff" }}>{newsFailed ? "Market news isn't loading" : "Today's brief isn't available"}</p>
 			<p style={{ font: f(400, 13, 19), color: DISC.muted }}>{newsFailed ? "Leave News and come back to try again." : "There's no market news to show right now."}</p>
 		</div>
@@ -129,7 +129,7 @@ export function NewsRow({ article, onOpen }: { article: StoredArticle; onOpen: (
 			type="button"
 			onClick={() => onOpen(article)}
 			className={`flex w-full items-center text-left ${PRESS}`}
-			style={{ gap: cu(12), borderRadius: cu(14), background: DISC.sheet, padding: cu(12), ...focusRing }}
+			style={{ gap: cu(12), ...sheetCard(14), padding: cu(12), ...focusRing }}
 		>
 			{article.image && !imageFailed && (
 				<img src={article.image} alt="" loading="lazy" onError={() => setImageFailed(true)} className="shrink-0 object-cover" style={{ width: cu(60), height: cu(60), borderRadius: cu(10) }} />
