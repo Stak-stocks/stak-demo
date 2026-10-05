@@ -308,6 +308,14 @@ export function getCompanyNews(symbol: string, name?: string) {
 	}>(`/api/news/company/${symbol}${query}`);
 }
 
+/** Every saved company's news for For You in one request (the same cached entries getCompanyNews reads). */
+export function getForYouNews(tickers: string[]) {
+	return apiRequest<{ results: { ticker: string; articles: import("@stak/shared").NewsArticle[] }[] }>("/api/news/for-you", {
+		method: "POST",
+		body: JSON.stringify({ tickers }),
+	});
+}
+
 export function getMarketNews() {
 	return apiRequest<{ articles: import("@stak/shared").NewsArticle[] }>("/api/news/market");
 }

@@ -150,6 +150,11 @@ data class TasteDto(
 
 data class CompanyNewsResponse(val articles: List<NewsArticleDto> = emptyList())
 
+/** POST api/news/for-you: every saved company's news in one request (the same cached entries as api/news/company). */
+data class ForYouNewsRequest(val tickers: List<String>)
+data class ForYouNewsResponse(val results: List<ForYouCompanyNews> = emptyList())
+data class ForYouCompanyNews(val ticker: String = "", val articles: List<NewsArticleDto> = emptyList())
+
 /**
  * A stock's peer group and that group's median fundamentals. The medians
  * describe the group as a whole - per-peer numbers come from fetching each

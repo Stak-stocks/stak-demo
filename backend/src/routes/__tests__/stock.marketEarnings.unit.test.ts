@@ -21,6 +21,7 @@ vi.mock("../../services/earningsResultConsensus.js", () => ({
 }));
 
 vi.mock("../../services/geminiService.js", () => ({
+	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getEarningsBeatMissFromWeb: getEarningsBeatMissFromWebMock,
 	getGeminiKeys: vi.fn(() => []),
 }));

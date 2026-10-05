@@ -3,6 +3,7 @@ import { getMarketNews, getCompanyNews, classifyArticle, searchNewsArticles, typ
 import { simplifyArticles, classifyEarnings, filterMarketRelevant, type SimplifiedArticle } from "../services/geminiService.js";
 import { EARNINGS_CORE } from "../services/earningsResultConsensus.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { singleFlight } from "../lib/singleFlight.js";
 import { brands } from "@stak/shared/brands";
 
 // The catalogue's name for each ticker, so an article can be matched to its company
@@ -168,35 +169,30 @@ newsRouter.get("/market", async (_req, res) => {
 	}
 });
 
-// GET /api/news/company/:symbol — company + sector news with earnings signal
-newsRouter.get("/company/:symbol", async (req, res) => {
-	const { symbol } = req.params;
-	const ticker = symbol.toUpperCase();
-	// The catalogue knows every Stak stock's name, so a caller that doesn't send one
-	// (Android never did) still gets its articles matched by name: without it a Tesla
-	// headline counted only if it happened to spell out "TSLA", and every Tesla story
-	// came back as sector news.
-	const companyName = NAME_BY_TICKER.get(ticker) ?? (req.query.name as string | undefined);
+type CompanyNews = { articles: SimplifiedArticle[]; earningsSignal: Awaited<ReturnType<typeof extractEarningsSignal>> };
+
+/**
+ * A company's news (its own stories first, then ones about its sector) with an earnings signal, cached 15 minutes.
+ * Callers asking for the same company while it's being built share the one build. `callerName` is only ever the
+ * caller's own: getCompanyNews falls back to NewsAPI whenever it's given a name and Finnhub comes back empty, so
+ * handing it the catalogue name would turn that fallback on for every request and a Finnhub outage would spend the
+ * NewsAPI quota. The catalogue name only classifies.
+ */
+async function companyNews(ticker: string, callerName?: string): Promise<CompanyNews> {
+	// The catalogue knows every Stak stock's name, so a caller that doesn't send one (Android never did) still gets
+	// its articles matched by name: without it a Tesla headline counted only if it happened to spell out "TSLA".
+	const companyName = NAME_BY_TICKER.get(ticker) ?? callerName;
 	// v2: classified by whole-word name/ticker; v1 entries carry the substring labels.
 	// v3: articles are cleaned of encoding damage when fetched; v2 copies still hold it.
 	const cacheKey = `news:company:v3:${ticker}`;
-	try {
-		const cached = await cacheGet<object>(cacheKey);
-		if (cached) { res.json(cached); return; }
+	const cached = await cacheGet<CompanyNews>(cacheKey);
+	if (cached) return cached;
 
-		// The caller's own name, not the catalogue's: getCompanyNews falls back to NewsAPI
-		// whenever it is given a name and Finnhub comes back empty. Handing it the
-		// catalogue name would turn that fallback on for every Android request, and a
-		// Finnhub outage would spend the NewsAPI quota. The catalogue name only classifies.
-		const articles = await getCompanyNews(ticker, 24, req.query.name as string | undefined);
-
-		if (articles.length === 0) {
-			res.json({ articles: [], earningsSignal: { status: "none", date: null } });
-			return;
-		}
+	return singleFlight(cacheKey, async () => {
+		const articles = await getCompanyNews(ticker, 24, callerName);
+		if (articles.length === 0) return { articles: [], earningsSignal: { status: "none", date: null } } as CompanyNews;
 
 		const classified = articles.map((a) => ({ article: a, type: classifyArticle(a, companyName, ticker) }));
-
 		const relevant = classified
 			.filter((c) => c.type !== "macro")
 			.sort((a, b) => {
@@ -213,16 +209,51 @@ newsRouter.get("/company/:symbol", async (req, res) => {
 				: Promise.resolve([]),
 		]);
 
-		const result = relevant.length === 0
-			? { articles: [], earningsSignal }
-			: { articles: simplified, earningsSignal };
-
+		const result: CompanyNews = { articles: relevant.length === 0 ? [] : simplified, earningsSignal };
 		if (simplified.length > 0) await cacheSet(cacheKey, result, COMPANY_NEWS_TTL_MS);
-		res.json(result);
+		return result;
+	});
+}
+
+// GET /api/news/company/:symbol — company + sector news with earnings signal
+newsRouter.get("/company/:symbol", async (req, res) => {
+	try {
+		res.json(await companyNews(req.params.symbol.toUpperCase(), req.query.name as string | undefined));
 	} catch (error) {
 		console.error("Error fetching company news:", error);
 		res.status(500).json({ error: "Failed to fetch company news" });
 	}
+});
+
+/** The most companies one For You request covers - the apps read the newest saves, 10 at most. */
+const FOR_YOU_MAX_TICKERS = 10;
+/** Cold companies built at once for one For You request (each can cost a news call and a Gemini summary). */
+const FOR_YOU_CONCURRENCY = 3;
+
+// POST /api/news/for-you { tickers } — every company's news for the For You list in one request, instead of one
+// request per saved stock. Catalogue tickers only (each cold one costs a summary); a company that fails comes back
+// empty rather than failing the list. Each company is the same cached entry /company/:symbol serves.
+newsRouter.post("/for-you", async (req, res) => {
+	const raw: unknown = req.body?.tickers;
+	if (!Array.isArray(raw)) { res.status(400).json({ error: "tickers must be an array" }); return; }
+	const tickers = [...new Set(raw.filter((t): t is string => typeof t === "string").map((t) => t.toUpperCase()))]
+		.filter((t) => NAME_BY_TICKER.has(t))
+		.slice(0, FOR_YOU_MAX_TICKERS);
+
+	const results: { ticker: string; articles: SimplifiedArticle[] }[] = tickers.map((ticker) => ({ ticker, articles: [] }));
+	let next = 0;
+	const worker = async () => {
+		while (next < tickers.length) {
+			const i = next++;
+			try {
+				results[i]!.articles = (await companyNews(tickers[i]!)).articles;
+			} catch (error) {
+				console.warn(`[news] For You: ${tickers[i]} failed:`, (error as Error)?.message);
+			}
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(FOR_YOU_CONCURRENCY, tickers.length) }, worker));
+	res.json({ results });
 });
 
 // GET /api/news/search?q=:query — keyword or ticker search

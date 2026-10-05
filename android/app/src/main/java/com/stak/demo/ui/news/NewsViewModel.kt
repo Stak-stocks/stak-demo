@@ -8,13 +8,13 @@ import com.stak.demo.data.NewsArticleDto
 import com.stak.demo.data.Session
 import com.stak.demo.data.StockRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/** For You reads the newest saves, at most this many companies (the server caps the request the same). */
+private const val FOR_YOU_TICKER_CAP = 10
 
 @HiltViewModel
 class NewsViewModel @Inject constructor(
@@ -96,19 +96,16 @@ class NewsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val allArticles = coroutineScope {
-                held.map { ticker ->
-                    async {
-                        runCatching { repository.getCompanyNews(ticker) }
-                            .getOrNull()?.articles.orEmpty()
-                            // A company query also returns stories that are only near the
-                            // company ("sector"). Stamping the queried ticker on every one
-                            // labelled a Joby story as NVIDIA news, with NVIDIA's price
-                            // beside it; only a story about the company carries its ticker.
-                            .map { it.copy(ticker = if (it.type == "company") ticker else "") }
-                    }
-                }.awaitAll().flatten()
-            }
+            // One request for every held company (the server caps it at the 10 newest saves, like the web).
+            val allArticles = runCatching { repository.getForYouNews(held.takeLast(FOR_YOU_TICKER_CAP)) }
+                .getOrNull()?.results.orEmpty()
+                .flatMap { company ->
+                    // A company query also returns stories that are only near the
+                    // company ("sector"). Stamping the queried ticker on every one
+                    // labelled a Joby story as NVIDIA news, with NVIDIA's price
+                    // beside it; only a story about the company carries its ticker.
+                    company.articles.map { it.copy(ticker = if (it.type == "company") company.ticker else "") }
+                }
             val seen = mutableSetOf<String>()
             _forYouNews.value = allArticles
                 // For You is news about the user's own stocks. A company query also returns

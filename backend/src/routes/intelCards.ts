@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
 
 export const intelCardsRouter = Router();
 
@@ -100,6 +100,7 @@ Return ONLY a JSON array of exactly 30 objects:
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
 					}),

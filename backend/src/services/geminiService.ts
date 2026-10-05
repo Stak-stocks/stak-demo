@@ -71,6 +71,14 @@ export function getGeminiKeys(): string[] {
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string; ticker: string };
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
+/**
+ * Sent as the system instruction on every Gemini call that writes text people read: STAK writes American English
+ * (STAK AI's own prompt says the same). Data-only calls (holiday lists) don't need it.
+ */
+export const AMERICAN_ENGLISH = {
+	parts: [{ text: "Write in American English: American spelling (analyze, behavior, center, color, favorite, practicing) and US punctuation." }],
+};
+
 export const geminiUrl = (model: string, key: string) =>
 	`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 /** The same call, answered as server-sent events while it's written (STAK AI's streamed answers). */
@@ -95,6 +103,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, responseMimeType: "application/json" },
 					}),
@@ -283,6 +292,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					headers: { "Content-Type": "application/json" },
 					signal: AbortSignal.timeout(15000),
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
@@ -355,6 +365,7 @@ Return ONLY one of these exact strings: beat, miss, none`;
 					headers: { "Content-Type": "application/json" },
 					signal: AbortSignal.timeout(15000),
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
 					}),
@@ -439,6 +450,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
+							system_instruction: AMERICAN_ENGLISH,
 							contents: [{ parts: [{ text: prompt }] }],
 							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, responseMimeType: "application/json" },
 						}),

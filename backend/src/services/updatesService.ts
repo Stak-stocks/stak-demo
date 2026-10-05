@@ -2,7 +2,7 @@ import { getEasternDateKey } from "@stak/shared";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { getCompanyNews, mentionsName, mentionsTicker, type FinnhubArticle } from "./finnhubService.js";
-import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit } from "./geminiService.js";
+import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit, AMERICAN_ENGLISH } from "./geminiService.js";
 
 /**
  * Detects what changed at a saved company, so My STAK can answer "something changed -
@@ -221,6 +221,7 @@ Speculation is not a change - reply empty for "could", "might", "suggests", "see
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						// thinkingBudget 0 like every other call site: 2.5 otherwise spends the
 						// token budget reasoning and the JSON comes back truncated.
