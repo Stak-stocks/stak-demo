@@ -76,13 +76,15 @@ function LoginPage() {
 					<AuthCta label="Sign in" onClick={handleEmailSignIn} disabled={signingIn} />
 					{signingIn && <AuthSpinner />}
 					{serverError && <ErrorText>{serverError}</ErrorText>}
-					{WEB_SIGNUP_OPEN
-						? <SwitchRow prefix="New to STAK?" link="Create account" onClick={() => navigate({ to: "/signup" })} />
-						: <SwitchRow prefix="New to STAK?" link="Get early access" onClick={() => navigate(JOIN_WAITLIST)} />}
+					<SwitchRow
+						prefix="New to STAK?"
+						link={WEB_SIGNUP_OPEN ? "Create account" : "Get early access"}
+						onClick={() => navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST)}
+					/>
 				</>
 			}
 		>
-			<AuthHeader title="Welcome back" subtitle="Your deck kept learning while you were away." />
+			<AuthHeader title="Welcome back" subtitle={WEB_SIGNUP_OPEN ? "Your deck kept learning while you were away." : "STAK is in early access: sign in with an existing account."} />
 			<div style={{ height: cu(4) }} />
 			<GooglePill onClick={handleGoogleSignIn} disabled={signingIn} />
 			<OrDivider />

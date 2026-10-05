@@ -114,7 +114,6 @@ function FirstRunOverlay({ onSeeTodaysPick }: { onSeeTodaysPick: () => void }) {
 					backgroundImage: "linear-gradient(rgba(200,215,255,0.08), rgba(200,215,255,0.08)), linear-gradient(to right, rgba(255,255,255,0.57), rgba(255,255,255,0.21) 19%, rgba(255,255,255,0.21) 81%, rgba(255,255,255,0.49))",
 					backgroundOrigin: "border-box",
 					backgroundClip: "padding-box, border-box",
-					backdropFilter: "blur(12px)",
 					font: f(500, 12), color: "#fff",
 					...focusRing,
 				}}

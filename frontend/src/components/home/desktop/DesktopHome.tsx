@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { NewsArticle } from "@stak/shared";
 import type { DailyBriefResponse } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { completeFirstRun } from "@/lib/firstRun";
 import { useAccount } from "@/context/AccountContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { useCollections } from "@/hooks/useCollections";
@@ -30,6 +32,8 @@ export function DesktopHome({ brief, news }: {
 	const navigate = useNavigate();
 	const { appUser } = useAuth();
 	const { removeFromStak } = useAccount();
+	// Desktop has no first-run scrim; seeing Home here counts as the first run being over.
+	useEffect(() => { completeFirstRun(appUser?.uid); }, [appUser?.uid]);
 	const { swipedBrands, batchQuotes, allBrandsLoading, accountLoading } = useMyStakData();
 	const { holdings, groups } = useCollections(swipedBrands, batchQuotes);
 	const { taste, isError: tasteFailed, refetch: retryTaste } = useTaste();

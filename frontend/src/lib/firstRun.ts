@@ -10,6 +10,11 @@ const key = (uid: string) => `stak.firstRun.${uid}`;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
+const subscribe = (onChange: () => void) => {
+	listeners.add(onChange);
+	return () => { listeners.delete(onChange); };
+};
+
 function read(uid: string): boolean {
 	try { return localStorage.getItem(key(uid)) === "1"; } catch { return false; }
 }
@@ -28,7 +33,7 @@ export function completeFirstRun(uid: string | undefined) {
 /** Whether this account's first run is still pending; re-renders when it starts or ends. */
 export function useFirstRunPending(uid: string | undefined): boolean {
 	return useSyncExternalStore(
-		(onChange) => { listeners.add(onChange); return () => listeners.delete(onChange); },
+		subscribe,
 		() => (uid ? read(uid) : false),
 		() => false,
 	);

@@ -20,9 +20,9 @@ function AppSettingsPage() {
 	const queryClient = useQueryClient();
 	const { logout } = useAuth();
 	const [open, setOpen] = useState(false);
-	// Typed, so a stray tap can't delete an account.
+	// Typed, so a stray tap can't delete an account (in any case: it's the deliberate typing that counts).
 	const [typed, setTyped] = useState("");
-	const confirmed = typed.trim() === "DELETE";
+	const confirmed = typed.trim().toUpperCase() === "DELETE";
 	const [deleting, setDeleting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -58,17 +58,19 @@ function AppSettingsPage() {
 						<label htmlFor="delete-confirm" style={{ font: f(500, 12, 17), color: DISC.body }}>Type DELETE to confirm</label>
 						<input
 							id="delete-confirm"
+							aria-describedby="delete-confirm-hint"
+							maxLength={12}
 							value={typed}
 							onChange={(e) => setTyped(e.target.value)}
 							onKeyDown={(e) => { if (e.key === "Enter") void handleDelete(); }}
 							autoComplete="off"
 							autoCapitalize="characters"
 							spellCheck={false}
-							placeholder="DELETE"
-							className="w-full outline-none"
+							className="w-full outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 							style={{ height: cu(44), borderRadius: cu(6), padding: `0 ${cu(12)}`, background: DISC.surfaceAlt, border: `1px solid ${DISC.cardBorder}`, font: f(500, 14), color: DISC.ink, ...focusRing }}
 						/>
-						{error && <p role="alert" style={{ font: f(400, 12), color: DISC.redDown }}>{error}</p>}
+						<p id="delete-confirm-hint" style={{ font: f(400, 11, 15), color: DISC.muted }}>{confirmed ? "Delete my account is ready." : "The button unlocks once DELETE is typed."}</p>
+						{error && <p role="alert" style={{ font: f(400, 12), color: DISC.dangerText }}>{error}</p>}
 						<button
 							type="button"
 							onClick={handleDelete}
@@ -82,7 +84,7 @@ function AppSettingsPage() {
 				)}
 			</SettingsCard>
 
-			<Caption>Log out from the Profile page ends this account’s session; a new sign-up starts fresh.</Caption>
+			<Caption>Log out from the Profile page ends this account’s session.</Caption>
 		</SettingsScaffold>
 	);
 }

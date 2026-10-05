@@ -120,7 +120,12 @@ function SignUpPage() {
 	return (
 		<AuthScreen
 			// On the code step, back returns to the form (email kept) rather than leaving sign-up.
-			nav={confirming ? <AuthBackLink label="Back to sign-up" onClick={() => { setMode("form"); setServerError(null); }} /> : undefined}
+			nav={confirming
+				? WEB_SIGNUP_OPEN
+					? <AuthBackLink label="Back to sign-up" onClick={() => { setMode("form"); setServerError(null); }} />
+					// Early access: finishing an account already started is allowed; the form that makes a new one isn't.
+					: <AuthBackLink label="Back to sign in" onClick={() => navigate({ to: "/login" })} />
+				: undefined}
 			bottom={
 				<>
 					{confirming

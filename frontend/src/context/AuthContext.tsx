@@ -17,6 +17,8 @@ export interface AppUser {
 	displayName: string | null;
 	photoURL: string | null;
 	provider: string;
+	/** When the sign-in account was created (Supabase auth), for telling a brand-new account from an existing one. */
+	createdAt: string | null;
 }
 
 interface AuthContextType {
@@ -43,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [canonicalUid, setCanonicalUid] = useState<string | null>(null);
 	const [supabaseSessionData, setSupabaseSessionData] = useState<{
 		email: string | null; emailVerified: boolean; displayName: string | null;
-		photoURL: string | null; provider: string;
+		photoURL: string | null; provider: string; createdAt: string | null;
 	} | null>(null);
 	// loading stays true until we know whether a session exists AND (if it does)
 	// until the canonical UID lookup completes. The sessionChecked ref prevents
@@ -74,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
 					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
 					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+					createdAt: session.user.created_at ?? null,
 				});
 			}
 		});
@@ -110,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
 					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
 					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+					createdAt: session.user.created_at ?? null,
 				});
 			}
 		}).finally(() => setLoading(false));

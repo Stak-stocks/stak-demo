@@ -1,6 +1,6 @@
 // The app's nav entries. Mobile (BottomNav.tsx) shows Android's five tabs, Home/News/Discover/My STAK/Simulate,
 // all backed by the same server data as Android (Simulate shares /api/sandbox/* with it). Desktop (SideNav.tsx)
-// follows the user's desktop design instead: DESKTOP_NAV_ITEMS below adds Learn (Playground) and Settings (Profile).
+// follows the user's desktop design instead: DESKTOP_NAV_ITEMS below adds STAK AI and Settings (Profile).
 import { Newspaper, LayoutDashboard, Search, Bookmark, BarChart3, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -42,10 +42,3 @@ export function isNavItemActive(currentPath: string, itemPath: string): boolean 
 	return currentPath.startsWith(itemPath);
 }
 
-/** True once today's "featured today" lesson is completed; until then the desktop Learn entry shows a dot. */
-export function hasCompletedTodaysChallenge(lessonProgress: Record<string, { completed: boolean; completedAt: number }> | undefined): boolean {
-	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-	return Object.entries(lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
-	);
-}

@@ -20,6 +20,7 @@ vi.mock("@/lib/appearance", () => ({ getAppearance: () => "dark" }));
 Object.defineProperty(window, "matchMedia", { writable: true, value: (q: string) => ({ matches: false, media: q, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {} }) });
 
 import { completeFirstRun, startFirstRun, useFirstRunPending } from "@/lib/firstRun";
+import { isBrandNewAccount } from "@/lib/earlyAccess";
 import { Route as AppSettingsRoute } from "../profile_.app-settings";
 import { Route as SignupRoute } from "../signup";
 
@@ -64,6 +65,19 @@ describe("early access: web sign-up is closed", () => {
 	});
 });
 
+describe("early access: which accounts are turned away", () => {
+	const now = Date.parse("2026-10-05T12:00:00Z");
+	it("a sign-in account made minutes ago that hasn't onboarded (a first Google sign-in)", () => {
+		expect(isBrandNewAccount("2026-10-05T11:58:00Z", undefined, now)).toBe(true);
+		expect(isBrandNewAccount("2026-10-05T11:58:00Z", false, now)).toBe(true);
+	});
+	it("not an older account that never finished onboarding, nor any onboarded one", () => {
+		expect(isBrandNewAccount("2026-09-20T10:00:00Z", false, now)).toBe(false);
+		expect(isBrandNewAccount("2026-10-05T11:58:00Z", true, now)).toBe(false);
+		expect(isBrandNewAccount(null, false, now)).toBe(false);
+	});
+});
+
 describe("Delete account", () => {
 	it("only deletes once DELETE is typed", async () => {
 		deleteMe.mockResolvedValue({ ok: true });
@@ -74,9 +88,10 @@ describe("Delete account", () => {
 		fireEvent.click(button);
 		expect(deleteMe).not.toHaveBeenCalled();
 
-		fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "delete" } });
+		fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "DELET" } });
 		expect(button).toBeDisabled();
-		fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "DELETE" } });
+		// Any case: it's the deliberate typing that counts.
+		fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: " delete " } });
 		expect(button).toBeEnabled();
 		fireEvent.click(button);
 		await waitFor(() => expect(deleteMe).toHaveBeenCalledTimes(1));

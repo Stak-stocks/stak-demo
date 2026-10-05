@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 import { createContext, useContext, useEffect, useState, useRef, useCallback, type CSSProperties, type ReactNode } from "react";
@@ -6,6 +6,8 @@ import { EarlyAccessModal, INSTAGRAM_URL } from "../components/landing/EarlyAcce
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
+	// ?join=1 (Sign in's "Get early access", or a brand-new account turned away) opens the early-access form.
+	validateSearch: (search: Record<string, unknown>): { join?: "1" } => (search.join === "1" || search.join === 1 ? { join: "1" } : {}),
 });
 
 // The landing page's wordmark is the only place Orbitron is used, so it loads here rather than on every route.
@@ -2850,12 +2852,15 @@ function LandingPage() {
 		if (!email) return;
 		window.location.href = `mailto:favour@thestak.org?subject=Newsletter%20signup&body=${encodeURIComponent(email)}`;
 	}, []);
-	// /welcome?join=1 (from Sign in's "Get early access", or a new account turned away) opens the form straight away.
-	const [earlyAccessOpen, setEarlyAccessOpen] = useState(() => {
-		try { return new URLSearchParams(window.location.search).get("join") === "1"; } catch { return false; }
-	});
+	const { join } = useSearch({ strict: false }) as { join?: "1" };
+	const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
+	useEffect(() => { if (join === "1") setEarlyAccessOpen(true); }, [join]);
 	const openEarlyAccess = useCallback(() => setEarlyAccessOpen(true), []);
-	const closeEarlyAccess = useCallback(() => setEarlyAccessOpen(false), []);
+	// Closing drops ?join=1 too, so a refresh or Back doesn't open the form again.
+	const closeEarlyAccess = useCallback(() => {
+		setEarlyAccessOpen(false);
+		if (join) navigate({ to: "/welcome", search: {}, replace: true });
+	}, [join, navigate]);
 
 	return (
 		<EarlyAccessContext.Provider value={openEarlyAccess}>

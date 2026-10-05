@@ -18,7 +18,7 @@ import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
-import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
+import { JOIN_WAITLIST, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
 
 export const Route = createRootRoute({
@@ -122,6 +122,8 @@ function Root() {
 	// All sessions are now Supabase — onboarding completion is stored in Postgres and
 	// reflected in account.onboardingCompleted via the Supabase Realtime subscription.
 	const onboardingCheckApplies = !!appUser;
+	// Early access: a brand-new account (a first Google sign-in) is signed back out rather than onboarded.
+	const turningAway = isLoggedIn && !loading && !accountLoading && isBrandNewAccount(appUser?.createdAt, account?.onboardingCompleted);
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
@@ -129,23 +131,22 @@ function Root() {
 		if (!loading && !accountLoading && !isLoggedIn && needsAuthForOnboardingStep) {
 			navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST);
 		}
-		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && !turningAway && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAway, navigate]);
 
-	// Early access: an account that has never finished onboarding is a new one (a Google sign-in creates the account
-	// by itself), and new accounts aren't being made on the web - sign it back out and offer the waitlist.
+	// Sign the brand-new account back out (once - the ref clears only when the session is actually gone) and offer
+	// the waitlist with the form open.
 	const turnedAway = useRef(false);
 	useEffect(() => {
-		if (WEB_SIGNUP_OPEN || loading || accountLoading || !isLoggedIn || !account || account.onboardingCompleted === true || turnedAway.current) return;
+		if (!isLoggedIn) { turnedAway.current = false; return; }
+		if (!turningAway || turnedAway.current) return;
 		turnedAway.current = true;
-		toast("STAK is in early access", { description: "New accounts open soon - join the waitlist and we'll let you know.", duration: 6000 });
-		void logout().catch(() => {}).finally(() => {
-			turnedAway.current = false;
-			navigate(JOIN_WAITLIST);
-		});
-	}, [loading, accountLoading, isLoggedIn, account, logout, navigate]);
+		const who = appUser?.email ? ` for ${appUser.email}` : "";
+		toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
+		void logout().catch(() => {}).finally(() => navigate(JOIN_WAITLIST));
+	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -180,6 +181,15 @@ function Root() {
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [isMobile, isAuthPage]);
+
+	// Turning a brand-new account away: nothing of the app shows on its way out.
+	if (turningAway) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
 
 	// Auth pages stay mounted while auth/account (re)load: verifying a code or a recovery code
 	// creates a session, which flips `loading`, and unmounting the page then threw away the
