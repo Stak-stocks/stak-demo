@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import { supabase } from "@/lib/supabase";
 import { updateProfile } from "@/lib/api";
+import { startFirstRun } from "@/lib/firstRun";
 import { useOnboarding } from "@/context/OnboardingContext";
 import { riskStyle, toSharedPickNames } from "@/lib/tasteModel";
 import { capitalizeWords } from "@/lib/utils";
@@ -48,6 +49,8 @@ function ProfileSetupPage() {
 			// Read the flag back before leaving: Root sends any signed-in user whose account still says
 			// "not onboarded" to the quiz, and the Realtime refetch that would flip it can lag the navigation.
 			await refreshAccount();
+			// A brand-new account: Home opens on its first run ("See Today's Pick"), like Android.
+			if (appUser?.uid) startFirstRun(appUser.uid);
 			navigate({ to: "/" });
 		} catch {
 			toast.error("Couldn't save your profile. Try again.");

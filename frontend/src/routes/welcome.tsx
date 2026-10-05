@@ -2850,7 +2850,10 @@ function LandingPage() {
 		if (!email) return;
 		window.location.href = `mailto:favour@thestak.org?subject=Newsletter%20signup&body=${encodeURIComponent(email)}`;
 	}, []);
-	const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
+	// /welcome?join=1 (from Sign in's "Get early access", or a new account turned away) opens the form straight away.
+	const [earlyAccessOpen, setEarlyAccessOpen] = useState(() => {
+		try { return new URLSearchParams(window.location.search).get("join") === "1"; } catch { return false; }
+	});
 	const openEarlyAccess = useCallback(() => setEarlyAccessOpen(true), []);
 	const closeEarlyAccess = useCallback(() => setEarlyAccessOpen(false), []);
 

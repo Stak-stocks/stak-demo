@@ -1,17 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { DESKTOP_NAV_ITEMS, hasCompletedTodaysChallenge, isNavItemActive } from "@/lib/navItems";
-import { useAccount } from "@/context/AccountContext";
+import { DESKTOP_NAV_ITEMS, isNavItemActive } from "@/lib/navItems";
 import { DESK, deskFocus } from "@/components/desktop/deskKit";
 import { Wordmark } from "@/components/home/HomeHeader";
 import stakMark from "@/assets/stak-logo-icon.svg";
 
 /** Desktop nav chrome (above the useIsMobile() breakpoint), from the user's desktop design: logo, the
- *  seven entries in DESKTOP_NAV_ITEMS and the "Investing made simple." card. Mobile keeps BottomNav. */
+ *  entries in DESKTOP_NAV_ITEMS and the "Investing made simple." card. Mobile keeps BottomNav. */
 export function SideNav() {
 	const currentPath = useRouterState({ select: (s) => s.location.pathname });
-	const { account } = useAccount();
-	// Learn keeps Playground's old tab dot until today's featured lesson is done.
-	const challengePending = !!account && !hasCompletedTodaysChallenge(account.lessonProgress);
 
 	return (
 		<nav aria-label="Main" className="fixed bottom-0 left-0 top-0 z-[60] flex w-[220px] flex-col" style={{ background: DESK.bg, borderRight: `1px solid ${DESK.border}` }}>
@@ -35,9 +31,6 @@ export function SideNav() {
 							>
 								<Icon className="h-[18px] w-[18px] shrink-0" style={{ color: active ? DESK.cyan : undefined }} strokeWidth={1.9} aria-hidden="true" />
 								{item.label}
-								{item.to === "/playground" && challengePending && (
-									<span className="ml-auto h-[7px] w-[7px] rounded-full bg-amber-400" aria-label="Today's challenge is waiting" role="img" />
-								)}
 							</Link>
 						</li>
 					);

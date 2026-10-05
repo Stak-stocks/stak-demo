@@ -127,8 +127,6 @@ function ProfilePage() {
 					<SettingsLinkRow label="App settings" onClick={() => navigate({ to: "/profile/app-settings" })} />
 					<SettingsLinkRow label="Help & support" onClick={() => navigate({ to: "/profile/help-support" })} />
 					<SettingsLinkRow label="Invite a friend" onClick={shareInvite} />
-					{/* Not on Android; kept so the web-only Playground stays reachable. */}
-					<SettingsLinkRow label="Playground" onClick={() => navigate({ to: "/playground" })} />
 				</SettingsCard>
 
 				<button

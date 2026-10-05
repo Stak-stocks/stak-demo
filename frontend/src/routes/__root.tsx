@@ -18,6 +18,8 @@ import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
+import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
+import { useFirstRunPending } from "@/lib/firstRun";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -28,7 +30,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { appUser, loading } = useAuth();
+	const { appUser, loading, logout } = useAuth();
 	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak } = useAccount();
 	const { reset: resetOnboarding } = useOnboarding();
@@ -44,8 +46,10 @@ function Root() {
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const isMobile = useIsMobile();
-	// Android shows its tab bar only on the five tab pages; every detail page is full-screen.
-	const showTabBar = isMobile && NAV_ITEMS.some((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.replace(/\/$/, "") === item.to));
+	// Android shows its tab bar only on the five tab pages; every detail page is full-screen. Home's first run swaps it
+	// for the "See Today's Pick" scrim.
+	const firstRun = useFirstRunPending(appUser?.uid);
+	const showTabBar = isMobile && !(firstRun && location.pathname === "/") && NAV_ITEMS.some((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.replace(/\/$/, "") === item.to));
 
 	// Signing out clears what the last person left behind: their half-finished quiz would
 	// otherwise pre-fill (and be saved as) the next account's taste in this tab.
@@ -123,12 +127,25 @@ function Root() {
 			navigate({ to: "/welcome" });
 		}
 		if (!loading && !accountLoading && !isLoggedIn && needsAuthForOnboardingStep) {
-			navigate({ to: "/signup" });
+			navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST);
 		}
 		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
 	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, navigate]);
+
+	// Early access: an account that has never finished onboarding is a new one (a Google sign-in creates the account
+	// by itself), and new accounts aren't being made on the web - sign it back out and offer the waitlist.
+	const turnedAway = useRef(false);
+	useEffect(() => {
+		if (WEB_SIGNUP_OPEN || loading || accountLoading || !isLoggedIn || !account || account.onboardingCompleted === true || turnedAway.current) return;
+		turnedAway.current = true;
+		toast("STAK is in early access", { description: "New accounts open soon - join the waitlist and we'll let you know.", duration: 6000 });
+		void logout().catch(() => {}).finally(() => {
+			turnedAway.current = false;
+			navigate(JOIN_WAITLIST);
+		});
+	}, [loading, accountLoading, isLoggedIn, account, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {

@@ -45,7 +45,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -371,6 +374,9 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
 	var confirmDelete by rememberSaveable { mutableStateOf(false) }
+	// Typed, so a stray tap can't delete an account.
+	var typedDelete by rememberSaveable { mutableStateOf("") }
+	val deleteConfirmed = typedDelete.trim() == "DELETE"
 	var deleting by rememberSaveable { mutableStateOf(false) }
 	var deleteError by rememberSaveable { mutableStateOf<String?>(null) }
 	SettingsPage(title = "App settings", onBack = onBack) {
@@ -380,13 +386,39 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 		}
 		PermissionCard("Biometric login", "Unlock STAK with your fingerprint, face or phone PIN whenever you come back.", UserProfile.accountLock) { UserProfile.accountLock = !UserProfile.accountLock; Session.saveProfile() }
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete }
+			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete; typedDelete = "" }
 			AnimatedVisibility(visible = confirmDelete) {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
 					Text(
 						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
+					)
+					Text(
+						"Type DELETE to confirm",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Body,
+					)
+					BasicTextField(
+						value = typedDelete,
+						onValueChange = { typedDelete = it.take(12) },
+						textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, color = StakColors.TextPrimary),
+						singleLine = true,
+						keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false),
+						cursorBrush = SolidColor(StakColors.Accent),
+						modifier = Modifier
+							.fillMaxWidth()
+							.background(Color(0xFF181F30), RoundedCornerShape((6 * u).dp))
+							.padding(horizontal = (12 * u).dp, vertical = (13 * u).dp)
+							.semantics { contentDescription = "Type DELETE to confirm" },
+						decorationBox = { inner ->
+							Box(contentAlignment = Alignment.CenterStart) {
+								if (typedDelete.isEmpty()) {
+									Text("DELETE", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = StakColors.Muted)
+								}
+								inner()
+							}
+						},
 					)
 					if (deleteError != null) {
 						Text(deleteError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
@@ -398,7 +430,8 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 							.height((44 * u).dp)
 							.clip(RoundedCornerShape((6 * u).dp))
 							.background(Color(0x33E5484D))
-							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting) {
+							.alpha(if (deleteConfirmed && !deleting) 1f else 0.5f)
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting && deleteConfirmed) {
 								// The demo persona has nothing on the server to delete - only a
 								// real account's data needs the network round trip, and only a
 								// confirmed server-side delete may wipe the phone and sign out

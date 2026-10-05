@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { getProfile } from "@/lib/api";
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/signup")({
 	validateSearch: (search: Record<string, unknown>): { confirm?: string } => ({
 		confirm: typeof search.confirm === "string" && search.confirm ? search.confirm : undefined,
 	}),
+	// Early access: no new accounts on the web. Only finishing one already started (typing its code) gets through.
+	beforeLoad: ({ search }) => {
+		if (!WEB_SIGNUP_OPEN && !search.confirm) throw redirect(JOIN_WAITLIST);
+	},
 });
 
 /** Android's Create account: Google or email + password, then a confirmation code from the email. */
