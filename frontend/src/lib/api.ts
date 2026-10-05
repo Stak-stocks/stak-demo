@@ -65,13 +65,14 @@ export function getProfile() {
 	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; createdAt?: string; plan?: string; taste?: { goal: number; risk: number; riskStyle: string; picks: string[] } | null }>("/api/me");
 }
 
-/** Deletes the account and every saved row (and, best-effort, the Supabase auth record). */
-/** Early access: remove the brand-new account just turned away (the server only does it for one minutes old, never
- *  onboarded and empty), so nothing of it stays in Supabase. */
+/** Early access: remove the brand-new account just turned away (the server only does it for a Google account minutes
+ *  old, never onboarded, with nothing saved), so nothing of it stays in Supabase. Given 4 seconds, so a slow server
+ *  never holds the person on the spinner. */
 export function removeTurnedAwayAccount() {
-	return apiRequest<{ ok: true }>("/api/me/turned-away", { method: "POST" });
+	return apiRequest<{ ok: true }>("/api/me/turned-away", { method: "POST", signal: AbortSignal.timeout(4000) });
 }
 
+/** Deletes the account and every saved row (and, best-effort, the Supabase auth record). */
 export function deleteMe() {
 	return apiRequest<{ ok: boolean }>("/api/me", { method: "DELETE" });
 }

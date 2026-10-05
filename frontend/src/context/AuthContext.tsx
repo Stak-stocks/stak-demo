@@ -7,6 +7,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
+import { WEB_GOOGLE_SIGN_IN_KEY } from "../lib/earlyAccess";
 import { supabase } from "../lib/supabase";
 import { disableWebPush } from "../lib/webPush";
 
@@ -157,6 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function signInWithGoogleSupabase() {
+		// Early access: lets the root route tell an account this tab's Google sign-in just made from any other.
+		try { sessionStorage.setItem(WEB_GOOGLE_SIGN_IN_KEY, "1"); } catch { /* no storage: never removed, only signed out */ }
 		const { error } = await supabase.auth.signInWithOAuth({
 			provider: "google",
 			options: {

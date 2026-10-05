@@ -64,3 +64,4 @@ export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS, STAK_AI_VIA } from "./stakAi";
 export type { StakAiContext, StakAiUsage, StakAiAnswerKind, StakAiSource, StakAiChatReply, StakAiErrorCode, StakAiStoredMessage, StakAiVia, StakAiEntry } from "./stakAi";
+export * from "./earlyAccess.js";

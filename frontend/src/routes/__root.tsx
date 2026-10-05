@@ -18,7 +18,7 @@ import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
-import { JOIN_WAITLIST, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
+import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
 
 export const Route = createRootRoute({
@@ -144,11 +144,16 @@ function Root() {
 		if (!turningAway || turnedAway.current) return;
 		turnedAway.current = true;
 		const who = appUser?.email ? ` for ${appUser.email}` : "";
-		toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
-		// Remove the account Supabase made before STAK could say no, then end the session.
-		void removeTurnedAwayAccount().catch(() => {})
+		// Only an account this tab's own Google sign-in just made is removed (the server checks again); any other
+		// brand-new account - say an Android sign-up still in its quiz - is only signed out of the web.
+		let mine = false;
+		try { mine = sessionStorage.getItem(WEB_GOOGLE_SIGN_IN_KEY) === "1"; sessionStorage.removeItem(WEB_GOOGLE_SIGN_IN_KEY); } catch { /* no storage */ }
+		void (mine ? removeTurnedAwayAccount().catch(() => {}) : Promise.resolve())
 			.then(() => logout().catch(() => {}))
-			.finally(() => navigate(JOIN_WAITLIST));
+			.finally(() => {
+				navigate(JOIN_WAITLIST);
+				toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
+			});
 	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions

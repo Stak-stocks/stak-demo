@@ -1,8 +1,8 @@
 import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
-import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
+import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
@@ -783,39 +783,61 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 	}
 });
 
-/** How new an account must be for the early-access turn-away to delete it (the web uses the same 10 minutes). */
-const NEW_ACCOUNT_WINDOW_MS = 10 * 60 * 1000;
+/** The caller's Supabase id: their mapping for an account carried over from Firebase, else their uid itself (every
+ *  Supabase-only account, which is every new one). */
+async function supabaseIdOf(uid: string): Promise<string> {
+	const mapped = await pgQuery<{ supabase_uid: string }>(`select supabase_uid from auth_identity_map where firebase_uid = $1`, [uid]);
+	return mapped.rows[0]?.supabase_uid ?? uid;
+}
+
+/**
+ * Deletes an account. The Supabase sign-in record goes first, so a request still carrying the old token can't quietly
+ * re-create the users row after it's gone; it's best-effort (it needs the service-role admin API, and a failure is
+ * logged, not fatal - the promise that every save and setting is gone is kept either way). Then the `users` row:
+ * every save, swipe, event, taste snapshot and push device FKs to it with ON DELETE CASCADE, so one delete clears all.
+ */
+async function deleteAccount(uid: string, supabaseUid: string, token: string | undefined): Promise<void> {
+	const { error } = await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e: unknown) => ({ error: e }));
+	if (error) console.error("[me] the Supabase auth record wasn't deleted (the account's data still is):", error);
+	if (token) forgetVerifiedToken(token);
+	await pgQuery(`delete from users where uid = $1`, [uid]);
+}
+
+const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
 
 // POST /api/me/turned-away — early access: the web signs a brand-new Google account back out (Supabase made the
-// account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account,
-// and only one that is truly brand new: created under 10 minutes ago, never onboarded, nothing saved. Anything
-// else is refused (409) and left alone, so an existing account can never be removed through here.
+// account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account, and
+// only one that is truly brand new: made by Google sign-in under NEW_ACCOUNT_WINDOW_MS ago, never onboarded, with
+// nothing on the server - no saves, swipes, taste, push device or Android state (an Android sign-up mid-quiz has
+// those, and is refused). Anything else is refused (409) and left alone.
 meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const mapped = await pgQuery<{ supabase_uid: string }>(`select supabase_uid from auth_identity_map where firebase_uid = $1`, [uid]);
-		// A Supabase-only account (every new one) has no mapping: its STAK uid is the Supabase id.
-		const supabaseUid = mapped.rows[0]?.supabase_uid ?? uid;
-
+		const supabaseUid = await supabaseIdOf(uid);
 		const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(supabaseUid);
-		const created = data?.user?.created_at ? Date.parse(data.user.created_at) : NaN;
-		if (error || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
+		const user = data?.user;
+		const created = user?.created_at ? Date.parse(user.created_at) : NaN;
+		const google = user?.app_metadata?.provider === "google" || (user?.app_metadata?.providers as string[] | undefined)?.includes("google");
+		if (error || !google || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
 			res.status(409).json({ error: "Not a brand-new account" });
 			return;
 		}
-		const row = await pgQuery<{ onboarding_completed: boolean; saved: boolean }>(
+		const row = await pgQuery<{ onboarding_completed: boolean; has_data: boolean }>(
 			`select coalesce(u.onboarding_completed, false) as onboarding_completed,
-			        exists (select 1 from stak_brands s where s.uid = $1) as saved
+			        exists (select 1 from stak_brands where uid = $1)
+			     or exists (select 1 from swipes where uid = $1)
+			     or exists (select 1 from taste_snapshots where uid = $1)
+			     or exists (select 1 from push_devices where uid = $1)
+			     or exists (select 1 from android_device_state where uid = $1) as has_data
 			   from (select 1) one left join users u on u.uid = $1`,
 			[uid],
 		);
-		if (row.rows[0]?.onboarding_completed || row.rows[0]?.saved) {
+		if (row.rows[0]?.onboarding_completed || row.rows[0]?.has_data) {
 			res.status(409).json({ error: "Not a brand-new account" });
 			return;
 		}
 
-		await pgQuery(`delete from users where uid = $1`, [uid]);
-		await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid);
+		await deleteAccount(uid, supabaseUid, bearer(req));
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error removing a turned-away account:", error);
@@ -823,32 +845,11 @@ meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, 
 	}
 });
 
-// DELETE /api/me — delete account (Android's App settings -> Delete account).
-// `users` is the one row every save, swipe, event, taste snapshot and push device
-// FKs to with ON DELETE CASCADE, so removing it clears all of it in a single delete
-// (see the schema migration's own note on this). The Supabase Auth record is a
-// second, best-effort step: it needs the service-role admin API, not a plain
-// connection, and a failure there still leaves the promise kept - every save and
-// setting is gone and the session is over, just with a harmless auth shell left
-// behind for later cleanup, rather than a delete that half-succeeds and blocks logout.
+// DELETE /api/me — delete account (Android's App settings -> Delete account): see deleteAccount.
 meRouter.delete("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-
-		const mapped = await pgQuery<{ supabase_uid: string }>(
-			`select supabase_uid from auth_identity_map where firebase_uid = $1`,
-			[uid],
-		);
-		const supabaseUid = mapped.rows[0]?.supabase_uid ?? null;
-
-		await pgQuery(`delete from users where uid = $1`, [uid]);
-
-		if (supabaseUid) {
-			await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e) => {
-				console.error("[me] account data deleted but the Supabase auth record wasn't:", e);
-			});
-		}
-
+		await deleteAccount(uid, await supabaseIdOf(uid), bearer(req));
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error deleting account:", error);
