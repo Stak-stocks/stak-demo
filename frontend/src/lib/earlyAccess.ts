@@ -2,9 +2,9 @@
  * Early access (2026-10-05): new accounts can't be made on the web; visitors join the waitlist on /welcome instead.
  * Signing in still works for existing accounts (teammates, testers), including ones that haven't finished onboarding.
  * Flip this to reopen sign-up.
- * Note: Google sign-in creates a Supabase user on its own, so the root route signs a brand-new one straight back out
- * (see isBrandNewAccount) - the empty auth user stays until it's cleaned up in Supabase. Supabase's own "allow new
- * sign-ups" setting would also stop Android, which is still open to the team.
+ * Note: Google sign-in creates a Supabase user on its own, so the root route removes a brand-new one (POST
+ * /api/me/turned-away, which only deletes an account minutes old, never onboarded and empty) and signs it out (see
+ * isBrandNewAccount). Supabase's own "allow new sign-ups" setting would also stop Android, still open to the team.
  */
 export const WEB_SIGNUP_OPEN = false;
 

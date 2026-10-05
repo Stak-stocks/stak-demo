@@ -13,7 +13,7 @@ import { SideNav } from "@/components/SideNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { BrandProfile } from "@stak/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMarketEarnings, getStockData } from "@/lib/api";
+import { getMarketEarnings, getStockData, removeTurnedAwayAccount } from "@/lib/api";
 import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
@@ -145,7 +145,10 @@ function Root() {
 		turnedAway.current = true;
 		const who = appUser?.email ? ` for ${appUser.email}` : "";
 		toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
-		void logout().catch(() => {}).finally(() => navigate(JOIN_WAITLIST));
+		// Remove the account Supabase made before STAK could say no, then end the session.
+		void removeTurnedAwayAccount().catch(() => {})
+			.then(() => logout().catch(() => {}))
+			.finally(() => navigate(JOIN_WAITLIST));
 	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions

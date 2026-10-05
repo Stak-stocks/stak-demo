@@ -66,6 +66,12 @@ export function getProfile() {
 }
 
 /** Deletes the account and every saved row (and, best-effort, the Supabase auth record). */
+/** Early access: remove the brand-new account just turned away (the server only does it for one minutes old, never
+ *  onboarded and empty), so nothing of it stays in Supabase. */
+export function removeTurnedAwayAccount() {
+	return apiRequest<{ ok: true }>("/api/me/turned-away", { method: "POST" });
+}
+
 export function deleteMe() {
 	return apiRequest<{ ok: boolean }>("/api/me", { method: "DELETE" });
 }

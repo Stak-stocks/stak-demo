@@ -783,6 +783,46 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 	}
 });
 
+/** How new an account must be for the early-access turn-away to delete it (the web uses the same 10 minutes). */
+const NEW_ACCOUNT_WINDOW_MS = 10 * 60 * 1000;
+
+// POST /api/me/turned-away — early access: the web signs a brand-new Google account back out (Supabase made the
+// account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account,
+// and only one that is truly brand new: created under 10 minutes ago, never onboarded, nothing saved. Anything
+// else is refused (409) and left alone, so an existing account can never be removed through here.
+meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const mapped = await pgQuery<{ supabase_uid: string }>(`select supabase_uid from auth_identity_map where firebase_uid = $1`, [uid]);
+		// A Supabase-only account (every new one) has no mapping: its STAK uid is the Supabase id.
+		const supabaseUid = mapped.rows[0]?.supabase_uid ?? uid;
+
+		const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(supabaseUid);
+		const created = data?.user?.created_at ? Date.parse(data.user.created_at) : NaN;
+		if (error || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
+			res.status(409).json({ error: "Not a brand-new account" });
+			return;
+		}
+		const row = await pgQuery<{ onboarding_completed: boolean; saved: boolean }>(
+			`select coalesce(u.onboarding_completed, false) as onboarding_completed,
+			        exists (select 1 from stak_brands s where s.uid = $1) as saved
+			   from (select 1) one left join users u on u.uid = $1`,
+			[uid],
+		);
+		if (row.rows[0]?.onboarding_completed || row.rows[0]?.saved) {
+			res.status(409).json({ error: "Not a brand-new account" });
+			return;
+		}
+
+		await pgQuery(`delete from users where uid = $1`, [uid]);
+		await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error removing a turned-away account:", error);
+		res.status(500).json({ error: "Failed to remove the account" });
+	}
+});
+
 // DELETE /api/me — delete account (Android's App settings -> Delete account).
 // `users` is the one row every save, swipe, event, taste snapshot and push device
 // FKs to with ON DELETE CASCADE, so removing it clears all of it in a single delete
