@@ -355,6 +355,18 @@ Android: `cd android && ./gradlew compileDebugKotlin` (needs `sdk.dir` in `local
 
 ## 8. What is left to do
 
+**Update 2026-10-05 (feat/web-redesign, all reviewed by 4 agents and fixed; backend live rev 00331):**
+- Decided + DONE: Supabase OTP email templates confirmed by the user. Web sign-up CLOSED for early access
+  (`lib/earlyAccess.ts` WEB_SIGNUP_OPEN; /signup -> /welcome?join=1 unless finishing a code; a Google account created
+  <10 min ago that hasn't onboarded is signed back out; Android sign-up still open to the team). Signed-out visitors
+  stay on /welcome. Typed "DELETE" (any case) to delete an account, web + Android. Playground/Learn hidden until v2
+  (route redirects home, code kept). Web Home first run ("See Today's Pick") like Android (`lib/firstRun.ts`).
+- Backlog DONE: tip + company-news builds single-flighted; POST /api/news/for-you (6s wait, `pending`, 20/min) used by
+  web + Android For You; American English system instruction on text-writing Gemini calls; vendor chunks (main
+  847 -> ~290 kB); landing hero WebP + 60 unused images removed; GradientCta / sheetCard / darkCard; search overlay
+  desktop-only (kept: it's the desktop top bar's search); tests for usePaperPortfolio, BuyFlow, SellFlow.
+- The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel), Terms/Privacy pages.
+
 ### 8.1 Needs the user
 - **Browser smoke test** of everything (nothing but Discover's swipe has been exercised in a real browser).
 - **Go-ahead to commit** (section 2) and later to **deploy web** (Vercel).
