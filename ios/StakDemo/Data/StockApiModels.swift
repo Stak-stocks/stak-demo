@@ -456,3 +456,203 @@ extension ForYouCompanyNews {
         ticker = c.value(.ticker, or: ""); articles = c.value(.articles, or: [])
     }
 }
+
+// The stock page's and My STAK updates' responses decode the same tolerant way (see above): a missing, null or
+// mistyped field takes its default instead of failing the whole response - one odd analyst row blanked the card.
+
+extension StockDetailResponse {
+    private enum CodingKeys: String, CodingKey { case quote, metrics, name }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        quote = c.value(.quote, or: nil)
+        metrics = c.value(.metrics, or: nil)
+        name = c.value(.name, or: nil)
+    }
+}
+
+extension StockQuote {
+    private enum CodingKeys: String, CodingKey { case price, change, changePercent, marketState, high, low, prevClose }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        price = c.value(.price, or: nil)
+        change = c.value(.change, or: nil)
+        changePercent = c.value(.changePercent, or: nil)
+        marketState = c.value(.marketState, or: nil)
+        high = c.value(.high, or: nil)
+        low = c.value(.low, or: nil)
+        prevClose = c.value(.prevClose, or: nil)
+    }
+}
+
+extension StockMetrics {
+    private enum CodingKeys: String, CodingKey { case peRatio, revenueGrowth, profitMargin, marketCap, beta, dividendYield, week52High, week52Low }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        peRatio = c.value(.peRatio, or: nil)
+        revenueGrowth = c.value(.revenueGrowth, or: nil)
+        profitMargin = c.value(.profitMargin, or: nil)
+        marketCap = c.value(.marketCap, or: nil)
+        beta = c.value(.beta, or: nil)
+        dividendYield = c.value(.dividendYield, or: nil)
+        week52High = c.value(.week52High, or: nil)
+        week52Low = c.value(.week52Low, or: nil)
+    }
+}
+
+extension AnalystResponse {
+    private enum CodingKeys: String, CodingKey { case priceTarget, recommendation }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        priceTarget = c.value(.priceTarget, or: nil)
+        recommendation = c.value(.recommendation, or: nil)
+    }
+}
+
+extension AnalystPriceTarget {
+    private enum CodingKeys: String, CodingKey { case low, avg, high }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        low = c.value(.low, or: nil)
+        avg = c.value(.avg, or: nil)
+        high = c.value(.high, or: nil)
+    }
+}
+
+extension AnalystRecommendation {
+    private enum CodingKeys: String, CodingKey { case strongBuy, buy, hold, sell, strongSell }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        strongBuy = c.value(.strongBuy, or: 0)
+        buy = c.value(.buy, or: 0)
+        hold = c.value(.hold, or: 0)
+        sell = c.value(.sell, or: 0)
+        strongSell = c.value(.strongSell, or: 0)
+    }
+}
+
+extension AnalystAction {
+    private enum CodingKeys: String, CodingKey { case firm, action, priceTarget }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        firm = c.value(.firm, or: "")
+        action = c.value(.action, or: "")
+        priceTarget = c.value(.priceTarget, or: nil)
+    }
+}
+
+extension StockRiskDto {
+    private enum CodingKeys: String, CodingKey { case label, level, note }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        label = c.value(.label, or: "")
+        level = c.value(.level, or: nil)
+        note = c.value(.note, or: "")
+    }
+}
+
+extension StockWatchDto {
+    private enum CodingKeys: String, CodingKey { case title, note }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = c.value(.title, or: "")
+        note = c.value(.note, or: "")
+    }
+}
+
+extension RiskWatchResponse {
+    private enum CodingKeys: String, CodingKey { case risks, watch, rated }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        risks = c.value(.risks, or: [])
+        watch = c.value(.watch, or: [])
+        rated = c.value(.rated, or: false)
+    }
+}
+
+extension DailyMoveResponse {
+    private enum CodingKeys: String, CodingKey { case explanation, direction }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        explanation = c.value(.explanation, or: "")
+        direction = c.value(.direction, or: "flat")
+    }
+}
+
+extension EarningsResponse {
+    private enum CodingKeys: String, CodingKey { case status, date, hour }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        status = c.value(.status, or: "")
+        date = c.value(.date, or: nil)
+        hour = c.value(.hour, or: nil)
+    }
+}
+
+extension PeerMetricsResponse {
+    private enum CodingKeys: String, CodingKey { case ticker, peerTickers, peerCount, pe, revenueGrowth, profitMargin, beta }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: "")
+        peerTickers = c.value(.peerTickers, or: [])
+        peerCount = c.value(.peerCount, or: 0)
+        pe = c.value(.pe, or: nil)
+        revenueGrowth = c.value(.revenueGrowth, or: nil)
+        profitMargin = c.value(.profitMargin, or: nil)
+        beta = c.value(.beta, or: nil)
+    }
+}
+
+extension ChartPoint {
+    private enum CodingKeys: String, CodingKey { case ts, close, session }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ts = c.value(.ts, or: "")
+        close = c.value(.close, or: 0)
+        session = c.value(.session, or: "regular")
+    }
+}
+
+extension ChartResponse {
+    private enum CodingKeys: String, CodingKey { case prices }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        prices = c.value(.prices, or: [])
+    }
+}
+
+extension UpdateSourceDto {
+    private enum CodingKeys: String, CodingKey { case source, url, headline, datetime }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        source = c.value(.source, or: "")
+        url = c.value(.url, or: "")
+        headline = c.value(.headline, or: "")
+        datetime = c.value(.datetime, or: 0)
+    }
+}
+
+extension StockUpdateDto {
+    private enum CodingKeys: String, CodingKey { case id, ticker, company, kind, title, body, watch, sources, occurredAt, read }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, or: 0)
+        ticker = c.value(.ticker, or: "")
+        company = c.value(.company, or: "")
+        kind = c.value(.kind, or: "")
+        title = c.value(.title, or: "")
+        body = c.value(.body, or: "")
+        watch = c.value(.watch, or: nil)
+        sources = c.value(.sources, or: [])
+        occurredAt = c.value(.occurredAt, or: "")
+        read = c.value(.read, or: false)
+    }
+}
+
+extension UpdatesResponse {
+    private enum CodingKeys: String, CodingKey { case updates, unread }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updates = c.value(.updates, or: [])
+        unread = c.value(.unread, or: 0)
+    }
+}

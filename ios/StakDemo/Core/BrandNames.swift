@@ -9,12 +9,19 @@ final class BrandNames: ObservableObject {
 
 	/// Ticker -> name, e.g. "GOOGL" -> "Google". Published, so an open search re-runs once it fills.
 	@Published private(set) var byTicker: [String: String] = [:]
+	/// Ticker -> the company's logo, for anywhere a company is named outside the deck (the stock page's header).
+	@Published private(set) var logoByTicker: [String: String] = [:]
 
 	func fill(_ brands: [BrandSummaryDto]) {
 		guard !brands.isEmpty else { return }
 		var map: [String: String] = [:]
 		for b in brands where !b.ticker.isEmpty && !b.name.isEmpty { map[b.ticker.uppercased()] = Self.bareName(b.name) }
 		byTicker = map
+		var logos: [String: String] = [:]
+		for b in brands where !b.ticker.isEmpty {
+			if let logo = b.logo ?? b.domain.map({ "https://cdn.brandfetch.io/\($0)/w/400/h/400" }) { logos[b.ticker.uppercased()] = logo }
+		}
+		logoByTicker = logos
 	}
 
 	func ensure() async {

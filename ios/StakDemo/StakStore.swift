@@ -32,6 +32,7 @@ enum StakStore {
 	static func bool(_ name: String, default value: Bool) -> Bool { defaults.object(forKey: key(name)) as? Bool ?? value }
 	static func set(_ value: Bool, for name: String) { defaults.set(value, forKey: key(name)) }
 	static func data(_ name: String) -> Data? { defaults.data(forKey: key(name)) }
+	static func remove(_ name: String) { defaults.removeObject(forKey: key(name)) }
 	static func set(_ value: Data, for name: String) { defaults.set(value, forKey: key(name)) }
 
 	/// A set of ids; nil = no record (an empty set is a record).

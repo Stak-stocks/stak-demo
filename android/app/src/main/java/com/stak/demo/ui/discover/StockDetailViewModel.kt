@@ -188,6 +188,7 @@ class StockDetailViewModel @Inject constructor(
         _chartSeries.value = cached?.series
         _chartPct.value = cached?.pct
         _chartMissing.value = false
+        _chartNoMovementYet.value = false
         viewModelScope.launch {
             val prices = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
                 ?.prices?.filter { it.close > 0.0 }?.takeIf { it.size >= 2 }
@@ -496,8 +497,9 @@ class StockDetailViewModel @Inject constructor(
         val rec = analyst?.recommendation
         val upside = if (pt?.avg != null) {
             val upsidePct = ((pt.avg - price) / price) * 100.0
-            val arrow = if (upsidePct >= 0.0) "↑" else "↓"
-            "$arrow ${String.format(Locale.US, "%.1f", abs(upsidePct))}% upside"
+            // A target below the price is downside, said as such (it read "↓ 4.0% upside").
+            val figure = String.format(Locale.US, "%.1f", abs(upsidePct))
+            if (upsidePct >= 0.0) "↑ $figure% upside" else "↓ $figure% downside"
         } else null
         val targetLow = pt?.low?.let { "$${ it.toInt() }" }
         val targetAvg = pt?.avg?.let { "$${ it.toInt() }" }

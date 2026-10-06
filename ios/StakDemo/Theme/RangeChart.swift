@@ -86,7 +86,9 @@ struct RangeLineChart: View {
 	}
 
 	/// The series as a polyline across the box.
-	private static func linePath(_ points: [CGFloat], in size: CGSize) -> Path {
+	/// The line through `points` (fractions of the height, 0 = bottom) spread evenly across `size` - shared with the
+	/// stock page's live chart.
+	static func linePath(_ points: [CGFloat], in size: CGSize) -> Path {
 		var path = Path()
 		let steps = CGFloat(max(points.count - 1, 1))
 		for (i, fraction) in points.enumerated() {
@@ -127,7 +129,14 @@ struct RangePills: View {
 					}
 				}
 				.buttonStyle(.pressDim)
+				.accessibilityLabel(rangeSpoken[label] ?? label)
+				.accessibilityAddTraits(label == selected ? .isSelected : [])
 			}
 		}
 	}
 }
+
+/// What VoiceOver says for each range pill.
+let rangeSpoken: [String: String] = [
+	"1D": "1 day", "1W": "1 week", "1M": "1 month", "3M": "3 months", "YTD": "Year to date", "1Y": "1 year",
+]

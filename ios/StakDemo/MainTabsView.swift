@@ -153,6 +153,8 @@ struct MainTabsView: View {
 	@State private var backDrag: CGFloat = 0
 	/// Stays true from the swipe's first move until it has settled, so the page beneath isn't re-parked mid-animation.
 	@State private var backSwipeLive = false
+	/// The top page has a sheet or ticket of its own up (PageOverlayOpenKey): swipe back waits for it to close.
+	@State private var topOverlayOpen = false
 	@Environment(\.scenePhase) private var scenePhase
 	private var swipingBack: Bool { backDrag > 0 || backSwipeLive }
 
@@ -181,13 +183,14 @@ struct MainTabsView: View {
 				pageView(entry.page, isTop: isTop)
 					.offset(x: isTop ? 0 : (isUnder ? EdgeSwipe.underlayOffset(backDrag, width: pageWidth) : parkedShift))
 					.edgeSwipeBack(
-						enabled: isTop && canSwipeBack,
+						enabled: isTop && canSwipeBack && !topOverlayOpen,
 						drag: isTop ? $backDrag : .constant(0),
 						onSettled: { backSwipeLive = false }
 					) {
 						if !pushed.isEmpty { pushed.removeLast() }
 					}
 					.accessibilityHidden(!isTop)
+					.onPreferenceChange(PageOverlayOpenKey.self) { open in if isTop { topOverlayOpen = open } }
 					.id(entry.id)
 					.transition(navStyle.transition)
 			}
@@ -377,6 +380,7 @@ struct MainTabsView: View {
 				onBack: { pop(.instant) },
 				fromMyStak: fromMyStak,
 				symbol: symbol,
+				myStakVM: myStakVM,
 				// Authored (92:969 / 71:949): success "View in My STAK" ->
 				// Overview, PUSH LEFT 300.
 				onViewInMyStak: { pop(.forwardPush, all: true, landing: .myStak) },
@@ -385,10 +389,13 @@ struct MainTabsView: View {
 				// Authored (1:2382): the Discover entry's Practice buy lands
 				// on the Simulate tab, Instant.
 				onPracticeBuyToSimulate: { pop(.instant, all: true, landing: .simulate) },
+				// My STAK entry: "Practice with ... · paper money" - Simulate, with the stock waiting (PendingSimBuy).
+				onPracticeInSimulate: { pop(.instant, all: true, landing: .simulate) },
 				// Authored (1:2579): the open state's tab bar SWAPs - pop the
 				// detail instantly and land on the tapped tab.
 				onTab: { pop(.instant, all: true, landing: $0) },
-				onOpenAi: { push(.stakAi(context: .stock(symbol), question: nil, conversationId: nil)) }
+				onOpenAi: { push(.stakAi(context: .stock(symbol), question: nil, conversationId: nil)) },
+				isTop: isTop
 			)
 		case .collection(let id):
 			CollectionView(
@@ -532,7 +539,12 @@ struct MainTabsView: View {
 
 	private func logPageEvent(_ page: PushedPage) {
 		switch page {
-		case .stockDetail(_, let symbol): StakEvents.log(StakEvents.stockDetailOpen, ticker: symbol)
+		// Repeated opens of a stock are interest the Taste Graph can show, without assuming ownership.
+		case .stockDetail(let fromMyStak, let symbol):
+			StakEvents.log(StakEvents.stockDetailOpen, ticker: symbol, params: [
+				"source": fromMyStak ? "mystak" : "discover",
+				"saved": MyStakHoldings.shared.tickers.contains(symbol.uppercased()) ? "true" : "false",
+			])
 		case .stakAi(let ctx, _, let cid):
 			let entry = ctx?.type ?? (cid != nil ? "history" : "header")
 			StakEvents.log(StakEvents.stakAiOpen, params: ["entry": entry, "platform": "ios"])

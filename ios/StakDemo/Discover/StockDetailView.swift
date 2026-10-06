@@ -1,283 +1,431 @@
 import SwiftUI
 
-/// Discover · Stock Detail (CHINEDU 1:2382 folded / 1:2579 open, save
-/// success 92:969; My STAK entry 16:1012) — serves the TAPPED stock’s
-/// DetailFacts (AAPL carries the authored values verbatim): price hero,
-/// chart with range pills, Risk fit, Numbers that matter, expandable
-/// Analyst view / Compare and learn, News signal, TIP and the CTAs.
-/// Every authored metric is multiplied by `figmaUnit` (390px artboard).
-/// Ported from android/ ui/discover/StockDetailScreen.kt.
+/// Discover · Stock Detail (CHINEDU 1:2382 folded / 1:2579 open, save success 92:969; My STAK entry 16:1012) - a port
+/// of android ui/discover/StockDetailScreen.kt. A real account's page is this stock's live data (StockDetailViewModel):
+/// the company row, price and chart with its range pills, Since you saved (My STAK entry), the Risk snapshot and What
+/// to watch next, News signal, Numbers that matter, the Analyst view and Compare and learn, a related lesson, Ask STAK
+/// AI and the save / practice actions. The demo account keeps the authored frames (DetailFacts). Every authored metric
+/// is multiplied by `figmaUnit` (390px artboard).
 private let card = Color(argb: 0xFF181F30)
 private let bright = Color(argb: 0xFFF2F6FC)
 private let muted = Color(argb: 0xFF819ABB)
 private let green = Color(argb: 0xFF2FD08A)
-/// Down moves (Codex parity audit 2026-09-04): the template only ever served up
-/// tickers; the same red the Simulate rows use, keyed on the ▼ glyph.
+/// Down moves: the same red the Simulate rows use, keyed on the ▼ glyph.
 private let red = Color(argb: 0xFFFF5A6A)
 private let teal = Color(argb: 0xFF69B3CA)
+private let iconTint = Color(argb: 0xFFA6E4F7)
+
+/// Ratings that read as bullish in Recent actions.
+private let bullishActions: Set<String> = ["Buy", "Strong Buy", "Outperform", "Overweight", "Market Outperform"]
 
 struct StockDetailView: View {
 	let onBack: () -> Void
 	var fromMyStak: Bool = false
-	/// The stock the page serves - deck taps route their card here (user,
-	/// 2026-09-01: the NVIDIA card must open NVIDIA, not AAPL).
+	/// The stock the page serves - deck taps route their card here (user, 2026-09-01: NVIDIA opens NVIDIA, not AAPL).
 	var symbol: String = "AAPL"
-	/// Authored exits raised to the shell (nil keeps the local fallback):
-	/// success "View in My STAK" (92:969 / 71:949, the forward push), "Keep
-	/// exploring" (deck dissolve 300), the Discover entry's "Practice buy"
-	/// (1:2382, to the Simulate tab, Instant) and the open state's tab-bar
-	/// SWAPs (1:2579).
+	/// The updates My STAK already holds, narrowed to this company - the same detection, no second request.
+	@ObservedObject var myStakVM: MyStakViewModel
+	/// Authored exits raised to the shell (nil keeps the local fallback): success "View in My STAK" (92:969 / 71:949),
+	/// "Keep exploring" (deck dissolve 300), the Discover entry's "Practice buy" (1:2382, to the Simulate tab) and the
+	/// open state's tab-bar SWAPs (1:2579).
 	var onViewInMyStak: (() -> Void)? = nil
 	var onKeepExploring: (() -> Void)? = nil
 	var onPracticeBuyToSimulate: (() -> Void)? = nil
+	/// The My STAK entry's "Practice with ... · paper money": Simulate, with this company ready to buy.
+	var onPracticeInSimulate: (() -> Void)? = nil
 	var onTab: ((MainTab) -> Void)? = nil
+	/// STAK AI with this stock as its context (nil hides the card).
 	var onOpenAi: (() -> Void)? = nil
+	/// The top of the shell's stack: covered by another page (STAK AI, say), the price stops refreshing.
+	var isTop: Bool = true
 
+	@StateObject private var vm = StockDetailViewModel()
+	@ObservedObject private var session = Session.shared
+	@ObservedObject private var holdings = MyStakHoldings.shared
+	@ObservedObject private var brandNames = BrandNames.shared
+	@Environment(\.scenePhase) private var scenePhase
 	@State private var saved: Bool
 	@State private var showSuccess = false
 	@State private var showBuy = false
-	/// Hoisted from AnalystCard - drives the 1:2579 tab bar and the fold
-	/// back to 16:1012 when the buy receipt's Done fires.
+	/// Hoisted from AnalystCard - drives the 1:2579 tab bar and the fold back to 16:1012 when the buy receipt's Done fires.
 	@State private var analystOpen = false
-	/// The range pills select (user, 2026-09-05); "3M" keeps the authored SdChartLine (1:2382).
-	@State private var range = "3M"
+	/// The range pills select. Today first for a real account (user, 2026-09-17): a page opened to see what a stock did
+	/// today shouldn't answer with three months. The demo keeps "3M", the range its authored line draws.
+	@State private var range: String
+	/// Shown when Save is refused because the Stak is full; clears on its own after 3 seconds.
+	@State private var stakFullShownAt: Date? = nil
+	/// Which of this company's changes were unread when the page opened: marking them read here would otherwise flip
+	/// the dots in front of the reader.
+	@State private var unreadOnEntry: Set<Int64>? = nil
 
-	init(
+	@MainActor init(
 		onBack: @escaping () -> Void,
 		fromMyStak: Bool = false,
 		symbol: String = "AAPL",
+		myStakVM: MyStakViewModel,
 		onViewInMyStak: (() -> Void)? = nil,
 		onKeepExploring: (() -> Void)? = nil,
 		onPracticeBuyToSimulate: (() -> Void)? = nil,
+		onPracticeInSimulate: (() -> Void)? = nil,
 		onTab: ((MainTab) -> Void)? = nil,
-		onOpenAi: (() -> Void)? = nil
+		onOpenAi: (() -> Void)? = nil,
+		isTop: Bool = true
 	) {
 		self.onBack = onBack
 		self.fromMyStak = fromMyStak
 		self.symbol = symbol
+		self.myStakVM = myStakVM
 		self.onViewInMyStak = onViewInMyStak
 		self.onKeepExploring = onKeepExploring
 		self.onPracticeBuyToSimulate = onPracticeBuyToSimulate
+		self.onPracticeInSimulate = onPracticeInSimulate
 		self.onTab = onTab
 		self.onOpenAi = onOpenAi
-		// Codex audit (2026-09-04): saved follows the holdings store, like the deck card.
-		// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
-		// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
-		// the chip ruling (user, 2026-09-04) applies to the page it opens. The
-		// seeded holdings made every designed card open "Saved". My STAK entry
-		// opens saved. Mirrors android.
-		self._saved = State(initialValue: fromMyStak || DeckSession.shared.saved.contains(symbol))
+		self.isTop = isTop
+		// The Discover entry follows THIS RUN's saves, like the deck's Save chip (1:2382/1:2579 author "Unsaved" for a
+		// stock My STAK already lists); the My STAK entry opens saved. Mirrors android.
+		// A real account's earlier saves count too: the Saved chip reads the holdings, and a Save button beside it
+		// re-saved a stock already kept. (The demo's seeded holdings keep the authored "Unsaved" frames.)
+		let held = !Session.shared.demoAccount && MyStakHoldings.shared.tickers.contains(symbol.uppercased())
+		self._saved = State(initialValue: fromMyStak || held || DeckSession.shared.saved.contains(symbol))
+		self._range = State(initialValue: Session.shared.demoAccount ? "3M" : "1D")
 	}
 
 	var body: some View {
 		let u = figmaUnit
-		let f = detailFactsFor(symbol)
-		// Authored (1:2579): ONLY the Discover-entry open state composes the
-		// shell tab bar (an authored inconsistency - matched per frame).
+		let demo = session.demoAccount
+		// A real account never borrows authored facts - not even before its own data lands: they flashed another
+		// company's numbers under this stock's name (user, 2026-09-15). The demo keeps its authored frames.
+		let f = demo ? detailFactsFor(symbol) : emptyFacts(symbol)
+		let live = vm.liveDetail
+		let changes = myStakVM.updates.filter { $0.ticker.caseInsensitiveCompare(symbol) == .orderedSame }
+		// Authored (1:2579): ONLY the Discover-entry open state composes the shell tab bar.
 		let showsBar = !fromMyStak && analystOpen && onTab != nil
 		ZStack {
 			VStack(spacing: 0) {
 				HStack {
 					AuthBackCircle(action: onBack)
 					Spacer()
-					Text(f.symbol)
+					Text(symbol)
 						.font(StakFont.sora(16 * u, .semiBold))
 						.foregroundStyle(Color.white)
+						.accessibilityAddTraits(.isHeader)
 					Spacer()
-					ZStack {
-						Circle().fill(card)
-						// 1:2382 authors the share glyph white; the News asset is #AEAEAE
-						// (mirrors Android, 2026-09-05).
-						Image("IcNewsShare")
-							.renderingMode(.template)
-							.resizable()
-							.foregroundStyle(Color.white)
-							.frame(width: 17 * u, height: 17 * u)
-					}
-					.frame(width: 40 * u, height: 40 * u)
+					// The share control did nothing - removed until there's something to share to; this keeps the title
+					// centred against the back circle.
+					Color.clear.frame(width: 40 * u, height: 40 * u)
 				}
 				.padding(.horizontal, 18 * u)
 				.padding(.vertical, 8 * u)
 
-				ScrollView(showsIndicators: false) {
+				ScrollView {
 					VStack(spacing: 0) {
-						VStack(alignment: .leading, spacing: 4 * u) {
-							Text(f.title)
-								.font(StakFont.geist(11 * u))
-								.foregroundStyle(muted)
-							Text(f.price)
-								.font(StakFont.sora(26 * u, .semiBold))
-								.foregroundStyle(bright)
-							Text(f.change)
-								.font(StakFont.geist(12 * u, .medium))
-								.foregroundStyle(f.change.hasPrefix("▼") ? red : green)
-						}
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.padding(.horizontal, 20 * u)
-						.padding(.top, 10 * u)
-						.padding(.bottom, 6 * u)
-
-						RangeLineChart(range: range, tint: teal, authored: "SdChartLine", width: 345 * u, height: 76 * u)
+						if !demo { companyRow(u: u, live: live) }
+						priceBlock(u: u, f: f, live: live, demo: demo)
+						chart(u: u, demo: demo)
 						Spacer().frame(height: 40 * u)
 						RangePills(selected: $range, tint: teal, muted: muted)
-
 						VStack(spacing: 14 * u) {
+							// My STAK product spec (Sept 2026), V1 hierarchy: price and chart, then Since you saved, the
+							// company's own risks, the checkpoints ahead, and only then the evidence.
 							if fromMyStak {
-								SinceYouSavedCard(f: f)
+								SinceYouSavedCard(
+									f: f, symbol: symbol, live: live, reference: vm.savedReference,
+									referenceSettled: vm.savedReferenceSettled, detailSettled: vm.detailSettled,
+									changes: changes, unreadOnEntry: unreadOnEntry ?? []
+								)
 							}
-							RiskFitCard(f: f)
-							NumbersCard(f: f)
-							AnalystCard(f: f, open: $analystOpen)
-							NewsSignalCard(f: f)
-							CompareCard(f: f)
-							HStack(alignment: .top, spacing: 8 * u) {
-								Text("TIP")
-									.font(StakFont.geist(11 * u, .medium))
-									.foregroundStyle(Color(argb: 0xFF5BD7E4))
-								Text(f.tip)
-									.font(StakFont.geist(11 * u))
-									.foregroundStyle(muted)
-									.frame(width: 260 * u, alignment: .leading)
-								Spacer(minLength: 0)
+							if demo {
+								RiskFitCard(f: f, live: live)
+							} else {
+								RiskSnapshotCard(riskWatch: vm.riskWatch, failed: vm.riskWatchFailed)
+								WhatToWatchCard(riskWatch: vm.riskWatch, failed: vm.riskWatchFailed)
 							}
-							.padding(.horizontal, 12 * u)
-							.padding(.vertical, 10 * u)
-							.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
+							NewsSignalCard(f: f, live: live)
+							NumbersCard(f: f, live: live)
+							AnalystCard(f: f, live: live, open: $analystOpen)
+							CompareCard(f: f, live: live, symbol: symbol)
 							// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
 							LessonCard(lesson: StockLessons.lessonFor(f.symbol))
-							if let onOpenAi {
-								Button(action: onOpenAi) {
-									HStack(spacing: 12 * u) {
-										Image(systemName: "sparkles")
-											.font(.system(size: 14 * u))
-											.foregroundStyle(Color(argb: 0xFF69B3CA))
-										VStack(alignment: .leading, spacing: 2 * u) {
-											Text("Ask STAK AI")
-												.font(StakFont.geist(13 * u, .medium))
-												.foregroundStyle(StakColors.textPrimary)
-											Text("Get AI-powered insights about \(f.symbol)")
-												.font(StakFont.geist(11 * u))
-												.foregroundStyle(muted)
-										}
-										Spacer()
-										Image(systemName: "chevron.right")
-											.font(.system(size: 12 * u))
-											.foregroundStyle(muted)
-									}
-									.padding(14 * u)
-									.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
-								}
-								.buttonStyle(.pressDim)
-							}
 						}
 						.padding(.horizontal, 20 * u)
 						.padding(.vertical, 12 * u)
-
-						VStack(spacing: 10 * u) {
-							if fromMyStak {
-								DetailCta(text: "Practice buy") { showBuy = true }
-								// Codex audit (2026-09-04): Unsave drops the stock from the
-								// store so the Collection page and every count follow, then
-								// the authored Back -> Collection, Instant (16:1012).
-								// Mirrors android ui/discover/StockDetailScreen.kt.
-								DetailSecondary(text: "Unsave") {
-									// Unsave clears this run's deck save too (Codex review, PR #167).
-									DeckSession.shared.saved.remove(f.symbol)
-									MyStakHoldings.shared.remove(f.symbol); NewsSaves.shared.removeStories(ticker: f.symbol)
-									onBack()
-								}
-							} else if saved {
-								// A saved stock reads the same from every entry: the authored
-								// saved block (16:1012) - Practice buy + Unsave. The "Saved to
-								// My STAK" outline button was never in a frame (user, 2026-09-05).
-								// Unsave drops the stock from this run's saves and the holdings
-								// store and stays on the page with the Save CTA back. Mirrors android.
-								DetailCta(text: "Practice buy", action: practiceBuy)
-								DetailSecondary(text: "Unsave") {
-									saved = false
-									DeckSession.shared.saved.remove(f.symbol)
-									MyStakHoldings.shared.remove(f.symbol); NewsSaves.shared.removeStories(ticker: f.symbol)
-								}
-							} else {
-								// Authored (1:2382 -> 92:969, SMART_ANIMATE 350): the
-								// save-success sheet scale-fades in like the News one.
-								DetailCta(text: "Save") { withAnimation(.easeOut(duration: 0.35)) { showSuccess = true } }
-								DetailSecondary(text: "Practice buy", action: practiceBuy)
-							}
-						}
-						.padding(.horizontal, 20 * u)
-						.padding(.top, 4 * u)
-						.padding(.bottom, 16 * u)
+						actions(u: u, f: f, live: live, demo: demo)
 					}
 				}
+				.scrollIndicators(.hidden)
 				if showsBar {
-					// Authored (1:2579): the 86-tall shell bar sits fixed at
-					// the bottom of the viewport; its taps SWAP - pop the
-					// detail instantly and land on the tapped tab.
-					MainTabBar(selected: Binding<MainTab>(
-						get: { .discover },
-						set: { tapped in onTab?(tapped) }
-					))
+					// Authored (1:2579): the 86-tall shell bar, fixed at the bottom; its taps pop the detail and land
+					// on the tapped tab.
+					MainTabBar(selected: Binding<MainTab>(get: { .discover }, set: { tapped in onTab?(tapped) }))
 				}
 			}
 			.ignoresSafeArea(edges: showsBar ? .bottom : [])
 			if showSuccess {
 				DetailSavedSheet(
-					f: f,
-					// Unauthored scrim tap - keeps its instant dismiss-and-mark.
-					// The scrim dismiss saves like the two CTAs do (Codex review, PR #167).
-					onDismiss: { showSuccess = false; saved = true; DeckSession.shared.saved.insert(f.symbol); MyStakHoldings.shared.add(f.symbol) },
-					// Authored (92:969): View in My STAK -> Overview, the
-					// forward push; Keep exploring -> deck, dissolve 300 -
-					// the stock is marked saved before the page leaves.
+					f: f, symbol: symbol, live: live,
+					// The scrim dismiss saves like the two CTAs do - dismissing without either must not drop the save.
+					onDismiss: { showSuccess = false; save() },
+					// Authored (92:969): View in My STAK -> Overview, the forward push; Keep exploring -> deck,
+					// dissolve 300. add() is the authority: a refused save mustn't leave the page believing it's kept.
 					onViewInMyStak: {
-						saved = true
-						DeckSession.shared.saved.insert(f.symbol)
-						MyStakHoldings.shared.add(f.symbol)
+						save()
 						if let onViewInMyStak { onViewInMyStak() } else { showSuccess = false }
 					},
 					onKeepExploring: {
-						saved = true
-						DeckSession.shared.saved.insert(f.symbol)
-						MyStakHoldings.shared.add(f.symbol)
+						save()
 						if let onKeepExploring { onKeepExploring() } else { showSuccess = false }
 					}
 				)
-				// Authored entry (SMART_ANIMATE 350): the News sheet's
-				// scale-in - 0.92 -> 1 + fade, 350 ease-out.
+				// Authored entry (SMART_ANIMATE 350): 0.92 -> 1 + fade, 350 ease-out.
 				.transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
 			}
 			if showBuy {
 				DiscoverBuyFlow(
-					spec: f.buySpec,
-					onClose: { showBuy = false },
+					// The demo's own ticket until a live price exists (a stock without an authored one read "$0.00").
+					spec: live == nil && demo ? f.buySpec : liveBuySpec(symbol, live: live, f: f),
+					onClose: { withAnimation(.easeOut(duration: 0.3)) { showBuy = false } },
 					filledSecondary: "Done", ticketSecondary: "Back",
-					// Authored (71:949 / 71:994): View in My STAK -> Overview,
-					// the forward push.
+					// Authored (71:949 / 71:994): View in My STAK -> Overview, the forward push.
 					onFilledPrimary: {
-						if let onViewInMyStak { onViewInMyStak() } else { showBuy = false }
+						if let onViewInMyStak { onViewInMyStak() } else { withAnimation(.easeOut(duration: 0.3)) { showBuy = false } }
 					},
-					// Authored: Done -> the FOLDED detail (16:1012) - the
-					// sheet fades 300 and the Analyst section closes.
+					// Authored: Done -> the FOLDED detail (16:1012) - the sheet fades 300 and Analyst folds.
 					onFilledSecondary: {
 						analystOpen = false
 						withAnimation(.easeOut(duration: 0.3)) { showBuy = false }
 					},
-					// Authored (1:3423): the ticket's secondary -> detail,
-					// DISSOLVE 300.
+					// Authored (1:3423): the ticket's secondary -> detail, DISSOLVE 300.
 					onTicketSecondary: { withAnimation(.easeOut(duration: 0.3)) { showBuy = false } }
 				)
 				.transition(.opacity)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task(id: symbol) {
+			vm.fetch(symbol, needsReference: fromMyStak)
+			// The header's logo and the stock card names: the brand list Discover loads, fetched here if it hasn't.
+			await brandNames.ensure()
+		}
+		// Each pill draws that range's own closes; the demo keeps its authored line.
+		.task(id: "\(symbol):\(range)") { if !session.demoAccount { vm.selectRange(symbol, range) } }
+		// The price keeps moving while the page is in front: every 15 seconds - not while another page covers it or the
+		// app is in the background, and the wait restarts on returning (Android RefreshWhileVisible, no tick on resume).
+		.task(id: "\(symbol):\(isTop):\(scenePhase == .active)") {
+			guard !session.demoAccount, isTop, scenePhase == .active else { return }
+			while true {
+				do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+				vm.refreshQuote(symbol, range: range)
+			}
+		}
+		.onDisappear { vm.stop() }
+		// The saved sheet and the ticket hold the page: swiping back past them would drop a save (Android's Back
+		// closes the sheet first).
+		.preference(key: PageOverlayOpenKey.self, value: showSuccess || showBuy)
+		// Read state as it was on arrival, taken when the changes actually arrive (keyed on the symbol alone it caught
+		// a cold start's empty list); then marked read, once they're on screen.
+		.onChange(of: changes.map(\.id), initial: true) { _, ids in
+			guard unreadOnEntry == nil, !ids.isEmpty else { return }
+			unreadOnEntry = Set(changes.filter { !$0.read }.map(\.id))
+			if fromMyStak { myStakVM.markCompanyRead(symbol) }
+		}
+		.task(id: stakFullShownAt) {
+			guard stakFullShownAt != nil else { return }
+			try? await Task.sleep(nanoseconds: 3_000_000_000)
+			guard !Task.isCancelled else { return }
+			stakFullShownAt = nil
+		}
 	}
 
-	/// Authored (1:2382): the Discover entry's Practice buy leaves the
-	/// detail for the Simulate tab, Instant - not a ticket; only the
-	/// My STAK entry raises the in-page ticket (16:1012).
+	// MARK: - Top of the page
+
+	/// The company the way the design concept introduces it: its mark, its name, the ticker and STAK's category for
+	/// it - and whether it's in the reader's STAK.
+	private func companyRow(u: CGFloat, live: LiveDetail?) -> some View {
+		HStack(spacing: 12 * u) {
+			ZStack {
+				RoundedRectangle(cornerRadius: 12 * u).fill(Color(argb: 0xFF242B3D))
+				if let logo = brandNames.logoByTicker[symbol.uppercased()], let url = URL(string: logo) {
+					AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+						.frame(width: 30 * u, height: 30 * u)
+				} else {
+					Text(String((live?.name ?? symbol).prefix(1)).uppercased())
+						.font(StakFont.sora(18 * u, .semiBold))
+						.foregroundStyle(muted)
+				}
+			}
+			.frame(width: 44 * u, height: 44 * u)
+			.accessibilityHidden(true)
+			VStack(alignment: .leading, spacing: 2 * u) {
+				Text(live?.name ?? symbol)
+					.font(StakFont.sora(20 * u, .semiBold))
+					.foregroundStyle(Color.white)
+					.lineLimit(1)
+				// The category the deck ranked this save on - STAK's own grouping, so it says so rather than passing
+				// for the company's industry.
+				Text(holdings.categoryOf(symbol).map { "\(symbol) · in your \(categoryName($0))" } ?? symbol)
+					.font(StakFont.geist(11 * u))
+					.foregroundStyle(muted)
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+			if saved || holdings.tickers.contains(symbol.uppercased()) {
+				HStack(spacing: 5 * u) {
+					Image("IcSavedBookmark").resizable().frame(width: 10 * u, height: 10 * u)
+					Text("Saved")
+						.font(StakFont.geist(11 * u, .medium))
+						.foregroundStyle(iconTint)
+				}
+				.padding(.horizontal, 10 * u)
+				.padding(.vertical, 5 * u)
+				.background(Color(argb: 0x1F5DA8BF), in: Capsule())
+			}
+		}
+		.padding(.horizontal, 20 * u)
+		.padding(.top, 6 * u)
+		.accessibilityElement(children: .combine)
+	}
+
+	private func priceBlock(u: CGFloat, f: DetailFacts, live: LiveDetail?, demo: Bool) -> some View {
+		let price = live?.price ?? f.price
+		// The figure follows the selected pill: a red line for the year above a green "today" was two periods
+		// stacked with nothing to tell them apart.
+		let change: String = {
+			if range != "1D", let pct = vm.chartPct { return rangeChangeText(pct, range) }
+			return StakClock.sessionChange(live?.change ?? f.change)
+		}()
+		// When the price was fetched: a page opened from the cache looks just like a live one until the new figures land.
+		let asOf: String? = {
+			if demo { return nil }
+			if vm.quotePending && live != nil { return "Updating\u{2026}" }
+			guard let at = vm.priceAt else { return nil }
+			let text = StakClock.pricesAsOf(at)
+			return text.prefix(1).uppercased() + text.dropFirst()
+		}()
+		let caption = demo ? (live?.name.map { "\(symbol) · \($0)" } ?? f.title) : (asOf ?? "")
+		return VStack(alignment: .leading, spacing: 4 * u) {
+			// A blank line still takes its line, so the price doesn't jump as the caption arrives or changes.
+			Text(caption.isEmpty ? " " : caption)
+				.font(StakFont.geist(11 * u))
+				.foregroundStyle(muted)
+				.lineLimit(1)
+			Text(price)
+				.font(StakFont.sora(26 * u, .semiBold))
+				.foregroundStyle(bright)
+			Text(change.isEmpty ? " " : change)
+				.font(StakFont.geist(12 * u, .medium))
+				.foregroundStyle(change.hasPrefix("▼") ? red : green)
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(.horizontal, 20 * u)
+		.padding(.top, 10 * u)
+		.padding(.bottom, 6 * u)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel([caption, price == "—" ? "Price loading" : price, spokenMove(change)].filter { !$0.isEmpty }.joined(separator: ", "))
+	}
+
+	@ViewBuilder
+	private func chart(u: CGFloat, demo: Bool) -> some View {
+		if demo {
+			RangeLineChart(range: range, tint: teal, authored: "SdChartLine", width: 345 * u, height: 76 * u)
+		} else if let series = vm.chartSeries {
+			// The line's colour is the range's verdict: green where it ends above where it started, red below.
+			LiveLine(series: series, tint: (vm.chartPct ?? 0) < 0 ? red : green)
+				.frame(width: 345 * u, height: 76 * u)
+				.accessibilityLabel("Price chart, " + (vm.chartPct.map { spokenMove(rangeChangeText($0, range)) } ?? rangeSpoken[range, default: range]))
+		} else {
+			// This stock's own closes; a range with no prices draws nothing - an invented shape would read as history.
+			ZStack {
+				if vm.chartNoMovementYet {
+					Text("Not much movement yet today").font(StakFont.geist(11 * u)).foregroundStyle(muted)
+				} else if vm.chartMissing {
+					Text("No price history for this range").font(StakFont.geist(11 * u)).foregroundStyle(muted)
+				}
+			}
+			.frame(width: 345 * u, height: 76 * u)
+		}
+	}
+
+	// MARK: - Actions
+
+	private func actions(u: CGFloat, f: DetailFacts, live: LiveDetail?, demo: Bool) -> some View {
+		// No price yet, no ticket: it would open priced "$0.00".
+		let priceReady = demo || (live.map { $0.price != "—" } ?? false)
+		return VStack(spacing: 10 * u) {
+			// STAK AI (2026-10-01): the chat about this stock, "Why is it moving today?" its first suggestion - not
+			// asked on tap, since every answer spends one of the account's questions.
+			if let onOpenAi, !demo {
+				AskAiCard(title: "Why is \(symbol) moving?", subtitle: "Ask STAK AI · plain English, today's numbers", onOpen: onOpenAi)
+			}
+			if fromMyStak {
+				// Simulation belongs in Simulate, with this company prefilled (My STAK product spec, Sept 2026); the demo
+				// keeps its in-page ticket.
+				if !demo, let onPracticeInSimulate {
+					DetailCta(text: "Practice with \(live?.name ?? symbol) · paper money") {
+						PendingSimBuy.request(symbol, company: live?.name ?? symbol)
+						onPracticeInSimulate()
+					}
+				} else {
+					DetailCta(text: "Practice buy", enabled: priceReady) { showBuy = true }
+				}
+				// Unsave drops the stock everywhere (deck saves, holdings, its saved stories), then Back -> Collection.
+				DetailSecondary(text: "Unsave") {
+					unsave()
+					onBack()
+				}
+			} else if saved {
+				// A saved stock reads the same from every entry: Practice buy + Unsave; Unsave stays on the page.
+				DetailCta(text: "Practice buy", enabled: priceReady, action: practiceBuy)
+				DetailSecondary(text: "Unsave") {
+					saved = false
+					unsave()
+				}
+			} else {
+				// The sheet this opens says "Saved to My STAK" before the save is attempted, so a full Stak mustn't
+				// reach it - and must say why rather than leave the button doing nothing.
+				DetailCta(text: "Save") {
+					if holdings.isFull {
+						stakFullShownAt = Date()
+						UINotificationFeedbackGenerator().notificationOccurred(.warning)
+						AccessibilityNotification.Announcement(stakFullMessage).post()
+					} else {
+						withAnimation(.easeOut(duration: 0.35)) { showSuccess = true }
+					}
+				}
+				if stakFullShownAt != nil {
+					Text(stakFullMessage)
+						.font(StakFont.geist(11 * u))
+						.foregroundStyle(muted)
+						.frame(maxWidth: .infinity)
+						.multilineTextAlignment(.center)
+				}
+				DetailSecondary(text: "Practice buy", enabled: priceReady, action: practiceBuy)
+			}
+		}
+		.padding(.horizontal, 20 * u)
+		.padding(.top, 4 * u)
+		.padding(.bottom, 16 * u)
+	}
+
+	private func save() {
+		saved = holdings.add(symbol)
+		if saved {
+			DeckSession.shared.saved.insert(symbol)
+			UIImpactFeedbackGenerator(style: .light).impactOccurred()
+		}
+	}
+
+	private func unsave() {
+		DeckSession.shared.saved.remove(symbol)
+		holdings.remove(symbol)
+		NewsSaves.shared.removeStories(ticker: symbol)
+	}
+
+	/// Authored (1:2382): the Discover entry's Practice buy leaves for the Simulate tab - a dead end unless the stock is
+	/// one of the account's saves, when the in-page ticket serves it.
 	private func practiceBuy() {
-		if !fromMyStak, let onPracticeBuyToSimulate, hopsToSimulate(symbol) {
+		if let onPracticeBuyToSimulate, hopsToSimulate(symbol) {
+			// Simulate opens with this stock waiting, as the My STAK entry's "Practice with" does.
+			if !session.demoAccount { PendingSimBuy.request(symbol, company: vm.liveDetail?.name ?? symbol) }
 			onPracticeBuyToSimulate()
 		} else {
 			showBuy = true
@@ -285,8 +433,75 @@ struct StockDetailView: View {
 	}
 }
 
+// MARK: - Pieces
+
+/// A live price line: the series (fractions of the height, 0 = bottom) spread across the width, a 2-wide round stroke.
+private struct LiveLine: View {
+	let series: [CGFloat]
+	let tint: Color
+
+	var body: some View {
+		let u = figmaUnit
+		GeometryReader { geo in
+			RangeLineChart.linePath(series, in: geo.size)
+				.stroke(tint, style: StrokeStyle(lineWidth: 2 * u, lineCap: .round, lineJoin: .round))
+		}
+	}
+}
+
+/// A card header's icon: the glyph on a rounded square of its own tint. Android's StakIconTile (ui/mystak).
+struct StakIconTile: View {
+	let icon: String
+	let tint: Color
+	var size: CGFloat = 34
+	var glyph: CGFloat = 20
+
+	var body: some View {
+		let u = figmaUnit
+		Image(icon)
+			.resizable()
+			.frame(width: glyph * u, height: glyph * u)
+			.frame(width: size * u, height: size * u)
+			.background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 10 * u))
+			.accessibilityHidden(true)
+	}
+}
+
+/// A card's title row: its icon tile and Sora 15 name.
+private struct CardTitle: View {
+	let icon: String
+	let title: String
+	var tint: Color = iconTint
+	var tileSize: CGFloat = 28
+	var glyph: CGFloat = 16
+
+	var body: some View {
+		let u = figmaUnit
+		HStack(spacing: 10 * u) {
+			StakIconTile(icon: icon, tint: tint, size: tileSize, glyph: glyph)
+			Text(title)
+				.font(StakFont.sora(15 * u, .semiBold))
+				.foregroundStyle(bright)
+				.accessibilityAddTraits(.isHeader)
+		}
+	}
+}
+
+private extension View {
+	/// The page's card: #181F30 r16, 16/14 padding.
+	func detailCard() -> some View {
+		let u = figmaUnit
+		return self
+			.padding(.horizontal, 16 * u)
+			.padding(.vertical, 14 * u)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
+	}
+}
+
 private struct DetailCta: View {
 	let text: String
+	var enabled = true
 	let action: () -> Void
 
 	var body: some View {
@@ -301,14 +516,16 @@ private struct DetailCta: View {
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u))
 		}
 		.buttonStyle(.pressDim)
+		.disabled(!enabled)
+		.opacity(enabled ? 1 : 0.5)
 	}
 }
 
-/// Hairline secondary. The page CTA (1:2568) authors Sora 13; the save-success
-/// sheet's "Keep exploring" (92:1205) authors Sora 14 - exact-design audit
-/// 2026-09-04. `size` is declared last (memberwise order); callers pass it last.
+/// Hairline secondary. The page CTA (1:2568) authors Sora 13; the save-success sheet's "Keep exploring" (92:1205)
+/// authors Sora 14 - exact-design audit 2026-09-04. `size` is declared last (memberwise order).
 private struct DetailSecondary: View {
 	let text: String
+	var enabled = true
 	let action: () -> Void
 	var size: CGFloat = 13
 
@@ -321,14 +538,16 @@ private struct DetailSecondary: View {
 				.frame(maxWidth: .infinity)
 				.frame(height: 52 * u * typeScale)
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
+				.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressDim)
+		.disabled(!enabled)
+		.opacity(enabled ? 1 : 0.5)
 	}
 }
 
-/// Kicker label — Geist 10, tracking 0.8, muted. 1:2653 "PRICE TARGET RANGE"
-/// authors Regular; the consensus / RECENT ACTIONS kickers (1:2668 / 1:2675)
-/// author Medium - exact-design audit 2026-09-04. `weight` declared last.
+/// Kicker label - Geist 10, tracking 0.8, muted. 1:2653 "PRICE TARGET RANGE" authors Regular; the consensus / RECENT
+/// ACTIONS kickers author Medium - exact-design audit 2026-09-04.
 private struct Kicker: View {
 	let text: String
 	var weight: StakFont.Weight = .medium
@@ -342,11 +561,141 @@ private struct Kicker: View {
 	}
 }
 
-private struct RiskFitCard: View {
-	let f: DetailFacts
+// MARK: - Risk
+
+/// Risk snapshot - what could go wrong at THIS company, and how big each is. It replaced "Risk fit / Matches you",
+/// which claimed to know whether a stock suited the reader (My STAK product spec, §7).
+private struct RiskSnapshotCard: View {
+	let riskWatch: RiskWatchResponse?
+	let failed: Bool
 
 	var body: some View {
 		let u = figmaUnit
+		let risks = riskWatch?.risks ?? []
+		VStack(alignment: .leading, spacing: (risks.isEmpty && !failed ? 10 : 12) * u) {
+			CardTitle(icon: "IcRiskShield", title: "Risk snapshot", tint: Color(argb: 0xFFE8B86D))
+			if risks.isEmpty && !failed {
+				// Still reading: the card keeps its place rather than appearing later and shoving the page down.
+				Text("Reading this company's risks\u{2026}")
+					.font(StakFont.geist(12 * u))
+					.foregroundStyle(muted)
+			} else {
+				// Not "what to understand before you act": the reader isn't necessarily about to do anything.
+				Text("What could go wrong at this company")
+					.font(StakFont.geist(11 * u))
+					.foregroundStyle(muted)
+				if risks.isEmpty {
+					// A failed read is STAK's problem, not a statement about the company.
+					Text("STAK couldn't load this company's risks right now - that doesn't mean it has none.")
+						.font(StakFont.geist(12 * u))
+						.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(muted)
+						.fixedSize(horizontal: false, vertical: true)
+				} else {
+					ForEach(Array(risks.enumerated()), id: \.offset) { _, risk in
+						VStack(alignment: .leading, spacing: 4 * u) {
+							HStack {
+								Text(risk.label)
+									.font(StakFont.geist(13 * u, .medium))
+									.foregroundStyle(Color.white)
+								Spacer(minLength: 8 * u)
+								// Only where a figure rates it: measured from beta or P/E against peers, never guessed.
+								if let level = risk.level { RiskLevelChip(level: level) }
+							}
+							Text(risk.note)
+								.font(StakFont.geist(11 * u))
+								.stakLineHeight(15 * u, size: 11 * u, face: .geist)
+								.foregroundStyle(muted)
+								.fixedSize(horizontal: false, vertical: true)
+						}
+						.accessibilityElement(children: .combine)
+					}
+				}
+			}
+		}
+		.detailCard()
+	}
+}
+
+/// Elevated / Moderate / Lower - how much of this risk the figures show. Never green: the good/bad palette on a risk
+/// chip reads as "safe to buy", the suitability signal removing "Risk fit" was meant to end.
+private struct RiskLevelChip: View {
+	let level: String
+
+	var body: some View {
+		let u = figmaUnit
+		let (bg, ink): (Color, Color) = switch level {
+		case "Elevated": (Color(argb: 0x33E8B86D), Color(argb: 0xFFE8C08A))
+		case "Lower": (Color(argb: 0x142A3346), muted)
+		default: (Color(argb: 0x1F3A465E), Color(argb: 0xFFC8D2E0))
+		}
+		Text(level)
+			.font(StakFont.geist(11 * u, .medium))
+			.foregroundStyle(ink)
+			.padding(.horizontal, 10 * u)
+			.padding(.vertical, 3 * u)
+			.background(bg, in: Capsule())
+	}
+}
+
+/// What to watch next - the two or three checkpoints that decide how the company's story goes. Never a prediction,
+/// and never ten catalysts: narrowing is the point.
+private struct WhatToWatchCard: View {
+	let riskWatch: RiskWatchResponse?
+	let failed: Bool
+
+	var body: some View {
+		let u = figmaUnit
+		let watch = riskWatch?.watch ?? []
+		// Nothing came back for this company: no card, rather than an empty one.
+		if !(watch.isEmpty && (failed || riskWatch != nil)) {
+			VStack(alignment: .leading, spacing: (watch.isEmpty ? 10 : 12) * u) {
+				CardTitle(icon: "IcRiskEye", title: "What to watch next")
+				if watch.isEmpty {
+					Text("Working out what matters next\u{2026}")
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(muted)
+				} else {
+					Text("Key questions to follow")
+						.font(StakFont.geist(11 * u))
+						.foregroundStyle(muted)
+					ForEach(Array(watch.enumerated()), id: \.offset) { i, item in
+						HStack(alignment: .top, spacing: 10 * u) {
+							Text(String(format: "%02d", i + 1))
+								.font(StakFont.geist(10 * u, .medium))
+								.foregroundStyle(iconTint)
+								.frame(width: 24 * u * typeScale, height: 24 * u * typeScale)
+								.background(Color(argb: 0x1F5DA8BF), in: RoundedRectangle(cornerRadius: 8 * u))
+								.accessibilityHidden(true)
+							VStack(alignment: .leading, spacing: 2 * u) {
+								Text(item.title)
+									.font(StakFont.geist(13 * u, .medium))
+									.foregroundStyle(Color.white)
+									.fixedSize(horizontal: false, vertical: true)
+								Text(item.note)
+									.font(StakFont.geist(11 * u))
+									.stakLineHeight(15 * u, size: 11 * u, face: .geist)
+									.foregroundStyle(muted)
+									.fixedSize(horizontal: false, vertical: true)
+							}
+						}
+						.accessibilityElement(children: .combine)
+					}
+				}
+			}
+			.detailCard()
+		}
+	}
+}
+
+/// The demo's Risk fit card (the live page reads Risk snapshot instead).
+private struct RiskFitCard: View {
+	let f: DetailFacts
+	let live: LiveDetail?
+
+	var body: some View {
+		let u = figmaUnit
+		let fit = riskFitFor(f, live: live)
 		VStack(alignment: .leading, spacing: 12 * u) {
 			// 1:2427 authors a 24-tall head row - exact-design audit 2026-09-04.
 			HStack {
@@ -354,58 +703,129 @@ private struct RiskFitCard: View {
 					.font(StakFont.sora(15 * u, .semiBold))
 					.foregroundStyle(bright)
 				Spacer()
-				Text(riskFitFor(f).0)
+				Text(fit.0)
 					.font(StakFont.geist(11 * u, .medium))
-					.foregroundStyle(Color(argb: 0xFFA6E4F7))
+					.foregroundStyle(iconTint)
 					.padding(.horizontal, 10 * u)
 					.padding(.vertical, 4 * u)
 					.background(Color(argb: 0x1F5DA8BF), in: Capsule())
 			}
 			.frame(height: 24 * u * typeScale)
-			// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
-			ZStack(alignment: .topLeading) {
-				Color.clear.frame(height: 8 * u)
-				RoundedRectangle(cornerRadius: 4 * u)
-					.fill(Color(argb: 0xFFA6E4F7))
-					.frame(width: 14 * u, height: 8 * u)
-					.offset(x: f.riskPillX * u)
+			// A scale to read the marker against, with a midpoint tick for the market itself (beta 1.0) - "more" and
+			// "less than the market" are measured from it. The marker sits at a fraction of the measured width.
+			GeometryReader { geo in
+				let pill = 14 * u
+				let fraction = min(1, max(0, (live?.riskPillX ?? Double(f.riskPillX)) / 289))
+				ZStack(alignment: .leading) {
+					RoundedRectangle(cornerRadius: 2 * u).fill(Color(argb: 0xFF2A3346)).frame(height: 4 * u)
+					Rectangle().fill(Color(argb: 0xFF3A465E)).frame(width: 2 * u, height: 8 * u)
+						.offset(x: (geo.size.width - 2 * u) / 2)
+					RoundedRectangle(cornerRadius: 4 * u).fill(iconTint).frame(width: pill, height: 8 * u)
+						.offset(x: (geo.size.width - pill) * fraction)
+				}
+				.frame(height: 8 * u)
 			}
+			.frame(height: 8 * u)
 			HStack {
 				Text("Low").font(StakFont.geist(10 * u)).foregroundStyle(muted)
 				Spacer()
+				// Names what the midpoint tick is, so "moves more than the market" has something to point at.
+				Text("Market").font(StakFont.geist(10 * u)).foregroundStyle(muted)
+				Spacer()
 				Text("High").font(StakFont.geist(10 * u)).foregroundStyle(muted)
 			}
-			Text(riskFitFor(f).1)
+			Text(fit.1)
 				.font(StakFont.geist(11 * u))
 				.foregroundStyle(muted)
+				.fixedSize(horizontal: false, vertical: true)
 		}
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
+		.detailCard()
+	}
+}
+
+// MARK: - Evidence
+
+private struct NewsSignalCard: View {
+	let f: DetailFacts
+	let live: LiveDetail?
+
+	var body: some View {
+		let u = figmaUnit
+		let close = live?.newsClose ?? f.newsClose
+		let signal = live?.newsSignal ?? f.newsSignal
+		let earnings = live?.earningsStr ?? f.newsEarnings
+		let sources = live?.newsSources ?? f.newsSources.map { NewsSourceTag(source: $0.0, tag: $0.1) }
+		VStack(alignment: .leading, spacing: 12 * u) {
+			CardTitle(icon: "IcTabNews", title: "News signal")
+			Text(close)
+				.font(StakFont.geist(11 * u, .medium))
+				.foregroundStyle(close.hasPrefix("▼") ? red : green)
+			Text(signal)
+				.font(StakFont.geist(11 * u))
+				.foregroundStyle(muted)
+				.fixedSize(horizontal: false, vertical: true)
+			Text(earnings)
+				.font(StakFont.geist(11 * u))
+				.foregroundStyle(muted)
+			ScrollView(.horizontal, showsIndicators: false) {
+				HStack(spacing: 12 * u) {
+					ForEach(Array(sources.enumerated()), id: \.offset) { i, src in
+						VStack(alignment: .leading, spacing: 8 * u) {
+							HStack {
+								Text(src.source).font(StakFont.geist(10 * u)).foregroundStyle(muted)
+								Spacer()
+								Text(src.tag)
+									.font(StakFont.geist(10 * u, .medium))
+									.foregroundStyle(muted)
+									.padding(.horizontal, 8 * u)
+									.padding(.vertical, 3 * u)
+									.background(Color(argb: 0x14FFFFFF), in: Capsule())
+							}
+							Text(live?.newsHeadlines.flatMap { i < $0.count ? $0[i] : nil } ?? (i == 0 ? f.newsHeadline : f.newsHeadline2))
+								.font(StakFont.geist(12 * u))
+								.foregroundStyle(bright)
+								.frame(width: 173 * u, alignment: .leading)
+								.fixedSize(horizontal: false, vertical: true)
+						}
+						.padding(12 * u)
+						.frame(width: 205 * u, alignment: .leading)
+						.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
+						.accessibilityElement(children: .combine)
+					}
+				}
+			}
+		}
+		.detailCard()
 	}
 }
 
 private struct NumbersCard: View {
 	let f: DetailFacts
+	let live: LiveDetail?
 
 	var body: some View {
 		let u = figmaUnit
+		let stats: [DetailStat] = f.stats.enumerated().map { i, st in
+			guard let live else { return st }
+			let value = [live.peRatioValue, live.revenueGrowthValue, live.profitMarginValue][min(i, 2)]
+			let verdict = live.statVerdicts.flatMap { i < $0.count ? $0[i] : nil }
+			return DetailStat(
+				label: st.label,
+				value: (i < 3 ? value : nil) ?? st.value,
+				verdict: verdict.flatMap { $0.text.isEmpty ? nil : $0.text } ?? st.verdict,
+				good: verdict?.good ?? st.good,
+				border: st.border
+			)
+		}
 		VStack(alignment: .leading, spacing: 12 * u) {
-			Text("Numbers that matter")
-				.font(StakFont.sora(15 * u, .semiBold))
-				.foregroundStyle(bright)
+			CardTitle(icon: "IcGistInfo", title: "Numbers that matter")
 			HStack(spacing: 8 * u) {
-				ForEach(f.stats, id: \.label) { st in
+				ForEach(Array(stats.enumerated()), id: \.offset) { _, st in
 					StatCell(label: st.label, value: st.value, verdict: st.verdict, verdictColor: st.good ? green : muted, border: st.border)
 				}
 			}
-			Text("Tap a stat for sector and peer benchmarks")
-				.font(StakFont.geist(10 * u))
-				.foregroundStyle(muted)
 		}
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
+		.detailCard()
 	}
 }
 
@@ -426,385 +846,430 @@ private struct StatCell: View {
 		.padding(10 * u)
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
-		.overlay(
-			border
-				? RoundedRectangle(cornerRadius: 12 * u).strokeBorder(Color(argb: 0xFF212D4B), lineWidth: 1 * u)
-				: nil
-		)
+		.overlay(border ? RoundedRectangle(cornerRadius: 12 * u).strokeBorder(Color(argb: 0xFF212D4B), lineWidth: 1 * u) : nil)
+		.accessibilityElement(children: .combine)
 	}
 }
 
-/// Analyst view (collapsed 1:2454 / open 1:2651) — caret toggles; the open
-/// flag is hoisted so the page can compose the 1:2579 tab bar and fold the
-/// section when the buy receipt's Done lands on the folded frame (16:1012).
+/// Analyst view (collapsed 1:2454 / open 1:2651) - the caret toggles; the open flag is hoisted so the page can compose
+/// the 1:2579 tab bar and fold the section when the buy receipt's Done lands.
 private struct AnalystCard: View {
 	let f: DetailFacts
+	let live: LiveDetail?
 	@Binding var open: Bool
 
 	var body: some View {
 		let u = figmaUnit
-		VStack(alignment: .leading, spacing: 12 * u) {
-			// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
-			HStack {
-				Text("Analyst view")
-					.font(StakFont.sora(15 * u, .semiBold))
+		let upside = live?.upside ?? f.upside
+		Button { open.toggle() } label: {
+			VStack(alignment: .leading, spacing: 12 * u) {
+				// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
+				HStack(spacing: 0) {
+					StakIconTile(icon: "GoalSearch", tint: iconTint, size: 22, glyph: 13)
+					Spacer().frame(width: 10 * u)
+					Text("Analyst view")
+						.font(StakFont.sora(15 * u, .semiBold))
+						.foregroundStyle(bright)
+					Spacer()
+					// The caret stays when open, flipped into a drop-up so it reads as folding back (user, 2026-09-06).
+					Image("IcSdCaret")
+						.resizable()
+						.frame(width: 20 * u, height: 20 * u)
+						.rotationEffect(.degrees(open ? 180 : 0))
+				}
+				.frame(minHeight: open ? nil : 22 * u * typeScale)
+				if !open {
+					Text(upside).font(StakFont.geist(11 * u, .medium)).foregroundStyle(upside.hasPrefix("↓") ? muted : green)
+				} else {
+					openContent(u: u, upside: upside)
+				}
+			}
+			.detailCard()
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.pressDim)
+		.accessibilityValue(open ? "Expanded" : "Collapsed")
+	}
+
+	@ViewBuilder
+	private func openContent(u: CGFloat, upside: String) -> some View {
+		let marker = live?.targetMarkerX ?? Double(f.targetMarkerX)
+		let buyBar = live?.buyBarW ?? Double(f.buyBarW)
+		let actions = live?.actions ?? f.actions.map { AnalystRow(firm: $0.0, action: $0.1, target: $0.2) }
+		Kicker(text: "PRICE TARGET RANGE", weight: .regular)
+		// The track spans the row whose Low/Avg/High labels it sits over, so the marker sits above the Avg it marks;
+		// it keeps its 0...166 scale as a fraction of the real width.
+		GeometryReader { geo in
+			let pill = 14 * u
+			ZStack(alignment: .leading) {
+				RoundedRectangle(cornerRadius: 4 * u).fill(Color(argb: 0x8C5DA8BF))
+				RoundedRectangle(cornerRadius: 4 * u).fill(iconTint).frame(width: pill)
+					.offset(x: (geo.size.width - pill) * min(1, max(0, marker / 166)))
+			}
+		}
+		.frame(height: 8 * u)
+		HStack {
+			targetColumn("Low", live?.targetLow ?? f.targetLow, .leading, u: u)
+			Spacer()
+			targetColumn("Avg", live?.targetAvg ?? f.targetAvg, .center, u: u)
+			Spacer()
+			targetColumn("High", live?.targetHigh ?? f.targetHigh, .trailing, u: u)
+		}
+		Text(upside).font(StakFont.geist(11 * u, .medium)).foregroundStyle(upside.hasPrefix("↓") ? muted : green)
+		Kicker(text: live?.consensus ?? f.consensus)
+		// A real track (it was painted in the card's own colour, so only the green fill showed), and the fill's share
+		// measured against the bar's actual width.
+		GeometryReader { geo in
+			ZStack(alignment: .leading) {
+				Color(argb: 0xFF2A3346)
+				RoundedRectangle(cornerRadius: 4 * u).fill(green).frame(width: geo.size.width * min(1, max(0, buyBar / 318)))
+			}
+			.clipShape(RoundedRectangle(cornerRadius: 4 * u))
+		}
+		.frame(height: 8 * u)
+		HStack {
+			Text(live?.buyCount ?? f.buyCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(green)
+			Spacer()
+			Text(live?.holdCount ?? f.holdCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(muted)
+			Spacer()
+			Text(live?.sellCount ?? f.sellCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(muted)
+		}
+		Kicker(text: "RECENT ACTIONS")
+		ForEach(Array(actions.enumerated()), id: \.offset) { _, row in
+			// Fixed columns for the rating and the target, so the targets line up down the list.
+			HStack(spacing: 0) {
+				Text(row.firm)
+					.font(StakFont.geist(12 * u, .medium))
 					.foregroundStyle(bright)
-				Spacer()
-				// The caret stays when the card is open, flipped into a drop-up so the user
-				// sees it folds back (user, 2026-09-06); the open frames (1:2651 / 1:2719)
-				// author none. Mirrors Android.
-				Image("IcSdCaret")
-					.resizable()
-					.frame(width: 20 * u, height: 20 * u)
-					.rotationEffect(.degrees(open ? 180 : 0))
-			}
-			.frame(height: open ? nil : 22 * u * typeScale)
-			if !open {
-				Text(f.upside)
+					.lineLimit(1)
+					.frame(maxWidth: .infinity, alignment: .leading)
+				Text(row.action)
 					.font(StakFont.geist(11 * u, .medium))
-					.foregroundStyle(green)
-			} else {
-				Kicker(text: "PRICE TARGET RANGE", weight: .regular)
-				// 1:2656: a 14 circle at y-3 inside the 8-tall clipped track renders as
-				// a 14x8 cap over the 180 fill - exact-design audit 2026-09-04 (was 13).
-				ZStack(alignment: .topLeading) {
-					Color.clear.frame(height: 8 * u)
-					RoundedRectangle(cornerRadius: 4 * u)
-						.fill(Color(argb: 0x8C5DA8BF))
-						.frame(width: 180 * u, height: 8 * u)
-					RoundedRectangle(cornerRadius: 4 * u)
-						.fill(Color(argb: 0xFFA6E4F7))
-						.frame(width: 14 * u, height: 8 * u)
-						.offset(x: f.targetMarkerX * u)
-				}
-				HStack {
-					VStack(alignment: .leading, spacing: 1 * u) {
-						Text("Low").font(StakFont.geist(10 * u)).foregroundStyle(muted)
-						Text(f.targetLow).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
-					}
-					Spacer()
-					VStack(spacing: 1 * u) {
-						Text("Avg").font(StakFont.geist(10 * u)).foregroundStyle(muted)
-						Text(f.targetAvg).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
-					}
-					Spacer()
-					VStack(alignment: .trailing, spacing: 1 * u) {
-						Text("High").font(StakFont.geist(10 * u)).foregroundStyle(muted)
-						Text(f.targetHigh).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
-					}
-				}
-				Text(f.upside)
-					.font(StakFont.geist(11 * u, .medium))
-					.foregroundStyle(green)
-				Kicker(text: f.consensus)
-				// 1:2669 authors the consensus track in the card's own #181F30 (the
-				// render shows only the green fill) - exact-design audit 2026-09-04.
-				ZStack(alignment: .leading) {
-					RoundedRectangle(cornerRadius: 4 * u).fill(card).frame(height: 8 * u)
-					RoundedRectangle(cornerRadius: 4 * u).fill(green).frame(width: f.buyBarW * u, height: 8 * u)
-				}
-				HStack {
-					Text(f.buyCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(green)
-					Spacer()
-					Text(f.holdCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(muted)
-					Spacer()
-					Text(f.sellCount).font(StakFont.geist(11 * u, .medium)).foregroundStyle(muted)
-				}
-				Kicker(text: "RECENT ACTIONS")
-				ForEach(
-					f.actions,
-					id: \.0
-				) { name, action, target in
-					HStack {
-						Text(name).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
-						Spacer()
-						Text(action)
-							.font(StakFont.geist(11 * u, .medium))
-							.foregroundStyle(action == "Buy" ? green : muted)
-						Spacer().frame(width: 10 * u)
-						Text(target).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
-					}
-					.padding(.horizontal, 12 * u)
-					.frame(height: 38 * u * typeScale)
-					// 1:2676..1:2696 author the rows in the card's own #181F30 (flat in
-					// the render, no darker wells) - exact-design audit 2026-09-04.
-					.background(card, in: RoundedRectangle(cornerRadius: 10 * u))
-				}
+					.foregroundStyle(bullishActions.contains(row.action) ? green : muted)
+					.lineLimit(1)
+					.frame(width: 64 * u * typeScale, alignment: .trailing)
+				Spacer().frame(width: 10 * u)
+				Text(row.target)
+					.font(StakFont.geist(12 * u, .medium))
+					.foregroundStyle(bright)
+					.lineLimit(1)
+					.frame(width: 52 * u * typeScale, alignment: .trailing)
 			}
+			.padding(.horizontal, 12 * u)
+			.frame(height: 38 * u * typeScale)
+			// 1:2676..1:2696 author the rows in the card's own #181F30 - exact-design audit 2026-09-04.
+			.background(card, in: RoundedRectangle(cornerRadius: 10 * u))
+			.accessibilityElement(children: .combine)
 		}
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
-		.contentShape(Rectangle())
-		.onTapGesture { open.toggle() }
+	}
+
+	private func targetColumn(_ label: String, _ value: String, _ alignment: HorizontalAlignment, u: CGFloat) -> some View {
+		VStack(alignment: alignment, spacing: 1 * u) {
+			Text(label).font(StakFont.geist(10 * u)).foregroundStyle(muted)
+			Text(value).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
+		}
+		.accessibilityElement(children: .combine)
 	}
 }
 
-private struct NewsSignalCard: View {
-	let f: DetailFacts
-
-	var body: some View {
-		let u = figmaUnit
-		VStack(alignment: .leading, spacing: 12 * u) {
-			Text("News signal")
-				.font(StakFont.sora(15 * u, .semiBold))
-				.foregroundStyle(bright)
-			Text(f.newsClose)
-				.font(StakFont.geist(11 * u, .medium))
-				.foregroundStyle(green)
-			Text(f.newsSignal)
-				.font(StakFont.geist(11 * u))
-				.foregroundStyle(muted)
-			Text(f.newsEarnings)
-				.font(StakFont.geist(11 * u))
-				.foregroundStyle(muted)
-			ScrollView(.horizontal, showsIndicators: false) {
-				HStack(spacing: 12 * u) {
-					ForEach(f.newsSources, id: \.0) { src, tag in
-						newsChip(source: src, tag: tag)
-					}
-				}
-			}
-		}
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
-	}
-
-	private func newsChip(source: String, tag: String) -> some View {
-		let u = figmaUnit
-		return VStack(alignment: .leading, spacing: 8 * u) {
-			HStack {
-				Text(source).font(StakFont.geist(10 * u)).foregroundStyle(muted)
-				Spacer()
-				Text(tag)
-					.font(StakFont.geist(10 * u, .medium))
-					.foregroundStyle(muted)
-					.padding(.horizontal, 8 * u)
-					.padding(.vertical, 3 * u)
-					.background(Color(argb: 0x14FFFFFF), in: Capsule())
-			}
-			Text(source == f.newsSources.first?.0 ? f.newsHeadline : f.newsHeadline2)
-				.font(StakFont.geist(12 * u))
-				.foregroundStyle(bright)
-				.frame(width: 173 * u, alignment: .leading)
-		}
-		.padding(12 * u)
-		.frame(width: 205 * u, alignment: .leading)
-		.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
-	}
-}
-
-/// Compare and learn (collapsed 1:2526 / open 1:2719) — peer table.
+/// Compare and learn (collapsed 1:2526 / open 1:2719) - the peer table.
 private struct CompareCard: View {
 	let f: DetailFacts
-
+	let live: LiveDetail?
+	let symbol: String
 	@State private var open = false
 
 	var body: some View {
 		let u = figmaUnit
-		// Both states author a 23 gap under the title (1:2526 / 1:2719); the open
-		// table and its footnote sit 21 apart (1:2723) - exact-design audit 2026-09-04.
-		VStack(alignment: .leading, spacing: 23 * u) {
-			// Collapsed head (1:2527) authors a 22-tall row - exact-design audit 2026-09-04.
-			HStack {
-				Text("Compare and learn")
-					.font(StakFont.sora(15 * u, .semiBold))
-					.foregroundStyle(bright)
-				Spacer()
-				// The caret stays when the card is open, flipped into a drop-up so the user
-				// sees it folds back (user, 2026-09-06); the open frames (1:2651 / 1:2719)
-				// author none. Mirrors Android.
-				Image("IcSdCaret")
-					.resizable()
-					.frame(width: 20 * u, height: 20 * u)
-					.rotationEffect(.degrees(open ? 180 : 0))
-			}
-			.frame(height: open ? nil : 22 * u * typeScale)
-			if !open {
-				// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
-				Text(f.peersLabel)
-					.font(StakFont.geist(11 * u))
-					.foregroundStyle(muted)
-			} else {
-				VStack(alignment: .leading, spacing: 21 * u) {
-					// The tint column and the hairline are a BACKGROUND of the
-					// 148-tall table (1:2724), never laid out: as ZStack siblings the
-					// 170-tall tint made the stack 170 and pushed the footnote, TIP
-					// and CTAs 22 down (mirrors android, 2026-09-04).
-					VStack(spacing: 12 * u) {
-						compareRow("", f.symbol, f.peerA, f.peerB, header: true)
-						ForEach(f.compareRows, id: \.label) { r in
-							compareRow(r.label, r.a, r.b, r.c, valueColor: r.green ? green : nil)
-						}
-					}
-					.background(alignment: .topLeading) {
-						ZStack(alignment: .topLeading) {
-							// AAPL column tint (1:2721): 81x170 r8 at card (94, 43.94) - 12
-							// above the table top - exact-design audit 2026-09-04.
-							RoundedRectangle(cornerRadius: 8 * u)
-								.fill(Color(argb: 0x125DA8BF))
-								.frame(width: 81 * u, height: 170 * u * typeScale)
-								.offset(x: 78 * u, y: -12 * u)
-							// 1:2722: a 0.5-wide #272F40 hairline between the MSFT and GOOGL
-							// columns, card x257 y49.94, 134.5 tall - exact-design audit 2026-09-04.
-							Rectangle()
-								.fill(Color(argb: 0xFF272F40))
-								.frame(width: 0.5 * u, height: 134.5 * u * typeScale)
-								.offset(x: 241 * u, y: -6 * u)
-						}
-						.frame(width: 0, height: 0, alignment: .topLeading)
-					}
-					Text("Cultural context only, not financial advice.")
-						.font(StakFont.geist(10 * u, .medium))
+		Button { open.toggle() } label: {
+			// Both states author a 23 gap under the title (1:2526 / 1:2719); the open table and its footnote sit 21
+			// apart (1:2723) - exact-design audit 2026-09-04.
+			VStack(alignment: .leading, spacing: 23 * u) {
+				HStack(spacing: 0) {
+					StakIconTile(icon: "IcTabSimulate", tint: iconTint, size: 22, glyph: 13)
+					Spacer().frame(width: 10 * u)
+					Text("Compare and learn")
+						.font(StakFont.sora(15 * u, .semiBold))
+						.foregroundStyle(bright)
+					Spacer()
+					Image("IcSdCaret")
+						.resizable()
+						.frame(width: 20 * u, height: 20 * u)
+						.rotationEffect(.degrees(open ? 180 : 0))
+				}
+				.frame(minHeight: open ? nil : 22 * u * typeScale)
+				if !open {
+					// 1:2531 authors Geist Regular - exact-design audit 2026-09-04.
+					Text(live?.peersLabel ?? f.peersLabel)
+						.font(StakFont.geist(11 * u))
 						.foregroundStyle(muted)
+				} else {
+					table(u: u)
 				}
 			}
+			.detailCard()
+			.contentShape(Rectangle())
 		}
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
-		.contentShape(Rectangle())
-		.onTapGesture { open.toggle() }
+		.buttonStyle(.pressDim)
+		.accessibilityValue(open ? "Expanded" : "Collapsed")
 	}
 
-	private func compareRow(_ label: String, _ a: String, _ m: String, _ g: String, header: Bool = false, valueColor: Color? = nil) -> some View {
-		let u = figmaUnit
-		return HStack(spacing: 8 * u) {
-			Text(label)
-				.font(StakFont.geist(11 * u))
+	private func table(u: CGFloat) -> some View {
+		let rows = live?.compareRows ?? f.compareRows.map { CompareValues(label: $0.label, a: $0.a, b: $0.b, c: $0.c, green: $0.green) }
+		return VStack(alignment: .leading, spacing: 21 * u) {
+			// The tint column and the hairline are a BACKGROUND of the table (1:2724), never laid out: as siblings the
+			// 170-tall tint pushed the footnote and CTAs down (mirrors android, 2026-09-04).
+			VStack(spacing: 12 * u) {
+				compareRow("", symbol, live?.peerA ?? f.peerA, live?.peerB ?? f.peerB, header: true, u: u)
+				ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+					compareRow(r.label, r.a, r.b, r.c, valueColor: r.green ? green : nil, u: u)
+				}
+			}
+			.background(alignment: .topLeading) {
+				ZStack(alignment: .topLeading) {
+					// This stock's column tint (1:2721): 81x170 r8, 12 above the table top.
+					RoundedRectangle(cornerRadius: 8 * u)
+						.fill(Color(argb: 0x125DA8BF))
+						.frame(width: 81 * u, height: 170 * u * typeScale)
+						.offset(x: 78 * u, y: -12 * u)
+					// 1:2722: a 0.5-wide hairline between the peer columns, 134.5 tall.
+					Rectangle()
+						.fill(Color(argb: 0xFF272F40))
+						.frame(width: 0.5 * u, height: 134.5 * u * typeScale)
+						.offset(x: 241 * u, y: -6 * u)
+				}
+				.frame(width: 0, height: 0, alignment: .topLeading)
+			}
+			Text("Cultural context only, not financial advice.")
+				.font(StakFont.geist(10 * u, .medium))
 				.foregroundStyle(muted)
-				.frame(maxWidth: .infinity, alignment: .leading)
-			Text(a)
-				.font(StakFont.geist(11 * u, .medium))
-				.foregroundStyle(valueColor ?? bright)
-				.frame(maxWidth: .infinity)
-			Text(m)
-				.font(StakFont.geist(11 * u, header ? .medium : .regular))
-				.foregroundStyle(valueColor ?? bright)
-				.frame(maxWidth: .infinity)
-			Text(g)
-				.font(StakFont.geist(11 * u, header ? .medium : .regular))
-				.foregroundStyle(valueColor ?? bright)
-				.frame(maxWidth: .infinity)
 		}
-		.frame(minHeight: 20 * u * typeScale)
+	}
+
+	private func compareRow(_ label: String, _ a: String, _ m: String, _ g: String, header: Bool = false, valueColor: Color? = nil, u: CGFloat) -> some View {
+		HStack(spacing: 8 * u) {
+			Text(label).font(StakFont.geist(11 * u)).foregroundStyle(muted).frame(maxWidth: .infinity, alignment: .leading)
+			Text(a).font(StakFont.geist(11 * u, .medium)).foregroundStyle(valueColor ?? bright).frame(maxWidth: .infinity)
+			Text(m).font(StakFont.geist(11 * u, header ? .medium : .regular)).foregroundStyle(valueColor ?? bright).frame(maxWidth: .infinity)
+			Text(g).font(StakFont.geist(11 * u, header ? .medium : .regular)).foregroundStyle(valueColor ?? bright).frame(maxWidth: .infinity)
+		}
+		.frame(minHeight: 20 * u * typeScale, alignment: .top)
+		.accessibilityElement(children: .combine)
 	}
 }
 
-/// The "Since you saved" line for THIS stock (product audit, 2026-09-05: the
-/// authored 16:1012 copy named AAPL on every page and "5 weeks ago" on a
-/// stock saved a minute earlier). The demo keeps the authored figures with
-/// the right symbol; a new account reads its own save date, and the move
-/// since is this week's change once a day has passed.
-@MainActor private func sinceSavedFor(_ f: DetailFacts) -> (String, String, Bool) {
-	// A save with a recorded day reads its real age on either account; the authored
-	// "5 weeks ago" belongs to the demo persona's SEED saves, which predate the record
-	// (audit 2026-09-07: the persona's own saves read "5 weeks ago" a minute later).
-	let recorded = MyStakHoldings.shared.daysSinceSaved(f.symbol)
-	let demo = Session.shared.demoAccount && recorded == nil
-	let days = demo ? nil : recorded
-	var move = f.change.filter { $0.isNumber || $0 == "." }
-	if move.isEmpty { move = "0.0" }
-	let up = !f.change.contains("\u{25BC}") && !f.change.trimmingCharacters(in: .whitespaces).hasPrefix("-")
+// MARK: - Since you saved
+
+/// The "Since you saved" line for THIS stock. Two references, not the same claim: a stamped price is what the stock
+/// cost at the moment of saving; a save from before stamping has only that day's close - a real price, but a
+/// different moment - so the copy says which one it measured from.
+@MainActor private func sinceSavedFor(
+	_ f: DetailFacts, symbol: String, live: LiveDetail?, reference: SavedReference?, referenceSettled: Bool, detailSettled: Bool
+) -> (String, String, Bool) {
+	let demo = Session.shared.demoAccount
 	if demo {
-		return ("+4.6%", "Saved 5 weeks ago. \(f.symbol) is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
+		return ("+4.6%", "Saved 5 weeks ago. \(symbol) is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
 	}
-	// nil = a save from before the record existed; it reads as recent rather than as the demo's five weeks.
-	guard let days, days > 0 else {
-		return ("+0.0%", "Saved \(days == 0 ? "today" : "recently"). \(f.symbol) hasn't moved since you saved it - check back after a few sessions.", true)
+	let holdings = MyStakHoldings.shared
+	let days = holdings.daysSinceSaved(symbol)
+	let stamped = holdings.priceAtSave(symbol).flatMap { $0 > 0 ? $0 : nil }
+	let recovered = reference.flatMap { $0.price > 0 ? $0 : nil }
+	let atMoment = stamped != nil || recovered?.atMoment == true
+	let ref = stamped ?? recovered?.price
+	let now = live.flatMap { Double($0.price.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")) }
+	let savedPct: Double? = ref.flatMap { r in now.map { ($0 - r) / r * 100 } }
+	let move = savedPct.map { String(format: "%.1f", abs($0)) }
+	let up = (savedPct ?? 0) >= 0
+	let whenSaved: String = switch days {
+	case nil: "recently"
+	case 0: "today"
+	case 1: "yesterday"
+	default: "\(days ?? 0) days ago"
 	}
-	return (
-		(up ? "+" : "-") + move + "%",
-		"Saved \(days == 1 ? "yesterday" : "\(days) days ago"). \(f.symbol) is \(up ? "up" : "down") \(move)% since, moving with the market this week.",
-		up
-	)
+	// A save from today (or from before the record existed) with no price to measure from hasn't a move to show yet;
+	// with one - the price stamped at the save - it's measured like any other.
+	if (days ?? 0) == 0 && ref == nil && referenceSettled {
+		return ("+0.0%", "Saved \(whenSaved). \(symbol) hasn't moved since you saved it - check back after a few sessions.", true)
+	}
+	guard let savedPct, let move else {
+		// Still arriving - today's price, or the price to measure against - says only what's known: "no record" is a
+		// finding, and it can't be made before the look-up ends.
+		if (now == nil && !detailSettled) || (stamped == nil && !referenceSettled) { return ("\u{2014}", "Saved \(whenSaved).", true) }
+		if now == nil {
+			return ("\u{2014}", "Saved \(whenSaved). Today's price isn't available right now, so there's no move to show.", true)
+		}
+		return ("\u{2014}", "Saved \(whenSaved). STAK has no record of what \(symbol) cost then, so there's no move to measure yet.", true)
+	}
+	let figure = (savedPct >= 0 ? "+" : "-") + move + "%"
+	if atMoment {
+		return (figure, "Saved \(whenSaved). \(symbol) is \(up ? "up" : "down") \(move)% since you saved it.", up)
+	}
+	return (figure, "Saved \(whenSaved), when \(symbol) closed at \(formatPrice(ref ?? 0)). It is \(up ? "up" : "down") \(move)% since that close.", up)
 }
 
-/// "SINCE YOU SAVED +4.6%" banner (16:1012) for the My STAK entry.
+/// "SINCE YOU SAVED +4.6%" (16:1012) for the My STAK entry, with the company's recent changes under it.
 private struct SinceYouSavedCard: View {
 	let f: DetailFacts
+	let symbol: String
+	let live: LiveDetail?
+	let reference: SavedReference?
+	let referenceSettled: Bool
+	let detailSettled: Bool
+	/// What changed at this company - the same updates My STAK lists.
+	let changes: [StockUpdateDto]
+	/// Which of them were still unopened when the page was opened.
+	let unreadOnEntry: Set<Int64>
 
 	var body: some View {
 		let u = figmaUnit
-		let since = sinceSavedFor(f)
+		let since = sinceSavedFor(f, symbol: symbol, live: live, reference: reference, referenceSettled: referenceSettled, detailSettled: detailSettled)
 		VStack(alignment: .leading, spacing: 12 * u) {
 			HStack(spacing: 8 * u) {
-				Image("IcSavedBookmark")
-					.resizable()
-					.frame(width: 12 * u, height: 12 * u)
+				Image("IcSavedBookmark").resizable().frame(width: 12 * u, height: 12 * u).accessibilityHidden(true)
 				Text("SINCE YOU SAVED")
 					.font(StakFont.geist(10 * u, .medium))
 					.tracking(0.8 * u)
 					.foregroundStyle(muted)
+				// A dash is no move at all, so it takes neither the up nor the down colour.
 				Text(since.0)
 					.font(StakFont.geist(12 * u, .medium))
-					.foregroundStyle(since.2 ? green : red)
+					.foregroundStyle(since.0 == "\u{2014}" ? muted : (since.2 ? green : red))
 			}
 			Text(since.1)
 				.font(StakFont.geist(11 * u))
 				.stakLineHeight(14 * u, size: 11 * u, face: .geist)
 				.foregroundStyle(muted)
+				.fixedSize(horizontal: false, vertical: true)
+			if !changes.isEmpty {
+				Rectangle().fill(Color(argb: 0xFF232B3D)).frame(height: 1 * u)
+				// Detection reads a few days of news, so this is what changed recently - not everything since a save.
+				Text("RECENT CHANGES")
+					.font(StakFont.geist(10 * u, .medium))
+					.tracking(0.8 * u)
+					.foregroundStyle(muted)
+				// Two at most: the story since the save, not an archive of it.
+				ForEach(Array(changes.prefix(2)), id: \.id) { change in
+					HStack(alignment: .top, spacing: 8 * u) {
+						Circle()
+							.fill(unreadOnEntry.contains(change.id) ? Color(argb: 0xFF2C9DBC) : muted)
+							.frame(width: 6 * u, height: 6 * u)
+							.padding(.top, 5 * u)
+							.accessibilityHidden(true)
+						VStack(alignment: .leading, spacing: 2 * u) {
+							Text(change.title)
+								.font(StakFont.geist(12 * u, .medium))
+								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+								.foregroundStyle(Color.white)
+							Text(change.body)
+								.font(StakFont.geist(11 * u))
+								.stakLineHeight(15 * u, size: 11 * u, face: .geist)
+								.foregroundStyle(muted)
+							// What it affects, and the headlines behind it: this page is where the inbox's "Understand
+							// this change" lands, so it can't arrive with less than the card that sent it.
+							if let watch = change.watch, !watch.isEmpty {
+								Text(watch)
+									.font(StakFont.geist(11 * u))
+									.stakLineHeight(15 * u, size: 11 * u, face: .geist)
+									.foregroundStyle(muted)
+							}
+							if let line = updateSourceLine(change) {
+								Text(line)
+									.font(StakFont.geist(10 * u))
+									.stakLineHeight(14 * u, size: 10 * u, face: .geist)
+									.foregroundStyle(muted)
+							}
+						}
+						.fixedSize(horizontal: false, vertical: true)
+					}
+					.accessibilityElement(children: .combine)
+				}
+			}
 		}
-		// 16:1012 authors p14/16/14/16 - 84 tall (mirrors Android, 2026-09-05).
-		.padding(.horizontal, 16 * u)
-		.padding(.vertical, 14 * u)
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.background(card, in: RoundedRectangle(cornerRadius: 16 * u))
+		// 16:1012 authors p14/16/14/16.
+		.detailCard()
 	}
 }
 
-/// Saved-to-My-STAK sheet over the detail (92:969) — Apple row variant.
-/// Built inline (not on SheetScaffold) to pin the Android geometry: 14u
-/// item spacing, 11u stock-row spacing, and the Detail CTAs (sora 13).
+/// "From Reuters and 2 more headlines" - where a change came from. Android's updateSourceLine (ui/mystak).
+func updateSourceLine(_ update: StockUpdateDto) -> String? {
+	var names: [String] = []
+	for s in update.sources where !s.source.isEmpty && !names.contains(s.source) { names.append(s.source) }
+	guard let first = names.first else { return nil }
+	let extra = update.sources.count - 1
+	if names.count == 1 && extra > 0 { return "From \(first) and \(extra) more \(extra == 1 ? "headline" : "headlines")" }
+	if names.count == 1 { return "From \(first)" }
+	return "From \(first) and \(names.count - 1) more"
+}
+
+/// "▼ 15.4% past year" - the selected range's own move, named for its period so the figure and the line beneath it
+/// always describe the same stretch of time.
+private func rangeChangeText(_ pct: Double, _ range: String) -> String {
+	let period: String = switch range {
+	case "1D": "today"
+	case "1W": "past week"
+	case "1M": "past month"
+	case "3M": "past 3 months"
+	case "YTD": "year to date"
+	default: "past year"
+	}
+	return "\(pct < 0 ? "▼" : "▲") \(String(format: "%.1f", abs(pct)))% \(period)"
+}
+
+// MARK: - Saved sheet
+
+/// Saved-to-My-STAK sheet over the detail (92:969), with this stock's own name, price and move.
 private struct DetailSavedSheet: View {
 	let f: DetailFacts
+	let symbol: String
+	let live: LiveDetail?
 	let onDismiss: () -> Void
 	let onViewInMyStak: () -> Void
 	let onKeepExploring: () -> Void
 
 	var body: some View {
 		let u = figmaUnit
+		let change = StakClock.sessionChange(live?.change ?? f.sheetChange)
 		ZStack(alignment: .bottom) {
 			// Authored scrim rgba(12,19,32,0.55) (106:1037).
 			Color(argb: 0x8C0C1320)
 				.ignoresSafeArea()
 				.onTapGesture(perform: onDismiss)
+				.accessibilityLabel("Close and save")
+				.accessibilityAddTraits(.isButton)
 			VStack(spacing: 14 * u) {
 				RoundedRectangle(cornerRadius: 2 * u)
 					.fill(Color(argb: 0xFF2A3346))
 					.frame(width: 40 * u, height: 4 * u)
 					.padding(.bottom, 4 * u)
-				Image("IcSheetCheck")
-					.resizable()
-					.frame(width: 47 * u, height: 47 * u)
+				Image("IcSheetCheck").resizable().frame(width: 47 * u, height: 47 * u).accessibilityHidden(true)
 				Text("Saved to My STAK")
 					.font(StakFont.sora(18 * u, .semiBold))
 					.foregroundStyle(Color.white)
+					.accessibilityAddTraits(.isHeader)
 				HStack(spacing: 11 * u) {
-					ZStack {
-						Circle().fill(Color(argb: 0xFF242B3D))
-						Text(f.sheetBadge)
-							.font(StakFont.sora(15 * u, .semiBold))
-							.foregroundStyle(Color(argb: 0xFF9EADC7))
-					}
-					.frame(width: 38 * u, height: 38 * u)
+					Text(live?.name != nil ? String(symbol.prefix(1)) : f.sheetBadge)
+						.font(StakFont.sora(15 * u, .semiBold))
+						.foregroundStyle(Color(argb: 0xFF9EADC7))
+						.frame(width: 38 * u * typeScale, height: 38 * u * typeScale)
+						.background(Color(argb: 0xFF242B3D), in: Circle())
+						.accessibilityHidden(true)
 					VStack(alignment: .leading, spacing: 2 * u) {
-						Text(f.sheetName)
+						Text(live?.name ?? f.sheetName)
 							.font(StakFont.geist(13 * u, .medium))
 							.foregroundStyle(Color.white)
-						Text(f.sheetPrice)
+						Text(live?.price ?? f.sheetPrice)
 							.font(StakFont.geist(10 * u))
 							.foregroundStyle(muted)
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
-					Text(f.sheetChange)
+					Text(change)
 						.font(StakFont.geist(12 * u, .medium))
-						.foregroundStyle(f.sheetChange.hasPrefix("▼") ? red : green)
+						.foregroundStyle(change.hasPrefix("▼") ? red : green)
 				}
 				.padding(.horizontal, 14 * u)
 				.padding(.vertical, 12 * u)
 				.background(Color(argb: 0x1A69B3CA), in: RoundedRectangle(cornerRadius: 6 * u))
+				.accessibilityElement(children: .combine)
 				Text("Watching from today · no money committed")
 					.font(StakFont.geist(12 * u))
 					.stakLineHeight(18 * u, size: 12 * u, face: .geist)
@@ -822,10 +1287,12 @@ private struct DetailSavedSheet: View {
 			.frame(maxWidth: .infinity)
 			.background(card, in: UnevenRoundedRectangle(topLeadingRadius: 24 * u, topTrailingRadius: 24 * u))
 			.ignoresSafeArea(edges: .bottom)
+			.accessibilityAddTraits(.isModal)
 		}
 	}
 }
 
+// MARK: - Facts
 
 /// One stat tile in "Numbers that matter".
 private struct DetailStat {
@@ -845,30 +1312,70 @@ private struct DetailCompareRow {
 	var green = false
 }
 
-/// Everything the detail page serves per stock - backend-shaped like the
-/// news feed’s StockFacts, mirroring android/ StockDetailScreen.kt.
-/// AAPL carries the authored 1:2382/92:969 frame values VERBATIM;
-/// NVDA and GOOGL extend their deck cards off the same DECK numbers.
-/// The Risk fit chip against the user's OWN risk style (product audit,
-/// 2026-09-05: it read "Matches you" for everyone, high volatility
-/// included). The pill's authored x (88 low / 150 mid / 238 high) is the
-/// stock's volatility; TasteModel.riskStyle is the user's answer.
-@MainActor private func riskFitFor(_ f: DetailFacts) -> (String, String) {
-	// The active user (Sign in) is the authored persona: its page reads the frame's
-	// "Matches you"; only a first-time user's own 05 Risk answer drives the variants
-	// (audit 2026-09-07 - the persona never answers 05, so its risk is -1).
-	if Session.shared.demoAccount { return ("Matches you", f.riskCopy) }
-	let style = TasteModel.riskStyle(UserProfile.shared.risk)
-	let highVol = f.riskPillX > 170
-	let lowVol = f.riskPillX < 120
-	let first = (f.riskCopy.components(separatedBy: ". ").first ?? f.riskCopy) + "."
-	if highVol && (style == "Conservative" || style == "Cautious") {
-		return ("Bolder than you", "\(first) Bolder than your profile, so keep any stake small.")
+/// The practice-buy ticket for THIS stock. Only three symbols have authored tickets; any other gets its own, priced
+/// from its live quote - another company's ticket once filled that company at its live price (audit, 2026-09-15). The
+/// sheet recomputes the amount, cash and shares itself, so the placeholders here never reach the screen.
+@MainActor private func liveBuySpec(_ symbol: String, live: LiveDetail?, f: DetailFacts) -> BuySpec {
+	if let authored = [nvdaBuy, aaplBuy, googlBuy].first(where: { $0.symbol == symbol }) { return authored }
+	let price = live.flatMap { $0.price == "—" ? nil : $0.price } ?? "$0.00"
+	let change = live.flatMap { $0.change.isEmpty ? nil : $0.change } ?? "▲ 0.0% today"
+	return BuySpec(
+		title: "Buy \(symbol)?", badge: String(symbol.prefix(1)), name: live?.name ?? symbol,
+		priceLine: price + " today",
+		// formatChange() ends "% today"; the ticket's change carries no suffix.
+		change: change.hasSuffix(" today") ? String(change.dropLast(" today".count)) : change,
+		cashBefore: "$0.00", cashAfter: "$0.00", shares: "0", symbol: symbol
+	)
+}
+
+/// The Risk fit chip against the user's OWN risk style. An unanswered risk question isn't a profile: then it names the
+/// stock's own volatility instead of matching the user on an answer they never gave. Otherwise each style gets a real
+/// comparison - the old rule called everything a match for a Balanced account.
+@MainActor private func riskFitFor(_ f: DetailFacts, live: LiveDetail?) -> (String, String) {
+	let pillX = live?.riskPillX ?? Double(f.riskPillX)
+	let riskCopy = live?.riskCopy ?? f.riskCopy
+	// 120 and 170 sit either side of the track's midpoint, which is market beta.
+	let stockBand = pillX > 170 ? 1 : (pillX < 120 ? -1 : 0)
+	let risk = UserProfile.shared.risk
+	if risk < 0 {
+		return (stockBand == 1 ? "More volatile" : (stockBand == -1 ? "Less volatile" : "Around market"), riskCopy)
 	}
-	if lowVol && style == "Growth-Oriented" {
-		return ("Calmer than you", "\(first) Calmer than your profile, a steady anchor for a bold STAK.")
+	let styleBand: Int = switch TasteModel.riskStyle(risk) {
+	case "Growth-Oriented": 1
+	case "Balanced": 0
+	default: -1
 	}
-	return ("Matches you", f.riskCopy)
+	let first = riskCopy.components(separatedBy: ". ").first.flatMap { $0.isEmpty ? nil : ($0.hasSuffix(".") ? $0 : $0 + ".") } ?? ""
+	if stockBand > styleBand {
+		return ("Bolder than you", "\(first) Bolder than your profile, so keep any stake small.".trimmingCharacters(in: .whitespaces))
+	}
+	if stockBand < styleBand {
+		return ("Calmer than you", "\(first) Calmer than your profile, a steady anchor for a bold STAK.".trimmingCharacters(in: .whitespaces))
+	}
+	return ("Matches you", riskCopy)
+}
+
+/// The page with nothing filled in: what a real account shows until its own data arrives. Every field is a
+/// placeholder, so a value on screen is either this stock's or visibly absent - never another company's.
+private func emptyFacts(_ symbol: String) -> DetailFacts {
+	DetailFacts(
+		symbol: symbol, title: symbol, price: "—", change: "", tip: "",
+		// Mid-track until beta says otherwise; the copy stays blank rather than guessing.
+		riskPillX: 145, riskCopy: "",
+		stats: [
+			DetailStat(label: "P/E ratio", value: "—", verdict: ""),
+			DetailStat(label: "Revenue growth", value: "—", verdict: ""),
+			// No border: the authored highlight marked a stat a designer judged notable for one company.
+			DetailStat(label: "Profit margin", value: "—", verdict: ""),
+		],
+		upside: "", targetLow: "—", targetAvg: "—", targetHigh: "—", targetMarkerX: 0,
+		consensus: "", buyCount: "", holdCount: "", sellCount: "", buyBarW: 0,
+		actions: [], newsClose: "", newsSignal: "", newsEarnings: "", newsSources: [],
+		newsHeadline: "", newsHeadline2: "", peersLabel: "", peerA: "—", peerB: "—", compareRows: [],
+		sheetBadge: String(symbol.prefix(1)), sheetName: symbol, sheetPrice: "—", sheetChange: "",
+		// Replaced by liveBuySpec() at the call site; never the ticket shown.
+		buySpec: BuySpec(title: "Buy \(symbol)?", badge: String(symbol.prefix(1)), name: symbol, priceLine: "$0.00 today", change: "▲ 0.0%", cashBefore: "$0.00", cashAfter: "$0.00", shares: "0", symbol: symbol)
+	)
 }
 
 /// The page's facts for a symbol. The nineteen designed pages carry their own; any
@@ -1741,3 +2248,16 @@ private let detailFacts: [String: DetailFacts] = [
 		buySpec: BuySpec(title: "Buy NKE?", badge: "N", name: "Nike", priceLine: "$72.80 today", change: "▼ 1.3%", cashBefore: "$8,800.00", cashAfter: "$8,775.00", shares: "0.3434", symbol: "NKE")
 	),
 ]
+
+/// "Up 1.2% today" for "▲ 1.2% today" - what VoiceOver reads instead of the arrow.
+private func spokenMove(_ text: String) -> String {
+	if text.hasPrefix("▲") { return "Up" + text.dropFirst() }
+	if text.hasPrefix("▼") { return "Down" + text.dropFirst() }
+	return text
+}
+
+/// True while the page has its saved sheet or practice ticket up - MainTabsView holds swipe back then.
+struct PageOverlayOpenKey: PreferenceKey {
+	static var defaultValue = false
+	static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
