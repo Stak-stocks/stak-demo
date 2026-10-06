@@ -267,7 +267,7 @@ struct SandboxTradesResponse: Decodable { var trades: [SandboxTradeDto] = [] }
 
 // MARK: – STAK AI (Phase 4 wires the streaming; structs are here so StockApiService compiles)
 
-struct StakAiContext: Encodable {
+struct StakAiContext: Codable, Equatable {
     let type: String
     var ticker: String?; var headline: String?; var summary: String?
     var source: String?; var url: String?; var tickers: [String]?
@@ -284,17 +284,28 @@ struct StakAiContext: Encodable {
 struct StakAiChatRequest: Encodable {
     let message: String; var conversationId: String?; var context: StakAiContext?; var via: String?
 }
-struct StakAiUsage: Decodable { var questionsUsed: Int = 0; var limit: Int = 5; var unlimited: Bool = false }
-struct StakAiConversationDto: Decodable { var id: String = ""; var title: String = ""; var updatedAt: String = "" }
-struct StakAiConversationsResponse: Decodable { var conversations: [StakAiConversationDto] = [] }
+struct StakAiUsage: Decodable {
+    var questionsUsed: Int = 0; var limit: Int = 5; var unlimited: Bool = false
+    var remaining: Int = -1; var resetsAt: String? = nil
+    var questionsLeft: Int { unlimited ? Int.max : (remaining >= 0 ? remaining : max(0, limit - questionsUsed)) }
+}
+struct StakAiSource: Decodable { var ticker: String = ""; var headline: String = ""; var url: String? }
+struct StakAiConversationDto: Decodable, Identifiable {
+    var id: String = ""; var title: String = ""; var updatedAt: String = ""
+    var contextLabel: String?; var preview: String?
+}
+struct StakAiConversationsResponse: Decodable { var conversations: [StakAiConversationDto] = []; var nextBefore: String? }
 struct StakAiMessageDto: Decodable {
     var id: Int64 = 0; var role: String = ""; var content: String = ""; var createdAt: String = ""
-    var via: String?; var feedback: String?
+    var via: String?; var feedback: Int?; var kind: String = "answer"
 }
-struct StakAiMessagesResponse: Decodable { var messages: [StakAiMessageDto] = [] }
+struct StakAiMessagesResponse: Decodable { var messages: [StakAiMessageDto] = []; var context: StakAiContext? }
 struct StakAiRenameRequest: Encodable { let title: String }
 struct StakAiFeedbackRequest: Encodable { let feedback: String }
 struct StakAiChatReply: Decodable {
     var id: Int64 = 0; var conversationId: String = ""; var content: String = ""; var questionsUsed: Int = 0
     var unlimited: Bool = false; var title: String?
+    var followUps: [String] = []; var answerKind: String = "answer"
 }
+struct StakAiError: Decodable { var error: String?; var code: String?; var usage: StakAiUsage? }
+final class StakAiStreamError: Error { let code: String; let usage: StakAiUsage?; init(_ code: String, usage: StakAiUsage? = nil) { self.code = code; self.usage = usage } }

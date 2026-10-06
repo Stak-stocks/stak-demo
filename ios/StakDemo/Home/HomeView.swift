@@ -97,6 +97,8 @@ struct HomeView: View {
 	var onOpenStock: (String) -> Void = { _ in }
 	/// A saved stock opens the My STAK flavour of Stock Detail (review 2026-09-14).
 	var onOpenSavedStock: (String) -> Void = { _ in }
+	/// Sparkle button in the nav bar opens STAK AI (Phase 4, 2026-10-05).
+	var onOpenAi: () -> Void = {}
 
 	@ObservedObject var homeVM: HomeViewModel
 
@@ -108,7 +110,7 @@ struct HomeView: View {
 				// content — the greeting block lives inside scroll content.
 				ScrollView {
 					VStack(spacing: 0) {
-						TopNav(onProfile: onProfile, onBell: onBell)
+						TopNav(onProfile: onProfile, onBell: onBell, onOpenAi: onOpenAi)
 							.padding(.horizontal, 17 * u)
 						Spacer().frame(height: 21 * u)
 						VStack(spacing: 0) {
@@ -165,6 +167,7 @@ struct HomeView: View {
 private struct TopNav: View {
 	let onProfile: () -> Void
 	var onBell: () -> Void = {}
+	var onOpenAi: () -> Void = {}
 	@ObservedObject var profile = UserProfile.shared
 	@ObservedObject var notifications = StakNotifications.shared
 	/// Time-of-day in the user's own timezone (device clock); re-read every
@@ -185,6 +188,18 @@ private struct TopNav: View {
 					.frame(width: 78.16 * u, height: 14.98 * u)
 					.accessibilityLabel("STAK")
 				Spacer()
+				// STAK AI sparkle entry (Phase 4, 2026-10-05)
+				Button(action: onOpenAi) {
+					ZStack {
+						Circle().fill(Home.navCircle).frame(width: 35 * u, height: 35 * u)
+						Image(systemName: "sparkles")
+							.font(.system(size: 16 * u))
+							.foregroundStyle(Color(argb: 0xFF69B3CA))
+					}
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("STAK AI")
+				Spacer().frame(width: 6 * u)
 				// Bell + stateful unread dot (151:1207): the authored badge
 				// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 				// notifications exist and clears once they're opened and read.

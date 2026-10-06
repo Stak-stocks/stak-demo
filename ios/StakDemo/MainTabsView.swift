@@ -17,6 +17,10 @@ private enum PushedPage: Identifiable, Equatable {
 	/// (Simulate/PickDetailView.swift PickSpecs).
 	case simPick(symbol: String)
 	case leaderboard
+	/// Phase 4 (2026-10-05): STAK AI chat, opened from the Home sparkle, a Stock page or a Daily Brief.
+	case stakAi(context: StakAiContext?, question: String?, conversationId: String?)
+	/// Phase 4 (2026-10-05): conversation history list.
+	case stakAiHistory
 
 	var id: String {
 		switch self {
@@ -30,6 +34,8 @@ private enum PushedPage: Identifiable, Equatable {
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
 		case .leaderboard: return "leaderboard"
+		case .stakAi(let ctx, let q, let cid): return "stakAi-\(ctx?.ticker ?? "")-\(q ?? "")-\(cid ?? "")"
+		case .stakAiHistory: return "stakAiHistory"
 		}
 	}
 }
@@ -190,6 +196,7 @@ struct MainTabsView: View {
 							// The board-only sections: a stock opens its detail.
 							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
 							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
+							onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) },
 							homeVM: homeVM
 						)
 					case .news:
@@ -372,6 +379,24 @@ struct MainTabsView: View {
 		case .leaderboard:
 			// Authored (1:4124): Back -> Simulate home, Instant.
 			LeaderboardView(onBack: { pop(.instant) })
+		case .stakAi(let ctx, let q, let cid):
+			StakAiChatView(
+				onBack: { pop(.instant) },
+				onOpenHistory: {
+					if pushed.last?.page != .stakAiHistory { push(.stakAiHistory) }
+				},
+				context: ctx,
+				question: q,
+				conversationId: cid
+			)
+		case .stakAiHistory:
+			StakAiHistoryView(
+				onBack: { pop(.instant) },
+				onOpen: { c in
+					// Replace history with the opened chat so Back -> Home, not history.
+					if !pushed.isEmpty { pushed[pushed.count - 1] = PushedEntry(page: .stakAi(context: nil, question: nil, conversationId: c.id)) }
+				}
+			)
 		}
 	}
 
