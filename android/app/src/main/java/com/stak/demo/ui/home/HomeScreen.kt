@@ -155,7 +155,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onAskAi: () -
 			.statusBarsPadding()
 			.padding(top = (22 * u).dp),
 	) {
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((35 * u).dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = (35 * u).dp)) {
 			Image(
 				painter = painterResource(R.drawable.ic_stak_logo_mark),
 				contentDescription = null,
@@ -583,7 +583,8 @@ private fun DeckBanner(onOpenDeck: () -> Unit) {
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
-			.height((116 * u).dp)
+			// heightIn, not height: enlarged text (the system font size) grows the banner instead of being clipped.
+			.heightIn(min = (116 * u).dp)
 			.clip(RoundedCornerShape((8 * u).dp))
 			.clickable(
 				interactionSource = remember { MutableInteractionSource() },

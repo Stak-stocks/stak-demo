@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -189,7 +191,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier
-							.then(if (w != null) Modifier.requiredSize((w * u).dp, (28 * u).dp) else Modifier.height((28 * u).dp))
+							// At least the authored size; enlarged text (the system font size) grows the chip instead of being clipped.
+							.then(if (w != null) Modifier.widthIn(min = (w * u).dp).heightIn(min = (28 * u).dp) else Modifier.heightIn(min = (28 * u).dp))
 							.clip(RoundedCornerShape((14 * u).dp))
 							.background(ChipBg)
 							.border((1 * u).dp, ChipBorder, RoundedCornerShape((14 * u).dp))

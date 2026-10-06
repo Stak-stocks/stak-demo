@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -1149,7 +1150,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
 		// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.heightIn(min = (22 * u).dp) else Modifier)) {
 			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_goal_search, Color(0xFFA6E4F7), size = 22, glyph = 13)
 			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
@@ -1286,7 +1287,7 @@ private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: 
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
 		// Collapsed head (1:2527) authors a 22-tall row - exact-design audit 2026-09-04.
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.heightIn(min = (22 * u).dp) else Modifier)) {
 			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_simulate, Color(0xFFA6E4F7), size = 22, glyph = 13)
 			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(

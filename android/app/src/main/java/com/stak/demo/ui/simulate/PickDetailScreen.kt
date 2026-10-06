@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -185,7 +186,8 @@ fun PickDetailScreen(
 				Column(
 					modifier = Modifier
 						.fillMaxWidth()
-						.height((307 * u).dp)
+						// heightIn, not height: enlarged text (the system font size) grows the card instead of being clipped.
+						.heightIn(min = (307 * u).dp)
 						// 1:4654 (exact-design audit 2026-09-04): the hero is r16 - the r24 was never authored.
 						.clip(RoundedCornerShape((16 * u).dp))
 						.background(Sim.CardBg)
@@ -201,7 +203,7 @@ fun PickDetailScreen(
 							color = Sim.Muted,
 						)
 					}
-					Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = (11 * u).dp).height((48 * u).dp)) {
+					Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = (11 * u).dp).heightIn(min = (48 * u).dp)) {
 						Text(
 							gainWhole,
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (38 * u).sp, lineHeight = (48 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), // 1:4660 carries no tracking (exact-design audit 2026-09-04)
@@ -420,7 +422,7 @@ private fun StatBox(label: String, value: String, valueColor: Color, modifier: M
 	Column(
 		verticalArrangement = Arrangement.spacedBy((4 * u).dp),
 		modifier = modifier
-			.height((61 * u).dp)
+			.heightIn(min = (61 * u).dp)
 			.clip(RoundedCornerShape((14 * u).dp))
 			.background(Sim.CardBg)
 			.padding(horizontal = (14 * u).dp, vertical = (13 * u).dp),

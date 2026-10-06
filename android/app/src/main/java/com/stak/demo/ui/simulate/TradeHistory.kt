@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +44,7 @@ import java.util.Locale
 @Composable
 internal fun PortfolioKicker(text: String) {
 	val u = figmaUnit()
-	Box(contentAlignment = Alignment.BottomStart, modifier = Modifier.fillMaxWidth().height((17 * u).dp).padding(start = (2 * u).dp)) {
+	Box(contentAlignment = Alignment.BottomStart, modifier = Modifier.fillMaxWidth().heightIn(min = (17 * u).dp).padding(start = (2 * u).dp)) {
 		Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, letterSpacing = (0.9 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Faint)
 	}
 }
