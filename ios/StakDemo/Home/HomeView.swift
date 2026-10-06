@@ -488,9 +488,13 @@ private struct WhyThisMattersCard: View {
 /// Go to Deck chip; the whole banner opens the deck.
 private struct DeckBanner: View {
 	let onOpenDeck: () -> Void
+	@ObservedObject private var holdings = MyStakHoldings.shared
 
 	var body: some View {
 		let u = figmaUnit
+		let bannerCopy = holdings.tickers.isEmpty
+			? "Take your first deck to build your taste"
+			: "Your next pick is a swipe away"
 		ZStack {
 			// The illustration zone of the frame (box + coins + shadow), cropped
 			// from the banner render so its pose is exact; the teal it carries is
@@ -503,7 +507,7 @@ private struct DeckBanner: View {
 				.offset(x: 13 * u)
 				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 			VStack(alignment: .leading, spacing: 10 * u) {
-				Text("Take your first deck to build your taste")
+				Text(bannerCopy)
 					.font(StakFont.geist(12 * u, .light))
 					// 118:1722 pitch 15 vs Geist's natural 15.6: additive lineSpacing
 					// cannot go negative, so 0 (was +3 -> 18.6) - exact-design audit

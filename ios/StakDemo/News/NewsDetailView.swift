@@ -31,6 +31,8 @@ private let ctaBorder = StakColors.ctaBorderGradient
 /// changed. It opens on the tapped story's page (NewsArticleFeed.pageOrder),
 /// share uses the CURRENT page's story, and only the current page owns a
 /// live hero player (HeroImage.isActive).
+// MARK: – NewsDetailView
+
 struct NewsDetailView: View {
 	/// The served article for the tapped story (user, 2026-08-25); the
 	/// Apple article is the authored one and renders frame-exact.
@@ -39,6 +41,7 @@ struct NewsDetailView: View {
 	var onViewInMyStak: () -> Void = {}
 	/// READ NEXT rows push the next story's article (user, 2026-08-25).
 	var onOpenArticle: (String) -> Void = { _ in }
+	var onOpenAi: (() -> Void)? = nil
 	/// This screen is the TOP of the shell's pushed stack. A READ NEXT push
 	/// covers the previous article without unmounting it, so the shell
 	/// passes false to the covered one: its hero releases its player (no
@@ -65,11 +68,12 @@ struct NewsDetailView: View {
 	/// The story whose save-success sheet is up (nil = none).
 	@State private var successId: String? = nil
 
-	init(articleId: String = NewsArticleFeed.apple, onBack: @escaping () -> Void, onViewInMyStak: @escaping () -> Void = {}, onOpenArticle: @escaping (String) -> Void = { _ in }, isTop: Bool = true) {
+	init(articleId: String = NewsArticleFeed.apple, onBack: @escaping () -> Void, onViewInMyStak: @escaping () -> Void = {}, onOpenArticle: @escaping (String) -> Void = { _ in }, onOpenAi: (() -> Void)? = nil, isTop: Bool = true) {
 		self.articleId = articleId
 		self.onBack = onBack
 		self.onViewInMyStak = onViewInMyStak
 		self.onOpenArticle = onOpenArticle
+		self.onOpenAi = onOpenAi
 		self.isTop = isTop
 		// The feed's canonical order; a story outside it (never, in the demo)
 		// still opens - as the only page.
@@ -126,7 +130,8 @@ struct NewsDetailView: View {
 							// audit 2026-09-04) - the dismiss below stays the 300 dissolve.
 							// The save is committed on the tap (Codex review, PR #167); the sheet's paths only navigate.
 							onAddToStak: { save(id); withAnimation(.easeOut(duration: 0.35)) { successId = id } },
-							onOpenArticle: onOpenArticle
+							onOpenArticle: onOpenArticle,
+							onOpenAi: onOpenAi
 						)
 						.tag(i)
 					}
@@ -174,6 +179,7 @@ private struct NewsArticlePage: View {
 	let onAddToStak: () -> Void
 	/// READ NEXT rows push the next story's article (user, 2026-08-25).
 	let onOpenArticle: (String) -> Void
+	var onOpenAi: (() -> Void)? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -236,6 +242,30 @@ private struct NewsArticlePage: View {
 							}
 						}
 						ReadNext(currentId: article.id, onOpen: onOpenArticle)
+						if let onOpenAi {
+							Button(action: onOpenAi) {
+								HStack(spacing: 12 * u) {
+									Image(systemName: "sparkles")
+										.font(.system(size: 14 * u))
+										.foregroundStyle(Color(argb: 0xFF69B3CA))
+									VStack(alignment: .leading, spacing: 2 * u) {
+										Text("Ask STAK AI")
+											.font(StakFont.geist(13 * u, .medium))
+											.foregroundStyle(StakColors.textPrimary)
+										Text("Discuss this story with STAK AI")
+											.font(StakFont.geist(11 * u))
+											.foregroundStyle(News.muted)
+									}
+									Spacer()
+									Image(systemName: "chevron.right")
+										.font(.system(size: 12 * u))
+										.foregroundStyle(News.muted)
+								}
+								.padding(14 * u)
+								.background(News.cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
+							}
+							.buttonStyle(.pressDim)
+						}
 					}
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)

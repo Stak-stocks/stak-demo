@@ -282,12 +282,12 @@ private struct HelpSupportView: View {
 				FaqRow(question: "Where do the prices come from?", answer: "STAK shows demo prices while the market feed is being wired up. Every number on screen is illustrative.")
 				FaqRow(question: "Is my data private?", answer: "Your picks, saves and paper portfolio live on this phone. STAK never sells your data.")
 				SettingsLinkRow(label: "Email support") {
-					if let url = URL(string: "mailto:support@stak.app?subject=STAK%20support") { UIApplication.shared.open(url) }
+					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20support") { UIApplication.shared.open(url) }
 				}
 				// Contact / report and the legal links (FigJam Profile board, 2026-09-14).
 				SettingsLinkRow(label: "Report a problem") {
 					let body = "What happened:\n\nWhere in the app:\n\nApp version \(version)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-					if let url = URL(string: "mailto:support@stak.app?subject=STAK%20problem%20report&body=\(body)") { UIApplication.shared.open(url) }
+					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20problem%20report&body=\(body)") { UIApplication.shared.open(url) }
 				}
 				SettingsLinkRow(label: "Terms of service") { if let url = URL(string: termsURL) { UIApplication.shared.open(url) } }
 				SettingsLinkRow(label: "Privacy policy") { if let url = URL(string: privacyURL) { UIApplication.shared.open(url) } }
@@ -402,8 +402,8 @@ struct RiskStyleSheet: View {
 }
 
 /// Where the legal pages live - the landing site's routes.
-private let termsURL = "https://stak.app/terms"
-private let privacyURL = "https://stak.app/privacy"
+private let termsURL = "https://thestak.org/terms"
+private let privacyURL = "https://thestak.org/privacy"
 
 /// A small selectable chip - the notification threshold, the portfolio setup's balances. Mirrors android SettingsChip.
 struct SettingsChip: View {
@@ -438,7 +438,9 @@ private struct AppSettingsView: View {
 	let onOpen: (SettingsKind) -> Void
 	let onAccountDeleted: () -> Void
 	@ObservedObject private var profile = UserProfile.shared
+	@StateObject private var authVM = AuthViewModel()
 	@State private var confirmDelete = false
+	@State private var deleteError: String? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -457,9 +459,19 @@ private struct AppSettingsView: View {
 						Text("This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u{2019}t be undone.")
 							.font(StakFont.geist(12 * u))
 							.foregroundStyle(bodyInk)
+						if let err = deleteError {
+							Text(err)
+								.font(StakFont.geist(12 * u))
+								.foregroundStyle(Auth.errorRed)
+						}
 						Button {
-							Session.shared.deleteAccount()
-							onAccountDeleted()
+							Task {
+								if let err = await authVM.deleteAccount() {
+									deleteError = err; return
+								}
+								Session.shared.deleteAccount()
+								onAccountDeleted()
+							}
 						} label: {
 							Text("Delete my account")
 								.font(StakFont.geist(13 * u, .medium))
@@ -487,12 +499,14 @@ private struct AppSettingsView: View {
 /// page flips into its "Password updated" state. Mirrors android ChangePasswordScreen.
 private struct ChangePasswordView: View {
 	let onBack: () -> Void
+	@StateObject private var authVM = AuthViewModel()
 	@State private var current = ""
 	@State private var next = ""
 	@State private var confirm = ""
 	@State private var show = false
 	@State private var attempted = false
 	@State private var updated = false
+	@State private var serverError: String? = nil
 	private var currentError: String? { current.isEmpty ? "Enter your current password" : nil }
 	private var nextError: String? { AuthRules.passwordError(next) ?? (next == current ? "Choose a password you haven\u{2019}t used" : nil) }
 	private var confirmError: String? { AuthRules.confirmError(next, confirm) }
@@ -521,9 +535,23 @@ private struct ChangePasswordView: View {
 				AuthInput("Confirm new password", text: $confirm, hidden: !show)
 					.error(attempted ? confirmError : nil)
 				Caption(text: "At least \(AuthRules.passwordMin) characters.")
+				if let err = serverError {
+					Text(err)
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(Auth.errorRed)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
 				AuthCta(text: "Update password", enabled: !current.isEmpty && !next.isEmpty && !confirm.isEmpty, action: {
 					attempted = true
-					if currentError == nil && nextError == nil && confirmError == nil { updated = true }
+					serverError = nil
+					guard currentError == nil && nextError == nil && confirmError == nil else { return }
+					Task {
+						if let err = await authVM.changePassword(newPassword: next) {
+							serverError = err
+						} else {
+							updated = true
+						}
+					}
 				})
 			}
 		}

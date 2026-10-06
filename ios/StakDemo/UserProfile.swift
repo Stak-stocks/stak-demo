@@ -39,11 +39,14 @@ final class UserProfile: ObservableObject {
 	@Published var joined: String = "July 2026"
 	/// The signed-in account's email address, populated after sign-in from the server or Supabase session.
 	@Published var email: String = ""
+	/// Mirrors Session.shared.demoAccount so greetingName can read it without crossing the actor boundary.
+	var demoAccount: Bool = true
 
 	/// The name as the app addresses the user - always capitalized.
 	var greetingName: String {
 		let name = displayName.trimmingCharacters(in: .whitespaces)
-		return (name.isEmpty ? "Hamza" : name).capitalizedWords
+		if name.isEmpty { return demoAccount ? "Hamza" : "there" }
+		return name.capitalizedWords
 	}
 
 	/// BACKEND CONTRACT (user, 2026-08-22): the app sends the device's IANA

@@ -56,7 +56,12 @@ struct UpdatesView: View {
                             UpdateGroupSection(
                                 group: group,
                                 u: u,
-                                onOpenStock: { onOpenStock(group.ticker); myStakVM.markCompanyRead(group.ticker) }
+                                onOpenStock: {
+                                    StakEvents.log(StakEvents.updateOpen, ticker: group.ticker,
+                                                   params: group.updates.first.map { ["kind": $0.kind] })
+                                    myStakVM.markCompanyRead(group.ticker)
+                                    onOpenStock(group.ticker)
+                                }
                             )
                         }
                     }

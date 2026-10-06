@@ -422,7 +422,7 @@ struct StakAiChatView: View {
 
     private func circleButton(icon: String, label: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
         let u = figmaUnit
-        Button(action: action) {
+        return Button(action: action) {
             ZStack {
                 Circle().fill(surface).frame(width: 36 * u, height: 36 * u)
                 Image(systemName: icon)

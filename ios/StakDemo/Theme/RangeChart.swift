@@ -20,6 +20,12 @@ struct RangeLineChart: View {
 	/// authored swing at +/-5 - instead of the demo export (a new account's
 	/// charts, product audit 2026-09-05). nil keeps the demo behaviour.
 	var move: Double? = nil
+	/// When set, the chart fetches live portfolio data for these comma-separated tickers
+	/// and renders the indexed series from the server. Overrides `move` and authored exports.
+	var portfolioTickers: [String]? = nil
+
+	@State private var livePoints: [CGFloat]? = nil
+	@State private var fetchTask: Task<Void, Never>? = nil
 
 	/// The 3M shape when a line is drawn instead of exported.
 	static let series3M: [CGFloat] = [0.30, 0.34, 0.32, 0.40, 0.38, 0.46, 0.52, 0.48, 0.58, 0.56, 0.64, 0.70, 0.66, 0.76, 0.84]
@@ -37,7 +43,12 @@ struct RangeLineChart: View {
 	var body: some View {
 		let u = figmaUnit
 		Group {
-			if let move {
+			if let live = livePoints {
+				GeometryReader { geo in
+					let line = RangeLineChart.linePath(live, in: geo.size)
+					line.stroke(tint, style: StrokeStyle(lineWidth: 2 * u, lineCap: .round, lineJoin: .round))
+				}
+			} else if let move {
 				let points = StakInsights.scaled(RangeLineChart.series[range] ?? RangeLineChart.series3M, move)
 				GeometryReader { geo in
 					let line = RangeLineChart.linePath(points, in: geo.size)
@@ -55,6 +66,23 @@ struct RangeLineChart: View {
 			}
 		}
 		.frame(width: width, height: height)
+		.task(id: taskKey) { await fetchLiveChart() }
+	}
+
+	private var taskKey: String {
+		guard let tickers = portfolioTickers else { return "" }
+		return tickers.joined(separator: ",") + "-" + range
+	}
+
+	private func fetchLiveChart() async {
+		guard let tickers = portfolioTickers, !tickers.isEmpty else { livePoints = nil; return }
+		let resp = try? await StockRepository.shared.getPortfolioChart(tickers, range: range)
+		guard let indexed = resp?.indexed, indexed.count > 1 else { livePoints = nil; return }
+		let minV = indexed.min() ?? 0
+		let maxV = indexed.max() ?? 1
+		let span = max(maxV - minV, 0.001)
+		let fractions = indexed.map { CGFloat(($0 - minV) / span) }
+		livePoints = fractions
 	}
 
 	/// The series as a polyline across the box.

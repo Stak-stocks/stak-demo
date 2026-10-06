@@ -83,7 +83,10 @@ struct TasteGraphView: View {
             }
         }
         .background(StakColors.bg.ignoresSafeArea())
-        .task { await myStakVM.loadTaste() }
+        .task {
+            StakEvents.log(StakEvents.tasteGraphOpen)
+            await myStakVM.loadTaste()
+        }
     }
 
     @ViewBuilder
@@ -154,7 +157,7 @@ private struct TasteThemeRow: View {
                                     .background(Color(argb: 0x1A69B3CA), in: Capsule())
                             }
                         }
-                        TasteBar(fill: CGFloat(theme.share), u: u)
+                        TasteShareBar(fill: CGFloat(theme.share), u: u)
                     }
                     Spacer()
                     HStack(spacing: 4 * u) {
@@ -209,7 +212,7 @@ private struct TasteThemeRow: View {
     }
 }
 
-private struct TasteBar: View {
+private struct TasteShareBar: View {
     let fill: CGFloat
     let u: CGFloat
     var body: some View {

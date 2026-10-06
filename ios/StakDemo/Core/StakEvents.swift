@@ -19,16 +19,19 @@ enum StakEvents {
     static let stakAiOpen          = "stak_ai_open"
 
     /// Log an engagement event. `ticker` and `params` are both optional.
+    @MainActor
     static func log(_ type: String, ticker: String? = nil, brandId: String? = nil, params: [String: String]? = nil) {
         guard !StakStore.demoAccount, Session.shared.token != nil else { return }
+        let day = todayKey()
+        let encodedParams = params.map { dict in dict.mapValues { AnyCodable($0) } }
         Task.detached(priority: .background) {
             _ = try? await StockRepository.shared.recordEvent(EngagementEventRequest(
                 type: type,
                 brandId: brandId,
                 ticker: ticker,
                 categories: nil,
-                todayKey: todayKey(),
-                params: params
+                todayKey: day,
+                params: encodedParams
             ))
         }
     }

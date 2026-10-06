@@ -9,6 +9,8 @@ import AuthenticationServices
 /// (#a6e4f7 → #5da8bf → #3c98b4) with white Geist Medium label.
 struct CreateAccountView: View {
 	let onBack: () -> Void
+	/// Hide the back button when this is the root screen (normal case — stack starts here).
+	var showBack: Bool = false
 	let onCreateAccount: () -> Void
 	let onSignIn: () -> Void
 	/// The email path goes through Email verification first (FigJam entry flow, 2026-09-14); Google / Apple skip it via `onCreateAccount`.
@@ -40,13 +42,15 @@ struct CreateAccountView: View {
 			AuthWatermark()
 
 			Artboard {
-				HStack {
-					AuthBackCircle(action: onBack)
-					Spacer()
+				if showBack {
+					HStack {
+						AuthBackCircle(action: onBack)
+						Spacer()
+					}
+					.padding(.leading, 20 * u)
+					.padding(.top, 10 * u)
+					.padding(.bottom, 4 * u)
 				}
-				.padding(.leading, 20 * u)
-				.padding(.top, 10 * u)
-				.padding(.bottom, 4 * u)
 
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14 * u) {

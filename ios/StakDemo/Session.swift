@@ -65,6 +65,7 @@ final class Session: ObservableObject {
 		demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
 		firstRunPending = d.bool(forKey: Self.keyFirstRun)
 		StakStore.demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
+		UserProfile.shared.demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
 		UserProfile.shared.displayName = d.string(forKey: Self.keyName) ?? ""
 		if let risk = d.string(forKey: Self.keyRisk) { UserProfile.shared.riskStyle = risk }
 		UserProfile.shared.brandPicks = Set(d.stringArray(forKey: Self.keyPicks) ?? [])
@@ -89,6 +90,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.email = d.string(forKey: Self.keyEmail) ?? ""
 		token = d.string(forKey: Self.keyJwt)
 		accountId = token.flatMap(jwtSubject)
+		StakStore.accountId = accountId
 		applyAccount()
 	}
 
@@ -99,6 +101,11 @@ final class Session: ObservableObject {
 		DeckSession.shared.load()
 		StakNotifications.shared.load()
 		NewsSaves.shared.load()
+		Entitlements.shared.load()
+		if !demoAccount {
+			ProfileSync.shared.sync()
+			DeviceStateSync.shared.sync()
+		}
 	}
 
 	/// Sign-in CTA or account creation (09 Proceed) - remembered across launches.
@@ -107,6 +114,7 @@ final class Session: ObservableObject {
 		signedIn = true
 		demoAccount = demo
 		StakStore.demoAccount = demo
+		UserProfile.shared.demoAccount = demo
 		// Only a brand-new account is a first-time user; Sign in is an active user.
 		firstRunPending = !demo
 		if demo {
@@ -133,6 +141,7 @@ final class Session: ObservableObject {
 		// A brand-new account starts from nothing; the demo account keeps whatever
 		// it did last time it was signed in.
 		if !demo {
+			StakStore.migrateLegacy(accountId: accountId)
 			StakStore.clearAccount(demo: false)
 			// The day the account was created: the inbox ages its welcome from it.
 			StakStore.set(String(Int(Date().timeIntervalSince1970 / 86400)), for: "created_day")
@@ -147,9 +156,11 @@ final class Session: ObservableObject {
 	func setToken(_ jwt: String) {
 		token = jwt
 		accountId = jwtSubject(jwt)
+		StakStore.accountId = accountId
 		if !signedIn {
 			signedIn = true
 			demoAccount = false
+			UserProfile.shared.demoAccount = false
 		}
 		persist()
 	}
@@ -180,6 +191,8 @@ final class Session: ObservableObject {
 		demoAccount = true
 		firstRunPending = false
 		StakStore.demoAccount = true
+		StakStore.accountId = nil
+		UserProfile.shared.demoAccount = true
 		UserProfile.shared.displayName = ""
 		UserProfile.shared.photoData = nil
 		UserProfile.shared.riskStyle = "Growth-Oriented"
@@ -195,7 +208,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.appearance = "dark"
 		UserProfile.shared.linkedGoogle = false
 		UserProfile.shared.linkedApple = false
-		UserProfile.shared.joined = "July 2026"
+		UserProfile.shared.joined = ""
 		UserProfile.shared.email = ""
 		PushRegistration.forget()
 		token = nil
@@ -217,7 +230,6 @@ final class Session: ObservableObject {
 		d.removeObject(forKey: Self.keyJwt)
 		d.removeObject(forKey: Self.keyEmail)
 		Self.savePhoto(nil)
-		applyAccount()
 	}
 
 	private func persist() {

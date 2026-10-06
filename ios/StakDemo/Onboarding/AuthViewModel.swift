@@ -2,6 +2,7 @@ import SwiftUI
 import Supabase
 import AuthenticationServices
 import CryptoKit
+import GoogleSignIn
 
 // MARK: – UI state
 
@@ -28,7 +29,6 @@ final class AuthViewModel: ObservableObject {
     @Published private(set) var uiState: AuthUiState = .idle
 
     private let repository = StockRepository.shared
-    private let webAuthController = WebAuthFlowController()
 
     // MARK: – Email sign-in
 
@@ -207,26 +207,30 @@ final class AuthViewModel: ObservableObject {
         Task { try? await supabase.auth.signOut() }
     }
 
-    // MARK: – Google Sign-In (native browser sheet via ASWebAuthenticationSession)
+    // MARK: – Google Sign-In (native account picker via GIDSignIn SDK)
 
-    /// Opens the Google OAuth flow in an ASWebAuthenticationSession sheet.
-    /// Uses the reversed client ID URL scheme so the system returns the callback to the app.
-    /// If the user cancels the sheet, state resets to idle — no stuck-loading spinner.
+    /// Shows the native Google sign-in sheet (account picker on iOS 14+ when a Google account
+    /// is already on the device). On success, exchanges the ID token with Supabase.
     func signInWithGoogle() {
         guard setLoading() else { return }
+        guard let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+              let rootVC = scene.keyWindow?.rootViewController else {
+            uiState = .error("Cannot present sign-in — try again")
+            return
+        }
         Task {
             do {
-                let scheme = "com.googleusercontent.apps.889057229494-j3bgl32e5i2jtijgbgqc5aq906lqvkfh"
-                let redirectURL = URL(string: "\(scheme)://oauth2redirect")!
-
-                let session = try await supabase.auth.signInWithOAuth(
-                    provider: .google,
-                    redirectTo: redirectURL
-                ) { [weak self] oauthURL in
-                    guard let self else { throw CancellationError() }
-                    return try await self.webAuthController.authenticate(url: oauthURL, scheme: scheme)
+                let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+                guard let idToken = result.user.idToken?.tokenString else {
+                    uiState = .error("Google sign-in did not return an ID token")
+                    return
                 }
-
+                let session = try await supabase.auth.signInWithIdToken(credentials: .init(
+                    provider: .google,
+                    idToken: idToken,
+                    accessToken: result.user.accessToken.tokenString
+                ))
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
                 applyDisplayName(from: me)
@@ -234,8 +238,8 @@ final class AuthViewModel: ObservableObject {
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
-                let isCancel = error is CancellationError
-                    || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+                let nsErr = error as NSError
+                let isCancel = nsErr.code == GIDSignInError.canceled.rawValue
                 uiState = isCancel ? .idle : .error(friendlyError(error))
             }
         }
@@ -279,8 +283,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func applyDisplayName(from me: MeResponse?) {
-        guard let name = me?.displayName, !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        UserProfile.shared.displayName = name
+        UserProfile.shared.displayName = me?.displayName.trimmingCharacters(in: .whitespaces) ?? ""
     }
 
     private func friendlyError(_ error: Error) -> String {
@@ -317,38 +320,6 @@ extension AuthViewModel {
 
     static func sha256(_ input: String) -> String {
         SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
-    }
-}
-
-// MARK: – Google OAuth browser session controller
-
-/// Wraps ASWebAuthenticationSession so the OAuth launchFlow closure can be called from
-/// within the actor-isolated signInWithGoogle() without escaping to an unstructured Task.
-@MainActor
-private final class WebAuthFlowController: NSObject, ASWebAuthenticationPresentationContextProviding {
-    private var activeSession: ASWebAuthenticationSession?
-
-    func authenticate(url: URL, scheme: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { [weak self] continuation in
-            guard let self else { continuation.resume(throwing: CancellationError()); return }
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { [weak self] callbackURL, error in
-                self?.activeSession = nil
-                if let error { continuation.resume(throwing: error) }
-                else if let url = callbackURL { continuation.resume(returning: url) }
-                else { continuation.resume(throwing: CancellationError()) }
-            }
-            session.presentationContextProvider = self
-            session.prefersEphemeralWebBrowserSession = true
-            activeSession = session
-            session.start()
-        }
-    }
-
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 }
 

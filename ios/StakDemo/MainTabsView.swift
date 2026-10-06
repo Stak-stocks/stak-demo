@@ -26,6 +26,8 @@ private enum PushedPage: Identifiable, Equatable {
 	case updates
 	case tasteGraph
 	case dailyBriefDetail(DailyBriefResponse)
+	/// Phase 6 (2026-10-06): live news articles from the server feed, which have no authored article page.
+	case liveNewsDetail(NewsArticleDto)
 
 	var id: String {
 		switch self {
@@ -45,6 +47,7 @@ private enum PushedPage: Identifiable, Equatable {
 		case .updates: return "updates"
 		case .tasteGraph: return "tasteGraph"
 		case .dailyBriefDetail: return "dailyBriefDetail"
+		case .liveNewsDetail(let dto): return "liveNewsDetail-\(dto.url.isEmpty ? dto.headline : dto.url)"
 		}
 	}
 }
@@ -173,6 +176,15 @@ struct MainTabsView: View {
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 		.task { await simulateVM.load() }
+		// 30s Simulate refresh — mirrors Android RefreshWhileVisible(intervalMs=30_000, tickOnResume=true).
+		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+			guard tab == .simulate else { return }
+			Task { await simulateVM.refresh() }
+		}
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+			guard tab == .simulate else { return }
+			Task { await simulateVM.refresh() }
+		}
 	}
 
 	/// One tab page — content, the stable bar and any hoisted ticket. The
@@ -213,6 +225,8 @@ struct MainTabsView: View {
 						NewsView(
 							onOpenArticle: { id in pushInstant(.newsDetail(article: id)) },
 							onOpenDailyBrief: { b in pushInstant(.dailyBriefDetail(b)) },
+							onOpenLiveArticle: { dto in pushInstant(.liveNewsDetail(dto)) },
+							onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) },
 							newsVM: newsVM
 						)
 					case .discover:
@@ -236,7 +250,8 @@ struct MainTabsView: View {
 							onOpenAllCollections: { pushInstant(.allCollections) },
 							onOpenUpdates: { pushInstant(.updates) },
 							onOpenTasteGraph: { pushInstant(.tasteGraph) },
-							myStakVM: myStakVM
+							myStakVM: myStakVM,
+							discoverVM: discoverVM
 						)
 					case .simulate:
 						SimulateView(
@@ -320,6 +335,7 @@ struct MainTabsView: View {
 				// allowRepeat: after a swipe the page's READ NEXT can list the
 				// story this entry was opened for (pager, 2026-08-31).
 				onOpenArticle: { id in pushInstant(.newsDetail(article: id), allowRepeat: true) },
+				onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) },
 				// Only the top of the pushed stack owns a live hero player.
 				isTop: isTop
 			)
@@ -341,7 +357,8 @@ struct MainTabsView: View {
 				onPracticeBuyToSimulate: { pop(.instant, all: true, landing: .simulate) },
 				// Authored (1:2579): the open state's tab bar SWAPs - pop the
 				// detail instantly and land on the tapped tab.
-				onTab: { pop(.instant, all: true, landing: $0) }
+				onTab: { pop(.instant, all: true, landing: $0) },
+				onOpenAi: { push(.stakAi(context: .stock(symbol), question: nil, conversationId: nil)) }
 			)
 		case .collection(let id):
 			CollectionView(
@@ -433,7 +450,14 @@ struct MainTabsView: View {
 		case .dailyBriefDetail(let brief):
 			DailyBriefDetailView(
 				brief: brief,
-				onBack: { pop(.instant) }
+				onBack: { pop(.instant) },
+				onOpenAi: { ctx in push(.stakAi(context: ctx, question: nil, conversationId: nil)) }
+			)
+		case .liveNewsDetail(let dto):
+			LiveNewsDetailView(
+				article: dto,
+				onBack: { pop(.instant) },
+				onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) }
 			)
 		}
 	}
@@ -464,7 +488,9 @@ struct MainTabsView: View {
 	private func logPageEvent(_ page: PushedPage) {
 		switch page {
 		case .stockDetail(_, let symbol): StakEvents.log(StakEvents.stockDetailOpen, ticker: symbol)
-		case .stakAi: StakEvents.log(StakEvents.stakAiOpen, params: ["platform": "ios"])
+		case .stakAi(let ctx, _, let cid):
+			let entry = ctx?.type ?? (cid != nil ? "history" : "header")
+			StakEvents.log(StakEvents.stakAiOpen, params: ["entry": entry, "platform": "ios"])
 		default: break
 		}
 	}

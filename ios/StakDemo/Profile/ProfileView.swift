@@ -220,7 +220,10 @@ struct ProfileView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		.task { await profileVM.load() }
+		.task {
+			ProfileSync.shared.sync()
+			await profileVM.load()
+		}
 	}
 }
 

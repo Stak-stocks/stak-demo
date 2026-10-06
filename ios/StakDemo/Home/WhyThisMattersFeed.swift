@@ -24,7 +24,7 @@ enum WhyThisMattersFeed {
 	/// A new account with nothing saved yet (product audit, 2026-09-05).
 	static let emptyBody = "Save a few stocks and STAK will show how today's news hits them."
 
-	static func body() -> String {
+	@MainActor static func body() -> String {
 		if MyStakHoldings.shared.count == 0 { return emptyBody }
 		if Session.shared.demoAccount { return demoBody }
 		// A new account's saves against today's stories (product audit, 2026-09-05).

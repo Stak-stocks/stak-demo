@@ -5,6 +5,7 @@ import SwiftUI
 struct DailyBriefDetailView: View {
     let brief: DailyBriefResponse
     let onBack: () -> Void
+    var onOpenAi: ((StakAiContext?) -> Void)? = nil
 
     var body: some View {
         let u = figmaUnit
@@ -27,6 +28,7 @@ struct DailyBriefDetailView: View {
                     if !brief.personalizedImpact.isEmpty { impactCard(u: u) }
                     if !brief.whatHappened.isEmpty { whatHappenedSection(u: u) }
                     if !brief.contextQuestion.isEmpty { contextQuestionCard(u: u) }
+                    if onOpenAi != nil { askFollowUpCard(u: u) }
                     if !brief.watchItems.isEmpty { watchSection(u: u) }
                 }
                 .padding(.horizontal, 20 * u)
@@ -134,6 +136,35 @@ struct DailyBriefDetailView: View {
         .padding(14 * u)
         .background(Color(argb: 0xFF0F1A2D), in: RoundedRectangle(cornerRadius: 12 * u))
         .overlay(RoundedRectangle(cornerRadius: 12 * u).stroke(Color(argb: 0x2269B3CA), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func askFollowUpCard(u: CGFloat) -> some View {
+        Button {
+            onOpenAi?(.brief(brief))
+        } label: {
+            HStack(spacing: 12 * u) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14 * u))
+                    .foregroundStyle(Color(argb: 0xFF69B3CA))
+                VStack(alignment: .leading, spacing: 2 * u) {
+                    Text("Ask a follow-up")
+                        .font(StakFont.geist(13 * u, .medium))
+                        .foregroundStyle(StakColors.textPrimary)
+                    Text("STAK AI answers questions about today's brief")
+                        .font(StakFont.geist(11 * u))
+                        .foregroundStyle(Color(argb: 0xFF819ABB))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12 * u))
+                    .foregroundStyle(Color(argb: 0xFF819ABB))
+            }
+            .padding(14 * u)
+            .background(Color(argb: 0xFF0F1A2D), in: RoundedRectangle(cornerRadius: 12 * u))
+            .overlay(RoundedRectangle(cornerRadius: 12 * u).stroke(Color(argb: 0x2269B3CA), lineWidth: 1))
+        }
+        .buttonStyle(.pressDim)
     }
 
     @ViewBuilder

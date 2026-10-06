@@ -304,7 +304,7 @@ private struct ScoreHero: View {
 				}
 				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) this week")
 					.font(StakFont.geist(12 * u, .medium))
-					.foregroundStyle(Sim.green)
+					.foregroundStyle(portfolio.weekUp ? Sim.green : Sim.red)
 				// The "#47 this week" chip sits on its own row of the column.
 				Button(action: onOpenLeaderboard) {
 					Text(portfolio.rank.map { "#\($0) this week" } ?? "Unranked this week")
@@ -321,7 +321,12 @@ private struct ScoreHero: View {
 			// Authored: ranks→chart gap is exactly the column's 11 (1:3935);
 			// the chart bleeds outside the 20u text padding.
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u, move: portfolio.demo ? nil : portfolio.allTimeGain / portfolio.paperStart * 100)
+			RangeLineChart(
+				range: range, tint: Sim.teal, authored: "SimChartLine",
+				width: 343 * u, height: 73.56 * u,
+				move: portfolio.demo ? nil : portfolio.allTimeGain / portfolio.paperStart * 100,
+				portfolioTickers: portfolio.demo ? nil : (portfolio.positions.isEmpty ? nil : portfolio.positions.map { $0.spec.symbol })
+			)
 				.frame(maxWidth: .infinity)
 			HStack(spacing: 37 * u) {
 				ForEach(["1D", "1W", "1M", "3M", "YTD", "1Y"], id: \.self) { label in

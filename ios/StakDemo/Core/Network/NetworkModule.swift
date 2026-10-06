@@ -96,7 +96,7 @@ actor NetworkModule {
         let http = response as! HTTPURLResponse
 
         if http.statusCode == 401 {
-            try? await supabase.auth.refreshSession()
+            _ = try? await supabase.auth.refreshSession()
             var retried = request
             retried.setValue("Bearer \(currentToken())", forHTTPHeaderField: "Authorization")
             let (data2, res2) = try await urlSession.data(for: retried)

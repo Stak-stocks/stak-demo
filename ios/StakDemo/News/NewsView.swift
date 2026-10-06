@@ -29,6 +29,8 @@ enum News {
 struct NewsView: View {
 	let onOpenArticle: (String) -> Void
 	var onOpenDailyBrief: (DailyBriefResponse) -> Void = { _ in }
+	var onOpenLiveArticle: (NewsArticleDto) -> Void = { _ in }
+	var onOpenAi: () -> Void = {}
 	@ObservedObject var newsVM: NewsViewModel
 	// Section membership is holdings-driven (For You = held stocks), so a
 	// save must re-render the listing, not just the row chips.
@@ -101,21 +103,34 @@ struct NewsView: View {
 								.foregroundStyle(News.muted)
 						}
 						Spacer()
-						Button {
-							searching.toggle()
-							if !searching { query = "" }
-							if searching { DispatchQueue.main.async { searchFocused = true } }
-						} label: {
-							ZStack {
-								Circle().fill(News.cardBg)
-								Image("IcNewsSearch")
-									.resizable()
-									.frame(width: 20 * u, height: 20 * u)
+						HStack(spacing: 8 * u) {
+							Button(action: onOpenAi) {
+								ZStack {
+									Circle().fill(News.cardBg)
+									Image(systemName: "sparkles")
+										.font(.system(size: 16 * u))
+										.foregroundStyle(StakColors.textPrimary)
+								}
+								.frame(width: 40 * u, height: 40 * u)
 							}
-							.frame(width: 40 * u, height: 40 * u)
+							.buttonStyle(.pressDim)
+							.accessibilityLabel("Ask STAK AI")
+							Button {
+								searching.toggle()
+								if !searching { query = "" }
+								if searching { DispatchQueue.main.async { searchFocused = true } }
+							} label: {
+								ZStack {
+									Circle().fill(News.cardBg)
+									Image("IcNewsSearch")
+										.resizable()
+										.frame(width: 20 * u, height: 20 * u)
+								}
+								.frame(width: 40 * u, height: 40 * u)
+							}
+							.buttonStyle(.pressDim)
+							.accessibilityLabel("Search")
 						}
-						.buttonStyle(.pressDim)
-						.accessibilityLabel("Search")
 					}
 					.padding(.top, 22 * u)
 
@@ -165,19 +180,34 @@ struct NewsView: View {
 					StoryGrid(onOpenArticle: onOpenArticle, query: q)
 					// The rows render from the served section feeds when live,
 					// else fall back to the static demo catalogue.
-					let forYouBase: [NewsArticleFeed.Article] = newsVM.forYouArticles.isEmpty
+					// Live articles open LiveNewsDetailView; authored ones open the pager.
+					let forYouDtos = newsVM.forYouArticles
+					let forYouLiveMap = Dictionary(forYouDtos.map { dto in
+						let id = dto.url.isEmpty ? dto.headline : dto.url
+						return (id, dto)
+					}, uniquingKeysWith: { $1 })
+					let forYouBase: [NewsArticleFeed.Article] = forYouDtos.isEmpty
 						? NewsArticleFeed.forYou()
-						: newsVM.forYouArticles.map { liveArticle($0) }
+						: forYouDtos.map { liveArticle($0) }
 					let forYou = forYouBase.filter { matchesArticle($0) }
 					if !forYou.isEmpty {
-						NewsSectionView(title: "For You", rows: forYou, onOpen: onOpenArticle)
+						NewsSectionView(title: "For You", rows: forYou, onOpen: { id in
+							if let dto = forYouLiveMap[id] { onOpenLiveArticle(dto) } else { onOpenArticle(id) }
+						})
 					}
-					let marketsBase: [NewsArticleFeed.Article] = newsVM.marketArticles.isEmpty
+					let marketsDtos = newsVM.marketArticles
+					let marketsLiveMap = Dictionary(marketsDtos.map { dto in
+						let id = dto.url.isEmpty ? dto.headline : dto.url
+						return (id, dto)
+					}, uniquingKeysWith: { $1 })
+					let marketsBase: [NewsArticleFeed.Article] = marketsDtos.isEmpty
 						? NewsArticleFeed.markets()
-						: newsVM.marketArticles.map { liveArticle($0) }
+						: marketsDtos.map { liveArticle($0) }
 					let markets = marketsBase.filter { matchesArticle($0) }
 					if !markets.isEmpty {
-						NewsSectionView(title: "Markets", rows: markets, onOpen: onOpenArticle)
+						NewsSectionView(title: "Markets", rows: markets, onOpen: { id in
+							if let dto = marketsLiveMap[id] { onOpenLiveArticle(dto) } else { onOpenArticle(id) }
+						})
 					}
 				}
 				.padding(.horizontal, 20 * u)

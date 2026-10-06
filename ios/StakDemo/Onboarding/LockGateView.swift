@@ -24,6 +24,10 @@ struct LockGateView: View {
 		.contentShape(Rectangle())
 		.onTapGesture { if failed { failed = false; prompt() } }
 		.task { prompt() }
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+			failed = false
+			prompt()
+		}
 	}
 
 	private func prompt() {

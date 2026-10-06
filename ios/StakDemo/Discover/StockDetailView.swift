@@ -31,6 +31,7 @@ struct StockDetailView: View {
 	var onKeepExploring: (() -> Void)? = nil
 	var onPracticeBuyToSimulate: (() -> Void)? = nil
 	var onTab: ((MainTab) -> Void)? = nil
+	var onOpenAi: (() -> Void)? = nil
 
 	@State private var saved: Bool
 	@State private var showSuccess = false
@@ -48,7 +49,8 @@ struct StockDetailView: View {
 		onViewInMyStak: (() -> Void)? = nil,
 		onKeepExploring: (() -> Void)? = nil,
 		onPracticeBuyToSimulate: (() -> Void)? = nil,
-		onTab: ((MainTab) -> Void)? = nil
+		onTab: ((MainTab) -> Void)? = nil,
+		onOpenAi: (() -> Void)? = nil
 	) {
 		self.onBack = onBack
 		self.fromMyStak = fromMyStak
@@ -57,6 +59,7 @@ struct StockDetailView: View {
 		self.onKeepExploring = onKeepExploring
 		self.onPracticeBuyToSimulate = onPracticeBuyToSimulate
 		self.onTab = onTab
+		self.onOpenAi = onOpenAi
 		// Codex audit (2026-09-04): saved follows the holdings store, like the deck card.
 		// The Discover entry follows THIS RUN's saves, like the deck's Save chip:
 		// 1:2382/1:2579 author "Unsaved" for a stock My STAK already lists, and
@@ -142,6 +145,30 @@ struct StockDetailView: View {
 							.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
 							// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
 							LessonCard(lesson: StockLessons.lessonFor(f.symbol))
+							if let onOpenAi {
+								Button(action: onOpenAi) {
+									HStack(spacing: 12 * u) {
+										Image(systemName: "sparkles")
+											.font(.system(size: 14 * u))
+											.foregroundStyle(Color(argb: 0xFF69B3CA))
+										VStack(alignment: .leading, spacing: 2 * u) {
+											Text("Ask STAK AI")
+												.font(StakFont.geist(13 * u, .medium))
+												.foregroundStyle(StakColors.textPrimary)
+											Text("Get AI-powered insights about \(f.symbol)")
+												.font(StakFont.geist(11 * u))
+												.foregroundStyle(muted)
+										}
+										Spacer()
+										Image(systemName: "chevron.right")
+											.font(.system(size: 12 * u))
+											.foregroundStyle(muted)
+									}
+									.padding(14 * u)
+									.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
+								}
+								.buttonStyle(.pressDim)
+							}
 						}
 						.padding(.horizontal, 20 * u)
 						.padding(.vertical, 12 * u)
@@ -670,7 +697,7 @@ private struct CompareCard: View {
 /// stock saved a minute earlier). The demo keeps the authored figures with
 /// the right symbol; a new account reads its own save date, and the move
 /// since is this week's change once a day has passed.
-private func sinceSavedFor(_ f: DetailFacts) -> (String, String, Bool) {
+@MainActor private func sinceSavedFor(_ f: DetailFacts) -> (String, String, Bool) {
 	// A save with a recorded day reads its real age on either account; the authored
 	// "5 weeks ago" belongs to the demo persona's SEED saves, which predate the record
 	// (audit 2026-09-07: the persona's own saves read "5 weeks ago" a minute later).
@@ -826,7 +853,7 @@ private struct DetailCompareRow {
 /// 2026-09-05: it read "Matches you" for everyone, high volatility
 /// included). The pill's authored x (88 low / 150 mid / 238 high) is the
 /// stock's volatility; TasteModel.riskStyle is the user's answer.
-private func riskFitFor(_ f: DetailFacts) -> (String, String) {
+@MainActor private func riskFitFor(_ f: DetailFacts) -> (String, String) {
 	// The active user (Sign in) is the authored persona: its page reads the frame's
 	// "Matches you"; only a first-time user's own 05 Risk answer drives the variants
 	// (audit 2026-09-07 - the persona never answers 05, so its risk is -1).
@@ -884,7 +911,7 @@ private func detailFactsFor(_ symbol: String) -> DetailFacts {
 /// Instant), whose Saved staks list the ACCOUNT's saves. For the demo persona that
 /// is the authored frame; for a first-time user the hop is a dead end unless the
 /// stock is one of their saves - then the in-page ticket (16:1012) serves it.
-private func hopsToSimulate(_ symbol: String) -> Bool {
+@MainActor private func hopsToSimulate(_ symbol: String) -> Bool {
 	Session.shared.demoAccount || MyStakHoldings.shared.tickers.contains(symbol)
 }
 

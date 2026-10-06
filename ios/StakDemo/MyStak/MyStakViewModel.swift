@@ -17,6 +17,10 @@ final class MyStakViewModel: ObservableObject {
     func load() async {
         guard !loaded else { return }
         loaded = true
+        if Session.shared.demoAccount {
+            updates = DemoUpdates.all; unreadCount = DemoUpdates.unread
+            return
+        }
         async let stocksTask: AndroidStocksResponse? = try? repo.getAndroidStocks()
         async let tasteTask: TasteResponse? = try? repo.getTaste()
         async let updatesTask: UpdatesResponse? = try? repo.getUpdates()
@@ -36,6 +40,9 @@ final class MyStakViewModel: ObservableObject {
     }
 
     func loadUpdates() async {
+        if Session.shared.demoAccount {
+            updates = DemoUpdates.all; unreadCount = DemoUpdates.unread; updatesFailed = false; return
+        }
         if let u = try? await repo.getUpdates() { updates = u.updates; unreadCount = u.unread; updatesFailed = false } else { updatesFailed = true }
     }
 

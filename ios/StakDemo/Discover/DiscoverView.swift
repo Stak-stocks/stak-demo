@@ -101,6 +101,7 @@ final class DeckSession: ObservableObject {
 	/// lifetime, one reset.
 	@Published var seen = 0 { didSet { persist() } }
 	@Published var saved: Set<String> = [] { didSet { persist() } }
+	@Published var passed: Set<String> = [] { didSet { persist() } }
 	@Published var bought = 0 { didSet { persist() } }
 	/// Where the run is in the cards still on the deck - swipes move it, a save-driven removal does not (Codex review, PR #167).
 	@Published var cursor = 0 { didSet { persist() } }
@@ -109,6 +110,7 @@ final class DeckSession: ObservableObject {
 	func restart() {
 		seen = 0
 		saved = []
+		passed = []
 		bought = 0
 		cursor = 0
 	}
@@ -130,10 +132,11 @@ final class DeckSession: ObservableObject {
 		if StakStore.string("deck.day") == Self.today() {
 			seen = StakStore.int("deck.seen", default: 0)
 			saved = StakStore.stringSet("deck.saved") ?? []
+			passed = StakStore.stringSet("deck.passed") ?? []
 			bought = StakStore.int("deck.bought", default: 0)
 			cursor = StakStore.int("deck.cursor", default: 0)
 		} else {
-			seen = 0; saved = []; bought = 0; cursor = 0
+			seen = 0; saved = []; passed = []; bought = 0; cursor = 0
 		}
 		loading = false
 	}
@@ -143,6 +146,7 @@ final class DeckSession: ObservableObject {
 		StakStore.set(Self.today(), for: "deck.day")
 		StakStore.set(seen, for: "deck.seen")
 		StakStore.set(saved, for: "deck.saved")
+		StakStore.set(passed, for: "deck.passed")
 		StakStore.set(bought, for: "deck.bought")
 		StakStore.set(cursor, for: "deck.cursor")
 	}
@@ -236,7 +240,7 @@ struct DiscoverView: View {
 		get { session.cursor }
 		nonmutating set { session.cursor = newValue }
 	}
-	@State private var savedToast = false
+	// savedToast replaced by pendingUndo undo toast (mirrors Android DiscoverScreen.kt)
 	/// THIS RUN's saves (symbols) - the Save chip AND the receipt's Saved
 	/// count read it; proxies DeckSession. The chip follows this run, not
 	/// My STAK: 1:1916 shows Save on NVDA even though My STAK lists it
@@ -246,6 +250,10 @@ struct DiscoverView: View {
 	private var savedCards: Set<String> {
 		get { session.saved }
 		nonmutating set { session.saved = newValue }
+	}
+	private var passedCards: Set<String> {
+		get { session.passed }
+		nonmutating set { session.passed = newValue }
 	}
 	// Codex audit (2026-09-04): the shell's DISCOVER ticket reports fills here.
 	@ObservedObject private var session = DeckSession.shared
@@ -264,6 +272,15 @@ struct DiscoverView: View {
 	@State private var flyOffset: CGFloat = 0
 	@State private var flyFade: Double = 0
 	@State private var flyGen = 0
+	/// Undo state: the card just acted on + whether it was a STAK (true) or Pass (false).
+	@State private var pendingUndo: (DeckCard, Bool)? = nil
+	/// Incremented each time pendingUndo is set — drives the auto-dismiss .task.
+	@State private var undoToken = UUID()
+	/// Shown when the user tries to STAK a card but holdings are at capacity (20).
+	@State private var stakFull = false
+	@State private var stakFullToken = UUID()
+	/// Card whose Quick Look sheet is open.
+	@State private var quickLookCard: DeckCard? = nil
 
 	/// The front card's index - the twelve-card run cycles the three designed
 	/// cards (user, 2026-09-04, 1:1916); past the twelfth the receipt (1:2330)
@@ -274,7 +291,10 @@ struct DiscoverView: View {
 	/// so its authored deck stands (user, 2026-09-08: a card already in My STAK
 	/// should not be on Discover, and Save only shows on cards not yet saved).
 	private var cards: [DeckCard] {
-		deck.filter { !holdings.tickers.contains($0.symbol) || holdings.daysSinceSaved($0.symbol) == nil }
+		deck.filter {
+			(!holdings.tickers.contains($0.symbol) || holdings.daysSinceSaved($0.symbol) == nil)
+			&& !passedCards.contains($0.symbol)
+		}
 	}
 
 	/// The card at a run position over the cards still on the deck (the full design set when none are).
@@ -290,10 +310,12 @@ struct DiscoverView: View {
 	/// exactly like a swipe.
 	private func advance(committed: CGFloat, saving: DeckCard? = nil) {
 		let u = figmaUnit
+		// positive committed (right) = STAK; negative (left) = Pass; 0 = Save chip (flies right)
+		let flyDirection: CGFloat = (committed > 0 || saving != nil) ? 1 : -1
 		if seen >= deckSize - 1 {
 			// The final card: the authored fly-off finishes
 			// before the end-of-deck receipt lands (1:2330).
-			withAnimation(.easeOut(duration: 0.28)) { dragOffset = 500 * u }
+			withAnimation(.easeOut(duration: 0.28)) { dragOffset = 500 * u * flyDirection }
 			withAnimation(.easeOut(duration: 0.3)) { frontOpacity = 0 }
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
 				// The save lands once the card has left, so the card flying off is the one saved.
@@ -308,7 +330,8 @@ struct DiscoverView: View {
 			// the swiped card becomes the ghost and the deck
 			// advances NOW - a second swipe grabs the next
 			// card even while the ghost is still flying.
-			flyingCard = saving ?? card(at: cursor)
+			let swipedCard = saving ?? card(at: cursor)
+			flyingCard = swipedCard
 			flyGen += 1
 			let gen = flyGen
 			var reset = Transaction()
@@ -319,6 +342,7 @@ struct DiscoverView: View {
 				// A saved card leaves the pool now - the next card shifts into this cursor,
 				// so only a swipe moves the cursor (Codex review, PR #167: AAPL was skipped).
 				if let saving { MyStakHoldings.shared.add(saving.symbol) }
+				else { passedCards.insert(swipedCard.symbol) }
 				seen += 1
 				if saving == nil { cursor += 1 }
 				dragOffset = 0
@@ -327,10 +351,10 @@ struct DiscoverView: View {
 				promote = 0
 				// A velocity flick can commit before the crossfade
 				// finished - pick the alpha up from the reveal.
-				frontOpacity = Double(min(1, committed / (110 * u)))
+				frontOpacity = Double(min(1, abs(committed) / (110 * u)))
 			}
 			DispatchQueue.main.async {
-				withAnimation(.easeOut(duration: 0.28)) { flyOffset = 500 * u }
+				withAnimation(.easeOut(duration: 0.28)) { flyOffset = 500 * u * flyDirection }
 				withAnimation(.easeOut(duration: 0.3)) { flyFade = 0 }
 				withAnimation(.easeOut(duration: 0.2)) { promote = 1 }
 				withAnimation(.easeOut(duration: 0.12)) { frontOpacity = 1 }
@@ -345,6 +369,40 @@ struct DiscoverView: View {
 	/// the deck, this run's saves and its fills all return to zero.
 	private func restart() { session.restart() }
 
+	/// Maximum holdings before STAK is blocked (mirrors Android MyStakHoldings.CAPACITY).
+	private let capacity = 20
+
+	/// Reverts the last STAK or Pass action, restoring the card to the front of the deck,
+	/// and cancels the pending server swipe record (mirrors Android's undo + cancelPendingSwipe).
+	private func undo() {
+		guard let (card, wasSTAK) = pendingUndo else { return }
+		withAnimation { pendingUndo = nil }
+		// Cancel the server record before the 3s delay fires.
+		if let brandId = discoverVM.brands.values.first(where: { $0.ticker.uppercased() == card.symbol.uppercased() })?.id {
+			discoverVM.cancelPendingSwipe(brandId: brandId)
+		}
+		if wasSTAK {
+			MyStakHoldings.shared.remove(card.symbol)
+			savedCards.remove(card.symbol)
+			seen -= 1
+		} else {
+			passedCards.remove(card.symbol)
+			seen -= 1
+			cursor = max(0, cursor - 1)
+		}
+	}
+
+	/// Sets pendingUndo for the card just acted on; resets the 3s auto-dismiss timer;
+	/// fires the deferred server swipe record (mirrors Android's 3s-delay pattern).
+	private func setUndo(_ card: DeckCard, wasSTAK: Bool) {
+		pendingUndo = (card, wasSTAK)
+		undoToken = UUID()
+		discoverVM.recordSwipe(symbol: card.symbol, isSTAK: wasSTAK)
+		if !wasSTAK {
+			discoverVM.recordPassed(symbol: card.symbol, at: Int64(Date().timeIntervalSince1970 * 1000))
+		}
+	}
+
 	var body: some View {
 		let u = figmaUnit
 		ZStack {
@@ -352,7 +410,8 @@ struct DiscoverView: View {
 				// Header — Discover + progress ring, kicker below.
 				// 1:2330 authors the whole header 10 lower than 1:1627 (ring y64 vs
 				// 54) with an 8 kicker gap (y116) - exact-design audit 2026-09-04.
-				let atEnd = seen >= deckSize || cards.isEmpty
+				let serverLimit = discoverVM.dailyLimit
+				let atEnd = seen >= serverLimit || cards.isEmpty || discoverVM.hasReachedDailyLimit
 				VStack(alignment: .leading, spacing: (atEnd ? 8 : 5) * u) {
 					// 1:1627 centres the 33-tall title in the 44-tall ring row (measured exact);
 					// the end-of-deck frame (1:2330) authors the title 7.5 higher against the
@@ -364,11 +423,11 @@ struct DiscoverView: View {
 							.foregroundStyle(atEnd ? Disc.brightInk : Color.white)
 							.offset(y: atEnd ? -7.5 * u : 0)
 						Spacer()
-						// The authored "1/12" counter and ring (1:1627; user, 2026-09-04).
-						let count = min(seen + 1, deckSize)
+						// Progress ring uses the server-supplied daily limit.
+						let count = min(seen + 1, serverLimit)
 						ZStack {
-							ProgressRing(progress: CGFloat(count) / CGFloat(deckSize))
-							Text("\(count)/\(deckSize)")
+							ProgressRing(progress: CGFloat(count) / CGFloat(serverLimit))
+							Text("\(count)/\(serverLimit)")
 								.font(StakFont.sora(11 * u))
 								.foregroundStyle(Color.white)
 						}
@@ -388,14 +447,17 @@ struct DiscoverView: View {
 
 				Spacer().frame(height: 27 * u)
 
-				if seen >= deckSize || cards.isEmpty {
+				if discoverVM.loadFailed && seen == 0 {
+					DeckLoadError { Task { await discoverVM.refresh() } }
+					Spacer(minLength: 0)
+				} else if seen >= serverLimit || cards.isEmpty || discoverVM.hasReachedDailyLimit {
 					EndOfDeck(
 						onPracticeBuySaves: onPracticeBuySaves,
 						onReviewSaves: onReviewSaves,
 						onSwipeAgain: { restart() },
-						seen: min(seen, deckSize),
+						seen: min(seen, serverLimit),
 						saved: savedCards.count,
-						bought: session.bought,
+						passed: passedCards.count,
 						canReplay: !cards.isEmpty
 					)
 					Spacer(minLength: 0)
@@ -422,8 +484,8 @@ struct DiscoverView: View {
 								.frame(width: 313.14 * u, height: 352.87 * u)
 								.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 								.offset(x: 18 * u, y: 24 * u)
-								.opacity(1 - min(1, max(0, dragOffset / (110 * u))))
-							if seen < deckSize - 1 {
+								.opacity(Double(1 - min(1, max(0, abs(dragOffset) / (110 * u)))))
+							if seen < serverLimit - 1 {
 								// The design's queue is REAL cards (1:1701 = the next
 								// card behind the front one - file metadata,
 								// 2026-09-02): as the drag exposes the mid slab it
@@ -432,23 +494,29 @@ struct DiscoverView: View {
 								let next = card(at: cursor + 1)
 								FrontDeckCard(card: next, onSave: {}, u: u, saved: savedCards.contains(next.symbol))
 									.scaleEffect(0.8947, anchor: .top)
-									.opacity(min(1, max(0, dragOffset / (110 * u))))
+									.opacity(min(1, max(0, abs(dragOffset) / (110 * u))))
 									.offset(y: 36.39 * u)
 									.allowsHitTesting(false)
 							}
 							let frontCard = card(at: cursor)
 							// Saving takes the card off the deck like a swipe (user, 2026-09-08).
-							FrontDeckCard(card: frontCard, onSave: { savedCards.insert(frontCard.symbol); savedToast = true; advance(committed: 0, saving: frontCard) }, u: u, saved: savedCards.contains(frontCard.symbol))
+							FrontDeckCard(card: frontCard, onSave: {
+								guard holdings.tickers.count < capacity else { stakFull = true; stakFullToken = UUID(); return }
+								savedCards.insert(frontCard.symbol)
+								advance(committed: 0, saving: frontCard)
+								setUndo(frontCard, wasSTAK: true)
+							}, u: u, saved: savedCards.contains(frontCard.symbol),
+							liveTip: discoverVM.tipForSymbol(frontCard.symbol))
 								.scaleEffect(0.8947 + 0.1053 * promote, anchor: .top)
 								.opacity(frontOpacity)
-								.offset(y: 54.65 * u - 18.26 * u * (1 - promote) + dragOffset)
-								.onTapGesture { onLearnMore(frontCard.symbol) }
+								.offset(x: dragOffset, y: 54.65 * u - 18.26 * u * (1 - promote))
+								.onTapGesture { quickLookCard = frontCard; discoverVM.recordLearnMore(symbol: frontCard.symbol) }
 							if let ghost = flyingCard {
 								// The swiped-away card flying off above the live
 								// deck; input falls through to the front card.
 								FrontDeckCard(card: ghost, onSave: {}, u: u, saved: savedCards.contains(ghost.symbol))
 									.opacity(flyFade)
-									.offset(y: 54.65 * u + flyOffset)
+									.offset(x: flyOffset, y: 54.65 * u)
 									.allowsHitTesting(false)
 							}
 						}
@@ -461,16 +529,25 @@ struct DiscoverView: View {
 						.gesture(
 							DragGesture()
 								.onChanged { value in
-									dragOffset = max(0, value.translation.height)
+									dragOffset = value.translation.width
 								}
 								.onEnded { value in
-									let committed = max(0, value.translation.height)
+									let committed = value.translation.width
 									// Commit on distance OR on a fling (the predicted
 									// end folds velocity in) - a fast short flick
 									// advances too, the Instagram rule (2026-09-02).
-									let flung = value.predictedEndTranslation.height > 110 * u && committed > 20 * u
-									if committed > 110 * u || flung {
-										advance(committed: committed)
+									let flung = abs(value.predictedEndTranslation.width) > 110 * u && abs(committed) > 20 * u
+									if abs(committed) > 110 * u || flung {
+										// right = STAK (save + advance), left = Pass (advance)
+										let frontCard = card(at: cursor)
+										let isSTAK = committed > 0
+										if isSTAK && holdings.tickers.count >= capacity {
+											stakFull = true; stakFullToken = UUID()
+											withAnimation(.easeOut(duration: 0.18)) { dragOffset = 0 }
+										} else {
+											advance(committed: committed, saving: isSTAK ? frontCard : nil)
+											setUndo(frontCard, wasSTAK: isSTAK)
+										}
 									} else {
 										withAnimation(.easeOut(duration: 0.18)) { dragOffset = 0 }
 									}
@@ -478,83 +555,139 @@ struct DiscoverView: View {
 						)
 						.padding(.horizontal, 20 * u)
 						Spacer().frame(height: 10 * u)
-						VStack(spacing: 5 * u) {
-							VStack(spacing: 1 * u) {
-								GestureChevron(u: u)
-								GestureChevron(u: u)
-							}
+						Text("← Pass · STAK →")
+							.font(StakFont.geist(10 * u))
+							.foregroundStyle(Disc.faint)
 							.opacity(0.5)
-							Text("Swipe down")
-								.font(StakFont.geist(10 * u))
-								.foregroundStyle(Disc.faint)
-						}
-						Spacer().frame(height: 19 * u)
-						HStack(spacing: 36 * u) {
-							// Codex audit (2026-09-04): the ticket serves the FRONT card.
-							Button { onPracticeBuy(buySpec(for: card(at: cursor).symbol)) } label: {
-								Text("Practice buy")
-									.font(StakFont.geist(14 * u, .medium))
-									.foregroundStyle(Color.white)
-									.frame(width: 120 * u, height: 52 * u)
-									// Authored drop shadow (1:1783 Inspect): dy 12.28, blur
-									// 12.28, #52AAC7 at 9% (Learn more's is disabled).
-									.background {
-										RoundedRectangle(cornerRadius: 6 * u)
-											.fill(Color(argb: 0xFF52AAC7))
-											.opacity(0.09)
-											.blur(radius: 12.28 * u)
-											.offset(y: 12.28 * u)
+						Spacer().frame(height: 16 * u)
+						let lerp: (Double, Double, CGFloat) -> Double = { a, b, t in a + (b - a) * Double(t) }
+						let ratio = min(1, max(-1, dragOffset / (110 * u)))
+						let passRatio = max(0, -ratio)
+						let stakRatio = max(0, ratio)
+						let passBg = Color(red: lerp(0x1C/255, 1, passRatio), green: lerp(0x20/255, 1, passRatio), blue: lerp(0x2E/255, 1, passRatio))
+						let passIconColor = Color(red: lerp(0xB0/255, 0x1C/255, passRatio), green: lerp(0xB8/255, 0x20/255, passRatio), blue: lerp(0xCC/255, 0x2E/255, passRatio))
+						let stakBg = Color(red: lerp(0x1C/255, 0x4F/255, stakRatio), green: lerp(0x20/255, 0xB3/255, stakRatio), blue: lerp(0x2E/255, 0xD9/255, stakRatio))
+						HStack(spacing: 48 * u) {
+							// Pass — circle fills white as swipe goes left
+							VStack(spacing: 6 * u) {
+								Button {
+									let frontCard = card(at: cursor)
+									advance(committed: -(200 * u), saving: nil)
+									setUndo(frontCard, wasSTAK: false)
+								} label: {
+									ZStack {
+										Circle().fill(passBg)
+										Canvas { ctx, size in
+											let s = min(size.width, size.height)
+											let sw = s * 0.12; let pad = s * 0.1
+											var p1 = Path(); p1.move(to: CGPoint(x: pad, y: pad)); p1.addLine(to: CGPoint(x: s-pad, y: s-pad))
+											var p2 = Path(); p2.move(to: CGPoint(x: s-pad, y: pad)); p2.addLine(to: CGPoint(x: pad, y: s-pad))
+											ctx.stroke(p1, with: .color(passIconColor), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+											ctx.stroke(p2, with: .color(passIconColor), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+										}
+										.frame(width: 20 * u, height: 20 * u)
 									}
-									.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
-									.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Disc.ctaBorder, lineWidth: 0.36 * u))
-							}
-							.buttonStyle(.pressDim)
-							Button(action: { onLearnMore(card(at: cursor).symbol) }) {
-								Text("Learn more")
-									.font(StakFont.sora(12 * u))
+									.frame(width: 56 * u, height: 56 * u)
+								}
+								.buttonStyle(.pressDim)
+								Text("Pass")
+									.font(StakFont.geist(12 * u))
 									.foregroundStyle(Disc.muted)
-									.frame(width: 120 * u, height: 52 * u)
-									.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
 							}
-							.buttonStyle(.pressDim)
+							// STAK — circle fills teal as swipe goes right
+							VStack(spacing: 6 * u) {
+								Button {
+									let frontCard = card(at: cursor)
+									guard holdings.tickers.count < capacity else { stakFull = true; stakFullToken = UUID(); return }
+									advance(committed: 200 * u, saving: frontCard)
+									setUndo(frontCard, wasSTAK: true)
+								} label: {
+									ZStack {
+										Circle().fill(stakBg)
+										Image("StakLogoMark")
+											.resizable()
+											.frame(width: 28 * u, height: 28 * u)
+									}
+									.frame(width: 56 * u, height: 56 * u)
+								}
+								.buttonStyle(.pressDim)
+								Text("STAK")
+									.font(StakFont.geist(12 * u))
+									.foregroundStyle(Disc.muted)
+							}
 						}
-						Spacer(minLength: 19 * u)
+						Spacer(minLength: 8 * u)
 					}
 				}
 			}
 
-			// Saved toast (frame 1:1796) - the pill sits at the authored x 111
-			// (1:1965: x111 y122 w160), 4 left of the screen centre, not centred
-			// (Android band-diff vs the 2x export, 2026-09-04; mirrors android).
-			if savedToast {
+			// Undo toast — replaces the old "Saved to My STAK" pill (mirrors Android DiscoverScreen.kt).
+			// STAK = teal STAK mark + "{symbol} added to your STAK"; Pass = X + "Passed on {symbol}".
+			if let (undoCard, wasSTAK) = pendingUndo {
 				VStack {
 					HStack(spacing: 0) {
-						// Toast 1:1965 authors rgba(36,43,61,0.48), r18, px16 py11, gap 9
-						// and a 17 bookmark (1:1966) - exact-design audit 2026-09-04.
 						HStack(spacing: 9 * u) {
-							Image("IcSavedBookmark")
-								.resizable()
-								.frame(width: 17 * u, height: 17 * u)
-							Text("Saved to My STAK")
+							if wasSTAK {
+								Image("StakLogoMark")
+									.resizable()
+									.renderingMode(.template)
+									.foregroundStyle(Disc.teal)
+									.frame(width: 16 * u, height: 16 * u)
+							} else {
+								// X icon for Pass
+								Canvas { ctx, size in
+									let s = min(size.width, size.height)
+									let sw = s * 0.16; let pad = s * 0.15
+									var p1 = Path(); p1.move(to: CGPoint(x: pad, y: pad)); p1.addLine(to: CGPoint(x: s-pad, y: s-pad))
+									var p2 = Path(); p2.move(to: CGPoint(x: s-pad, y: pad)); p2.addLine(to: CGPoint(x: pad, y: s-pad))
+									ctx.stroke(p1, with: .color(Disc.muted), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+									ctx.stroke(p2, with: .color(Disc.muted), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+								}
+								.frame(width: 16 * u, height: 16 * u)
+							}
+							Text(wasSTAK ? "\(undoCard.symbol) added to your STAK" : "Passed on \(undoCard.symbol)")
 								.font(StakFont.geist(12 * u, .medium))
 								.foregroundStyle(Color.white)
+							Button("Undo") { undo() }
+								.font(StakFont.geist(12 * u, .semiBold))
+								.foregroundStyle(Disc.teal)
 						}
 						.padding(.horizontal, 16 * u)
 						.frame(height: 39 * u)
-						// Authored (1:1796): translucent pill — the peek slab shows through.
-						.background(Disc.chipBg.opacity(0.48), in: RoundedRectangle(cornerRadius: 18 * u))
+						.background(Disc.chipBg.opacity(0.9), in: RoundedRectangle(cornerRadius: 18 * u))
 						Spacer(minLength: 0)
 					}
-					.padding(.leading, 111 * u)
+					.padding(.leading, 20 * u)
 					.padding(.top, 78 * u)
 					Spacer()
 				}
 				.transition(.opacity)
-				.onAppear {
-					DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-						withAnimation { savedToast = false }
+				.gesture(
+					DragGesture().onEnded { val in
+						if val.translation.height < -20 { withAnimation { pendingUndo = nil } }
 					}
+				)
+			}
+
+			// STAK-full notice — mirrors Android StakFullNotice (fires when holdings hit capacity).
+			if stakFull {
+				VStack {
+					Spacer()
+					Text("Your STAK is full — remove a stock to save another")
+						.font(StakFont.geist(13 * u, .medium))
+						.foregroundStyle(Color.white)
+						.multilineTextAlignment(.center)
+						.padding(.horizontal, 20 * u)
+						.padding(.vertical, 12 * u)
+						.background(Disc.chipBg.opacity(0.95), in: RoundedRectangle(cornerRadius: 20 * u))
+						.overlay(
+							RoundedRectangle(cornerRadius: 20 * u)
+								.strokeBorder(Disc.teal.opacity(0.4), lineWidth: 1 * u)
+						)
+						.padding(.horizontal, 24 * u)
+						.padding(.bottom, 100 * u)
 				}
+				.transition(.opacity)
 			}
 
 		}
@@ -566,6 +699,46 @@ struct DiscoverView: View {
 		.onAppear { DeckSession.shared.refreshDay() }
 		.task { await discoverVM.load() }
 		.onChange(of: resetKey) { if seen >= deckSize { restart() } }
+		// Undo auto-dismiss: each new swipe sets a new undoToken; the task sleeps
+		// 3s then clears. A tap on Undo clears pendingUndo instantly (task exits early).
+		.task(id: undoToken) {
+			guard pendingUndo != nil else { return }
+			try? await Task.sleep(nanoseconds: 3_000_000_000)
+			withAnimation { pendingUndo = nil }
+		}
+		// STAK-full notice auto-dismiss.
+		.task(id: stakFullToken) {
+			guard stakFull else { return }
+			try? await Task.sleep(nanoseconds: 3_000_000_000)
+			withAnimation { stakFull = false }
+		}
+		// 30s price refresh — also fires on foreground return (mirrors Android RefreshWhileVisible).
+		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+			Task { await discoverVM.refreshPrices() }
+		}
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+			Task { await discoverVM.refreshPrices() }
+		}
+		// Quick Look sheet — tapping a card opens structured AI analysis for that brand.
+		.sheet(isPresented: Binding(get: { quickLookCard != nil }, set: { if !$0 { quickLookCard = nil } })) {
+			if let qlCard = quickLookCard {
+				QuickLookSheet(
+					card: qlCard,
+					discoverVM: discoverVM,
+					onPass: {
+						quickLookCard = nil
+						advance(committed: -(200 * figmaUnit), saving: nil)
+						setUndo(qlCard, wasSTAK: false)
+					},
+					onSTAK: {
+						guard holdings.tickers.count < capacity else { quickLookCard = nil; stakFull = true; stakFullToken = UUID(); return }
+						quickLookCard = nil
+						advance(committed: 200 * figmaUnit, saving: qlCard)
+						setUndo(qlCard, wasSTAK: true)
+					}
+				)
+			}
+		}
 	}
 }
 
@@ -596,7 +769,7 @@ struct ProgressRing: View {
 /// its own layer over the queue in EVERY state.
 private struct FrontDeckCard: View {
 	// Property order IS the memberwise-init argument order; every call site
-	// goes card, onSave, u, saved[, showSave].
+	// goes card, onSave, u, saved[, showSave][, liveTip].
 	let card: DeckCard
 	let onSave: () -> Void
 	let u: CGFloat
@@ -605,9 +778,10 @@ private struct FrontDeckCard: View {
 	/// back to the authored exports (user, 2026-09-04, 1:1916) - every live
 	/// card takes the default.
 	var showSave = true
+	var liveTip: String? = nil
 
 	var body: some View {
-		DeckCardBody(card: card, onSave: onSave, u: u, saved: saved, showSave: showSave)
+		DeckCardBody(card: card, onSave: onSave, u: u, saved: saved, showSave: showSave, liveTip: liveTip)
 			.frame(width: 350 * u)
 			.background { CardSeam(u: u) }
 	}
@@ -640,6 +814,8 @@ private struct DeckCardBody: View {
 	/// False draws no chip and no hidden Save hit-target. Declared last;
 	/// callers pass it last.
 	var showSave = true
+	/// Live tip fetched from the server; falls back to the authored card.tip when nil.
+	var liveTip: String? = nil
 
 	var body: some View {
 		// The authored card template (1:1740, shared by all three designs):
@@ -696,7 +872,7 @@ private struct DeckCardBody: View {
 						.font(StakFont.geist(10 * u, .medium))
 						.tracking(0.9 * u)
 						.foregroundStyle(Disc.teal)
-					Text(card.tip)
+					Text(liveTip ?? card.tip)
 						.font(StakFont.geist(11 * u))
 						.stakLineHeight(15 * u, size: 11 * u, face: .geist)
 						.foregroundStyle(Disc.body)
@@ -774,7 +950,7 @@ private struct EndOfDeck: View {
 	// order); DiscoverView passes them last.
 	var seen = 0
 	var saved = 0
-	var bought = 0
+	var passed = 0
 	/// No replay when every card is saved (Codex review, PR #167).
 	var canReplay = true
 
@@ -796,7 +972,7 @@ private struct EndOfDeck: View {
 			HStack(spacing: 10 * u) {
 				statTile("Seen", "\(seen)", u)
 				statTile("Saved", "\(saved)", u)
-				statTile("Bought", "\(bought)", u)
+				statTile("Passed", "\(passed)", u)
 			}
 			Spacer().frame(height: 52 * u)
 			SheetCta(text: "Practice buy your saves", action: onPracticeBuySaves)
@@ -1315,6 +1491,201 @@ struct DiscoverBuyFlow: View {
 				}
 			}
 			.animation(.easeOut(duration: 0.35), value: filled)
+		}
+	}
+}
+
+// MARK: – DeckLoadError
+
+/// Shown when the initial deck load fails (mirrors Android DeckLoadError composable).
+private struct DeckLoadError: View {
+	let onRetry: () -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(spacing: 16 * u) {
+			Spacer().frame(height: 20 * u)
+			Image(systemName: "wifi.exclamationmark")
+				.font(.system(size: 36 * u))
+				.foregroundStyle(Disc.muted)
+			Text("Couldn't load today's deck")
+				.font(StakFont.sora(18 * u, .semiBold))
+				.foregroundStyle(Disc.brightInk)
+			Text("Check your connection and try again.")
+				.font(StakFont.geist(13 * u))
+				.foregroundStyle(Disc.muted)
+				.multilineTextAlignment(.center)
+			Button(action: onRetry) {
+				Text("Retry")
+					.font(StakFont.geist(14 * u, .semiBold))
+					.foregroundStyle(Disc.teal)
+					.frame(width: 120 * u, height: 44 * u)
+					.background(Disc.tealTint, in: RoundedRectangle(cornerRadius: 22 * u))
+					.overlay(RoundedRectangle(cornerRadius: 22 * u).strokeBorder(Disc.teal.opacity(0.5), lineWidth: 1 * u))
+			}
+			.buttonStyle(.pressDim)
+		}
+		.frame(maxWidth: .infinity)
+		.padding(.horizontal, 40 * u)
+	}
+}
+
+// MARK: – QuickLookSheet
+
+/// Bottom sheet shown when the user taps a deck card. Fetches and displays
+/// the AI quick-look analysis for that brand. Mirrors Android QuickLookSheet.
+private struct QuickLookSheet: View {
+	let card: DeckCard
+	let discoverVM: DiscoverViewModel
+	let onPass: () -> Void
+	let onSTAK: () -> Void
+
+	@State private var ql: QuickLookDto? = nil
+	@State private var loading = true
+	@Environment(\.dismiss) private var dismiss
+
+	private struct Row {
+		let icon: String
+		let label: String
+		let body: String
+	}
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(spacing: 0) {
+			// Drag handle
+			Capsule()
+				.fill(Color(argb: 0xFF3A4A60))
+				.frame(width: 40 * u, height: 4 * u)
+				.padding(.top, 12 * u)
+				.padding(.bottom, 16 * u)
+
+			ScrollView(showsIndicators: false) {
+				VStack(alignment: .leading, spacing: 20 * u) {
+					// Header
+					HStack(spacing: 10 * u) {
+						Text(card.ticker)
+							.font(StakFont.sora(18 * u, .semiBold))
+							.foregroundStyle(Disc.brightInk)
+						Spacer()
+					}
+
+					if loading {
+						HStack {
+							Spacer()
+							ProgressView()
+								.tint(Disc.teal)
+							Spacer()
+						}
+						.frame(height: 80 * u)
+					} else if let ql {
+						// In 10 seconds summary
+						if !ql.in10Seconds.isEmpty {
+							VStack(alignment: .leading, spacing: 6 * u) {
+								Text("IN 10 SECONDS")
+									.font(StakFont.geist(10 * u, .medium))
+									.tracking(0.8 * u)
+									.foregroundStyle(Disc.faint)
+								Text(ql.in10Seconds)
+									.font(StakFont.geist(13 * u))
+									.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+									.foregroundStyle(Disc.body)
+									.fixedSize(horizontal: false, vertical: true)
+							}
+						}
+
+						// Four insight rows
+						let rows: [Row] = [
+							Row(icon: "chart.line.uptrend.xyaxis", label: "Why investors are watching", body: ql.whyNow),
+							Row(icon: "building.2", label: "Business strength", body: ql.setup),
+							Row(icon: "exclamationmark.triangle", label: "Main risk", body: ql.theCatch),
+							Row(icon: "eye", label: "Watch next", body: ql.whatToWatch),
+						].filter { !$0.body.isEmpty }
+
+						ForEach(rows, id: \.label) { row in
+							HStack(alignment: .top, spacing: 12 * u) {
+								Image(systemName: row.icon)
+									.font(.system(size: 16 * u))
+									.foregroundStyle(Disc.teal)
+									.frame(width: 20 * u, alignment: .center)
+									.padding(.top, 2 * u)
+								VStack(alignment: .leading, spacing: 4 * u) {
+									Text(row.label)
+										.font(StakFont.geist(11 * u, .medium))
+										.foregroundStyle(Disc.muted)
+									Text(row.body)
+										.font(StakFont.geist(13 * u))
+										.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+										.foregroundStyle(Disc.body)
+										.fixedSize(horizontal: false, vertical: true)
+								}
+							}
+						}
+
+						// Key themes
+						if !ql.keyThemes.isEmpty {
+							VStack(alignment: .leading, spacing: 8 * u) {
+								Text("KEY THEMES")
+									.font(StakFont.geist(10 * u, .medium))
+									.tracking(0.8 * u)
+									.foregroundStyle(Disc.faint)
+								FlowLayout(spacing: 6 * u) {
+									ForEach(ql.keyThemes, id: \.self) { theme in
+										Text(theme)
+											.font(StakFont.geist(12 * u))
+											.foregroundStyle(Disc.teal)
+											.padding(.horizontal, 10 * u)
+											.frame(height: 28 * u)
+											.background(Disc.tealTint, in: RoundedRectangle(cornerRadius: 14 * u))
+											.overlay(RoundedRectangle(cornerRadius: 14 * u).strokeBorder(Disc.teal.opacity(0.35), lineWidth: 1 * u))
+									}
+								}
+							}
+						}
+					} else {
+						Text("Quick look not available right now.")
+							.font(StakFont.geist(13 * u))
+							.foregroundStyle(Disc.muted)
+					}
+				}
+				.padding(.horizontal, 20 * u)
+				.padding(.bottom, 24 * u)
+			}
+
+			// Pass / STAK action row
+			HStack(spacing: 16 * u) {
+				Button {
+					onPass()
+				} label: {
+					Text("Pass")
+						.font(StakFont.geist(15 * u, .semiBold))
+						.foregroundStyle(Disc.muted)
+						.frame(maxWidth: .infinity)
+						.frame(height: 50 * u)
+						.background(Color(argb: 0xFF1C202E), in: RoundedRectangle(cornerRadius: 12 * u))
+				}
+				.buttonStyle(.pressDim)
+
+				Button {
+					onSTAK()
+				} label: {
+					Text("STAK it")
+						.font(StakFont.geist(15 * u, .semiBold))
+						.foregroundStyle(Color.white)
+						.frame(maxWidth: .infinity)
+						.frame(height: 50 * u)
+						.background(Disc.teal, in: RoundedRectangle(cornerRadius: 12 * u))
+				}
+				.buttonStyle(.pressDim)
+			}
+			.padding(.horizontal, 20 * u)
+			.padding(.bottom, 32 * u)
+			.safeAreaPadding(.bottom)
+		}
+		.background(Color(argb: 0xFF0F1623).ignoresSafeArea())
+		.task {
+			ql = await discoverVM.fetchQuickLook(symbol: card.symbol)
+			loading = false
 		}
 	}
 }

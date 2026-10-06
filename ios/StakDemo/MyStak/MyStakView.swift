@@ -38,6 +38,7 @@ struct MyStakView: View {
 	var onOpenUpdates: () -> Void = {}
 	var onOpenTasteGraph: () -> Void = {}
 	@ObservedObject var myStakVM: MyStakViewModel
+	@ObservedObject var discoverVM: DiscoverViewModel
 	/// Only the chip counts read the store. The summary line, the Your read
 	/// body and Allocation are the authored literals - user, 2026-09-04
 	/// (CHINEDU 06 · My STAK 1:3155): the authored look wins.
@@ -54,7 +55,7 @@ struct MyStakView: View {
 						Text("My STAK")
 							.font(StakFont.sora(26 * u, .semiBold))
 							.foregroundStyle(StakColors.textPrimary)
-						Text("Your saved stocks, live.")
+						Text("Companies you've STAK'd, all in one place.")
 							.font(StakFont.geist(13 * u))
 							.foregroundStyle(muted)
 					}
@@ -156,7 +157,6 @@ struct MyStakView: View {
 	private var updatesCard: some View {
 		let u = figmaUnit
 		let unread = myStakVM.unreadCount
-		let total = myStakVM.updates.count
 		return Button(action: onOpenUpdates) {
 			HStack(spacing: 12 * u) {
 				ZStack {
@@ -266,6 +266,7 @@ struct MyStakView: View {
 	/// Discover banner.
 	private var discoverBanner: some View {
 		let u = figmaUnit
+		let cardsLeft = max(0, discoverVM.dailyLimit - DeckSession.shared.seen)
 		return Button(action: onStartSwiping) {
 			VStack(alignment: .leading, spacing: 9 * u) {
 				Text("DISCOVER")
@@ -277,7 +278,7 @@ struct MyStakView: View {
 					.foregroundStyle(ink)
 				// 1:3322 Geist Regular 12 / 17 (was 13) - exact-design audit 2026-09-04.
 				// Authored two-line shape breaks before "deck." (1:3322; mirrors Android, 2026-09-05).
-				Text("Based on your taste, 8 fresh picks are waiting in the\ndeck.")
+				Text("Based on your taste, \(cardsLeft) fresh \(cardsLeft == 1 ? "pick" : "picks") are waiting in the\ndeck.")
 					.font(StakFont.geist(12 * u))
 					.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(ink)
@@ -393,7 +394,12 @@ private struct PortfolioSummary: View {
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.leading, 20 * u)
 
-			RangeLineChart(range: range, tint: teal, authored: "MsChartLine", width: 343 * u, height: 73.56 * u, move: Session.shared.demoAccount ? nil : StakInsights.weekChangePct())
+			RangeLineChart(
+				range: range, tint: teal, authored: "MsChartLine",
+				width: 343 * u, height: 73.56 * u,
+				move: Session.shared.demoAccount ? nil : StakInsights.weekChangePct(),
+				portfolioTickers: Session.shared.demoAccount ? nil : (holdings.tickers.isEmpty ? nil : Array(holdings.tickers))
+			)
 
 			RangePills(selected: $range, tint: teal, muted: muted)
 				.padding(.top, 26 * u)

@@ -89,8 +89,8 @@ final class StakAiViewModel: ObservableObject {
         let next: Int? = message.feedback == value ? nil : value
         setFeedback(key: message.key, value: next)
         Task {
-            let fb = next.map { $0 > 0 ? "up" : "down" } ?? "clear"
-            do { _ = try await repo.stakAiFeedback(messageId: sid, feedback: fb) }
+            let fb: Int? = next.map { $0 > 0 ? 1 : -1 }
+            do { _ = try await repo.stakAiFeedback(messageId: sid, value: fb) }
             catch { setFeedback(key: message.key, value: message.feedback) }
         }
     }
@@ -200,11 +200,10 @@ final class StakAiViewModel: ObservableObject {
         }
 
         contextSent = true; conversationId = r.conversationId
-        upsertMessage(AiMessage(key: streamKey, fromUser: false, text: r.content,
-                                serverId: r.id > 0 ? r.id : nil,
+        upsertMessage(AiMessage(key: streamKey, fromUser: false, text: r.response,
+                                serverId: r.messageId > 0 ? r.messageId : nil,
                                 kind: r.answerKind, followUps: r.followUps))
-        applyUsage(StakAiUsage(questionsUsed: r.questionsUsed, limit: usage?.limit ?? 5,
-                               unlimited: r.unlimited, resetsAt: usage?.resetsAt))
+        if let u = r.usage { applyUsage(u) }
     }
 
     private func upsertMessage(_ msg: AiMessage) {

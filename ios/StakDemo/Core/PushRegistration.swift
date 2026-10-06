@@ -15,7 +15,7 @@ import UserNotifications
 enum PushRegistration {
     /// Register with the OS (if not already) and, if a stored token exists,
     /// push current preferences to the backend. Safe to call multiple times.
-    static func sync() {
+    @MainActor static func sync() {
         guard !StakStore.demoAccount, Session.shared.token != nil else { return }
         Task.detached(priority: .background) {
             await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
@@ -25,7 +25,7 @@ enum PushRegistration {
     }
 
     /// Called by AppDelegate when iOS delivers a new (or refreshed) APNs token.
-    static func tokenReceived(_ data: Data) {
+    @MainActor static func tokenReceived(_ data: Data) {
         let hex = data.map { String(format: "%02hhx", $0) }.joined()
         StakStore.set(hex, for: "push.token")
         guard !StakStore.demoAccount, Session.shared.token != nil else { return }
@@ -45,7 +45,7 @@ enum PushRegistration {
     }
 
     private static func upload(token: String) async {
-        try? await StockRepository.shared.putPushDevice(PushDeviceRequest(
+        _ = try? await StockRepository.shared.putPushDevice(PushDeviceRequest(
             token: token,
             platform: "ios",
             timezone: TimeZone.current.identifier,

@@ -95,6 +95,6 @@ final class StockRepository {
     func stakAiMessages(_ id: String) async throws -> StakAiMessagesResponse { try await api.stakAiMessages(id) }
     func stakAiRename(_ id: String, title: String) async throws -> OkResponse { try await api.stakAiRename(id, body: StakAiRenameRequest(title: title)) }
     func stakAiDelete(_ id: String) async throws -> OkResponse { try await api.stakAiDelete(id) }
-    func stakAiFeedback(messageId: Int64, feedback: String) async throws -> OkResponse { try await api.stakAiFeedback(messageId, body: StakAiFeedbackRequest(feedback: feedback)) }
+    func stakAiFeedback(messageId: Int64, value: Int?) async throws -> OkResponse { try await api.stakAiFeedback(messageId, body: StakAiFeedbackRequest(value: value)) }
     func stakAiChatStream(_ body: StakAiChatRequest) async throws -> URLSession.AsyncBytes { try await api.stakAiChatStream(body) }
 }

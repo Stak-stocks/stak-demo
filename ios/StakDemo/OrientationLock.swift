@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import GoogleSignIn
 
 /// The app is portrait-locked (Info.plist), EXCEPT while the article
 /// player's native fullscreen presentation is up: then the scene FOLLOWS
@@ -37,7 +38,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 		UNUserNotificationCenter.current().delegate = self
 		PushRegistration.sync()
+		if let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String {
+			GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+		}
 		return true
+	}
+
+	func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+		GIDSignIn.sharedInstance.handle(url)
 	}
 
 	func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {

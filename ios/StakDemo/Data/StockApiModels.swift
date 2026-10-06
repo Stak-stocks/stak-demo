@@ -55,7 +55,7 @@ struct EarningsResponse: Decodable { var status: String = ""; var date: String?;
 
 struct MarketNewsResponse: Decodable { var articles: [NewsArticleDto] = [] }
 struct CompanyNewsResponse: Decodable { var articles: [NewsArticleDto] = [] }
-struct NewsArticleDto: Decodable {
+struct NewsArticleDto: Decodable, Equatable {
     var headline: String = ""; var source: String = ""; var url: String = ""
     var image: String = ""; var datetime: Int64 = 0; var summary: String = ""
     var explanation: String = ""; var whyItMatters: String = ""; var sentiment: String = "neutral"
@@ -102,7 +102,7 @@ struct TasteDto: Codable {
 struct UpdateSourceDto: Decodable {
     var source: String = ""; var url: String = ""; var headline: String = ""; var datetime: Int64 = 0
 }
-struct StockUpdateDto: Decodable {
+struct StockUpdateDto: Decodable, Identifiable {
     var id: Int64 = 0; var ticker: String = ""; var company: String = ""; var kind: String = ""
     var title: String = ""; var body: String = ""; var watch: String?
     var sources: [UpdateSourceDto] = []; var occurredAt: String = ""; var read: Bool = false
@@ -163,7 +163,7 @@ struct RecommendationsResponse: Decodable {
 }
 struct EngagementEventRequest: Encodable {
     let type: String; var brandId: String?; var ticker: String?
-    var categories: [String]?; var todayKey: String?; var params: [String: String]?
+    var categories: [String]?; var todayKey: String?; var params: [String: AnyCodable]?
 }
 struct EventResponse: Decodable { var success: Bool = false }
 struct PassedEntry: Codable { var id: String = ""; var at: Int64 = 0 }
@@ -285,26 +285,26 @@ struct StakAiChatRequest: Encodable {
     let message: String; var conversationId: String?; var context: StakAiContext?; var via: String?
 }
 struct StakAiUsage: Decodable {
-    var questionsUsed: Int = 0; var limit: Int = 5; var unlimited: Bool = false
+    var used: Int = 0; var limit: Int = 5; var unlimited: Bool = false
     var remaining: Int = -1; var resetsAt: String? = nil
-    var questionsLeft: Int { unlimited ? Int.max : (remaining >= 0 ? remaining : max(0, limit - questionsUsed)) }
+    var questionsLeft: Int { unlimited ? Int.max : (remaining >= 0 ? remaining : max(0, limit - used)) }
 }
 struct StakAiSource: Decodable { var ticker: String = ""; var headline: String = ""; var url: String? }
 struct StakAiConversationDto: Decodable, Identifiable {
     var id: String = ""; var title: String = ""; var updatedAt: String = ""
-    var contextLabel: String?; var preview: String?
+    var contextType: String?; var contextLabel: String?; var preview: String?
 }
 struct StakAiConversationsResponse: Decodable { var conversations: [StakAiConversationDto] = []; var nextBefore: String? }
 struct StakAiMessageDto: Decodable {
     var id: Int64 = 0; var role: String = ""; var content: String = ""; var createdAt: String = ""
     var via: String?; var feedback: Int?; var kind: String = "answer"
 }
-struct StakAiMessagesResponse: Decodable { var messages: [StakAiMessageDto] = []; var context: StakAiContext? }
+struct StakAiMessagesResponse: Decodable { var title: String = ""; var messages: [StakAiMessageDto] = []; var context: StakAiContext? }
 struct StakAiRenameRequest: Encodable { let title: String }
-struct StakAiFeedbackRequest: Encodable { let feedback: String }
+struct StakAiFeedbackRequest: Encodable { let value: Int? }
 struct StakAiChatReply: Decodable {
-    var id: Int64 = 0; var conversationId: String = ""; var content: String = ""; var questionsUsed: Int = 0
-    var unlimited: Bool = false; var title: String?
+    var messageId: Int64 = 0; var conversationId: String = ""; var response: String = ""
+    var title: String?; var usage: StakAiUsage?
     var followUps: [String] = []; var answerKind: String = "answer"
 }
 struct StakAiError: Decodable { var error: String?; var code: String?; var usage: StakAiUsage? }
