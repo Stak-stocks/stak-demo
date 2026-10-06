@@ -121,9 +121,9 @@ struct TasteResponse: Decodable {
 
 // MARK: – Daily brief
 
-struct WhatHappenedItem: Decodable { var title: String = ""; var body: String = "" }
-struct WatchItem: Decodable { var icon: String = ""; var label: String = ""; var body: String = "" }
-struct DailyBriefResponse: Decodable {
+struct WhatHappenedItem: Decodable, Equatable { var title: String = ""; var body: String = "" }
+struct WatchItem: Decodable, Equatable { var icon: String = ""; var label: String = ""; var body: String = "" }
+struct DailyBriefResponse: Decodable, Equatable {
     var mood: String = ""; var session: String = ""; var dayLabel: String = ""
     var marketClosed: Bool = false; var nextTradingDayLabel: String = ""
     var moodExplanation: String = ""; var plainEnglish: String = ""

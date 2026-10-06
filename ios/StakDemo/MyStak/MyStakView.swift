@@ -32,9 +32,11 @@ private let ctaGradient = LinearGradient(
 /// exactly like the Android build's `u` scaling.
 /// Ported from android/ ui/mystak/MyStakScreen.kt.
 struct MyStakView: View {
-	/// Receives the tapped chip's collection id (MyStak/Collections.swift).
 	let onOpenCollection: (String) -> Void
 	let onStartSwiping: () -> Void
+	var onOpenAllCollections: () -> Void = {}
+	var onOpenUpdates: () -> Void = {}
+	var onOpenTasteGraph: () -> Void = {}
 	@ObservedObject var myStakVM: MyStakViewModel
 	/// Only the chip counts read the store. The summary line, the Your read
 	/// body and Allocation are the authored literals - user, 2026-09-04
@@ -60,8 +62,11 @@ struct MyStakView: View {
 					.padding(.top, 20 * u)
 					SectionHeader(title: "Collections")
 					collectionsGrid
+					if StakCollections.all.count > 6 { allCollectionsCta }
 					addMoreCta
+					if myStakVM.unreadCount > 0 || !myStakVM.updates.isEmpty { updatesCard }
 					yourReadCard
+					tasteCard
 					PortfolioSummary()
 					if holdings.count > 0 {
 						SectionHeader(title: "Breakdown")
@@ -128,6 +133,103 @@ struct MyStakView: View {
 					// 1:3225 authored gradient hairline (the Android CtaBorderBrush) - exact-design audit 2026-09-04.
 					.strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u)
 			)
+		}
+		.buttonStyle(.pressDim)
+	}
+
+	private var allCollectionsCta: some View {
+		let u = figmaUnit
+		return Button(action: onOpenAllCollections) {
+			HStack {
+				Text("See all collections")
+					.font(StakFont.geist(13 * u, .medium))
+					.foregroundStyle(teal)
+				Image(systemName: "chevron.right")
+					.font(.system(size: 12 * u))
+					.foregroundStyle(teal)
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+		}
+		.buttonStyle(.pressDim)
+	}
+
+	private var updatesCard: some View {
+		let u = figmaUnit
+		let unread = myStakVM.unreadCount
+		let total = myStakVM.updates.count
+		return Button(action: onOpenUpdates) {
+			HStack(spacing: 12 * u) {
+				ZStack {
+					RoundedRectangle(cornerRadius: 10 * u).fill(cardBg).frame(width: 44 * u, height: 44 * u)
+					Image(systemName: "bell.badge")
+						.font(.system(size: 20 * u))
+						.foregroundStyle(teal)
+				}
+				VStack(alignment: .leading, spacing: 3 * u) {
+					Text("Updates in your STAK")
+						.font(StakFont.sora(14 * u, .semiBold))
+						.foregroundStyle(StakColors.textPrimary)
+					let sub: String = unread > 0
+						? "\(unread == 1 ? "1 saved company has" : "\(unread) saved companies have") something new"
+						: "Nothing new at your saved companies."
+					Text(sub)
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(muted)
+				}
+				Spacer()
+				if unread > 0 {
+					ZStack {
+						Circle().fill(teal).frame(width: 20 * u, height: 20 * u)
+						Text("\(min(unread, 99))").font(StakFont.geist(11 * u, .medium)).foregroundStyle(StakColors.bg)
+					}
+				}
+				Image(systemName: "chevron.right")
+					.font(.system(size: 14 * u))
+					.foregroundStyle(muted)
+			}
+			.padding(14 * u)
+			.background(cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
+		}
+		.buttonStyle(.pressDim)
+	}
+
+	private var tasteCard: some View {
+		let u = figmaUnit
+		let themeCount = myStakVM.taste?.themes.count ?? 0
+		return Button(action: onOpenTasteGraph) {
+			VStack(alignment: .leading, spacing: 10 * u) {
+				HStack {
+					VStack(alignment: .leading, spacing: 3 * u) {
+						Text("Your Investing Taste")
+							.font(StakFont.sora(14 * u, .semiBold))
+							.foregroundStyle(StakColors.textPrimary)
+						if let taste = myStakVM.taste, !taste.themes.isEmpty {
+							Text("\(themeCount == 1 ? "1 theme" : "\(themeCount) themes") from \(taste.totalSaves) save\(taste.totalSaves == 1 ? "" : "s")")
+								.font(StakFont.geist(12 * u))
+								.foregroundStyle(muted)
+						} else {
+							Text(myStakVM.tasteFailed ? "Couldn't load right now." : "Built from saves and activity.")
+								.font(StakFont.geist(12 * u))
+								.foregroundStyle(muted)
+						}
+					}
+					Spacer()
+					Image(systemName: "chevron.right")
+						.font(.system(size: 14 * u))
+						.foregroundStyle(muted)
+				}
+				if let taste = myStakVM.taste, let top = taste.themes.first {
+					HStack(spacing: 8 * u) {
+						Capsule().fill(teal.opacity(0.2))
+							.frame(width: CGFloat(min(top.share, 1)) * 120 * u, height: 6 * u)
+						Text(top.category)
+							.font(StakFont.geist(12 * u))
+							.foregroundStyle(bodyColor)
+					}
+				}
+			}
+			.padding(14 * u)
+			.background(cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
 		}
 		.buttonStyle(.pressDim)
 	}

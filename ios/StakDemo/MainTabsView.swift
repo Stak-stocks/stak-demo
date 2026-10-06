@@ -21,6 +21,11 @@ private enum PushedPage: Identifiable, Equatable {
 	case stakAi(context: StakAiContext?, question: String?, conversationId: String?)
 	/// Phase 4 (2026-10-05): conversation history list.
 	case stakAiHistory
+	/// Phase 6 (2026-10-05): MyStak parity — all collections, updates feed, taste graph, daily brief detail.
+	case allCollections
+	case updates
+	case tasteGraph
+	case dailyBriefDetail(DailyBriefResponse)
 
 	var id: String {
 		switch self {
@@ -36,6 +41,10 @@ private enum PushedPage: Identifiable, Equatable {
 		case .leaderboard: return "leaderboard"
 		case .stakAi(let ctx, let q, let cid): return "stakAi-\(ctx?.ticker ?? "")-\(q ?? "")-\(cid ?? "")"
 		case .stakAiHistory: return "stakAiHistory"
+		case .allCollections: return "allCollections"
+		case .updates: return "updates"
+		case .tasteGraph: return "tasteGraph"
+		case .dailyBriefDetail: return "dailyBriefDetail"
 		}
 	}
 }
@@ -201,7 +210,11 @@ struct MainTabsView: View {
 						)
 					case .news:
 						// Authored (1:1228): Story tile -> News detail unsaved, Instant.
-						NewsView(onOpenArticle: { id in pushInstant(.newsDetail(article: id)) }, newsVM: newsVM)
+						NewsView(
+							onOpenArticle: { id in pushInstant(.newsDetail(article: id)) },
+							onOpenDailyBrief: { b in pushInstant(.dailyBriefDetail(b)) },
+							newsVM: newsVM
+						)
 					case .discover:
 						DiscoverView(
 							resetKey: discoverResetKey,
@@ -220,6 +233,9 @@ struct MainTabsView: View {
 							// Collection, Instant - serving the tapped collection.
 							onOpenCollection: { id in pushInstant(.collection(id: id)) },
 							onStartSwiping: { switchTab(.discover) },
+							onOpenAllCollections: { pushInstant(.allCollections) },
+							onOpenUpdates: { pushInstant(.updates) },
+							onOpenTasteGraph: { pushInstant(.tasteGraph) },
 							myStakVM: myStakVM
 						)
 					case .simulate:
@@ -396,6 +412,28 @@ struct MainTabsView: View {
 					// Replace history with the opened chat so Back -> Home, not history.
 					if !pushed.isEmpty { pushed[pushed.count - 1] = PushedEntry(page: .stakAi(context: nil, question: nil, conversationId: c.id)) }
 				}
+			)
+		case .allCollections:
+			AllCollectionsView(
+				onBack: { pop(.instant) },
+				onOpenCollection: { id in pushInstant(.collection(id: id)) },
+				myStakVM: myStakVM
+			)
+		case .updates:
+			UpdatesView(
+				onBack: { pop(.instant) },
+				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: true, symbol: ticker)) },
+				myStakVM: myStakVM
+			)
+		case .tasteGraph:
+			TasteGraphView(
+				onBack: { pop(.instant) },
+				myStakVM: myStakVM
+			)
+		case .dailyBriefDetail(let brief):
+			DailyBriefDetailView(
+				brief: brief,
+				onBack: { pop(.instant) }
 			)
 		}
 	}

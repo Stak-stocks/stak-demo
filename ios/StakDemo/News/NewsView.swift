@@ -28,6 +28,7 @@ enum News {
 /// like the Android build's `u` scaling.
 struct NewsView: View {
 	let onOpenArticle: (String) -> Void
+	var onOpenDailyBrief: (DailyBriefResponse) -> Void = { _ in }
 	@ObservedObject var newsVM: NewsViewModel
 	// Section membership is holdings-driven (For You = held stocks), so a
 	// save must re-render the listing, not just the row chips.
@@ -146,6 +147,20 @@ struct NewsView: View {
 								onOpenArticle(NewsArticleFeed.briefArticles[page])
 							}
 						})
+						if let b = newsVM.dailyBrief, !b.mood.isEmpty {
+							Button(action: { onOpenDailyBrief(b) }) {
+								HStack(spacing: 4 * u) {
+									Text("View full brief")
+										.font(StakFont.geist(12 * u, .medium))
+										.foregroundStyle(News.teal)
+									Image(systemName: "chevron.right")
+										.font(.system(size: 10 * u))
+										.foregroundStyle(News.teal)
+								}
+							}
+							.buttonStyle(.pressDim)
+							.padding(.top, -8 * u)
+						}
 					}
 					StoryGrid(onOpenArticle: onOpenArticle, query: q)
 					// The rows render from the served section feeds when live,
