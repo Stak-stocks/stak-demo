@@ -349,7 +349,9 @@ enum CardArtImages {
 
 	static func image(_ name: String) -> UIImage? {
 		if let hit = cache.object(forKey: name as NSString) { return hit }
-		guard let path = Bundle.main.path(forResource: name, ofType: "webp"), let image = UIImage(contentsOfFile: path) else { return nil }
+		guard let path = Bundle.main.path(forResource: name, ofType: "webp"), let file = UIImage(contentsOfFile: path) else { return nil }
+		// Decoded once here, not on every draw of a card (a WebP from disk decodes lazily, at render time).
+		let image = file.preparingForDisplay() ?? file
 		cache.setObject(image, forKey: name as NSString)
 		return image
 	}

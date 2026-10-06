@@ -76,6 +76,25 @@ struct RootFlowView: View {
 	/// Shared auth ViewModel — all sign-in/up/password flows share one instance
 	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
 	@StateObject private var authVM = AuthViewModel()
+	/// The left-edge swipe back (EdgeSwipeBack): how far the top screen is dragged, and whether a swipe is still settling.
+	@State private var flowDrag: CGFloat = 0
+	@State private var flowSwipeLive = false
+
+	/// Screens a swipe can go back from: every screen with an on-screen Back. Create account is the root, 01 Welcome
+	/// and the deck loader have no Back.
+	private var canSwipeBack: Bool {
+		guard stack.count > 1, let top = stack.last else { return false }
+		switch top {
+		case .createAccount, .welcome, .preparingDeck: return false
+		default: return true
+		}
+	}
+
+	/// The top screen, plus the one beneath it while a swipe back is under way.
+	private var flowLayers: [FlowScreen] {
+		guard let top = stack.last else { return [.createAccount] }
+		return (flowDrag > 0 || flowSwipeLive) && stack.count > 1 ? Array(stack.suffix(2)) : [top]
+	}
 
 	var body: some View {
 		ZStack {
@@ -119,9 +138,24 @@ struct RootFlowView: View {
 				.transition(anim.transition)
 			case .flow:
 				ZStack {
-					screen(for: stack.last ?? .createAccount)
-						.transition(anim.transition)
+					ForEach(flowLayers, id: \.self) { s in
+						let isTop = s == stack.last
+						screen(for: s)
+							.offset(x: isTop ? 0 : EdgeSwipe.underlayOffset(flowDrag, width: UIScreen.main.bounds.width))
+							.allowsHitTesting(isTop)
+							.accessibilityHidden(!isTop)
+							.edgeSwipeBack(
+								enabled: isTop && canSwipeBack,
+								drag: isTop ? $flowDrag : .constant(0),
+								onSettled: { flowSwipeLive = false }
+							) {
+								// The screen already slid away: its Back's effect, minus the motion.
+								if stack.count > 1 { stack.removeLast() }
+							}
+							.transition(anim.transition)
+					}
 				}
+				.onChange(of: flowDrag) { _, drag in if drag > 0 { flowSwipeLive = true } }
 				.transition(anim.transition)
 			}
 		}

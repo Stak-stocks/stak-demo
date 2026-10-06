@@ -156,30 +156,29 @@ struct DiscoverView: View {
 	// Property order IS the memberwise-init argument order (Swift); MainTabsView passes resetKey first.
 	/// 1:2330: a Discover tab re-tap from the end of the deck restarts it.
 	var resetKey: Int = 0
-	/// Kept for the shell's call site; the V1 deck opens Quick Look, not the stock page.
-	var onLearnMore: (String) -> Void = { _ in }
-	/// Kept for the shell's call site; Practice Buy left the V1 deck (rule 10).
-	var onPracticeBuy: (BuySpec) -> Void = { _ in }
 	/// Authored (1:2330): "Review saves in My STAK" - an instant swap to My STAK, raised to the shell.
 	var onReviewSaves: () -> Void = {}
-	/// Kept for the shell's call site; the V1 receipt has no Practice-buy CTA.
-	var onPracticeBuySaves: () -> Void = {}
 
 	@ObservedObject var discoverVM: DiscoverViewModel
 	@ObservedObject private var session = DeckSession.shared
+	@Environment(\.scenePhase) private var scenePhase
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	/// The pass/STAK commit distance: 110u of drag.
 	private var commitPx: CGFloat { 110 * figmaUnit }
+	/// The drag's slop before the card moves - Compose's touch slop, which Android subtracts the same way.
+	private let dragSlop: CGFloat = 10
 
 	@State private var swipeOffset: CGFloat = 0
+	/// True while a finger is on the deck; drops back on its own when the system cancels the drag (a call, a sheet),
+	/// which never reaches onEnded - the card then springs home instead of staying stuck off-centre.
+	@GestureState private var dragActive = false
 	@State private var flyingCard: DiscoverCard? = nil
 	@State private var flyOffset: CGFloat = 0
 	@State private var flyFade: Double = 1
 	@State private var flyGen = 0
 	/// The card just decided + whether it was a STAK; cleared after 3s (V1 rule 14), or by Undo or a swipe up.
 	@State private var pendingUndo: (card: DiscoverCard, stak: Bool)? = nil
-	/// Keeps the toast's content while it animates out after `pendingUndo` clears.
-	@State private var lastUndo: (card: DiscoverCard, stak: Bool)? = nil
 	@State private var undoToken = UUID()
 	@State private var toastDrag: CGFloat = 0
 	@State private var stakFullShown = false
@@ -187,6 +186,8 @@ struct DiscoverView: View {
 	/// The card whose Quick Look sheet is open (V1 rules 7–8).
 	@State private var quickLookCard: DiscoverCard? = nil
 	@State private var cardShownAt = Date()
+	/// Bumped per decision - the light tap that confirms it.
+	@State private var decisionTick = 0
 
 	/// Each symbol appears once - V1 rule 5 (no recycling). Capped by what's left of today's limit, so swipes made on
 	/// another device count too.
@@ -197,25 +198,28 @@ struct DiscoverView: View {
 
 	private var atEnd: Bool { remainingDeck.isEmpty || discoverVM.hasReachedLimit }
 
+	/// The toast's exit: Compose's FastOutSlowIn over 220ms.
+	private var toastExit: Animation { .timingCurve(0.4, 0, 0.2, 1, duration: 0.22) }
+
 	private func commitDecision(_ card: DiscoverCard, isSTAK: Bool) {
 		if isSTAK {
 			session.saved.insert(card.symbol)
 			// The card's price is the live quote, so the save is stamped with what the stock cost at this moment - the
 			// only honest "since you saved".
-			MyStakHoldings.shared.add(card.symbol, brandId: card.brandId, priceNow: Double(card.price.filter { $0.isNumber || $0 == "." }))
+			MyStakHoldings.shared.add(card.symbol, brandId: card.brandId, priceNow: card.priceValue)
 		} else {
 			session.passed.insert(card.symbol)
 		}
 		session.seen += 1
 		withAnimation(easeOut(0.28)) { pendingUndo = (card, isSTAK) }
-		lastUndo = (card, isSTAK)
 		undoToken = UUID()
 		toastDrag = 0
 		discoverVM.recordSwipe(
 			brandId: card.brandId, isSTAK: isSTAK,
 			timeOnCardMs: Int64(Date().timeIntervalSince(cardShownAt) * 1000), categories: card.categories
 		)
-		UIImpactFeedbackGenerator(style: .light).impactOccurred()
+		decisionTick += 1
+		AccessibilityNotification.Announcement(isSTAK ? "\(card.companyName) added to your STAK" : "Passed on \(card.companyName)").post()
 	}
 
 	private func animateAndCommit(_ card: DiscoverCard, isSTAK: Bool, gestureOffset: CGFloat = 0) {
@@ -228,9 +232,10 @@ struct DiscoverView: View {
 			withAnimation(easeOut(0.24)) { swipeOffset = 0 }
 			return
 		}
-		// Travel past the screen edge by a full card width so the card genuinely leaves the frame.
+		// Travel past the screen edge by a full card width so the card genuinely leaves the frame. Reduce Motion
+		// fades it where it stands instead.
 		let flyDistance = UIScreen.main.bounds.width + 350 * figmaUnit
-		let flyTarget = isSTAK ? flyDistance : -flyDistance
+		let flyTarget = reduceMotion ? gestureOffset : (isSTAK ? flyDistance : -flyDistance)
 		flyGen += 1
 		let gen = flyGen
 		var instant = Transaction()
@@ -245,8 +250,12 @@ struct DiscoverView: View {
 		// Opacity holds through the travel - the tail fade only covers the last frames, once the card is already clear
 		// of the edge. Fading during the slide is what made it read as vanishing in place.
 		DispatchQueue.main.async {
-			withAnimation(easeOut(0.12).delay(0.3)) { flyFade = 0 }
-			withAnimation(easeOut(0.42)) { flyOffset = flyTarget }
+			if reduceMotion {
+				withAnimation(.easeOut(duration: 0.2)) { flyFade = 0 }
+			} else {
+				withAnimation(easeOut(0.12).delay(0.3)) { flyFade = 0 }
+				withAnimation(easeOut(0.42)) { flyOffset = flyTarget }
+			}
 		}
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
 			if gen == flyGen { flyingCard = nil }
@@ -256,7 +265,7 @@ struct DiscoverView: View {
 	private func showStakFull() {
 		withAnimation(easeOut(0.28)) { stakFullShown = true }
 		stakFullToken = UUID()
-		UINotificationFeedbackGenerator().notificationOccurred(.warning)
+		AccessibilityNotification.Announcement(stakFullMessage).post()
 	}
 
 	private func undo(_ card: DiscoverCard, wasSTAK: Bool) {
@@ -268,7 +277,12 @@ struct DiscoverView: View {
 		}
 		session.seen = max(0, session.seen - 1)
 		discoverVM.cancelPendingSwipe(card.brandId)
-		withAnimation(.timingCurve(0.4, 0, 1, 1, duration: 0.22)) { pendingUndo = nil }
+		withAnimation(toastExit) { pendingUndo = nil }
+	}
+
+	private func openQuickLook(_ card: DiscoverCard) {
+		quickLookCard = card
+		discoverVM.recordLearnMore(card)
 	}
 
 	var body: some View {
@@ -287,6 +301,7 @@ struct DiscoverView: View {
 							.stakLineHeight(33 * u, size: 26 * u, face: .sora)
 							.foregroundStyle(ended ? Disc.brightInk : Color.white)
 							.offset(y: ended ? -7.5 * u : 0)
+							.accessibilityAddTraits(.isHeader)
 						Spacer(minLength: 0)
 						ZStack {
 							ProgressRing(progress: CGFloat(count) / CGFloat(max(limit, 1)))
@@ -296,6 +311,8 @@ struct DiscoverView: View {
 								.foregroundStyle(Color.white)
 						}
 						.frame(width: 44 * u, height: 44 * u)
+						.accessibilityElement(children: .ignore)
+						.accessibilityLabel(ended ? "\(count) of \(limit) cards seen today" : "Card \(count) of \(limit) today")
 					}
 					Text(discoverVM.deckLabel)
 						.font(StakFont.geist(10 * u, .medium))
@@ -342,18 +359,15 @@ struct DiscoverView: View {
 			if stakFullShown {
 				StakFullToast(u: u)
 					.padding(.top, (pendingUndo != nil ? 128 : 74) * u)
-					.transition(.move(edge: .top).combined(with: .opacity))
+					.transition(.offset(y: -40 * u).combined(with: .opacity))
 					.zIndex(4)
 			}
 			// Undo toast (V1 rule 14): centred under the header. Only the Undo pill reverts; swiping the toast up
-			// dismisses it and keeps the decision.
-			if let shown = pendingUndo ?? lastUndo, pendingUndo != nil {
+			// dismisses it and keeps the decision. A removed toast keeps its last content while it animates out.
+			if let shown = pendingUndo {
 				undoToast(shown.card, wasSTAK: shown.stak, u: u)
 					.padding(.top, 74 * u)
-					.transition(.asymmetric(
-						insertion: .move(edge: .top).combined(with: .opacity),
-						removal: .move(edge: .top).combined(with: .opacity)
-					))
+					.transition(.offset(y: -40 * u).combined(with: .opacity))
 					.zIndex(3)
 			}
 		}
@@ -366,32 +380,47 @@ struct DiscoverView: View {
 		// Only a CHANGE of the key restarts a finished deck - never the re-entry itself.
 		.onChange(of: resetKey) { if atEnd { DeckSession.shared.restart() } }
 		.onChange(of: deck.first?.symbol) { cardShownAt = Date() }
+		.onChange(of: dragActive) { _, active in
+			// A drag the system cancelled never reached onEnded: put the card back.
+			// Checked a turn later: a drag that ended normally has settled the offset by then.
+			guard !active else { return }
+			DispatchQueue.main.async {
+				if !dragActive && swipeOffset != 0 { withAnimation(easeOut(0.26)) { swipeOffset = 0 } }
+			}
+		}
 		// Undo auto-dismiss: a newer decision replaces the toast and restarts the 3s clock.
 		.task(id: undoToken) {
 			guard pendingUndo != nil else { return }
 			try? await Task.sleep(nanoseconds: 3_000_000_000)
 			guard !Task.isCancelled else { return }
-			withAnimation(.timingCurve(0.4, 0, 1, 1, duration: 0.22)) { pendingUndo = nil }
+			withAnimation(toastExit) { pendingUndo = nil }
 		}
 		.task(id: stakFullToken) {
 			guard stakFullShown else { return }
 			try? await Task.sleep(nanoseconds: 3_000_000_000)
 			guard !Task.isCancelled else { return }
-			withAnimation(.timingCurve(0.4, 0, 1, 1, duration: 0.22)) { stakFullShown = false }
+			withAnimation(toastExit) { stakFullShown = false }
 		}
-		// Prices move while the deck sits open: every 30s (and on returning to the app) for the front card and the two
-		// peeking behind it only - swiped cards and the end screen show no price (Android RefreshWhileVisible).
-		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in tick() }
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in tick() }
-		// Quick Look - a native sheet: drag down to dismiss.
-		.sheet(isPresented: Binding(get: { quickLookCard != nil }, set: { if !$0 { quickLookCard = nil } })) {
-			if let card = quickLookCard {
-				QuickLookSheet(card: card, load: { await discoverVM.fetchQuickLook($0) })
-					.presentationDetents([.fraction(0.62), .large])
-					.presentationDragIndicator(.visible)
-					.presentationCornerRadius(24 * u)
-					.presentationBackground(Disc.sheetBg)
+		// Prices move while the deck sits open: on showing, every 30s while visible, and on returning to the app - for
+		// the front card and the two peeking behind it only; swiped cards and the end screen show no price (Android
+		// RefreshWhileVisible). The loop stops when the tab is left.
+		.task {
+			while !Task.isCancelled {
+				tick()
+				try? await Task.sleep(nanoseconds: 30_000_000_000)
 			}
+		}
+		.onChange(of: scenePhase) { _, phase in if phase == .active { tick() } }
+		.sensoryFeedback(.impact(weight: .light), trigger: decisionTick)
+		.sensoryFeedback(.warning, trigger: stakFullToken)
+		// Quick Look - a native sheet: drag down to dismiss. Its body scrolls inside the one detent.
+		.sheet(item: $quickLookCard) { card in
+			QuickLookSheet(card: card, load: { await discoverVM.fetchQuickLook($0) })
+				.presentationDetents([.fraction(0.62)])
+				.presentationDragIndicator(.visible)
+				.presentationContentInteraction(.scrolls)
+				.presentationCornerRadius(24 * u)
+				.presentationBackground(Disc.sheetBg)
 		}
 	}
 
@@ -404,37 +433,42 @@ struct DiscoverView: View {
 	@ViewBuilder
 	private func deckArea(deck: [DiscoverCard], front: DiscoverCard, u: CGFloat) -> some View {
 		ZStack(alignment: .top) {
-			// Peek card farthest back — tilts right, smallest.
+			// Peek card farthest back — tilts right, smallest. Equatable: a drag frame doesn't redraw the peeks.
 			if deck.count > 2 {
 				FrontDeckCard(card: deck[2], u: u)
+					.equatable()
 					.scaleEffect(0.72, anchor: .top)
 					.rotationEffect(.degrees(5), anchor: .top)
 					.offset(y: 4 * u)
 					.allowsHitTesting(false)
+					.accessibilityHidden(true)
 			}
 			// Peek card middle — tilts left, medium.
 			if deck.count > 1 {
 				FrontDeckCard(card: deck[1], u: u)
+					.equatable()
 					.scaleEffect(0.82, anchor: .top)
 					.rotationEffect(.degrees(-3), anchor: .top)
 					.offset(y: 28 * u)
 					.allowsHitTesting(false)
+					.accessibilityHidden(true)
 			}
-			// Front card - swipes horizontally, tilting up to 8° at the commit distance.
-			FrontDeckCard(
-				card: front, u: u, showLearnMore: true,
-				onLearnMore: {
-					quickLookCard = front
-					discoverVM.recordLearnMore(front)
-				}
-			)
-			.rotationEffect(.degrees(Double(swipeOffset / commitPx) * 8))
-			.offset(x: swipeOffset, y: 54.65 * u)
+			// Front card - swipes horizontally, tilting up to 8° at the commit distance (none under Reduce Motion).
+			FrontDeckCard(card: front, u: u, showLearnMore: true, onLearnMore: { openQuickLook(front) })
+				.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
+				.offset(x: swipeOffset, y: 54.65 * u)
+				.accessibilityElement(children: .combine)
+				.accessibilityHint("Swipe right to STAK, left to pass")
+				.accessibilityAction(named: "STAK") { animateAndCommit(front, isSTAK: true) }
+				.accessibilityAction(named: "Pass") { animateAndCommit(front, isSTAK: false) }
+				.accessibilityAction(named: "Learn more") { openQuickLook(front) }
 			if let ghost = flyingCard {
 				FrontDeckCard(card: ghost, u: u, showLearnMore: true)
+					.equatable()
 					.opacity(flyFade)
 					.offset(x: flyOffset, y: 54.65 * u)
 					.allowsHitTesting(false)
+					.accessibilityHidden(true)
 			}
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -444,14 +478,22 @@ struct DiscoverView: View {
 		.zIndex(1)
 		.contentShape(Rectangle())
 		.gesture(
-			DragGesture(minimumDistance: 10)
+			DragGesture(minimumDistance: dragSlop)
+				.updating($dragActive) { _, active, _ in active = true }
 				.onChanged { value in
+					let dx = value.translation.width
+					// Horizontal only: a mostly-vertical drag that hasn't moved the card yet is left alone.
+					if swipeOffset == 0 && abs(value.translation.height) > abs(dx) { return }
+					let moved = dx > 0 ? max(0, dx - dragSlop) : min(0, dx + dragSlop)
 					var instant = Transaction()
 					instant.disablesAnimations = true
-					withTransaction(instant) { swipeOffset = value.translation.width }
+					withTransaction(instant) { swipeOffset = moved }
 				}
 				.onEnded { value in
-					let total = value.translation.width
+					// Never started (a vertical drag): nothing to settle.
+					guard swipeOffset != 0 else { return }
+					let dx = value.translation.width
+					let total = dx > 0 ? max(0, dx - dragSlop) : min(0, dx + dragSlop)
 					if abs(total) > commitPx {
 						animateAndCommit(front, isSTAK: total > 0, gestureOffset: total)
 					} else {
@@ -459,6 +501,8 @@ struct DiscoverView: View {
 					}
 				}
 		)
+		// A light tick when the drag crosses the commit distance, either way - letting go now decides the card.
+		.sensoryFeedback(.selection, trigger: abs(swipeOffset) > commitPx) { _, crossed in crossed }
 	}
 
 	private func decisionButtons(front: DiscoverCard, u: CGFloat) -> some View {
@@ -491,6 +535,7 @@ struct DiscoverView: View {
 				Text("Pass")
 					.font(StakFont.geist(12 * u))
 					.foregroundStyle(Disc.muted)
+					.accessibilityHidden(true)
 			}
 			// STAK — the circle fills blue as the swipe goes right.
 			VStack(spacing: 6 * u) {
@@ -508,6 +553,7 @@ struct DiscoverView: View {
 				Text("STAK")
 					.font(StakFont.geist(12 * u))
 					.foregroundStyle(Disc.muted)
+					.accessibilityHidden(true)
 			}
 		}
 		.frame(maxWidth: .infinity)
@@ -544,13 +590,14 @@ struct DiscoverView: View {
 				}
 			}
 			.frame(width: 28 * u, height: 28 * u)
+			.accessibilityHidden(true)
 			Text(wasSTAK ? "\(card.companyName) added to your STAK" : "Passed on \(card.companyName)")
 				.font(StakFont.geist(12.5 * u, .medium))
 				.foregroundStyle(Color.white)
 				.lineLimit(1)
 				.truncationMode(.tail)
 				.frame(maxWidth: 190 * u, alignment: .leading)
-				.fixedSize(horizontal: true, vertical: false)
+				.layoutPriority(1)
 			Button { undo(card, wasSTAK: wasSTAK) } label: {
 				Text("Undo")
 					.font(StakFont.geist(12 * u, .semiBold))
@@ -560,10 +607,12 @@ struct DiscoverView: View {
 					.background(tint.opacity(0.18), in: Capsule())
 			}
 			.buttonStyle(.pressDim)
+			.accessibilityLabel(wasSTAK ? "Undo save" : "Undo pass")
 		}
 		.padding(6 * u)
 		.background(Color(argb: 0xF2121A2B), in: Capsule())
 		.overlay(Capsule().strokeBorder(tint.opacity(0.45), lineWidth: 1 * u))
+		// A new decision cross-fades the pill's content instead of rewriting it in place.
 		.id("\(card.symbol)\(wasSTAK)")
 		.offset(y: toastDrag)
 		.opacity(1 - min(0.6, max(0, -toastDrag / (dismissPx * 3))))
@@ -572,7 +621,7 @@ struct DiscoverView: View {
 				.onChanged { toastDrag = min(0, $0.translation.height) }
 				.onEnded { _ in
 					if toastDrag < -dismissPx {
-						withAnimation(.timingCurve(0.4, 0, 1, 1, duration: 0.22)) { pendingUndo = nil }
+						withAnimation(toastExit) { pendingUndo = nil }
 					} else {
 						withAnimation(easeOut(0.2)) { toastDrag = 0 }
 					}
@@ -617,11 +666,16 @@ struct ProgressRing: View {
 
 /// The full-size front card (350u wide). The deck's layer structure: every boundary in the frame is a brightness step
 /// plus a thin dark rim, so the card reads as its own layer over the queue in every state.
-private struct FrontDeckCard: View {
+private struct FrontDeckCard: View, Equatable {
 	let card: DiscoverCard
 	let u: CGFloat
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
+
+	/// The closure is left out: peeks and the fly-out ghost have none, so they redraw only when their card changes.
+	static func == (a: Self, b: Self) -> Bool {
+		a.card == b.card && a.u == b.u && a.showLearnMore == b.showLearnMore && (a.onLearnMore == nil) == (b.onLearnMore == nil)
+	}
 
 	var body: some View {
 		DeckCardBody(card: card, u: u, showLearnMore: showLearnMore, onLearnMore: onLearnMore)
@@ -637,15 +691,22 @@ private struct CardSeam: View {
 
 	var body: some View {
 		let reach = 6 * u
-		ZStack {
-			ForEach(0..<Int(ceil(reach)), id: \.self) { i in
+		// One Canvas, drawn past its frame: a single layer instead of a view per ring.
+		Canvas { ctx, size in
+			let rect = CGRect(origin: .zero, size: size)
+			for i in 0..<Int(ceil(reach)) {
 				let d = CGFloat(i)
 				let t = d / reach
-				RoundedRectangle(cornerRadius: 22 * u + d)
-					.stroke(Color(argb: 0xFF060B16).opacity(0.5 * (1 - t) * (1 - t)), lineWidth: 1)
-					.padding(-d)
+				let ring = rect.insetBy(dx: reach - d + 0.5, dy: reach - d + 0.5)
+				ctx.stroke(
+					Path(roundedRect: ring, cornerRadius: 22 * u + d),
+					with: .color(Color(argb: 0xFF060B16).opacity(0.5 * (1 - t) * (1 - t))),
+					lineWidth: 1
+				)
 			}
 		}
+		.padding(-reach)
+		.allowsHitTesting(false)
 	}
 }
 
@@ -733,9 +794,11 @@ private struct DeckCardBody: View {
 								.frame(width: 7 * u, height: 12 * u)
 						}
 						.padding(.horizontal, 10 * u)
-						.padding(.vertical, 4 * u)
-						.contentShape(Capsule())
+						.padding(.vertical, 12 * u)
+						.contentShape(Rectangle())
 					}
+					// The 44pt-tall hit area keeps the link's drawn place: the extra padding is given back to the layout.
+					.padding(.vertical, -8 * u)
 					.buttonStyle(.pressDim)
 					.disabled(onLearnMore == nil)
 					.frame(maxWidth: .infinity)
@@ -780,7 +843,14 @@ private struct LearnMoreChevron: Shape {
 private struct GlassLogo: View {
 	let url: String
 	let u: CGFloat
-	@State private var glyph: UIImage? = nil
+	@State private var glyph: UIImage?
+
+	init(url: String, u: CGFloat) {
+		self.url = url
+		self.u = u
+		// A glyph already made shows on the first frame, not after a task hop.
+		_glyph = State(initialValue: GlassGlyph.cached(url))
+	}
 
 	var body: some View {
 		ZStack {
@@ -808,7 +878,7 @@ private struct GlassLogo: View {
 		}
 		.frame(width: 100 * u, height: 100 * u)
 		.offset(x: 122 * u, y: 50 * u)
-		.task(id: url) { glyph = await GlassGlyph.load(url) }
+		.task(id: url) { if glyph == nil { glyph = await GlassGlyph.load(url) } }
 	}
 }
 
@@ -817,6 +887,8 @@ private struct GlassLogo: View {
 /// glyph_mask, without its badge handling).
 private enum GlassGlyph {
 	private static let cache = NSCache<NSString, UIImage>()
+
+	static func cached(_ url: String) -> UIImage? { cache.object(forKey: url as NSString) }
 
 	static func load(_ url: String) async -> UIImage? {
 		if let hit = cache.object(forKey: url as NSString) { return hit }
@@ -834,9 +906,14 @@ private enum GlassGlyph {
 		guard w > 1, h > 1 else { return nil }
 		var src = [UInt8](repeating: 0, count: w * h * 4)
 		let space = CGColorSpaceCreateDeviceRGB()
-		guard let ctx = CGContext(data: &src, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: space,
-								  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-		ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+		// The context writes through a pointer that is only valid inside the closure (`&src` would dangle).
+		let drawn = src.withUnsafeMutableBytes { buf -> Bool in
+			guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+									  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+			ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+			return true
+		}
+		guard drawn else { return nil }
 		// Median (by brightness) of pixels sampled around the tile's edge.
 		var samples: [(Int, Int, Int)] = []
 		func px(_ x: Int, _ y: Int) -> (Int, Int, Int) {
@@ -862,10 +939,11 @@ private enum GlassGlyph {
 				out[i] = UInt8(r * a); out[i + 1] = UInt8(g * a); out[i + 2] = UInt8(b * a); out[i + 3] = UInt8(a * 255)
 			}
 		}
-		guard let outCtx = CGContext(data: &out, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: space,
-									 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
-			  let made = outCtx.makeImage() else { return nil }
-		return UIImage(cgImage: made)
+		let made = out.withUnsafeMutableBytes { buf -> CGImage? in
+			CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: space,
+					  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
+		}
+		return made.map { UIImage(cgImage: $0) }
 	}
 }
 
@@ -1477,7 +1555,7 @@ private struct QuickLookSheet: View {
 					.foregroundStyle(Disc.muted)
 					.padding(.bottom, 10 * u)
 				// Title row: "Apple" in bright ink, "AAPL" beside it in teal.
-				HStack(alignment: .lastTextBaseline, spacing: 6 * u) {
+				HStack(alignment: .bottom, spacing: 6 * u) {
 					Text(card.companyName)
 						.font(StakFont.sora(22 * u, .bold))
 						.stakLineHeight(27 * u, size: 22 * u, face: .sora)
@@ -1530,7 +1608,7 @@ private struct QuickLookSheet: View {
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.horizontal, 20 * u)
-			.padding(.top, 28 * u)
+			.padding(.top, 34 * u)
 			.padding(.bottom, 12 * u)
 		}
 		.task(id: card.brandId) {

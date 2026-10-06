@@ -62,9 +62,13 @@ final class MyStakHoldings: ObservableObject {
 	/// True for a signed-in, non-demo account: only then do saves reach the server. Set by `reset` - Session passes
 	/// it in, because this store can't read the main-actor Session itself (and Session calls reset from its init).
 	private var syncs = false
+	/// Bumped by every `reset` (a sign-in, sign-out or account switch): a server read started for one account must
+	/// never land in the next one's store.
+	private var generation = 0
 
 	/// Product audit (2026-09-05): a NEW account holds nothing until the user saves; the demo account keeps the seed.
 	func reset(demo: Bool, signedIn: Bool = false) {
+		generation += 1
 		syncs = signedIn && !demo
 		// Local prefs restore first - instant, no network wait.
 		tickers = StakStore.stringSet("holdings") ?? (demo ? MyStakHoldings.seed : [])
@@ -77,15 +81,24 @@ final class MyStakHoldings: ObservableObject {
 		}
 		details = readDetails()
 		// Overlay with the server's state when signed in - silently no-ops on failure.
-		Task { await self.refreshFromBackend() }
+		Task { @MainActor in await self.refreshFromBackend() }
 	}
 
-	/// Re-reads the saved list and what the server knows about each save. Silent on failure.
+	/// Re-reads the saved list and what the server knows about each save. Silent on failure. Main-actor, like every
+	/// other change to this store.
+	@MainActor
 	func refreshFromBackend() async {
 		guard syncs else { return }
+		let started = generation
 		// Never read the list out from under a save or unsave still being written.
-		await pendingWrite?.value
+		let awaited = pendingWrite
+		await awaited?.value
 		guard let resp = try? await repo.getAndroidStocks() else { return }
+		// Signed out or switched account meanwhile: this answer belongs to someone else.
+		guard generation == started else { return }
+		// A save or unsave started while the read was out: the server's list predates it, and applying it would
+		// quietly undo the change (it will be re-read after that write).
+		guard pendingWrite == awaited else { return }
 		let fresh = resp.tickers
 		let saved: [String: SavedStock]? = resp.saved.isEmpty ? nil : Dictionary(
 			resp.saved.filter { !$0.ticker.isEmpty }.map { s in
@@ -101,11 +114,9 @@ final class MyStakHoldings: ObservableObject {
 			},
 			uniquingKeysWith: { $1 }
 		)
-		await MainActor.run {
-			if !fresh.isEmpty { self.tickers = Set(fresh) }
-			if let saved { self.details = saved }
-			self.persist()
-		}
+		if !fresh.isEmpty { tickers = Set(fresh) }
+		if let saved { details = saved }
+		persist()
 	}
 
 	// MARK: - Reads
@@ -186,7 +197,7 @@ final class MyStakHoldings: ObservableObject {
 		// could land last and win. Each write now waits for the one before it, and a refresh waits for the tail.
 		let previous = pendingWrite
 		let repo = self.repo
-		pendingWrite = Task {
+		pendingWrite = Task { @MainActor in
 			await previous?.value
 			_ = try? await repo.putAndroidStocks(snapshot)
 			// The row has to exist before its price can be stamped, so this follows the PUT rather than racing it -

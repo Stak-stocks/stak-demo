@@ -266,7 +266,8 @@ struct MyStakView: View {
 	/// Discover banner.
 	private var discoverBanner: some View {
 		let u = figmaUnit
-		let cardsLeft = max(0, discoverVM.dailyLimit - DeckSession.shared.seen)
+		// Today's swipes from the server: counts other devices and survives a relaunch, unlike this session's tally.
+		let cardsLeft = max(0, discoverVM.dailyLimit - discoverVM.swipedToday)
 		return Button(action: onStartSwiping) {
 			VStack(alignment: .leading, spacing: 9 * u) {
 				Text("DISCOVER")

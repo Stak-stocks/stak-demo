@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// One deck card's content (art + copy at the front-card scale). Android's DeckCard.
-struct DiscoverCard: Equatable {
+struct DiscoverCard: Equatable, Identifiable {
 	/// The pre-generated art's resource name (CardArt), or nil: the basket template with the logo set into the glass.
 	var art: String? = nil
 	/// "NVDA · NVIDIA Corp"
@@ -16,6 +16,10 @@ struct DiscoverCard: Equatable {
 	var brandId: String = ""
 	var categories: [String] = []
 
+	/// The live price as a number - what a save stamps (the display string is for showing).
+	var priceValue: Double? = nil
+
+	var id: String { symbol }
 	/// "NVDA · NVIDIA Corp" -> "NVDA" - the routing/holdings symbol.
 	var symbol: String { (ticker.components(separatedBy: " · ").first ?? ticker).trimmingCharacters(in: .whitespaces) }
 	/// "NVDA · NVIDIA Corp" -> "NVIDIA Corp", or the symbol when the card has no name.
@@ -63,6 +67,8 @@ final class DiscoverViewModel: ObservableObject {
 	private let repo = StockRepository.shared
 	private var pendingSwipeTasks: [String: Task<Void, Never>] = [:]
 	private var quickLookCache: [String: QuickLookData] = [:]
+	/// Quick Looks being fetched: a "Learn more" tap during the prefetch shares the request instead of sending another.
+	private var quickLookInFlight: [String: Task<QuickLookData, Never>] = [:]
 	private var tipCache: [String: String] = [:]
 	/// brandId -> epoch ms of the last pass. Nil until read: PUT replaces the server list, so never write blind.
 	private var passedAt: [String: Int64]? = nil
@@ -74,6 +80,8 @@ final class DiscoverViewModel: ObservableObject {
 	/// Out-of-hours attempts to price cards whose quote never came back; capped so one bad symbol can't poll all night.
 	private var missingRetries = 0
 	private var started = false
+	/// Set when the 9am rollover reloads the deck: today's run resets once the new cards are in.
+	private var resetSessionOnLoad = false
 
 	/// Loads the deck once; MainTabsView keeps one view model for the whole session.
 	func load() async {
@@ -88,6 +96,15 @@ final class DiscoverViewModel: ObservableObject {
 	/// profile's cultural-context sections when generation isn't available.
 	func fetchQuickLook(_ brandId: String) async -> QuickLookData {
 		if let hit = quickLookCache[brandId] { return hit }
+		if let running = quickLookInFlight[brandId] { return await running.value }
+		let task = Task { await self.loadQuickLook(brandId) }
+		quickLookInFlight[brandId] = task
+		let data = await task.value
+		quickLookInFlight[brandId] = nil
+		return data
+	}
+
+	private func loadQuickLook(_ brandId: String) async -> QuickLookData {
 		let structured = (try? await repo.getBrandQuickLook(brandId).quickLook).flatMap { $0.in10Seconds.isEmpty ? nil : $0 }
 		let data: QuickLookData
 		if let structured {
@@ -108,7 +125,9 @@ final class DiscoverViewModel: ObservableObject {
 		missingRetries = 0
 		async let dailySwipesTask = try? repo.getDailySwipes()
 		async let recsTask = try? repo.getRecommendations()
-		async let statsTask = try? repo.getSwipes(since: StakClock.deckDayStartISO())
+		// Worked out here, on the main actor - not inside the child task.
+		let since = StakClock.deckDayStartISO()
+		async let statsTask = try? repo.getSwipes(since: since)
 		async let passedTask = try? repo.getPassed()
 		let brandsResult: BrandsListResponse? = try? await repo.getBrands()
 
@@ -127,9 +146,8 @@ final class DiscoverViewModel: ObservableObject {
 
 		if let res = brandsResult {
 			let recs = await recsTask
-			if let entries = (await passedTask)?.entries {
-				passedAt = Dictionary(entries.map { ($0.id, $0.at) }, uniquingKeysWith: { $1 })
-			}
+			// Nil when unread: PUT replaces the server's list, so a pass is never written over one we couldn't read.
+			passedAt = (await passedTask).map { res in Dictionary(res.entries.map { ($0.id, $0.at) }, uniquingKeysWith: { $1 }) }
 			let picks = todaysPicks(res.brands, ranked: recs?.brandIds ?? [], limit: limit, passed: passedAt ?? [:], categories: recs?.categories ?? [:])
 			quotedRef = StakClock.lastCloseRef()
 			var quotes: [String: BatchQuote] = [:]
@@ -150,10 +168,14 @@ final class DiscoverViewModel: ObservableObject {
 					artBg: colors.art,
 					logoUrl: Self.brandLogoUrl(brand),
 					brandId: brand.id,
-					categories: brand.interestCategories
+					categories: brand.interestCategories,
+					priceValue: q.flatMap { $0.price > 0 ? $0.price : nil }
 				)
 			}
 			deck = cards
+			// A rollover reload resets today's run only now, with the new cards in place - resetting it first showed the
+			// previous day's swiped cards again for a moment.
+			if resetSessionOnLoad { DeckSession.shared.load(); resetSessionOnLoad = false }
 			prefetchTips(cards)
 			prefetchQuickLooks(cards)
 		} else {
@@ -171,7 +193,11 @@ final class DiscoverViewModel: ObservableObject {
 		let byTicker = Dictionary(brands.map { ($0.ticker, $0) }, uniquingKeysWith: { a, _ in a })
 		let key = StakClock.deckDayKey()
 		if StakStore.string(Self.picksDayKey) == key && StakStore.int(Self.picksVersionKey, default: 0) == Self.picksVersion {
+			// A stock saved since the deck was pinned (from a stock page, say) leaves it - undoing a swipe on it would
+			// have removed that earlier save.
+			let held = MyStakHoldings.shared.tickers
 			let pinned = (StakStore.string(Self.picksKey) ?? "").split(separator: ",").compactMap { byTicker[String($0)] }
+				.filter { !held.contains($0.ticker) }
 			if !pinned.isEmpty {
 				deckLabel = StakStore.string(Self.picksLabelKey) ?? Self.deckLabelFor(pinned, categories)
 				return pinned
@@ -235,10 +261,14 @@ final class DiscoverViewModel: ObservableObject {
 	}
 
 	func cancelPendingSwipe(_ brandId: String) {
-		if let task = pendingSwipeTasks.removeValue(forKey: brandId) { task.cancel() }
-		// The undo takes the swipe back off today's count whether or not it had a request waiting (the demo account
-		// counts locally only).
-		swipedToday = max(0, swipedToday - 1)
+		if let task = pendingSwipeTasks.removeValue(forKey: brandId) {
+			task.cancel()
+			swipedToday = max(0, swipedToday - 1)
+		} else if Session.shared.demoAccount || Session.shared.token == nil {
+			// The demo account's swipes never had a request waiting; its count is local only.
+			swipedToday = max(0, swipedToday - 1)
+		}
+		// Otherwise the swipe already reached the server, whose count stands (Android returns early the same way).
 	}
 
 	/// Learn-more taps feed the taste profile, as on web (POST /api/swipe/event).
@@ -267,7 +297,7 @@ final class DiscoverViewModel: ObservableObject {
 	func onVisibleTick(_ visible: [String]) {
 		if loading { return }
 		if let loadedDay, loadedDay != StakClock.deckDayKey() {
-			DeckSession.shared.load()
+			resetSessionOnLoad = true
 			Task { await fetchDeck() }
 			return
 		}
@@ -293,28 +323,37 @@ final class DiscoverViewModel: ObservableObject {
 			defer { self?.quoteTask = nil }
 			guard let res = try? await repo.batchQuotes(tickers), let self else { return }
 			self.quotedRef = ref
-			self.deck = self.deck.map { c in
+			let repriced = self.deck.map { c -> DiscoverCard in
 				guard let q = res.quotes[c.symbol] ?? nil, q.price > 0 else { return c }
 				var copy = c
 				copy.price = formatPrice(q.price)
 				copy.change = formatChange(q.changePercent)
+				copy.priceValue = q.price
 				return copy
 			}
+			if repriced != self.deck { self.deck = repriced }
 		}
 	}
 
+	/// Every card's tip, fetched together and applied in one change (one redraw of the deck, not one per card).
 	private func prefetchTips(_ cards: [DiscoverCard]) {
-		for card in cards where !card.brandId.isEmpty && tipCache[card.brandId] == nil {
-			let repo = self.repo
-			Task { [weak self] in
-				guard let tip = try? await repo.getBrandTip(card.brandId).tip, !tip.isEmpty, let self else { return }
-				self.tipCache[card.brandId] = tip
-				self.deck = self.deck.map { c in
-					guard c.brandId == card.brandId else { return c }
-					var copy = c
-					copy.tip = tip
-					return copy
-				}
+		let ids = cards.map(\.brandId).filter { !$0.isEmpty && tipCache[$0] == nil }
+		guard !ids.isEmpty else { return }
+		let repo = self.repo
+		Task { [weak self] in
+			let tips = await withTaskGroup(of: (String, String?).self) { group -> [String: String] in
+				for id in ids { group.addTask { (id, try? await repo.getBrandTip(id).tip) } }
+				var found: [String: String] = [:]
+				for await (id, tip) in group { if let tip, !tip.isEmpty { found[id] = tip } }
+				return found
+			}
+			guard let self, !tips.isEmpty else { return }
+			for (id, tip) in tips { self.tipCache[id] = tip }
+			self.deck = self.deck.map { c in
+				guard let tip = tips[c.brandId] else { return c }
+				var copy = c
+				copy.tip = tip
+				return copy
 			}
 		}
 	}
@@ -379,14 +418,21 @@ final class DiscoverViewModel: ObservableObject {
 	]
 }
 
-/// "$1,234.50"
-func formatPrice(_ price: Double) -> String {
+private let priceFormatter: NumberFormatter = {
 	let f = NumberFormatter()
-	f.locale = Locale(identifier: "en_US")
+	f.locale = Locale(identifier: "en_US_POSIX")
 	f.numberStyle = .decimal
+	f.usesGroupingSeparator = true
+	f.groupingSeparator = ","
+	f.decimalSeparator = "."
 	f.minimumFractionDigits = 2
 	f.maximumFractionDigits = 2
-	return "$" + (f.string(from: NSNumber(value: price)) ?? String(format: "%.2f", price))
+	return f
+}()
+
+/// "$1,234.50" (Android's "%,.2f").
+func formatPrice(_ price: Double) -> String {
+	"$" + (priceFormatter.string(from: NSNumber(value: price)) ?? String(format: "%.2f", price))
 }
 
 /// "▲ 1.2% today"

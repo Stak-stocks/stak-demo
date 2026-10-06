@@ -149,6 +149,11 @@ struct MainTabsView: View {
 	@State private var navStyle = NavStyle.forwardPush
 	/// Where covered content parks — see NavStyle.parkedShift.
 	@State private var parkedShift: CGFloat = UIScreen.main.bounds.width
+	/// How far the top page has been dragged by the left-edge swipe back (0 when it isn't).
+	@State private var backDrag: CGFloat = 0
+	/// Stays true from the swipe's first move until it has settled, so the page beneath isn't re-parked mid-animation.
+	@State private var backSwipeLive = false
+	private var swipingBack: Bool { backDrag > 0 || backSwipeLive }
 
 	private var pageWidth: CGFloat { UIScreen.main.bounds.width }
 
@@ -159,7 +164,9 @@ struct MainTabsView: View {
 				// the active pop style's entry side, so a house back pop
 				// reveals it sliding in from the trailing edge exactly like
 				// the authored PUSH RIGHT (a forward-push pop from leading).
-				.offset(x: pushed.isEmpty ? 0 : parkedShift)
+				// During a swipe back it is the page beneath, sliding in behind the finger.
+				.offset(x: pushed.isEmpty ? 0 : (swipingBack && pushed.count == 1 ? EdgeSwipe.underlayOffset(backDrag, width: pageWidth) : parkedShift))
+				.accessibilityHidden(!pushed.isEmpty)
 				.id(tab)
 				.transition(tabStyle.transition)
 
@@ -168,13 +175,24 @@ struct MainTabsView: View {
 				// unmounting it (the parked page carries the pop transitions),
 				// so the covered page is told explicitly - it releases its hero
 				// player instead of playing on under the new article.
-				pageView(entry.page, isTop: entry.id == pushed.last?.id)
-					.offset(x: entry.id == pushed.last?.id ? 0 : parkedShift)
+				let isTop = entry.id == pushed.last?.id
+				let isUnder = swipingBack && pushed.count > 1 && entry.id == pushed[pushed.count - 2].id
+				pageView(entry.page, isTop: isTop)
+					.offset(x: isTop ? 0 : (isUnder ? EdgeSwipe.underlayOffset(backDrag, width: pageWidth) : parkedShift))
+					.edgeSwipeBack(
+						enabled: isTop && canSwipeBack,
+						drag: isTop ? $backDrag : .constant(0),
+						onSettled: { backSwipeLive = false }
+					) {
+						if !pushed.isEmpty { pushed.removeLast() }
+					}
+					.accessibilityHidden(!isTop)
 					.id(entry.id)
 					.transition(navStyle.transition)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.onChange(of: backDrag) { _, drag in if drag > 0 { backSwipeLive = true } }
 		.task { await simulateVM.load() }
 		// 30s Simulate refresh — mirrors Android RefreshWhileVisible(intervalMs=30_000, tickOnResume=true).
 		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
@@ -232,13 +250,8 @@ struct MainTabsView: View {
 					case .discover:
 						DiscoverView(
 							resetKey: discoverResetKey,
-							// Authored (1:1785): Learn more -> Stock Detail folded, Instant.
-							onLearnMore: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
-							onPracticeBuy: { discoverBuy = $0 },
-							// Authored (1:2330): the receipt's cross-tab CTAs are
-							// instant SWAPs to My STAK / Simulate.
+							// Authored (1:2330): the receipt's CTA is an instant SWAP to My STAK.
 							onReviewSaves: { switchTab(.myStak) },
-							onPracticeBuySaves: { switchTab(.simulate) },
 							discoverVM: discoverVM
 						)
 					case .myStak:
@@ -460,6 +473,17 @@ struct MainTabsView: View {
 				onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) }
 			)
 		}
+	}
+
+	/// Every pushed page takes the left-edge swipe back except a Pick detail opened straight from Simulate home: its
+	/// Back swaps it for Portfolio (1:4631), which a swipe revealing Simulate home underneath would contradict.
+	private var canSwipeBack: Bool {
+		guard let top = pushed.last else { return false }
+		if case .simPick = top.page {
+			if case .simPortfolio? = pushed.dropLast().last?.page { return true }
+			return false
+		}
+		return true
 	}
 
 	/// SWAP taps stay instant; an authored PUSH LEFT edge that lands on a

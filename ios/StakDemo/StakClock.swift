@@ -10,8 +10,13 @@ enum StakClock {
 	/// is expensive in feed paths); en_US_POSIX for fixed-format output, the device's
 	/// live time zone.
 	private static var formatters: [String: DateFormatter] = [:]
+	/// The cache is read from the main thread (cards) and from background tasks (the deck's swipe-day start), so
+	/// every access holds this lock - two threads writing one dictionary can crash.
+	private static let lock = NSLock()
 	private static func formatter(_ pattern: String, zone: TimeZone = .autoupdatingCurrent) -> DateFormatter {
 		let key = pattern + "|" + zone.identifier
+		lock.lock()
+		defer { lock.unlock() }
 		if let f = formatters[key] { return f }
 		let f = DateFormatter()
 		f.locale = Locale(identifier: "en_US_POSIX")

@@ -40,14 +40,17 @@ def attr(el, name, default=None):
 def path_svg(el) -> str:
     out = [f'<path d="{attr(el, "pathData", "")}"']
     fill = attr(el, "fillColor")
-    if fill and not fill.startswith("@"):
+    for v in (fill, attr(el, "strokeColor")):
+        if v and v.startswith("@"):
+            sys.exit(f"colour resource {v} isn't resolved by this tool; use the literal colour")
+    if fill:
         c, a = color(fill)
         a *= float(attr(el, "fillAlpha", "1"))
         out.append(f' fill="{c}"' + (f' fill-opacity="{a:.3f}"' if a < 1 else ""))
     else:
         out.append(' fill="none"')
     stroke = attr(el, "strokeColor")
-    if stroke and not stroke.startswith("@"):
+    if stroke:
         c, a = color(stroke)
         a *= float(attr(el, "strokeAlpha", "1"))
         out.append(f' stroke="{c}" stroke-width="{attr(el, "strokeWidth", "1")}"' + (f' stroke-opacity="{a:.3f}"' if a < 1 else ""))
@@ -69,18 +72,24 @@ def children_svg(el) -> str:
         if tag == "path":
             parts.append(path_svg(child))
         elif tag == "group":
+            # Android applies scale, then rotate (both about the pivot), then translate. An SVG transform list
+            # applies right to left, so it is written translate, rotate, scale.
             t = []
             tx, ty = attr(child, "translateX", "0"), attr(child, "translateY", "0")
+            px, py = attr(child, "pivotX", "0"), attr(child, "pivotY", "0")
             if tx != "0" or ty != "0":
                 t.append(f"translate({tx} {ty})")
             rot = attr(child, "rotation")
             if rot:
-                t.append(f'rotate({rot} {attr(child, "pivotX", "0")} {attr(child, "pivotY", "0")})')
+                t.append(f"rotate({rot} {px} {py})")
             sx, sy = attr(child, "scaleX"), attr(child, "scaleY")
             if sx or sy:
-                t.append(f"scale({sx or '1'} {sy or '1'})")
+                t.append(f"translate({px} {py}) scale({sx or '1'} {sy or '1'}) translate(-{px} -{py})")
             transform = f' transform="{" ".join(t)}"' if t else ""
             parts.append(f"<g{transform}>{children_svg(child)}</g>")
+        else:
+            # A clip-path or gradient would be dropped without a word and the icon drawn wrong - stop instead.
+            sys.exit(f"unsupported <{tag}> in a vector drawable; convert this icon by hand")
     return "".join(parts)
 
 
