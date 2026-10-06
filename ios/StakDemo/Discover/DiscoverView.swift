@@ -712,6 +712,7 @@ private struct CardSeam: View {
 	}
 }
 
+/// The card. At larger text sizes its art gives up height (229 at the default) so the grown text still fits the deck.
 private struct DeckCardBody: View {
 	let card: DiscoverCard
 	let u: CGFloat
@@ -726,7 +727,7 @@ private struct DeckCardBody: View {
 					Image(uiImage: image)
 						.resizable()
 						.scaledToFill()
-						.frame(width: 340 * u, height: 229 * u)
+						.frame(width: 340 * u, height: 229 * u / textScale)
 				} else {
 					// No pre-generated card (a brand added since the art last ran): the same basket template, with the
 					// logo lifted off its tile and set into the glass at runtime.
@@ -734,12 +735,12 @@ private struct DeckCardBody: View {
 						Image(uiImage: template)
 							.resizable()
 							.scaledToFill()
-							.frame(width: 340 * u, height: 229 * u)
+							.frame(width: 340 * u, height: 229 * u / textScale)
 					}
 					if let url = card.logoUrl { GlassLogo(url: url, u: u) }
 				}
 			}
-			.frame(width: 340 * u, height: 229 * u)
+			.frame(width: 340 * u, height: 229 * u / textScale)
 			.background(card.artBg)
 			.clipShape(RoundedRectangle(cornerRadius: 18 * u))
 			VStack(alignment: .leading, spacing: 19 * u) {
@@ -752,6 +753,8 @@ private struct DeckCardBody: View {
 						.font(StakFont.geist(16 * u))
 						.stakLineHeight(23 * u, size: 16 * u, face: .geist)
 						.foregroundStyle(Color.white)
+						// Larger text: at most 3 lines, so the card stays above Pass/STAK (the art gives way too).
+						.lineLimit(textScale > 1 ? 3 : nil)
 						.fixedSize(horizontal: false, vertical: true)
 					HStack(alignment: .bottom, spacing: 9 * u) {
 						Text(card.price)
@@ -777,6 +780,7 @@ private struct DeckCardBody: View {
 							.font(StakFont.geist(11 * u))
 							.stakLineHeight(15 * u, size: 11 * u, face: .geist)
 							.foregroundStyle(Disc.body)
+							.lineLimit(textScale > 1 ? 3 : nil)
 							.frame(maxWidth: .infinity, alignment: .leading)
 					}
 					.padding(.horizontal, 12 * u)

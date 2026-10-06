@@ -363,6 +363,8 @@ private struct MarketMoodCard: View {
 		}
 		// Android's clickable(PressDim) on the whole card; the deck's drag still wins over the tap.
 		.buttonStyle(.pressDim)
+		// A fixed-shape preview (the 397 card and its news-card stack): its text stops growing at xLarge.
+		.dynamicTypeSize(...DynamicTypeSize.xLarge)
 		.accessibilityElement(children: .ignore)
 		.accessibilityLabel("Market Mood. \(moodLead)\(moodRest) \(spokenDeck)")
 		.accessibilityHint("Opens News")
@@ -604,7 +606,9 @@ private struct DeckBanner: View {
 							.resizable()
 							.frame(width: 16 * u, height: 16 * u)
 					}
-					.frame(width: 123 * u * textScale, height: 32 * u * textScale)
+					.lineLimit(1)
+					.minimumScaleFactor(0.7)
+					.frame(width: 123 * u, height: 32 * u * textScale)
 					.background(StakColors.bg, in: RoundedRectangle(cornerRadius: 15 * u))
 				}
 				.frame(width: 156 * u, alignment: .leading)

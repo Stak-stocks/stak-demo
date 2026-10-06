@@ -19,15 +19,15 @@ struct StakDemoApp: App {
 	}
 }
 
-/// Rebuilds the app when the Text Size setting changes, so every box sized by `textScale` picks up the new size (the
-/// fonts follow on their own; the boxes around them are plain numbers).
+/// Keeps `textScale` on the Text Size setting. The fonts follow the setting on their own; the boxes around them read
+/// `textScale`, which is Observable, so the views that use it redraw in place when it changes.
 private struct TextSizeRoot<Content: View>: View {
 	@ViewBuilder let content: Content
 	@Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
 	var body: some View {
-		// Re-read before the rebuild below, so the rebuilt views size their boxes at the new setting.
-		let _ = TextScale.refresh()
-		content.id(dynamicTypeSize)
+		content
+			.onAppear { TextScale.shared.update(dynamicTypeSize) }
+			.onChange(of: dynamicTypeSize) { _, size in TextScale.shared.update(size) }
 	}
 }

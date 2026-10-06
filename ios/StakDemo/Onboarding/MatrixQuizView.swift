@@ -74,6 +74,8 @@ struct MatrixQuizView: View {
 									}
 								}
 							}
+							// Both tiles in a row take the taller one's height.
+							.fixedSize(horizontal: false, vertical: true)
 						}
 					}
 					.padding(.top, 4 * u)
@@ -132,7 +134,8 @@ private struct MatrixCard: View {
 			}
 			.padding(.horizontal, 14.74 * u)
 			.padding(.vertical, 15.27 * u)
-			.frame(width: 163.18 * u, height: 155.81 * u * textScale, alignment: .topLeading)
+			.frame(width: 163.18 * u, alignment: .topLeading)
+			.frame(minHeight: 155.81 * u, maxHeight: .infinity, alignment: .topLeading)
 			.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 16.85 * u))
 			.overlay {
 				if selected {

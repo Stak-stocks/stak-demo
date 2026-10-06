@@ -16,12 +16,23 @@ enum StakFont {
 
 	/// Sora — the UI face across the app (headlines, buttons, tab labels).
 	static func sora(_ size: CGFloat, _ weight: Weight = .regular) -> Font {
-		.custom("Sora-\(weight.rawValue)", size: size)
+		.custom("Sora-\(weight.rawValue)", size: size, relativeTo: scaleStyle(size))
 	}
 
 	/// Geist — the in-app data/UI face (body copy, captions, inputs).
 	static func geist(_ size: CGFloat, _ weight: Weight = .regular) -> Font {
-		.custom("Geist-\(weight.rawValue)", size: size)
+		.custom("Geist-\(weight.rawValue)", size: size, relativeTo: scaleStyle(size))
+	}
+
+	/// Which text style's curve a size grows on with the Text Size setting. Body for reading sizes; headings and big
+	/// figures on Apple's heading curves, which grow far less at the largest settings (a 38 hero figure would
+	/// otherwise reach ~74pt) - as Android 14 scales large text less than small. `textScale` (the boxes) follows Body,
+	/// the largest growth, so a heading's box is never too small for it.
+	private static func scaleStyle(_ size: CGFloat) -> Font.TextStyle {
+		let designSize = size / figmaUnit
+		if designSize >= 28 { return .largeTitle }
+		if designSize >= 20 { return .title2 }
+		return .body
 	}
 
 	/// Inter — the authored tab-bar label face (static Regular instance cut
@@ -43,20 +54,42 @@ enum StakFont {
 /// text sits in (buttons, chips, rows, pinned line boxes) - so larger text grows its box instead of being clipped.
 /// Icons, photos and spacing stay put, as in Apple's own apps.
 /// Read hundreds of times per render (every `stakLineHeight` and text box), so it's worked out once per Text Size
-/// setting - `TextScale.refresh()` runs when the setting changes (StakDemoApp's TextSizeRoot) - not on each read.
-var textScale: CGFloat { TextScale.current }
+/// setting, not on each read. It's Observable: a view that read it is redrawn when the setting changes - in place,
+/// keeping its state (an earlier rebuild of the whole app replayed the splash and lost a sign-up in progress).
+var textScale: CGFloat { TextScale.shared.current }
 
-enum TextScale {
+@Observable
+final class TextScale {
+	static let shared = TextScale()
+
 	/// Body text's size at the setting over its size at the default - the factor `Font.custom(_:size:)` applies,
-	/// computed with the same UIFontMetrics, so the boxes grow exactly as the fonts do. Capped at Accessibility 2.
-	private(set) static var current: CGFloat = compute()
+	/// computed with the same UIFontMetrics, so the boxes grow exactly as the fonts do. Never below 1: at the Smaller
+	/// settings the text shrinks but its boxes keep their designed size (and tap targets their 44pt).
+	private(set) var current: CGFloat = 1
 
-	static func refresh() { current = compute() }
+	/// Set from SwiftUI's own Dynamic Type size (already capped at Accessibility 2 by StakDemoApp).
+	func update(_ size: DynamicTypeSize) {
+		let traits = UITraitCollection(preferredContentSizeCategory: Self.category(size))
+		let scale = max(1, UIFontMetrics(forTextStyle: .body).scaledValue(for: 17, compatibleWith: traits) / 17)
+		if scale != current { current = scale }
+	}
 
-	private static func compute() -> CGFloat {
-		let traits = UITraitCollection(preferredContentSizeCategory: UIScreen.main.traitCollection.preferredContentSizeCategory)
-		let body = UIFontMetrics(forTextStyle: .body).scaledValue(for: 17, compatibleWith: traits)
-		return min(body / 17, 33 / 17)
+	private static func category(_ size: DynamicTypeSize) -> UIContentSizeCategory {
+		switch size {
+		case .xSmall: return .extraSmall
+		case .small: return .small
+		case .medium: return .medium
+		case .large: return .large
+		case .xLarge: return .extraLarge
+		case .xxLarge: return .extraExtraLarge
+		case .xxxLarge: return .extraExtraExtraLarge
+		case .accessibility1: return .accessibilityMedium
+		case .accessibility2: return .accessibilityLarge
+		case .accessibility3: return .accessibilityExtraLarge
+		case .accessibility4: return .accessibilityExtraExtraLarge
+		case .accessibility5: return .accessibilityExtraExtraExtraLarge
+		@unknown default: return .large
+		}
 	}
 }
 

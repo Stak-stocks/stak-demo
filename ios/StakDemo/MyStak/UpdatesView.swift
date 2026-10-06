@@ -112,7 +112,7 @@ private struct UpdateGroupSection: View {
                     ZStack(alignment: .topTrailing) {
                         ZStack {
                             Circle().fill(Color(argb: 0xFF1E2A3D))
-                                .frame(width: 36 * u, height: 36 * u)
+                                .frame(width: 36 * u * textScale, height: 36 * u * textScale)
                             Text(String(group.ticker.prefix(1)))
                                 .font(StakFont.geist(14 * u, .medium))
                                 .foregroundStyle(Color(argb: 0xFF69B3CA))

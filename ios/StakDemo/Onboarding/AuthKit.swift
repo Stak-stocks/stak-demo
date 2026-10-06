@@ -32,8 +32,18 @@ struct Artboard<Content: View>: View {
 	var body: some View {
 		let u = figmaUnit
 		GeometryReader { proxy in
-			VStack(spacing: 0, content: content)
-				.frame(width: proxy.size.width, height: min(800 * u, proxy.size.height), alignment: .top)
+			if textScale > 1 {
+				// Larger text may not fit the artboard: it scrolls, at least a screen tall.
+				ScrollView {
+					VStack(spacing: 0, content: content)
+						.frame(width: proxy.size.width)
+						.frame(minHeight: min(800 * u, proxy.size.height), alignment: .top)
+				}
+				.scrollBounceBehavior(.basedOnSize)
+			} else {
+				VStack(spacing: 0, content: content)
+					.frame(width: proxy.size.width, height: min(800 * u, proxy.size.height), alignment: .top)
+			}
 		}
 		.ignoresSafeArea(edges: .bottom)
 	}

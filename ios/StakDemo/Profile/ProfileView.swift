@@ -156,7 +156,7 @@ struct ProfileView: View {
 						}
 						.frame(maxWidth: .infinity)
 						// Stat columns sit at the top of the 40u row (171:1013 items-start), not centred - exact-design audit 2026-09-04.
-						.frame(height: 40 * u, alignment: .top)
+						.frame(height: 40 * u * textScale, alignment: .top)
 						Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
 							.font(StakFont.geist(12 * u, .medium))
 							.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))

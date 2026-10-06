@@ -79,7 +79,7 @@ struct LeaderboardView: View {
 						Text(portfolio.rank.map(String.init) ?? "—")
 							.font(StakFont.sora(16 * u, .semiBold))
 							.foregroundStyle(Sim.teal)
-							.frame(width: 28 * u, alignment: .leading)
+							.frame(width: 28 * u * textScale, alignment: .leading)
 						ZStack {
 							Circle().fill(Sim.chipBg)
 							// The authored "E" is the demo persona's; a new account shows its own initial (product audit, 2026-09-05).
@@ -169,7 +169,7 @@ private struct LeaderRow: View {
 			Text(r.rank)
 				.font(StakFont.sora(12 * u, .semiBold))
 				.foregroundStyle(Sim.faint)
-				.frame(width: 24 * u, alignment: .leading)
+				.frame(width: 24 * u * textScale, alignment: .leading)
 			ZStack {
 				Circle().fill(Sim.chipBg)
 				Text(r.initial)

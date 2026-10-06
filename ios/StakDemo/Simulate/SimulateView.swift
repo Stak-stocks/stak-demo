@@ -336,7 +336,8 @@ private struct ScoreHero: View {
 							Text(label)
 								.font(StakFont.geist(12 * u, .medium))
 								.foregroundStyle(Sim.teal)
-								.frame(width: 39 * u * textScale, height: 22.5 * u * textScale)
+								.frame(width: 39 * u, height: 22.5 * u)
+								.dynamicTypeSize(...DynamicTypeSize.xLarge)
 								.background(Color(argb: 0x292C9DBC), in: RoundedRectangle(cornerRadius: 11.25 * u))
 								.overlay(
 									RoundedRectangle(cornerRadius: 11.25 * u)
@@ -346,6 +347,7 @@ private struct ScoreHero: View {
 							Text(label)
 								.font(StakFont.geist(12 * u))
 								.foregroundStyle(Sim.muted)
+								.dynamicTypeSize(...DynamicTypeSize.xLarge)
 						}
 					}
 					.buttonStyle(.pressDim)
@@ -407,7 +409,9 @@ struct BuyPill: View {
 			Text(text)
 				.font(StakFont.sora(12 * u))
 				.foregroundStyle(Color.white)
-				.frame(width: 60 * u * textScale, height: 30 * u * textScale)
+				.lineLimit(1)
+				.minimumScaleFactor(0.7)
+				.frame(width: 60 * u, height: 30 * u * textScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Sim.ctaBorder, lineWidth: 0.36 * u))
 				// 1:3954 (exact-design audit 2026-09-04): the authored drop shadow - #52AAC7 at 4%, dy 12.285, blur 12.285.
@@ -760,7 +764,7 @@ private struct BoardCard: View {
 				.font(StakFont.sora(12 * u, .semiBold))
 				.foregroundStyle(you ? Sim.teal : Sim.faint)
 				// 1:4101 (exact-design audit 2026-09-04): the rank sits in a 22-wide box so the names line up.
-				.frame(width: 22 * u, alignment: .leading)
+				.frame(width: 22 * u * textScale, alignment: .leading)
 			Text(name)
 				.font(StakFont.geist(13 * u, you ? .semiBold : .medium))
 				.foregroundStyle(Color.white)

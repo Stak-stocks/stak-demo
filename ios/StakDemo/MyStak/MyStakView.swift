@@ -343,7 +343,8 @@ private struct CollectionChip: View {
 						.font(StakFont.sora(13 * u, .semiBold))
 						.foregroundStyle(StakColors.textPrimary)
 						.lineLimit(1)
-						.fixedSize(horizontal: true, vertical: false)
+						// Enlarged, it truncates instead of drawing over the next tile.
+						.fixedSize(horizontal: textScale <= 1, vertical: false)
 					Text(countLabel)
 						.font(StakFont.geist(11 * u))
 						.foregroundStyle(muted)

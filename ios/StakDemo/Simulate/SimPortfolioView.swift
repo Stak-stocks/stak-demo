@@ -177,7 +177,9 @@ private struct SellPill: View {
 			Text("Sell")
 				.font(StakFont.sora(12 * u))
 				.foregroundStyle(Sim.muted)
-				.frame(width: 60 * u * textScale, height: 30 * u * textScale)
+				.lineLimit(1)
+				.minimumScaleFactor(0.7)
+				.frame(width: 60 * u, height: 30 * u * textScale)
 				.overlay(
 					RoundedRectangle(cornerRadius: 6 * u)
 						.strokeBorder(Color(argb: 0x24FFFFFF), lineWidth: 1 * u)

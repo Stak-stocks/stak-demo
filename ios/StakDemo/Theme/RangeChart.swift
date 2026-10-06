@@ -112,7 +112,8 @@ struct RangePills: View {
 						Text(label)
 							.font(StakFont.geist(12 * u, .medium))
 							.foregroundStyle(tint)
-							.frame(width: 39 * u * textScale, height: 22.5 * u * textScale)
+							.frame(width: 39 * u, height: 22.5 * u)
+							.dynamicTypeSize(...DynamicTypeSize.xLarge)
 							.background(Color(argb: 0x292C9DBC), in: RoundedRectangle(cornerRadius: 11.25 * u))
 							.overlay(
 								RoundedRectangle(cornerRadius: 11.25 * u)
@@ -122,6 +123,7 @@ struct RangePills: View {
 						Text(label)
 							.font(StakFont.geist(12 * u))
 							.foregroundStyle(muted)
+							.dynamicTypeSize(...DynamicTypeSize.xLarge)
 					}
 				}
 				.buttonStyle(.pressDim)

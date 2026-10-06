@@ -644,13 +644,13 @@ private struct CompareCard: View {
 							// above the table top - exact-design audit 2026-09-04.
 							RoundedRectangle(cornerRadius: 8 * u)
 								.fill(Color(argb: 0x125DA8BF))
-								.frame(width: 81 * u, height: 170 * u)
+								.frame(width: 81 * u, height: 170 * u * textScale)
 								.offset(x: 78 * u, y: -12 * u)
 							// 1:2722: a 0.5-wide #272F40 hairline between the MSFT and GOOGL
 							// columns, card x257 y49.94, 134.5 tall - exact-design audit 2026-09-04.
 							Rectangle()
 								.fill(Color(argb: 0xFF272F40))
-								.frame(width: 0.5 * u, height: 134.5 * u)
+								.frame(width: 0.5 * u, height: 134.5 * u * textScale)
 								.offset(x: 241 * u, y: -6 * u)
 						}
 						.frame(width: 0, height: 0, alignment: .topLeading)
@@ -688,7 +688,7 @@ private struct CompareCard: View {
 				.foregroundStyle(valueColor ?? bright)
 				.frame(maxWidth: .infinity)
 		}
-		.frame(height: 20 * u * textScale)
+		.frame(minHeight: 20 * u * textScale)
 	}
 }
 
