@@ -2,13 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  App privacy manifest (audit 2026-09-04). App Store Connect requires a
-  declared reason for every "required reason" API the app uses; this
-  build touches exactly one: UserDefaults (Session.swift - sign-in flag,
-  display name, risk style). CA92.1 = the app's own data, not shared.
-  No tracking, no tracking domains, no collected data types yet: the
-  demo never calls the STAK backend. Revisit when auth/analytics land.
-  XcodeGen adds it to the app bundle root as a resource.
+  App privacy manifest (Phase 6, 2026-10-06). Required-reason APIs used:
+  • UserDefaults — CA92.1 (app's own data: auth token, settings, push token).
+  No tracking, no tracking domains. Collected data types (nutrition label)
+  declared separately in App Store Connect. XcodeGen adds this to the
+  app bundle root as a resource automatically via the glob sources.
 -->
 <dict>
 	<key>NSPrivacyTracking</key>

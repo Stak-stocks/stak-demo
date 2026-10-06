@@ -57,6 +57,9 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- App uses only standard HTTPS (exempt from US export encryption regs). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Sora-Light.ttf</string>
