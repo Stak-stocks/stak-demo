@@ -143,6 +143,22 @@ struct BrandSummaryDto: Decodable {
     var id: String = ""; var ticker: String = ""; var name: String = ""; var bio: String = ""
     var heroImage: String = ""; var logo: String?; var domain: String?
     var interestCategories: [String] = []
+
+    // Swift's synthesized decoding requires every key even when the property has a default; the live catalog omits
+    // interestCategories on most brands (290 of 333), which failed the whole list and left Discover on "Couldn't load
+    // today's deck". Missing or null fields fall back to their defaults, as Android's decoder does.
+    private enum CodingKeys: String, CodingKey { case id, ticker, name, bio, heroImage, logo, domain, interestCategories }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        ticker = try c.decodeIfPresent(String.self, forKey: .ticker) ?? ""
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        bio = try c.decodeIfPresent(String.self, forKey: .bio) ?? ""
+        heroImage = try c.decodeIfPresent(String.self, forKey: .heroImage) ?? ""
+        logo = try c.decodeIfPresent(String.self, forKey: .logo)
+        domain = try c.decodeIfPresent(String.self, forKey: .domain)
+        interestCategories = try c.decodeIfPresent([String].self, forKey: .interestCategories) ?? []
+    }
 }
 struct BrandsListResponse: Decodable { var brands: [BrandSummaryDto] = [] }
 
