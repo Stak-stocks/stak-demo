@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 /// The app is portrait-locked (Info.plist), EXCEPT while the article
 /// player's native fullscreen presentation is up: then the scene FOLLOWS
@@ -32,8 +33,34 @@ final class OrientationLock {
 	}
 }
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+		UNUserNotificationCenter.current().delegate = self
+		PushRegistration.sync()
+		return true
+	}
+
 	func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
 		OrientationLock.shared.landscapeAllowed ? .allButUpsideDown : .portrait
+	}
+
+	func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+		PushRegistration.tokenReceived(deviceToken)
+	}
+
+	func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+		// Simulator and devices without APNs capability: silently ignored.
+	}
+
+	/// Show the notification banner while the app is in the foreground (mirrors Android onMessageReceived).
+	func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+	                             withCompletionHandler handler: @escaping (UNNotificationPresentationOptions) -> Void) {
+		handler([.banner, .sound, .badge])
+	}
+
+	/// Notification tap — bring the app to the foreground (no deep link routing at this stage).
+	func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+	                             withCompletionHandler handler: @escaping () -> Void) {
+		handler()
 	}
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UserNotifications
 
 /// Onboarding · 08 Permissions — Figma node 1:749 (CHINEDU file,
@@ -71,6 +72,7 @@ struct PermissionsView: View {
 						DispatchQueue.main.async {
 							notifications = granted
 							UserProfile.shared.notificationsOn = granted
+							if granted { UIApplication.shared.registerForRemoteNotifications() }
 							onContinue()
 						}
 					}

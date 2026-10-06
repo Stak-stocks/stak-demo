@@ -181,7 +181,7 @@ private struct NotificationSettingsView: View {
 	}
 
 	private func binding(_ key: ReferenceWritableKeyPath<UserProfile, Bool>) -> Binding<Bool> {
-		Binding(get: { profile[keyPath: key] }, set: { profile[keyPath: key] = $0; Session.shared.saveProfile() })
+		Binding(get: { profile[keyPath: key] }, set: { profile[keyPath: key] = $0; Session.shared.saveProfile(); PushRegistration.sync() })
 	}
 }
 

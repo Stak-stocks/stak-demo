@@ -138,6 +138,7 @@ final class Session: ObservableObject {
 			StakStore.set(String(Int(Date().timeIntervalSince1970 / 86400)), for: "created_day")
 		}
 		applyAccount()
+		if !demo { PushRegistration.sync() }
 	}
 
 	/// Stores the Supabase JWT and marks the session signed-in (real account, not demo).
@@ -196,6 +197,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.linkedApple = false
 		UserProfile.shared.joined = "July 2026"
 		UserProfile.shared.email = ""
+		PushRegistration.forget()
 		token = nil
 		accountId = nil
 		let d = UserDefaults.standard

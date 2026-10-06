@@ -423,12 +423,21 @@ struct MainTabsView: View {
 		}
 	}
 
+	private func logPageEvent(_ page: PushedPage) {
+		switch page {
+		case .stockDetail(_, let symbol): StakEvents.log(StakEvents.stockDetailOpen, ticker: symbol)
+		case .stakAi: StakEvents.log(StakEvents.stakAiOpen, params: ["platform": "ios"])
+		default: break
+		}
+	}
+
 	/// The house forward push. `also` runs inside the same animation (e.g.
 	/// the Simulate ticket leaving with the page it scrims, 85:895).
 	private func push(_ page: PushedPage, also: () -> Void = {}) {
 		// Double-tap during the 300ms slide would stack the same page
 		// twice (audit 2026-08-25).
 		guard pushed.last?.page.id != page.id else { return }
+		logPageEvent(page)
 		navStyle = .forwardPush
 		parkedShift = pageWidth
 		withAnimation(FlowAnim.pushRight.animation) {
@@ -444,6 +453,7 @@ struct MainTabsView: View {
 	/// is not needed there.
 	private func pushInstant(_ page: PushedPage, allowRepeat: Bool = false) {
 		guard allowRepeat || pushed.last?.page.id != page.id else { return }
+		logPageEvent(page)
 		parkedShift = pageWidth
 		pushed.append(PushedEntry(page: page))
 	}
