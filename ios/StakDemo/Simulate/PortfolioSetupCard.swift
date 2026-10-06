@@ -22,6 +22,8 @@ private let defaultStrategy = setupStrategies.firstIndex { $0.label == PaperPort
 /// starts practising; the demo persona's authored $10,000 portfolio is already
 /// set up. Mirrors android ui/simulate/PortfolioSetupCard.kt.
 struct PortfolioSetupCard: View {
+	var executeSetup: (Double, String, String) async -> Void = { b, n, s in PaperPortfolio.shared.setup(balance: b, name: n, strategy: s) }
+
 	@State private var balance = defaultBalance
 	@State private var name = ""
 	@State private var strategy = defaultStrategy
@@ -76,7 +78,8 @@ struct PortfolioSetupCard: View {
 					.foregroundStyle(Sim.muted)
 				Button {
 					let trimmed = name.trimmingCharacters(in: .whitespaces)
-					PaperPortfolio.shared.setup(balance: setupBalances[balance], name: trimmed.isEmpty ? PaperPortfolio.defaultPortfolioName : trimmed, strategy: setupStrategies[strategy].label)
+					let portfolioName = trimmed.isEmpty ? PaperPortfolio.defaultPortfolioName : trimmed
+					Task { await executeSetup(setupBalances[balance], portfolioName, setupStrategies[strategy].label) }
 				} label: {
 					Text("Start practising")
 						.font(StakFont.sora(14 * u, .semiBold))

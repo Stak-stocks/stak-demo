@@ -1247,8 +1247,15 @@ struct DiscoverBuyFlow: View {
 	/// the shell's DISCOVER flow counts it for the receipt (1:2330).
 	/// Declared last - memberwise order; MainTabsView passes it last.
 	var onFilled: () -> Void = {}
+	var executeTrade: (BuySpec, Double, Double?) async -> Bool = { spec, amount, limitPrice in
+		guard PaperPortfolio.shared.canBuy(amount) else { return false }
+		if let limit = limitPrice { return PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit) }
+		PaperPortfolio.shared.buy(spec, amount: amount)
+		return true
+	}
 
 	@State private var filled = false
+	@State private var buying = false
 	/// Codex audit (2026-09-04): the chosen stake - both sheets read the
 	/// ticket AT this amount, so "You get", the cash after and "You now
 	/// hold" agree (1:1970 / 85:1205).
@@ -1273,12 +1280,17 @@ struct DiscoverBuyFlow: View {
 					PracticeBuySheet(
 						spec: live,
 						onConfirm: {
-							guard !filled, PaperPortfolio.shared.canBuy(amount) else { return }
-							if let limit = limitPrice, limit < spec.price {
-								// Below today's price: an open order, no fill yet (FigJam: Order pending).
-								if PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit) { placedLimit = limit; filled = true }
-							} else {
-								PaperPortfolio.shared.buy(spec, amount: amount); filled = true; onFilled()
+							guard !filled, !buying, PaperPortfolio.shared.canBuy(amount) else { return }
+							buying = true
+							Task {
+								let isLimit = limitPrice.map { $0 < spec.price } ?? false
+								let ok = await executeTrade(spec, amount, isLimit ? limitPrice : nil)
+								buying = false
+								if ok {
+									if isLimit { placedLimit = limitPrice }
+									filled = true
+									if !isLimit { onFilled() }
+								}
 							}
 						},
 						onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 },

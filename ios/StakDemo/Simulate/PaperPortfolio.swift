@@ -196,6 +196,9 @@ final class PaperPortfolio: ObservableObject {
 		openOrders.removeAll { $0.id == id }
 		cash += order.amount
 		persist()
+		if !demo, let serverId = Int64(id) {
+			Task { _ = try? await StockRepository.shared.sandboxCancelOrder(serverId) }
+		}
 	}
 
 	static func signedWhole(_ value: Double) -> String { (value < 0 ? "-$" : "+$") + wholeDollars(abs(value)).replacingOccurrences(of: "$", with: "") }
@@ -466,6 +469,28 @@ final class PaperPortfolio: ObservableObject {
 		f.locale = Locale(identifier: "en_US_POSIX")
 		f.dateFormat = "MMM d"
 		return f.string(from: Date())
+	}
+
+	/// Overwrites local state with the server ledger (live accounts only).
+	/// Positions are left as-is: they were written by buy() calls that went
+	/// through the API and are already correct; syncing only cash, open
+	/// orders, trades and setup metadata avoids overwriting in-flight UI.
+	func syncFromServer(portfolio dto: SandboxPortfolioResponse, trades tradeList: [SandboxTradeDto]) {
+		guard !demo else { return }
+		if let cash = dto.cash { self.cash = cash }
+		if let name = dto.name { portfolioName = name }
+		if let strategy = dto.strategy { self.strategy = strategy }
+		if let start = dto.start { paperStart = start; baseValue = start; baseCash = start }
+		setupDone = dto.initialized
+		openOrders = dto.openOrders.map { o in
+			let badge = PickSpecs.all.first(where: { $0.symbol == o.ticker })?.badge ?? String(o.ticker.prefix(1)).uppercased()
+			return OpenOrder(id: String(o.id), symbol: o.ticker, badge: badge, name: o.ticker, amount: o.amount, limit: o.limitPrice, change: "", day: PaperPortfolio.today())
+		}
+		trades = tradeList.map { t in
+			let badge = PickSpecs.all.first(where: { $0.symbol == t.ticker })?.badge ?? String(t.ticker.prefix(1)).uppercased()
+			return Trade(side: t.side.uppercased(), symbol: t.ticker, badge: badge, amount: t.amount, shares: t.shares, price: t.price, day: PaperPortfolio.today(), epochDay: Int(t.id))
+		}
+		persist()
 	}
 
 	private init() {}

@@ -540,7 +540,10 @@ struct SellFlowHost: View {
 	var onBackToSimulate: (() -> Void)? = nil
 	var onViewPortfolio: (() -> Void)? = nil
 
+	var executeSell: (String, Double) async -> Bool = { sym, portion in PaperPortfolio.shared.sell(sym, portion: portion) }
+
 	@State private var closed = false
+	@State private var selling = false
 	/// The slice that was sold - the receipt shows it (PR #167).
 	@State private var soldPortion = 1.0
 
@@ -553,7 +556,15 @@ struct SellFlowHost: View {
 					// Codex audit (2026-09-04): the confirm closes the position in
 					// PaperPortfolio exactly once - here, where the receipt appears.
 					// Review (2026-09-04): the receipt only follows a real sell.
-					SellConfirmSheet(pick: pick, onConfirm: { portion in guard !closed else { return }; if PaperPortfolio.shared.sell(pick.symbol, portion: portion) { soldPortion = portion; closed = true } }, onDismiss: onClose)
+					SellConfirmSheet(pick: pick, onConfirm: { portion in
+						guard !closed, !selling else { return }
+						selling = true
+						Task {
+							let ok = await executeSell(pick.symbol, portion)
+							if ok { soldPortion = portion; closed = true }
+							selling = false
+						}
+					}, onDismiss: onClose)
 						.transition(.opacity)
 				} else {
 					PositionClosedSheet(

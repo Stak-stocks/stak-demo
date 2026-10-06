@@ -49,6 +49,7 @@ struct SimulateView: View {
 	/// When the shell hosts the ticket (1:4232: the sheet covers the tab bar),
 	/// it raises it here with the tapped row's spec.
 	var onPracticeBuy: ((BuySpec) -> Void)? = nil
+	var executeSetup: (Double, String, String) async -> Void = { b, n, s in PaperPortfolio.shared.setup(balance: b, name: n, strategy: s) }
 
 	/// The locally hosted ticket's spec (nil = no ticket).
 	@State private var buy: BuySpec? = nil
@@ -96,7 +97,7 @@ struct SimulateView: View {
 							.padding(.top, 8 * u)
 							// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 							// chooses its balance, name and strategy before its first trade.
-							if portfolio.needsSetup { PortfolioSetupCard() }
+							if portfolio.needsSetup { PortfolioSetupCard(executeSetup: executeSetup) }
 							ScoreHero(onOpenLeaderboard: onOpenLeaderboard)
 							if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
 						}

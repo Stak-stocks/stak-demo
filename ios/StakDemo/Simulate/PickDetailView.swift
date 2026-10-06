@@ -78,6 +78,7 @@ struct PickDetailView: View {
 	/// Back to Simulate (the forward push) and View portfolio (dissolve 300).
 	var onSellBackToSimulate: (() -> Void)? = nil
 	var onSellViewPortfolio: (() -> Void)? = nil
+	var executeSell: (String, Double) async -> Bool = { sym, portion in PaperPortfolio.shared.sell(sym, portion: portion) }
 
 	/// The pick the sell flow is closing (nil = no sheet). Snapshotted at
 	/// the Sell tap so the receipt (73:855) keeps showing the sold pick
@@ -252,7 +253,8 @@ struct PickDetailView: View {
 					// Authored (1:4698): the confirm's Back -> Pick detail, Instant.
 					onClose: { selling = nil },
 					onBackToSimulate: { if let onSellBackToSimulate { onSellBackToSimulate() } else { selling = nil; onBack() } },
-					onViewPortfolio: { if let onSellViewPortfolio { onSellViewPortfolio() } else { selling = nil; onBack() } }
+					onViewPortfolio: { if let onSellViewPortfolio { onSellViewPortfolio() } else { selling = nil; onBack() } },
+					executeSell: executeSell
 				)
 			}
 		}

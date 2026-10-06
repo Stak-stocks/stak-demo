@@ -104,6 +104,7 @@ struct MainTabsView: View {
 	@StateObject private var myStakVM = MyStakViewModel()
 	@StateObject private var inboxVM = InboxViewModel()
 	@StateObject private var profileVM = ProfileViewModel()
+	@StateObject private var simulateVM = SimulateViewModel()
 
 	/// One live entry on the pushed stack. Identity is PER PUSH (a fresh
 	/// uid), not per page - an article chain can legally revisit a story
@@ -156,6 +157,7 @@ struct MainTabsView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task { await simulateVM.load() }
 	}
 
 	/// One tab page — content, the stable bar and any hoisted ticket. The
@@ -223,7 +225,8 @@ struct MainTabsView: View {
 							// Authored (1:3964): All saved staks -> the My STAK tab.
 							onOpenMyStak: { switchTab(.myStak) },
 							onOpenDiscover: { switchTab(.discover) },
-							onPracticeBuy: { simulateBuy = $0 }
+							onPracticeBuy: { simulateBuy = $0 },
+							executeSetup: { b, n, s in await simulateVM.executeSetup(balance: b, name: n, strategy: s) }
 						)
 					}
 				}
@@ -253,7 +256,8 @@ struct MainTabsView: View {
 					// Codex audit (2026-09-04): the receipt's Bought count (1:2330)
 					// - the ticket lives here, so the shell reports the fill. Last
 					// argument: onFilled is DiscoverBuyFlow's last stored property.
-					onFilled: { DeckSession.shared.bought += 1 }
+					onFilled: { DeckSession.shared.bought += 1 },
+					executeTrade: { spec, amount, limit in await simulateVM.executeTrade(spec: spec, amount: amount, limitPrice: limit) }
 				)
 				.transition(.opacity)
 			}
@@ -268,7 +272,8 @@ struct MainTabsView: View {
 					// 300, the ticket leaving with the Simulate page beneath
 					// it; Done -> home, DISSOLVE 300.
 					onFilledPrimary: { push(.simPortfolio) { simulateBuy = nil } },
-					onFilledSecondary: { withAnimation(.easeOut(duration: 0.3)) { simulateBuy = nil } }
+					onFilledSecondary: { withAnimation(.easeOut(duration: 0.3)) { simulateBuy = nil } },
+					executeTrade: { spec, amount, limit in await simulateVM.executeTrade(spec: spec, amount: amount, limitPrice: limit) }
 				)
 				.transition(.opacity)
 			}
@@ -361,7 +366,8 @@ struct MainTabsView: View {
 				// Authored (73:855): Back to Simulate -> home, PUSH LEFT 300;
 				// View portfolio -> Portfolio, DISSOLVE 300.
 				onSellBackToSimulate: { pop(.forwardPush, all: true, landing: .simulate) },
-				onSellViewPortfolio: { dissolveToPortfolio() }
+				onSellViewPortfolio: { dissolveToPortfolio() },
+				executeSell: { sym, portion in await simulateVM.executeSell(symbol: sym, portion: portion) }
 			)
 		case .leaderboard:
 			// Authored (1:4124): Back -> Simulate home, Instant.
