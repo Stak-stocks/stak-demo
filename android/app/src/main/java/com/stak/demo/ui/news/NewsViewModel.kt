@@ -20,6 +20,9 @@ private const val FOR_YOU_TICKER_CAP = 10
 /** Companies still being written up come back `pending`; For You asks again after this long, this many times. */
 private const val FOR_YOU_PENDING_DELAY_MS = 8_000L
 private const val FOR_YOU_PENDING_RETRIES = 3
+/** For You's length, and how many of its stories one company may take - so one stock's busy day can't fill it. */
+private const val FOR_YOU_STORY_CAP = 10
+private const val FOR_YOU_PER_COMPANY_CAP = 2
 /** Market news older than this reloads - it's the server's cached feed, so keeping it fresh costs next to nothing. */
 private const val NEWS_MAX_AGE_MS = 15 * 60_000L
 /** A failed load is tried again after this long, not on every check. */
@@ -196,8 +199,8 @@ class NewsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            // One request for the newest saves (the server takes 10 at most, like the web).
-            val response = runCatching { repository.getForYouNews(held.takeLast(FOR_YOU_TICKER_CAP)) }.getOrNull()
+            // One request for up to 10 saves (the server takes 10 at most) - a daily-rotating pick when there are more.
+            val response = runCatching { repository.getForYouNews(forYouCompanies(held)) }.getOrNull()
                 // Failed: keep what's showing, and let the next visit try again straight away.
                 ?: return@launch
             forYouAt = System.currentTimeMillis()
@@ -208,21 +211,59 @@ class NewsViewModel @Inject constructor(
                 // beside it; only a story about the company carries its ticker.
                 company.articles.map { it.copy(ticker = if (it.type == "company") company.ticker else "") }
             }
-            val seen = mutableSetOf<String>()
-            _forYouNews.value = allArticles
-                // For You is news about the user's own stocks. A company query also returns
-                // stories merely near it, which led the list with ones like "Why GE Vernova
-                // Stock Crushed it" for someone holding Google, Nvidia, Tesla and Meta
-                // (device check, 2026-09-16); those stay in Markets, not here.
-                .filter { it.ticker.isNotBlank() }
-                .filter { it.url.isNotBlank() && seen.add(it.url) }
-                .sortedByDescending { it.datetime }
-                .take(10)
+            _forYouNews.value = forYouList(allArticles)
             // Companies the server was still writing up: ask again shortly (a few times at most).
             if (response.pending.isNotEmpty() && attempt < FOR_YOU_PENDING_RETRIES) {
                 delay(FOR_YOU_PENDING_DELAY_MS)
                 if (forYouFor == MyStakHoldings.tickers) fetchForYouNews(attempt + 1)
             }
+        }
+    }
+
+    companion object {
+        /**
+         * Which saved companies For You asks about: all of them up to 10; beyond that, 10 picked by a shuffle that
+         * changes once a day (US Eastern) - a different mix of the saves each day, steady within it, so a story doesn't
+         * vanish between visits. The same pick as iOS (FNV-1a of "day|TICKER").
+         */
+        internal fun forYouCompanies(saved: List<String>, day: String = com.stak.demo.data.StakClock.marketDay()): List<String> {
+            val tickers = saved.map { it.uppercase() }.sorted()
+            if (tickers.size <= FOR_YOU_TICKER_CAP) return tickers
+            fun rank(ticker: String): Long {
+                var hash = 0x811C9DC5.toInt()
+                for (byte in "$day|$ticker".toByteArray(Charsets.UTF_8)) {
+                    hash = hash xor (byte.toInt() and 0xFF)
+                    hash *= 16777619
+                }
+                return hash.toLong() and 0xFFFFFFFFL
+            }
+            return tickers.sortedWith(compareBy<String>({ rank(it) }, { it })).take(FOR_YOU_TICKER_CAP)
+        }
+
+        /**
+         * For You's stories. For You is news about the user's own stocks: a company query also returns stories merely
+         * near it, which led the list with ones like "Why GE Vernova Stock Crushed it" for someone holding Google,
+         * Nvidia, Tesla and Meta (device check, 2026-09-16); those stay in Markets. Each link once, newest first, 10 at
+         * most and no more than 2 from one company - topped up past that cap only when too few companies have news.
+         */
+        internal fun forYouList(articles: List<NewsArticleDto>): List<NewsArticleDto> {
+            val seen = mutableSetOf<String>()
+            val stories = articles
+                .filter { it.ticker.isNotBlank() && it.url.isNotBlank() && seen.add(it.url) }
+                .sortedByDescending { it.datetime }
+            val perCompany = mutableMapOf<String, Int>()
+            val picked = mutableListOf<NewsArticleDto>()
+            val overflow = mutableListOf<NewsArticleDto>()
+            for (story in stories) {
+                if (picked.size == FOR_YOU_STORY_CAP) break
+                if ((perCompany[story.ticker] ?: 0) < FOR_YOU_PER_COMPANY_CAP) {
+                    picked += story
+                    perCompany[story.ticker] = (perCompany[story.ticker] ?: 0) + 1
+                } else {
+                    overflow += story
+                }
+            }
+            return (picked + overflow.take(FOR_YOU_STORY_CAP - picked.size)).sortedByDescending { it.datetime }
         }
     }
 }

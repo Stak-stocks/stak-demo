@@ -3,6 +3,9 @@ import Foundation
 private let forYouTickerCap = 10
 private let forYouPendingDelaySeconds: UInt64 = 8
 private let forYouPendingRetries = 3
+/// For You's length, and how many of its stories one company may take - so one stock's busy day can't fill it.
+private let forYouStoryCap = 10
+private let forYouPerCompanyCap = 2
 /// Market news older than this reloads - it's the server's cached feed, so keeping it fresh costs next to nothing.
 private let newsMaxAge: TimeInterval = 15 * 60
 /// A failed load is tried again after this long, not on every check.
@@ -164,26 +167,78 @@ final class NewsViewModel: ObservableObject {
     }
 
     private func fetchForYouNews(attempt: Int = 0) async {
-        let held = Array(MyStakHoldings.shared.tickers.prefix(forYouTickerCap))
-        forYouFor = MyStakHoldings.shared.tickers
-        guard !held.isEmpty else { forYouArticles = []; return }
+        let saved = MyStakHoldings.shared.tickers
+        forYouFor = saved
+        // Nothing held, nothing for you: stories about stocks since removed don't linger.
+        guard !saved.isEmpty else { forYouArticles = []; return }
         forYouInFlight = true
         defer { forYouInFlight = false }
         do {
-            let result = try await repo.getForYouNews(held)
-            let pending = result.pending
-            let articles = result.results.flatMap { $0.articles }
-            forYouArticles = articles
+            let result = try await repo.getForYouNews(Self.forYouCompanies(Array(saved)))
+            // A company query also returns stories that are only near the company ("sector"). Stamping the queried
+            // ticker on every one labelled a Joby story as NVIDIA news; only a story about the company carries it.
+            let articles = result.results.flatMap { company in
+                company.articles.map { a -> NewsArticleDto in
+                    var story = a
+                    story.ticker = a.type == "company" ? company.ticker : ""
+                    return story
+                }
+            }
+            let list = Self.forYouList(articles)
+            if list != forYouArticles { forYouArticles = list }
             forYouAt = Date()
-            if !pending.isEmpty, attempt < forYouPendingRetries {
-                // Retried in the background: the load doesn't wait out the 8s gaps.
+            if !result.pending.isEmpty, attempt < forYouPendingRetries {
+                // Companies the server was still writing up: asked again in the background (the load doesn't wait
+                // out the 8s gaps), while the saves are still the ones asked about.
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: forYouPendingDelaySeconds * 1_000_000_000)
-                    await self?.fetchForYouNews(attempt: attempt + 1)
+                    guard let self, self.forYouFor == MyStakHoldings.shared.tickers else { return }
+                    await self.fetchForYouNews(attempt: attempt + 1)
                 }
             }
         } catch {
-            // Keep whatever we had
+            // Failed: keep what's showing; the next visit tries again.
         }
+    }
+
+    /// Which saved companies For You asks about: all of them up to 10; beyond that, 10 picked by a shuffle that
+    /// changes once a day (US Eastern) - a different mix of the saves each day, steady within it, so a story doesn't
+    /// vanish between visits. The same pick as Android (FNV-1a of "day|TICKER").
+    static func forYouCompanies(_ saved: [String], day: String = StakClock.marketDay()) -> [String] {
+        let tickers = saved.map { $0.uppercased() }.sorted()
+        guard tickers.count > forYouTickerCap else { return tickers }
+        func rank(_ ticker: String) -> UInt32 {
+            var hash: UInt32 = 2_166_136_261
+            for byte in "\(day)|\(ticker)".utf8 {
+                hash ^= UInt32(byte)
+                hash = hash &* 16_777_619
+            }
+            return hash
+        }
+        return Array(tickers.sorted { (rank($0), $0) < (rank($1), $1) }.prefix(forYouTickerCap))
+    }
+
+    /// For You's stories: about the user's own companies only (a story merely near one stays in Markets), each link
+    /// once, newest first, 10 at most and no more than 2 from one company - topped up past that cap only when too few
+    /// companies have news to fill the 10. Mirrors android NewsViewModel.forYouList.
+    static func forYouList(_ articles: [NewsArticleDto]) -> [NewsArticleDto] {
+        var seen = Set<String>()
+        let stories = articles
+            .filter { !$0.ticker.isEmpty && !$0.url.isEmpty && seen.insert($0.url).inserted }
+            .sorted { $0.datetime > $1.datetime }
+        var perCompany: [String: Int] = [:]
+        var picked: [NewsArticleDto] = []
+        var overflow: [NewsArticleDto] = []
+        for story in stories {
+            if picked.count == forYouStoryCap { break }
+            if perCompany[story.ticker, default: 0] < forYouPerCompanyCap {
+                picked.append(story)
+                perCompany[story.ticker, default: 0] += 1
+            } else {
+                overflow.append(story)
+            }
+        }
+        let filled = picked + overflow.prefix(max(0, forYouStoryCap - picked.count))
+        return filled.sorted { $0.datetime > $1.datetime }
     }
 }
