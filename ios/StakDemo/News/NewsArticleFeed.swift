@@ -29,9 +29,6 @@ enum NewsArticleFeed {
 	/// just placeholder") - the served story renders into the slot.
 	static let marketTile = "amzn-cloud-beat"
 
-	/// Every ticker today's stories relate to - the Home "Why this matters" read (product audit, 2026-09-05).
-	static func relatedTickers() -> Set<String> { Set(articles.flatMap { $0.relatedTickers }) }
-
 	/// The "Your stocks" tile's story: the authored Apple story when the
 	/// user holds a stock it relates to (the demo does), else the first
 	/// story about a held stock; nil when nothing held is in the news

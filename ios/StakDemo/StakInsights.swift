@@ -111,18 +111,6 @@ enum StakInsights {
 			.map { Bucket(id: $0.key, name: bucketName[$0.key] ?? "Other", count: $0.value, share: Double($0.value) / Double(symbols.count)) }
 	}
 
-	/// Home "Why this matters": how many held stocks today's stories touch.
-	static func whyThisMattersBody(newsTickers: Set<String>) -> String {
-		let held = MyStakHoldings.shared.tickers
-		let hit = held.filter { newsTickers.contains($0) }.count
-		let n = held.count
-		if n == 1, hit == 1 { return "\(held.first!) sits in an industry today's news hits." }
-		if n == 1 { return "\(held.first!) is quiet in today's news - nothing hits it yet." }
-		if hit == 0 { return "None of your \(n) saved stocks are in today's news - a quiet day for your STAK." }
-		if hit == n { return "All \(n) of your saved stocks sit in industries today's news hits." }
-		return "\(hit) of your \(n) saved stocks sit in industries today's news hits."
-	}
-
 	/// Simulate's INSIGHT card, read from a new account's own picks.
 	static func simInsight() -> String {
 		let symbols = PaperPortfolio.shared.positions.map { $0.spec.symbol }

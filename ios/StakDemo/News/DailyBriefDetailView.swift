@@ -220,14 +220,8 @@ struct DailyBriefDetailView: View {
         }
     }
 
-    private var moodColor: Color {
-        switch brief.mood.lowercased() {
-        case "bullish": return Color(argb: 0xFF2FD08A)
-        case "bearish": return Color(argb: 0xFFE05252)
-        case "volatile": return Color(argb: 0xFFE0A352)
-        default: return Color(argb: 0xFF69B3CA)
-        }
-    }
+    /// The one mood colour table (MarketMoodFeed.colorFor), as Android's brief page uses.
+    private var moodColor: Color { MarketMoodFeed.colorFor(brief.mood) }
 
     @ViewBuilder
     private func moodIcon(u: CGFloat) -> some View {

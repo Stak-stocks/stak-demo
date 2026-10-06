@@ -1,32 +1,21 @@
 import Foundation
 
-/// Market Mood news deck data source (CHINEDU 1:1162). Mirrors android
-/// ui/home/NewsDeckFeed.kt.
+/// Market Mood news deck data source (CHINEDU 1:1162): the day's live market news (NewsViewModel.marketArticles)
+/// in the authored deck slots - poses, colours and type stay authored. Mirrors android ui/home/NewsDeckFeed.kt.
 ///
-/// CONTRACT (user, 2026-08-22): the deck is proxied to REAL-TIME news -
-/// "news don't stay the same, it changes everyday". The STAK BACKEND
-/// propagates the day's breaking stories, the kind that makes a user
-/// want to open them, and the app renders whatever is served into the
-/// authored deck slots (poses, colors and typography stay authored).
-///
-/// Delivery timing is per user: the backend schedules the day's deck
-/// (and the mood refresh) for the user's LOCAL morning using the
-/// timezone ID the app sends with the session (UserProfile.timeZoneId).
-///
-/// `live` stays false this phase so the deck always matches the frame;
-/// the demo stories below are the authored copy.
+/// Only the demo account falls back to the authored stories. A real account was shown them until the news arrived,
+/// and a short live list was topped up with them - invented headlines beside real ones. It now gets loading cards, or
+/// a line saying the news didn't load.
 enum NewsDeckFeed {
-	/// Production switch - keep false while reviews compare build vs frame.
-	static let live = false
-
-	struct Story {
+	/// `loading` draws the placeholder bars instead of text.
+	struct Story: Equatable {
 		let title: String
 		let body: String
+		var loading = false
 	}
 
-	// exact-design audit 2026-09-04 (1:1166 / 1:1170): the frame's " ...." and
-	// "...." truncation marks are typos - normalised to the three-dot ellipsis
-	// the third card (1:1174) already uses; the story copy itself is verbatim.
+	// exact-design audit 2026-09-04 (1:1166 / 1:1170): the frame's " ...." and "...." truncation marks are typos -
+	// normalised to the three-dot ellipsis the third card (1:1174) already uses; the story copy itself is verbatim.
 	static let demoStories = [
 		Story(
 			title: "Wall Street's fear gauge reads 32",
@@ -42,19 +31,42 @@ enum NewsDeckFeed {
 		),
 	]
 
-	/// The authored deck has exactly this many slots (HomeView's deckCards).
+	/// The authored deck has exactly this many slots.
 	static let deckSize = 3
 
-	/// The current stories - the served breaking news once the backend
-	/// exists. Always exactly `deckSize` long.
-	static func stories() -> [Story] { padToDeck(demoStories) }
+	private static let loadingStory = Story(title: "", body: "", loading: true)
+	private static let emptyStory = Story(title: "", body: "")
 
-	/// GUARD (audit 2026-09-04): the Home deck indexes three fixed, authored
-	/// slots, so a served feed shorter than the deck is padded with the
-	/// authored stories and a longer one trimmed - a short or empty backend
-	/// response can never index past the end. Route every live feed through
-	/// this before it reaches the deck. Mirrors android NewsDeckFeed.padToDeck.
-	static func padToDeck(_ served: [Story]) -> [Story] {
-		Array((served + demoStories).prefix(deckSize))
+	/// The deck's stories, always exactly `deckSize` long. `settled`: the news request has finished.
+	static func stories(news: [NewsArticleDto], failed: Bool, settled: Bool, demo: Bool) -> [Story] {
+		if !news.isEmpty {
+			let mapped = news.prefix(deckSize).map { article -> Story in
+				let title = article.headline.count > 65 ? trimEnd(article.headline.prefix(65)) + "\u{2026}" : article.headline
+				// A summary that only restates the headline isn't a body.
+				let body = NewsText.summaryBeyondHeadline(article.headline, article.summary).map {
+					$0.count > 110 ? trimEnd($0.prefix(110)) + "\u{2026}" : $0
+				} ?? ""
+				return Story(title: title, body: body)
+			}
+			return padToDeck(Array(mapped), demo: demo)
+		}
+		if demo { return padToDeck(demoStories, demo: demo) }
+		// Failed (or came back empty): the front card says so and the ones behind it stay plain.
+		if failed || settled {
+			return padToDeck([Story(title: "Market news isn't loading", body: "Open News to try again.")], demo: demo)
+		}
+		return Array(repeating: loadingStory, count: deckSize)
+	}
+
+	/// Kotlin's trimEnd(): trailing whitespace only.
+	private static func trimEnd(_ text: Substring) -> String {
+		String(text.reversed().drop(while: \.isWhitespace).reversed())
+	}
+
+	/// GUARD (audit 2026-09-04): the deck indexes three fixed slots, so a short feed is padded (the demo's own
+	/// stories for the demo, plain cards otherwise) and a long one trimmed - it can never index past the end.
+	static func padToDeck(_ served: [Story], demo: Bool) -> [Story] {
+		let filler = demo ? demoStories : Array(repeating: emptyStory, count: deckSize)
+		return Array((served + filler).prefix(deckSize))
 	}
 }

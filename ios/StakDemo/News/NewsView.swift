@@ -215,9 +215,15 @@ struct NewsView: View {
 				// item spacing turns into a 22dp bottom inset.
 				.padding(.bottom, 22 * u)
 			}
+			// Loaded once at launch, so pulling down is how News re-reads the stories and the brief.
+			.refreshable { await newsVM.refresh() }
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		.task { await newsVM.load() }
+		// Loaded once at launch (MainTabsView); each visit only re-checks For You against the current saves.
+		.task {
+			await newsVM.start()
+			await newsVM.refreshForYou()
+		}
 	}
 }
 

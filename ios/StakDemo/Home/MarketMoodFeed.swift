@@ -1,85 +1,107 @@
-import Foundation
+import SwiftUI
 
-/// Market Mood data source.
+/// Market Mood data source - the score and status line come straight from the daily brief's mood word, served by the
+/// backend (NewsViewModel.dailyBrief, the one brief Home and News both read). Mirrors android ui/home/MarketMoodFeed.kt.
 ///
-/// CONTRACT (designer, 2026-08-22): the mood is computed by the STAK
-/// BACKEND from current economic news trends and investor bias - the
-/// app only renders the served score. `angleFor(score:)` maps the
-/// backend's 0..100 onto the gauge's 180deg sweep (0 = trouble/red on
-/// the right, 100 = good/green on the left).
-///
-/// In this build phase `live` stays false so the gauge always matches
-/// the authored frame's rest pose. When the backend endpoint
-/// exists, point refresh() at it and flip `live`. The CNN Fear & Greed
-/// fetch below is an INTERIM reference implementation only.
+/// A real account never sees the authored reading as a stand-in (device check, 2026-09-16): until the brief arrives
+/// the card says it is still reading, or that the mood isn't available, and draws no needle. The demo account keeps
+/// its authored pose.
 enum MarketMoodFeed {
-	/// Production switch — keep false while reviews compare build vs frame.
-	static let live = false
-
-	/// Authored rest pose measured from the 1:1159 SVG itself (blob
-	/// center -> tip axis). Under angleFor() this corresponds to score
-	/// ~14.6 - recalibrate the mapping against the backend's scale when
-	/// it lands (the old 33.4 was a raster estimate with a wrong pivot).
+	/// Authored demo needle angle (the 1:1159 SVG's own pose) for the demo account.
 	static let demoAngleDeg: Double = 26.27
 
-	/// The status line is backend-served with the score (designer,
-	/// 2026-08-22): the lead word pair and the advice change with the
-	/// computed mood. Authored demo copy for this phase:
 	static let demoStatusLead = "High volatility"
 	static let demoStatusRest = ", you should consider being cautious."
 
-	/// The last served score (nil until `live` delivers one).
-	static private(set) var score: Double? = nil
-
-	/// The status line BOTH mood cards read - Home's and the News mood row
-	/// (Codex audit 2026-09-04: News hard-coded "Low volatility" against the
-	/// same needle resting in the red band). The served score's band once
-	/// live; the authored demo copy until then. Bands follow the gauge
-	/// arcs: red (score < 33) = high, neutral = moderate, green (> 66) = low.
-	/// Copy for the two non-demo bands is a stand-in until the backend
-	/// serves the status line with the score (designer, 2026-08-22).
-	static var statusLead: String { score.map(leadFor) ?? demoStatusLead }
-	static var statusRest: String { score.map(restFor) ?? demoStatusRest }
-
-	static func leadFor(score: Double) -> String {
-		if score < 33 { return "High volatility" }
-		if score <= 66 { return "Moderate volatility" }
-		return "Low volatility"
+	/// The brief's mood, or nil while it hasn't arrived or came back without one.
+	static func mood(_ brief: DailyBriefResponse?) -> String? {
+		guard let m = brief?.mood, !m.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+		return m
 	}
 
-	static func restFor(score: Double) -> String {
-		if score < 33 { return demoStatusRest }
-		if score <= 66 { return ", a mixed picture - stay selective." }
-		return ", markets are calm right now."
+	/// True once the brief request has finished, whatever it brought back (a failure is stored as an empty mood).
+	static func settled(_ brief: DailyBriefResponse?) -> Bool { brief != nil }
+
+	/// Score (0–100) from the served mood word; nil until there is one.
+	static func score(_ brief: DailyBriefResponse?) -> Double? { mood(brief).map(scoreForMood) }
+
+	/// Whether the gauge has a reading to point at; the demo always shows its authored one.
+	static func hasReading(_ brief: DailyBriefResponse?, demo: Bool) -> Bool { demo || score(brief) != nil }
+
+	static func statusLead(_ brief: DailyBriefResponse?, demo: Bool) -> String {
+		if let m = mood(brief) { return leadForMood(m) }
+		if demo { return demoStatusLead }
+		return settled(brief) ? "Mood unavailable" : "Reading the market"
 	}
 
-	/// 0 = extreme fear (red, right) … 100 = greed (green, left).
-	static func angleFor(score: Double) -> Double { min(max(score, 0), 100) / 100 * 180 }
+	static func statusRest(_ brief: DailyBriefResponse?, demo: Bool) -> String {
+		if let m = mood(brief) { return restForMood(m) }
+		if demo { return demoStatusRest }
+		return settled(brief) ? " right now." : "\u{2026}"
+	}
 
-	/// Fetches the live score and delivers the needle angle on the main
-	/// queue. No-op while `live` is false. The CNN endpoint 4xx's without
-	/// browser-looking headers — keep all three.
-	static func refresh(_ apply: @escaping (Double) -> Void) {
-		guard live else { return }
-		guard let url = URL(string: "https://production.dataviz.cnn.io/index/fearandgreed/graphdata") else { return }
-		var req = URLRequest(url: url)
-		req.setValue(
-			"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-			forHTTPHeaderField: "User-Agent"
-		)
-		req.setValue("application/json", forHTTPHeaderField: "Accept")
-		req.setValue("https://edition.cnn.com/markets/fear-and-greed", forHTTPHeaderField: "Referer")
-		URLSession.shared.dataTask(with: req) { data, _, _ in
-			guard
-				let data,
-				let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				let fg = obj["fear_and_greed"] as? [String: Any],
-				let score = fg["score"] as? Double
-			else { return }
-			DispatchQueue.main.async {
-				Self.score = score
-				apply(angleFor(score: score))
-			}
-		}.resume()
+	/// The needle's angle: the served score's, or the authored pose for the demo and while there's no reading.
+	static func angle(_ brief: DailyBriefResponse?) -> Double { score(brief).map(angleFor) ?? demoAngleDeg }
+
+	/// How the served mood word is compared: case and surrounding spaces don't matter.
+	private static func normalized(_ mood: String) -> String { mood.lowercased().trimmingCharacters(in: .whitespaces) }
+
+	static func scoreForMood(_ mood: String) -> Double {
+		switch normalized(mood) {
+		case "bullish", "risk-on": return 85
+		case "calm": return 72
+		case "mixed": return 50
+		case "cautious": return 40
+		case "volatile": return 25
+		case "bearish", "risk-off": return 12
+		default: return 50
+		}
+	}
+
+	static func leadForMood(_ mood: String) -> String {
+		switch normalized(mood) {
+		case "bullish": return "Bullish momentum"
+		case "risk-on": return "Risk-On mode"
+		case "calm": return "Calm markets"
+		case "mixed": return "Mixed signals"
+		case "cautious": return "Cautious tone"
+		case "volatile": return "High volatility"
+		case "bearish": return "Bearish pressure"
+		case "risk-off": return "Risk-Off tone"
+		default:
+			// A mood the app doesn't know yet is still the served reading, not the demo's.
+			let t = mood.trimmingCharacters(in: .whitespaces)
+			return t.prefix(1).uppercased() + t.dropFirst()
+		}
+	}
+
+	static func restForMood(_ mood: String) -> String {
+		switch normalized(mood) {
+		case "bullish", "risk-on": return ", momentum is building."
+		case "calm": return ", markets are calm right now."
+		case "mixed", "cautious": return ", a mixed picture across the market."
+		case "volatile": return ", expect bigger swings than usual."
+		case "bearish", "risk-off": return ", investors are pulling back."
+		default: return "."
+		}
+	}
+
+	/// Maps the score onto the gauge's sweep (0 = red/right, 180 = green/left).
+	static func angleFor(_ score: Double) -> Double { min(max(score, 0), 100) / 100 * 180 }
+
+	/// The needle's fraction of the arc (0 = red, 1 = green) - the same score Home's angle comes from, so News's
+	/// gauge can't point somewhere else for the same mood.
+	static func fractionFor(_ mood: String) -> Double { scoreForMood(mood) / 100 }
+
+	/// The mood's colour - one definition for every screen that tints something by mood.
+	static func colorFor(_ mood: String) -> Color {
+		switch normalized(mood) {
+		case "bullish", "risk-on": return Color(argb: 0xFF2FD08A)
+		case "mixed": return Color(argb: 0xFFDEB940)
+		case "cautious", "volatile": return Color(argb: 0xFFF5A623)
+		case "bearish": return Color(argb: 0xFFFF5252)
+		case "risk-off": return Color(argb: 0xFFB06BE3)
+		default: return Color(argb: 0xFF69B3CA)
+		}
 	}
 }

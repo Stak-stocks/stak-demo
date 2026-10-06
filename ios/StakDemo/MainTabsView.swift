@@ -194,6 +194,8 @@ struct MainTabsView: View {
 		.background(StakColors.bg.ignoresSafeArea())
 		.onChange(of: backDrag) { _, drag in if drag > 0 { backSwipeLive = true } }
 		.task { await simulateVM.load() }
+		// The day's brief and market news, once: Home's mood card reads them as well as the News tab.
+		.task { await newsVM.start() }
 		// 30s Simulate refresh — mirrors Android RefreshWhileVisible(intervalMs=30_000, tickOnResume=true).
 		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
 			guard tab == .simulate else { return }
@@ -236,7 +238,8 @@ struct MainTabsView: View {
 							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
 							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
 							onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) },
-							homeVM: homeVM
+							homeVM: homeVM,
+							newsVM: newsVM
 						)
 					case .news:
 						// Authored (1:1228): Story tile -> News detail unsaved, Instant.

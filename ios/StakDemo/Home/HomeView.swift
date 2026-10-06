@@ -101,9 +101,16 @@ struct HomeView: View {
 	var onOpenAi: () -> Void = {}
 
 	@ObservedObject var homeVM: HomeViewModel
+	/// The day's brief and market news - loaded once for the shell and shared with the News tab.
+	@ObservedObject var newsVM: NewsViewModel
+	@ObservedObject private var session = Session.shared
+	@ObservedObject private var holdings = MyStakHoldings.shared
+	@Environment(\.scenePhase) private var scenePhase
 
 	var body: some View {
 		let u = figmaUnit
+		let brief = newsVM.dailyBrief
+		let demo = session.demoAccount
 		GeometryReader { geo in
 			ZStack(alignment: .bottom) {
 				// Dev-ready Home Main (118:1633): the top nav SCROLLS with the
@@ -115,14 +122,22 @@ struct HomeView: View {
 						Spacer().frame(height: 21 * u)
 						VStack(spacing: 0) {
 							MarketMoodCard(
-								moodLead: homeVM.moodLead,
-								moodRest: homeVM.moodRest,
-								moodAngle: homeVM.moodAngle,
-								stories: homeVM.deckStories,
+								moodLead: MarketMoodFeed.statusLead(brief, demo: demo),
+								moodRest: MarketMoodFeed.statusRest(brief, demo: demo),
+								moodAngle: MarketMoodFeed.angle(brief),
+								hasReading: MarketMoodFeed.hasReading(brief, demo: demo),
+								settled: MarketMoodFeed.settled(brief),
+								stories: NewsDeckFeed.stories(
+									news: newsVM.marketArticles, failed: newsVM.marketFailed,
+									settled: newsVM.marketSettled, demo: demo
+								),
 								onOpenNews: onOpenNews
 							)
 							Spacer().frame(height: 10 * u)
-							WhyThisMattersCard(impactText: homeVM.personalizedImpact, onOpenMyStak: onOpenMyStak)
+							WhyThisMattersCard(
+								impactText: WhyThisMattersFeed.body(brief: brief, savedCount: holdings.tickers.count, demo: demo),
+								onOpenMyStak: onOpenMyStak
+							)
 							Spacer().frame(height: 20 * u)
 							DeckBanner(onOpenDeck: onOpenDeck)
 							// The board's Trending stocks and Saved peek follow the authored
@@ -131,9 +146,9 @@ struct HomeView: View {
 							// Grouped: a ViewBuilder block takes ten children at most (Swift 5.9).
 							Group {
 								Spacer().frame(height: 20 * u)
-								TrendingStrip(stocks: homeVM.trending.isEmpty ? nil : homeVM.trending, onOpenStock: onOpenStock)
+								TrendingStrip(stocks: homeVM.trending, onOpenStock: onOpenStock)
 								Spacer().frame(height: 12 * u)
-								SavedPeekCard(onOpenStock: onOpenSavedStock, onOpenMyStak: onOpenMyStak, onOpenDeck: onOpenDeck)
+								SavedPeekCard(onOpenStock: onOpenSavedStock, onOpenMyStak: onOpenMyStak, onOpenDeck: onOpenDeck, homeVM: homeVM)
 								Spacer().frame(height: 20 * u)
 							}
 							// First run keeps room for the scrim pill.
@@ -144,6 +159,18 @@ struct HomeView: View {
 						.padding(.horizontal, 20 * u)
 					}
 					.frame(maxWidth: .infinity)
+				}
+				.scrollIndicators(.hidden)
+				// iOS: pull down to re-read the brief, the market news, the movers and the saved moves - together, and
+				// without For You, which Home doesn't show. Always attached (a no-op in first run): switching it on
+				// afterwards would rebuild the scroll view and reset everything in it.
+				.refreshable {
+					guard !firstRun else { return }
+					let peek = Array(holdings.tickers.sorted().prefix(3))
+					async let movers: Void = homeVM.refreshTrending(force: true)
+					async let saved: Void = homeVM.refreshSavedMoves(peek, force: true)
+					await newsVM.refreshMarket()
+					_ = await (movers, saved)
 				}
 				if firstRun {
 					// The frame pins the scrim 41px above the deck banner (Tab bar
@@ -158,7 +185,17 @@ struct HomeView: View {
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		.task { await homeVM.fetch() }
+		// Trending re-reads every 3 minutes while Home is showing (the backend caches its ranking that long), and on
+		// returning to the app - Android's RefreshWhileVisible(3 min, tickOnResume).
+		.task {
+			while !Task.isCancelled {
+				await homeVM.refreshTrending()
+				try? await Task.sleep(nanoseconds: 180_000_000_000)
+			}
+		}
+		.onChange(of: scenePhase) { _, phase in
+			if phase == .active { Task { await homeVM.refreshTrending() } }
+		}
 	}
 }
 
@@ -173,7 +210,6 @@ private struct TopNav: View {
 	/// Time-of-day in the user's own timezone (device clock); re-read every
 	/// 30s so an open app rolls over at noon / 5pm.
 	@State private var greeting = Greeting.now()
-	private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
 	var body: some View {
 		let u = figmaUnit
@@ -188,35 +224,40 @@ private struct TopNav: View {
 					.frame(width: 78.16 * u, height: 14.98 * u)
 					.accessibilityLabel("STAK")
 				Spacer()
-				// STAK AI sparkle entry (Phase 4, 2026-10-05)
+				// STAK AI (2026-10-01): its own way in, beside the bell (no sixth tab). Android's AskAiHeaderButton:
+				// the sparkle glyph at half the circle, in teal.
 				Button(action: onOpenAi) {
 					ZStack {
-						Circle().fill(Home.navCircle).frame(width: 35 * u, height: 35 * u)
+						Circle().fill(Home.navCircle)
 						Image(systemName: "sparkles")
-							.font(.system(size: 16 * u))
-							.foregroundStyle(Color(argb: 0xFF69B3CA))
+							.resizable()
+							.scaledToFit()
+							.frame(width: 17.5 * u, height: 17.5 * u)
+							.foregroundStyle(Home.teal)
 					}
+					.frame(width: 35 * u, height: 35 * u)
 				}
 				.buttonStyle(.pressDim)
-				.accessibilityLabel("STAK AI")
-				Spacer().frame(width: 6 * u)
+				.accessibilityLabel("Ask STAK AI")
+				Spacer().frame(width: 4 * u)
 				// Bell + stateful unread dot (151:1207): the authored badge
 				// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 				// notifications exist and clears once they're opened and read.
-				ZStack(alignment: .topLeading) {
-					Image("IcNavBell")
-						.resizable()
-						.frame(width: 35 * u, height: 35 * u)
-					if notifications.hasUnread {
-						Circle()
-							.fill(Color(argb: 0xFFFF8030))
-							.frame(width: 5.833 * u, height: 5.833 * u)
-							.offset(x: 23.333 * u, y: 8.75 * u)
+				Button(action: onBell) {
+					ZStack(alignment: .topLeading) {
+						Image("IcNavBell")
+							.resizable()
+							.frame(width: 35 * u, height: 35 * u)
+						if notifications.hasUnread {
+							Circle()
+								.fill(Color(argb: 0xFFFF8030))
+								.frame(width: 5.833 * u, height: 5.833 * u)
+								.offset(x: 23.333 * u, y: 8.75 * u)
+						}
 					}
 				}
-				.contentShape(Rectangle())
-				.onTapGesture { onBell() }
-				.accessibilityLabel("Notifications")
+				.buttonStyle(.pressDim)
+				.accessibilityLabel(notifications.hasUnread ? "Notifications, unread" : "Notifications")
 				Spacer().frame(width: 4 * u)
 				Button(action: onProfile) {
 					ZStack {
@@ -248,14 +289,20 @@ private struct TopNav: View {
 			.frame(height: 35 * u)
 			Spacer().frame(height: 10 * u)
 			Text("\(greeting), \(profile.greetingName)")
-				.onReceive(clock) { _ in greeting = Greeting.now() }
 				.font(StakFont.sora(16 * u, .semiBold))
 				.stakLineHeight(20 * u, size: 16 * u, face: .sora)
 				.foregroundStyle(Color.white)
+				.accessibilityAddTraits(.isHeader)
 		}
 		.padding(.top, 22 * u)
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.background(StakColors.bg)
+		.task {
+			while !Task.isCancelled {
+				try? await Task.sleep(nanoseconds: 30_000_000_000)
+				greeting = Greeting.now()
+			}
+		}
 	}
 }
 
@@ -264,72 +311,92 @@ private struct MarketMoodCard: View {
 	var moodLead: String = MarketMoodFeed.demoStatusLead
 	var moodRest: String = MarketMoodFeed.demoStatusRest
 	var moodAngle: Double = MarketMoodFeed.demoAngleDeg
+	var hasReading = true
+	var settled = true
 	var stories: [NewsDeckFeed.Story] = NewsDeckFeed.demoStories
 	let onOpenNews: () -> Void
 
-	@StateObject private var deckDrags = DeckDragState()
+	/// Held, not observed: a drag frame redraws only the two decks (which observe it), not the whole card.
+	@State private var deckDrags = DeckDragState()
 
 	var body: some View {
 		let u = figmaUnit
-		ZStack {
-			NewsDeck(drags: deckDrags, stories: stories, interactive: true)
-			// The frame's bottom strip (1:1175, 30px) backdrop-blurs the stack —
-			// redraw the same deck blurred, clipped to the card's last 30 units.
-			// An oversized child gets centered in the 30-unit band; shift it up
-			// by (397-30)/2 so the stack's bottom edge lines up with the band.
-			// Opaque ground: backdrop blur replaces everything behind the strip;
-			// without it the blurred cards' soft alpha edges let the crisp deck
-			// below show through. Radius render-calibrated on Android against the
-			// frame's blurred title ink (band diff 9.55 -> 8.23); verify the 2.6u
-			// visual on a simulator once this compiles on the Mac.
+		Button(action: onOpenNews) {
 			ZStack {
-				Home.cardBg
-				NewsDeck(drags: deckDrags, stories: stories, interactive: false)
-			}
-				.frame(maxWidth: .infinity)
-				.frame(height: 397 * u)
-				.blur(radius: 2.6 * u)
-				.offset(y: -183.5 * u)
-				.frame(height: 30 * u)
-				.frame(maxWidth: .infinity)
-				.clipped()
-				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-				// Decorative copy: clipped() limits drawing, not hit testing -
-				// without this the band eats the deck's drags (audit 2026-08-25).
-				.allowsHitTesting(false)
-			HStack(spacing: 0) {
-				VStack(alignment: .leading, spacing: 4 * u) {
-					Text("Market Mood")
-						.font(StakFont.sora(20 * u, .medium))
-						.stakLineHeight(25 * u, size: 20 * u, face: .sora)
-						.foregroundStyle(Color.white)
-					(
-						Text(moodLead).foregroundColor(Home.teal)
-							+ Text(moodRest).foregroundColor(Color.white)
-					)
-					.font(StakFont.geist(12 * u))
-					// 118:1693 renders a 16 pitch (32 for two lines). SwiftUI
-					// lineSpacing is ADDITIVE over the face's natural line height
-					// (Geist 1.30 x 12 = 15.6), so the extra is 0.4, not 4 -
-					// exact-design audit 2026-09-04.
-					.lineSpacing(0.4 * u)
+				NewsDeck(drags: deckDrags, stories: stories, interactive: true)
+				// The frame's bottom strip (1:1175, 30px) backdrop-blurs the stack —
+				// redraw the same deck blurred, clipped to the card's last 30 units.
+				// Opaque ground: backdrop blur replaces everything behind the strip;
+				// without it the blurred cards' soft alpha edges let the crisp deck
+				// below show through. Radius render-calibrated on Android against the
+				// frame's blurred title ink (band diff 9.55 -> 8.23); verify the 2.6u
+				// visual on a simulator once this compiles on the Mac.
+				ZStack {
+					Home.cardBg
+					NewsDeck(drags: deckDrags, stories: stories, interactive: false)
 				}
-				.frame(width: 180 * u, alignment: .leading)
-				Spacer().frame(width: 46 * u)
-				MarketMoodGauge(targetAngle: moodAngle)
+					.frame(maxWidth: .infinity)
+					.frame(height: 397 * u)
+					// Clipped BEFORE the blur to the band plus the blur's reach above it (8u, ~3 sigma): blurring the whole
+					// 397-tall deck cost an offscreen pass ~9x the size on every drag frame. Bottom-aligned: the deck's
+					// bottom edge lands on the band's.
+					.offset(y: -179.5 * u)
+					.frame(height: 38 * u)
+					.clipped()
+					.blur(radius: 2.6 * u)
+					.frame(height: 30 * u, alignment: .bottom)
+					.frame(maxWidth: .infinity)
+					.clipped()
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+					// Decorative copy: clipped() limits drawing, not hit testing -
+					// without this the band eats the deck's drags (audit 2026-08-25).
+					.allowsHitTesting(false)
+				HStack(spacing: 0) {
+					VStack(alignment: .leading, spacing: 4 * u) {
+						Text("Market Mood")
+							.font(StakFont.sora(20 * u, .medium))
+							.stakLineHeight(25 * u, size: 20 * u, face: .sora)
+							.foregroundStyle(Color.white)
+						(
+							Text(moodLead).foregroundColor(Home.teal)
+								+ Text(moodRest).foregroundColor(Color.white)
+						)
+						.font(StakFont.geist(12 * u))
+						// 118:1693 renders a 16 pitch (32 for two lines). SwiftUI
+						// lineSpacing is ADDITIVE over the face's natural line height
+						// (Geist 1.30 x 12 = 15.6), so the extra is 0.4, not 4 -
+						// exact-design audit 2026-09-04.
+						.lineSpacing(0.4 * u)
+					}
+					.frame(width: 180 * u, alignment: .leading)
+					Spacer().frame(width: 46 * u)
+					MarketMoodGauge(targetAngle: moodAngle, hasReading: hasReading, settled: settled)
+				}
+				// 118:1690 centres at 50%+0.45 (row left 34, gauge at 260 in the
+				// render); plain centring lands at 33.55 - exact-design audit 2026-09-04.
+				.offset(x: 0.45 * u)
+				.padding(.top, 25 * u)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 			}
-			// 118:1690 centres at 50%+0.45 (row left 34, gauge at 260 in the
-			// render); plain centring lands at 33.55 - exact-design audit 2026-09-04.
-			.offset(x: 0.45 * u)
-			.padding(.top, 25 * u)
-			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+			.frame(maxWidth: .infinity)
+			.frame(height: 397 * u)
+			.background(Home.cardBg)
+			.clipShape(RoundedRectangle(cornerRadius: 8 * u))
+			.contentShape(Rectangle())
 		}
-		.frame(maxWidth: .infinity)
-		.frame(height: 397 * u)
-		.background(Home.cardBg)
-		.clipShape(RoundedRectangle(cornerRadius: 8 * u))
-		.contentShape(Rectangle())
-		.onTapGesture(perform: onOpenNews)
+		// Android's clickable(PressDim) on the whole card; the deck's drag still wins over the tap.
+		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel("Market Mood. \(moodLead)\(moodRest) \(spokenDeck)")
+		.accessibilityHint("Opens News")
+		.accessibilityAddTraits(.isButton)
+	}
+
+	/// The deck's front story, or its state - the headlines are drawn, not otherwise read out.
+	private var spokenDeck: String {
+		guard let front = stories.first else { return "" }
+		if front.loading { return "Loading market news." }
+		return front.title.isEmpty ? "" : "Top story: \(front.title)."
 	}
 }
 
@@ -346,12 +413,14 @@ private struct NewsDeck: View {
 	/// Absolute-translation tracker so drags accumulate clamped DELTAS like
 	/// the Android build (reversing after over-drag responds immediately).
 	@State private var lastDragY: CGFloat = 0
+	/// Bumped when a drag picks up a card - a selection tick, as a card lifting under the thumb.
+	@State private var pickTick = 0
 
 	var body: some View {
 		let u = figmaUnit
 		ZStack {
 			ForEach(deckCards.indices, id: \.self) { i in
-				NewsDeckCard(card: deckCards[i], story: stories[i])
+				NewsDeckCard(card: deckCards[i], story: stories[i], animated: interactive)
 					.offset(y: drags.offsets[i])
 					// raised persists ~0.3s after release so the returning card
 					// keeps its lift for the whole ease-back (audit 2026-08-25).
@@ -360,6 +429,7 @@ private struct NewsDeck: View {
 			if interactive {
 				Color.clear
 					.contentShape(Rectangle())
+					.sensoryFeedback(.selection, trigger: pickTick)
 					.highPriorityGesture(
 						DragGesture(minimumDistance: 8)
 							.onChanged { value in
@@ -367,6 +437,7 @@ private struct NewsDeck: View {
 									drags.active = pickCard(at: value.startLocation, u: u)
 									lastDragY = 0
 									drags.raised = drags.active
+									if drags.active >= 0 { pickTick += 1 }
 								}
 								let i = drags.active
 								guard i >= 0 else { return }
@@ -415,17 +486,39 @@ private struct NewsDeckCard: View {
 	let card: DeckCard
 	let story: NewsDeckFeed.Story
 
+	/// The crisp deck pulses; its blurred copy in the bottom band holds still (nobody can see it breathe).
+	var animated = true
+	/// While the news loads each card shows pulsing bars where its text will go, instead of a blank card (Android:
+	/// 0.10 to 0.22 alpha, tween(800) - FastOutSlowIn - reversing).
+	@State private var pulse = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
 	var body: some View {
 		let u = figmaUnit
 		VStack(alignment: .leading, spacing: card.titleBodyGap * u) {
-			Text(story.title)
-				.font(StakFont.sora(16 * u, .medium))
-				.foregroundStyle(Home.cardInk)
-				.frame(width: 202.9 * u, alignment: .leading)
-			Text(story.body)
-				.font(StakFont.geist(card.bodySize * u, card.bodyWeight))
-				.foregroundStyle(Home.cardInk)
-				.frame(width: 189.31 * u, alignment: .leading)
+			if story.loading {
+				let bar = Home.cardInk.opacity(pulse ? 0.22 : 0.10)
+				RoundedRectangle(cornerRadius: 4 * u).fill(bar).frame(width: 170 * u, height: 14 * u)
+				RoundedRectangle(cornerRadius: 4 * u).fill(bar).frame(width: 120 * u, height: 14 * u)
+				RoundedRectangle(cornerRadius: 4 * u).fill(bar).frame(width: 180 * u, height: 10 * u)
+			} else {
+				Text(story.title)
+					.font(StakFont.sora(16 * u, .medium))
+					.foregroundStyle(Home.cardInk)
+					.frame(width: 202.9 * u, alignment: .leading)
+				Text(story.body)
+					.font(StakFont.geist(card.bodySize * u, card.bodyWeight))
+					.foregroundStyle(Home.cardInk)
+					.frame(width: 189.31 * u, alignment: .leading)
+			}
+		}
+		// Only while loading - an idle card runs no animation at all.
+		.task(id: story.loading) {
+			var still = Transaction()
+			still.disablesAnimations = true
+			withTransaction(still) { pulse = false }
+			guard story.loading, animated, !reduceMotion else { return }
+			withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.8).repeatForever(autoreverses: true)) { pulse = true }
 		}
 		.padding(.leading, 14.43 * u)
 		.padding(.top, 23.77 * u)
@@ -445,15 +538,7 @@ private struct WhyThisMattersCard: View {
 
 	var body: some View {
 		let u = figmaUnit
-		ZStack {
-			// Authored (1:1043/1:1044): the 105x105 image box sits at (3, -7)
-			// with the source mapped 1:1 (no crop) — the ball itself stays
-			// inside the card; only the box's transparent padding overhangs.
-			Image("HomeCautionGlass")
-				.resizable()
-				.frame(width: 105 * u, height: 105 * u)
-				.offset(x: 3 * u, y: -7 * u)
-				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+		Button(action: onOpenMyStak) {
 			VStack(alignment: .leading, spacing: 6 * u) {
 				Text("Why this matters to you")
 					// Authored (1:1040): Sora Regular 14 / lh15.
@@ -466,21 +551,34 @@ private struct WhyThisMattersCard: View {
 					.foregroundStyle(Color.white)
 				Text(impactText)
 					.font(StakFont.geist(12 * u, .light))
-					// 118:1717 pitch 15 vs Geist's natural 15.6: lineSpacing is
-					// additive and cannot go negative, so 0 is the closest (the old
-					// +3 gave an 18.6 pitch); 0.6/line residual - exact-design audit
-					// 2026-09-04.
+					// Android: Geist Light 12 / lh 17 (HomeScreen.kt WhyThisMattersCard).
+					.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(Color.white)
-					.frame(width: 198 * u, alignment: .leading)
+					// No line cap: a card that cuts the text off gives the reader nowhere to see the rest of it; the
+					// real generated paragraph is 2-3 sentences, so the card grows (user, 2026-09-18).
+					.fixedSize(horizontal: false, vertical: true)
+					.frame(maxWidth: .infinity, alignment: .leading)
 			}
 			.padding(.leading, 127 * u)
-			.frame(maxWidth: .infinity, alignment: .leading)
+			.padding(.trailing, 14 * u)
+			.padding(.vertical, 14 * u)
+			.frame(maxWidth: .infinity, minHeight: 91 * u, alignment: .leading)
+			// Authored (1:1043/1:1044): the 105x105 image box sits at (3, -7) with the source mapped 1:1 (no crop) - the
+			// ball itself stays inside the card; only the box's transparent padding overhangs. A background, so the
+			// text alone sets the card's height (91 minimum, taller for a longer summary).
+			.background(alignment: .topLeading) {
+				Image("HomeCautionGlass")
+					.resizable()
+					.frame(width: 105 * u, height: 105 * u)
+					.offset(x: 3 * u, y: -7 * u)
+					.accessibilityHidden(true)
+			}
+			.background(Home.cardBg, in: RoundedRectangle(cornerRadius: 8 * u))
+			.contentShape(Rectangle())
 		}
-		.frame(maxWidth: .infinity)
-		.frame(height: 91 * u)
-		.background(Home.cardBg, in: RoundedRectangle(cornerRadius: 8 * u))
-		.contentShape(Rectangle())
-		.onTapGesture(perform: onOpenMyStak)
+		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .combine)
+		.accessibilityHint("Opens My STAK")
 	}
 }
 
@@ -495,49 +593,57 @@ private struct DeckBanner: View {
 		let bannerCopy = holdings.tickers.isEmpty
 			? "Take your first deck to build your taste"
 			: "Your next pick is a swipe away"
-		ZStack {
-			// The illustration zone of the frame (box + coins + shadow), cropped
-			// from the banner render so its pose is exact; the teal it carries is
-			// the same banner fill it sits on. The 1:1191 node's in-banner slice
-			// (121.5x116 at x13), baked from the 2x frame render.
-			Image("HomeBannerIllustration")
-				.resizable()
-				.scaledToFit()
-				.frame(width: 121.5 * u, height: 116 * u)
-				.offset(x: 13 * u)
-				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-			VStack(alignment: .leading, spacing: 10 * u) {
-				Text(bannerCopy)
-					.font(StakFont.geist(12 * u, .light))
-					// 118:1722 pitch 15 vs Geist's natural 15.6: additive lineSpacing
-					// cannot go negative, so 0 (was +3 -> 18.6) - exact-design audit
-					// 2026-09-04.
-					.foregroundStyle(Color.black)
-				// No button of its own: the authored connection is on the whole
-				// banner (1:1184), whose tap target includes this chip.
-				HStack(spacing: 3 * u) {
-					Text("Go to Deck")
-						.font(StakFont.geist(11.49 * u, .medium))
-						.stakLineHeight(15 * u, size: 11.49 * u, face: .geist)
-						.foregroundStyle(Color.white)
-					Image("IcArrowRightSmall")
-						.resizable()
-						.frame(width: 16 * u, height: 16 * u)
+		Button(action: {
+			UIImpactFeedbackGenerator(style: .light).impactOccurred()
+			onOpenDeck()
+		}) {
+			ZStack {
+				// The illustration zone of the frame (box + coins + shadow), cropped
+				// from the banner render so its pose is exact; the teal it carries is
+				// the same banner fill it sits on. The 1:1191 node's in-banner slice
+				// (121.5x116 at x13), baked from the 2x frame render.
+				Image("HomeBannerIllustration")
+					.resizable()
+					.scaledToFit()
+					.frame(width: 121.5 * u, height: 116 * u)
+					.offset(x: 13 * u)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+					.accessibilityHidden(true)
+				VStack(alignment: .leading, spacing: 10 * u) {
+					Text(bannerCopy)
+						.font(StakFont.geist(12 * u, .light))
+						// 118:1722 pitch 15 vs Geist's natural 15.6: additive lineSpacing
+						// cannot go negative, so 0 (was +3 -> 18.6) - exact-design audit
+						// 2026-09-04.
+						.foregroundStyle(Color.black)
+					// No button of its own: the authored connection is on the whole
+					// banner (1:1184), whose tap target includes this chip.
+					HStack(spacing: 3 * u) {
+						Text("Go to Deck")
+							.font(StakFont.geist(11.49 * u, .medium))
+							.stakLineHeight(15 * u, size: 11.49 * u, face: .geist)
+							.foregroundStyle(Color.white)
+						Image("IcArrowRightSmall")
+							.resizable()
+							.frame(width: 16 * u, height: 16 * u)
+					}
+					.frame(width: 123 * u, height: 32 * u)
+					.background(StakColors.bg, in: RoundedRectangle(cornerRadius: 15 * u))
 				}
-				.frame(width: 123 * u, height: 32 * u)
-				.background(StakColors.bg, in: RoundedRectangle(cornerRadius: 15 * u))
+				.frame(width: 156 * u, alignment: .leading)
+				.offset(y: 0.5 * u)
+				.padding(.leading, 184 * u)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 			}
-			.frame(width: 156 * u, alignment: .leading)
-			.offset(y: 0.5 * u)
-			.padding(.leading, 184 * u)
-			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+			.frame(maxWidth: .infinity)
+			.frame(height: 116 * u)
+			.background(Home.teal)
+			.clipShape(RoundedRectangle(cornerRadius: 8 * u))
+			.contentShape(Rectangle())
 		}
-		.frame(maxWidth: .infinity)
-		.frame(height: 116 * u)
-		.background(Home.teal)
-		.clipShape(RoundedRectangle(cornerRadius: 8 * u))
-		.contentShape(Rectangle())
-		.onTapGesture(perform: onOpenDeck)
+		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .combine)
+		.accessibilityLabel("\(bannerCopy). Go to Deck")
 	}
 }
 
@@ -572,7 +678,10 @@ private struct FirstRunOverlay: View {
 			// taps still land.
 			.contentShape(Rectangle())
 			.gesture(DragGesture(minimumDistance: 0))
-			Button(action: onSeeTodaysPick) {
+			Button(action: {
+				UIImpactFeedbackGenerator(style: .light).impactOccurred()
+				onSeeTodaysPick()
+			}) {
 				// user, 2026-09-04: grammar fixed, frame typo not copied.
 				Text("See Today’s Pick")
 					.font(StakFont.geist(12 * u, .medium))
@@ -624,45 +733,80 @@ struct MarketMoodGauge: View {
 	/// Shared with the News mood row (Codex audit 2026-09-04), which passes
 	/// 40.97 / 56.9018 so the compact gauge is this same drawing.
 	var scale: CGFloat = 1
-	/// Live angle driven by the ViewModel; defaults to the authored rest pose.
+	/// The reading's angle; defaults to the authored rest pose.
 	var targetAngle: Double = MarketMoodFeed.demoAngleDeg
-	/// Needle pose in math degrees CCW from +x — rests at the authored
-	/// default; no entry sweep (the frame's pose is the rest state).
+	/// No reading, no needle: pointing at the authored pose would state a mood the market hasn't been read for yet.
+	var hasReading = true
+	/// The brief has answered (with or without a mood): the arcs stop breathing, and sit dimmed if there's no reading.
+	var settled = true
+	/// Needle pose in math degrees CCW from +x — starts at the authored pose and sweeps to the reading.
 	@State private var sweepDeg: Double = MarketMoodFeed.demoAngleDeg
 	/// Breathe offset in math degrees, -0.8...0.8 autoreversing over 2.4s.
 	@State private var wobbleDeg: Double = -0.8
+	/// The loading pulse on the arcs, 0.3 to 0.8 over 800ms.
+	@State private var arcPulse = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		let u = figmaUnit * scale
 		let k = u   // canvas pt per authored unit (canvas width = 56.9018u)
+		// Reading: full arcs. Still reading: the arcs breathe, so an empty gauge reads as working rather than broken.
+		// Settled without a reading: they sit dimmed.
+		let arcAlpha: Double = hasReading ? 1 : (settled ? 0.35 : (arcPulse ? 0.8 : 0.3))
 		ZStack {
 			GaugeArc(startDeg: 180)
-				.stroke(Color(argb: 0xFF61A57F), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
+				.stroke(Color(argb: 0xFF61A57F).opacity(arcAlpha), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
 			GaugeArc(startDeg: 240)
-				.stroke(Color(argb: 0xFFD8CFCF), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
+				.stroke(Color(argb: 0xFFD8CFCF).opacity(arcAlpha), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
 			GaugeArc(startDeg: 300)
-				.stroke(Color(argb: 0xFFDE4E71), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
-			GaugeNeedle()
-				.fill(Color.white)
-				// Rotate the authored needle group about the authored blob
-				// center; math degrees run CCW, rotationEffect CW - flip sign.
-				.rotationEffect(
-					.degrees(authoredAxisDeg - (sweepDeg + wobbleDeg)),
-					anchor: UnitPoint(x: 27.8686 / 56.9018, y: 26.7203 / 28.8371)
-				)
+				.stroke(Color(argb: 0xFFDE4E71).opacity(arcAlpha), style: StrokeStyle(lineWidth: 7.1127 * k, lineCap: .butt))
+			if hasReading {
+				GaugeNeedle()
+					.fill(Color.white)
+					// Rotate the authored needle group about the authored blob
+					// center; math degrees run CCW, rotationEffect CW - flip sign.
+					.rotationEffect(
+						.degrees(authoredAxisDeg - (sweepDeg + wobbleDeg)),
+						anchor: UnitPoint(x: 27.8686 / 56.9018, y: 26.7203 / 28.8371)
+					)
+			}
 		}
 		.frame(width: 56.9018 * u, height: 28.8371 * u)
-		.onAppear {
-			// Idle breathe, tween 2400 EaseInOutSine reversing (cubic-bezier
-			// 0.37, 0, 0.63, 1 is the sine ease-in-out curve).
+		.accessibilityHidden(true)
+		// Idle breathe, tween 2400 EaseInOutSine reversing (cubic-bezier 0.37, 0, 0.63, 1 is the sine ease-in-out
+		// curve) - only while there's a needle to breathe, as Android.
+		.task(id: hasReading) {
+			var still = Transaction()
+			still.disablesAnimations = true
+			withTransaction(still) { wobbleDeg = -0.8 }
+			guard hasReading, !reduceMotion else { return }
 			withAnimation(.timingCurve(0.37, 0, 0.63, 1, duration: 2.4).repeatForever(autoreverses: true)) {
 				wobbleDeg = 0.8
 			}
 		}
-		.onChange(of: targetAngle) { _, newAngle in
-			withAnimation(.easeOut(duration: 0.9)) { sweepDeg = newAngle }
+		// The arcs breathe only while the brief is on its way (tween(800), FastOutSlowIn).
+		.task(id: settled) {
+			var still = Transaction()
+			still.disablesAnimations = true
+			withTransaction(still) { arcPulse = false }
+			guard !settled, !reduceMotion else { return }
+			withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.8).repeatForever(autoreverses: true)) { arcPulse = true }
+		}
+		// From the authored pose to the reading, 900ms ease-out - on every visit, as Android's remembered Animatable.
+		// With no needle drawn there's nothing to sweep from: it's placed on its reading instead.
+		.task(id: GaugeTarget(angle: targetAngle, hasReading: hasReading)) {
+			if hasReading {
+				withAnimation(.easeOut(duration: 0.9)) { sweepDeg = targetAngle }
+			} else {
+				sweepDeg = targetAngle
+			}
 		}
 	}
+}
+
+private struct GaugeTarget: Equatable {
+	let angle: Double
+	let hasReading: Bool
 }
 
 /// One 60-degree gauge segment on the centerline radius 25.6, pivot at the

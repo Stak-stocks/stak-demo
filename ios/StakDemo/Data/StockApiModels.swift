@@ -150,14 +150,10 @@ struct BrandSummaryDto: Decodable {
     private enum CodingKeys: String, CodingKey { case id, ticker, name, bio, heroImage, logo, domain, interestCategories }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
-        ticker = try c.decodeIfPresent(String.self, forKey: .ticker) ?? ""
-        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
-        bio = try c.decodeIfPresent(String.self, forKey: .bio) ?? ""
-        heroImage = try c.decodeIfPresent(String.self, forKey: .heroImage) ?? ""
-        logo = try c.decodeIfPresent(String.self, forKey: .logo)
-        domain = try c.decodeIfPresent(String.self, forKey: .domain)
-        interestCategories = try c.decodeIfPresent([String].self, forKey: .interestCategories) ?? []
+        id = c.value(.id, or: ""); ticker = c.value(.ticker, or: ""); name = c.value(.name, or: "")
+        bio = c.value(.bio, or: ""); heroImage = c.value(.heroImage, or: "")
+        logo = c.value(.logo, or: nil); domain = c.value(.domain, or: nil)
+        interestCategories = c.value(.interestCategories, or: [])
     }
 }
 struct BrandsListResponse: Decodable { var brands: [BrandSummaryDto] = [] }
@@ -325,3 +321,130 @@ struct StakAiChatReply: Decodable {
 }
 struct StakAiError: Decodable { var error: String?; var code: String?; var usage: StakAiUsage? }
 final class StakAiStreamError: Error { let code: String; let usage: StakAiUsage?; init(_ code: String, usage: StakAiUsage? = nil) { self.code = code; self.usage = usage } }
+
+// MARK: – Tolerant decoding
+//
+// Swift's synthesized decoding throws when ANY key is missing or null, even for a property with a default, and one bad
+// item fails the whole response (the brands list did: 290 of 333 brands omit interestCategories, and the Discover deck
+// wouldn't load). Android's decoder falls back to the default instead. These models - the ones Home and News read,
+// several of them written by an AI - decode the same way: a missing, null or mistyped field takes its default. The
+// inits live in extensions so the memberwise initializers (DailyBriefResponse(mood: "")) keep working.
+
+extension KeyedDecodingContainer {
+    /// The key's value, or `fallback` when it's missing, null or the wrong type.
+    func value<T: Decodable>(_ key: Key, or fallback: T) -> T {
+        (try? decodeIfPresent(T.self, forKey: key)) ?? fallback
+    }
+}
+
+extension BatchQuote {
+    private enum CodingKeys: String, CodingKey { case price, change, changePercent }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        price = c.value(.price, or: 0); change = c.value(.change, or: 0); changePercent = c.value(.changePercent, or: 0)
+    }
+}
+
+extension TrendingStock {
+    private enum CodingKeys: String, CodingKey { case ticker, name, price, change, changePercent }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: ""); name = c.value(.name, or: "")
+        price = c.value(.price, or: 0); change = c.value(.change, or: 0); changePercent = c.value(.changePercent, or: 0)
+    }
+}
+
+extension NewsArticleDto {
+    private enum CodingKeys: String, CodingKey {
+        case headline, source, url, image, datetime, summary, explanation, whyItMatters, sentiment, type, ticker
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        headline = c.value(.headline, or: ""); source = c.value(.source, or: ""); url = c.value(.url, or: "")
+        image = c.value(.image, or: ""); datetime = c.value(.datetime, or: 0); summary = c.value(.summary, or: "")
+        explanation = c.value(.explanation, or: ""); whyItMatters = c.value(.whyItMatters, or: "")
+        sentiment = c.value(.sentiment, or: "neutral"); type = c.value(.type, or: "sector"); ticker = c.value(.ticker, or: "")
+    }
+}
+
+extension WhatHappenedItem {
+    private enum CodingKeys: String, CodingKey { case title, body }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = c.value(.title, or: ""); body = c.value(.body, or: "")
+    }
+}
+
+extension WatchItem {
+    private enum CodingKeys: String, CodingKey { case icon, label, body }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        icon = c.value(.icon, or: ""); label = c.value(.label, or: ""); body = c.value(.body, or: "")
+    }
+}
+
+extension DailyBriefResponse {
+    private enum CodingKeys: String, CodingKey {
+        case mood, session, dayLabel, marketClosed, nextTradingDayLabel, moodExplanation, plainEnglish
+        case personalizedImpact, whatHappened, contextQuestion, watchItems
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mood = c.value(.mood, or: ""); session = c.value(.session, or: ""); dayLabel = c.value(.dayLabel, or: "")
+        marketClosed = c.value(.marketClosed, or: false); nextTradingDayLabel = c.value(.nextTradingDayLabel, or: "")
+        moodExplanation = c.value(.moodExplanation, or: ""); plainEnglish = c.value(.plainEnglish, or: "")
+        personalizedImpact = c.value(.personalizedImpact, or: "")
+        whatHappened = c.value(.whatHappened, or: []); contextQuestion = c.value(.contextQuestion, or: "")
+        watchItems = c.value(.watchItems, or: [])
+    }
+}
+
+// The wrappers too: a missing or null top-level list is an empty list, not a failed response.
+
+extension BatchQuotesResponse {
+    private enum CodingKeys: String, CodingKey { case quotes }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        quotes = c.value(.quotes, or: [:])
+    }
+}
+
+extension TrendingResponse {
+    private enum CodingKeys: String, CodingKey { case trending }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        trending = c.value(.trending, or: [])
+    }
+}
+
+extension MarketNewsResponse {
+    private enum CodingKeys: String, CodingKey { case articles }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        articles = c.value(.articles, or: [])
+    }
+}
+
+extension CompanyNewsResponse {
+    private enum CodingKeys: String, CodingKey { case articles }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        articles = c.value(.articles, or: [])
+    }
+}
+
+extension ForYouNewsResponse {
+    private enum CodingKeys: String, CodingKey { case results, pending }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        results = c.value(.results, or: []); pending = c.value(.pending, or: [])
+    }
+}
+
+extension ForYouCompanyNews {
+    private enum CodingKeys: String, CodingKey { case ticker, articles }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: ""); articles = c.value(.articles, or: [])
+    }
+}
