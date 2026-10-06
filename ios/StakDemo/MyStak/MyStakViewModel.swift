@@ -21,13 +21,13 @@ final class MyStakViewModel: ObservableObject {
             updates = DemoUpdates.all; unreadCount = DemoUpdates.unread
             return
         }
-        async let stocksTask: AndroidStocksResponse? = try? repo.getAndroidStocks()
+        async let stocksTask: Void = MyStakHoldings.shared.refreshFromBackend()
         async let tasteTask: TasteResponse? = try? repo.getTaste()
         async let updatesTask: UpdatesResponse? = try? repo.getUpdates()
 
-        if let s = await stocksTask {
-            for ticker in s.tickers { MyStakHoldings.shared.add(ticker) }
-        }
+        // The holdings store reads the server's list itself (names, categories, save prices) - adding each ticker
+        // here would have written the list straight back with a PUT per stock.
+        await stocksTask
         if let t = await tasteTask { taste = t } else { tasteFailed = true }
         if let u = await updatesTask { updates = u.updates; unreadCount = u.unread } else { updatesFailed = true }
     }

@@ -98,7 +98,7 @@ final class Session: ObservableObject {
 	/// `triggerSync` is false during init because Session.shared isn't live yet — ProfileSync
 	/// and DeviceStateSync both read Session.shared and would deadlock the dispatch_once.
 	func applyAccount(triggerSync: Bool = false) {
-		MyStakHoldings.shared.reset(demo: demoAccount)
+		MyStakHoldings.shared.reset(demo: demoAccount, signedIn: token != nil)
 		PaperPortfolio.shared.reset(demo: demoAccount)
 		DeckSession.shared.load()
 		StakNotifications.shared.load()
@@ -215,6 +215,8 @@ final class Session: ObservableObject {
 		PushRegistration.forget()
 		token = nil
 		accountId = nil
+		// No account any more: the holdings stop writing to the server (the next sign-in's applyAccount reloads them).
+		MyStakHoldings.shared.reset(demo: true, signedIn: false)
 		let d = UserDefaults.standard
 		d.removeObject(forKey: Self.keySignedIn)
 		d.removeObject(forKey: Self.keyName)

@@ -22,12 +22,15 @@ enum StakEvents {
     @MainActor
     static func log(_ type: String, ticker: String? = nil, brandId: String? = nil, params: [String: String]? = nil) {
         guard !StakStore.demoAccount, Session.shared.token != nil else { return }
-        let day = todayKey()
+        // The deck day ("2026-10-06", rolling over at 9am local) - the key the server counts the day under.
+        let day = StakClock.deckDayKey()
+        // A held stock's brand comes from the holdings when the caller only knows the ticker (Android does the same).
+        let brand = brandId ?? ticker.flatMap { MyStakHoldings.shared.brandIdOf($0) }
         let encodedParams = params.map { dict in dict.mapValues { AnyCodable($0) } }
         Task.detached(priority: .background) {
             _ = try? await StockRepository.shared.recordEvent(EngagementEventRequest(
                 type: type,
-                brandId: brandId,
+                brandId: brand,
                 ticker: ticker,
                 categories: nil,
                 todayKey: day,
@@ -35,13 +38,4 @@ enum StakEvents {
             ))
         }
     }
-}
-
-/// "20260718" — the current UTC day as an 8-digit string.
-private func todayKey() -> String {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "yyyyMMdd"
-    f.timeZone = TimeZone(identifier: "UTC")
-    return f.string(from: Date())
 }
