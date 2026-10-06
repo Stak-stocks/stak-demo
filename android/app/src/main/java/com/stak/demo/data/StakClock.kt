@@ -52,6 +52,47 @@ object StakClock {
 		}
 	}
 
+	/**
+	 * The daily brief's sessions, as the server divides the US Eastern day (backend routes/dailyBrief.ts
+	 * getMarketStatus): before the 9:30 open, the open until noon, midday until 3:30, the last half hour, and after the
+	 * 4:00 close - one a day at weekends. Approved scope (2026-10-06): the app re-reads the brief once per session,
+	 * never on a timer - each read can mean a Gemini call for the account. Mirrors ios StakClock.
+	 */
+	enum class BriefPhase { PRE, OPEN, MIDDAY, LATE, AFTER, WEEKEND }
+
+	fun briefPhase(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))): BriefPhase {
+		if (now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY) return BriefPhase.WEEKEND
+		val minutes = now.hour * 60 + now.minute
+		return when {
+			minutes < 9 * 60 + 30 -> BriefPhase.PRE
+			minutes < 12 * 60 -> BriefPhase.OPEN
+			minutes < 15 * 60 + 30 -> BriefPhase.MIDDAY
+			minutes < 16 * 60 -> BriefPhase.LATE
+			else -> BriefPhase.AFTER
+		}
+	}
+
+	/** "2026-10-06-open": the brief the app should be showing now. It re-reads the brief when this changes. */
+	fun briefSessionKey(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))): String =
+		"${now.toLocalDate()}-${briefPhase(now).name.lowercase()}"
+
+	/**
+	 * Whether a served brief was written for [phase]. Just after a boundary the server can still hand back the
+	 * previous session's cached brief (its cache lasts 15 minutes, its market status 10) - that one isn't taken as the
+	 * new session's. A closed day (a holiday) is closed whatever the hour.
+	 */
+	fun briefFits(phase: BriefPhase, session: String, marketClosed: Boolean, dayLabel: String): Boolean {
+		val closedDay = marketClosed && dayLabel != "Today's"
+		return when (phase) {
+			BriefPhase.WEEKEND -> true
+			BriefPhase.PRE -> closedDay
+			BriefPhase.OPEN -> (session == "open" && !marketClosed) || closedDay
+			BriefPhase.MIDDAY -> (session == "midday" && !marketClosed) || closedDay
+			BriefPhase.LATE -> (session == "close" && !marketClosed) || closedDay
+			BriefPhase.AFTER -> marketClosed
+		}
+	}
+
 	/** Whether the US market's regular session is on right now (holidays not known). */
 	fun isMarketOpen(): Boolean = lastCloseRef() == "today"
 

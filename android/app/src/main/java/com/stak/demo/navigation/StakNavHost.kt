@@ -34,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.stak.demo.ui.components.MainTab
 import com.stak.demo.ui.components.MainTabBar
+import com.stak.demo.ui.components.RefreshWhileVisible
 import com.stak.demo.ui.discover.BuySpec
 import com.stak.demo.ui.discover.DiscoverBuySpecSaver
 import com.stak.demo.ui.discover.DiscoverBuyFlow
@@ -828,6 +829,11 @@ private fun MainShell(
 		DailyBriefHolder.current = _shellDailyBrief
 		DailyBriefHolder.news = _shellLiveNews
 		DailyBriefHolder.newsFailed = _shellLiveNewsFailed
+	}
+	// Kept current while the app is open: checked every minute and on returning to the app (refreshIfStale decides
+	// what is actually due - the news after 15 minutes, the brief when the market session turns).
+	RefreshWhileVisible(key = Unit, intervalMs = 60_000L, tickOnResume = true) {
+		newsViewModel.refreshIfStale()
 	}
 	var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
 	// A1: one-shot switch style - read by the AnimatedContent spec and

@@ -312,7 +312,7 @@ fun NewsScreen(
 			} else if (q.isEmpty() && !briefIsLoading && liveNewsSettled && !demo) {
 				// Only once the news request has finished: before that an empty list is just
 				// "not here yet", and the card flashed on every open.
-				BriefUnavailableCard(failed = liveNewsFailed)
+				BriefUnavailableCard(failed = liveNewsFailed, onRetry = viewModel::retryNow)
 			}
 			// For You: live company news for held stocks, deduplicated and recency-sorted.
 			val liveForYou = forYouNews.filter(::matchesLive)
@@ -461,7 +461,7 @@ private fun MoodGauge(mood: String?, u: Float) {
  * Home's.
  */
 @Composable
-private fun BriefUnavailableCard(failed: Boolean) {
+private fun BriefUnavailableCard(failed: Boolean, onRetry: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -477,10 +477,26 @@ private fun BriefUnavailableCard(failed: Boolean) {
 			color = Color.White,
 		)
 		Text(
-			text = if (failed) "Leave News and come back to try again." else "There's no market news to show right now.",
+			// The news retries itself every 2 minutes; Retry asks now.
+			text = if (failed) "We'll keep trying, or tap Retry." else "There's no market news to show right now.",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = News.Muted,
 		)
+		if (failed) {
+			Text(
+				text = "Retry",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+				color = News.Teal,
+				modifier = Modifier
+					.padding(top = (4 * u).dp)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = onRetry,
+					)
+					.padding(vertical = (6 * u).dp),
+			)
+		}
 	}
 }
 

@@ -161,17 +161,6 @@ struct HomeView: View {
 					.frame(maxWidth: .infinity)
 				}
 				.scrollIndicators(.hidden)
-				// iOS: pull down to re-read the brief, the market news, the movers and the saved moves - together, and
-				// without For You, which Home doesn't show. Always attached (a no-op in first run): switching it on
-				// afterwards would rebuild the scroll view and reset everything in it.
-				.refreshable {
-					guard !firstRun else { return }
-					let peek = Array(holdings.tickers.sorted().prefix(3))
-					async let movers: Void = homeVM.refreshTrending(force: true)
-					async let saved: Void = homeVM.refreshSavedMoves(peek, force: true)
-					await newsVM.refreshMarket()
-					_ = await (movers, saved)
-				}
 				if firstRun {
 					// The frame pins the scrim 41px above the deck banner (Tab bar
 					// y629 vs banner y670) — anchor to the same content geometry:

@@ -59,6 +59,48 @@ enum StakClock {
 		return "at today's close"
 	}
 
+	/// The daily brief's sessions, as the server divides the US Eastern day (backend routes/dailyBrief.ts
+	/// getMarketStatus): before the 9:30 open, the open until noon, midday until 3:30, the last half hour, and after
+	/// the 4:00 close - one a day at weekends. Approved scope (2026-10-06): the app re-reads the brief once per
+	/// session, never on a timer - each read can mean a Gemini call for the account. Mirrors android StakClock.
+	enum BriefPhase: String {
+		case pre, open, midday, late, after, weekend
+	}
+
+	static func briefPhase(now: Date = Date()) -> BriefPhase {
+		let c = easternCalendar.dateComponents([.weekday, .hour, .minute], from: now)
+		let weekday = c.weekday ?? 2 // 1 = Sunday ... 7 = Saturday
+		if weekday == 1 || weekday == 7 { return .weekend }
+		let minutes = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+		switch minutes {
+		case ..<(9 * 60 + 30): return .pre
+		case ..<(12 * 60): return .open
+		case ..<(15 * 60 + 30): return .midday
+		case ..<(16 * 60): return .late
+		default: return .after
+		}
+	}
+
+	/// "2026-10-06-open": the brief the app should be showing now. It re-reads the brief when this changes.
+	static func briefSessionKey(now: Date = Date()) -> String {
+		formatter("yyyy-MM-dd", zone: eastern).string(from: now) + "-" + briefPhase(now: now).rawValue
+	}
+
+	/// Whether a served brief was written for `phase`. Just after a boundary the server can still hand back the
+	/// previous session's cached brief (its cache lasts 15 minutes, its market status 10) - that one isn't taken as
+	/// the new session's. A closed day (a holiday) is closed whatever the hour.
+	static func briefFits(_ phase: BriefPhase, session: String, marketClosed: Bool, dayLabel: String) -> Bool {
+		let closedDay = marketClosed && dayLabel != "Today's"
+		switch phase {
+		case .weekend: return true
+		case .pre: return closedDay
+		case .open: return (session == "open" && !marketClosed) || closedDay
+		case .midday: return (session == "midday" && !marketClosed) || closedDay
+		case .late: return (session == "close" && !marketClosed) || closedDay
+		case .after: return marketClosed
+		}
+	}
+
 	/// Whether the US market's regular session is on right now (holidays not known).
 	static func isMarketOpen() -> Bool { lastCloseRef() == "today" }
 

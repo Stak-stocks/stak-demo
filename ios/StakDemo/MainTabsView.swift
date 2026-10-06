@@ -153,6 +153,7 @@ struct MainTabsView: View {
 	@State private var backDrag: CGFloat = 0
 	/// Stays true from the swipe's first move until it has settled, so the page beneath isn't re-parked mid-animation.
 	@State private var backSwipeLive = false
+	@Environment(\.scenePhase) private var scenePhase
 	private var swipingBack: Bool { backDrag > 0 || backSwipeLive }
 
 	private var pageWidth: CGFloat { UIScreen.main.bounds.width }
@@ -194,8 +195,21 @@ struct MainTabsView: View {
 		.background(StakColors.bg.ignoresSafeArea())
 		.onChange(of: backDrag) { _, drag in if drag > 0 { backSwipeLive = true } }
 		.task { await simulateVM.load() }
-		// The day's brief and market news, once: Home's mood card reads them as well as the News tab.
-		.task { await newsVM.start() }
+		// The day's brief and market news: loaded at launch (Home's mood card reads them as well as the News tab), then
+		// kept current while the app is open - checked every minute and on returning to the app (NewsViewModel
+		// .refreshIfStale decides what is actually due).
+		// Mirrors android RefreshWhileVisible(60_000, tickOnResume = true) at the shell.
+		.task {
+			await newsVM.start()
+			while true {
+				// Cancelled (signed out): stop here, without one more check.
+				do { try await Task.sleep(nanoseconds: 60_000_000_000) } catch { break }
+				await newsVM.refreshIfStale()
+			}
+		}
+		.onChange(of: scenePhase) { _, phase in
+			if phase == .active { Task { await newsVM.refreshIfStale() } }
+		}
 		// 30s Simulate refresh — mirrors Android RefreshWhileVisible(intervalMs=30_000, tickOnResume=true).
 		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
 			guard tab == .simulate else { return }

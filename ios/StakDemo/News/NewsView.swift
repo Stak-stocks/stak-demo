@@ -82,6 +82,8 @@ struct NewsView: View {
 		)
 	}
 
+	@ObservedObject private var session = Session.shared
+
 	var body: some View {
 		let u = figmaUnit
 		VStack(spacing: 0) {
@@ -200,14 +202,19 @@ struct NewsView: View {
 						let id = dto.url.isEmpty ? dto.headline : dto.url
 						return (id, dto)
 					}, uniquingKeysWith: { $1 })
+					// The authored stories are the demo's only: a real account was shown invented headlines whenever the
+					// feed failed (Android: NewsScreen's demo-only fallback).
 					let marketsBase: [NewsArticleFeed.Article] = marketsDtos.isEmpty
-						? NewsArticleFeed.markets()
+						? (session.demoAccount ? NewsArticleFeed.markets() : [])
 						: marketsDtos.map { liveArticle($0) }
 					let markets = marketsBase.filter { matchesArticle($0) }
 					if !markets.isEmpty {
 						NewsSectionView(title: "Markets", rows: markets, onOpen: { id in
 							if let dto = marketsLiveMap[id] { onOpenLiveArticle(dto) } else { onOpenArticle(id) }
 						})
+					} else if q.isEmpty && marketsDtos.isEmpty && newsVM.marketSettled && !session.demoAccount {
+						// Only once the request has finished: before that an empty list is just "not here yet".
+						NewsUnavailableCard(failed: newsVM.marketFailed) { Task { await newsVM.retryNow() } }
 					}
 				}
 				.padding(.horizontal, 20 * u)
@@ -215,11 +222,10 @@ struct NewsView: View {
 				// item spacing turns into a 22dp bottom inset.
 				.padding(.bottom, 22 * u)
 			}
-			// Loaded once at launch, so pulling down is how News re-reads the stories and the brief.
-			.refreshable { await newsVM.refresh() }
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		// Loaded once at launch (MainTabsView); each visit only re-checks For You against the current saves.
+		// The stories and the brief keep themselves current (MainTabsView); each visit re-checks For You against the
+		// current saves.
 		.task {
 			await newsVM.start()
 			await newsVM.refreshForYou()
@@ -546,5 +552,39 @@ private struct NewsSectionView: View {
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
+/// Said in place of the stories when the market news failed or came back empty - Android's BriefUnavailableCard,
+/// with its Retry (the news otherwise retries itself every 2 minutes).
+private struct NewsUnavailableCard: View {
+	let failed: Bool
+	let onRetry: () -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(alignment: .leading, spacing: 6 * u) {
+			Text(failed ? "Market news isn't loading" : "Today's brief isn't available")
+				.font(StakFont.sora(15 * u, .semiBold))
+				.foregroundStyle(Color.white)
+			Text(failed ? "We'll keep trying, or tap Retry." : "There's no market news to show right now.")
+				.font(StakFont.geist(13 * u))
+				.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+				.foregroundStyle(News.muted)
+			if failed {
+				Button(action: onRetry) {
+					Text("Retry")
+						.font(StakFont.geist(13 * u, .medium))
+						.foregroundStyle(News.teal)
+						.padding(.vertical, 6 * u)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.pressDim)
+				.padding(.top, 4 * u)
+			}
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(18 * u)
+		.background(News.cardBg, in: RoundedRectangle(cornerRadius: 18 * u))
 	}
 }
