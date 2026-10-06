@@ -95,14 +95,16 @@ final class Session: ObservableObject {
 	}
 
 	/// Seeds (demo) or clears (new account) every user-data singleton for the current account.
-	func applyAccount() {
+	/// `triggerSync` is false during init because Session.shared isn't live yet — ProfileSync
+	/// and DeviceStateSync both read Session.shared and would deadlock the dispatch_once.
+	func applyAccount(triggerSync: Bool = false) {
 		MyStakHoldings.shared.reset(demo: demoAccount)
 		PaperPortfolio.shared.reset(demo: demoAccount)
 		DeckSession.shared.load()
 		StakNotifications.shared.load()
 		NewsSaves.shared.load()
 		Entitlements.shared.load()
-		if !demoAccount {
+		if triggerSync && !demoAccount {
 			ProfileSync.shared.sync()
 			DeviceStateSync.shared.sync()
 		}
@@ -146,7 +148,7 @@ final class Session: ObservableObject {
 			// The day the account was created: the inbox ages its welcome from it.
 			StakStore.set(String(Int(Date().timeIntervalSince1970 / 86400)), for: "created_day")
 		}
-		applyAccount()
+		applyAccount(triggerSync: true)
 		if !demo { PushRegistration.sync() }
 	}
 
