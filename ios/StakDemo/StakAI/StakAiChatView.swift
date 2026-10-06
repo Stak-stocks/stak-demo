@@ -608,7 +608,7 @@ struct AskAiCard: View {
 						.resizable()
 						.scaledToFit()
 						.frame(width: 17 * u, height: 17 * u)
-						.foregroundStyle(StakColors.linkTeal)
+						.foregroundStyle(StakColors.teal)
 				}
 				.frame(width: 34 * u, height: 34 * u)
 				VStack(alignment: .leading, spacing: 2 * u) {
@@ -625,13 +625,13 @@ struct AskAiCard: View {
 				// Android's rounded ArrowForward in an 18 box: a light, small arrow.
 				Image(systemName: "arrow.forward")
 					.font(.system(size: 12 * u, weight: .regular))
-					.foregroundStyle(StakColors.linkTeal)
+					.foregroundStyle(StakColors.teal)
 					.frame(width: 18 * u, height: 18 * u)
 			}
 			.padding(.horizontal, 14 * u)
 			.padding(.vertical, 12 * u)
 			.background(StakColors.surface, in: RoundedRectangle(cornerRadius: 14 * u))
-			.overlay(RoundedRectangle(cornerRadius: 14 * u).strokeBorder(StakColors.linkTeal.opacity(0.35), lineWidth: 1 * u))
+			.overlay(RoundedRectangle(cornerRadius: 14 * u).strokeBorder(StakColors.teal.opacity(0.35), lineWidth: 1 * u))
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressDim)
@@ -653,7 +653,7 @@ struct AskAiHeaderButton: View {
 					.resizable()
 					.scaledToFit()
 					.frame(width: size * 0.5, height: size * 0.5)
-					.foregroundStyle(StakColors.linkTeal)
+					.foregroundStyle(StakColors.teal)
 			}
 			.frame(width: size, height: size)
 		}

@@ -29,6 +29,9 @@ enum StakColors {
 	/// Teal accent: active tab, links, ghost buttons.
 	static let accent = Color(argb: 0xFF39C5CB)
 
+	/// The app's teal - Android's StakColors.Teal (#69B3CA): STAK AI's sparkle, links and accents on the ported pages.
+	static let teal = Color(argb: 0xFF69B3CA)
+
 	/// Deep accent blue (borders, secondary emphasis, the 08 toggles).
 	static let accentBlue = Color(argb: 0xFF2C9DBC)
 
