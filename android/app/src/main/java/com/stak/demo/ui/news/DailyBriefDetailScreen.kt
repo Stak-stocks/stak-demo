@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -140,7 +141,20 @@ fun DailyBriefDetailScreen(
 
                 // Need context? (AI-suggested question)
                 if (brief.contextQuestion.isNotBlank()) {
-                    BriefContextCard(question = brief.contextQuestion, u = u)
+                    // Tapping the suggested question asks STAK AI exactly that, about today's brief.
+                    BriefContextCard(
+                        question = brief.contextQuestion,
+                        u = u,
+                        onAsk = onAskAi?.let { open ->
+                            {
+                                com.stak.demo.ui.ai.StakAiLauncher.reset()
+                                com.stak.demo.ui.ai.StakAiLauncher.context = com.stak.demo.data.StakAiContext.brief(brief)
+                                com.stak.demo.ui.ai.StakAiLauncher.question = brief.contextQuestion
+                                com.stak.demo.ui.ai.StakAiLauncher.entry = com.stak.demo.data.StakAiEntry.BRIEF
+                                open()
+                            }
+                        },
+                    )
                 }
                 // STAK AI (2026-10-01): follow-ups on today's brief, with the brief as context.
                 if (onAskAi != null) {
@@ -174,7 +188,7 @@ private fun BriefArticleHeader(brief: DailyBriefResponse, u: Float) {
             )
         }
         // "STAK AI · Friday's Brief" — mirrors what the card shows
-        val dayPart = brief.dayLabel.let { if (it == "Today's") "Today's Brief" else "$it Brief" }
+        val dayPart = brief.dayLabel.let { if (it.isBlank() || it == "Today's") "Today's Brief" else "$it Brief" }
         Text(
             text = "STAK AI · $dayPart",
             style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
@@ -209,11 +223,14 @@ private fun BriefWhatHappenedCard(items: List<WhatHappenedItem>, u: Float) {
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy((3 * u).dp)) {
-                        Text(
-                            text = item.title,
-                            style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-                            color = Color.White,
-                        )
+                        // Items split from the headline have no title: no blank line above their text.
+                        if (item.title.isNotBlank()) {
+                            Text(
+                                text = item.title,
+                                style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (13 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+                                color = Color.White,
+                            )
+                        }
                         Text(
                             text = item.body,
                             style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
@@ -355,7 +372,7 @@ private fun watchIcon(item: WatchItem): Int {
 // ── Need context? (AI) ─────────────────────────────────────────────────────────
 
 @Composable
-private fun BriefContextCard(question: String, u: Float) {
+private fun BriefContextCard(question: String, u: Float, onAsk: (() -> Unit)? = null) {
     // Same header + body scale as every other card on this page (device report,
     // 2026-09-23: this one and "What to watch next" had drifted to their own sizes).
     Row(
@@ -365,6 +382,13 @@ private fun BriefContextCard(question: String, u: Float) {
             .fillMaxWidth()
             .clip(RoundedCornerShape((16 * u).dp))
             .background(News.CardBg)
+            .then(
+                if (onAsk != null) Modifier.clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = com.stak.demo.ui.theme.PressDim,
+                    onClick = onAsk,
+                ) else Modifier,
+            )
             .padding((18 * u).dp),
     ) {
         Column(

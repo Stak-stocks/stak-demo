@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -562,7 +564,8 @@ private fun LiveStockCard(ticker: String, saved: Boolean, quote: BatchQuote?, u:
                     color = Color.White,
                 )
                 Text(
-                    text = ticker,
+                    // The company's name; the ticker until the names have loaded.
+                    text = com.stak.demo.data.BrandNames.byTicker[ticker.uppercase()] ?: ticker,
                     style = TextStyle(
                         fontFamily = Geist,
                         fontWeight = FontWeight.Normal,
@@ -676,12 +679,14 @@ private fun LiveGistCard(bullets: List<String>) {
 private fun LiveBlockquote(text: String, u: Float) {
     Row(
         horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
-        modifier = Modifier.fillMaxWidth(),
+        // As tall as the quote, so the bar can follow a longer one.
+        modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min),
     ) {
         Box(
             modifier = Modifier
                 .width((3 * u).dp)
-                .height((56 * u).dp)
+                .heightIn(min = (56 * u).dp)
+                .fillMaxHeight()
                 .clip(RoundedCornerShape((2 * u).dp))
                 .background(News.Teal),
         )
@@ -760,7 +765,8 @@ private fun LiveKeyStats(ticker: String, quote: BatchQuote?, metrics: StockMetri
             val changeAbs = quote?.change
             StatCell(
                 label = "Day change",
-                value = if (changeAbs != null) "${if (changeAbs >= 0) "+" else ""}$${"%.2f".format(changeAbs)}" else "--",
+                // "-$1.23", not "$-1.23".
+                value = if (changeAbs != null) "${if (changeAbs >= 0) "+" else "-"}$${"%.2f".format(kotlin.math.abs(changeAbs))}" else "--",
                 modifier = Modifier.weight(1f),
                 u = u,
             )

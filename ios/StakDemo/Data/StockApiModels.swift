@@ -286,6 +286,14 @@ struct StakAiContext: Codable, Equatable {
     var title: String?; var points: [String]?
 
     static func stock(_ ticker: String) -> Self { .init(type: "stock", ticker: ticker.uppercased()) }
+    static func article(_ a: NewsArticleDto) -> Self {
+        let summary = a.summary.isEmpty ? a.explanation : a.summary
+        return .init(
+            type: "article", headline: a.headline, summary: summary.isEmpty ? nil : summary,
+            source: a.source.isEmpty ? nil : a.source, url: a.url.isEmpty ? nil : a.url,
+            tickers: a.ticker.isEmpty ? nil : [a.ticker.uppercased()]
+        )
+    }
     static func brief(_ b: DailyBriefResponse) -> Self {
         let pts = ([b.plainEnglish, b.personalizedImpact] + b.whatHappened.map { "\($0.title): \($0.body)" })
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

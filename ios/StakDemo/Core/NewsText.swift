@@ -40,4 +40,11 @@ enum NewsText {
 		guard c.unicodeScalars.count == 1, let scalar = c.unicodeScalars.first else { return false }
 		return scalar.properties.numericType == .decimal
 	}
+
+	/// `text` split into sentences after . ! or ? - Kotlin's split on (?<=[.!?])\s+, used by the article's pull quote
+	/// and the brief's fallback items.
+	static func sentences(_ text: String) -> [String] {
+		text.replacingOccurrences(of: #"(?<=[.!?])\s+"#, with: "\u{1}", options: .regularExpression)
+			.split(separator: "\u{1}").map(String.init)
+	}
 }

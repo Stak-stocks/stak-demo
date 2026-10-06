@@ -481,13 +481,17 @@ struct MainTabsView: View {
 			DailyBriefDetailView(
 				brief: brief,
 				onBack: { pop(.instant) },
-				onOpenAi: { ctx in push(.stakAi(context: ctx, question: nil, conversationId: nil)) }
+				onOpenAi: { ctx, question in push(.stakAi(context: ctx, question: question, conversationId: nil)) }
 			)
 		case .liveNewsDetail(let dto):
 			LiveNewsDetailView(
 				article: dto,
+				// READ NEXT walks the list the story came from: For You's stories, then the market feed.
+				feed: newsVM.forYouArticles + newsVM.marketArticles,
 				onBack: { pop(.instant) },
-				onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) }
+				// A READ NEXT row opens the next story's page; the chain can revisit a story.
+				onOpenLiveArticle: { next in pushInstant(.liveNewsDetail(next), allowRepeat: true) },
+				onOpenAi: { push(.stakAi(context: .article(dto), question: nil, conversationId: nil)) }
 			)
 		}
 	}

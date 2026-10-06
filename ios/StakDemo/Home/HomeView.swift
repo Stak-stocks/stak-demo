@@ -215,19 +215,7 @@ private struct TopNav: View {
 				Spacer()
 				// STAK AI (2026-10-01): its own way in, beside the bell (no sixth tab). Android's AskAiHeaderButton:
 				// the sparkle glyph at half the circle, in teal.
-				Button(action: onOpenAi) {
-					ZStack {
-						Circle().fill(Home.navCircle)
-						Image(systemName: "sparkles")
-							.resizable()
-							.scaledToFit()
-							.frame(width: 17.5 * u, height: 17.5 * u)
-							.foregroundStyle(Home.teal)
-					}
-					.frame(width: 35 * u, height: 35 * u)
-				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("Ask STAK AI")
+				AskAiHeaderButton(size: 35 * u, background: Home.navCircle, action: onOpenAi)
 				Spacer().frame(width: 4 * u)
 				// Bell + stateful unread dot (151:1207): the authored badge
 				// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched

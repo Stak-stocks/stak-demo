@@ -590,3 +590,74 @@ private func nextQuestionText(_ resetsAt: String?) -> String {
     f.dateFormat = Calendar.current.isDateInToday(date) ? "'Your next one is at' h:mm a'.'": "'Your next one is tomorrow at' h:mm a'.'"
     return f.string(from: date)
 }
+
+/// The way into STAK AI from a page (a live article, a stock, the Daily Brief): a card saying what you can ask, which
+/// opens the chat with that page as its context. Mirrors android AskAiCard (ui/ai/StakAiChatScreen.kt).
+struct AskAiCard: View {
+	let title: String
+	let subtitle: String
+	let onOpen: () -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		Button(action: onOpen) {
+			HStack(spacing: 12 * u) {
+				ZStack {
+					Circle().fill(StakColors.surfaceAlt)
+					Image(systemName: "sparkles")
+						.resizable()
+						.scaledToFit()
+						.frame(width: 17 * u, height: 17 * u)
+						.foregroundStyle(StakColors.linkTeal)
+				}
+				.frame(width: 34 * u, height: 34 * u)
+				VStack(alignment: .leading, spacing: 2 * u) {
+					Text(title)
+						.font(StakFont.sora(14 * u, .semiBold))
+						.foregroundStyle(Color.white)
+					Text(subtitle)
+						.font(StakFont.geist(12 * u))
+						.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(StakColors.muted)
+						.fixedSize(horizontal: false, vertical: true)
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				// Android's rounded ArrowForward in an 18 box: a light, small arrow.
+				Image(systemName: "arrow.forward")
+					.font(.system(size: 12 * u, weight: .regular))
+					.foregroundStyle(StakColors.linkTeal)
+					.frame(width: 18 * u, height: 18 * u)
+			}
+			.padding(.horizontal, 14 * u)
+			.padding(.vertical, 12 * u)
+			.background(StakColors.surface, in: RoundedRectangle(cornerRadius: 14 * u))
+			.overlay(RoundedRectangle(cornerRadius: 14 * u).strokeBorder(StakColors.linkTeal.opacity(0.35), lineWidth: 1 * u))
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.pressDim)
+	}
+}
+
+/// STAK AI's way in from a tab's header - Home beside the bell, News beside search. Android's AskAiHeaderButton: the
+/// sparkle at half the circle, in teal.
+struct AskAiHeaderButton: View {
+	let size: CGFloat
+	let background: Color
+	let action: () -> Void
+
+	var body: some View {
+		Button(action: action) {
+			ZStack {
+				Circle().fill(background)
+				Image(systemName: "sparkles")
+					.resizable()
+					.scaledToFit()
+					.frame(width: size * 0.5, height: size * 0.5)
+					.foregroundStyle(StakColors.linkTeal)
+			}
+			.frame(width: size, height: size)
+		}
+		.buttonStyle(.pressDim)
+		.accessibilityLabel("Ask STAK AI")
+	}
+}

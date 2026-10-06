@@ -145,6 +145,8 @@ final class DiscoverViewModel: ObservableObject {
 		}
 
 		if let res = brandsResult {
+			// News search reads the same list for ticker <-> name matching.
+			BrandNames.shared.fill(res.brands)
 			let recs = await recsTask
 			// Nil when unread: PUT replaces the server's list, so a pass is never written over one we couldn't read.
 			passedAt = (await passedTask).map { res in Dictionary(res.entries.map { ($0.id, $0.at) }, uniquingKeysWith: { $1 }) }
