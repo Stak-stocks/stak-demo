@@ -524,7 +524,7 @@ private struct WhyThisMattersCard: View {
 					// fixed-height frame gives the authored box with the glyphs
 					// centred and overflowing symmetrically, as Figma lays it out -
 					// exact-design audit 2026-09-04.
-					.frame(height: 15 * u)
+					.frame(height: 15 * u * textScale)
 					.foregroundStyle(Color.white)
 				Text(impactText)
 					.font(StakFont.geist(12 * u, .light))
@@ -604,7 +604,7 @@ private struct DeckBanner: View {
 							.resizable()
 							.frame(width: 16 * u, height: 16 * u)
 					}
-					.frame(width: 123 * u, height: 32 * u)
+					.frame(width: 123 * u * textScale, height: 32 * u * textScale)
 					.background(StakColors.bg, in: RoundedRectangle(cornerRadius: 15 * u))
 				}
 				.frame(width: 156 * u, alignment: .leading)
@@ -613,7 +613,7 @@ private struct DeckBanner: View {
 				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 			}
 			.frame(maxWidth: .infinity)
-			.frame(height: 116 * u)
+			.frame(height: 116 * u * textScale)
 			.background(Home.teal)
 			.clipShape(RoundedRectangle(cornerRadius: 8 * u))
 			.contentShape(Rectangle())
@@ -668,7 +668,7 @@ private struct FirstRunOverlay: View {
 					// 1.44 below centre (render: caps at 128-136 in the 105-156
 					// pill) - exact-design audit 2026-09-04.
 					.offset(y: 1.44 * u)
-					.frame(width: 136 * u, height: 51 * u)
+					.frame(width: 136 * u * textScale, height: 51 * u * textScale)
 					// The authored pill (1:1081) is a Figma glass stack; matched to
 					// its RENDER in the 2x export of 1:958: a cool-tinted 8% wash and
 					// a rim that glows only on the two caps (0.57 / 0.49 white) and

@@ -64,7 +64,7 @@ struct SimPortfolioView: View {
 							.font(StakFont.geist(10 * u))
 							.foregroundStyle(Sim.muted)
 							.padding(.horizontal, 16 * u)
-							.frame(width: 158 * u, height: 32 * u, alignment: .leading)
+							.frame(width: 158 * u * textScale, height: 32 * u * textScale, alignment: .leading)
 							.overlay(RoundedRectangle(cornerRadius: 13 * u).strokeBorder(Sim.cardBg, lineWidth: 1 * u))
 							.frame(maxWidth: .infinity)
 						if !portfolio.demo && portfolio.positions.isEmpty && portfolio.realized.isEmpty {
@@ -96,7 +96,7 @@ struct SimPortfolioView: View {
 								.tracking(0.9 * u)
 								.foregroundStyle(Sim.faint)
 								// 1:4605 gk (exact-design audit 2026-09-04): the kicker sits 4 below the box top (13 in a 17), not centred.
-								.frame(height: 17 * u, alignment: .bottom)
+								.frame(height: 17 * u * textScale, alignment: .bottom)
 								.frame(maxWidth: .infinity, alignment: .leading)
 								.padding(.leading, 2 * u)
 							ForEach(portfolio.realized) { r in
@@ -177,7 +177,7 @@ private struct SellPill: View {
 			Text("Sell")
 				.font(StakFont.sora(12 * u))
 				.foregroundStyle(Sim.muted)
-				.frame(width: 60 * u, height: 30 * u)
+				.frame(width: 60 * u * textScale, height: 30 * u * textScale)
 				.overlay(
 					RoundedRectangle(cornerRadius: 6 * u)
 						.strokeBorder(Color(argb: 0x24FFFFFF), lineWidth: 1 * u)
@@ -414,7 +414,7 @@ struct SellConfirmSheet: View {
 							.font(StakFont.sora(14 * u))
 							.foregroundStyle(Color.white)
 							.frame(maxWidth: .infinity)
-							.frame(height: 51 * u)
+							.frame(height: 51 * u * textScale)
 							.background(Sim.darkCta, in: RoundedRectangle(cornerRadius: 6 * u))
 							.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Sim.ctaBorder, lineWidth: 0.361 * u))
 							.tealShadow(dy: 12.285, blur: 12.285, alpha: 0.04)
@@ -441,7 +441,7 @@ private struct SimSheetSecondary: View {
 				.font(StakFont.sora(14 * u))
 				.foregroundStyle(Sim.muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				.overlay(
 					RoundedRectangle(cornerRadius: 6 * u)
 						.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)
@@ -510,7 +510,7 @@ struct PositionClosedSheet: View {
 							.font(StakFont.geist(14 * u, .medium))
 							.foregroundStyle(Color.white)
 							.frame(maxWidth: .infinity)
-							.frame(height: 52 * u)
+							.frame(height: 52 * u * textScale)
 							.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 							.overlay(
 								RoundedRectangle(cornerRadius: 6 * u)

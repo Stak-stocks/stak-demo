@@ -50,12 +50,12 @@ struct TasteRevealView: View {
 								HStack {
 									Text(bar.label)
 										.font(StakFont.geist(12 * u))
-										.frame(height: 16 * u)
+										.frame(height: 16 * u * textScale)
 										.foregroundStyle(StakColors.textPrimary)
 									Spacer()
 									Text(bar.strength)
 										.font(StakFont.geist(10 * u, .medium))
-										.frame(height: 16 * u)
+										.frame(height: 16 * u * textScale)
 										.foregroundStyle(bar.strengthColor)
 								}
 								GeometryReader { proxy in

@@ -383,7 +383,7 @@ private struct BriefCard: View {
 					.foregroundStyle(News.ink)
 				}
 				.padding(.top, 4 * u)
-				.frame(height: 21 * u)
+				.frame(height: 21 * u * textScale)
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.horizontal, 18 * u)
@@ -547,7 +547,7 @@ private struct LiveNewsSection: View {
 								.font(StakFont.geist(11 * u))
 								.stakLineHeight(14 * u, size: 11 * u, face: .geist)
 								.foregroundStyle(News.muted)
-								.frame(height: 16 * u)
+								.frame(height: 16 * u * textScale)
 							Text(article.headline)
 								.font(StakFont.sora(12 * u, .light))
 								.stakLineHeight(19 * u, size: 12 * u, face: .sora)
@@ -634,7 +634,7 @@ private struct NewsSectionView: View {
 							}
 							// Authored meta row is 16 tall (1:1298, the chip's height) whether or not the chip shows -
 							// exact-design audit 2026-09-04.
-							.frame(height: 16 * u)
+							.frame(height: 16 * u * textScale)
 							// Authored (1:1295): Sora Light 12 in the 19 line box.
 							Text(row.headline)
 								.font(StakFont.sora(12 * u, .light))

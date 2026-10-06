@@ -83,5 +83,7 @@ struct MainTabBar: View {
 		}
 		.frame(maxWidth: .infinity)
 		.frame(height: 86 * u)
+		// Tab labels stay their size at larger text, as iOS's own tab bars do - the five must fit side by side.
+		.dynamicTypeSize(.large)
 	}
 }

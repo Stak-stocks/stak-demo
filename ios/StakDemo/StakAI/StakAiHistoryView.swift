@@ -54,7 +54,7 @@ struct StakAiHistoryView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 56 * u)
+        .frame(height: 56 * u * textScale)
     }
 
     // MARK: – List

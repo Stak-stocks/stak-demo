@@ -36,6 +36,30 @@ enum StakFont {
 	}
 }
 
+/// How far the user's Text Size setting scales text: 1 at the default size (Large), so every authored layout is
+/// exactly as designed, and up to 33/17 at Accessibility 2 - the app's ceiling (StakDemoApp caps Dynamic Type there),
+/// close to Android's 200% font-scale maximum. The bundled fonts (`Font.custom(_:size:)`) already scale with the
+/// setting, relative to Body; this is the same factor for the things around them - line heights, and the fixed boxes
+/// text sits in (buttons, chips, rows, pinned line boxes) - so larger text grows its box instead of being clipped.
+/// Icons, photos and spacing stay put, as in Apple's own apps.
+/// Read hundreds of times per render (every `stakLineHeight` and text box), so it's worked out once per Text Size
+/// setting - `TextScale.refresh()` runs when the setting changes (StakDemoApp's TextSizeRoot) - not on each read.
+var textScale: CGFloat { TextScale.current }
+
+enum TextScale {
+	/// Body text's size at the setting over its size at the default - the factor `Font.custom(_:size:)` applies,
+	/// computed with the same UIFontMetrics, so the boxes grow exactly as the fonts do. Capped at Accessibility 2.
+	private(set) static var current: CGFloat = compute()
+
+	static func refresh() { current = compute() }
+
+	private static func compute() -> CGFloat {
+		let traits = UITraitCollection(preferredContentSizeCategory: UIScreen.main.traitCollection.preferredContentSizeCategory)
+		let body = UIFontMetrics(forTextStyle: .body).scaledValue(for: 17, compatibleWith: traits)
+		return min(body / 17, 33 / 17)
+	}
+}
+
 /// The bundled faces' natural (font-designed) line height as a multiple of the
 /// point size, measured on the shipped static instances (2026-09-04): the
 /// hhea ascender + |descender| + lineGap over unitsPerEm, which is the pitch
@@ -80,7 +104,8 @@ extension View {
 	///   - size: the point size the preceding `.font(...)` set, already scaled (`S * u`).
 	///   - face: the bundled face that `.font(StakFont.<face>(...))` used.
 	func stakLineHeight(_ lineHeight: CGFloat, size: CGFloat, face: StakFace) -> some View {
-		let extra = max(0, lineHeight - size * face.naturalLineHeightFactor)
+		// The text is drawn at `size * textScale` (Dynamic Type), so the authored line height scales with it.
+		let extra = max(0, lineHeight - size * face.naturalLineHeightFactor) * textScale
 		return lineSpacing(extra).padding(.vertical, extra / 2)
 	}
 }

@@ -296,7 +296,7 @@ private struct DetailCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(Color.white)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u))
 		}
@@ -319,7 +319,7 @@ private struct DetailSecondary: View {
 				.font(StakFont.sora(size * u))
 				.foregroundStyle(muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
 		}
 		.buttonStyle(.pressDim)
@@ -361,7 +361,7 @@ private struct RiskFitCard: View {
 					.padding(.vertical, 4 * u)
 					.background(Color(argb: 0x1F5DA8BF), in: Capsule())
 			}
-			.frame(height: 24 * u)
+			.frame(height: 24 * u * textScale)
 			// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
 			ZStack(alignment: .topLeading) {
 				Color.clear.frame(height: 8 * u)
@@ -458,7 +458,7 @@ private struct AnalystCard: View {
 					.frame(width: 20 * u, height: 20 * u)
 					.rotationEffect(.degrees(open ? 180 : 0))
 			}
-			.frame(height: open ? nil : 22 * u)
+			.frame(height: open ? nil : 22 * u * textScale)
 			if !open {
 				Text(f.upside)
 					.font(StakFont.geist(11 * u, .medium))
@@ -525,7 +525,7 @@ private struct AnalystCard: View {
 						Text(target).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
 					}
 					.padding(.horizontal, 12 * u)
-					.frame(height: 38 * u)
+					.frame(height: 38 * u * textScale)
 					// 1:2676..1:2696 author the rows in the card's own #181F30 (flat in
 					// the render, no darker wells) - exact-design audit 2026-09-04.
 					.background(card, in: RoundedRectangle(cornerRadius: 10 * u))
@@ -620,7 +620,7 @@ private struct CompareCard: View {
 					.frame(width: 20 * u, height: 20 * u)
 					.rotationEffect(.degrees(open ? 180 : 0))
 			}
-			.frame(height: open ? nil : 22 * u)
+			.frame(height: open ? nil : 22 * u * textScale)
 			if !open {
 				// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
 				Text(f.peersLabel)
@@ -688,7 +688,7 @@ private struct CompareCard: View {
 				.foregroundStyle(valueColor ?? bright)
 				.frame(maxWidth: .infinity)
 		}
-		.frame(height: 20 * u)
+		.frame(height: 20 * u * textScale)
 	}
 }
 

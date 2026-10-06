@@ -66,7 +66,7 @@ struct ProfileView: View {
 				.padding(.leading, 20 * u)
 			}
 			.frame(maxWidth: .infinity)
-			.frame(height: 56 * u)
+			.frame(height: 56 * u * textScale)
 
 			ScrollView {
 				VStack(spacing: 16 * u) {
@@ -126,7 +126,7 @@ struct ProfileView: View {
 									.foregroundStyle(chipInk)
 									.lineLimit(1)
 									.fixedSize(horizontal: true, vertical: false)
-									.frame(width: chip.width > 0 ? chip.width * u : nil, height: 28 * u)
+									.frame(width: chip.width > 0 ? chip.width * u * textScale : nil, height: 28 * u * textScale)
 									.padding(.horizontal, chip.width > 0 ? 0 : 12 * u)
 									.background(chipBg, in: RoundedRectangle(cornerRadius: 14 * u))
 									.overlay(
@@ -182,7 +182,7 @@ struct ProfileView: View {
 								}
 								.padding(.horizontal, 14 * u)
 								.frame(maxWidth: .infinity)
-								.frame(height: 48 * u)
+								.frame(height: 48 * u * textScale)
 								.contentShape(Rectangle())
 							}
 							.buttonStyle(.pressDim)
@@ -201,7 +201,7 @@ struct ProfileView: View {
 							.font(StakFont.sora(14 * u))
 							.foregroundStyle(StakColors.muted)
 							.frame(maxWidth: .infinity)
-							.frame(height: 52 * u)
+							.frame(height: 52 * u * textScale)
 							.overlay(
 								RoundedRectangle(cornerRadius: 6 * u)
 									.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)

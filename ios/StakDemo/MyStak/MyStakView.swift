@@ -127,7 +127,7 @@ struct MyStakView: View {
 					.resizable()
 					.frame(width: 14 * u, height: 14 * u)
 			}
-			.frame(width: 150 * u, height: 52 * u)
+			.frame(width: 150 * u * textScale, height: 52 * u * textScale)
 			.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			.overlay(
 				RoundedRectangle(cornerRadius: 6 * u)

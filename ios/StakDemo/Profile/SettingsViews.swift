@@ -72,7 +72,7 @@ struct SettingsLinkRow: View {
 			}
 			.padding(.horizontal, 14 * u)
 			.frame(maxWidth: .infinity)
-			.frame(height: 48 * u)
+			.frame(height: 48 * u * textScale)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressDim)
@@ -211,7 +211,7 @@ private struct AppearanceView: View {
 						}
 						.padding(.horizontal, 14 * u)
 						.frame(maxWidth: .infinity)
-						.frame(height: 48 * u)
+						.frame(height: 48 * u * textScale)
 						.contentShape(Rectangle())
 					}
 					.buttonStyle(.pressDim)
@@ -266,7 +266,7 @@ private struct LinkedRow: View {
 			.buttonStyle(.pressDim)
 		}
 		.padding(.horizontal, 14 * u)
-		.frame(height: 48 * u)
+		.frame(height: 48 * u * textScale)
 	}
 }
 
@@ -319,7 +319,7 @@ private struct FaqRow: View {
 				}
 				.padding(.horizontal, 14 * u)
 				.frame(maxWidth: .infinity)
-				.frame(height: 48 * u)
+				.frame(height: 48 * u * textScale)
 				.contentShape(Rectangle())
 			}
 			.buttonStyle(.pressDim)
@@ -477,7 +477,7 @@ private struct AppSettingsView: View {
 								.font(StakFont.geist(13 * u, .medium))
 								.foregroundStyle(Auth.errorRed)
 								.frame(maxWidth: .infinity)
-								.frame(height: 44 * u)
+								.frame(height: 44 * u * textScale)
 								.background(Color(argb: 0x33E5484D), in: RoundedRectangle(cornerRadius: 6 * u))
 						}
 						.buttonStyle(.pressDim)

@@ -67,7 +67,7 @@ struct StakAiChatView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 56 * u)
+        .frame(height: 56 * u * textScale)
     }
 
     // MARK: – Context chip

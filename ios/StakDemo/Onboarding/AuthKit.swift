@@ -260,7 +260,7 @@ struct AuthCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(StakColors.textPrimary)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				.background(
 					LinearGradient(
 						stops: [
@@ -314,7 +314,7 @@ struct AuthSecondaryButton: View {
 				.font(StakFont.sora(14 * u))
 				.foregroundStyle(StakColors.muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				.overlay(
 					RoundedRectangle(cornerRadius: 6 * u)
 						.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)

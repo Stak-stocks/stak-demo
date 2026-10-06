@@ -132,7 +132,7 @@ private struct MatrixCard: View {
 			}
 			.padding(.horizontal, 14.74 * u)
 			.padding(.vertical, 15.27 * u)
-			.frame(width: 163.18 * u, height: 155.81 * u, alignment: .topLeading)
+			.frame(width: 163.18 * u, height: 155.81 * u * textScale, alignment: .topLeading)
 			.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 16.85 * u))
 			.overlay {
 				if selected {

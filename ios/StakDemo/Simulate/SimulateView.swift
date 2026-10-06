@@ -71,11 +71,11 @@ struct SimulateView: View {
 									Text("Simulate")
 										.font(StakFont.sora(26 * u, .semiBold))
 										.foregroundStyle(Color.white)
-										.frame(height: 33 * u) // 1:3916 line box (exact-design audit 2026-09-04)
+										.frame(height: 33 * u * textScale) // 1:3916 line box (exact-design audit 2026-09-04)
 									Text("Pick from your saves. Paper money does the talking.")
 										.font(StakFont.geist(12 * u))
 										.foregroundStyle(Sim.muted)
-										.frame(height: 16 * u) // 1:3917 line box
+										.frame(height: 16 * u * textScale) // 1:3917 line box
 								}
 								Spacer()
 								// Codex audit (2026-09-04): the clock (1:3918 "btn") opens the
@@ -165,7 +165,7 @@ struct SimulateView: View {
 								}
 								.buttonStyle(.pressDim)
 							}
-							.frame(height: 21 * u) // 1:4041 header row (Sora 16 on a 1.34 line)
+							.frame(height: 21 * u * textScale) // 1:4041 header row (Sora 16 on a 1.34 line)
 							SimAllocationCard()
 						} }
 						BoardCard(onOpenLeaderboard: onOpenLeaderboard)
@@ -279,7 +279,7 @@ private struct ScoreHero: View {
 						.font(StakFont.sora(44 * u, .semiBold))
 						// 1:3924 (exact-design audit 2026-09-04): no tracking - the -0.44 was never authored.
 						// Authored box (1:3924) is 55 tall — pin it so the stack sums.
-						.frame(height: 55 * u)
+						.frame(height: 55 * u * textScale)
 						.foregroundStyle(Color.white)
 					Text(figure.cents)
 						.font(StakFont.sora(18 * u, .semiBold))
@@ -336,7 +336,7 @@ private struct ScoreHero: View {
 							Text(label)
 								.font(StakFont.geist(12 * u, .medium))
 								.foregroundStyle(Sim.teal)
-								.frame(width: 39 * u, height: 22.5 * u)
+								.frame(width: 39 * u * textScale, height: 22.5 * u * textScale)
 								.background(Color(argb: 0x292C9DBC), in: RoundedRectangle(cornerRadius: 11.25 * u))
 								.overlay(
 									RoundedRectangle(cornerRadius: 11.25 * u)
@@ -407,7 +407,7 @@ struct BuyPill: View {
 			Text(text)
 				.font(StakFont.sora(12 * u))
 				.foregroundStyle(Color.white)
-				.frame(width: 60 * u, height: 30 * u)
+				.frame(width: 60 * u * textScale, height: 30 * u * textScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Sim.ctaBorder, lineWidth: 0.36 * u))
 				// 1:3954 (exact-design audit 2026-09-04): the authored drop shadow - #52AAC7 at 4%, dy 12.285, blur 12.285.
@@ -438,7 +438,7 @@ struct CenterLink: View {
 					.font(StakFont.geist(14 * u, .medium))
 					.foregroundStyle(Sim.teal)
 			}
-			.frame(height: 18 * u)
+			.frame(height: 18 * u * textScale)
 			.frame(maxWidth: centered ? CGFloat.infinity : nil)
 		}
 		.buttonStyle(.pressDim)

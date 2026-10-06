@@ -215,7 +215,7 @@ struct CollectionView: View {
 						}
 					}
 				}
-				.frame(height: 139 * u)
+				.frame(height: 139 * u * textScale)
 			}
 		}
 		.frame(maxWidth: .infinity)

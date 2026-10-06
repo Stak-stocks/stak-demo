@@ -13,7 +13,7 @@ struct PortfolioKicker: View {
 			.font(StakFont.geist(10 * u, .medium))
 			.tracking(0.9 * u)
 			.foregroundStyle(Sim.faint)
-			.frame(height: 17 * u, alignment: .bottom)
+			.frame(height: 17 * u * textScale, alignment: .bottom)
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.leading, 2 * u)
 	}
@@ -49,7 +49,7 @@ struct OpenOrdersSection: View {
 						Text("Cancel")
 							.font(StakFont.sora(12 * u))
 							.foregroundStyle(Sim.muted)
-							.frame(width: 64 * u, height: 30 * u)
+							.frame(width: 64 * u * textScale, height: 30 * u * textScale)
 							.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x24FFFFFF), lineWidth: 1 * u))
 					}
 					.buttonStyle(.pressDim)

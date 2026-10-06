@@ -305,12 +305,14 @@ struct DiscoverView: View {
 						Spacer(minLength: 0)
 						ZStack {
 							ProgressRing(progress: CGFloat(count) / CGFloat(max(limit, 1)))
+							// One line centred in the ring: no line height to set (and the count keeps its size, below).
 							Text("\(count)/\(limit)")
 								.font(StakFont.sora(11 * u))
-								.stakLineHeight(14 * u, size: 11 * u, face: .sora)
 								.foregroundStyle(Color.white)
 						}
 						.frame(width: 44 * u, height: 44 * u)
+						// The count sits inside a 44 ring: it keeps its size (VoiceOver reads it in full).
+						.dynamicTypeSize(.large)
 						.accessibilityElement(children: .ignore)
 						.accessibilityLabel(ended ? "\(count) of \(limit) cards seen today" : "Card \(count) of \(limit) today")
 					}
@@ -999,7 +1001,7 @@ private struct EndOfDeck: View {
 					.font(StakFont.sora(13 * u))
 					.foregroundStyle(Disc.muted)
 					.frame(maxWidth: .infinity)
-					.frame(height: 52 * u)
+					.frame(height: 52 * u * textScale)
 					.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
 					.contentShape(Rectangle())
 			}
@@ -1110,7 +1112,7 @@ struct SheetCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(Color.white)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				// Authored drop shadow (85:1394 Inspect): dy 12.28, blur 12.28,
 				// #52AAC7 at 9% — the same glow the deck's Practice buy carries.
 				.background {
@@ -1138,7 +1140,7 @@ struct SheetSecondary: View {
 				.font(StakFont.sora(14 * u))
 				.foregroundStyle(Disc.muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u)
+				.frame(height: 52 * u * textScale)
 				// 1:2197 authors NO fill - the render's lighter band under Confirm is
 				// the CTA's own glow (exact-design audit 2026-09-04); hairline only.
 				.contentShape(Rectangle())
@@ -1524,7 +1526,7 @@ private struct DeckLoadError: View {
 				Text("Retry")
 					.font(StakFont.geist(14 * u, .medium))
 					.foregroundStyle(Color.white)
-					.frame(width: 140 * u, height: 44 * u)
+					.frame(width: 140 * u * textScale, height: 44 * u * textScale)
 					.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			}
 			.buttonStyle(.pressDim)

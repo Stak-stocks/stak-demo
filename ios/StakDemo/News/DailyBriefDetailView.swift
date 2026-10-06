@@ -187,7 +187,7 @@ private struct WhatHappenedCard: View {
 						Text("\(i + 1)")
 							.font(StakFont.geist(12 * u, .bold))
 							.foregroundStyle(News.teal)
-							.frame(width: 26 * u, height: 26 * u)
+							.frame(width: 26 * u * textScale, height: 26 * u * textScale)
 							.background(News.teal.opacity(0.15), in: Circle())
 							.accessibilityHidden(true)
 						VStack(alignment: .leading, spacing: 3 * u) {
