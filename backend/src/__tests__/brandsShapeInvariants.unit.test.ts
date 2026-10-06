@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { brands } from "@stak/shared/brands";
 
 // Snapshot of every distinct interestCategories value in use today (43/333 brands
-// populate this optional, organically-grown field -- see shared/src/stockTags.ts's
+// set this optional, organically-grown field by hand; the rest are derived from
+// primaryCategory by shared/src/brands/interestFallback.ts -- see shared/src/stockTags.ts's
 // header comment on the four inconsistent taxonomies in this codebase). Not a
 // canonical taxonomy, just a known-values list: this test exists to catch a
 // genuinely NEW, unreviewed value sneaking in (most likely from the brand-generation
@@ -12,6 +13,8 @@ const KNOWN_INTEREST_CATEGORIES = new Set([
 	"automotive", "education", "entertainment", "fashion", "fitness", "food",
 	"food_drink", "gaming", "investing", "lifestyle", "media", "music", "pets",
 	"science", "shopping", "social", "sustainability", "tech", "travel",
+	// Added with the primaryCategory fallback: the brand generator's own values, and the sectors none of the above cover.
+	"beauty", "energy", "finance", "health", "industrials", "real_estate", "streaming",
 ]);
 
 describe("brands catalog shape invariants", () => {
@@ -46,6 +49,11 @@ describe("brands catalog shape invariants", () => {
 				if (!KNOWN_INTEREST_CATEGORIES.has(c)) offenders.push({ ticker: b.ticker, category: c });
 			}
 		}
+		expect(offenders).toEqual([]);
+	});
+
+	it("every brand has interestCategories", () => {
+		const offenders = brands.filter((b) => !b.interestCategories?.length).map((b) => b.ticker);
 		expect(offenders).toEqual([]);
 	});
 
