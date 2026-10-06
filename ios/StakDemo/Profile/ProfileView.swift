@@ -66,7 +66,7 @@ struct ProfileView: View {
 				.padding(.leading, 20 * u)
 			}
 			.frame(maxWidth: .infinity)
-			.frame(height: 56 * u * textScale)
+			.frame(height: 56 * u * typeScale)
 
 			ScrollView {
 				VStack(spacing: 16 * u) {
@@ -126,7 +126,7 @@ struct ProfileView: View {
 									.foregroundStyle(chipInk)
 									.lineLimit(1)
 									.fixedSize(horizontal: true, vertical: false)
-									.frame(width: chip.width > 0 ? chip.width * u * textScale : nil, height: 28 * u * textScale)
+									.frame(width: chip.width > 0 ? chip.width * u * typeScale : nil, height: 28 * u * typeScale)
 									.padding(.horizontal, chip.width > 0 ? 0 : 12 * u)
 									.background(chipBg, in: RoundedRectangle(cornerRadius: 14 * u))
 									.overlay(
@@ -156,7 +156,7 @@ struct ProfileView: View {
 						}
 						.frame(maxWidth: .infinity)
 						// Stat columns sit at the top of the 40u row (171:1013 items-start), not centred - exact-design audit 2026-09-04.
-						.frame(height: 40 * u * textScale, alignment: .top)
+						.frame(height: 40 * u * typeScale, alignment: .top)
 						Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
 							.font(StakFont.geist(12 * u, .medium))
 							.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))
@@ -182,7 +182,7 @@ struct ProfileView: View {
 								}
 								.padding(.horizontal, 14 * u)
 								.frame(maxWidth: .infinity)
-								.frame(height: 48 * u * textScale)
+								.frame(height: 48 * u * typeScale)
 								.contentShape(Rectangle())
 							}
 							.buttonStyle(.pressDim)
@@ -201,7 +201,7 @@ struct ProfileView: View {
 							.font(StakFont.sora(14 * u))
 							.foregroundStyle(StakColors.muted)
 							.frame(maxWidth: .infinity)
-							.frame(height: 52 * u * textScale)
+							.frame(height: 52 * u * typeScale)
 							.overlay(
 								RoundedRectangle(cornerRadius: 6 * u)
 									.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)

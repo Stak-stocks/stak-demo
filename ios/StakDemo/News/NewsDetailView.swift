@@ -519,7 +519,7 @@ private struct AddToStakButton: View {
 					.resizable()
 					.frame(width: 14 * u, height: 14 * u)
 			}
-			.frame(width: 150 * u * textScale, height: 52 * u * textScale)
+			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
 			.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			.overlay(
 				RoundedRectangle(cornerRadius: 6 * u)
@@ -874,7 +874,7 @@ private struct ReadNext: View {
 					}
 					.padding(12 * u)
 					// Authored Read-next cards are 84 tall (1:1495) - pinned (mirrors Android, 2026-09-05).
-					.frame(height: 84 * u * textScale)
+					.frame(height: 84 * u * typeScale)
 					.background(News.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
 				}
 				.buttonStyle(.pressDim)
@@ -949,7 +949,7 @@ private struct SaveSuccessOverlay: View {
 							.font(StakFont.geist(14 * u, .medium))
 							.foregroundStyle(StakColors.textPrimary)
 							.frame(maxWidth: .infinity)
-							.frame(height: 52 * u * textScale)
+							.frame(height: 52 * u * typeScale)
 							.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 							.overlay(
 								RoundedRectangle(cornerRadius: 6 * u)
@@ -962,7 +962,7 @@ private struct SaveSuccessOverlay: View {
 							.font(StakFont.sora(14 * u))
 							.foregroundStyle(News.muted)
 							.frame(maxWidth: .infinity)
-							.frame(height: 52 * u * textScale)
+							.frame(height: 52 * u * typeScale)
 							.overlay(
 								RoundedRectangle(cornerRadius: 6 * u)
 									.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)

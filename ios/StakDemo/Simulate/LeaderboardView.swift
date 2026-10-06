@@ -79,7 +79,7 @@ struct LeaderboardView: View {
 						Text(portfolio.rank.map(String.init) ?? "—")
 							.font(StakFont.sora(16 * u, .semiBold))
 							.foregroundStyle(Sim.teal)
-							.frame(width: 28 * u * textScale, alignment: .leading)
+							.frame(width: 28 * u * typeScale, alignment: .leading)
 						ZStack {
 							Circle().fill(Sim.chipBg)
 							// The authored "E" is the demo persona's; a new account shows its own initial (product audit, 2026-09-05).
@@ -112,7 +112,7 @@ struct LeaderboardView: View {
 					.padding(.vertical, 14 * u)
 					// Authored You card is 64 tall (1:4124) - pinned so the list lands on the
 					// frame's row grid (mirrors the Android leaderboard fix, 2026-09-05).
-					.frame(height: 64 * u * textScale)
+					.frame(height: 64 * u * typeScale)
 					// 1:4155 (exact-design audit 2026-09-04): the You card is r14.
 					.background(Sim.tealTint, in: RoundedRectangle(cornerRadius: 14 * u))
 
@@ -169,7 +169,7 @@ private struct LeaderRow: View {
 			Text(r.rank)
 				.font(StakFont.sora(12 * u, .semiBold))
 				.foregroundStyle(Sim.faint)
-				.frame(width: 24 * u * textScale, alignment: .leading)
+				.frame(width: 24 * u * typeScale, alignment: .leading)
 			ZStack {
 				Circle().fill(Sim.chipBg)
 				Text(r.initial)
@@ -194,7 +194,7 @@ private struct LeaderRow: View {
 		.padding(.vertical, 11 * u)
 		// Authored rows are 54 tall with a 16 gap (1:4124) - pinned so nine rows land
 		// on the frame's grid (mirrors the Android leaderboard fix, 2026-09-05).
-		.frame(height: 54 * u * textScale)
+		.frame(height: 54 * u * typeScale)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
 	}
 }

@@ -370,7 +370,7 @@ private struct LiveAddToStakButton: View {
 					.resizable()
 					.frame(width: 14 * u, height: 14 * u)
 			}
-			.frame(width: 150 * u * textScale, height: 52 * u * textScale)
+			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
 			.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u))
 		}

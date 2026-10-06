@@ -145,14 +145,14 @@ struct PickDetailView: View {
 									.padding(.leading, 7 * u)
 									.padding(.bottom, 6 * u)
 							}
-							.frame(height: 48 * u * textScale, alignment: .bottom)
+							.frame(height: 48 * u * typeScale, alignment: .bottom)
 							.padding(.top, 11 * u)
 							// Review (2026-09-04): the pick's own cost basis ("$100" authored).
 							Text("That is \(pick.up ? "up" : "down") \(pick.gainPct) on a \(pick.stakeBasis) paper stake")
 								// 1:4662 (exact-design audit 2026-09-04): Geist Light, like the hero's all-time line.
 								.font(StakFont.geist(12 * u, .light))
 								.foregroundStyle(Sim.muted)
-								.frame(height: 16 * u * textScale) // Authored line box is 16 — pin it so the card sums to 271
+								.frame(height: 16 * u * typeScale) // Authored line box is 16 — pin it so the card sums to 271
 								.padding(.top, 11 * u)
 							// Compose `requiredSize`: the line measures as the 314-wide content
 							// row but draws its full 343x73.5, bleeding 14.5 past each side.
@@ -169,7 +169,7 @@ struct PickDetailView: View {
 						}
 						.padding(18 * u)
 						.frame(maxWidth: .infinity, alignment: .leading)
-						.frame(height: 307 * u * textScale, alignment: .top)
+						.frame(height: 307 * u * typeScale, alignment: .top)
 						// 1:4654 (exact-design audit 2026-09-04): the hero is r16 - the r24 was never authored.
 						.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 						.clipShape(RoundedRectangle(cornerRadius: 16 * u))
@@ -220,7 +220,7 @@ struct PickDetailView: View {
 									.font(StakFont.sora(14 * u))
 									.foregroundStyle(Color.white)
 									.frame(maxWidth: .infinity)
-									.frame(height: 51 * u * textScale)
+									.frame(height: 51 * u * typeScale)
 									.background(Sim.darkCta, in: RoundedRectangle(cornerRadius: 6 * u))
 									// 1:4694 (exact-design audit 2026-09-04): the 0.361 CTA hairline and the 4% teal wash under #12203e.
 									.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Sim.ctaBorder, lineWidth: 0.361 * u))
@@ -233,7 +233,7 @@ struct PickDetailView: View {
 								.font(StakFont.sora(14 * u))
 								.foregroundStyle(Sim.muted)
 								.frame(maxWidth: .infinity)
-								.frame(height: 52 * u * textScale)
+								.frame(height: 52 * u * typeScale)
 								.overlay(
 									RoundedRectangle(cornerRadius: 6 * u)
 										.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)
@@ -275,16 +275,16 @@ private struct StatBox: View {
 			Text(label)
 				.font(StakFont.geist(10 * u))
 				.foregroundStyle(Sim.muted)
-				.frame(height: 13 * u * textScale) // Authored 10/13 line box — pin so the cell sums to 35
+				.frame(height: 13 * u * typeScale) // Authored 10/13 line box — pin so the cell sums to 35
 			Text(value)
 				.font(StakFont.geist(14 * u))
 				.foregroundStyle(valueColor)
-				.frame(height: 18 * u * textScale) // Authored 14/18 line box
+				.frame(height: 18 * u * typeScale) // Authored 14/18 line box
 		}
 		.padding(.horizontal, 14 * u)
 		.padding(.vertical, 13 * u)
 		.frame(maxWidth: .infinity, alignment: .leading)
-		.frame(height: 61 * u * textScale, alignment: .top)
+		.frame(height: 61 * u * typeScale, alignment: .top)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
 	}
 }

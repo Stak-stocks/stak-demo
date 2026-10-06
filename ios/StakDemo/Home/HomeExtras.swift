@@ -57,7 +57,7 @@ struct TrendingStrip: View {
 												.font(StakFont.sora(11 * u, .semiBold))
 												.foregroundStyle(badgeInk)
 										}
-										.frame(width: 24 * u * textScale, height: 24 * u * textScale)
+										.frame(width: 24 * u * typeScale, height: 24 * u * typeScale)
 										Text(s.ticker)
 											.font(StakFont.geist(13 * u, .medium))
 											.foregroundStyle(Color.white)
@@ -130,7 +130,7 @@ struct SavedPeekCard: View {
 									.font(StakFont.sora(12 * u, .semiBold))
 									.foregroundStyle(badgeInk)
 							}
-							.frame(width: 28 * u * textScale, height: 28 * u * textScale)
+							.frame(width: 28 * u * typeScale, height: 28 * u * typeScale)
 							VStack(alignment: .leading, spacing: 0) {
 								Text(ticker)
 									.font(StakFont.geist(13 * u, .medium))

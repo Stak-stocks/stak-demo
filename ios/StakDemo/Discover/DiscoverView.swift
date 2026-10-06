@@ -727,7 +727,7 @@ private struct DeckCardBody: View {
 					Image(uiImage: image)
 						.resizable()
 						.scaledToFill()
-						.frame(width: 340 * u, height: 229 * u / textScale)
+						.frame(width: 340 * u, height: 229 * u / typeScale)
 				} else {
 					// No pre-generated card (a brand added since the art last ran): the same basket template, with the
 					// logo lifted off its tile and set into the glass at runtime.
@@ -735,12 +735,12 @@ private struct DeckCardBody: View {
 						Image(uiImage: template)
 							.resizable()
 							.scaledToFill()
-							.frame(width: 340 * u, height: 229 * u / textScale)
+							.frame(width: 340 * u, height: 229 * u / typeScale)
 					}
 					if let url = card.logoUrl { GlassLogo(url: url, u: u) }
 				}
 			}
-			.frame(width: 340 * u, height: 229 * u / textScale)
+			.frame(width: 340 * u, height: 229 * u / typeScale)
 			.background(card.artBg)
 			.clipShape(RoundedRectangle(cornerRadius: 18 * u))
 			VStack(alignment: .leading, spacing: 19 * u) {
@@ -754,7 +754,7 @@ private struct DeckCardBody: View {
 						.stakLineHeight(23 * u, size: 16 * u, face: .geist)
 						.foregroundStyle(Color.white)
 						// Larger text: at most 3 lines, so the card stays above Pass/STAK (the art gives way too).
-						.lineLimit(textScale > 1 ? 3 : nil)
+						.lineLimit(typeScale > 1 ? 3 : nil)
 						.fixedSize(horizontal: false, vertical: true)
 					HStack(alignment: .bottom, spacing: 9 * u) {
 						Text(card.price)
@@ -780,7 +780,7 @@ private struct DeckCardBody: View {
 							.font(StakFont.geist(11 * u))
 							.stakLineHeight(15 * u, size: 11 * u, face: .geist)
 							.foregroundStyle(Disc.body)
-							.lineLimit(textScale > 1 ? 3 : nil)
+							.lineLimit(typeScale > 1 ? 3 : nil)
 							.frame(maxWidth: .infinity, alignment: .leading)
 					}
 					.padding(.horizontal, 12 * u)
@@ -1005,7 +1005,7 @@ private struct EndOfDeck: View {
 					.font(StakFont.sora(13 * u))
 					.foregroundStyle(Disc.muted)
 					.frame(maxWidth: .infinity)
-					.frame(height: 52 * u * textScale)
+					.frame(height: 52 * u * typeScale)
 					.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
 					.contentShape(Rectangle())
 			}
@@ -1116,7 +1116,7 @@ struct SheetCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(Color.white)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				// Authored drop shadow (85:1394 Inspect): dy 12.28, blur 12.28,
 				// #52AAC7 at 9% — the same glow the deck's Practice buy carries.
 				.background {
@@ -1144,7 +1144,7 @@ struct SheetSecondary: View {
 				.font(StakFont.sora(14 * u))
 				.foregroundStyle(Disc.muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				// 1:2197 authors NO fill - the render's lighter band under Confirm is
 				// the CTA's own glow (exact-design audit 2026-09-04); hairline only.
 				.contentShape(Rectangle())
@@ -1530,7 +1530,7 @@ private struct DeckLoadError: View {
 				Text("Retry")
 					.font(StakFont.geist(14 * u, .medium))
 					.foregroundStyle(Color.white)
-					.frame(width: 140 * u * textScale, height: 44 * u * textScale)
+					.frame(width: 140 * u * typeScale, height: 44 * u * typeScale)
 					.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			}
 			.buttonStyle(.pressDim)

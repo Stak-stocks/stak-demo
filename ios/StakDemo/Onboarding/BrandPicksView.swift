@@ -133,7 +133,7 @@ private struct BrandTile: View {
 					.foregroundStyle(selected ? StakColors.textPrimary : StakColors.muted)
 					// lh14 — a fixed 14u line box so the tile lands at the
 					// authored 79u height (13 + 34 + 7 + 14 + 11).
-					.frame(height: 14 * u * textScale)
+					.frame(height: 14 * u * typeScale)
 			}
 			.frame(maxWidth: .infinity)
 			.padding(.top, 13 * u)

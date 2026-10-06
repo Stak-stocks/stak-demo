@@ -296,7 +296,7 @@ private struct DetailCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(Color.white)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u))
 		}
@@ -319,7 +319,7 @@ private struct DetailSecondary: View {
 				.font(StakFont.sora(size * u))
 				.foregroundStyle(muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u))
 		}
 		.buttonStyle(.pressDim)
@@ -361,7 +361,7 @@ private struct RiskFitCard: View {
 					.padding(.vertical, 4 * u)
 					.background(Color(argb: 0x1F5DA8BF), in: Capsule())
 			}
-			.frame(height: 24 * u * textScale)
+			.frame(height: 24 * u * typeScale)
 			// Authored (1:2382): a lone 14x8 pill indicator - the frame draws no track.
 			ZStack(alignment: .topLeading) {
 				Color.clear.frame(height: 8 * u)
@@ -458,7 +458,7 @@ private struct AnalystCard: View {
 					.frame(width: 20 * u, height: 20 * u)
 					.rotationEffect(.degrees(open ? 180 : 0))
 			}
-			.frame(height: open ? nil : 22 * u * textScale)
+			.frame(height: open ? nil : 22 * u * typeScale)
 			if !open {
 				Text(f.upside)
 					.font(StakFont.geist(11 * u, .medium))
@@ -525,7 +525,7 @@ private struct AnalystCard: View {
 						Text(target).font(StakFont.geist(12 * u, .medium)).foregroundStyle(bright)
 					}
 					.padding(.horizontal, 12 * u)
-					.frame(height: 38 * u * textScale)
+					.frame(height: 38 * u * typeScale)
 					// 1:2676..1:2696 author the rows in the card's own #181F30 (flat in
 					// the render, no darker wells) - exact-design audit 2026-09-04.
 					.background(card, in: RoundedRectangle(cornerRadius: 10 * u))
@@ -620,7 +620,7 @@ private struct CompareCard: View {
 					.frame(width: 20 * u, height: 20 * u)
 					.rotationEffect(.degrees(open ? 180 : 0))
 			}
-			.frame(height: open ? nil : 22 * u * textScale)
+			.frame(height: open ? nil : 22 * u * typeScale)
 			if !open {
 				// 1:2531 authors Geist Regular - exact-design audit 2026-09-04 (was Medium).
 				Text(f.peersLabel)
@@ -644,13 +644,13 @@ private struct CompareCard: View {
 							// above the table top - exact-design audit 2026-09-04.
 							RoundedRectangle(cornerRadius: 8 * u)
 								.fill(Color(argb: 0x125DA8BF))
-								.frame(width: 81 * u, height: 170 * u * textScale)
+								.frame(width: 81 * u, height: 170 * u * typeScale)
 								.offset(x: 78 * u, y: -12 * u)
 							// 1:2722: a 0.5-wide #272F40 hairline between the MSFT and GOOGL
 							// columns, card x257 y49.94, 134.5 tall - exact-design audit 2026-09-04.
 							Rectangle()
 								.fill(Color(argb: 0xFF272F40))
-								.frame(width: 0.5 * u, height: 134.5 * u * textScale)
+								.frame(width: 0.5 * u, height: 134.5 * u * typeScale)
 								.offset(x: 241 * u, y: -6 * u)
 						}
 						.frame(width: 0, height: 0, alignment: .topLeading)
@@ -688,7 +688,7 @@ private struct CompareCard: View {
 				.foregroundStyle(valueColor ?? bright)
 				.frame(maxWidth: .infinity)
 		}
-		.frame(minHeight: 20 * u * textScale)
+		.frame(minHeight: 20 * u * typeScale)
 	}
 }
 

@@ -26,7 +26,7 @@ enum StakFont {
 
 	/// Which text style's curve a size grows on with the Text Size setting. Body for reading sizes; headings and big
 	/// figures on Apple's heading curves, which grow far less at the largest settings (a 38 hero figure would
-	/// otherwise reach ~74pt) - as Android 14 scales large text less than small. `textScale` (the boxes) follows Body,
+	/// otherwise reach ~74pt) - as Android 14 scales large text less than small. `typeScale` (the boxes) follows Body,
 	/// the largest growth, so a heading's box is never too small for it.
 	private static func scaleStyle(_ size: CGFloat) -> Font.TextStyle {
 		let designSize = size / figmaUnit
@@ -56,7 +56,8 @@ enum StakFont {
 /// Read hundreds of times per render (every `stakLineHeight` and text box), so it's worked out once per Text Size
 /// setting, not on each read. It's Observable: a view that read it is redrawn when the setting changes - in place,
 /// keeping its state (an earlier rebuild of the whole app replayed the splash and lost a sign-up in progress).
-var textScale: CGFloat { TextScale.shared.current }
+/// Not `textScale`: inside a view that name resolves to SwiftUI's own `textScale(_:isEnabled:)` modifier (iOS 17).
+var typeScale: CGFloat { TextScale.shared.current }
 
 @Observable
 final class TextScale {
@@ -137,8 +138,8 @@ extension View {
 	///   - size: the point size the preceding `.font(...)` set, already scaled (`S * u`).
 	///   - face: the bundled face that `.font(StakFont.<face>(...))` used.
 	func stakLineHeight(_ lineHeight: CGFloat, size: CGFloat, face: StakFace) -> some View {
-		// The text is drawn at `size * textScale` (Dynamic Type), so the authored line height scales with it.
-		let extra = max(0, lineHeight - size * face.naturalLineHeightFactor) * textScale
+		// The text is drawn at `size * typeScale` (Dynamic Type), so the authored line height scales with it.
+		let extra = max(0, lineHeight - size * face.naturalLineHeightFactor) * typeScale
 		return lineSpacing(extra).padding(.vertical, extra / 2)
 	}
 }

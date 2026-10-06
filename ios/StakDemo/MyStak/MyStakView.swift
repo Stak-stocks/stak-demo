@@ -127,7 +127,7 @@ struct MyStakView: View {
 					.resizable()
 					.frame(width: 14 * u, height: 14 * u)
 			}
-			.frame(width: 150 * u * textScale, height: 52 * u * textScale)
+			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
 			.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			.overlay(
 				RoundedRectangle(cornerRadius: 6 * u)
@@ -344,7 +344,7 @@ private struct CollectionChip: View {
 						.foregroundStyle(StakColors.textPrimary)
 						.lineLimit(1)
 						// Enlarged, it truncates instead of drawing over the next tile.
-						.fixedSize(horizontal: textScale <= 1, vertical: false)
+						.fixedSize(horizontal: typeScale <= 1, vertical: false)
 					Text(countLabel)
 						.font(StakFont.geist(11 * u))
 						.foregroundStyle(muted)

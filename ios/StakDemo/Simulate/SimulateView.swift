@@ -71,11 +71,11 @@ struct SimulateView: View {
 									Text("Simulate")
 										.font(StakFont.sora(26 * u, .semiBold))
 										.foregroundStyle(Color.white)
-										.frame(height: 33 * u * textScale) // 1:3916 line box (exact-design audit 2026-09-04)
+										.frame(height: 33 * u * typeScale) // 1:3916 line box (exact-design audit 2026-09-04)
 									Text("Pick from your saves. Paper money does the talking.")
 										.font(StakFont.geist(12 * u))
 										.foregroundStyle(Sim.muted)
-										.frame(height: 16 * u * textScale) // 1:3917 line box
+										.frame(height: 16 * u * typeScale) // 1:3917 line box
 								}
 								Spacer()
 								// Codex audit (2026-09-04): the clock (1:3918 "btn") opens the
@@ -165,7 +165,7 @@ struct SimulateView: View {
 								}
 								.buttonStyle(.pressDim)
 							}
-							.frame(height: 21 * u * textScale) // 1:4041 header row (Sora 16 on a 1.34 line)
+							.frame(height: 21 * u * typeScale) // 1:4041 header row (Sora 16 on a 1.34 line)
 							SimAllocationCard()
 						} }
 						BoardCard(onOpenLeaderboard: onOpenLeaderboard)
@@ -279,7 +279,7 @@ private struct ScoreHero: View {
 						.font(StakFont.sora(44 * u, .semiBold))
 						// 1:3924 (exact-design audit 2026-09-04): no tracking - the -0.44 was never authored.
 						// Authored box (1:3924) is 55 tall — pin it so the stack sums.
-						.frame(height: 55 * u * textScale)
+						.frame(height: 55 * u * typeScale)
 						.foregroundStyle(Color.white)
 					Text(figure.cents)
 						.font(StakFont.sora(18 * u, .semiBold))
@@ -411,7 +411,7 @@ struct BuyPill: View {
 				.foregroundStyle(Color.white)
 				.lineLimit(1)
 				.minimumScaleFactor(0.7)
-				.frame(width: 60 * u, height: 30 * u * textScale)
+				.frame(width: 60 * u, height: 30 * u * typeScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 				.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Sim.ctaBorder, lineWidth: 0.36 * u))
 				// 1:3954 (exact-design audit 2026-09-04): the authored drop shadow - #52AAC7 at 4%, dy 12.285, blur 12.285.
@@ -442,7 +442,7 @@ struct CenterLink: View {
 					.font(StakFont.geist(14 * u, .medium))
 					.foregroundStyle(Sim.teal)
 			}
-			.frame(height: 18 * u * textScale)
+			.frame(height: 18 * u * typeScale)
 			.frame(maxWidth: centered ? CGFloat.infinity : nil)
 		}
 		.buttonStyle(.pressDim)
@@ -764,7 +764,7 @@ private struct BoardCard: View {
 				.font(StakFont.sora(12 * u, .semiBold))
 				.foregroundStyle(you ? Sim.teal : Sim.faint)
 				// 1:4101 (exact-design audit 2026-09-04): the rank sits in a 22-wide box so the names line up.
-				.frame(width: 22 * u * textScale, alignment: .leading)
+				.frame(width: 22 * u * typeScale, alignment: .leading)
 			Text(name)
 				.font(StakFont.geist(13 * u, you ? .semiBold : .medium))
 				.foregroundStyle(Color.white)

@@ -32,7 +32,7 @@ struct Artboard<Content: View>: View {
 	var body: some View {
 		let u = figmaUnit
 		GeometryReader { proxy in
-			if textScale > 1 {
+			if typeScale > 1 {
 				// Larger text may not fit the artboard: it scrolls, at least a screen tall.
 				ScrollView {
 					VStack(spacing: 0, content: content)
@@ -270,7 +270,7 @@ struct AuthCta: View {
 				.font(StakFont.geist(14 * u, .medium))
 				.foregroundStyle(StakColors.textPrimary)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				.background(
 					LinearGradient(
 						stops: [
@@ -324,7 +324,7 @@ struct AuthSecondaryButton: View {
 				.font(StakFont.sora(14 * u))
 				.foregroundStyle(StakColors.muted)
 				.frame(maxWidth: .infinity)
-				.frame(height: 52 * u * textScale)
+				.frame(height: 52 * u * typeScale)
 				.overlay(
 					RoundedRectangle(cornerRadius: 6 * u)
 						.strokeBorder(Color(argb: 0x54343B4F), lineWidth: 0.36 * u)
