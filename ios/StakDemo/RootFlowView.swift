@@ -73,6 +73,9 @@ struct RootFlowView: View {
 	/// place. Mirrors android (LOCK pushed on ON_STOP, popped on unlock).
 	@State private var relocked = false
 	@Environment(\.scenePhase) private var scenePhase
+	/// Shared auth ViewModel — all sign-in/up/password flows share one instance
+	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
+	@StateObject private var authVM = AuthViewModel()
 
 	var body: some View {
 		ZStack {
@@ -130,6 +133,32 @@ struct RootFlowView: View {
 			// already true then, so this is a no-op until the unlock clears it.
 			if next != .active, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
 		}
+		.onChange(of: authVM.uiState) { _, state in
+			switch state {
+			case .success(let onboardingComplete):
+				if onboardingComplete {
+					// Real account that has completed onboarding — go straight to the tab shell.
+					Session.shared.signIn(demo: false)
+					anim = .pushRight
+					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
+				} else {
+					// New account — route through onboarding. verifyEmail pops itself then we push welcome.
+					anim = .pushRight
+					withAnimation(FlowAnim.pushRight.animation) {
+						stack = stack.filter { $0 != .createAccount } + [.createAccount, .welcome]
+					}
+				}
+				authVM.resetState()
+			case .awaitingConfirmation(let email):
+				// signUp returned session=nil → email not confirmed yet; push the code entry screen.
+				if stack.last != .verifyEmail(email: email) {
+					push(.verifyEmail(email: email), .pushRight)
+				}
+			default:
+				break
+			}
+		}
+		.environmentObject(authVM)
 		.background(StakColors.bg.ignoresSafeArea())
 	}
 
@@ -178,13 +207,8 @@ struct RootFlowView: View {
 				// as Push Left; socials/CTA leave to Home first run as Push
 				// Right; the "Create account" link dissolves back.
 				onBack: { pop(.pushLeft) },
-				onSignIn: {
-					// Signed in = the demo account with its authored history
-					// (product audit, 2026-09-05); remembered across launches.
-					Session.shared.signIn(demo: true)
-					anim = .pushRight
-					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
-				},
+				// Navigation is driven by authVM.uiState; this callback is unused.
+				onSignIn: {},
 				onCreateAccount: { pop(.dissolve) },
 				// Product audit (2026-09-05): the link opens the reset flow.
 				onForgot: { push(.forgotPassword, .pushRight) }
@@ -247,11 +271,11 @@ struct RootFlowView: View {
 				onBack: { pop() },
 				// Prototype: "Proceed to home" → Home first run, Push Right.
 				onProceed: {
-					// Account created = a NEW account, empty until the user saves
-					// and buys (product audit, 2026-09-05); remembered across launches.
+					// Save onboarding answers to the backend, then start the session.
 					Session.shared.signIn(demo: false)
 					anim = .pushRight
 					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
+					Task { await authVM.saveProfile() }
 				}
 			)
 			.id(FlowScreen.profileSetup)

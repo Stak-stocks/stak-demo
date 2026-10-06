@@ -24,15 +24,18 @@ struct SectionKicker: View {
 
 /// The day's biggest movers as a horizontal strip of tiles; a tap opens the stock.
 struct TrendingStrip: View {
+	/// Live trending stocks from the API; falls back to the static catalogue when nil.
+	var stocks: [CollStock]? = nil
 	let onOpenStock: (String) -> Void
 
 	var body: some View {
 		let u = figmaUnit
+		let displayed = stocks ?? StockCatalogue.trending()
 		VStack(alignment: .leading, spacing: 10 * u) {
 			SectionKicker(text: "TRENDING TODAY")
 			ScrollView(.horizontal, showsIndicators: false) {
 				HStack(spacing: 8 * u) {
-					ForEach(StockCatalogue.trending()) { s in
+					ForEach(displayed) { s in
 						Button { onOpenStock(s.ticker) } label: {
 							VStack(alignment: .leading, spacing: 6 * u) {
 								HStack(spacing: 8 * u) {

@@ -47,8 +47,11 @@ final class StakNotifications: ObservableObject {
 		return "\(days / 7)w"
 	}
 
-	/// Derived from the account's live state, so a first save updates the inbox at once.
-	var items: [Item] { StakStore.demoAccount ? Self.demo : Self.welcome() }
+	/// Derived from the account's live state. Real accounts prefer API items when loaded.
+	var items: [Item] {
+		if StakStore.demoAccount { return Self.demo }
+		return apiItems.isEmpty ? Self.welcome() : apiItems
+	}
 	@Published private(set) var readIds: Set<String> = []
 
 	var unreadCount: Int { items.filter { !readIds.contains($0.id) }.count }
@@ -65,6 +68,15 @@ final class StakNotifications: ObservableObject {
 	func markAllRead() {
 		readIds = Set(items.map(\.id))
 		StakStore.set(readIds, for: "notif.read")
+	}
+
+	/// Live items fetched from api/me/updates; empty = fall back to local demo/welcome.
+	private var apiItems: [Item] = []
+
+	/// Replaces the API item set (called by InboxViewModel). Triggers a UI refresh.
+	func mergeFromApi(_ incoming: [Item]) {
+		apiItems = incoming
+		objectWillChange.send()
 	}
 
 	private init() {}

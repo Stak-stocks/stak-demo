@@ -47,6 +47,7 @@ struct ProfileView: View {
 	var onOpenSetting: (SettingsKind) -> Void = { _ in }
 	/// The avatar and the name open the edit page (user, 2026-09-07).
 	var onEditProfile: () -> Void = {}
+	@ObservedObject var profileVM: ProfileViewModel
 	/// The paper stats card reads the live ledger (product audit, 2026-09-05).
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 
@@ -219,6 +220,7 @@ struct ProfileView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task { await profileVM.load() }
 	}
 }
 

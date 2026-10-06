@@ -7,9 +7,14 @@ import SwiftUI
 /// ForgotPasswordScreen.kt.
 struct ForgotPasswordView: View {
 	let onBack: () -> Void
+
+	@EnvironmentObject private var authVM: AuthViewModel
+
 	@State private var email = ""
 	@State private var attempted = false
 	@State private var sent = false
+	@State private var isLoading = false
+	@State private var sendError: String? = nil
 	private var emailError: String? { AuthRules.emailError(email) }
 
 	var body: some View {
@@ -60,9 +65,28 @@ struct ForgotPasswordView: View {
 
 				VStack(spacing: 12 * u) {
 					if !sent {
-						AuthCta(text: "Send reset link", enabled: !email.trimmingCharacters(in: .whitespaces).isEmpty, action: {
+						if let msg = sendError {
+							Text(msg)
+								.font(StakFont.geist(12 * figmaUnit))
+								.foregroundStyle(Color(argb: 0xFFFF5A6A))
+								.frame(maxWidth: .infinity, alignment: .leading)
+								.padding(.horizontal, 24 * figmaUnit)
+						}
+						AuthCta(text: isLoading ? "Sending…" : "Send reset link", enabled: !email.trimmingCharacters(in: .whitespaces).isEmpty && !isLoading, action: {
 							attempted = true
-							if emailError == nil { sent = true }
+							if emailError == nil {
+								if StakStore.demoAccount {
+									sent = true
+								} else {
+									isLoading = true
+									sendError = nil
+									Task {
+										let err = await authVM.sendPasswordReset(email: email)
+										isLoading = false
+										if let err { sendError = err } else { sent = true }
+									}
+								}
+							}
 						})
 					} else {
 						AuthCta(text: "Back to sign in", action: onBack)

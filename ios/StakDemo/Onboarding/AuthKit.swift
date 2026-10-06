@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 // Shared pieces of the Figma "Auth ·" screens (CHINEDU file: Sign up 1:830,
 // Sign in 1:879) — watermark, nav circle, social pills, inputs, the
@@ -350,6 +351,51 @@ struct AuthSwitchRow: View {
 extension Auth {
 	/// Inline validation red (the app's negative tone).
 	static let errorRed = Color(argb: 0xFFE5484D)
+}
+
+/// Drives the native Sign in with Apple sheet and forwards the result to AuthViewModel.
+/// Stored as @StateObject in both SignInView and CreateAccountView so it survives
+/// the async presentation.
+@MainActor
+final class AppleSignInCoordinator: NSObject, ObservableObject,
+    ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+
+    private var nonce: String?
+    private weak var authVM: AuthViewModel?
+
+    func start(authVM: AuthViewModel) {
+        self.authVM = authVM
+        let rawNonce = AuthViewModel.randomNonce()
+        nonce = rawNonce
+        let req = ASAuthorizationAppleIDProvider().createRequest()
+        req.requestedScopes = [.fullName, .email]
+        req.nonce = AuthViewModel.sha256(rawNonce)
+        let ctrl = ASAuthorizationController(authorizationRequests: [req])
+        ctrl.delegate = self
+        ctrl.presentationContextProvider = self
+        ctrl.performRequests()
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard
+            let cred = authorization.credential as? ASAuthorizationAppleIDCredential,
+            let tokenData = cred.identityToken,
+            let idToken = String(data: tokenData, encoding: .utf8),
+            let n = nonce
+        else { return }
+        authVM?.signInWithApple(idToken: idToken, nonce: n)
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        // Cancel = user backed out; other errors surface via authVM
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+    }
 }
 
 /// The sign-up / sign-in field rules (product audit, 2026-09-05). Mirrors android AuthRules.

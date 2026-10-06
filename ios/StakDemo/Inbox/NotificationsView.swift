@@ -15,6 +15,7 @@ private let dot = Color(argb: 0xFFFF8030)
 struct NotificationsView: View {
 	let onBack: () -> Void
 	let onOpenSettings: () -> Void
+	@ObservedObject var inboxVM: InboxViewModel
 	@ObservedObject private var inbox = StakNotifications.shared
 	@State private var readBefore: Set<String> = []
 
@@ -60,6 +61,7 @@ struct NotificationsView: View {
 			readBefore = inbox.readIds
 			inbox.markAllRead()
 		}
+		.task { await inboxVM.load() }
 	}
 }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 /// Auth · Sign up — Figma node 1:830 (CHINEDU file).
 ///
@@ -19,11 +20,19 @@ struct CreateAccountView: View {
 	@State private var showPassword = false
 	// Product audit (2026-09-05): the form validates on the tap - the CTA waits for
 	// all three fields, then the rules speak inline under the field.
+	@EnvironmentObject private var authVM: AuthViewModel
+	@StateObject private var appleCoord = AppleSignInCoordinator()
+
 	@State private var attempted = false
 	private var emailError: String? { AuthRules.emailError(email) }
 	private var passwordError: String? { AuthRules.passwordError(password) }
 	private var confirmError: String? { AuthRules.confirmError(password, confirm) }
 	private var filled: Bool { !email.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty && !confirm.isEmpty }
+	private var isLoading: Bool { authVM.uiState == .loading }
+	private var errorMessage: String? {
+		if case .error(let msg) = authVM.uiState { return msg }
+		return nil
+	}
 
 	var body: some View {
 		let u = figmaUnit
@@ -53,8 +62,10 @@ struct CreateAccountView: View {
 						}
 						Spacer().frame(height: 4 * u)
 
-						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { UserProfile.shared.linkedGoogle = true; onCreateAccount() })
-						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { UserProfile.shared.linkedApple = true; onCreateAccount() })
+						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { authVM.signInWithGoogle() })
+							.disabled(isLoading)
+						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { appleCoord.start(authVM: authVM) })
+							.disabled(isLoading)
 
 						AuthOrDivider()
 
@@ -74,7 +85,14 @@ struct CreateAccountView: View {
 
 				// CTA block — sharp-cornered gradient button, switch link, fine print.
 				VStack(spacing: 12 * u) {
-					AuthCta(text: "Create account", enabled: filled, action: {
+					if let msg = errorMessage {
+						Text(msg)
+							.font(StakFont.geist(12 * figmaUnit))
+							.foregroundStyle(Color(argb: 0xFFFF5A6A))
+							.frame(maxWidth: .infinity, alignment: .leading)
+							.padding(.horizontal, 24 * figmaUnit)
+					}
+					AuthCta(text: isLoading ? "Creating account…" : "Create account", enabled: filled && !isLoading, action: {
 						attempted = true
 						if emailError == nil && passwordError == nil && confirmError == nil { onVerifyEmail(email.trimmingCharacters(in: .whitespaces)) }
 					})

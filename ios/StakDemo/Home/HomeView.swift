@@ -98,6 +98,8 @@ struct HomeView: View {
 	/// A saved stock opens the My STAK flavour of Stock Detail (review 2026-09-14).
 	var onOpenSavedStock: (String) -> Void = { _ in }
 
+	@ObservedObject var homeVM: HomeViewModel
+
 	var body: some View {
 		let u = figmaUnit
 		GeometryReader { geo in
@@ -110,9 +112,15 @@ struct HomeView: View {
 							.padding(.horizontal, 17 * u)
 						Spacer().frame(height: 21 * u)
 						VStack(spacing: 0) {
-							MarketMoodCard(onOpenNews: onOpenNews)
+							MarketMoodCard(
+								moodLead: homeVM.moodLead,
+								moodRest: homeVM.moodRest,
+								moodAngle: homeVM.moodAngle,
+								stories: homeVM.deckStories,
+								onOpenNews: onOpenNews
+							)
 							Spacer().frame(height: 10 * u)
-							WhyThisMattersCard(onOpenMyStak: onOpenMyStak)
+							WhyThisMattersCard(impactText: homeVM.personalizedImpact, onOpenMyStak: onOpenMyStak)
 							Spacer().frame(height: 20 * u)
 							DeckBanner(onOpenDeck: onOpenDeck)
 							// The board's Trending stocks and Saved peek follow the authored
@@ -121,7 +129,7 @@ struct HomeView: View {
 							// Grouped: a ViewBuilder block takes ten children at most (Swift 5.9).
 							Group {
 								Spacer().frame(height: 20 * u)
-								TrendingStrip(onOpenStock: onOpenStock)
+								TrendingStrip(stocks: homeVM.trending.isEmpty ? nil : homeVM.trending, onOpenStock: onOpenStock)
 								Spacer().frame(height: 12 * u)
 								SavedPeekCard(onOpenStock: onOpenSavedStock, onOpenMyStak: onOpenMyStak, onOpenDeck: onOpenDeck)
 								Spacer().frame(height: 20 * u)
@@ -148,6 +156,7 @@ struct HomeView: View {
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task { await homeVM.fetch() }
 	}
 }
 
@@ -237,6 +246,10 @@ private struct TopNav: View {
 
 /// Market Mood — 350x397 #171d2c card with the clipped news-deck stack.
 private struct MarketMoodCard: View {
+	var moodLead: String = MarketMoodFeed.demoStatusLead
+	var moodRest: String = MarketMoodFeed.demoStatusRest
+	var moodAngle: Double = MarketMoodFeed.demoAngleDeg
+	var stories: [NewsDeckFeed.Story] = NewsDeckFeed.demoStories
 	let onOpenNews: () -> Void
 
 	@StateObject private var deckDrags = DeckDragState()
@@ -244,7 +257,7 @@ private struct MarketMoodCard: View {
 	var body: some View {
 		let u = figmaUnit
 		ZStack {
-			NewsDeck(drags: deckDrags, interactive: true)
+			NewsDeck(drags: deckDrags, stories: stories, interactive: true)
 			// The frame's bottom strip (1:1175, 30px) backdrop-blurs the stack —
 			// redraw the same deck blurred, clipped to the card's last 30 units.
 			// An oversized child gets centered in the 30-unit band; shift it up
@@ -256,7 +269,7 @@ private struct MarketMoodCard: View {
 			// visual on a simulator once this compiles on the Mac.
 			ZStack {
 				Home.cardBg
-				NewsDeck(drags: deckDrags, interactive: false)
+				NewsDeck(drags: deckDrags, stories: stories, interactive: false)
 			}
 				.frame(maxWidth: .infinity)
 				.frame(height: 397 * u)
@@ -275,11 +288,9 @@ private struct MarketMoodCard: View {
 						.font(StakFont.sora(20 * u, .medium))
 						.stakLineHeight(25 * u, size: 20 * u, face: .sora)
 						.foregroundStyle(Color.white)
-					// Backend-served with the mood score in production (the words
-					// change with the market); authored demo copy this phase.
 					(
-						Text(MarketMoodFeed.statusLead).foregroundColor(Home.teal)
-							+ Text(MarketMoodFeed.statusRest).foregroundColor(Color.white)
+						Text(moodLead).foregroundColor(Home.teal)
+							+ Text(moodRest).foregroundColor(Color.white)
 					)
 					.font(StakFont.geist(12 * u))
 					// 118:1693 renders a 16 pitch (32 for two lines). SwiftUI
@@ -290,7 +301,7 @@ private struct MarketMoodCard: View {
 				}
 				.frame(width: 180 * u, alignment: .leading)
 				Spacer().frame(width: 46 * u)
-				MarketMoodGauge()
+				MarketMoodGauge(targetAngle: moodAngle)
 			}
 			// 118:1690 centres at 50%+0.45 (row left 34, gauge at 260 in the
 			// render); plain centring lands at 33.55 - exact-design audit 2026-09-04.
@@ -315,6 +326,7 @@ private struct MarketMoodCard: View {
 /// the card is picked with a rotation-aware point test, topmost first.
 private struct NewsDeck: View {
 	@ObservedObject var drags: DeckDragState
+	let stories: [NewsDeckFeed.Story]
 	let interactive: Bool
 	/// Absolute-translation tracker so drags accumulate clamped DELTAS like
 	/// the Android build (reversing after over-drag responds immediately).
@@ -322,7 +334,6 @@ private struct NewsDeck: View {
 
 	var body: some View {
 		let u = figmaUnit
-		let stories = NewsDeckFeed.stories()
 		ZStack {
 			ForEach(deckCards.indices, id: \.self) { i in
 				NewsDeckCard(card: deckCards[i], story: stories[i])
@@ -414,6 +425,7 @@ private struct NewsDeckCard: View {
 /// ball art. Shaped background, no clip — the visible ball never reaches
 /// the card edges, only transparent padding overhangs.
 private struct WhyThisMattersCard: View {
+	var impactText: String = WhyThisMattersFeed.demoBody
 	let onOpenMyStak: () -> Void
 
 	var body: some View {
@@ -437,9 +449,7 @@ private struct WhyThisMattersCard: View {
 					// exact-design audit 2026-09-04.
 					.frame(height: 15 * u)
 					.foregroundStyle(Color.white)
-				// Backend-served summary of why today's news matters to THIS
-				// user (holdings + risk profile); authored demo copy this phase.
-				Text(WhyThisMattersFeed.body())
+				Text(impactText)
 					.font(StakFont.geist(12 * u, .light))
 					// 118:1717 pitch 15 vs Geist's natural 15.6: lineSpacing is
 					// additive and cannot go negative, so 0 is the closest (the old
@@ -595,6 +605,8 @@ struct MarketMoodGauge: View {
 	/// Shared with the News mood row (Codex audit 2026-09-04), which passes
 	/// 40.97 / 56.9018 so the compact gauge is this same drawing.
 	var scale: CGFloat = 1
+	/// Live angle driven by the ViewModel; defaults to the authored rest pose.
+	var targetAngle: Double = MarketMoodFeed.demoAngleDeg
 	/// Needle pose in math degrees CCW from +x — rests at the authored
 	/// default; no entry sweep (the frame's pose is the rest state).
 	@State private var sweepDeg: Double = MarketMoodFeed.demoAngleDeg
@@ -627,11 +639,9 @@ struct MarketMoodGauge: View {
 			withAnimation(.timingCurve(0.37, 0, 0.63, 1, duration: 2.4).repeatForever(autoreverses: true)) {
 				wobbleDeg = 0.8
 			}
-			// Moves to the live worldwide reading once it arrives (user's
-			// call, 2026-08-21); no-op while MarketMoodFeed.live is false.
-			MarketMoodFeed.refresh { angle in
-				withAnimation(.easeOut(duration: 0.9)) { sweepDeg = angle }
-			}
+		}
+		.onChange(of: targetAngle) { _, newAngle in
+			withAnimation(.easeOut(duration: 0.9)) { sweepDeg = newAngle }
 		}
 	}
 }

@@ -15,12 +15,19 @@ struct EmailVerificationView: View {
 	private static let codeLength = 6
 	private static let resendSeconds = 30
 
+	@EnvironmentObject private var authVM: AuthViewModel
+
 	@State private var code = ""
 	@State private var attempted = false
 	@State private var resent = 0
 	@State private var countdown = EmailVerificationView.resendSeconds
 	private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 	private var codeError: String? { code.count == Self.codeLength ? nil : "Enter the 6-digit code from your email" }
+	private var isLoading: Bool { authVM.uiState == .loading }
+	private var errorMessage: String? {
+		if case .error(let msg) = authVM.uiState { return msg }
+		return nil
+	}
 
 	var body: some View {
 		let u = figmaUnit
@@ -66,6 +73,7 @@ struct EmailVerificationView: View {
 								attempted = false
 								countdown = Self.resendSeconds
 								resent += 1
+								if !StakStore.demoAccount { authVM.resendConfirmation(email: email) }
 							} label: {
 								Text("Resend code")
 									.font(StakFont.geist(12 * u, .medium))
@@ -94,9 +102,23 @@ struct EmailVerificationView: View {
 				.padding(.top, 14 * u)
 
 				VStack(spacing: 12 * u) {
-					AuthCta(text: "Verify email", enabled: !code.isEmpty, action: {
+					if let msg = errorMessage {
+						Text(msg)
+							.font(StakFont.geist(12 * figmaUnit))
+							.foregroundStyle(Color(argb: 0xFFFF5A6A))
+							.frame(maxWidth: .infinity, alignment: .leading)
+							.padding(.horizontal, 24 * figmaUnit)
+					}
+					AuthCta(text: isLoading ? "Verifying…" : "Verify email", enabled: !code.isEmpty && !isLoading, action: {
 						attempted = true
-						if codeError == nil { onVerified() }
+						if codeError == nil {
+							if StakStore.demoAccount {
+								onVerified()
+							} else {
+								authVM.verifyEmailCode(email: email, code: code)
+								// Navigation driven by authVM.uiState → .success in RootFlowView
+							}
+						}
 					})
 				}
 				.padding(.top, 8 * u)

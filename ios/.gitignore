@@ -31,4 +31,5 @@ fastlane/test_output
 
 # Env / secrets
 *.xcconfig.local
+Secrets.xcconfig
 Secrets.swift

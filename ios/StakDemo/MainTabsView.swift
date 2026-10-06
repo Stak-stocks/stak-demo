@@ -97,6 +97,14 @@ struct MainTabsView: View {
 	@State private var homeFirstRun = Session.shared.firstRunPending
 	@State private var pushed: [PushedEntry] = []
 
+	// ViewModels live here so they survive tab switches and pushed-page overlays.
+	@StateObject private var homeVM = HomeViewModel()
+	@StateObject private var newsVM = NewsViewModel()
+	@StateObject private var discoverVM = DiscoverViewModel()
+	@StateObject private var myStakVM = MyStakViewModel()
+	@StateObject private var inboxVM = InboxViewModel()
+	@StateObject private var profileVM = ProfileViewModel()
+
 	/// One live entry on the pushed stack. Identity is PER PUSH (a fresh
 	/// uid), not per page - an article chain can legally revisit a story
 	/// (A -> B -> A via READ NEXT), and ForEach needs distinct ids for
@@ -179,11 +187,12 @@ struct MainTabsView: View {
 							onOpenDeck: { endFirstRun(); switchTab(.discover) },
 							// The board-only sections: a stock opens its detail.
 							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
-							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) }
+							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
+							homeVM: homeVM
 						)
 					case .news:
 						// Authored (1:1228): Story tile -> News detail unsaved, Instant.
-						NewsView(onOpenArticle: { id in pushInstant(.newsDetail(article: id)) })
+						NewsView(onOpenArticle: { id in pushInstant(.newsDetail(article: id)) }, newsVM: newsVM)
 					case .discover:
 						DiscoverView(
 							resetKey: discoverResetKey,
@@ -193,14 +202,16 @@ struct MainTabsView: View {
 							// Authored (1:2330): the receipt's cross-tab CTAs are
 							// instant SWAPs to My STAK / Simulate.
 							onReviewSaves: { switchTab(.myStak) },
-							onPracticeBuySaves: { switchTab(.simulate) }
+							onPracticeBuySaves: { switchTab(.simulate) },
+							discoverVM: discoverVM
 						)
 					case .myStak:
 						MyStakView(
 							// Authored (1:3180 template): every collection card ->
 							// Collection, Instant - serving the tapped collection.
 							onOpenCollection: { id in pushInstant(.collection(id: id)) },
-							onStartSwiping: { switchTab(.discover) }
+							onStartSwiping: { switchTab(.discover) },
+							myStakVM: myStakVM
 						)
 					case .simulate:
 						SimulateView(
@@ -323,7 +334,7 @@ struct MainTabsView: View {
 			ProfileView(onBack: { pop() }, onLogOut: onLogOut, onOpenSetting: { kind in push(.settings(kind)) }, onEditProfile: {
 				// Two fingers on the block must not stack two edit pages (review 2026-09-07).
 				if pushed.last?.page != .editProfile { push(.editProfile) }
-			})
+			}, profileVM: profileVM)
 		case .editProfile:
 			// House push in, house back out; Save pops back to the hub, which
 			// observes UserProfile and re-renders the avatar block. Pops only while
@@ -331,7 +342,7 @@ struct MainTabsView: View {
 			// not take the hub with it.
 			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
 		case .notifications:
-			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
+			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) }, inboxVM: inboxVM)
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:

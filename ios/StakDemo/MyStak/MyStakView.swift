@@ -35,6 +35,7 @@ struct MyStakView: View {
 	/// Receives the tapped chip's collection id (MyStak/Collections.swift).
 	let onOpenCollection: (String) -> Void
 	let onStartSwiping: () -> Void
+	@ObservedObject var myStakVM: MyStakViewModel
 	/// Only the chip counts read the store. The summary line, the Your read
 	/// body and Allocation are the authored literals - user, 2026-09-04
 	/// (CHINEDU 06 · My STAK 1:3155): the authored look wins.
@@ -74,6 +75,7 @@ struct MyStakView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task { await myStakVM.load() }
 	}
 
 	private var collectionsGrid: some View {

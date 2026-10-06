@@ -225,6 +225,8 @@ struct DiscoverView: View {
 	var onReviewSaves: () -> Void = {}
 	var onPracticeBuySaves: () -> Void = {}
 
+	@ObservedObject var discoverVM: DiscoverViewModel
+
 	/// The run's position - proxies DeckSession so a tab hop keeps the deck.
 	private var seen: Int {
 		get { session.seen }
@@ -562,6 +564,7 @@ struct DiscoverView: View {
 		// its end state (prototype walk 2026-09-05; Android mirrors this with a
 		// remembered initial key).
 		.onAppear { DeckSession.shared.refreshDay() }
+		.task { await discoverVM.load() }
 		.onChange(of: resetKey) { if seen >= deckSize { restart() } }
 	}
 }

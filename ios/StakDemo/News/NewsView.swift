@@ -28,6 +28,7 @@ enum News {
 /// like the Android build's `u` scaling.
 struct NewsView: View {
 	let onOpenArticle: (String) -> Void
+	@ObservedObject var newsVM: NewsViewModel
 	// Section membership is holdings-driven (For You = held stocks), so a
 	// save must re-render the listing, not just the row chips.
 	@ObservedObject private var holdings = MyStakHoldings.shared
@@ -48,6 +49,34 @@ struct NewsView: View {
 	private func matchesArticle(_ a: NewsArticleFeed.Article) -> Bool { articleMatches(a, q) }
 	private func matchesBrief(_ b: NewsBriefFeed.Brief) -> Bool {
 		matches(b.title) || matches(b.body) || matches(b.source)
+	}
+
+	private func liveArticle(_ dto: NewsArticleDto) -> NewsArticleFeed.Article {
+		let secs = max(0, Int(Date().timeIntervalSince1970) - Int(dto.datetime))
+		let age: String
+		if secs < 3600 { age = "\(secs / 60)m" }
+		else if secs < 86400 { age = "\(secs / 3600)h" }
+		else { age = "\(secs / 86400)d" }
+		let ticker: String? = dto.ticker.isEmpty ? nil : dto.ticker
+		return NewsArticleFeed.Article(
+			id: dto.url.isEmpty ? dto.headline : dto.url,
+			category: dto.type,
+			headline: dto.headline,
+			subtitle: dto.summary,
+			ticker: ticker,
+			paragraphs: [dto.summary, dto.explanation].filter { !$0.isEmpty },
+			media: .image(posterAsset: nil, url: dto.image.isEmpty ? nil : dto.image, sourceLink: dto.url.isEmpty ? nil : dto.url),
+			shareText: dto.headline,
+			gist: [],
+			pullQuote: nil,
+			explainer: dto.explanation.isEmpty ? nil : dto.explanation,
+			tags: ticker.map { [$0] } ?? [],
+			source: dto.source,
+			age: age,
+			sourceMeta: "· \(age) · \(dto.source)",
+			thumb: nil,
+			relatedTickers: ticker.map { [$0] } ?? []
+		)
 	}
 
 	var body: some View {
@@ -119,14 +148,19 @@ struct NewsView: View {
 						})
 					}
 					StoryGrid(onOpenArticle: onOpenArticle, query: q)
-					// The rows render from the served section feeds - STRICT
-					// stock news only (user, 2026-08-25); EVERY story opens
-					// its article.
-					let forYou = NewsArticleFeed.forYou().filter { matchesArticle($0) }
+					// The rows render from the served section feeds when live,
+					// else fall back to the static demo catalogue.
+					let forYouBase: [NewsArticleFeed.Article] = newsVM.forYouArticles.isEmpty
+						? NewsArticleFeed.forYou()
+						: newsVM.forYouArticles.map { liveArticle($0) }
+					let forYou = forYouBase.filter { matchesArticle($0) }
 					if !forYou.isEmpty {
 						NewsSectionView(title: "For You", rows: forYou, onOpen: onOpenArticle)
 					}
-					let markets = NewsArticleFeed.markets().filter { matchesArticle($0) }
+					let marketsBase: [NewsArticleFeed.Article] = newsVM.marketArticles.isEmpty
+						? NewsArticleFeed.markets()
+						: newsVM.marketArticles.map { liveArticle($0) }
+					let markets = marketsBase.filter { matchesArticle($0) }
 					if !markets.isEmpty {
 						NewsSectionView(title: "Markets", rows: markets, onOpen: onOpenArticle)
 					}
@@ -138,6 +172,7 @@ struct NewsView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task { await newsVM.load() }
 	}
 }
 
