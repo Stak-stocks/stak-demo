@@ -64,19 +64,21 @@ import com.stak.demo.ui.theme.StakColors
 
 /**
  * 07 · Simulate — "Final · Portfolio · paper" (CHINEDU 1:4496) with the
- * Sell NVDA? confirm (1:4698) and Position closed (73:855) sheets.
+ * Sell confirm (1:5070) and Position closed (1:5242) sheets over the list, as authored.
  * Mirrors ios/StakDemo/Simulate/SimPortfolioView.swift.
  */
 @Composable
 fun SimPortfolioScreen(
 	onBack: () -> Unit,
-	// Codex parity audit (2026-09-04): every row (and its Sell pill) opens
-	// ITS pick - the row's ticker rides to PickDetailScreen.
+	// Codex parity audit (2026-09-04): every row opens ITS pick (1:5003) -
+	// the row's ticker rides to PickDetailScreen.
 	onOpenPick: (String) -> Unit,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	var showSell by rememberSaveable { mutableStateOf(false) }
-	var showClosed by rememberSaveable { mutableStateOf(false) }
+	// 1:4876 -> 1:5070 / 1:5242 (user ruling 2026-10-07, "the simulate section is different"):
+	// the Sell pill sells HERE, over the portfolio, as the frames author - not via the pick
+	// page the old prototype's B16 hop went through. The ticker being sold, or null.
+	var selling by rememberSaveable { mutableStateOf<String?>(null) }
 	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
@@ -158,10 +160,8 @@ fun SimPortfolioScreen(
 							// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
 							subLight = true,
 							onClick = { onOpenPick(p.ticker) },
-							// B16 (1:4496 Motion): the Sell pill opens the Pick detail
-							// - the authored sell flow lives there; the in-page
-							// sheets below stay built but unwired.
-							trailing = { SellPill(onClick = { onOpenPick(p.ticker) }) },
+							// 1:5070: the Sell pill opens the Sell confirm over this page.
+							trailing = { SellPill(onClick = { selling = p.ticker }) },
 						)
 					}
 					PortfolioKicker("SOLD · REALIZED")
@@ -178,21 +178,14 @@ fun SimPortfolioScreen(
 				}
 			}
 		}
-		// The unwired in-page host keeps the frame's NVDA (1:4698 / 73:855).
-		if (showSell) {
-			SellConfirmSheet(
-				pick = pickSpec("NVDA"),
-				// Review 2026-09-04: stays unwired (as on iOS) - the live sell
-				// runs in SellFlowHost from the Pick detail.
-				onConfirm = { showSell = false; showClosed = true },
-				onDismiss = { showSell = false },
-			)
-		}
-		if (showClosed) {
-			PositionClosedSheet(
-				pick = pickSpec("NVDA"),
-				onBackToSimulate = { showClosed = false; onBack() },
-				onViewPortfolio = { showClosed = false },
+		// 1:5070 / 1:5242: the live sell runs here, over the portfolio (user ruling 2026-10-07).
+		selling?.let { symbol ->
+			SellFlowHost(
+				pick = pickSpec(symbol),
+				onClose = { selling = null },
+				// 1:5242: Back to Simulate leaves the page; View portfolio stays on it.
+				onBackToSimulate = { selling = null; onBack() },
+				onViewPortfolio = { selling = null },
 			)
 		}
 	}
@@ -588,18 +581,6 @@ private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, 
 			}
 		}
 	}
-}
-
-/** "Sell NVDA?" confirm sheet (1:4698) — kept for the in-page host. */
-@Composable
-private fun SellConfirmSheet(pick: PickSpec, onConfirm: (Double) -> Unit, onDismiss: () -> Unit) {
-	SimSheet(onDismiss = onDismiss) { SellConfirmContent(pick = pick, onConfirm = onConfirm, onDismiss = onDismiss) }
-}
-
-/** "Position closed" success sheet (73:855) — kept for the in-page host. */
-@Composable
-private fun PositionClosedSheet(pick: PickSpec, onBackToSimulate: () -> Unit, onViewPortfolio: () -> Unit) {
-	SimSheet(onDismiss = onViewPortfolio) { PositionClosedContent(pick = pick, onBackToSimulate = onBackToSimulate, onViewPortfolio = onViewPortfolio) }
 }
 
 /**
