@@ -378,7 +378,7 @@ struct MainTabsView: View {
 		case .notifications:
 			NotificationsView(onBack: { pop() })
 		case .settings(let kind):
-			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
+			SettingsView(kind: kind, onBack: { pop() })
 		case .simPortfolio:
 			SimPortfolioView(
 				// Authored (1:4496): Back -> Simulate home, Instant; rows and

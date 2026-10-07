@@ -53,8 +53,8 @@ struct CreateAccountView: View {
 						}
 						Spacer().frame(height: 4 * u)
 
-						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { UserProfile.shared.linkedGoogle = true; onCreateAccount() })
-						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { UserProfile.shared.linkedApple = true; onCreateAccount() })
+						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: onCreateAccount)
+						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: onCreateAccount)
 
 						AuthOrDivider()
 

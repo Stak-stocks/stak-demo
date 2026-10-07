@@ -71,11 +71,6 @@ final class Session: ObservableObject {
 			p.dailyDeck = prefs["dailyDeck"] as? Bool ?? true
 			p.marketNews = prefs["marketNews"] as? Bool ?? false
 			p.priceThreshold = prefs["priceThreshold"] as? Int ?? 3
-			// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
-			// value that build stored reads as Dark, so the Appearance page always shows a choice.
-			p.appearance = (prefs["appearance"] as? String) == "system" ? "system" : "dark"
-			p.linkedGoogle = prefs["linkedGoogle"] as? Bool ?? false
-			p.linkedApple = prefs["linkedApple"] as? Bool ?? false
 		}
 		UserProfile.shared.photoData = Self.loadPhoto()
 		applyAccount()
@@ -170,9 +165,6 @@ final class Session: ObservableObject {
 		UserProfile.shared.dailyDeck = true
 		UserProfile.shared.marketNews = false
 		UserProfile.shared.priceThreshold = 3
-		UserProfile.shared.appearance = "dark"
-		UserProfile.shared.linkedGoogle = false
-		UserProfile.shared.linkedApple = false
 		UserProfile.shared.joined = "July 2026"
 		UserProfile.shared.handle = ""
 		UserProfile.shared.email = ""
@@ -213,7 +205,7 @@ final class Session: ObservableObject {
 		d.set(UserProfile.shared.handle, forKey: Self.keyHandle)
 		d.set(UserProfile.shared.email, forKey: Self.keyEmail)
 		let p = UserProfile.shared
-		d.set(["priceAlerts": p.priceAlerts, "dailyDeck": p.dailyDeck, "marketNews": p.marketNews, "priceThreshold": p.priceThreshold, "appearance": p.appearance, "linkedGoogle": p.linkedGoogle, "linkedApple": p.linkedApple] as [String: Any], forKey: Self.keyPrefs)
+		d.set(["priceAlerts": p.priceAlerts, "dailyDeck": p.dailyDeck, "marketNews": p.marketNews, "priceThreshold": p.priceThreshold] as [String: Any], forKey: Self.keyPrefs)
 		Self.savePhoto(UserProfile.shared.photoData)
 	}
 

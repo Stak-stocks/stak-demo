@@ -35,9 +35,6 @@ final class UserProfile: ObservableObject {
 	@Published var marketNews: Bool = false
 	/// Price-alert threshold in percent (FigJam Profile board, 2026-09-14: "Price threshold"); the authored copy's 3 by default.
 	@Published var priceThreshold: Int = 3
-	@Published var appearance: String = "dark"
-	@Published var linkedGoogle: Bool = false
-	@Published var linkedApple: Bool = false
 	/// The month the account was created ("September 2026"); the demo's authored "July 2026".
 	@Published var joined: String = "July 2026"
 

@@ -50,8 +50,8 @@ struct SignInView: View {
 						}
 						Spacer().frame(height: 4 * u)
 
-						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { UserProfile.shared.linkedGoogle = true; onSignIn() })
-						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { UserProfile.shared.linkedApple = true; onSignIn() })
+						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: onSignIn)
+						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: onSignIn)
 
 						AuthOrDivider()
 

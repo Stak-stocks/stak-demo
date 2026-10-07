@@ -10,10 +10,11 @@ private let teal = Color(argb: 0xFF69B3CA)
 /// the rows did nothing). No frames exist for them, so they borrow the hub's
 /// language - its header, #10182B r16 cards, 48-tall rows, Geist 13 labels - and
 /// the permissions step's toggle card. Mirrors android SettingsScreens.kt.
+/// The two pages the 08 · Profile hub (1:5665) opens: Notifications and Contact support (Help & support).
+/// Appearance, Linked accounts, App settings (+ Change password) and Invite a friend were never in the Figma
+/// design and were removed with the user's ruling of 2026-10-07 once the hub's rows were authored.
 enum SettingsKind: String, Hashable {
-	case notifications, appearance, linked, help
-	/// App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account.
-	case app, password
+	case notifications, help
 }
 
 /// The hub's header (back circle + centred title) over a dark page.
@@ -111,19 +112,11 @@ private struct SettingsPage<Content: View>: View {
 struct SettingsView: View {
 	let kind: SettingsKind
 	let onBack: () -> Void
-	/// Pushes a sibling settings page (App settings -> Appearance / Change password).
-	var onOpen: (SettingsKind) -> Void = { _ in }
-	/// Leaves the signed-out app on Create account.
-	var onAccountDeleted: () -> Void = {}
 
 	var body: some View {
 		switch kind {
 		case .notifications: NotificationSettingsView(onBack: onBack)
-		case .appearance: AppearanceView(onBack: onBack)
-		case .linked: LinkedAccountsView(onBack: onBack)
 		case .help: HelpSupportView(onBack: onBack)
-		case .app: AppSettingsView(onBack: onBack, onOpen: onOpen, onAccountDeleted: onAccountDeleted)
-		case .password: ChangePasswordView(onBack: onBack)
 		}
 	}
 }
@@ -182,91 +175,6 @@ private struct NotificationSettingsView: View {
 
 	private func binding(_ key: ReferenceWritableKeyPath<UserProfile, Bool>) -> Binding<Bool> {
 		Binding(get: { profile[keyPath: key] }, set: { profile[keyPath: key] = $0; Session.shared.saveProfile() })
-	}
-}
-
-private struct AppearanceView: View {
-	let onBack: () -> Void
-	@ObservedObject private var profile = UserProfile.shared
-
-	var body: some View {
-		let u = figmaUnit
-		SettingsPage(title: "Appearance", onBack: onBack) {
-			VStack(spacing: 0) {
-				ForEach([("dark", "Dark"), ("system", "Match system")], id: \.0) { key, label in
-					Button {
-						profile.appearance = key
-						Session.shared.saveProfile()
-					} label: {
-						HStack {
-							Text(label)
-								.font(StakFont.geist(13 * u, .medium))
-								.foregroundStyle(StakColors.textPrimary)
-							Spacer()
-							if profile.appearance == key {
-								Text("✓")
-									.font(StakFont.geist(14 * u, .medium))
-									.foregroundStyle(teal)
-							}
-						}
-						.padding(.horizontal, 14 * u)
-						.frame(maxWidth: .infinity)
-						.frame(height: 48 * u)
-						.contentShape(Rectangle())
-					}
-					.buttonStyle(.pressDim)
-				}
-			}
-			.padding(.vertical, 4 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-			Caption(text: "STAK is designed for dark mode. Match system keeps it dark for now and follows your phone once a light theme ships.")
-		}
-	}
-}
-
-private struct LinkedAccountsView: View {
-	let onBack: () -> Void
-	@ObservedObject private var profile = UserProfile.shared
-
-	var body: some View {
-		let u = figmaUnit
-		SettingsPage(title: "Linked accounts", onBack: onBack) {
-			VStack(spacing: 0) {
-				LinkedRow(name: "Google", linked: profile.linkedGoogle) { profile.linkedGoogle.toggle(); Session.shared.saveProfile() }
-				LinkedRow(name: "Apple", linked: profile.linkedApple) { profile.linkedApple.toggle(); Session.shared.saveProfile() }
-			}
-			.padding(.vertical, 4 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-			Caption(text: "A linked account lets you sign in with one tap. Your STAK stays the same either way.")
-		}
-	}
-}
-
-private struct LinkedRow: View {
-	let name: String
-	let linked: Bool
-	let onToggle: () -> Void
-
-	var body: some View {
-		let u = figmaUnit
-		HStack {
-			Text(name)
-				.font(StakFont.geist(13 * u, .medium))
-				.foregroundStyle(StakColors.textPrimary)
-			Spacer()
-			Text(linked ? "Linked" : "Not linked")
-				.font(StakFont.geist(12 * u))
-				.foregroundStyle(linked ? teal : muted)
-				.padding(.trailing, 12 * u)
-			Button(action: onToggle) {
-				Text(linked ? "Unlink" : "Link")
-					.font(StakFont.geist(13 * u, .medium))
-					.foregroundStyle(teal)
-			}
-			.buttonStyle(.pressDim)
-		}
-		.padding(.horizontal, 14 * u)
-		.frame(height: 48 * u)
 	}
 }
 
@@ -429,104 +337,3 @@ struct SettingsChip: View {
 	}
 }
 
-/// App settings (FigJam Profile board, 2026-09-14: Dark mode, Biometric login, Change
-/// password, Delete / log out). Dark mode opens the Appearance page; Biometric login
-/// is the 08 Permissions "Account security" switch, now changeable after onboarding;
-/// Delete account wipes this account's state on the phone and signs out (Log out
-/// stays on the hub). Mirrors android AppSettingsScreen.
-private struct AppSettingsView: View {
-	let onBack: () -> Void
-	let onOpen: (SettingsKind) -> Void
-	let onAccountDeleted: () -> Void
-	@ObservedObject private var profile = UserProfile.shared
-	@State private var confirmDelete = false
-
-	var body: some View {
-		let u = figmaUnit
-		SettingsPage(title: "App settings", onBack: onBack) {
-			VStack(spacing: 0) {
-				SettingsLinkRow(label: "Dark mode", value: profile.appearance == "system" ? "Match system" : "On") { onOpen(.appearance) }
-				SettingsLinkRow(label: "Change password") { onOpen(.password) }
-			}
-			.padding(.vertical, 4 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-			PermissionCard(title: "Biometric login", description: "Unlock STAK with Face ID, Touch ID or your passcode whenever you come back.", isOn: Binding(get: { profile.accountLock }, set: { profile.accountLock = $0; Session.shared.saveProfile() }))
-			VStack(spacing: 0) {
-				SettingsLinkRow(label: "Delete account", chevron: !confirmDelete) { withAnimation(.easeOut(duration: 0.2)) { confirmDelete.toggle() } }
-				if confirmDelete {
-					VStack(alignment: .leading, spacing: 10 * u) {
-						Text("This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u{2019}t be undone.")
-							.font(StakFont.geist(12 * u))
-							.foregroundStyle(bodyInk)
-						Button {
-							Session.shared.deleteAccount()
-							onAccountDeleted()
-						} label: {
-							Text("Delete my account")
-								.font(StakFont.geist(13 * u, .medium))
-								.foregroundStyle(Auth.errorRed)
-								.frame(maxWidth: .infinity)
-								.frame(height: 44 * u)
-								.background(Color(argb: 0x33E5484D), in: RoundedRectangle(cornerRadius: 6 * u))
-						}
-						.buttonStyle(.pressDim)
-					}
-					.padding(.horizontal, 14 * u)
-					.padding(.bottom, 14 * u)
-				}
-			}
-			.padding(.vertical, 4 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-			// Only the demo persona's state survives a log out - a created account signs back in as a new one (review 2026-09-14).
-			Caption(text: Session.shared.demoAccount ? "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." : "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
-		}
-	}
-}
-
-/// Change password (FigJam Profile board, 2026-09-14). The demo has no auth backend:
-/// the new password must pass the sign-up rules and match its confirmation, then the
-/// page flips into its "Password updated" state. Mirrors android ChangePasswordScreen.
-private struct ChangePasswordView: View {
-	let onBack: () -> Void
-	@State private var current = ""
-	@State private var next = ""
-	@State private var confirm = ""
-	@State private var show = false
-	@State private var attempted = false
-	@State private var updated = false
-	private var currentError: String? { current.isEmpty ? "Enter your current password" : nil }
-	private var nextError: String? { AuthRules.passwordError(next) ?? (next == current ? "Choose a password you haven\u{2019}t used" : nil) }
-	private var confirmError: String? { AuthRules.confirmError(next, confirm) }
-
-	var body: some View {
-		let u = figmaUnit
-		SettingsPage(title: "Change password", onBack: onBack) {
-			if updated {
-				VStack(alignment: .leading, spacing: 8 * u) {
-					Text("Password updated")
-						.font(StakFont.sora(15 * u, .semiBold))
-						.foregroundStyle(StakColors.textPrimary)
-					Text("Use it the next time you sign in. Sessions on other phones were signed out.")
-						.font(StakFont.geist(13 * u))
-						.foregroundStyle(bodyInk)
-				}
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.padding(16 * u)
-				.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-				AuthCta(text: "Done", action: onBack)
-			} else {
-				AuthInput("Current password", text: $current, hidden: !show) { ShowHideToggle(shown: $show) }
-					.error(attempted ? currentError : nil)
-				AuthInput("New password", text: $next, hidden: !show)
-					.error(attempted ? nextError : nil)
-				AuthInput("Confirm new password", text: $confirm, hidden: !show)
-					.error(attempted ? confirmError : nil)
-				Caption(text: "At least \(AuthRules.passwordMin) characters.")
-				AuthCta(text: "Update password", enabled: !current.isEmpty && !next.isEmpty && !confirm.isEmpty, action: {
-					attempted = true
-					if currentError == nil && nextError == nil && confirmError == nil { updated = true }
-				})
-			}
-		}
-	}
-}
