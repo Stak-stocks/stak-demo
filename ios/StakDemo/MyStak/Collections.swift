@@ -41,10 +41,11 @@ struct StakCollection: Identifiable {
 	}
 }
 
-/// "1 stock" / "N stocks" - the chip, hero and allocation count text.
-/// Mirrors android ui/mystak/Collections.kt heldCountLabel.
+/// "1 company" / "N companies" - the chip, the Collection hero and the counts share it. Companies, not stocks: My STAK
+/// talks about the companies someone decided to care about, and switching words mid-page asks a beginner to know
+/// they're the same thing. Mirrors android ui/mystak/Collections.kt heldCountLabel.
 func heldCountLabel(_ n: Int) -> String {
-	n == 1 ? "1 stock" : "\(n) stocks"
+	n == 1 ? "1 company" : "\(n) companies"
 }
 
 /// Codex parity audit (2026-09-04): every chip carries its own collection

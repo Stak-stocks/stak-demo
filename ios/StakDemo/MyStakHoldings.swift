@@ -239,7 +239,8 @@ final class MyStakHoldings: ObservableObject {
 	}()
 	private static let isoPlain = ISO8601DateFormatter()
 
-	private static func parse(_ iso: String) -> Date? { isoFractional.date(from: iso) ?? isoPlain.date(from: iso) }
+	/// A server timestamp, with or without fractional seconds - shared by the pages that read the server's dates.
+	static func parse(_ iso: String) -> Date? { isoFractional.date(from: iso) ?? isoPlain.date(from: iso) }
 
 	/// The server's timestamp as epoch seconds - the moment, not just the day.
 	private static func epochSec(of iso: String) -> Int64? { parse(iso).map { Int64($0.timeIntervalSince1970) } }

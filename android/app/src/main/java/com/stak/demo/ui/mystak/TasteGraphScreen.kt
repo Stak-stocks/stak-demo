@@ -105,7 +105,10 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 					// "Save a few companies" wrongly told someone who's passed on plenty but
 					// never saved anything that they hadn't done anything yet (device report,
 					// 2026-09-24) - the real gap is nothing has stood out, not zero activity.
+					// A failed read says so, with a way to try again - "Reading your activity…" sat there for good.
+					val failed = taste == null && ui.tasteFailed
 					val text = when {
+						failed -> "We couldn't load your interests. Try again later."
 						taste == null -> "Reading your activity…"
 						taste.totalSignals > 0 -> "Nothing you've saved or explored has stood out yet. Save a company you like in Discover."
 						else -> "Still learning your taste. Save a few companies in Discover and this fills in."
@@ -115,6 +118,17 @@ fun TasteGraphScreen(onBack: () -> Unit, viewModel: MyStakViewModel = sharedMySt
 						style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Stak.Body,
 					)
+					if (failed) {
+						Text(
+							text = "Retry ›",
+							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							color = Stak.Teal,
+							modifier = Modifier.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+							) { viewModel.loadTaste(force = true) },
+						)
+					}
 				}
 			} else {
 				TasteCardShell("What draws your attention") {

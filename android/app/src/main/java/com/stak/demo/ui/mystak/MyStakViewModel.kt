@@ -18,8 +18,6 @@ import com.stak.demo.data.StakStore
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
 import com.stak.demo.data.indexedMovePct
-import com.stak.demo.data.categoryArt
-import com.stak.demo.data.categoryColorKey
 import com.stak.demo.data.categoryGroupId
 import com.stak.demo.data.categoryName
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,20 +56,11 @@ class MyStakViewModel @Inject constructor(
         val daysSinceSaved: Int? = null,
     )
 
-    /**
-     * A collection: the saves that share a category. The six authored glass
-     * pieces cover the families they were drawn for, so [imageRes]/[iconRes]
-     * are null for a category outside them and the chip draws its initial.
-     */
+    /** A collection: the saves that share a category. Its chip and hero wear the category's own icon. */
     data class Group(
         val id: String,
         val name: String,
         val holdings: List<Holding>,
-        val share: Float,
-        val colorKey: String,
-        val imageRes: Int? = null,
-        val iconRes: Int? = null,
-        val heroRes: Int? = null,
     ) {
         /** The group's move today - its stocks', equally weighted. */
         val changePct: Double? get() = holdings.mapNotNull { it.changePct }.takeIf { it.isNotEmpty() }?.average()
@@ -134,6 +123,8 @@ class MyStakViewModel @Inject constructor(
      */
     private var chartFor: Set<String>? = null
     private var chartJob: Job? = null
+    /** The load in flight: a newer one replaces it, so a slower, older load can't land its stale holdings last. */
+    private var loadJob: Job? = null
 
     /**
      * Loads when the saved set has changed, or its quotes are over a minute old. The
@@ -173,7 +164,8 @@ class MyStakViewModel @Inject constructor(
         // The Discover banner's count, on its own: it used to hold the whole page back.
         viewModelScope.launch { cardsLeft()?.let { _ui.value = _ui.value.copy(cardsLeft = it) } }
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
             // Prices for what's saved on the phone, requested alongside the server's
             // list rather than after it; a stock the refresh adds is fetched after.
@@ -324,25 +316,31 @@ class MyStakViewModel @Inject constructor(
         }
     }
 
-    /** Opened, so it stops counting as new - here and on the server. */
-    /** The company's updates, all of them, as one card in the inbox. */
+    /**
+     * The company's updates, all of them, as one card in the inbox - opened, so they stop
+     * counting as new. Matched the way the screens match: a lower-case symbol found its
+     * changes but never marked them read, so the page said read and the inbox said new.
+     */
     fun markCompanyRead(ticker: String) {
-        // Matched the way the screens match: a lower-case symbol found its changes but
-        // never marked them read, so the page said read and the inbox said new.
-        _ui.value.updates.filter { it.ticker.equals(ticker, ignoreCase = true) && !it.read }
-            .forEach { markUpdateRead(it.id) }
+        markRead(_ui.value.updates.filter { it.ticker.equals(ticker, ignoreCase = true) && !it.read }.map { it.id }.toSet())
     }
 
-    fun markUpdateRead(id: Long) {
+    fun markUpdateRead(id: Long) = markRead(setOf(id))
+
+    /**
+     * Marked read here at once, in one change to the state, then on the server (one
+     * request per update - the only endpoint there is).
+     */
+    private fun markRead(ids: Set<Long>) {
         val current = _ui.value.updates
-        if (current.none { it.id == id && !it.read }) return
-        val updated = current.map { if (it.id == id) it.copy(read = true) else it }
+        if (current.none { it.id in ids && !it.read }) return
+        val updated = current.map { if (it.id in ids) it.copy(read = true) else it }
         _ui.value = _ui.value.copy(updates = updated, unreadUpdates = updated.count { !it.read })
         if (Session.demoAccount) {
-            DemoUpdates.markRead(id)
+            ids.forEach { DemoUpdates.markRead(it) }
             return
         }
-        viewModelScope.launch { runCatching { repository.markUpdateRead(id) } }
+        ids.forEach { id -> viewModelScope.launch { runCatching { repository.markUpdateRead(id) } } }
     }
 
     /**
@@ -458,20 +456,7 @@ class MyStakViewModel @Inject constructor(
     /** Saves grouped by category, biggest first; ties keep the catalogue's order. */
     private fun groupsOf(holdings: List<Holding>): List<Group> =
         holdings.groupBy { it.groupId }
-            .map { (id, stocks) ->
-                val name = stocks.first().groupName
-                val art = categoryArt(name)
-                Group(
-                    id = id,
-                    name = name,
-                    holdings = stocks,
-                    share = stocks.size.toFloat() / holdings.size,
-                    colorKey = categoryColorKey(name),
-                    imageRes = art?.imageRes,
-                    iconRes = art?.iconRes,
-                    heroRes = art?.heroRes,
-                )
-            }
+            .map { (id, stocks) -> Group(id = id, name = stocks.first().groupName, holdings = stocks) }
             // "Other" is the catch-all, so it sits last however big it is.
             .sortedWith(compareBy({ it.name == OTHER }, { -it.holdings.size }, { it.name }))
 

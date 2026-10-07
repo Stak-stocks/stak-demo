@@ -1,12 +1,8 @@
 import Foundation
 
-/// What a NEW account's screens say about its own stocks (product audit,
-/// 2026-09-05: with a single save, My STAK read "Six of your fourteen
-/// picks", a +4.9% week, TSLA/SNOW as best and worst and a five-bucket
-/// allocation - the demo persona's frames). The demo account keeps its
-/// authored copy and art (user, 2026-09-04: the authored look wins);
-/// everything here is read from MyStakHoldings, the collection catalogue
-/// and the paper ledger. Mirrors android ui/StakInsights.kt.
+/// Readings drawn from the demo collection catalog and the paper ledger: Simulate's insight, the demo account's Taste
+/// Graph buckets, and the tile change/percent formatting the collection pages share. Mirrors android
+/// data/StakInsights.kt.
 enum StakInsights {
 	/// One allocation bucket: a collection (or "other") and its share of the stocks.
 	struct Bucket {
@@ -25,71 +21,14 @@ enum StakInsights {
 		"realestate": "Real Estate", "health": "Healthcare", "consumer": "Consumer"
 	]
 
-	/// The collections the user holds stocks in, biggest first - the Other collection (uncatalogued saves) included (Codex review, PR #167).
-	static func heldGroups() -> [(StakCollection, [CollStock])] {
-		let holdings = MyStakHoldings.shared.tickers
-		var groups = StakCollections.all.map { ($0, $0.held(in: holdings)) }
-		if let other = StakCollections.other(holdings: holdings) { groups.append((other, other.stocks)) }
-		return groups
-			.filter { !$0.1.isEmpty }
-			.sorted { $0.1.count > $1.1.count }
-	}
-
-	/// "tech and AI names" for a catalogued group; "stocks you found yourself" for the Other collection.
-	private static func themeNames(_ id: String) -> String { theme[id].map { "\($0) names" } ?? "stocks you found yourself" }
-
-	static func heldStocks() -> [CollStock] { heldGroups().flatMap { $0.1 } }
-
 	/// "▲ 2.4%" -> 2.4, "▼ 0.4%" -> -0.4.
 	static func changePct(_ s: CollStock) -> Double {
 		let v = Double(s.change.filter { $0.isNumber || $0 == "." }) ?? 0
 		return s.up ? v : -v
 	}
 
-	/// The week's move across the held stocks - their average change.
-	static func weekChangePct() -> Double {
-		let held = heldStocks()
-		return held.isEmpty ? 0 : held.map(changePct).reduce(0, +) / Double(held.count)
-	}
-
 	static func signedPct(_ pct: Double) -> String {
 		(pct < 0 ? "-" : "+") + String(format: "%.1f", abs(pct)) + "%"
-	}
-
-	/// Best and worst held stock this week - only meaningful with two or more.
-	static func bestWorst() -> (CollStock, CollStock)? {
-		let held = heldStocks()
-		guard held.count >= 2,
-			let best = held.max(by: { changePct($0) < changePct($1) }),
-			let worst = held.min(by: { changePct($0) < changePct($1) }) else { return nil }
-		return (best, worst)
-	}
-
-	/// "You lean into tech and AI."
-	static func readHeadline() -> String {
-		guard let top = heldGroups().first else {
-			return MyStakHoldings.shared.count > 0 ? "Your saves sit outside the six collections." : "Your read starts with your first save."
-		}
-		return "You lean into \(theme[top.0.id] ?? "stocks you found yourself")."
-	}
-
-	static func readBody() -> String {
-		let groups = heldGroups()
-		let total = groups.reduce(0) { $0 + $1.1.count }
-		guard let top = groups.first else {
-			return MyStakHoldings.shared.count > 0 ? "Save a stock from one of the collections and STAK will read your taste from it."
-				: "Save stocks from the Discover deck and STAK will read your taste from them."
-		}
-		let themeName = theme[top.0.id]
-		if total == 1 {
-			return "\(top.1[0].ticker) is your first save\(themeName.map { ", a \($0) name" } ?? ""). Save a few more and STAK will read the pattern."
-		}
-		let lead = "\(word(top.1.count).capitalizedFirst) of your \(word(total)) picks are \(themeNames(top.0.id))."
-		if groups.count > 1 {
-			let second = groups[1]
-			return lead + " \(word(second.1.count).capitalizedFirst) more \(second.1.count == 1 ? "sits" : "sit") \(theme[second.0.id].map { "in \($0)" } ?? "outside the six collections")."
-		}
-		return lead + " Your STAK is all \(themeName ?? "your own finds") for now."
 	}
 
 	private static func word(_ n: Int) -> String {
@@ -106,9 +45,18 @@ enum StakInsights {
 		return counts
 			.sorted { a, b in
 				if (a.key == "other") != (b.key == "other") { return b.key == "other" }
-				return a.value > b.value
+				// Ties by id: Dictionary order changes every launch.
+				return a.value != b.value ? a.value > b.value : a.key < b.key
 			}
 			.map { Bucket(id: $0.key, name: bucketName[$0.key] ?? "Other", count: $0.value, share: Double($0.value) / Double(symbols.count)) }
+	}
+
+	/// The company names in `bucketId` among `symbols` - the demo Taste Graph's evidence.
+	static func namesIn(_ bucketId: String, _ symbols: [String]) -> [String] {
+		symbols.compactMap { sym in
+			guard let c = StakCollections.all.first(where: { $0.stocks.contains { $0.ticker == sym } }), c.id == bucketId else { return nil }
+			return c.stocks.first { $0.ticker == sym }?.company
+		}
 	}
 
 	/// Simulate's INSIGHT card, read from a new account's own picks.

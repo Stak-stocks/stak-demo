@@ -99,10 +99,10 @@ struct TasteDto: Codable {
 
 // MARK: – Updates / taste graph
 
-struct UpdateSourceDto: Decodable {
+struct UpdateSourceDto: Decodable, Equatable {
     var source: String = ""; var url: String = ""; var headline: String = ""; var datetime: Int64 = 0
 }
-struct StockUpdateDto: Decodable, Identifiable {
+struct StockUpdateDto: Decodable, Identifiable, Equatable {
     var id: Int64 = 0; var ticker: String = ""; var company: String = ""; var kind: String = ""
     var title: String = ""; var body: String = ""; var watch: String?
     var sources: [UpdateSourceDto] = []; var occurredAt: String = ""; var read: Bool = false

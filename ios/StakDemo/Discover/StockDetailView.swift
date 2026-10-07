@@ -449,24 +449,6 @@ private struct LiveLine: View {
 	}
 }
 
-/// A card header's icon: the glyph on a rounded square of its own tint. Android's StakIconTile (ui/mystak).
-struct StakIconTile: View {
-	let icon: String
-	let tint: Color
-	var size: CGFloat = 34
-	var glyph: CGFloat = 20
-
-	var body: some View {
-		let u = figmaUnit
-		Image(icon)
-			.resizable()
-			.frame(width: glyph * u, height: glyph * u)
-			.frame(width: size * u, height: size * u)
-			.background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 10 * u))
-			.accessibilityHidden(true)
-	}
-}
-
 /// A card's title row: its icon tile and Sora 15 name.
 private struct CardTitle: View {
 	let icon: String
@@ -1188,17 +1170,6 @@ private struct SinceYouSavedCard: View {
 		// 16:1012 authors p14/16/14/16.
 		.detailCard()
 	}
-}
-
-/// "From Reuters and 2 more headlines" - where a change came from. Android's updateSourceLine (ui/mystak).
-func updateSourceLine(_ update: StockUpdateDto) -> String? {
-	var names: [String] = []
-	for s in update.sources where !s.source.isEmpty && !names.contains(s.source) { names.append(s.source) }
-	guard let first = names.first else { return nil }
-	let extra = update.sources.count - 1
-	if names.count == 1 && extra > 0 { return "From \(first) and \(extra) more \(extra == 1 ? "headline" : "headlines")" }
-	if names.count == 1 { return "From \(first)" }
-	return "From \(first) and \(names.count - 1) more"
 }
 
 /// "▼ 15.4% past year" - the selected range's own move, named for its period so the figure and the line beneath it

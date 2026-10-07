@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A new account's allocation ring (product audit, 2026-09-05): one arc per
 /// bucket, clockwise from the top, a small gap between arcs, drawn in the
-/// 150-box the authored donut exports (MsDonut / SimDonut) occupy. The demo
+/// 150-box the authored donut export (SimDonut) occupies. The demo
 /// account keeps those exports. Mirrors android ui/components/DonutRing.kt.
 struct DonutRing: View {
 	let shares: [CGFloat]

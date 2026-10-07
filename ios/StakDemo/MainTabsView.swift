@@ -284,7 +284,7 @@ struct MainTabsView: View {
 							onOpenUpdates: { pushInstant(.updates) },
 							onOpenTasteGraph: { pushInstant(.tasteGraph) },
 							myStakVM: myStakVM,
-							discoverVM: discoverVM
+							isTop: pushed.isEmpty
 						)
 					case .simulate:
 						SimulateView(
@@ -399,8 +399,8 @@ struct MainTabsView: View {
 			)
 		case .collection(let id):
 			CollectionView(
-				// Unknown ids serve the authored AI & Tech sample.
-				collection: StakCollections.collection(id),
+				// The demo's unknown ids serve the authored AI & Tech sample; a real account's are its own categories.
+				collectionId: id,
 				// Authored (1:3333): Back -> Overview Instant; every stock
 				// card -> the saved Stock Detail of ITS ticker, Instant
 				// (Codex parity audit, 2026-09-04).
@@ -409,7 +409,9 @@ struct MainTabsView: View {
 				// Codex audit (2026-09-04): Add stock -> the Discover deck,
 				// Instant - swiping the deck is the app's only add path, so
 				// the tile hops there like the open state's tab-bar SWAPs.
-				onAddStock: { pop(.instant, all: true, landing: .discover) }
+				onAddStock: { pop(.instant, all: true, landing: .discover) },
+				myStakVM: myStakVM,
+				isTop: isTop
 			)
 		case .profile:
 			// Authored (171:995): Back = BACK action - the house back pop.
@@ -477,12 +479,14 @@ struct MainTabsView: View {
 			UpdatesView(
 				onBack: { pop(.instant) },
 				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: true, symbol: ticker)) },
-				myStakVM: myStakVM
+				myStakVM: myStakVM,
+				isTop: isTop
 			)
 		case .tasteGraph:
 			TasteGraphView(
 				onBack: { pop(.instant) },
-				myStakVM: myStakVM
+				myStakVM: myStakVM,
+				isTop: isTop
 			)
 		case .dailyBriefDetail(let brief):
 			DailyBriefDetailView(

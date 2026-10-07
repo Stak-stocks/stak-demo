@@ -1,36 +1,15 @@
 import SwiftUI
 
-// File-private palette — mirrors the Android MyStakScreen.kt literals verbatim.
-private let cardBg = Color(argb: 0xFF181F30)
-private let muted = Color(argb: 0xFF819ABB)
-private let faint = Color(argb: 0xFF5C6B85)
-private let bodyColor = Color(argb: 0xFFC8D2E0)
-private let green = Color(argb: 0xFF2FD08A)
-private let red = Color(argb: 0xFFFF5A6A)
-private let teal = Color(argb: 0xFF69B3CA)
-private let ink = Color(argb: 0xFF0E162B)
-private let track = Color(argb: 0xFF2A3346)
-private let headerGray = Color(argb: 0xFFD3D3DD)
+/// How many collection chips the overview shows before "View all".
+private let chipsShown = 6
 
-private let ctaGradient = LinearGradient(
-	stops: [
-		.init(color: Color(argb: 0xFFA6E4F7), location: 0.0889),
-		.init(color: Color(argb: 0xFF5DA8BF), location: 0.3919),
-		.init(color: Color(argb: 0xFF3C98B4), location: 0.7255),
-		.init(color: Color(argb: 0xFF3C98B4), location: 1)
-	],
-	startPoint: .top,
-	endPoint: .bottom
-)
-
-/// 06 · My STAK — "My STAK Overview · corrected" (CHINEDU 1:3155).
-/// Collections grid with the Add more CTA, the "Your read" insight,
-/// the performance summary (chart, range pills, best/worst), the
-/// Breakdown allocation donut with sector bars, and the teal
-/// "More like your STAK" Discover banner. Tab bar via MainTabsView.
-/// Every metric is scaled by the 390pt artboard unit (`figmaUnit`),
-/// exactly like the Android build's `u` scaling.
-/// Ported from android/ ui/mystak/MyStakScreen.kt.
+/// 06 · My STAK — the saved companies, what STAK has learned from them, and the way back into Discover (My STAK
+/// product spec, Sept 2026).
+///
+/// My STAK is continuity, not a brokerage screen: it answers "I cared about these companies - what changed, and what
+/// is STAK learning from them?". So there is no weekly return, no portfolio grade and no allocation - STAK doesn't know
+/// what anyone owns, and a number that looks like performance would claim it does. Mirrors android
+/// ui/mystak/MyStakScreen.kt.
 struct MyStakView: View {
 	let onOpenCollection: (String) -> Void
 	let onStartSwiping: () -> Void
@@ -38,509 +17,314 @@ struct MyStakView: View {
 	var onOpenUpdates: () -> Void = {}
 	var onOpenTasteGraph: () -> Void = {}
 	@ObservedObject var myStakVM: MyStakViewModel
-	@ObservedObject var discoverVM: DiscoverViewModel
-	/// Only the chip counts read the store. The summary line, the Your read
-	/// body and Allocation are the authored literals - user, 2026-09-04
-	/// (CHINEDU 06 · My STAK 1:3155): the authored look wins.
+	/// False while a page is pushed over the tab: coming back to it re-reads, as Android's screen does on re-entering.
+	var isTop = true
 	@ObservedObject private var holdings = MyStakHoldings.shared
+	@ObservedObject private var session = Session.shared
 
 	var body: some View {
 		let u = figmaUnit
+		let demo = session.demoAccount
 		VStack(spacing: 0) {
+			VStack(alignment: .leading, spacing: 4 * u) {
+				Text("My STAK")
+					.font(StakFont.sora(26 * u, .semiBold))
+					.stakLineHeight(33 * u, size: 26 * u, face: .sora)
+					.foregroundStyle(StakColors.textPrimary)
+					.accessibilityAddTraits(.isHeader)
+				Text("Companies you've STAK'd, all in one place.")
+					.font(StakFont.geist(13 * u))
+					.stakLineHeight(17 * u, size: 13 * u, face: .geist)
+					.foregroundStyle(Stak.muted)
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.padding(.horizontal, 20 * u)
+			.padding(.top, 20 * u)
+
 			ScrollView {
-				VStack(spacing: 20 * u) {
-					// The header scrolls with the content like Home's top nav (user, 2026-09-14:
-					// "I don't want a fixed top bar"); the 20 item gap is the old top inset.
-					VStack(alignment: .leading, spacing: 4 * u) {
-						Text("My STAK")
-							.font(StakFont.sora(26 * u, .semiBold))
-							.foregroundStyle(StakColors.textPrimary)
-						Text("Companies you've STAK'd, all in one place.")
-							.font(StakFont.geist(13 * u))
-							.foregroundStyle(muted)
+				VStack(spacing: 16 * u) {
+					// The collections holding a company whose update is still unopened.
+					let unreadTickers = Set(myStakVM.updates.filter { !$0.read }.map(\.ticker))
+					let entries = collectionEntries(demo: demo, groups: myStakVM.groups, unreadTickers: unreadTickers)
+					if !entries.isEmpty {
+						HStack {
+							StakSectionHeader(title: "Collections")
+							Spacer()
+							// Only worth offering when the grid is holding some back.
+							if entries.count > chipsShown {
+								Button(action: onOpenAllCollections) {
+									Text("View all \(entries.count) ›")
+										.font(StakFont.geist(12 * u, .medium))
+										.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+										.foregroundStyle(Stak.teal)
+										.frame(minHeight: 44)
+										.contentShape(Rectangle())
+								}
+								.buttonStyle(.pressDim)
+								.padding(.vertical, -14)
+							}
+						}
+						CollectionGrid(entries: Array(entries.prefix(chipsShown)), onOpen: onOpenCollection)
+					} else {
+						emptyStak
 					}
-					.frame(maxWidth: .infinity, alignment: .leading)
-					.padding(.top, 20 * u)
-					SectionHeader(title: "Collections")
-					collectionsGrid
-					if StakCollections.all.count > 6 { allCollectionsCta }
-					addMoreCta
-					if myStakVM.unreadCount > 0 || !myStakVM.updates.isEmpty { updatesCard }
-					yourReadCard
+					// Only when something actually changed - a calm screen is the right answer on a quiet day.
+					if !myStakVM.updates.isEmpty {
+						updatesCard(
+							// Companies, not updates: one company can have several, and the inbox counts companies too.
+							unreadCompanies: unreadTickers.count,
+							unread: myStakVM.unreadUpdates
+						)
+					}
 					tasteCard
-					PortfolioSummary()
-					if holdings.count > 0 {
-						SectionHeader(title: "Breakdown")
-						AllocationCard()
+					if myStakVM.updatesFailed {
+						FailedCard(title: "Updates in your STAK", message: "Couldn't check your saved companies right now.")
 					}
-					discoverBanner
-					// 1:3156: the Sections column ends at the Discover CTA and the 86 bottom
-					// padding IS the tab bar, so no trailing gap - exact-design audit 2026-09-04.
+					discoverHandoff
 				}
 				.padding(.horizontal, 20 * u)
+				.padding(.top, 20 * u)
+				.padding(.bottom, 24 * u)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		.task { await myStakVM.load() }
+		// Keyed on the holdings: a save from the deck or an Unsave re-reads the screen; and on coming back to it.
+		.task(id: "\(holdings.tickers.sorted().joined(separator: ",")):\(demo):\(isTop)") {
+			guard isTop else { return }
+			if !demo { myStakVM.loadIfNeeded() }
+			myStakVM.loadTaste()
+			myStakVM.loadUpdates()
+		}
 	}
 
-	private var collectionsGrid: some View {
+	/// Updates in your STAK: the companies with something new, and the way into them.
+	private func updatesCard(unreadCompanies: Int, unread: Int) -> some View {
 		let u = figmaUnit
-		// Authored (1:3180 template): EVERY collection card opens the
-		// Collection screen, Instant. Codex parity audit (2026-09-04): each
-		// chip carries its own collection id so the page serves the tapped
-		// one; the six catalogue chips fill the authored three rows of two.
-		// A seventh, "Other" tile appears only while the account holds stocks no
-		// collection catalogues (Codex review, PR #167) - the persona's seeded
-		// TSLA/SNOW never count, so the frame keeps its six; a save the persona
-		// makes itself (an Amazon story) is visible and reversible (audit 2026-09-07).
-		let other = StakCollections.other(holdings: holdings.tickers)
-		let all = StakCollections.all + (other.map { [$0] } ?? [])
-		let rows = stride(from: 0, to: all.count, by: 2).map {
-			Array(all[$0..<min($0 + 2, all.count)])
-		}
-		return VStack(spacing: 10 * u) {
-			ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-				HStack(spacing: 10 * u) {
-					ForEach(row) { collection in
-						CollectionChip(
-							collection: collection,
-							action: { onOpenCollection(collection.id) },
-							countLabel: heldCountLabel(collection.held(in: holdings.tickers).count)
-						)
+		return Button(action: onOpenUpdates) {
+			VStack(alignment: .leading, spacing: 12 * u) {
+				HStack(spacing: 8 * u) {
+					Text("🔔").font(StakFont.geist(15 * u)).accessibilityHidden(true)
+					Text("Updates in your STAK")
+						.font(StakFont.sora(15 * u, .semiBold))
+						.stakLineHeight(19 * u, size: 15 * u, face: .sora)
+						.foregroundStyle(StakColors.textPrimary)
+					Spacer(minLength: 0)
+					// The count is what is still unopened; nothing to count once all are read.
+					if unread > 0 {
+						Text("\(unread)")
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(.white)
+							.frame(minWidth: 24 * u * typeScale, minHeight: 24 * u * typeScale)
+							.background(StakColors.accentBlue, in: Capsule())
 					}
-					if row.count == 1 { Spacer() }
 				}
-			}
-		}
-	}
-
-	private var addMoreCta: some View {
-		let u = figmaUnit
-		return Button(action: onStartSwiping) {
-			HStack(spacing: 8 * u) {
-				// Figma 1:3155 sets 14 (Codex parity audit, 2026-09-04).
-				Text("Add more")
+				Text(updatesLine(unreadCompanies))
+					.font(StakFont.geist(13 * u))
+					.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+					.foregroundStyle(Stak.body)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.multilineTextAlignment(.leading)
+				Text(unread > 0 ? "See what changed  →" : "Read them again  →")
 					.font(StakFont.geist(14 * u, .medium))
-					.foregroundStyle(StakColors.textPrimary)
-				Image("IcPlusSmall")
-					.resizable()
-					.frame(width: 14 * u, height: 14 * u)
+					.foregroundStyle(.white)
+					.frame(maxWidth: .infinity)
+					.frame(minHeight: 44 * u * typeScale)
+					.background(Color(argb: 0xFF3C98B4), in: RoundedRectangle(cornerRadius: 10 * u))
 			}
-			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
-			.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
-			.overlay(
-				RoundedRectangle(cornerRadius: 6 * u)
-					// 1:3225 authored gradient hairline (the Android CtaBorderBrush) - exact-design audit 2026-09-04.
-					.strokeBorder(StakColors.ctaBorderGradient, lineWidth: 0.36 * u)
-			)
+			.padding(16 * u)
+			.background(Stak.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+			.overlay(RoundedRectangle(cornerRadius: 16 * u).strokeBorder(Color(argb: 0x442C9DBC), lineWidth: 1 * u))
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel("Updates in your STAK\(unread > 0 ? ", \(unread) new" : ""). \(updatesLine(unreadCompanies)) \(unread > 0 ? "See what changed" : "Read them again")")
+		.accessibilityAddTraits(.isButton)
 	}
 
-	private var allCollectionsCta: some View {
+	/// Your Investing Taste: the mix of what draws the user's attention, as a share of observed interest signals. It is
+	/// never money - the label and the copy both say so.
+	@ViewBuilder private var tasteCard: some View {
 		let u = figmaUnit
-		return Button(action: onOpenAllCollections) {
-			HStack {
-				Text("See all collections")
-					.font(StakFont.geist(13 * u, .medium))
-					.foregroundStyle(teal)
-				Image(systemName: "chevron.right")
-					.font(.system(size: 12 * u))
-					.foregroundStyle(teal)
+		if let taste = myStakVM.taste {
+			Button(action: onOpenTasteGraph) {
+				VStack(alignment: .leading, spacing: 12 * u) {
+					HStack(spacing: 8 * u) {
+						Image("IcGistSparkle").resizable().frame(width: 20 * u, height: 20 * u).accessibilityHidden(true)
+						Text("Your Investing Taste")
+							.font(StakFont.sora(15 * u, .semiBold))
+							.stakLineHeight(19 * u, size: 15 * u, face: .sora)
+							.foregroundStyle(StakColors.textPrimary)
+						Spacer(minLength: 0)
+						Text("›").font(StakFont.geist(16 * u)).foregroundStyle(Stak.faint).accessibilityHidden(true)
+					}
+					HStack(spacing: 16 * u) {
+						ZStack {
+							if taste.themes.isEmpty {
+								// An unmeasured ring in the design's colors would read as a mix STAK doesn't have.
+								Circle().fill(Color(argb: 0xFF212A3D)).frame(width: 92 * u, height: 92 * u)
+							} else {
+								let other = taste.otherShare > 0.01 ? [taste.otherShare] : []
+								DonutRing(
+									shares: (taste.themes.map(\.share) + other).map { CGFloat($0) },
+									colors: taste.themes.map { themeColor($0.colorKey) } + (other.isEmpty ? [] : [Stak.faint]),
+									size: 92 * u
+								)
+							}
+							Text("Taste\nmix")
+								.font(StakFont.geist(10 * u, .medium))
+								.stakLineHeight(13 * u, size: 10 * u, face: .geist)
+								.foregroundStyle(Stak.muted)
+								.multilineTextAlignment(.center)
+						}
+						.frame(width: 92 * u, height: 92 * u)
+						.accessibilityHidden(true)
+						VStack(alignment: .leading, spacing: 6 * u) {
+							Text(taste.summary)
+								.font(StakFont.sora(14 * u, .semiBold))
+								.stakLineHeight(19 * u, size: 14 * u, face: .sora)
+								.foregroundStyle(StakColors.textPrimary)
+							Text(taste.subtitle)
+								.font(StakFont.geist(12 * u))
+								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+								.foregroundStyle(Stak.body)
+							Text("\(taste.ctaLabel) ›")
+								.font(StakFont.geist(12 * u, .medium))
+								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+								.foregroundStyle(Stak.teal)
+						}
+						.frame(maxWidth: .infinity, alignment: .leading)
+						.multilineTextAlignment(.leading)
+					}
+				}
+				.padding(16 * u)
+				.background(Stak.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+			}
+			.buttonStyle(.pressDim)
+			.accessibilityElement(children: .ignore)
+			.accessibilityLabel("Your Investing Taste. \(taste.summary). \(taste.subtitle)")
+			.accessibilityAddTraits(.isButton)
+		} else if myStakVM.tasteFailed {
+			FailedCard(title: "Your Taste is unavailable", message: "We couldn't load your interests. Try again later.") {
+				myStakVM.loadTaste(force: true)
+			}
+		}
+		// Still loading: no card rather than an empty ring.
+	}
+
+	/// The way back into Discover: the solid teal card, dark ink on it. Its count is the real number of cards left
+	/// today when it is known, never a fixed "8".
+	private var discoverHandoff: some View {
+		let u = figmaUnit
+		let ink = StakColors.bg
+		let line: String = switch myStakVM.cardsLeft {
+		case nil: "Based on your taste, fresh picks are waiting in the deck."
+		case 0: "You've been through today's deck."
+		case 1: "Based on your taste, 1 fresh pick is waiting in the deck."
+		case let n?: "Based on your taste, \(n) fresh picks are waiting in the deck."
+		}
+		return Button(action: onStartSwiping) {
+			VStack(alignment: .leading, spacing: 12 * u) {
+				Text("DISCOVER")
+					.font(StakFont.geist(11 * u, .medium))
+					.stakLineHeight(14 * u, size: 11 * u, face: .geist)
+					.tracking(0.9 * u)
+					.foregroundStyle(ink)
+				Text("More like your STAK")
+					.font(StakFont.sora(22 * u, .semiBold))
+					.stakLineHeight(28 * u, size: 22 * u, face: .sora)
+					.foregroundStyle(ink)
+				Text(line)
+					.font(StakFont.geist(15 * u))
+					.stakLineHeight(24 * u, size: 15 * u, face: .geist)
+					.foregroundStyle(ink)
+				Text("Start swiping ›")
+					.font(StakFont.geist(15 * u, .medium))
+					.stakLineHeight(20 * u, size: 15 * u, face: .geist)
+					.foregroundStyle(ink.opacity(0.72))
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
+			.multilineTextAlignment(.leading)
+			.padding(.horizontal, 20 * u)
+			.padding(.vertical, 22 * u)
+			.background(Stak.teal, in: RoundedRectangle(cornerRadius: 16 * u))
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel("More like your STAK. \(line) Start swiping")
+		.accessibilityAddTraits(.isButton)
 	}
 
-	private var updatesCard: some View {
+	/// Nothing saved yet: say what My STAK is for, and open the deck.
+	private var emptyStak: some View {
 		let u = figmaUnit
-		let unread = myStakVM.unreadCount
-		return Button(action: onOpenUpdates) {
-			HStack(spacing: 12 * u) {
-				ZStack {
-					RoundedRectangle(cornerRadius: 10 * u).fill(cardBg).frame(width: 44 * u, height: 44 * u)
-					Image(systemName: "bell.badge")
-						.font(.system(size: 20 * u))
-						.foregroundStyle(teal)
-				}
-				VStack(alignment: .leading, spacing: 3 * u) {
-					Text("Updates in your STAK")
-						.font(StakFont.sora(14 * u, .semiBold))
-						.foregroundStyle(StakColors.textPrimary)
-					let sub: String = unread > 0
-						? "\(unread == 1 ? "1 saved company has" : "\(unread) saved companies have") something new"
-						: "Nothing new at your saved companies."
-					Text(sub)
-						.font(StakFont.geist(12 * u))
-						.foregroundStyle(muted)
-				}
-				Spacer()
-				if unread > 0 {
-					ZStack {
-						Circle().fill(teal).frame(width: 20 * u, height: 20 * u)
-						Text("\(min(unread, 99))").font(StakFont.geist(11 * u, .medium)).foregroundStyle(StakColors.bg)
-					}
-				}
-				Image(systemName: "chevron.right")
-					.font(.system(size: 14 * u))
-					.foregroundStyle(muted)
-			}
-			.padding(14 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
-		}
-		.buttonStyle(.pressDim)
-	}
-
-	private var tasteCard: some View {
-		let u = figmaUnit
-		let themeCount = myStakVM.taste?.themes.count ?? 0
-		return Button(action: onOpenTasteGraph) {
-			VStack(alignment: .leading, spacing: 10 * u) {
-				HStack {
-					VStack(alignment: .leading, spacing: 3 * u) {
-						Text("Your Investing Taste")
-							.font(StakFont.sora(14 * u, .semiBold))
-							.foregroundStyle(StakColors.textPrimary)
-						if let taste = myStakVM.taste, !taste.themes.isEmpty {
-							Text("\(themeCount == 1 ? "1 theme" : "\(themeCount) themes") from \(taste.totalSaves) save\(taste.totalSaves == 1 ? "" : "s")")
-								.font(StakFont.geist(12 * u))
-								.foregroundStyle(muted)
-						} else {
-							Text(myStakVM.tasteFailed ? "Couldn't load right now." : "Built from saves and activity.")
-								.font(StakFont.geist(12 * u))
-								.foregroundStyle(muted)
-						}
-					}
-					Spacer()
-					Image(systemName: "chevron.right")
-						.font(.system(size: 14 * u))
-						.foregroundStyle(muted)
-				}
-				if let taste = myStakVM.taste, let top = taste.themes.first {
-					HStack(spacing: 8 * u) {
-						Capsule().fill(teal.opacity(0.2))
-							.frame(width: CGFloat(min(top.share, 1)) * 120 * u, height: 6 * u)
-						Text(top.category)
-							.font(StakFont.geist(12 * u))
-							.foregroundStyle(bodyColor)
-					}
-				}
-			}
-			.padding(14 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
-		}
-		.buttonStyle(.pressDim)
-	}
-
-	/// Your read insight card.
-	private var yourReadCard: some View {
-		let u = figmaUnit
-		return VStack(alignment: .leading, spacing: 7 * u) {
-			HStack(spacing: 8 * u) {
-				Image("IcGistSparkle")
-					.resizable()
-					.frame(width: 24 * u, height: 24 * u)
-				Text("Your read")
-					.font(StakFont.sora(14 * u, .semiBold))
+		return Button(action: onStartSwiping) {
+			VStack(alignment: .leading, spacing: 8 * u) {
+				Text("No companies yet")
+					.font(StakFont.sora(15 * u, .semiBold))
+					.stakLineHeight(19 * u, size: 15 * u, face: .sora)
 					.foregroundStyle(StakColors.textPrimary)
+				Text("STAK a company in Discover and it lands here, with what changed since you saved it.")
+					.font(StakFont.geist(13 * u))
+					.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+					.foregroundStyle(Stak.body)
+				Text("Open Discover ›")
+					.font(StakFont.geist(13 * u, .medium))
+					.stakLineHeight(17 * u, size: 13 * u, face: .geist)
+					.foregroundStyle(Stak.teal)
 			}
-			// Product audit (2026-09-05): a new account has no read yet.
-			Text(holdings.count == 0 ? "Your read starts with your first save." : (Session.shared.demoAccount ? "You lean into growth and tech." : StakInsights.readHeadline()))
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.multilineTextAlignment(.leading)
+			.padding(16 * u)
+			.background(Stak.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+		}
+		.buttonStyle(.pressDim)
+	}
+}
+
+/// "3 saved companies have something new." - companies counted, never rounded up. Once everything is opened it says so
+/// plainly, without counting what the user has read or naming the window STAK keeps them for.
+private func updatesLine(_ unreadCompanies: Int) -> String {
+	switch unreadCompanies {
+	case 1: return "1 saved company has something new."
+	case let n where n > 1: return "\(n) saved companies have something new."
+	default: return "You're up to date. Past updates are still here if you want them."
+	}
+}
+
+/// A read that failed - said plainly, so an empty screen never passes for a quiet day.
+private struct FailedCard: View {
+	let title: String
+	let message: String
+	var onRetry: (() -> Void)? = nil
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(alignment: .leading, spacing: 6 * u) {
+			Text(title)
 				.font(StakFont.sora(15 * u, .semiBold))
+				.stakLineHeight(19 * u, size: 15 * u, face: .sora)
 				.foregroundStyle(StakColors.textPrimary)
-			// Figma 1:3155 sets the body at 13 (Codex parity audit, 2026-09-04).
-			// Authored copy, not the store's counts - user, 2026-09-04 (CHINEDU 06 ·
-			// My STAK 1:3155): the authored look wins.
-			Text(holdings.count == 0 ? "Save stocks from the Discover deck and STAK will read your taste from them." : (Session.shared.demoAccount ? "Six of your fourteen picks are tech or AI names. Your STAK skews high-growth, with a small hedge in real estate." : StakInsights.readBody()))
+			Text(message)
 				.font(StakFont.geist(13 * u))
 				.stakLineHeight(19 * u, size: 13 * u, face: .geist)
-				.foregroundStyle(bodyColor)
+				.foregroundStyle(Stak.body)
+			if let onRetry {
+				Button(action: onRetry) {
+					Text("Retry ›")
+						.font(StakFont.geist(12 * u, .medium))
+						.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(Stak.teal)
+						.frame(minHeight: 44, alignment: .leading)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.pressDim)
+				// The 44pt target overhangs; the text keeps its authored 2 below the message.
+				.padding(.top, 2 * u)
+				.padding(.vertical, -14)
+			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(16 * u)
-		.background(cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
-	}
-
-	/// Discover banner.
-	private var discoverBanner: some View {
-		let u = figmaUnit
-		// Today's swipes from the server: counts other devices and survives a relaunch, unlike this session's tally.
-		let cardsLeft = max(0, discoverVM.dailyLimit - discoverVM.swipedToday)
-		return Button(action: onStartSwiping) {
-			VStack(alignment: .leading, spacing: 9 * u) {
-				Text("DISCOVER")
-					.font(StakFont.geist(10 * u, .medium))
-					.tracking(0.6 * u)
-					.foregroundStyle(ink)
-				Text("More like your STAK")
-					.font(StakFont.sora(18 * u, .semiBold))
-					.foregroundStyle(ink)
-				// 1:3322 Geist Regular 12 / 17 (was 13) - exact-design audit 2026-09-04.
-				// Authored two-line shape breaks before "deck." (1:3322; mirrors Android, 2026-09-05).
-				Text("Based on your taste, \(cardsLeft) fresh \(cardsLeft == 1 ? "pick" : "picks") are waiting in the\ndeck.")
-					.font(StakFont.geist(12 * u))
-					.stakLineHeight(17 * u, size: 12 * u, face: .geist)
-					.foregroundStyle(ink)
-				// 1:3323 "b": pt 4 over the natural runs (was a 22u strip) - exact-design audit 2026-09-04.
-				HStack(spacing: 4 * u) {
-					Text("Start swiping")
-						.font(StakFont.geist(13 * u, .medium))
-						.foregroundStyle(Color(argb: 0xB80A1020))
-					Text("›")
-						.font(StakFont.geist(14 * u, .medium))
-						.foregroundStyle(ink)
-				}
-				.padding(.top, 4 * u)
-			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(18 * u)
-			.background(teal, in: RoundedRectangle(cornerRadius: 16 * u))
-		}
-		.buttonStyle(.pressDim)
-	}
-}
-
-private struct SectionHeader: View {
-	let title: String
-
-	var body: some View {
-		Text(title)
-			.font(StakFont.sora(16 * figmaUnit, .semiBold))
-			.foregroundStyle(headerGray)
-			.frame(maxWidth: .infinity, alignment: .leading)
-	}
-}
-
-/// One collection chip — art/icon, name + count, chevron (#181f30 r12).
-private struct CollectionChip: View {
-	let collection: StakCollection
-	let action: () -> Void
-	/// The held count from the store - never the authored `collection.count`.
-	var countLabel: String = ""
-
-	var body: some View {
-		let u = figmaUnit
-		Button(action: action) {
-			HStack(spacing: 10 * u) {
-				if let image = collection.image {
-					Image(image)
-						.resizable()
-						.scaledToFill()
-						.frame(width: 34 * u, height: 34 * u)
-						.clipped()
-				} else if let icon = collection.icon {
-					Image(icon)
-						.resizable()
-						.frame(width: 36 * u, height: 36 * u)
-				}
-				VStack(alignment: .leading, spacing: 2 * u) {
-					// Authored: "Green Energy" (box 90) overflows its 84 column —
-					// the frame draws it past the column, so never wrap or clip it
-					// (Kotlin softWrap = false + TextOverflow.Visible).
-					Text(collection.name)
-						.font(StakFont.sora(13 * u, .semiBold))
-						.foregroundStyle(StakColors.textPrimary)
-						.lineLimit(1)
-						// Enlarged, it truncates instead of drawing over the next tile.
-						.fixedSize(horizontal: typeScale <= 1, vertical: false)
-					Text(countLabel)
-						.font(StakFont.geist(11 * u))
-						.foregroundStyle(muted)
-				}
-				.frame(maxWidth: .infinity, alignment: .leading)
-				Text("›")
-					.font(StakFont.geist(16 * u))
-					.foregroundStyle(faint)
-			}
-			.padding(12 * u)
-			.background(cardBg, in: RoundedRectangle(cornerRadius: 12 * u))
-		}
-		.buttonStyle(.pressDim)
-	}
-}
-
-/// Performance this week — +4.9%, chart, range pills, best/worst.
-private struct PortfolioSummary: View {
-	/// The range pills select (user, 2026-09-05: "be able to click on the
-	/// timeline"); "3M" is the authored default (1:3155) and keeps the
-	/// authored chart image. Mirrors android.
-	@State private var range = "3M"
-	@ObservedObject private var holdings = MyStakHoldings.shared
-
-	var body: some View {
-		let u = figmaUnit
-		VStack(spacing: 14 * u) {
-			VStack(alignment: .leading, spacing: 8 * u) {
-				Text("Performance this week")
-					.font(StakFont.sora(12 * u))
-					.foregroundStyle(muted)
-				Text(holdings.count == 0 ? "—" : (Session.shared.demoAccount ? "+4.9%" : StakInsights.signedPct(StakInsights.weekChangePct())))
-					.font(StakFont.sora(44 * u, .semiBold))
-					.tracking(-0.44 * u)
-					.foregroundStyle(StakColors.textPrimary)
-				HStack(spacing: 10 * u) {
-					// Authored summary copy; the store's count is not what the frame shows - user, 2026-09-04 (CHINEDU 06 · My STAK 1:3155).
-					Text(holdings.count == 0 ? "No stocks yet" : (Session.shared.demoAccount ? "Across 14 stocks" : "Across " + heldCountLabel(holdings.count)))
-						.font(StakFont.geist(14 * u, .medium))
-						.foregroundStyle(holdings.count == 0 ? muted : (!Session.shared.demoAccount && StakInsights.weekChangePct() < 0 ? red : green))
-					Text(".")
-						.font(StakFont.sora(14 * u))
-						.foregroundStyle(muted)
-					Text("3M")
-						.font(StakFont.geist(14 * u))
-						.foregroundStyle(muted)
-				}
-			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(.leading, 20 * u)
-
-			RangeLineChart(
-				range: range, tint: teal, authored: "MsChartLine",
-				width: 343 * u, height: 73.56 * u,
-				move: Session.shared.demoAccount ? nil : StakInsights.weekChangePct(),
-				portfolioTickers: Session.shared.demoAccount ? nil : (holdings.tickers.isEmpty ? nil : Array(holdings.tickers))
-			)
-
-			RangePills(selected: $range, tint: teal, muted: muted)
-				.padding(.top, 26 * u)
-
-			Rectangle()
-				.fill(track)
-				.frame(maxWidth: .infinity)
-				.frame(height: 1 * u)
-
-			// The demo's authored TSLA / SNOW; a new account's own best and worst, once it holds two (product audit, 2026-09-05).
-			let duo = Session.shared.demoAccount ? nil : StakInsights.bestWorst()
-			if holdings.count > 0 && (Session.shared.demoAccount || duo != nil) {
-				HStack(spacing: 151 * u) {
-				VStack(alignment: .leading, spacing: 3 * u) {
-					Text("Best")
-						.font(StakFont.geist(11 * u))
-						.foregroundStyle(faint)
-					HStack(spacing: 6 * u) {
-						Text(Session.shared.demoAccount ? "TSLA" : duo!.0.ticker)
-							.font(StakFont.sora(13 * u, .semiBold))
-							.foregroundStyle(StakColors.textPrimary)
-						Text(Session.shared.demoAccount ? "+3.4%" : StakInsights.signedPct(StakInsights.changePct(duo!.0)))
-							.font(StakFont.geist(12 * u, .medium))
-							.foregroundStyle(Session.shared.demoAccount || duo!.0.up ? green : red)
-					}
-				}
-				VStack(alignment: .leading, spacing: 3 * u) {
-					Text("Worst")
-						.font(StakFont.geist(11 * u))
-						.foregroundStyle(faint)
-					HStack(spacing: 6 * u) {
-						Text(Session.shared.demoAccount ? "SNOW" : duo!.1.ticker)
-							.font(StakFont.sora(13 * u, .semiBold))
-							.foregroundStyle(StakColors.textPrimary)
-						Text(Session.shared.demoAccount ? "-0.5%" : StakInsights.signedPct(StakInsights.changePct(duo!.1)))
-							.font(StakFont.geist(12 * u, .medium))
-							.foregroundStyle(!Session.shared.demoAccount && duo!.1.up ? green : red)
-					}
-				}
-				}
-				.frame(maxWidth: .infinity)
-			}
-		}
-		.frame(maxWidth: .infinity)
-		.padding(.vertical, 13.5 * u)
-		.background(cardBg, in: RoundedRectangle(cornerRadius: 8 * u))
-	}
-}
-
-/// Allocation — the 150u donut render + sector bars.
-/// The baked MsDonut render and the five authored bars, not the store -
-/// user, 2026-09-04 (CHINEDU 06 · My STAK 1:3155): the authored look wins.
-private struct AllocationCard: View {
-	var body: some View {
-		let u = figmaUnit
-		VStack(spacing: 16 * u) {
-			Text("Allocation")
-				.font(StakFont.sora(15 * u, .semiBold))
-				.foregroundStyle(StakColors.textPrimary)
-			Group {
-				if Session.shared.demoAccount {
-					Image("MsDonut")
-						.resizable()
-						.frame(width: 150 * u, height: 150 * u)
-					VStack(spacing: 12 * u) {
-						SectorBar(name: "Tech & AI", share: "42% · 6 stocks", color: teal, fill: 132)
-						SectorBar(name: "Finance", share: "21% · 3 stocks", color: Color(argb: 0xFF7AB3F0), fill: 66)
-						SectorBar(name: "Green Energy", share: "20% · 3 stocks", color: green, fill: 63)
-						// 1:3306 legend dot is #9E8CE6 while the 1:3310 bar is #9E8CE5 - exact-design audit 2026-09-04.
-						SectorBar(name: "Real Estate", share: "12% · 2 stocks", color: Color(argb: 0xFF9E8CE5), fill: 38, dot: Color(argb: 0xFF9E8CE6))
-						SectorBar(name: "Other", share: "5% · 1 stock", color: faint, fill: 16)
-					}
-				} else {
-					// A new account's ring and bars come from its own saves (product audit, 2026-09-05).
-					let buckets = StakInsights.buckets(Array(MyStakHoldings.shared.tickers))
-					DonutRing(shares: buckets.map { CGFloat($0.share) }, colors: buckets.map { myStakBucketColor($0.id) }, size: 150 * u)
-					VStack(spacing: 12 * u) {
-						ForEach(buckets, id: \.id) { b in
-							SectorBar(name: b.name, share: "\(Int((b.share * 100).rounded()))% · \(heldCountLabel(b.count))", color: myStakBucketColor(b.id), fill: CGFloat(314 * b.share))
-						}
-					}
-				}
-			}
-			.frame(maxWidth: .infinity)
-		}
-		.frame(maxWidth: .infinity)
-		.padding(18 * u)
-		.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-	}
-}
-
-/// The authored bucket palette (1:3155), one colour per collection.
-private func myStakBucketColor(_ id: String) -> Color {
-	switch id {
-	case "aitech": return Color(argb: 0xFF69B3CA)
-	case "finance": return Color(argb: 0xFF7AB3F0)
-	case "green": return Color(argb: 0xFF2FD08A)
-	case "realestate": return Color(argb: 0xFF9E8CE5)
-	case "health": return Color(argb: 0xFF5DA8BF)
-	case "consumer": return Color(argb: 0xFFE8B86D)
-	default: return Color(argb: 0xFF5C6B85)
-	}
-}
-
-struct SectorBar: View {
-	let name: String
-	let share: String
-	let color: Color
-	/// Exact Figma fill width in artboard units (scaled by `figmaUnit`).
-	let fill: CGFloat
-	/// The legend dot when it is not the bar colour (1:3306 vs 1:3310) - a new
-	/// stored property LAST with a default, so the memberwise init keeps its order.
-	var dot: Color? = nil
-
-	var body: some View {
-		let u = figmaUnit
-		VStack(spacing: 6 * u) {
-			HStack(spacing: 0) {
-				Circle()
-					.fill(dot ?? color)
-					.frame(width: 9 * u, height: 9 * u)
-				Spacer().frame(width: 8 * u)
-				Text(name)
-					.font(StakFont.geist(13 * u))
-					.foregroundStyle(StakColors.textPrimary)
-				Spacer(minLength: 0)
-				Text(share)
-					.font(StakFont.geist(12 * u, .medium))
-					.foregroundStyle(muted)
-			}
-			ZStack(alignment: .leading) {
-				RoundedRectangle(cornerRadius: 4 * u)
-					.fill(track)
-				RoundedRectangle(cornerRadius: 4 * u)
-					.fill(color)
-					.frame(width: fill * u)
-			}
-			.frame(maxWidth: .infinity)
-			.frame(height: 7 * u)
-		}
+		.background(Stak.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 	}
 }

@@ -1,199 +1,285 @@
 import SwiftUI
 
-/// "What changed" — per-company update feed. Mirrors android/ui/mystak/UpdatesScreen.kt.
+/// "What changed" — one card per saved company that has news worth returning for (My STAK product spec, Sept 2026).
+/// Each card names the company, states the change and gives enough context to decide whether to look further; opening
+/// one marks it read and takes a point off the overview's count. Mirrors android ui/mystak/UpdatesScreen.kt.
 struct UpdatesView: View {
-    let onBack: () -> Void
-    let onOpenStock: (String) -> Void
-    @ObservedObject var myStakVM: MyStakViewModel
+	let onBack: () -> Void
+	let onOpenStock: (String) -> Void
+	@ObservedObject var myStakVM: MyStakViewModel
+	/// Back on top (from the stock page a card opened), the list is re-checked - Android's screen re-enters then.
+	var isTop = true
 
-    var body: some View {
-        let u = figmaUnit
-        VStack(spacing: 0) {
-            ZStack {
-                Text("What changed")
-                    .font(StakFont.sora(16 * u, .semiBold))
-                    .foregroundStyle(StakColors.textPrimary)
-                HStack {
-                    AuthBackCircle(action: onBack).padding(.leading, 20 * u)
-                    Spacer()
-                }
-            }
-            .frame(maxWidth: .infinity).frame(height: 56 * u)
+	var body: some View {
+		let u = figmaUnit
+		// Every company with a change gets a card; a card caps how many of ITS OWN changes it shows, so one chatty
+		// company can't crowd the rest out.
+		let fresh = myStakVM.updates.filter { !$0.read }
+		let earlier = myStakVM.updates.filter(\.read)
+		VStack(spacing: 0) {
+			HStack {
+				AuthBackCircle(action: onBack).padding(.leading, 20 * u)
+				Spacer()
+			}
+			.frame(maxWidth: .infinity)
+			.frame(height: 56 * u)
 
-            if myStakVM.updates.isEmpty && !myStakVM.updatesFailed {
-                Spacer()
-                VStack(spacing: 12 * u) {
-                    Image(systemName: "bell.slash")
-                        .font(.system(size: 32 * u))
-                        .foregroundStyle(Color(argb: 0xFF4A5E7A))
-                    Text("Nothing to report yet")
-                        .font(StakFont.geist(15 * u, .medium))
-                        .foregroundStyle(Color(argb: 0xFF819ABB))
-                    Text("Updates appear here when your saved stocks report earnings, news, or metric changes.")
-                        .font(StakFont.geist(12 * u))
-                        .foregroundStyle(Color(argb: 0xFF4A5E7A))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40 * u)
-                }
-                Spacer()
-            } else {
-                let groups = groupedUpdates(myStakVM.updates)
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        let unread = myStakVM.unreadCount
-                        if unread > 0 {
-                            HStack {
-                                Text("\(unread) unread")
-                                    .font(StakFont.geist(12 * u))
-                                    .foregroundStyle(Color(argb: 0xFF69B3CA))
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20 * u)
-                            .padding(.top, 8 * u)
-                            .padding(.bottom, 12 * u)
-                        }
-                        ForEach(groups, id: \.ticker) { group in
-                            UpdateGroupSection(
-                                group: group,
-                                u: u,
-                                onOpenStock: {
-                                    StakEvents.log(StakEvents.updateOpen, ticker: group.ticker,
-                                                   params: group.updates.first.map { ["kind": $0.kind] })
-                                    myStakVM.markCompanyRead(group.ticker)
-                                    onOpenStock(group.ticker)
-                                }
-                            )
-                        }
-                    }
-                    .padding(.bottom, 32 * u)
-                    .safeAreaPadding(.bottom)
-                }
-                .refreshable { await myStakVM.loadUpdates() }
-            }
-        }
-        .background(StakColors.bg.ignoresSafeArea())
-        .task { await myStakVM.loadUpdates() }
-    }
+			ScrollView {
+				VStack(alignment: .leading, spacing: 12 * u) {
+					VStack(alignment: .leading, spacing: 4 * u) {
+						Text("What changed")
+							.font(StakFont.sora(24 * u, .semiBold))
+							.stakLineHeight(30 * u, size: 24 * u, face: .sora)
+							.foregroundStyle(StakColors.textPrimary)
+							.accessibilityAddTraits(.isHeader)
+						Text(subtitleFor(fresh))
+							.font(StakFont.geist(13 * u))
+							.stakLineHeight(17 * u, size: 13 * u, face: .geist)
+							.foregroundStyle(Stak.muted)
+					}
+					if !fresh.isEmpty {
+						UpdateSection(title: "New", updates: fresh, myStakVM: myStakVM, onOpenStock: onOpenStock)
+					}
+					if !myStakVM.updates.isEmpty {
+						HStack(spacing: 8 * u) {
+							Text("✓").font(StakFont.geist(13 * u)).foregroundStyle(Stak.faint).accessibilityHidden(true)
+							// "Up to date" is only true once every one of them has been opened.
+							Text(fresh.isEmpty ? "You're up to date on your saved companies." : "That's all the new updates.")
+								.font(StakFont.geist(12 * u))
+								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+								.foregroundStyle(Stak.faint)
+						}
+						.padding(.top, 4 * u)
+					}
+					if !earlier.isEmpty {
+						UpdateSection(title: "Earlier · already opened", updates: earlier, myStakVM: myStakVM, onOpenStock: onOpenStock)
+					}
+				}
+				.padding(.horizontal, 20 * u)
+				.padding(.top, 8 * u)
+				.padding(.bottom, 32 * u)
+			}
+		}
+		.background(StakColors.bg.ignoresSafeArea())
+		.task(id: isTop) { if isTop { myStakVM.loadUpdates() } }
+	}
 }
 
-// MARK: – helpers
+/// How many of one company's own changes its card shows before "+N more". The server sends every update newest first
+/// and nothing here re-sorts them, so the prefix always keeps the most recent ones.
+private let maxChangesPerCard = 3
 
-private struct UpdateGroup {
-    let ticker: String
-    let company: String
-    let updates: [StockUpdateDto]
-    var hasUnread: Bool { updates.contains { !$0.read } }
+/// One band of the inbox - its heading, then a card per company in it, grouped so two changes at one company are one
+/// card.
+private struct UpdateSection: View {
+	let title: String
+	let updates: [StockUpdateDto]
+	@ObservedObject var myStakVM: MyStakViewModel
+	let onOpenStock: (String) -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		Text(title)
+			.font(StakFont.geist(11 * u, .medium))
+			.tracking(0.8 * u)
+			.stakLineHeight(14 * u, size: 11 * u, face: .geist)
+			.foregroundStyle(Stak.faint)
+			.padding(.top, 4 * u)
+			.accessibilityAddTraits(.isHeader)
+		ForEach(byCompany(updates), id: \.0) { ticker, forCompany in
+			CompanyUpdateCard(updates: forCompany) {
+				myStakVM.markCompanyRead(ticker)
+				StakEvents.log(StakEvents.updateOpen, ticker: ticker, params: ["kind": forCompany[0].kind])
+				onOpenStock(ticker)
+			}
+		}
+	}
+
+	/// The updates grouped by company, in the order each company first appears (Kotlin's groupBy).
+	private func byCompany(_ all: [StockUpdateDto]) -> [(String, [StockUpdateDto])] {
+		var order: [String] = []
+		var map: [String: [StockUpdateDto]] = [:]
+		for u in all {
+			if map[u.ticker] == nil { order.append(u.ticker) }
+			map[u.ticker, default: []].append(u)
+		}
+		return order.map { ($0, map[$0] ?? []) }
+	}
 }
 
-private func groupedUpdates(_ all: [StockUpdateDto]) -> [UpdateGroup] {
-    var order: [String] = []
-    var map: [String: UpdateGroup] = [:]
-    for u in all {
-        let key = u.ticker.uppercased()
-        if map[key] == nil {
-            order.append(key)
-            map[key] = UpdateGroup(ticker: key, company: u.company, updates: [u])
-        } else {
-            map[key] = UpdateGroup(ticker: key, company: map[key]!.company, updates: map[key]!.updates + [u])
-        }
-    }
-    return order.compactMap { map[$0] }
+/// The line under the title - what is waiting, in words rather than a window.
+private func subtitleFor(_ fresh: [StockUpdateDto]) -> String {
+	if fresh.isEmpty { return "Nothing new at your saved companies." }
+	let companies = Set(fresh.map(\.ticker)).count
+	return companies == 1 ? "1 saved company has something new" : "\(companies) saved companies have something new"
 }
 
-private struct UpdateGroupSection: View {
-    let group: UpdateGroup
-    let u: CGFloat
-    let onOpenStock: () -> Void
+/// One company's changes: what happened, the context, and where each one came from.
+private struct CompanyUpdateCard: View {
+	let updates: [StockUpdateDto]
+	let onOpen: () -> Void
+	/// "+N more" opens onto the rest of this same card.
+	@State private var expanded = false
 
-    var body: some View {
-        VStack(spacing: 0) {
-            Button(action: onOpenStock) {
-                HStack(spacing: 10 * u) {
-                    ZStack(alignment: .topTrailing) {
-                        ZStack {
-                            Circle().fill(Color(argb: 0xFF1E2A3D))
-                                .frame(width: 36 * u * typeScale, height: 36 * u * typeScale)
-                            Text(String(group.ticker.prefix(1)))
-                                .font(StakFont.geist(14 * u, .medium))
-                                .foregroundStyle(Color(argb: 0xFF69B3CA))
-                        }
-                        if group.hasUnread {
-                            Circle().fill(Color(argb: 0xFF69B3CA))
-                                .frame(width: 8 * u, height: 8 * u)
-                                .offset(x: 2 * u, y: -2 * u)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 2 * u) {
-                        Text(group.company)
-                            .font(StakFont.geist(14 * u, .medium))
-                            .foregroundStyle(StakColors.textPrimary)
-                            .lineLimit(1)
-                        Text("\(group.updates.count) \(group.updates.count == 1 ? "update" : "updates")")
-                            .font(StakFont.geist(12 * u))
-                            .foregroundStyle(Color(argb: 0xFF819ABB))
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13 * u))
-                        .foregroundStyle(Color(argb: 0xFF4A5E7A))
-                }
-                .padding(.horizontal, 20 * u)
-                .padding(.vertical, 14 * u)
-            }
-            .buttonStyle(.pressDim)
-
-            ForEach(group.updates) { update in
-                UpdateRow(update: update, u: u)
-            }
-
-            Divider()
-                .background(Color(argb: 0xFF1E2A3D))
-                .padding(.horizontal, 20 * u)
-        }
-    }
+	var body: some View {
+		let u = figmaUnit
+		let update = updates[0]
+		let unread = updates.contains { !$0.read }
+		let shown = expanded ? updates : Array(updates.prefix(maxChangesPerCard))
+		// A tap on the card, not a Button around it: "+N more" inside it is a button of its own.
+		VStack(alignment: .leading, spacing: 8 * u) {
+			HStack(alignment: .top, spacing: 10 * u) {
+				CompanyLogo(update: update)
+				VStack(alignment: .leading, spacing: 2 * u) {
+					Text(update.company)
+						.font(StakFont.sora(14 * u, .semiBold))
+						.stakLineHeight(18 * u, size: 14 * u, face: .sora)
+						.foregroundStyle(StakColors.textPrimary)
+					Text("\(update.ticker) · \(kindLabel(update.kind))\(ageOf(update).map { " · \($0)" } ?? "")")
+						.font(StakFont.geist(11 * u))
+						.stakLineHeight(14 * u, size: 11 * u, face: .geist)
+						.foregroundStyle(Stak.muted)
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				// An unread dot, as on the overview's collections - gone once it's opened.
+				if unread {
+					Circle().fill(Stak.teal).frame(width: 8 * u, height: 8 * u).accessibilityHidden(true)
+				}
+			}
+			ForEach(Array(shown.enumerated()), id: \.element.id) { i, change in
+				VStack(alignment: .leading, spacing: 8 * u) {
+					Text(change.title)
+						.font(StakFont.sora(16 * u, .semiBold))
+						.stakLineHeight(21 * u, size: 16 * u, face: .sora)
+						.foregroundStyle(StakColors.textPrimary)
+					Text(change.body)
+						.font(StakFont.geist(13 * u))
+						.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+						.foregroundStyle(Stak.body)
+					if let watch = change.watch, !watch.trimmingCharacters(in: .whitespaces).isEmpty {
+						Text(watch)
+							.font(StakFont.geist(12 * u))
+							.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+							.foregroundStyle(Stak.muted)
+					}
+					// Each change carries its own age, so a 4-day-old change under a "5h ago" header doesn't read
+					// as just as fresh.
+					let meta = [ageOf(change), updateSourceLine(change)].compactMap { $0 }.joined(separator: " · ")
+					if !meta.isEmpty {
+						Text(meta)
+							.font(StakFont.geist(11 * u))
+							.stakLineHeight(14 * u, size: 11 * u, face: .geist)
+							.foregroundStyle(Stak.faint)
+					}
+				}
+				.padding(.top, i > 0 ? 12 * u : 0)
+			}
+			if !expanded && updates.count > maxChangesPerCard {
+				Button { withAnimation(.easeInOut(duration: 0.25)) { expanded = true } } label: {
+					Text("+\(updates.count - maxChangesPerCard) more this week")
+						.font(StakFont.geist(12 * u, .medium))
+						.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(Stak.teal)
+						.frame(minHeight: 44, alignment: .leading)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.pressDim)
+				.padding(.vertical, -14)
+			}
+			// The company's page carries these changes under Since you saved, so the promise this makes is one the
+			// destination keeps.
+			Text("Understand this change ›")
+				.font(StakFont.geist(13 * u, .medium))
+				.stakLineHeight(17 * u, size: 13 * u, face: .geist)
+				.foregroundStyle(Stak.teal)
+				.padding(.top, 10 * u)
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.multilineTextAlignment(.leading)
+		.padding(16 * u)
+		.background(Stak.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+		.contentShape(RoundedRectangle(cornerRadius: 16 * u))
+		.onTapGesture(perform: onOpen)
+		.accessibilityElement(children: .combine)
+		.accessibilityLabel(unread ? "New: \(update.company)" : update.company)
+		.accessibilityAddTraits(.isButton)
+		.accessibilityAction(.default, onOpen)
+		.accessibilityActions {
+			if !expanded && updates.count > maxChangesPerCard {
+				Button("Show \(updates.count - maxChangesPerCard) more") { expanded = true }
+			}
+		}
+	}
 }
 
-private struct UpdateRow: View {
-    let update: StockUpdateDto
-    let u: CGFloat
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12 * u) {
-            Circle()
-                .fill(update.read ? Color(argb: 0xFF2A3A52) : Color(argb: 0xFF69B3CA))
-                .frame(width: 6 * u, height: 6 * u)
-                .padding(.top, 6 * u)
-            VStack(alignment: .leading, spacing: 4 * u) {
-                Text(update.title)
-                    .font(StakFont.geist(13 * u, .medium))
-                    .foregroundStyle(update.read ? Color(argb: 0xFF819ABB) : StakColors.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if !update.body.isEmpty {
-                    Text(update.body)
-                        .font(StakFont.geist(12 * u))
-                        .foregroundStyle(Color(argb: 0xFF4A5E7A))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Text(relativeDate(update.occurredAt))
-                    .font(StakFont.geist(11 * u))
-                    .foregroundStyle(Color(argb: 0xFF3A4E6A))
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 20 * u)
-        .padding(.vertical, 10 * u)
-        .background(update.read ? Color.clear : Color(argb: 0x0A69B3CA))
-    }
+private func kindLabel(_ kind: String) -> String {
+	switch kind {
+	case "earnings": return "Earnings"
+	case "guidance": return "Outlook"
+	case "analyst": return "Analysts"
+	case "business": return "Company news"
+	default: return "Update"
+	}
 }
 
-private func relativeDate(_ iso: String) -> String {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    guard let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
-    let secs = Int(-d.timeIntervalSinceNow)
-    if secs < 60 { return "Just now" }
-    if secs < 3600 { return "\(secs / 60)m ago" }
-    if secs < 86400 { return "\(secs / 3600)h ago" }
-    return "\(secs / 86400)d ago"
+/// The company's logo from the brand catalog, or its initial while that's still loading (or for a company the
+/// catalog has no mark for).
+private struct CompanyLogo: View {
+	let update: StockUpdateDto
+	@ObservedObject private var brands = BrandNames.shared
+
+	var body: some View {
+		let u = figmaUnit
+		ZStack {
+			RoundedRectangle(cornerRadius: 9 * u).fill(Color(argb: 0xFF242B3D))
+			if let url = brands.logoByTicker[update.ticker.uppercased()].flatMap(URL.init(string:)) {
+				AsyncImage(url: url) { phase in
+					if let image = phase.image {
+						image.resizable().scaledToFit().frame(width: 26 * u, height: 26 * u)
+					} else {
+						initial(u)
+					}
+				}
+			} else {
+				initial(u)
+			}
+		}
+		.frame(width: 34 * u, height: 34 * u)
+		.clipShape(RoundedRectangle(cornerRadius: 9 * u))
+		.accessibilityHidden(true)
+	}
+
+	private func initial(_ u: CGFloat) -> some View {
+		Text(update.company.prefix(1).uppercased())
+			.font(StakFont.sora(14 * u, .semiBold))
+			.foregroundStyle(Stak.muted)
+	}
 }
+
+/// "From Reuters" / "From Reuters and 2 more" - the headlines this was written from. Shared with the stock page's Since
+/// you saved card.
+func updateSourceLine(_ update: StockUpdateDto) -> String? {
+	var names: [String] = []
+	for s in update.sources where !s.source.trimmingCharacters(in: .whitespaces).isEmpty && !names.contains(s.source) { names.append(s.source) }
+	guard let first = names.first else { return nil }
+	let extra = update.sources.count - 1
+	if names.count == 1 && extra > 0 { return "From \(first) and \(extra) more \(extra == 1 ? "headline" : "headlines")" }
+	if names.count == 1 { return "From \(first)" }
+	return "From \(first) and \(names.count - 1) more"
+}
+
+/// How old the change is - dated from the newest headline behind it, not from when STAK noticed it.
+private func ageOf(_ update: StockUpdateDto) -> String? {
+	let newest = update.sources.map(\.datetime).max().flatMap { $0 > 0 ? $0 : nil }
+	let seconds: Int64
+	if let newest {
+		seconds = newest
+	} else if let date = MyStakHoldings.parse(update.occurredAt) {
+		seconds = Int64(date.timeIntervalSince1970)
+	} else {
+		return nil
+	}
+	let age = StakClock.newsAge(seconds)
+	return age == "0m" ? "Just now" : "\(age) ago"
+}
+
