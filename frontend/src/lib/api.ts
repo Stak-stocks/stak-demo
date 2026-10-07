@@ -350,10 +350,6 @@ export function saveIntelState(lastDate: string, queue: string[], readIds: strin
 }
 
 // Sandbox portfolio
-export function sandboxInit() {
-	return apiRequest<{ ok: boolean }>("/api/sandbox/init", { method: "POST" });
-}
-
 export interface SandboxBuyResult {
 	price: number;
 	shares: number;
@@ -412,9 +408,6 @@ export function sandboxMilestone(value: number) {
 	});
 }
 
-export function sandboxTierUpgrade() {
-	return apiRequest<{ ok: boolean; increase?: number; newTier?: number }>("/api/sandbox/tier-upgrade", { method: "POST" });
-}
 
 // Free-choice setup (Android's model, now on web too): user picks a starting balance,
 // name and strategy, opting out of XP-tier top-ups.

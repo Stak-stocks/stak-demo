@@ -16,7 +16,7 @@ import {
 } from "react";
 import {
 	incrementSwipeCountServer, type SwipeLimitIncrementResponse,
-	sandboxInit, sandboxBuy, sandboxSell, sandboxReset, sandboxMilestone, sandboxTierUpgrade,
+	sandboxBuy, sandboxSell, sandboxReset, sandboxMilestone,
 	sandboxSetup, sandboxPlaceOrder, sandboxCancelOrder, type SandboxOrderResult,
 	completeActivity, completeDailyActivityApi, addSkillXp,
 	addSearchHistoryEntry, removeSearchHistoryEntry as removeSearchHistoryEntryApi, clearSearchHistoryApi,
@@ -181,7 +181,6 @@ interface AccountContextType {
 	completeMoodScenario: (scenarioId: string, xp: number) => Promise<void>;
 	addToSandbox: (ticker: string, shares: number, thesis?: string) => Promise<void>;
 	sellFromSandbox: (ticker: string, sharesToSell?: number) => Promise<{ sellValue: number; price: number; sharesToSell: number; remaining: number }>;
-	initSandboxCash: () => Promise<void>;
 	resetSandbox: () => Promise<void>;
 	markSandboxMilestone: (value: number) => Promise<void>;
 	setupSandbox: (startingBalance: number, name: string, strategy: SandboxStrategyId) => Promise<void>;
@@ -217,13 +216,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		setAccount(null);
 		setAccountLoading(false);
 	}, [supabaseUserId, authLoading]);
-
-	// When XP crosses a tier boundary, top up sandboxCash by the budget difference.
-	useEffect(() => {
-		if (supabaseUserId && account?.sandboxCash !== undefined) {
-			sandboxTierUpgrade().catch(() => {});
-		}
-	}, [supabaseUserId, account?.totalXp, account?.sandboxCash, account?.sandboxTier]);
 
 	const refreshAccount = useCallback(async () => {
 		const fresh = await fetchSupabaseAccount();
@@ -307,11 +299,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		await completeActivity("mood", scenarioId, xp);
 	}, []);
 
-const initSandboxCash = useCallback(async () => {
-		if (account?.sandboxCash !== undefined) return;
-		await sandboxInit();
-	}, [account?.sandboxCash]);
-
 	const addToSandbox = useCallback(async (ticker: string, shares: number, thesis?: string) => {
 		await sandboxBuy(ticker, shares, thesis);
 	}, []);
@@ -379,7 +366,6 @@ const initSandboxCash = useCallback(async () => {
 				completeMoodScenario,
 				addToSandbox,
 				sellFromSandbox,
-				initSandboxCash,
 				resetSandbox,
 				markSandboxMilestone,
 				setupSandbox,

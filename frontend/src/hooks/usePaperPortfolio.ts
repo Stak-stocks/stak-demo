@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SANDBOX_BUDGETS, xpToTier } from "@stak/shared";
+import { SANDBOX_DEFAULT_STARTING_BALANCE } from "@stak/shared";
 import { useAccount, type SandboxOrder, type SandboxStrategyId } from "@/context/AccountContext";
 import { useBrandsList } from "@/hooks/useBrandsList";
 import {
@@ -14,7 +14,6 @@ import { computeRealized, type RealizedSale } from "@/lib/realized";
 
 /** Android refreshes paper prices and orders every 15 seconds while a Simulate screen is open. */
 const REFRESH_MS = 15_000;
-const DEFAULT_START = 10_000;
 
 /** One held stock, priced live (falling back to what it cost while a quote is missing). */
 export interface Pick {
@@ -92,8 +91,8 @@ export function usePaperPortfolio(): PaperPortfolio {
 	const trades = useMemo(() => tradesData?.trades ?? [], [tradesData]);
 	const realized = useMemo(() => computeRealized(trades), [trades]);
 
-	const tier = xpToTier(account?.totalXp ?? 0);
-	const paperStart = account?.sandboxCashSource === "free_choice" ? (account.sandboxStart ?? DEFAULT_START) : SANDBOX_BUDGETS[tier];
+	// What the portfolio started with - every portfolio has it since the one-money-system migration (2026-10-07).
+	const paperStart = account?.sandboxStart ?? SANDBOX_DEFAULT_STARTING_BALANCE;
 	const cash = account?.sandboxCash ?? 0;
 	const openOrders = account?.sandboxOpenOrders ?? [];
 

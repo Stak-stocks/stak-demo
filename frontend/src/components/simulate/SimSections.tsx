@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { SANDBOX_NAME_MAX_LENGTH, SANDBOX_STARTING_BALANCES, SANDBOX_STRATEGIES } from "@stak/shared";
+import { SANDBOX_DEFAULT_STARTING_BALANCE, SANDBOX_NAME_MAX_LENGTH, SANDBOX_STARTING_BALANCES, SANDBOX_STRATEGIES } from "@stak/shared";
 import type { SandboxStrategyId } from "@/context/AccountContext";
 import { DonutRing } from "@/components/DonutRing";
 import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
@@ -17,7 +17,8 @@ import { Badge, ChartNote, DarkCta, Kicker, RangeChart, RangeChips, SIM, gradien
 const pickCountText = (n: number) => (n === 1 ? "1 pick" : `${n} picks`);
 
 // ── Setup ────────────────────────────────────────────────────────────────────────────────────────
-const DRAFT = { balance: "setup_draft_balance", name: "setup_draft_name", strategy: "setup_draft_strategy" };
+// The balance draft stores the AMOUNT: an index would point at a different one whenever the list changes.
+const DRAFT = { balance: "setup_draft_balance_amount", name: "setup_draft_name", strategy: "setup_draft_strategy" };
 const BLURB: Record<SandboxStrategyId, string> = {
 	cautious: "Small stakes, steady names. Aim to beat a savings account.",
 	balanced: "A mix of steady and growth picks. The default most people start on.",
@@ -26,12 +27,20 @@ const BLURB: Record<SandboxStrategyId, string> = {
 const read = (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } };
 const write = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* the draft just won't survive a reload */ } };
 
-/** Pick a starting balance, name it and choose how to play. A half-filled form survives a reload, like Android's draft. */
+const DEFAULT_BALANCE_INDEX = SANDBOX_STARTING_BALANCES.indexOf(SANDBOX_DEFAULT_STARTING_BALANCE);
+const DEFAULT_STRATEGY_INDEX = SANDBOX_STRATEGIES.findIndex((s) => s.id === "balanced");
+
+/** Pick what you'd really invest, name it and choose how to play. A half-filled form survives a reload, like Android's draft. */
+
 export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, name: string, strategy: SandboxStrategyId) => void }) {
-	const [balanceIndex, setBalanceIndex] = useState(() => { const i = Number(read(DRAFT.balance)); return SANDBOX_STARTING_BALANCES[i] !== undefined ? i : 1; });
+	const [balanceIndex, setBalanceIndex] = useState(() => {
+		const i = SANDBOX_STARTING_BALANCES.findIndex((b) => String(b) === read(DRAFT.balance));
+		return i >= 0 ? i : DEFAULT_BALANCE_INDEX;
+	});
 	const [name, setName] = useState(() => read(DRAFT.name) ?? "");
-	const [strategyIndex, setStrategyIndex] = useState(() => { const i = Number(read(DRAFT.strategy)); return SANDBOX_STRATEGIES[i] !== undefined ? i : 1; });
-	useEffect(() => { write(DRAFT.balance, String(balanceIndex)); }, [balanceIndex]);
+	// No draft reads as null, and Number(null) is 0 - the first strategy, not the default.
+	const [strategyIndex, setStrategyIndex] = useState(() => { const raw = read(DRAFT.strategy); const i = raw === null ? -1 : Number(raw); return SANDBOX_STRATEGIES[i] !== undefined ? i : DEFAULT_STRATEGY_INDEX; });
+	useEffect(() => { write(DRAFT.balance, String(SANDBOX_STARTING_BALANCES[balanceIndex])); }, [balanceIndex]);
 	useEffect(() => { write(DRAFT.name, name); }, [name]);
 	useEffect(() => { write(DRAFT.strategy, String(strategyIndex)); }, [strategyIndex]);
 	const strategy = SANDBOX_STRATEGIES[strategyIndex]!;
@@ -40,7 +49,7 @@ export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, n
 	return (
 		<section style={{ display: "flex", flexDirection: "column", gap: cu(12), ...sheetCard(16), padding: cu(16) }} aria-label="Set up your paper portfolio">
 			<p style={{ font: f(500, 11, 14), color: DISC.teal }}>SET UP YOUR PAPER PORTFOLIO</p>
-			<p style={{ font: f(400, 12, 17), color: DISC.body }}>Pick a starting balance, name it and choose how you want to play. Nothing here is real money.</p>
+			<p style={{ font: f(400, 12, 17), color: DISC.body }}>Start with what you’d really invest, so practice feels like the real thing. Name it and choose how you want to play. Nothing here is real money.</p>
 			{label("Starting balance")}
 			<div className="flex" style={{ gap: cu(8) }}>
 				{SANDBOX_STARTING_BALANCES.map((b, i) => <SettingsChip key={b} label={wholeUsd(b)} selected={i === balanceIndex} onClick={() => setBalanceIndex(i)} />)}
@@ -68,7 +77,7 @@ export function SetupLine({ paper }: { paper: PaperPortfolio }) {
 	const label = SANDBOX_STRATEGIES.find((s) => s.id === paper.strategy)?.label;
 	// Older tier-based portfolios have no name or strategy to show.
 	if (!paper.name || !label) return null;
-	return <p style={{ font: f(400, 11, 14), color: DISC.muted }}>{paper.name} · {label} · started on {wholeUsd(paper.paperStart)}</p>;
+	return <p style={{ font: f(400, 11, 14), color: DISC.muted }}>{paper.name} · {label} · started with {wholeUsd(paper.paperStart)}</p>;
 }
 
 // ── Score hero ───────────────────────────────────────────────────────────────────────────────────
@@ -93,7 +102,7 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 				<span style={{ font: f(500, 12, 16), color: DISC.ink }}>{usd(paper.cash)}</span>
 			</div>
 			<p style={{ ...pad, font: f(500, 12, 16), color: up ? DISC.green : DISC.red }}>
-				{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) this week
+				{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) all time
 			</p>
 			<div className="flex justify-center">
 				{values && values.length >= 2 ? <RangeChart values={values} /> : <ChartNote>{loading ? "" : "No history yet"}</ChartNote>}

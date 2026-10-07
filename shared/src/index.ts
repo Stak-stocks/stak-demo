@@ -55,6 +55,7 @@ export { formatMarketCap, calcPercentChange } from "./financialFormat";
 
 export {
 	SANDBOX_STARTING_BALANCES,
+	SANDBOX_DEFAULT_STARTING_BALANCE,
 	SANDBOX_STRATEGIES,
 	SANDBOX_MAX_OPEN_ORDERS,
 	SANDBOX_MIN_SHARES,

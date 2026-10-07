@@ -4,7 +4,7 @@
 import { TIER_XP as BASE_TIER_XP, xpToTier } from "@stak/shared";
 import type { ActivityType } from "@stak/shared";
 import { getLocalDateKey } from "@/lib/utils";
-export { xpToTier, TIER_THRESHOLDS, ACTIVITY_TYPES, SANDBOX_BUDGETS, ACTIVITY_XP_CAP } from "@stak/shared";
+export { xpToTier, TIER_THRESHOLDS, ACTIVITY_TYPES, ACTIVITY_XP_CAP } from "@stak/shared";
 export { TIER_XP as SHARED_TIER_XP } from "@stak/shared";
 export type { ActivityType, TierNumber } from "@stak/shared";
 

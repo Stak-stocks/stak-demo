@@ -10,7 +10,7 @@ import { useAccount } from "@/context/AccountContext";
 import {
 	LESSON_CATEGORIES, getDailyPack, getTodayKey,
 	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
-	xpToTier, TIER_THRESHOLDS, SHARED_TIER_XP, SANDBOX_BUDGETS, ACTIVITY_XP_CAP,
+	xpToTier, TIER_THRESHOLDS, SHARED_TIER_XP, ACTIVITY_XP_CAP,
 	type TierNumber, type WatchlistSlotType, type DailyActivity,
 	type Lesson, type LessonCategory,
 	type BattleMatchup, type EarningsScenario, type RiskScenario, type MoodScenario,

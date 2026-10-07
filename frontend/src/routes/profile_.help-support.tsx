@@ -9,7 +9,7 @@ export const Route = createFileRoute("/profile_/help-support")({
 });
 
 const FAQS = [
-	{ q: "Is this real money?", a: "No. The Simulate tab gives you a practice balance of pretend money. Nothing is bought or sold for real." },
+	{ q: "Is this real money?", a: "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real." },
 	{ q: "Where do the prices come from?", a: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price." },
 	{ q: "Is my data private?", a: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK never sells your data." },
 ];

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { SANDBOX_DEFAULT_STARTING_BALANCE } from "@stak/shared";
 import { useMemo, useState } from "react";
 import type { ChartRange } from "@/lib/api";
 import { useAccount } from "@/context/AccountContext";
@@ -70,10 +71,10 @@ function SimulatePage() {
 	// The ticket needs the account loaded (its cash and holdings are read once) and a paper portfolio to buy into.
 	const ticketReady = !paper.loading && !paper.needsSetup;
 	const ticket = ticketReady ? (buying ?? (linked ? { symbol: linked.ticker, company: linked.name } : null)) : null;
-	// Like Android, a buy before setup applies the default portfolio ($10,000, Balanced) first, then opens the ticket.
+	// Like Android, a buy before setup applies the default portfolio ($1,000, Balanced) first, then opens the ticket.
 	async function startBuy(symbol: string, company: string) {
 		if (paper.loading) return;
-		if (paper.needsSetup && !(await paper.setup(10_000, "My first portfolio", "balanced"))) return;
+		if (paper.needsSetup && !(await paper.setup(SANDBOX_DEFAULT_STARTING_BALANCE, "My first portfolio", "balanced"))) return;
 		setBuying({ symbol, company });
 	}
 	function closeTicket() {
@@ -113,7 +114,8 @@ function SimulatePage() {
 				) : (
 					<>
 						{paper.needsSetup && <PortfolioSetupCard onSubmit={(balance, name, strategy) => { void paper.setup(balance, name, strategy); }} />}
-						<ScoreHero paper={paper} range={range} onRange={setRange} />
+						{/* No hero before setup: there is no portfolio yet to put a value or a gain on. */}
+						{!paper.needsSetup && <ScoreHero paper={paper} range={range} onRange={setRange} />}
 						{!paper.needsSetup && <SetupLine paper={paper} />}
 					</>
 				)}
