@@ -376,7 +376,18 @@ struct MainTabsView: View {
 			// A signed-in account returns to where it was; "Sign in" from here is the same pop.
 			SetPasswordView(onBack: { pop() }, onSaved: { pop() }, onSignIn: { pop() })
 		case .notifications:
-			NotificationsView(onBack: { pop() })
+			NotificationsView(onBack: { pop() }, onOpen: { item in
+				// User (2026-10-07): a row opens where its information comes from - the stock, the paper pick,
+				// or the tab (the News brief, the Simulate recap, the Discover deck). A page pushes over the
+				// inbox so Back returns here; a tab leaves the inbox with the forward push.
+				switch item.target {
+				case .stock(let symbol): push(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(symbol), symbol: symbol))
+				case .pick(let symbol): if PaperPortfolio.shared.pickSpec(symbol) != nil { push(.simPick(symbol: symbol)) } else { push(.simPortfolio) }
+				case .news: pop(.forwardPush, all: true, landing: .news)
+				case .simulate: pop(.forwardPush, all: true, landing: .simulate)
+				case .discover: pop(.forwardPush, all: true, landing: .discover)
+				}
+			})
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() })
 		case .simPortfolio:

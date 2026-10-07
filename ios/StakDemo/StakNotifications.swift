@@ -16,14 +16,20 @@ final class StakNotifications: ObservableObject {
 		let time: String
 		/// `today` groups the row under TODAY (else EARLIER) on the Notifications page (1:5927).
 		var today: Bool = true
+		/// Where a tapped row goes (user, 2026-10-07: a row "should take the user where the information is
+		/// coming from"). Declared last - memberwise order.
+		var target: Target = .discover
 	}
+
+	/// The stock, the paper pick, or the tab the information came from.
+	enum Target { case stock(String), pick(String), discover, news, simulate }
 
 	// The persona's inbox as authored (Chinedu_Mobile 1:5927, 2026-10-07).
 	private static let demo: [Item] = [
-		Item(id: "nvda-up", title: "NVDA is up 4.2% today", body: "One of your picks is moving. Tap to see why.", time: "2h"),
-		Item(id: "brief-ready", title: "Your daily brief is ready", body: "Three stories matter for your STAK this morning.", time: "8h"),
-		Item(id: "order-filled", title: "Practice order filled", body: "0.2048 NVDA at $122.10 · paper", time: "9h"),
-		Item(id: "weekly-recap", title: "Weekly recap", body: "Your paper portfolio gained +1.9% last week.", time: "1d", today: false),
+		Item(id: "nvda-up", title: "NVDA is up 4.2% today", body: "One of your picks is moving. Tap to see why.", time: "2h", target: .stock("NVDA")),
+		Item(id: "brief-ready", title: "Your daily brief is ready", body: "Three stories matter for your STAK this morning.", time: "8h", target: .news),
+		Item(id: "order-filled", title: "Practice order filled", body: "0.2048 NVDA at $122.10 · paper", time: "9h", target: .pick("NVDA")),
+		Item(id: "weekly-recap", title: "Weekly recap", body: "Your paper portfolio gained +1.9% last week.", time: "1d", today: false, target: .simulate),
 		Item(id: "deck-complete", title: "Deck complete", body: "You finished Friday’s deck. 12 of 12.", time: "3d", today: false)
 	]
 	/// 1:5927 authors the two newest rows unread and the rest read - the persona's inbox before its first open.

@@ -6,9 +6,12 @@ private let rowBody = Color(argb: 0xFFACAFB1)
 /// 10 · Notifications tab — "Notifications · List" (Chinedu_Mobile 1:5927) and "Notifications ·
 /// Empty" (1:5977), 2026-10-07 (replaces the frameless 2026-09-05 inbox). TODAY and EARLIER cards
 /// of 68-tall rows (title, one-line body, the teal unread dot); opening the page reads everything,
-/// so the Home bell's dot clears the way an activity feed does. Mirrors android NotificationsScreen.kt.
+/// so the Home bell's dot clears the way an activity feed does. A row opens where its information
+/// comes from (user, 2026-10-07). Mirrors android NotificationsScreen.kt.
 struct NotificationsView: View {
 	let onBack: () -> Void
+	/// A row opens where its information comes from. Declared after onBack - memberwise order.
+	var onOpen: (StakNotifications.Item) -> Void = { _ in }
 	@ObservedObject private var inbox = StakNotifications.shared
 	@State private var readBefore: Set<String> = []
 
@@ -37,11 +40,11 @@ struct NotificationsView: View {
 				ProfileContent {
 					if !today.isEmpty {
 						SectionLabel(text: "TODAY")
-						NotificationCard(items: today, readBefore: readBefore, inset: 11)
+						NotificationCard(items: today, readBefore: readBefore, inset: 11, onOpen: onOpen)
 					}
 					if !earlier.isEmpty {
 						SectionLabel(text: "EARLIER")
-						NotificationCard(items: earlier, readBefore: readBefore, inset: 9.5)
+						NotificationCard(items: earlier, readBefore: readBefore, inset: 9.5, onOpen: onOpen)
 					}
 				}
 			}
@@ -58,12 +61,13 @@ private struct NotificationCard: View {
 	let items: [StakNotifications.Item]
 	let readBefore: Set<String>
 	let inset: CGFloat
+	let onOpen: (StakNotifications.Item) -> Void
 
 	var body: some View {
 		let u = figmaUnit
 		VStack(spacing: 10 * u) {
 			ForEach(items) { item in
-				NotificationRow(item: item, unread: !readBefore.contains(item.id))
+				NotificationRow(item: item, unread: !readBefore.contains(item.id), onOpen: { onOpen(item) })
 			}
 		}
 		.padding(.horizontal, 8 * u)
@@ -77,36 +81,41 @@ private struct NotificationCard: View {
 private struct NotificationRow: View {
 	let item: StakNotifications.Item
 	let unread: Bool
+	let onOpen: () -> Void
 
 	var body: some View {
 		let u = figmaUnit
-		ZStack(alignment: .topLeading) {
-			VStack(alignment: .leading, spacing: 4 * u) {
-				Text(item.title)
-					.font(StakFont.geist(14 * u, .medium))
-					.stakLineHeight(18 * u, size: 14 * u, face: .geist)
-					.foregroundStyle(StakColors.textPrimary)
-					.lineLimit(1)
-				Text(item.body)
-					.font(StakFont.geist(12 * u))
-					.stakLineHeight(14 * u, size: 12 * u, face: .geist)
-					.foregroundStyle(rowBody)
-					.lineLimit(1)
-			}
-			.padding(.leading, 16 * u)
-			.padding(.top, 16 * u)
-			.padding(.trailing, 36 * u)
-			if unread {
-				HStack {
-					Spacer()
-					Circle().fill(Prof.accent).frame(width: 8 * u, height: 8 * u)
+		// User (2026-10-07): the row opens where its information comes from.
+		Button(action: onOpen) {
+			ZStack(alignment: .topLeading) {
+				VStack(alignment: .leading, spacing: 4 * u) {
+					Text(item.title)
+						.font(StakFont.geist(14 * u, .medium))
+						.stakLineHeight(18 * u, size: 14 * u, face: .geist)
+						.foregroundStyle(StakColors.textPrimary)
+						.lineLimit(1)
+					Text(item.body)
+						.font(StakFont.geist(12 * u))
+						.stakLineHeight(14 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(rowBody)
+						.lineLimit(1)
 				}
-				.padding(.trailing, 16 * u)
-				.frame(height: 68 * u)
+				.padding(.leading, 16 * u)
+				.padding(.top, 16 * u)
+				.padding(.trailing, 36 * u)
+				if unread {
+					HStack {
+						Spacer()
+						Circle().fill(Prof.accent).frame(width: 8 * u, height: 8 * u)
+					}
+					.padding(.trailing, 16 * u)
+					.frame(height: 68 * u)
+				}
 			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.frame(height: 68 * u)
+			.background(Prof.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
 		}
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.frame(height: 68 * u)
-		.background(Prof.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
+		.buttonStyle(.pressDim)
 	}
 }
