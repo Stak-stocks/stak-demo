@@ -272,7 +272,9 @@ struct DiscoverView: View {
 	/// so its authored deck stands (user, 2026-09-08: a card already in My STAK
 	/// should not be on Discover, and Save only shows on cards not yet saved).
 	private var cards: [DeckCard] {
-		deck.filter { !holdings.tickers.contains($0.symbol) || holdings.daysSinceSaved($0.symbol) == nil }
+		// 1:1910 (prototype read 2026-10-07): a card saved in THIS run stays on the deck with its Saved
+		// chip until the swipe moves on; it leaves the pool from the next run (restart clears the run).
+		deck.filter { session.saved.contains($0.symbol) || !holdings.tickers.contains($0.symbol) || holdings.daysSinceSaved($0.symbol) == nil }
 	}
 
 	/// The card at a run position over the cards still on the deck (the full design set when none are).
@@ -435,8 +437,9 @@ struct DiscoverView: View {
 									.allowsHitTesting(false)
 							}
 							let frontCard = card(at: cursor)
-							// Saving takes the card off the deck like a swipe (user, 2026-09-08).
-							FrontDeckCard(card: frontCard, onSave: { savedCards.insert(frontCard.symbol); savedToast = true; advance(committed: 0, saving: frontCard) }, u: u, saved: savedCards.contains(frontCard.symbol))
+							// 1:1910 (prototype read 2026-10-07): Save keeps the card on the deck - the chip turns "Saved",
+							// the toast shows, and the swipe moves on. Supersedes the 2026-09-08 "save reads like a swipe" rule.
+							FrontDeckCard(card: frontCard, onSave: { savedCards.insert(frontCard.symbol); savedToast = true; MyStakHoldings.shared.add(frontCard.symbol) }, u: u, saved: savedCards.contains(frontCard.symbol))
 								.scaleEffect(0.8947 + 0.1053 * promote, anchor: .top)
 								.opacity(frontOpacity)
 								.offset(y: 54.65 * u - 18.26 * u * (1 - promote) + dragOffset)
@@ -649,11 +652,11 @@ private struct DeckCardBody: View {
 					.frame(width: 340 * u, height: 229 * u)
 					.background(card.artBg)
 					.clipShape(RoundedRectangle(cornerRadius: 18 * u))
-				if showSave && !saved {
+				if showSave {
 					// Every card draws the chip live at the template's authored
-					// spot (art x264 y6); the saved deck (1:1796) has none. The
-					// NVDA art is the chip-less export of 1:1910.
-					SaveChip(u: u)
+					// spot (art x264 y6); once saved it reads "Saved" with the filled
+					// glyph (1:1910 / 1:2042). The NVDA art is the chip-less export of 1:1910.
+					SaveChip(u: u, saved: saved)
 						.padding(.top, 6 * u)
 						.padding(.trailing, 4 * u)
 				}
@@ -720,15 +723,17 @@ private struct DeckCardBody: View {
 /// the template's authored spot.
 private struct SaveChip: View {
 	let u: CGFloat
+	/// The 1:2042 "Saved" state (filled #D9D9D9 glyph). Declared last - memberwise order.
+	var saved = false
 
 	var body: some View {
 		HStack(spacing: 6 * u) {
-			Text("Save")
+			Text(saved ? "Saved" : "Save")
 				.font(StakFont.geist(12 * u, .medium))
 				.foregroundStyle(Color.white)
 			// The pill's own glyph (1:2050): 12 box, 8x10 bookmark, #AEAEAE stroke 1 -
 			// not the hero's dark #0A1020 export (user crop, 2026-09-04).
-			Image("IcSaveBookmark")
+			Image(saved ? "IcDeckSavedBookmark" : "IcSaveBookmark")
 				.resizable()
 				.frame(width: 12 * u, height: 12 * u)
 		}
