@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -959,6 +960,9 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				// Reconfirmation walk (2026-10-07): a tap on the sheet's own surface must not fall
+				// through to the scrim's dismiss - the sheet swallows it (its CTAs still win the hit).
+				.pointerInput(Unit) { detectTapGestures { } }
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Disc.SheetBg)
 				.padding(horizontal = (20 * u).dp)
