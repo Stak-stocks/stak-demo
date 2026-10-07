@@ -50,8 +50,7 @@ object ProfileSync {
 				joinedMonth(me.createdAt)?.let { UserProfile.joined = it }
 				UserProfile.email = me.email
 				Entitlements.apply(me.plan)
-				runCatching { Instant.parse(me.createdAt).toEpochMilli() }.getOrNull()
-					?.let { StakStore.putString("notif.createdAt", it.toString()) }
+				StakNotifications.rememberCreatedAt(me.createdAt)
 				if (UserProfile.displayName.isBlank() && me.displayName.isNotBlank()) UserProfile.displayName = me.displayName
 				val taste = me.taste?.takeIf { it.hasAnswers }
 				if (taste != null) {

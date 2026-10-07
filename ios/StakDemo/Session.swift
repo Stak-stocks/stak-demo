@@ -73,7 +73,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.risk = d.object(forKey: Self.keyRiskAnswer) as? Int ?? -1
 		UserProfile.shared.notificationsOn = d.object(forKey: Self.keyNotif) as? Bool ?? true
 		UserProfile.shared.accountLock = d.bool(forKey: Self.keyLock)
-		UserProfile.shared.joined = d.string(forKey: Self.keyJoined) ?? "July 2026"
+		UserProfile.shared.joined = d.string(forKey: Self.keyJoined) ?? ""
 		if let prefs = d.dictionary(forKey: Self.keyPrefs) {
 			let p = UserProfile.shared
 			p.priceAlerts = prefs["priceAlerts"] as? Bool ?? true
@@ -105,14 +105,20 @@ final class Session: ObservableObject {
 		NewsSaves.shared.load()
 		Entitlements.shared.load()
 		if triggerSync && !demoAccount {
-			ProfileSync.shared.sync()
+			// Forced: the 5-minute throttle is the last account's, not this one's.
+			ProfileSync.shared.sync(force: true)
 			DeviceStateSync.shared.sync()
 		}
 	}
 
+	/// Bumped on every sign-in and sign-out: a server read that finishes after the account it was for has left (profile
+	/// sync) never lands on the next one. Mirrors android Session.accountGeneration.
+	private(set) var accountGeneration = 0
+
 	/// Sign-in CTA or account creation (09 Proceed) - remembered across launches.
 	/// `demo` = the authored demo account (Sign in); false = a fresh account (Create account).
 	func signIn(demo: Bool) {
+		accountGeneration += 1
 		signedIn = true
 		demoAccount = demo
 		StakStore.demoAccount = demo
@@ -137,16 +143,15 @@ final class Session: ObservableObject {
 			UserProfile.shared.marketNews = false
 			UserProfile.shared.priceThreshold = 3
 		}
-		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
-		UserProfile.shared.joined = demo ? "July 2026" : StakClock.monthYear()
+		// The demo shows its authored month (UserProfile.demoJoined); a real account keeps the month the server gave it,
+		// and only a brand-new one with none yet reads as joining now.
+		if !demo && UserProfile.shared.joined.isEmpty { UserProfile.shared.joined = StakClock.monthYear() }
 		persist()
 		// A brand-new account starts from nothing; the demo account keeps whatever
 		// it did last time it was signed in.
 		if !demo {
 			StakStore.migrateLegacy(accountId: accountId)
 			StakStore.clearAccount(demo: false)
-			// The day the account was created: the inbox ages its welcome from it.
-			StakStore.set(String(Int(Date().timeIntervalSince1970 / 86400)), for: "created_day")
 		}
 		applyAccount(triggerSync: true)
 		if !demo { PushRegistration.sync() }
@@ -188,6 +193,7 @@ final class Session: ObservableObject {
 
 	/// Log out: forget the session and the profile; next launch asks to sign in.
 	func signOut() {
+		accountGeneration += 1
 		signedIn = false
 		resumedSignedIn = false
 		demoAccount = true

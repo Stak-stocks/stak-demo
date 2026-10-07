@@ -35,8 +35,9 @@ final class UserProfile: ObservableObject {
 	@Published var appearance: String = "dark"
 	@Published var linkedGoogle: Bool = false
 	@Published var linkedApple: Bool = false
-	/// The month the account was created ("September 2026"); the demo's authored "July 2026".
-	@Published var joined: String = "July 2026"
+	/// A real account's creation month ("September 2026"); blank until known. The demo shows `demoJoined`.
+	@Published var joined: String = ""
+	static let demoJoined = "July 2026"
 	/// The signed-in account's email address, populated after sign-in from the server or Supabase session.
 	@Published var email: String = ""
 	/// Mirrors Session.shared.demoAccount so greetingName can read it without crossing the actor boundary.

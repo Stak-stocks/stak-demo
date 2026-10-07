@@ -24,11 +24,8 @@ private let tasteChips = [
 	TasteChip(label: "Consumer Brands", width: 125)
 ]
 
-// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14).
-private let settingsRows = ["Notifications", "Appearance", "Linked accounts", "App settings", "Help & support", "Invite a friend"]
-private let inviteRow = "Invite a friend"
 /// The invite line the share sheet carries (FigJam: Your profile -> Invite a friend).
-private let inviteText = "Join me on STAK \u{2014} swipe stocks you actually understand and practise with paper money. https://stak.app"
+private let inviteText = "Join me on STAK \u{2014} swipe stocks you actually understand and practice with paper money. https://thestak.org"
 
 /// 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
 /// Home nav circle (prototype: Push Right 300ms). Avatar block, the
@@ -47,18 +44,40 @@ struct ProfileView: View {
 	var onOpenSetting: (SettingsKind) -> Void = { _ in }
 	/// The avatar and the name open the edit page (user, 2026-09-07).
 	var onEditProfile: () -> Void = {}
-	@ObservedObject var profileVM: ProfileViewModel
 	/// The paper stats card reads the live ledger (product audit, 2026-09-05).
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+	@ObservedObject private var session = Session.shared
+	@ObservedObject private var holdings = MyStakHoldings.shared
+
+	/// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14); a real account's
+	/// third row is how it signs in.
+	private var settingsRows: [(String, SettingsKind?)] {
+		[
+			("Notifications", .notifications),
+			("Appearance", .appearance),
+			(session.demoAccount ? "Linked accounts" : "Sign-in", .linked),
+			("App settings", .app),
+			("Help & support", .help),
+			("Invite a friend", nil),
+		]
+	}
 
 	var body: some View {
+		// Nothing once signed out - no demo "Hamza" flashing through the exit transition.
+		if session.signedIn { hub } else { StakColors.bg.ignoresSafeArea() }
+	}
+
+	private var hub: some View {
 		let u = figmaUnit
-		VStack(spacing: 0) {
+		let demo = session.demoAccount
+		let joined = demo ? UserProfile.demoJoined : profile.joined
+		return VStack(spacing: 0) {
 			// Centered top bar — the back circle overlays the true-centered title.
 			ZStack {
 				Text("Profile")
 					.font(StakFont.sora(16 * u, .semiBold))
 					.foregroundStyle(StakColors.textPrimary)
+					.accessibilityAddTraits(.isHeader)
 				HStack {
 					AuthBackCircle(action: onBack)
 					Spacer()
@@ -98,15 +117,24 @@ struct ProfileView: View {
 							Text(profile.greetingName)
 								.font(StakFont.sora(20 * u, .semiBold))
 								.foregroundStyle(StakColors.textPrimary)
-							Text("Paper investor · joined \(profile.joined)")
+							Text(joined.isEmpty ? "Paper investor" : "Paper investor · joined \(joined)")
 								.font(StakFont.geist(12 * u))
 								.foregroundStyle(StakColors.muted)
 							}
 						}
+						.padding(.horizontal, 12 * u)
+						.clipShape(RoundedRectangle(cornerRadius: 12 * u))
 						.buttonStyle(.pressDim)
-						// VoiceOver keeps the name; the action is the hint (review 2026-09-07).
-						.accessibilityLabel(profile.greetingName)
+						// VoiceOver keeps the name and joined line; the action is the hint (review 2026-09-07).
+						.accessibilityLabel("\(profile.greetingName). \(joined.isEmpty ? "Paper investor" : "Paper investor, joined \(joined)")")
 						.accessibilityHint("Edit profile")
+						Button { onOpenSetting(.editProfile) } label: {
+							Text("Edit profile")
+								.font(StakFont.geist(12 * u, .medium))
+								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+								.foregroundStyle(chipInk)
+						}
+						.buttonStyle(.pressDim)
 					}
 
 					// YOUR TASTE card.
@@ -119,7 +147,10 @@ struct ProfileView: View {
 							// The demo account keeps the authored chips at their pinned widths; a new
 							// account's chips come from its onboarding answers and hug their labels
 							// (product audit, 2026-09-05).
-							let chips: [TasteChip] = Session.shared.demoAccount ? tasteChips : TasteModel.chips(profile.brandPicks, goal: profile.goal, risk: profile.risk).map { TasteChip(label: $0, width: 0) }
+							// The onboarding picks plus the stocks saved since that belong to a taste, so the chips follow
+							// what the user keeps from the deck.
+							let saved = holdings.tickers.compactMap { holdings.nameOf($0) }.filter(TasteModel.isTasteBrand)
+							let chips: [TasteChip] = demo ? tasteChips : TasteModel.chips(profile.brandPicks.union(saved), goal: profile.goal, risk: profile.risk).map { TasteChip(label: $0, width: 0) }
 							ForEach(chips, id: \.label) { chip in
 								Text(chip.label)
 									.font(StakFont.geist(12 * u, .medium))
@@ -135,7 +166,7 @@ struct ProfileView: View {
 									)
 							}
 						}
-						Text("Your taste graph sharpens with every swipe.")
+						Text(demo ? "Your taste graph sharpens with every swipe." : "Your taste updates as you save stocks.")
 							.font(StakFont.geist(12 * u))
 							.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 							.foregroundStyle(bodyInk)
@@ -167,9 +198,9 @@ struct ProfileView: View {
 
 					// Settings card.
 					VStack(spacing: 0) {
-						ForEach(settingsRows, id: \.self) { label in
+						ForEach(settingsRows, id: \.0) { label, kind in
 							Button {
-								if label == inviteRow { share(inviteText) } else { onOpenSetting(SettingsKind(row: label)) }
+								if let kind { onOpenSetting(kind) } else { share(inviteText) }
 							} label: {
 								HStack {
 									Text(label)
@@ -179,6 +210,7 @@ struct ProfileView: View {
 									Text("›")
 										.font(StakFont.geist(14 * u))
 										.foregroundStyle(StakColors.muted)
+										.accessibilityHidden(true)
 								}
 								.padding(.horizontal, 14 * u)
 								.frame(maxWidth: .infinity)
@@ -220,10 +252,8 @@ struct ProfileView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
-		.task {
-			ProfileSync.shared.sync()
-			await profileVM.load()
-		}
+		// The joined month, sign-in email and taste answers as the server has them.
+		.task { ProfileSync.shared.sync() }
 	}
 }
 
@@ -256,15 +286,3 @@ private struct ProfileStat: View {
 	}
 }
 
-extension SettingsKind {
-	/// The Profile hub's row label -> its page.
-	init(row: String) {
-		switch row {
-		case "Notifications": self = .notifications
-		case "Appearance": self = .appearance
-		case "Linked accounts": self = .linked
-		case "App settings": self = .app
-		default: self = .help
-		}
-	}
-}

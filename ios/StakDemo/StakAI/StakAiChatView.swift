@@ -2,12 +2,14 @@ import SwiftUI
 
 private let userBubble = Color(argb: 0xFF1C3A4A)
 private let warnInk = Color(argb: 0xFFE5A54B)
-private let teal = Color(argb: 0xFF69B3CA)
-private let surface = Color(argb: 0xFF181F30)
-private let surfaceAlt = Color(argb: 0xFF10182B)
-private let cardBorder = Color(argb: 0xFF2A3346)
-private let muted = Color(argb: 0xFF819ABB)
+private let teal = StakColors.teal
+private let surface = StakColors.surface
+private let surfaceAlt = StakColors.surfaceAlt
+private let cardBorder = StakColors.cardBorder
+private let muted = StakColors.muted
 private let textInk = Color(argb: 0xFFC8D2E0)
+/// What a question may hold - Android's input cap.
+private let draftMax = 1000
 
 // MARK: – STAK AI Chat
 
@@ -24,8 +26,12 @@ struct StakAiChatView: View {
     @StateObject private var vm = StakAiViewModel()
     @State private var draft = ""
     @State private var scrollProxy: ScrollViewProxy? = nil
+    /// A source's story, open in the in-app browser.
+    @State private var openedSource: WebLink? = nil
+    @ObservedObject private var brands = BrandNames.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var submit: () -> Void {{ if !draft.trimmingCharacters(in: .whitespaces).isEmpty && vm.canAsk { vm.send(draft); draft = "" } }}
+    private var submit: () -> Void {{ if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.canAsk { vm.send(draft); draft = "" } }}
 
     var body: some View {
         let u = figmaUnit
@@ -37,9 +43,21 @@ struct StakAiChatView: View {
             inputArea(u: u)
         }
         .background(StakColors.bg.ignoresSafeArea())
-        .task { vm.configure(context: context, question: question, conversationId: conversationId) }
+        .safariSheet($openedSource)
+        .task {
+            vm.configure(context: context, question: question, conversationId: conversationId)
+            await brands.ensure()
+        }
         .onChange(of: vm.returnedDraft) { _, draft in
             if let d = vm.consumeReturnedDraft(), self.draft.isEmpty { self.draft = d }
+        }
+        // The newest answer is read once, finished - not chunk by chunk while it's written; a notice as it appears.
+        .onChange(of: vm.sending) { was, now in
+            guard was, !now, let last = vm.messages.last, !last.fromUser else { return }
+            UIAccessibility.post(notification: .announcement, argument: last.text.replacingOccurrences(of: "**", with: ""))
+        }
+        .onChange(of: vm.notice) { _, notice in
+            if let notice { UIAccessibility.post(notification: .announcement, argument: noticeText(notice)) }
         }
     }
 
@@ -51,10 +69,14 @@ struct StakAiChatView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 16 * u))
                     .foregroundStyle(teal)
+                    .accessibilityHidden(true)
                 Text("STAK AI")
                     .font(StakFont.sora(17 * u, .semiBold))
+                    .stakLineHeight(22 * u, size: 17 * u, face: .sora)
                     .foregroundStyle(StakColors.textPrimary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
             HStack {
                 AuthBackCircle(action: onBack)
                     .padding(.leading, 20 * u)
@@ -67,7 +89,8 @@ struct StakAiChatView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 56 * u * typeScale)
+        .padding(.top, 8 * u)
+        .padding(.bottom, 6 * u)
     }
 
     // MARK: – Context chip
@@ -75,13 +98,13 @@ struct StakAiChatView: View {
     private func contextChip(_ ctx: StakAiContext, u: CGFloat) -> some View {
         let label: String = {
             switch ctx.type {
-            case "stock": return "Asking about \(ctx.ticker ?? "")"
+            case "stock": return "Asking about \(brands.byTicker[ctx.ticker ?? ""] ?? ctx.ticker ?? "")"
             case "article": return "About: \(ctx.headline ?? "")"
             default: return "About today's Daily Brief"
             }
         }()
         return HStack(spacing: 6 * u) {
-            Circle().fill(teal).frame(width: 6 * u, height: 6 * u)
+            Circle().fill(teal).frame(width: 6 * u, height: 6 * u).accessibilityHidden(true)
             Text(label)
                 .font(StakFont.geist(12 * u))
                 .foregroundStyle(textInk)
@@ -100,7 +123,7 @@ struct StakAiChatView: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 16 * u) {
-                    if vm.messages.isEmpty && !vm.loading && !vm.sending {
+                    if vm.messages.isEmpty && !vm.loading && !vm.sending && vm.notice != .loadFailed {
                         emptyState(u: u)
                     }
                     ForEach(vm.messages) { m in
@@ -109,7 +132,7 @@ struct StakAiChatView: View {
                             answerLine(m, isLatest: m.key == vm.messages.last(where: { !$0.fromUser })?.key, u: u)
                         }
                     }
-                    if vm.loading && vm.messages.isEmpty {
+                    if vm.loading {
                         Text("Loading chat…")
                             .font(StakFont.geist(13 * u))
                             .foregroundStyle(muted)
@@ -123,8 +146,18 @@ struct StakAiChatView: View {
                 .padding(.top, 12 * u)
                 .padding(.bottom, 16 * u)
             }
-            .onChange(of: vm.messages.count) { _, _ in proxy.scrollTo("bottom") }
-            .onChange(of: vm.sending) { _, _ in proxy.scrollTo("bottom") }
+            // Asking glides to the question; words arriving, the finished answer and a past chat loading keep the end in
+            // view.
+            .onChange(of: vm.messages.count) { _, _ in
+                if vm.sending && vm.messages.last?.fromUser == true {
+                    withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("bottom", anchor: .bottom) }
+                } else {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+            .onChange(of: vm.messages.last?.text.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+            .onChange(of: vm.sending) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 
@@ -138,28 +171,32 @@ struct StakAiChatView: View {
                     .font(.system(size: 26 * u))
                     .foregroundStyle(teal)
             }
+            .accessibilityHidden(true)
             Text("Ask STAK AI")
                 .font(StakFont.sora(20 * u, .semiBold))
                 .foregroundStyle(StakColors.textPrimary)
                 .padding(.top, 14 * u)
+                .accessibilityAddTraits(.isHeader)
             Text("Plain-English answers about stocks, the news and investing terms.")
                 .font(StakFont.geist(13 * u))
+                .stakLineHeight(19 * u, size: 13 * u, face: .geist)
                 .foregroundStyle(muted)
                 .multilineTextAlignment(.center)
                 .padding(.top, 6 * u)
                 .padding(.horizontal, 12 * u)
             VStack(spacing: 8 * u) {
-                ForEach(starterQuestions(vm.context), id: \.self) { q in
+                ForEach(starterQuestions(vm.context, names: brands.byTicker), id: \.self) { q in
                     suggestionRow(q, enabled: vm.canAsk, u: u) { vm.send(q, via: "starter") }
                 }
             }
             .padding(.top, 22 * u)
             let limitNote: String = {
                 if vm.usage?.unlimited == true { return "No question limit on this account. When STAK AI can't help, it'll say so." }
-                return "You get \(vm.usage?.limit ?? 5) questions every 6 hours. When STAK AI can't help or asks you something back, it doesn't count."
+                return "You get \(vm.usage?.limit ?? 5) questions every 6 hours. When STAK AI can't help, or asks you something back, it doesn't count."
             }()
             Text(limitNote)
                 .font(StakFont.geist(11 * u))
+                .stakLineHeight(16 * u, size: 11 * u, face: .geist)
                 .foregroundStyle(muted)
                 .multilineTextAlignment(.center)
                 .padding(.top, 16 * u)
@@ -170,22 +207,28 @@ struct StakAiChatView: View {
     }
 
     private func suggestionRow(_ text: String, enabled: Bool, u: CGFloat, onTap: @escaping () -> Void) -> some View {
-        HStack {
-            Text(text)
-                .font(StakFont.geist(13 * u, .medium))
-                .foregroundStyle(StakColors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "arrow.right")
-                .font(.system(size: 16 * u))
-                .foregroundStyle(teal)
+        Button(action: onTap) {
+            HStack {
+                Text(text)
+                    .font(StakFont.geist(13 * u, .medium))
+                    .foregroundStyle(StakColors.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 16 * u))
+                    .foregroundStyle(teal)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14 * u)
+            .padding(.vertical, 10 * u)
+            .frame(minHeight: 44)
+            .background(surface, in: RoundedRectangle(cornerRadius: 12 * u))
+            .overlay(RoundedRectangle(cornerRadius: 12 * u).strokeBorder(cardBorder, lineWidth: 1 * u))
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 14 * u)
-        .padding(.vertical, 10 * u)
-        .background(surface, in: RoundedRectangle(cornerRadius: 12 * u))
-        .overlay(RoundedRectangle(cornerRadius: 12 * u).strokeBorder(cardBorder, lineWidth: 1 * u))
+        .buttonStyle(.pressDim)
+        .disabled(!enabled)
         .opacity(enabled ? 1 : 0.5)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: enabled ? onTap : {})
     }
 
     // MARK: – User bubble
@@ -194,17 +237,19 @@ struct StakAiChatView: View {
         VStack(alignment: .trailing, spacing: 4 * u) {
             Text(m.text)
                 .font(StakFont.geist(14 * u))
+                .stakLineHeight(20 * u, size: 14 * u, face: .geist)
                 .foregroundStyle(StakColors.textPrimary)
                 .padding(.horizontal, 14 * u)
                 .padding(.vertical, 10 * u)
-                .background(userBubble, in: RoundedRectangle(cornerRadius: 16 * u, style: .continuous))
+                .background(userBubble)
                 .clipShape(
                     .rect(topLeadingRadius: 16 * u, bottomLeadingRadius: 16 * u,
                           bottomTrailingRadius: 4 * u, topTrailingRadius: 16 * u)
                 )
                 .opacity(m.failed ? 0.6 : 1)
+                .frame(maxWidth: 290 * u, alignment: .trailing)
             if m.failed {
-                Text("No answer")
+                Text(vm.notice == .failed(offline: true) ? "Not sent" : "No answer")
                     .font(StakFont.geist(11 * u))
                     .foregroundStyle(warnInk)
             }
@@ -223,15 +268,21 @@ struct StakAiChatView: View {
                         .font(.system(size: 12 * u))
                         .foregroundStyle(teal)
                 }
+                .accessibilityHidden(true)
                 Text("STAK AI")
                     .font(StakFont.sora(12 * u, .semiBold))
                     .foregroundStyle(muted)
             }
             if m.streaming {
-                aiMarkdown(text: AiChatMarkdown.tidyStreaming(m.text), u: u)
-                writingCaret(u: u)
+                // Read only as "STAK AI is answering" while it's written; the finished answer is announced once.
+                VStack(alignment: .leading, spacing: 8 * u) {
+                    aiMarkdown(text: AiChatMarkdown.tidyStreaming(m.text), u: u)
+                    writingCaret(u: u)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("STAK AI is answering")
             } else {
-                aiMarkdown(text: m.text, u: u).opacity(m.cutOff ? 0.6 : 1)
+                aiMarkdown(text: m.cutOff ? AiChatMarkdown.tidyStreaming(m.text) : m.text, u: u).opacity(m.cutOff ? 0.6 : 1)
             }
             if m.cutOff {
                 Text("Cut off. The full answer may be in your chats.")
@@ -243,6 +294,7 @@ struct StakAiChatView: View {
                     .font(StakFont.geist(11 * u))
                     .foregroundStyle(muted)
             }
+            if !m.sources.isEmpty && !m.streaming { sources(m.sources, u: u) }
             if let sid = m.serverId, m.kind == "answer", !m.streaming {
                 HStack(spacing: 0) {
                     thumbButton(icon: m.feedback == 1 ? "hand.thumbsup.fill" : "hand.thumbsup",
@@ -255,20 +307,54 @@ struct StakAiChatView: View {
             if isLatest && vm.canAsk && !m.followUps.isEmpty {
                 FlowLayout(spacing: 8 * u) {
                     ForEach(m.followUps, id: \.self) { q in
-                        Text(q)
-                            .font(StakFont.geist(12 * u))
-                            .foregroundStyle(teal)
-                            .padding(.horizontal, 12 * u)
-                            .padding(.vertical, 7 * u)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16 * u)
-                                    .strokeBorder(teal.opacity(0.45), lineWidth: 1 * u)
-                            )
-                            .onTapGesture { vm.send(q, via: "followup") }
+                        Button { vm.send(q, via: "followup") } label: {
+                            Text(q)
+                                .font(StakFont.geist(12 * u))
+                                .foregroundStyle(teal)
+                                .padding(.horizontal, 12 * u)
+                                .padding(.vertical, 7 * u)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16 * u)
+                                        .strokeBorder(teal.opacity(0.45), lineWidth: 1 * u)
+                                )
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.pressDim)
                     }
                 }
             }
         }
+    }
+
+    /// "Based on" - the headlines the answer was given, each opening its story in the in-app browser.
+    private func sources(_ sources: [StakAiSource], u: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("BASED ON")
+                .font(StakFont.geist(10 * u, .semiBold))
+                .tracking(1 * u)
+                .foregroundStyle(muted)
+                .padding(.vertical, 4 * u)
+            ForEach(Array(sources.enumerated()), id: \.offset) { _, s in
+                let line = (Text(s.ticker).foregroundColor(teal).fontWeight(.semibold) + Text("  " + s.headline))
+                    .font(StakFont.geist(12 * u))
+                    .foregroundColor(textInk)
+                    .stakLineHeight(17 * u, size: 12 * u, face: .geist)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                if let link = s.url.flatMap(WebLink.init) {
+                    Button { openedSource = link } label: { line.contentShape(Rectangle()) }
+                        .buttonStyle(.pressDim)
+                        .accessibilityHint("Opens the story")
+                } else {
+                    line
+                }
+            }
+        }
+        .padding(.horizontal, 12 * u)
+        .padding(.vertical, 6 * u)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StakColors.surface, in: RoundedRectangle(cornerRadius: 12 * u))
     }
 
     private func thumbButton(icon: String, selected: Bool, label: String, u: CGFloat, action: @escaping () -> Void) -> some View {
@@ -276,10 +362,12 @@ struct StakAiChatView: View {
             Image(systemName: icon)
                 .font(.system(size: 16 * u))
                 .foregroundStyle(selected ? teal : muted)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.pressDim)
-        .frame(width: 44, height: 44)
         .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     // MARK: – Typing dots
@@ -287,17 +375,18 @@ struct StakAiChatView: View {
     private func typingDots(u: CGFloat) -> some View {
         HStack(spacing: 5 * u) {
             ForEach(0..<3, id: \.self) { i in
-                TypingDot(delay: Double(i) * 0.15)
+                TypingDot(delay: Double(i) * 0.15, still: reduceMotion)
             }
         }
         .padding(.vertical, 6 * u)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("STAK AI is answering")
     }
 
     // MARK: – Writing caret
 
     private func writingCaret(u: CGFloat) -> some View {
-        WritingCaret(u: u)
+        WritingCaret(u: u, still: reduceMotion)
     }
 
     // MARK: – Markdown
@@ -308,28 +397,29 @@ struct StakAiChatView: View {
 
     // MARK: – Notice
 
+    private func noticeText(_ notice: AiNotice) -> String {
+        switch notice {
+        case .limitReached(let at):
+            return "You've used your \(vm.usage?.limit ?? 5) questions for now. \(nextQuestionText(at))"
+        case .failed(let offline):
+            return offline ? "You're offline, so that didn't send. It didn't count."
+                : "STAK AI couldn't answer just now. That one didn't count."
+        case .slow:
+            return "STAK AI is taking longer than usual. Check your chats in a moment before asking again."
+        case .loadFailed:
+            return "Couldn't open that chat."
+        }
+    }
+
     private func noticeCard(_ notice: AiNotice, u: CGFloat) -> some View {
-        let text: String = {
-            switch notice {
-            case .limitReached(let at):
-                let tail = nextQuestionText(at)
-                return "You've used your \(vm.usage?.limit ?? 5) questions for now. \(tail)"
-            case .failed(let offline):
-                return offline ? "You're offline, so that didn't send. It didn't count."
-                    : "STAK AI couldn't answer just now. That one didn't count."
-            case .slow:
-                return "STAK AI is taking longer than usual. Check your chats in a moment before asking again."
-            case .loadFailed:
-                return "Couldn't open that chat."
-            }
-        }()
-        return HStack(alignment: .center) {
-            Text(text)
+        HStack(alignment: .center, spacing: 0) {
+            Text(noticeText(notice))
                 .font(StakFont.geist(12 * u))
+                .stakLineHeight(17 * u, size: 12 * u, face: .geist)
                 .foregroundStyle(textInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12 * u)
-            VStack(spacing: 0) {
+            HStack(spacing: 0) {
                 switch notice {
                 case .failed:
                     noticeAction("Try again", u: u, action: vm.retry)
@@ -349,10 +439,11 @@ struct StakAiChatView: View {
     private func noticeAction(_ label: String, u: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(StakFont.geist(12 * u, .medium))
+                .font(StakFont.geist(12 * u, .semiBold))
                 .foregroundStyle(teal)
-                .frame(minWidth: 44, minHeight: 44)
                 .padding(.horizontal, 10 * u)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.pressDim)
     }
@@ -377,13 +468,22 @@ struct StakAiChatView: View {
                         .tint(teal)
                         .disabled(!canType)
                         .lineLimit(1...5)
-                        .onSubmit { submit() }
+                        .submitLabel(.send)
+                        // A vertical field takes Return as a new line: it sends instead, as Android's Send key does.
+                        .onChange(of: draft) { _, new in
+                            if new.hasSuffix("\n") {
+                                draft = String(new.dropLast())
+                                submit()
+                            } else if new.count > draftMax {
+                                draft = String(new.prefix(draftMax))
+                            }
+                        }
                         .accessibilityLabel("Ask STAK AI")
                 }
                 .padding(.vertical, 10 * u)
                 .padding(.leading, 16 * u)
                 .frame(maxWidth: .infinity)
-                let ready = !draft.trimmingCharacters(in: .whitespaces).isEmpty && vm.canAsk
+                let ready = !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.canAsk
                 Button(action: submit) {
                     ZStack {
                         Circle()
@@ -393,9 +493,12 @@ struct StakAiChatView: View {
                             .font(.system(size: 16 * u, weight: .semibold))
                             .foregroundStyle(ready ? StakColors.bg : muted)
                     }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
                 .disabled(!ready)
                 .buttonStyle(.pressDim)
+                .accessibilityLabel("Send")
                 .padding(.trailing, 2 * u)
                 .padding(.vertical, 2 * u)
             }
@@ -429,10 +532,11 @@ struct StakAiChatView: View {
                     .font(.system(size: 16 * u))
                     .foregroundStyle(StakColors.textPrimary)
             }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .disabled(!enabled)
         .buttonStyle(.pressDim)
-        .frame(width: 44, height: 44)
         .accessibilityLabel(label)
     }
 }
@@ -441,6 +545,7 @@ struct StakAiChatView: View {
 
 private struct TypingDot: View {
     let delay: Double
+    var still = false
     @State private var alpha: Double = 0.25
 
     var body: some View {
@@ -448,8 +553,9 @@ private struct TypingDot: View {
         Circle()
             .fill(teal)
             .frame(width: 7 * u, height: 7 * u)
-            .opacity(alpha)
+            .opacity(still ? 0.7 : alpha)
             .onAppear {
+                guard !still else { return }
                 withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true).delay(delay)) {
                     alpha = 1
                 }
@@ -461,14 +567,16 @@ private struct TypingDot: View {
 
 private struct WritingCaret: View {
     let u: CGFloat
+    var still = false
     @State private var opacity: Double = 1
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2 * u)
             .fill(teal)
             .frame(width: 8 * u, height: 16 * u)
-            .opacity(opacity)
+            .opacity(still ? 1 : opacity)
             .onAppear {
+                guard !still else { return }
                 withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
                     opacity = 0.3
                 }
@@ -483,13 +591,14 @@ private struct AiMarkdownView: View {
     let u: CGFloat
 
     var body: some View {
-        let blocks = AiChatMarkdown.parse(text)
+        let blocks = AiChatMarkdown.parse(text, u: u)
         VStack(alignment: .leading, spacing: 8 * u) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in
                 switch b {
                 case .paragraph(let s):
                     Text(s)
                         .font(StakFont.geist(14 * u))
+                        .stakLineHeight(21 * u, size: 14 * u, face: .geist)
                         .foregroundStyle(textInk)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 case .bullets(let items):
@@ -498,9 +607,12 @@ private struct AiMarkdownView: View {
                             HStack(alignment: .top, spacing: 8 * u) {
                                 Text("•")
                                     .font(StakFont.geist(14 * u))
+                                    .stakLineHeight(21 * u, size: 14 * u, face: .geist)
                                     .foregroundStyle(teal)
+                                    .accessibilityHidden(true)
                                 Text(item)
                                     .font(StakFont.geist(14 * u))
+                                    .stakLineHeight(21 * u, size: 14 * u, face: .geist)
                                     .foregroundStyle(textInk)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -520,14 +632,16 @@ enum AiChatMarkdown {
         case bullets([AttributedString])
     }
 
-    static func parse(_ text: String) -> [Block] {
+    static func parse(_ text: String, u: CGFloat) -> [Block] {
         var out: [Block] = []
-        let paragraphs = text.components(separatedBy: "\n\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        // A blank line - even one holding spaces - separates paragraphs (Android's "\n\s*\n").
+        let paragraphs = text.replacingOccurrences(of: #"\n\s*\n"#, with: "\u{0}", options: .regularExpression)
+            .components(separatedBy: "\u{0}").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         for para in paragraphs {
             var paraLines: [String] = []
             var bulletLines: [String] = []
-            func flushPara() { if !paraLines.isEmpty { out.append(.paragraph(boldSpans(paraLines.joined(separator: " ")))); paraLines.removeAll() } }
-            func flushBullets() { if !bulletLines.isEmpty { out.append(.bullets(bulletLines.map { boldSpans($0) })); bulletLines.removeAll() } }
+            func flushPara() { if !paraLines.isEmpty { out.append(.paragraph(boldSpans(paraLines.joined(separator: " "), u: u))); paraLines.removeAll() } }
+            func flushBullets() { if !bulletLines.isEmpty { out.append(.bullets(bulletLines.map { boldSpans($0, u: u) })); bulletLines.removeAll() } }
             for line in para.components(separatedBy: "\n").map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
                 if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
                     flushPara(); bulletLines.append(String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces))
@@ -549,7 +663,8 @@ enum AiChatMarkdown {
         return t
     }
 
-    static func boldSpans(_ line: String) -> AttributedString {
+    /// "**this**" -> SemiBold white; the rest stays as is.
+    static func boldSpans(_ line: String, u: CGFloat) -> AttributedString {
         var result = AttributedString()
         var rest = line
         while !rest.isEmpty {
@@ -558,7 +673,7 @@ enum AiChatMarkdown {
             }
             result.append(AttributedString(String(rest[..<start.lowerBound])))
             var bold = AttributedString(String(rest[start.upperBound..<end.lowerBound]))
-            bold.swiftUI.font = StakFont.geist(14, .medium)
+            bold.swiftUI.font = StakFont.geist(14 * u, .semiBold)
             bold.swiftUI.foregroundColor = Color.white
             result.append(bold)
             rest = String(rest[end.upperBound...])
@@ -569,11 +684,13 @@ enum AiChatMarkdown {
 
 // MARK: – Helpers
 
-private func starterQuestions(_ ctx: StakAiContext?) -> [String] {
+/// Questions to start with, matched to where the chat was opened from; a stock's are asked by its company name.
+private func starterQuestions(_ ctx: StakAiContext?, names: [String: String]) -> [String] {
     switch ctx?.type {
     case "stock":
         let t = ctx?.ticker ?? ""
-        return ["Why is \(t) moving today?", "How does \(t) make money?", "What do \(t)'s numbers say?"]
+        let name = names[t] ?? t
+        return ["Why is \(t) moving today?", "How does \(name) make money?", "What do \(t)'s numbers say?"]
     case "article":
         return ["What does this mean for me?", "Explain this in simple terms", "Which companies does this affect?"]
     case "brief":
@@ -583,8 +700,9 @@ private func starterQuestions(_ ctx: StakAiContext?) -> [String] {
     }
 }
 
+/// "Your next one is at 3:40 PM." (or "tomorrow at …") from the window's reset time.
 private func nextQuestionText(_ resetsAt: String?) -> String {
-    guard let iso = resetsAt, let date = ISO8601DateFormatter().date(from: iso) else { return "Check back in a few hours." }
+    guard let iso = resetsAt, let date = MyStakHoldings.parse(iso) else { return "Check back in a few hours." }
     let f = DateFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
     f.dateFormat = Calendar.current.isDateInToday(date) ? "'Your next one is at' h:mm a'.'": "'Your next one is tomorrow at' h:mm a'.'"

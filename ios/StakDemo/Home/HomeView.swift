@@ -280,6 +280,8 @@ private struct TopNav: View {
 				greeting = Greeting.now()
 			}
 		}
+		// The bell's dot follows the account's own moves and deck (at most every few minutes).
+		.task { notifications.refresh() }
 	}
 }
 

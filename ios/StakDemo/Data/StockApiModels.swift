@@ -323,6 +323,8 @@ struct StakAiChatReply: Decodable {
     var messageId: Int64 = 0; var conversationId: String = ""; var response: String = ""
     var title: String?; var usage: StakAiUsage?
     var followUps: [String] = []; var answerKind: String = "answer"
+    /// The headlines the answer was given ("Based on"); absent on an answer that used none.
+    var sources: [StakAiSource]? = nil
 }
 struct StakAiError: Decodable { var error: String?; var code: String?; var usage: StakAiUsage? }
 final class StakAiStreamError: Error { let code: String; let usage: StakAiUsage?; init(_ code: String, usage: StakAiUsage? = nil) { self.code = code; self.usage = usage } }

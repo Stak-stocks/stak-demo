@@ -118,8 +118,6 @@ struct MainTabsView: View {
 	@StateObject private var newsVM = NewsViewModel()
 	@StateObject private var discoverVM = DiscoverViewModel()
 	@StateObject private var myStakVM = MyStakViewModel()
-	@StateObject private var inboxVM = InboxViewModel()
-	@StateObject private var profileVM = ProfileViewModel()
 
 	/// One live entry on the pushed stack. Identity is PER PUSH (a fresh
 	/// uid), not per page - an article chain can legally revisit a story
@@ -406,7 +404,7 @@ struct MainTabsView: View {
 			ProfileView(onBack: { pop() }, onLogOut: onLogOut, onOpenSetting: { kind in push(.settings(kind)) }, onEditProfile: {
 				// Two fingers on the block must not stack two edit pages (review 2026-09-07).
 				if pushed.last?.page != .editProfile { push(.editProfile) }
-			}, profileVM: profileVM)
+			})
 		case .editProfile:
 			// House push in, house back out; Save pops back to the hub, which
 			// observes UserProfile and re-renders the avatar block. Pops only while
@@ -414,7 +412,7 @@ struct MainTabsView: View {
 			// not take the hub with it.
 			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
 		case .notifications:
-			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) }, inboxVM: inboxVM)
+			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:
@@ -451,8 +449,11 @@ struct MainTabsView: View {
 			StakAiHistoryView(
 				onBack: { pop(.instant) },
 				onOpen: { c in
-					// Replace history with the opened chat so Back -> Home, not history.
-					if !pushed.isEmpty { pushed[pushed.count - 1] = PushedEntry(page: .stakAi(context: nil, question: nil, conversationId: c.id)) }
+					// History and the chat it was opened from both give way to the reopened chat, so Back returns to
+					// wherever STAK AI was opened (Android pops through STAK_AI, inclusive).
+					if !pushed.isEmpty { pushed.removeLast() }
+					if case .stakAi = pushed.last?.page { pushed.removeLast() }
+					pushed.append(PushedEntry(page: .stakAi(context: nil, question: nil, conversationId: c.id)))
 				}
 			)
 		case .allCollections:
@@ -535,9 +536,6 @@ struct MainTabsView: View {
 				"source": fromMyStak ? "mystak" : "discover",
 				"saved": MyStakHoldings.shared.tickers.contains(symbol.uppercased()) ? "true" : "false",
 			])
-		case .stakAi(let ctx, _, let cid):
-			let entry = ctx?.type ?? (cid != nil ? "history" : "header")
-			StakEvents.log(StakEvents.stakAiOpen, params: ["entry": entry, "platform": "ios"])
 		default: break
 		}
 	}

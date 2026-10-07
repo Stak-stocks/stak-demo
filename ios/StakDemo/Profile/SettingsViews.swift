@@ -1,5 +1,7 @@
+import PhotosUI
 import SwiftUI
 import UIKit
+import UserNotifications
 
 private let cardBg = Color(argb: 0xFF10182B)
 private let muted = Color(argb: 0xFF819ABB)
@@ -14,9 +16,11 @@ enum SettingsKind: String, Hashable {
 	case notifications, appearance, linked, help
 	/// App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account.
 	case app, password
+	/// The hub's "Edit profile" link: photo and display name.
+	case editProfile
 }
 
-/// The hub's header (back circle + centred title) over a dark page.
+/// The hub's header (back circle + centered title) over a dark page.
 struct SettingsScaffold<Content: View>: View {
 	let title: String
 	let onBack: () -> Void
@@ -33,7 +37,9 @@ struct SettingsScaffold<Content: View>: View {
 				.padding(.leading, 20 * u)
 				Text(title)
 					.font(StakFont.sora(17 * u, .semiBold))
+					.stakLineHeight(22 * u, size: 17 * u, face: .sora)
 					.foregroundStyle(StakColors.textPrimary)
+					.accessibilityAddTraits(.isHeader)
 			}
 			.padding(.top, 8 * u)
 			.padding(.bottom, 16 * u)
@@ -44,38 +50,50 @@ struct SettingsScaffold<Content: View>: View {
 	}
 }
 
-/// A hub-style row: label, optional value, chevron, tap.
+/// A hub-style row: label, optional value, chevron, tap. With no `action` it only shows a value and doesn't react.
 struct SettingsLinkRow: View {
 	let label: String
 	var value: String? = nil
 	/// Off for a value row with nothing to open behind it (product audit, 2026-09-05).
 	var chevron: Bool = true
-	let action: () -> Void
+	let action: (() -> Void)?
 
 	var body: some View {
+		if let action {
+			Button(action: action) { row }
+				.buttonStyle(.pressDim)
+		} else {
+			row.accessibilityElement(children: .combine)
+		}
+	}
+
+	private var row: some View {
 		let u = figmaUnit
-		Button(action: action) {
-			HStack {
-				Text(label)
-					.font(StakFont.geist(13 * u, .medium))
-					.foregroundStyle(StakColors.textPrimary)
-				Spacer()
-				if let value {
-					Text(value)
-						.font(StakFont.geist(12 * u))
-						.foregroundStyle(muted)
-						.padding(.trailing, 8 * u)
-				}
-				Text(chevron ? "›" : "")
+		return HStack(spacing: 0) {
+			Text(label)
+				.font(StakFont.geist(13 * u, .medium))
+				.foregroundStyle(StakColors.textPrimary)
+				.lineLimit(1)
+			// The value takes the rest of the row, right-aligned; a long one ends in an ellipsis.
+			Text(value ?? "")
+				.font(StakFont.geist(12 * u))
+				.foregroundStyle(muted)
+				.lineLimit(1)
+				.truncationMode(.tail)
+				.frame(maxWidth: .infinity, alignment: .trailing)
+				.padding(.leading, 12 * u)
+				.padding(.trailing, 8 * u)
+			if chevron {
+				Text("›")
 					.font(StakFont.geist(14 * u))
 					.foregroundStyle(muted)
+					.accessibilityHidden(true)
 			}
-			.padding(.horizontal, 14 * u)
-			.frame(maxWidth: .infinity)
-			.frame(height: 48 * u * typeScale)
-			.contentShape(Rectangle())
 		}
-		.buttonStyle(.pressDim)
+		.padding(.horizontal, 14 * u)
+		.frame(maxWidth: .infinity)
+		.frame(minHeight: 48 * u * typeScale)
+		.contentShape(Rectangle())
 	}
 }
 
@@ -85,6 +103,7 @@ private struct Caption: View {
 		let u = figmaUnit
 		Text(text)
 			.font(StakFont.geist(12 * u))
+			.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 			.foregroundStyle(muted)
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.horizontal, 4 * u)
@@ -124,6 +143,7 @@ struct SettingsView: View {
 		case .help: HelpSupportView(onBack: onBack)
 		case .app: AppSettingsView(onBack: onBack, onOpen: onOpen, onAccountDeleted: onAccountDeleted)
 		case .password: ChangePasswordView(onBack: onBack)
+		case .editProfile: EditProfileView(onBack: onBack)
 		}
 	}
 }
@@ -131,17 +151,21 @@ struct SettingsView: View {
 private struct NotificationSettingsView: View {
 	let onBack: () -> Void
 	@ObservedObject private var profile = UserProfile.shared
+	/// The phone's own switch for STAK, read live - turned off in Settings after onboarding, the warning shows.
+	@State private var osAllowed = true
+	@Environment(\.scenePhase) private var scenePhase
 
 	var body: some View {
 		let u = figmaUnit
 		SettingsPage(title: "Notifications", onBack: onBack) {
-			if !profile.notificationsOn {
+			if !osAllowed {
 				VStack(alignment: .leading, spacing: 8 * u) {
 					Text("Notifications are off for STAK")
 						.font(StakFont.sora(15 * u, .semiBold))
 						.foregroundStyle(StakColors.textPrimary)
 					Text("Turn them on in your phone’s settings to get price moves and your daily deck.")
 						.font(StakFont.geist(13 * u))
+						.stakLineHeight(19 * u, size: 13 * u, face: .geist)
 						.foregroundStyle(bodyInk)
 					Button {
 						if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -175,8 +199,13 @@ private struct NotificationSettingsView: View {
 			.padding(16 * u)
 			.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
 			PermissionCard(title: "Daily deck", description: "One reminder when a fresh deck lands each morning.", isOn: binding(\.dailyDeck))
-			PermissionCard(title: "Market news", description: "The stories behind the moves, a few times a week.", isOn: binding(\.marketNews))
+			PermissionCard(title: "Market news", description: "The stories behind the moves, a few times a week.", isOn: Binding(get: { profile.marketNews }, set: { profile.marketNews = $0; Session.shared.saveProfile() }))
 			Caption(text: "You can change these any time.")
+		}
+		// Coming back from the phone's Settings re-reads it.
+		.task(id: scenePhase == .active) {
+			let settings = await UNUserNotificationCenter.current().notificationSettings()
+			osAllowed = settings.authorizationStatus != .denied
 		}
 	}
 
@@ -207,6 +236,7 @@ private struct AppearanceView: View {
 								Text("✓")
 									.font(StakFont.geist(14 * u, .medium))
 									.foregroundStyle(teal)
+									.accessibilityHidden(true)
 							}
 						}
 						.padding(.horizontal, 14 * u)
@@ -215,6 +245,7 @@ private struct AppearanceView: View {
 						.contentShape(Rectangle())
 					}
 					.buttonStyle(.pressDim)
+					.accessibilityAddTraits(profile.appearance == key ? [.isSelected] : [])
 				}
 			}
 			.padding(.vertical, 4 * u)
@@ -230,14 +261,25 @@ private struct LinkedAccountsView: View {
 
 	var body: some View {
 		let u = figmaUnit
-		SettingsPage(title: "Linked accounts", onBack: onBack) {
+		let demo = Session.shared.demoAccount
+		SettingsPage(title: demo ? "Linked accounts" : "Sign-in", onBack: onBack) {
 			VStack(spacing: 0) {
-				LinkedRow(name: "Google", linked: profile.linkedGoogle) { profile.linkedGoogle.toggle(); Session.shared.saveProfile() }
-				LinkedRow(name: "Apple", linked: profile.linkedApple) { profile.linkedApple.toggle(); Session.shared.saveProfile() }
+				if demo {
+					LinkedRow(name: "Google", linked: profile.linkedGoogle) { profile.linkedGoogle.toggle(); Session.shared.saveProfile() }
+					LinkedRow(name: "Apple", linked: profile.linkedApple) { profile.linkedApple.toggle(); Session.shared.saveProfile() }
+				} else {
+					// Linking a second method isn't built, so there are no switches that would only pretend to.
+					SettingsLinkRow(label: "Signed in with", value: profile.linkedGoogle ? "Google" : profile.linkedApple ? "Apple" : "Email and password", chevron: false, action: nil)
+					if !profile.email.isEmpty {
+						SettingsLinkRow(label: "Email", value: profile.email, chevron: false, action: nil)
+					}
+				}
 			}
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-			Caption(text: "A linked account lets you sign in with one tap. Your STAK stays the same either way.")
+			Caption(text: demo
+				? "A linked account lets you sign in with one tap. Your STAK stays the same either way."
+				: "Sign in the same way next time, on this phone or a new one. Your saved stocks and taste come with you.")
 		}
 	}
 }
@@ -262,8 +304,11 @@ private struct LinkedRow: View {
 				Text(linked ? "Unlink" : "Link")
 					.font(StakFont.geist(13 * u, .medium))
 					.foregroundStyle(teal)
+					.frame(minHeight: 44)
+					.contentShape(Rectangle())
 			}
 			.buttonStyle(.pressDim)
+			.accessibilityLabel("\(linked ? "Unlink" : "Link") \(name)")
 		}
 		.padding(.horizontal, 14 * u)
 		.frame(height: 48 * u * typeScale)
@@ -278,9 +323,14 @@ private struct HelpSupportView: View {
 		let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
 		SettingsPage(title: "Help & support", onBack: onBack) {
 			VStack(spacing: 0) {
-				FaqRow(question: "Is this real money?", answer: "No. Simulate runs on $10,000 of paper money so you can practise with zero risk. Nothing is bought or sold for real.")
-				FaqRow(question: "Where do the prices come from?", answer: "STAK shows demo prices while the market feed is being wired up. Every number on screen is illustrative.")
-				FaqRow(question: "Is my data private?", answer: "Your picks, saves and paper portfolio live on this phone. STAK never sells your data.")
+				FaqRow(question: "Is this real money?", answer: "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+				if Session.shared.demoAccount {
+					FaqRow(question: "Where do the prices come from?", answer: "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
+					FaqRow(question: "Is my data private?", answer: "STAK never sells your data.")
+				} else {
+					FaqRow(question: "Where do the prices come from?", answer: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
+					FaqRow(question: "Is my data private?", answer: "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+				}
 				SettingsLinkRow(label: "Email support") {
 					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20support") { UIApplication.shared.open(url) }
 				}
@@ -291,7 +341,7 @@ private struct HelpSupportView: View {
 				}
 				SettingsLinkRow(label: "Terms of service") { if let url = URL(string: termsURL) { UIApplication.shared.open(url) } }
 				SettingsLinkRow(label: "Privacy policy") { if let url = URL(string: privacyURL) { UIApplication.shared.open(url) } }
-				SettingsLinkRow(label: "Version", value: version, chevron: false) {}
+				SettingsLinkRow(label: "Version", value: version, chevron: false, action: nil)
 			}
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
@@ -316,6 +366,7 @@ private struct FaqRow: View {
 					Text(open ? "⌃" : "⌄")
 						.font(StakFont.geist(14 * u))
 						.foregroundStyle(muted)
+						.accessibilityHidden(true)
 				}
 				.padding(.horizontal, 14 * u)
 				.frame(maxWidth: .infinity)
@@ -323,10 +374,13 @@ private struct FaqRow: View {
 				.contentShape(Rectangle())
 			}
 			.buttonStyle(.pressDim)
+			.accessibilityValue(open ? "Expanded" : "Collapsed")
 			if open {
 				Text(answer)
 					.font(StakFont.geist(12 * u))
+					.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(bodyInk)
+					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(.horizontal, 14 * u)
 					.padding(.bottom, 12 * u)
 			}
@@ -440,7 +494,36 @@ private struct AppSettingsView: View {
 	@ObservedObject private var profile = UserProfile.shared
 	@StateObject private var authVM = AuthViewModel()
 	@State private var confirmDelete = false
+	@State private var deleting = false
 	@State private var deleteError: String? = nil
+	/// Typed, so a stray tap can't delete an account.
+	@State private var typedDelete = ""
+	private var deleteConfirmed: Bool { typedDelete.trimmingCharacters(in: .whitespaces).uppercased() == "DELETE" }
+
+	/// The demo persona has nothing on the server to delete; a real account is wiped from the phone and signed out
+	/// only once the server confirms - a failed request leaves it exactly as it was.
+	private func runDelete() {
+		guard deleteConfirmed, !deleting else { return }
+		if Session.shared.demoAccount {
+			Session.shared.deleteAccount()
+			onAccountDeleted()
+			return
+		}
+		deleting = true
+		deleteError = nil
+		Task {
+			let error = await authVM.deleteAccount()
+			deleting = false
+			if let error {
+				deleteError = error
+				return
+			}
+			// Drops the SDK's live session for the deleted account, so nothing signed into right after inherits it.
+			await authVM.clearSession()
+			Session.shared.deleteAccount()
+			onAccountDeleted()
+		}
+	}
 
 	var body: some View {
 		let u = figmaUnit
@@ -453,34 +536,52 @@ private struct AppSettingsView: View {
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			PermissionCard(title: "Biometric login", description: "Unlock STAK with Face ID, Touch ID or your passcode whenever you come back.", isOn: Binding(get: { profile.accountLock }, set: { profile.accountLock = $0; Session.shared.saveProfile() }))
 			VStack(spacing: 0) {
-				SettingsLinkRow(label: "Delete account", chevron: !confirmDelete) { withAnimation(.easeOut(duration: 0.2)) { confirmDelete.toggle() } }
+				SettingsLinkRow(label: "Delete account", chevron: !confirmDelete) {
+					withAnimation(.easeOut(duration: 0.2)) { confirmDelete.toggle() }
+					typedDelete = ""
+				}
 				if confirmDelete {
 					VStack(alignment: .leading, spacing: 10 * u) {
 						Text("This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u{2019}t be undone.")
 							.font(StakFont.geist(12 * u))
+							.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 							.foregroundStyle(bodyInk)
+						Text("Type DELETE to confirm")
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(bodyInk)
+						TextField("", text: $typedDelete)
+							.font(StakFont.geist(14 * u, .medium))
+							.foregroundStyle(StakColors.textPrimary)
+							.tint(StakColors.accent)
+							.textInputAutocapitalization(.characters)
+							.autocorrectionDisabled()
+							.submitLabel(.done)
+							.onSubmit(runDelete)
+							.onChange(of: typedDelete) { _, new in if new.count > 12 { typedDelete = String(new.prefix(12)) } }
+							.padding(.horizontal, 12 * u)
+							.padding(.vertical, 13 * u)
+							.background(StakColors.surfaceAlt, in: RoundedRectangle(cornerRadius: 6 * u))
+							.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(StakColors.cardBorder, lineWidth: 1 * u))
+							.accessibilityLabel("Type DELETE to confirm")
+						Text(deleteConfirmed ? "Delete my account is ready." : "The button unlocks once DELETE is typed.")
+							.font(StakFont.geist(11 * u))
+							.foregroundStyle(StakColors.muted)
 						if let err = deleteError {
 							Text(err)
 								.font(StakFont.geist(12 * u))
 								.foregroundStyle(Auth.errorRed)
 						}
-						Button {
-							Task {
-								if let err = await authVM.deleteAccount() {
-									deleteError = err; return
-								}
-								Session.shared.deleteAccount()
-								onAccountDeleted()
-							}
-						} label: {
-							Text("Delete my account")
+						Button(action: runDelete) {
+							Text(deleting ? "Deleting\u{2026}" : "Delete my account")
 								.font(StakFont.geist(13 * u, .medium))
 								.foregroundStyle(Auth.errorRed)
 								.frame(maxWidth: .infinity)
-								.frame(height: 44 * u * typeScale)
+								.frame(minHeight: 44 * u * typeScale)
 								.background(Color(argb: 0x33E5484D), in: RoundedRectangle(cornerRadius: 6 * u))
 						}
 						.buttonStyle(.pressDim)
+						.disabled(!deleteConfirmed || deleting)
+						.opacity(deleteConfirmed && !deleting ? 1 : 0.5)
 					}
 					.padding(.horizontal, 14 * u)
 					.padding(.bottom, 14 * u)
@@ -494,33 +595,48 @@ private struct AppSettingsView: View {
 	}
 }
 
-/// Change password (FigJam Profile board, 2026-09-14). The demo has no auth backend:
-/// the new password must pass the sign-up rules and match its confirmation, then the
-/// page flips into its "Password updated" state. Mirrors android ChangePasswordScreen.
+/// Change password (FigJam Profile board, 2026-09-14). Supabase updates the password on the active session, so
+/// there's no current password to check - the web app's security page asks only for the new one, and this mirrors
+/// it. A Google- or Apple-linked account has no STAK password to change. Mirrors android ChangePasswordScreen.
 private struct ChangePasswordView: View {
 	let onBack: () -> Void
 	@StateObject private var authVM = AuthViewModel()
-	@State private var current = ""
+	@ObservedObject private var profile = UserProfile.shared
 	@State private var next = ""
 	@State private var confirm = ""
 	@State private var show = false
 	@State private var attempted = false
+	@State private var saving = false
 	@State private var updated = false
 	@State private var serverError: String? = nil
-	private var currentError: String? { current.isEmpty ? "Enter your current password" : nil }
-	private var nextError: String? { AuthRules.passwordError(next) ?? (next == current ? "Choose a password you haven\u{2019}t used" : nil) }
+	private var nextError: String? { AuthRules.passwordError(next) }
 	private var confirmError: String? { AuthRules.confirmError(next, confirm) }
 
 	var body: some View {
 		let u = figmaUnit
 		SettingsPage(title: "Change password", onBack: onBack) {
-			if updated {
+			if profile.linkedGoogle || profile.linkedApple {
+				let provider = profile.linkedGoogle ? "Google" : "Apple"
+				VStack(alignment: .leading, spacing: 8 * u) {
+					Text("Password managed by \(provider)")
+						.font(StakFont.sora(15 * u, .semiBold))
+						.foregroundStyle(StakColors.textPrimary)
+					Text("Your sign-in is handled by \(provider). To change your password, visit your \(provider) account settings.")
+						.font(StakFont.geist(13 * u))
+						.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+						.foregroundStyle(bodyInk)
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.padding(16 * u)
+				.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+			} else if updated {
 				VStack(alignment: .leading, spacing: 8 * u) {
 					Text("Password updated")
 						.font(StakFont.sora(15 * u, .semiBold))
 						.foregroundStyle(StakColors.textPrimary)
-					Text("Use it the next time you sign in. Sessions on other phones were signed out.")
+					Text("Use it the next time you sign in.")
 						.font(StakFont.geist(13 * u))
+						.stakLineHeight(19 * u, size: 13 * u, face: .geist)
 						.foregroundStyle(bodyInk)
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)
@@ -528,12 +644,12 @@ private struct ChangePasswordView: View {
 				.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 				AuthCta(text: "Done", action: onBack)
 			} else {
-				AuthInput("Current password", text: $current, hidden: !show) { ShowHideToggle(shown: $show) }
-					.error(attempted ? currentError : nil)
-				AuthInput("New password", text: $next, hidden: !show)
+				AuthInput("New password", text: $next, hidden: !show) { ShowHideToggle(shown: $show) }
 					.error(attempted ? nextError : nil)
+					.onChange(of: next) { _, _ in serverError = nil }
 				AuthInput("Confirm new password", text: $confirm, hidden: !show)
 					.error(attempted ? confirmError : nil)
+					.onChange(of: confirm) { _, _ in serverError = nil }
 				Caption(text: "At least \(AuthRules.passwordMin) characters.")
 				if let err = serverError {
 					Text(err)
@@ -541,19 +657,115 @@ private struct ChangePasswordView: View {
 						.foregroundStyle(Auth.errorRed)
 						.frame(maxWidth: .infinity, alignment: .leading)
 				}
-				AuthCta(text: "Update password", enabled: !current.isEmpty && !next.isEmpty && !confirm.isEmpty, action: {
+				AuthCta(text: saving ? "Updating\u{2026}" : "Update password", enabled: !next.isEmpty && !confirm.isEmpty && !saving, action: {
 					attempted = true
 					serverError = nil
-					guard currentError == nil && nextError == nil && confirmError == nil else { return }
+					guard nextError == nil && confirmError == nil else { return }
+					saving = true
 					Task {
-						if let err = await authVM.changePassword(newPassword: next) {
-							serverError = err
-						} else {
-							updated = true
-						}
+						let err = await authVM.changePassword(newPassword: next)
+						saving = false
+						if let err { serverError = err } else { updated = true }
 					}
 				})
 			}
 		}
 	}
 }
+
+
+/// Edit profile (android EditProfileScreen): change the photo and the display name, then save - the name goes to the
+/// server too, the photo stays on the phone.
+private struct EditProfileView: View {
+	let onBack: () -> Void
+	@StateObject private var authVM = AuthViewModel()
+	@State private var name = UserProfile.shared.displayName
+	@State private var photoData = UserProfile.shared.photoData
+	@State private var photo: UIImage? = UserProfile.shared.photoData.flatMap(UIImage.init(data:))
+	@State private var pickedItem: PhotosPickerItem? = nil
+	@State private var loadGen = 0
+	@State private var saving = false
+
+	var body: some View {
+		let u = figmaUnit
+		SettingsPage(title: "Edit profile", onBack: onBack) {
+			VStack(spacing: 10 * u) {
+				PhotosPicker(selection: $pickedItem, matching: .images) {
+					ZStack {
+						Circle().fill(Color(argb: 0xFF242B3D))
+						if let image = photo {
+							Image(uiImage: image)
+								.resizable()
+								.scaledToFill()
+								.frame(width: 96 * u, height: 96 * u)
+								.clipShape(Circle())
+						} else {
+							Text(name.prefix(1).uppercased())
+								.font(StakFont.sora(36 * u, .semiBold))
+								.foregroundStyle(Color(argb: 0xFF9EADC7))
+						}
+					}
+					.frame(width: 96 * u, height: 96 * u)
+					.overlay(Circle().strokeBorder(teal, lineWidth: 2 * u))
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("Profile photo")
+				.accessibilityHint("Change photo")
+				PhotosPicker(selection: $pickedItem, matching: .images) {
+					Text("Change photo")
+						.font(StakFont.geist(12 * u, .medium))
+						.foregroundStyle(teal)
+				}
+				.buttonStyle(.pressDim)
+			}
+			.frame(maxWidth: .infinity)
+			.padding(.vertical, 8 * u)
+			.onChange(of: pickedItem) { _, item in
+				guard let item else { return }
+				loadGen += 1
+				let gen = loadGen
+				Task {
+					// Only a 512px thumbnail survives the pick (ImageIO downsample, off the main thread) - the same path
+					// as 09 Profile setup.
+					guard let data = try? await item.loadTransferable(type: Data.self),
+						  let thumb = await UIImage(data: data)?.byPreparingThumbnail(ofSize: CGSize(width: 512, height: 512)),
+						  let jpeg = thumb.jpegData(compressionQuality: 0.85), gen == loadGen else { return }
+					photo = thumb
+					photoData = jpeg
+				}
+			}
+
+			Text("DISPLAY NAME")
+				.font(StakFont.geist(10 * u, .medium))
+				.tracking(1.2 * u)
+				.foregroundStyle(muted)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			HStack(spacing: 0) {
+				TextField("Display name", text: $name, prompt: Text("Your name").foregroundStyle(StakColors.muted))
+					.font(StakFont.geist(14 * u))
+					.foregroundStyle(StakColors.textPrimary)
+					.tint(StakColors.accent)
+					.textInputAutocapitalization(.words)
+					.onChange(of: name) { _, new in if new.count > nameMax { name = String(new.prefix(nameMax)) } }
+				Text("\(name.count) / \(nameMax)")
+					.font(StakFont.geist(11 * u))
+					.foregroundStyle(muted)
+			}
+			.padding(16 * u)
+			.background(Color(argb: 0xFF181F30), in: RoundedRectangle(cornerRadius: 14 * u))
+
+			AuthCta(text: saving ? "Saving\u{2026}" : "Save changes", enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !saving, action: {
+				saving = true
+				UserProfile.shared.displayName = name.trimmingCharacters(in: .whitespaces).capitalizedWords
+				UserProfile.shared.photoData = photoData
+				Session.shared.saveProfile()
+				Task {
+					await authVM.updateProfile()
+					onBack()
+				}
+			})
+		}
+	}
+}
+

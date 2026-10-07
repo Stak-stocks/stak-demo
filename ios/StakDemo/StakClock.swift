@@ -181,7 +181,7 @@ enum StakClock {
 	}
 
 	/// "September 2026" for the month a new account was created.
-	static func monthYear() -> String { formatter("MMMM yyyy").string(from: Date()) }
+	static func monthYear(_ date: Date = Date()) -> String { formatter("MMMM yyyy").string(from: date) }
 }
 
 /// How often a page in front re-reads live prices - Android's LIVE_PRICE_INTERVAL_MS (ui/components/RefreshWhileVisible.kt).

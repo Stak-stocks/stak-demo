@@ -47,7 +47,7 @@ object DeviceStateSync {
 				StakStore.putSet("news.saved", remote.newsSaved.toSet())
 			}
 			withContext(Dispatchers.Main) {
-				StakNotifications.load()
+				StakNotifications.reloadReadIds()
 				com.stak.demo.ui.news.NewsSaves.load()
 			}
 			push()

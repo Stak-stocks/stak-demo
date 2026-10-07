@@ -10,6 +10,8 @@ struct AiMessage: Identifiable {
     var feedback: Int? = nil
     var kind: String = "answer"
     var followUps: [String] = []
+    /// The headlines the answer was given - shown as "Based on", each opening its story.
+    var sources: [StakAiSource] = []
     var failed: Bool = false
     var streaming: Bool = false
     var cutOff: Bool = false
@@ -17,10 +19,7 @@ struct AiMessage: Identifiable {
     func withFailed(_ v: Bool) -> AiMessage { var c = self; c.failed = v; c.streaming = false; return c }
     func withFeedback(_ v: Int?) -> AiMessage { var c = self; c.feedback = v; return c }
     func withCutOff() -> AiMessage { var c = self; c.streaming = false; c.cutOff = true; return c }
-    func finished(text: String, serverId: Int64?, kind: String, followUps: [String]) -> AiMessage {
-        var c = self; c.text = text; c.serverId = serverId; c.kind = kind
-        c.followUps = followUps; c.streaming = false; return c
-    }
+
 }
 
 enum AiNotice: Equatable {
@@ -49,6 +48,14 @@ final class StakAiViewModel: ObservableObject {
     private var nextKey: Int64 = 0
     private var configured = false
     private let decoder = JSONDecoder()
+    /// The past conversation loading, and the wait for the count to free up - each replaced, never stacked.
+    private var openTask: Task<Void, Never>? = nil
+    private var usageWait: Task<Void, Never>? = nil
+    private var recheck: Task<Void, Never>? = nil
+    /// Bumped by every reply: a count read started before one can't overwrite the newer count the reply carries.
+    private var usageVersion = 0
+    /// After a slow answer, the count is read again once the server has surely finished.
+    private static let recheckAfter: UInt64 = 60_000_000_000
 
     var outOfQuestions: Bool {
         guard let u = usage, !u.unlimited else { return false }
@@ -56,24 +63,39 @@ final class StakAiViewModel: ObservableObject {
     }
     var canAsk: Bool { !sending && !loading && !outOfQuestions }
 
+    /// Nothing the chat started outlives it - Android's viewModelScope.
+    deinit {
+        openTask?.cancel()
+        usageWait?.cancel()
+        recheck?.cancel()
+    }
+
     func configure(context: StakAiContext?, question: String?, conversationId: String?) {
         guard !configured else { return }
         configured = true
         self.context = context
+        // A fresh open (not a past chat reopened from history) counts toward the usage stats, by where it came from.
+        if conversationId == nil {
+            let entry = switch context?.type {
+            case nil: "header"
+            case "stock": "stock"
+            case "article": "article"
+            default: "brief"
+            }
+            StakEvents.log(StakEvents.stakAiOpen, params: ["entry": entry, "platform": "ios"])
+        }
+        refreshUsage()
         if let cid = conversationId {
             open(cid)
-        } else {
-            Task { if let u = try? await repo.stakAiUsage() { applyUsage(u) } }
-            if let q = question?.trimmingCharacters(in: .whitespaces), !q.isEmpty {
-                send(q, via: "starter")
-            }
+        } else if let q = question?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty {
+            send(q)
         }
     }
 
     func consumeReturnedDraft() -> String? { defer { returnedDraft = nil }; return returnedDraft }
 
     func send(_ text: String, via: String = "typed") {
-        let q = text.trimmingCharacters(in: .whitespaces)
+        let q = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !sending, !loading else { return }
         messages = messages.filter { !$0.failed } + [AiMessage(key: nextKey, fromUser: true, text: q)]
         nextKey += 1
@@ -97,16 +119,19 @@ final class StakAiViewModel: ObservableObject {
 
     func newChat() {
         guard !sending else { return }
+        openTask?.cancel()
         loading = false; messages = []; conversationId = nil; openedId = nil
         context = nil; contextSent = false
         notice = outOfQuestions ? .limitReached(resetsAt: usage?.resetsAt) : nil
     }
 
     func open(_ id: String) {
+        openTask?.cancel()
         openedId = id; loading = true; notice = nil
-        Task {
+        openTask = Task {
             do {
                 let r = try await repo.stakAiMessages(id)
+                guard !Task.isCancelled else { return }
                 conversationId = id; contextSent = true
                 var msgs: [AiMessage] = []
                 for m in r.messages {
@@ -116,8 +141,11 @@ final class StakAiViewModel: ObservableObject {
                     nextKey += 1
                 }
                 messages = msgs
-                if let ctx = r.context { context = ctx }
-            } catch { notice = .loadFailed }
+                context = r.context
+            } catch {
+                guard !Task.isCancelled else { return }
+                notice = .loadFailed
+            }
             loading = false
         }
     }
@@ -164,9 +192,8 @@ final class StakAiViewModel: ObservableObject {
                 conversationId = nil; contextSent = false
                 await ask(question, allowRestart: false, via: via)
             case "limit_reached":
-                if let u = e.usage { applyUsage(u) } else {
-                    Task { if let u = try? await repo.stakAiUsage() { applyUsage(u) } }
-                }
+                usageVersion += 1
+                if let u = e.usage ?? usage { applyUsage(u) }
                 if !messages.isEmpty { messages = Array(messages.dropLast()) }
                 returnedDraft = question
             default:
@@ -174,15 +201,24 @@ final class StakAiViewModel: ObservableObject {
             }
             return
         } catch {
-            // Network or timeout
+            // Too slow, or the connection dropped after words arrived: the server may well have finished, saved and
+            // counted it - read the count now, and again once it surely has. (A failure the server reported part-way
+            // is a StakAiStreamError, above: that one really didn't count.)
+            let timedOut = (error as? URLError)?.code == .timedOut
+            let mayHaveCounted = timedOut || gotText
             if gotText {
                 messages = messages.map { $0.key == streamKey ? $0.withCutOff() : $0 }
             } else {
                 messages = messages.filter { $0.key != streamKey }
                 markLastFailed()
             }
-            notice = gotText ? .slow : .failed(offline: error is URLError)
-            Task { if let u = try? await repo.stakAiUsage() { applyUsage(u) } }
+            if mayHaveCounted {
+                notice = .slow
+                recheckUsageLater()
+            } else {
+                notice = .failed(offline: error is URLError)
+            }
+            refreshUsage()
             return
         }
 
@@ -191,18 +227,20 @@ final class StakAiViewModel: ObservableObject {
             if gotText {
                 messages = messages.map { $0.key == streamKey ? $0.withCutOff() : $0 }
                 notice = .slow
+                recheckUsageLater()
             } else {
                 messages = messages.filter { $0.key != streamKey }
                 markLastFailed(); notice = .failed(offline: false)
             }
-            Task { if let u = try? await repo.stakAiUsage() { applyUsage(u) } }
+            refreshUsage()
             return
         }
 
         contextSent = true; conversationId = r.conversationId
+        usageVersion += 1
         upsertMessage(AiMessage(key: streamKey, fromUser: false, text: r.response,
                                 serverId: r.messageId > 0 ? r.messageId : nil,
-                                kind: r.answerKind, followUps: r.followUps))
+                                kind: r.answerKind, followUps: r.followUps, sources: r.sources ?? []))
         if let u = r.usage { applyUsage(u) }
     }
 
@@ -221,25 +259,39 @@ final class StakAiViewModel: ObservableObject {
         messages = messages.map { $0.key == key ? $0.withFeedback(value) : $0 }
     }
 
+    /// Reads the count; one that a newer reply has already overtaken is dropped.
+    private func refreshUsage() {
+        let version = usageVersion
+        Task { [weak self] in
+            guard let u = try? await StockRepository.shared.stakAiUsage(), let self, version == self.usageVersion else { return }
+            self.applyUsage(u)
+        }
+    }
+
+    private func recheckUsageLater() {
+        recheck?.cancel()
+        recheck = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: Self.recheckAfter) } catch { return }
+            self?.refreshUsage()
+        }
+    }
+
+    /// Takes a new count. Out of questions: say when the next frees up, and check again at that moment, so the box
+    /// unlocks on its own instead of waiting for the person to leave and come back.
     private func applyUsage(_ u: StakAiUsage) {
         usage = u
+        usageWait?.cancel()
         if u.questionsLeft > 0 {
             if case .limitReached = notice { notice = nil }
             return
         }
         notice = .limitReached(resetsAt: u.resetsAt)
-        if let iso = u.resetsAt, let wait = resetsInSeconds(iso) {
-            Task {
-                try? await Task.sleep(nanoseconds: UInt64(wait + 2) * 1_000_000_000)
-                if let fresh = try? await repo.stakAiUsage() { applyUsage(fresh) }
-            }
+        guard let iso = u.resetsAt, let date = MyStakHoldings.parse(iso) else { return }
+        let wait = max(0, date.timeIntervalSinceNow) + 2
+        usageWait = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) } catch { return }
+            self?.refreshUsage()
         }
-    }
-
-    private func resetsInSeconds(_ iso: String) -> UInt64? {
-        guard let date = ISO8601DateFormatter().date(from: iso) else { return nil }
-        let secs = date.timeIntervalSinceNow
-        return secs > 0 ? UInt64(secs) : nil
     }
 }
 

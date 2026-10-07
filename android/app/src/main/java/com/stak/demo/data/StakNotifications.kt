@@ -54,8 +54,12 @@ object StakNotifications {
 	/** The Home bell's dot. */
 	val hasUnread: Boolean get() = unreadCount > 0
 
+	/** Bumped by every load (a sign-in, sign-out or account switch): a read started for one account never lands in the next one's inbox. */
+	@Volatile private var generation = 0
+
 	/** Restores the inbox for the current account, then refreshes it from live data. */
 	fun load() {
+		generation++
 		readIds = StakStore.getSet("notif.read") ?: emptySet()
 		refreshedAt = 0L
 		if (Session.demoAccount) {
@@ -73,6 +77,7 @@ object StakNotifications {
 		val now = System.currentTimeMillis()
 		if (!force && now - refreshedAt < REFRESH_MS) return
 		refreshedAt = now
+		val started = generation
 		scope.launch {
 			val held = MyStakHoldings.tickers.toList()
 			val moves = if (UserProfile.priceAlerts && held.isNotEmpty()) {
@@ -89,9 +94,7 @@ object StakNotifications {
 			// can't tell a week-old account from a month-old one, and falls back to the
 			// current month when unknown - which welcomed a long-standing account.
 			if (StakStore.getString("notif.createdAt") == null) {
-				runCatching { repo.getMe() }.getOrNull()?.createdAt
-					?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-					?.let { StakStore.putString("notif.createdAt", it.toString()) }
+				runCatching { repo.getMe() }.getOrNull()?.createdAt?.let { if (generation == started) rememberCreatedAt(it) }
 			}
 			val cardsLeft = if (UserProfile.dailyDeck) {
 				// The server keeps the last swipe day's count; one from an earlier deck day
@@ -101,7 +104,7 @@ object StakNotifications {
 					(it.limit - used).coerceAtLeast(0)
 				}
 			} else null
-			if (Session.demoAccount) return@launch
+			if (Session.demoAccount || generation != started) return@launch
 			items = accountItems(moves, cardsLeft)
 		}
 	}
@@ -148,10 +151,23 @@ object StakNotifications {
 
 	private fun ago(atMs: Long): String = StakClock.ago(atMs / 1000)
 
-	/** Opening the inbox reads everything - like an activity feed. */
+	/** Keeps the account's creation time (epoch ms) from the server's timestamp - profile sync and the inbox's own read both write it through here. */
+	fun rememberCreatedAt(iso: String) {
+		runCatching { java.time.Instant.parse(iso).toEpochMilli() }.getOrNull()
+			?.let { StakStore.putString("notif.createdAt", it.toString()) }
+	}
+
+	/** Opening the inbox reads everything - like an activity feed. Nothing new to read, nothing written. */
 	fun markAllRead() {
-		readIds = items.map { it.id }.toSet()
+		val next = items.map { it.id }.toSet()
+		if (next == readIds) return
+		readIds = next
 		StakStore.putSet("notif.read", readIds)
 		DeviceStateSync.push()
+	}
+
+	/** The read marks another phone had - pulled by DeviceStateSync. The items themselves aren't rebuilt. */
+	fun reloadReadIds() {
+		readIds = StakStore.getSet("notif.read") ?: emptySet()
 	}
 }

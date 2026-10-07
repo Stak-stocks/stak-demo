@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 import PhotosUI
 
-private let nameMax = 20
+/// How long a display name may be - here and on the edit page.
+let nameMax = 20
 
 /// Onboarding · 09 Profile setup — Figma node 1:793 (CHINEDU file,
 /// "STEP · LAST ONE"). Mirrors android ui/onboarding/ProfileSetupScreen.kt.

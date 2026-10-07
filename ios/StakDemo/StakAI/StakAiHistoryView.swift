@@ -1,214 +1,156 @@
 import SwiftUI
 
-private let teal = Color(argb: 0xFF69B3CA)
-private let surface = Color(argb: 0xFF181F30)
-private let cardBorder = Color(argb: 0xFF2A3346)
-private let muted = Color(argb: 0xFF819ABB)
-private let warn = Color(argb: 0xFFE5A54B)
-
-/// Past conversations list — mirrors android/ui/ai/StakAiHistoryScreen.kt.
+/// STAK AI's past chats, newest first: what each was about, its latest answer, and rename / delete. Mirrors
+/// android ui/ai/StakAiHistoryScreen.kt.
 struct StakAiHistoryView: View {
-    let onBack: () -> Void
-    let onOpen: (StakAiConversationDto) -> Void
+	let onBack: () -> Void
+	let onOpen: (StakAiConversationDto) -> Void
 
-    @StateObject private var vm = StakAiHistoryViewModel()
-    @State private var renaming: StakAiConversationDto? = nil
-    @State private var renameText = ""
+	@StateObject private var vm = StakAiHistoryViewModel()
+	@State private var renaming: StakAiConversationDto? = nil
+	@State private var renameText = ""
+	@State private var deleting: StakAiConversationDto? = nil
 
-    var body: some View {
-        let u = figmaUnit
-        VStack(spacing: 0) {
-            header(u: u)
-            if vm.loading && vm.conversations.isEmpty {
-                Spacer()
-                ProgressView().tint(teal)
-                Spacer()
-            } else if vm.failed && vm.conversations.isEmpty {
-                emptyOrFailed(failed: true, u: u)
-            } else if vm.conversations.isEmpty {
-                emptyOrFailed(failed: false, u: u)
-            } else {
-                list(u: u)
-            }
-        }
-        .background(StakColors.bg.ignoresSafeArea())
-        .task { vm.load() }
-        .sheet(item: $renaming) { c in
-            renameSheet(c, u: u)
-                .presentationDetents([.height(220)])
-                .presentationDragIndicator(.visible)
-        }
-    }
+	var body: some View {
+		let u = figmaUnit
+		SettingsScaffold(title: "Your chats", onBack: onBack) {
+			ScrollView(showsIndicators: false) {
+				LazyVStack(spacing: 10 * u) {
+					if vm.conversations.isEmpty && vm.loading {
+						Text("Loading…")
+							.font(StakFont.geist(13 * u))
+							.foregroundStyle(StakColors.muted)
+							.frame(maxWidth: .infinity, alignment: .leading)
+					} else if vm.conversations.isEmpty && vm.failed {
+						messageCard("Couldn't load your chats.", action: "Try again", u: u) { vm.load() }
+					} else if vm.conversations.isEmpty {
+						messageCard("No chats yet. Ask STAK AI something and it'll show up here.", action: nil, u: u) {}
+					} else {
+						ForEach(vm.conversations) { c in chatRow(c, u: u) }
+						if vm.hasMore {
+							Button { vm.load(more: true) } label: {
+								Text(vm.loading ? "Loading…" : "Show older chats")
+									.font(StakFont.geist(13 * u, .semiBold))
+									.foregroundStyle(StakColors.teal)
+									.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+									.padding(.vertical, 12 * u)
+									.contentShape(Rectangle())
+							}
+							.buttonStyle(.pressDim)
+							.disabled(vm.loading)
+						}
+					}
+				}
+				.padding(.horizontal, 20 * u)
+				.padding(.bottom, 26 * u)
+			}
+		}
+		.task { vm.load() }
+		.alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+			TextField("Title", text: $renameText)
+				.onChange(of: renameText) { _, new in if new.count > 80 { renameText = String(new.prefix(80)) } }
+			Button("Cancel", role: .cancel) { renaming = nil }
+			Button("Save") {
+				if let c = renaming { vm.rename(c, title: renameText) }
+				renaming = nil
+			}
+			.disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+		}
+		.alert("Delete this chat?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { c in
+			Button("Delete", role: .destructive) { vm.delete(c); deleting = nil }
+			Button("Cancel", role: .cancel) { deleting = nil }
+		} message: { c in
+			Text("\u{201C}\(c.title)\u{201D} will be gone for good.")
+		}
+	}
 
-    // MARK: – Header
+	private func chatRow(_ c: StakAiConversationDto, u: CGFloat) -> some View {
+		HStack(alignment: .top, spacing: 0) {
+			Button { onOpen(c) } label: {
+				VStack(alignment: .leading, spacing: 3 * u) {
+					HStack(spacing: 6 * u) {
+						if let label = c.contextLabel {
+							Text(label)
+								.font(StakFont.geist(11 * u, .medium))
+								.foregroundStyle(StakColors.teal)
+								.lineLimit(1)
+							Circle().fill(StakColors.muted).frame(width: 3 * u, height: 3 * u).accessibilityHidden(true)
+						}
+						Text(historyAgo(c.updatedAt))
+							.font(StakFont.geist(11 * u))
+							.foregroundStyle(StakColors.muted)
+							.lineLimit(1)
+							.fixedSize()
+					}
+					Text(c.title)
+						.font(StakFont.geist(14 * u, .medium))
+						.stakLineHeight(19 * u, size: 14 * u, face: .geist)
+						.foregroundStyle(StakColors.textPrimary)
+						.lineLimit(2)
+					if let preview = c.preview {
+						Text(preview.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "\n", with: " "))
+							.font(StakFont.geist(12 * u))
+							.stakLineHeight(17 * u, size: 12 * u, face: .geist)
+							.foregroundStyle(Color(argb: 0xFFC8D2E0))
+							.lineLimit(2)
+					}
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.multilineTextAlignment(.leading)
+				.padding(.leading, 14 * u)
+				.padding(.vertical, 12 * u)
+				.contentShape(Rectangle())
+			}
+			.buttonStyle(.pressDim)
+			Menu {
+				Button("Rename") {
+					renameText = c.title
+					renaming = c
+				}
+				Button("Delete", role: .destructive) { deleting = c }
+			} label: {
+				Image(systemName: "ellipsis")
+					.rotationEffect(.degrees(90))
+					.font(.system(size: 16 * u))
+					.foregroundStyle(StakColors.muted)
+					.frame(width: 44, height: 44)
+					.contentShape(Rectangle())
+			}
+			.accessibilityLabel("More options for \(c.title)")
+		}
+		.background(StakColors.surface, in: RoundedRectangle(cornerRadius: 14 * u))
+		.accessibilityAction(named: Text("Rename")) {
+			renameText = c.title
+			renaming = c
+		}
+		.accessibilityAction(named: Text("Delete")) { deleting = c }
+	}
 
-    private func header(u: CGFloat) -> some View {
-        ZStack {
-            Text("Your chats")
-                .font(StakFont.sora(17 * u, .semiBold))
-                .foregroundStyle(StakColors.textPrimary)
-            HStack {
-                AuthBackCircle(action: onBack)
-                    .padding(.leading, 20 * u)
-                Spacer()
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56 * u * typeScale)
-    }
+	private func messageCard(_ text: String, action: String?, u: CGFloat, onAction: @escaping () -> Void) -> some View {
+		VStack(alignment: .leading, spacing: 8 * u) {
+			Text(text)
+				.font(StakFont.geist(13 * u))
+				.stakLineHeight(19 * u, size: 13 * u, face: .geist)
+				.foregroundStyle(Color(argb: 0xFFC8D2E0))
+			if let action {
+				Button(action: onAction) {
+					Text(action)
+						.font(StakFont.geist(13 * u, .semiBold))
+						.foregroundStyle(StakColors.teal)
+						.frame(minHeight: 44)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.pressDim)
+			}
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(16 * u)
+		.background(StakColors.surface, in: RoundedRectangle(cornerRadius: 16 * u))
+	}
+}
 
-    // MARK: – List
-
-    private func list(u: CGFloat) -> some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 0) {
-                ForEach(vm.conversations) { c in
-                    conversationRow(c, u: u)
-                    Divider().background(cardBorder).padding(.leading, 20 * u)
-                }
-                if vm.hasMore {
-                    Button {
-                        vm.load(more: true)
-                    } label: {
-                        if vm.loading {
-                            ProgressView().tint(teal).frame(maxWidth: .infinity).padding(.vertical, 20 * u)
-                        } else {
-                            Text("Load more")
-                                .font(StakFont.geist(14 * u, .medium))
-                                .foregroundStyle(teal)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16 * u)
-                        }
-                    }
-                    .buttonStyle(.pressDim)
-                }
-            }
-            .padding(.bottom, 24 * u)
-        }
-    }
-
-    private func conversationRow(_ c: StakAiConversationDto, u: CGFloat) -> some View {
-        HStack(spacing: 12 * u) {
-            ZStack {
-                Circle().fill(surface).frame(width: 38 * u, height: 38 * u)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 16 * u))
-                    .foregroundStyle(teal)
-            }
-            VStack(alignment: .leading, spacing: 3 * u) {
-                Text(c.title)
-                    .font(StakFont.geist(14 * u, .medium))
-                    .foregroundStyle(StakColors.textPrimary)
-                    .lineLimit(1)
-                if let preview = c.preview {
-                    Text(preview)
-                        .font(StakFont.geist(12 * u))
-                        .foregroundStyle(muted)
-                        .lineLimit(1)
-                }
-                if let label = c.contextLabel {
-                    Text(label)
-                        .font(StakFont.geist(11 * u))
-                        .foregroundStyle(teal.opacity(0.8))
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14 * u))
-                .foregroundStyle(muted)
-        }
-        .padding(.horizontal, 20 * u)
-        .padding(.vertical, 14 * u)
-        .contentShape(Rectangle())
-        .onTapGesture { onOpen(c) }
-        .contextMenu {
-            Button {
-                renameText = c.title
-                renaming = c
-            } label: { Label("Rename", systemImage: "pencil") }
-            Button(role: .destructive) { vm.delete(c) } label: { Label("Delete", systemImage: "trash") }
-        }
-    }
-
-    // MARK: – Empty / failed
-
-    private func emptyOrFailed(failed: Bool, u: CGFloat) -> some View {
-        VStack(spacing: 12 * u) {
-            Spacer()
-            ZStack {
-                Circle().fill(surface).frame(width: 52 * u, height: 52 * u)
-                Image(systemName: failed ? "exclamationmark.triangle" : "sparkles")
-                    .font(.system(size: 24 * u))
-                    .foregroundStyle(failed ? warn : teal)
-            }
-            Text(failed ? "Couldn't load chats" : "No chats yet")
-                .font(StakFont.sora(17 * u, .semiBold))
-                .foregroundStyle(StakColors.textPrimary)
-            Text(failed ? "Check your connection and try again."
-                        : "Start a conversation and it'll appear here.")
-                .font(StakFont.geist(13 * u))
-                .foregroundStyle(muted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32 * u)
-            if failed {
-                Button { vm.load() } label: {
-                    Text("Try again")
-                        .font(StakFont.geist(14 * u, .medium))
-                        .foregroundStyle(teal)
-                        .padding(.vertical, 10 * u)
-                }
-                .buttonStyle(.pressDim)
-            }
-            Spacer()
-        }
-    }
-
-    // MARK: – Rename sheet
-
-    private func renameSheet(_ c: StakAiConversationDto, u: CGFloat) -> some View {
-        VStack(spacing: 16 * u) {
-            Text("Rename chat")
-                .font(StakFont.sora(16 * u, .semiBold))
-                .foregroundStyle(StakColors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20 * u)
-                .padding(.top, 20 * u)
-            TextField("Title", text: $renameText)
-                .font(StakFont.geist(14 * u))
-                .foregroundStyle(StakColors.textPrimary)
-                .tint(teal)
-                .padding(.horizontal, 16 * u)
-                .padding(.vertical, 12 * u)
-                .background(surface, in: RoundedRectangle(cornerRadius: 10 * u))
-                .overlay(RoundedRectangle(cornerRadius: 10 * u).strokeBorder(cardBorder, lineWidth: 1 * u))
-                .padding(.horizontal, 20 * u)
-            HStack(spacing: 12 * u) {
-                Button { renaming = nil } label: {
-                    Text("Cancel")
-                        .font(StakFont.geist(14 * u, .medium))
-                        .foregroundStyle(muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12 * u)
-                        .background(surface, in: RoundedRectangle(cornerRadius: 10 * u))
-                }
-                .buttonStyle(.pressDim)
-                Button {
-                    vm.rename(c, title: renameText)
-                    renaming = nil
-                } label: {
-                    Text("Save")
-                        .font(StakFont.geist(14 * u, .medium))
-                        .foregroundStyle(StakColors.bg)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12 * u)
-                        .background(teal, in: RoundedRectangle(cornerRadius: 10 * u))
-                }
-                .buttonStyle(.pressDim)
-                .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(.horizontal, 20 * u)
-        }
-        .background(StakColors.bg.ignoresSafeArea())
-    }
+/// "Just now", "12m ago", "3h ago", "2d ago" from the server's timestamp; "" if it won't parse.
+private func historyAgo(_ iso: String) -> String {
+	guard let date = MyStakHoldings.parse(iso) else { return "" }
+	return StakClock.ago(Int64(date.timeIntervalSince1970))
 }

@@ -15,9 +15,9 @@ private let dot = Color(argb: 0xFFFF8030)
 struct NotificationsView: View {
 	let onBack: () -> Void
 	let onOpenSettings: () -> Void
-	@ObservedObject var inboxVM: InboxViewModel
 	@ObservedObject private var inbox = StakNotifications.shared
-	@State private var readBefore: Set<String> = []
+	/// Captured once: marking everything read rewrites readIds, and the rows opened unread keep their dot this visit.
+	@State private var readBefore: Set<String>? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -31,6 +31,7 @@ struct NotificationsView: View {
 								.foregroundStyle(StakColors.textPrimary)
 							Text("Price moves on your picks and your daily deck land here.")
 								.font(StakFont.geist(13 * u))
+								.stakLineHeight(19 * u, size: 13 * u, face: .geist)
 								.foregroundStyle(muted)
 						}
 						.frame(maxWidth: .infinity, alignment: .leading)
@@ -39,7 +40,7 @@ struct NotificationsView: View {
 					} else {
 						VStack(spacing: 0) {
 							ForEach(Array(inbox.items.enumerated()), id: \.element.id) { i, item in
-								NotificationRow(item: item, unread: !readBefore.contains(item.id))
+								NotificationRow(item: item, unread: !(readBefore ?? inbox.readIds).contains(item.id))
 								if i < inbox.items.count - 1 {
 									Rectangle().fill(divider).frame(height: 1 * u).padding(.horizontal, 14 * u)
 								}
@@ -57,11 +58,11 @@ struct NotificationsView: View {
 				.padding(.bottom, 26 * u)
 			}
 		}
-		.onAppear {
-			readBefore = inbox.readIds
+		.task {
+			if readBefore == nil { readBefore = inbox.readIds }
 			inbox.markAllRead()
+			inbox.refresh()
 		}
-		.task { await inboxVM.load() }
 	}
 }
 
@@ -82,9 +83,11 @@ private struct NotificationRow: View {
 			VStack(alignment: .leading, spacing: 2 * u) {
 				Text(item.title)
 					.font(StakFont.geist(14 * u, .medium))
+					.stakLineHeight(18 * u, size: 14 * u, face: .geist)
 					.foregroundStyle(StakColors.textPrimary)
 				Text(item.body)
 					.font(StakFont.geist(12 * u))
+					.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(bodyInk)
 				Text(item.time)
 					.font(StakFont.geist(11 * u))
@@ -95,5 +98,7 @@ private struct NotificationRow: View {
 		}
 		.padding(.horizontal, 14 * u)
 		.padding(.vertical, 12 * u)
+		.accessibilityElement(children: .combine)
+		.accessibilityLabel("\(unread ? "New. " : "")\(item.title). \(item.body). \(item.time)")
 	}
 }

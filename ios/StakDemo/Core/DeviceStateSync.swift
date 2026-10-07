@@ -23,7 +23,7 @@ final class DeviceStateSync {
 				if StakStore.stringSet("news.saved") == nil, !remote.newsSaved.isEmpty {
 					StakStore.set(Set(remote.newsSaved), for: "news.saved")
 				}
-				StakNotifications.shared.load()
+				StakNotifications.shared.reloadReadIds()
 				NewsSaves.shared.load()
 			}
 			await self.doPush()

@@ -20,6 +20,11 @@ enum TasteModel {
 	private static let consumer: Set<String> = ["Nike", "Disney", "Netflix", "Spotify", "Amazon", "PlayStation", "Uber", "Apple", "Tesla"]
 	private static let income: Set<String> = ["Apple", "Microsoft", "Nike", "Disney"]
 
+	/// Whether a brand name counts toward any taste - other saves would only dilute the shares.
+	static func isTasteBrand(_ name: String) -> Bool {
+		tech.contains(name) || growth.contains(name) || consumer.contains(name) || income.contains(name)
+	}
+
 	// 04 Goal options, in card order.
 	static let goalLearn = 0, goalGrow = 1, goalFirstStocks = 2, goalExplore = 3
 	// 05 Risk options, in card order.
