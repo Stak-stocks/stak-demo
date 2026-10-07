@@ -90,8 +90,11 @@ final class PaperPortfolio: ObservableObject {
 	/// All-time gain = today's value over the paper start (the demo's authored $240 falls out of its $10,240).
 	var allTimeGain: Double { portfolioValue - paperStart }
 
+	/// The hero's gain line: the demo's authored week, a real account's gain since it started (labelled all time).
 	var weekUp: Bool { demo ? true : allTimeGain >= 0 }
 	var weekGainText: String { demo ? PaperPortfolio.weekGain : PaperPortfolio.signedWhole(allTimeGain) }
+	/// "this week" for the demo's authored figure; a real account's line is its gain since it started.
+	var gainPeriodLabel: String { demo ? "this week" : "all time" }
 	var weekPctText: String { demo ? PaperPortfolio.weekPct : PaperPortfolio.signedPct(allTimeGain / paperStart * 100) }
 
 	/// "12 picks" is authored for the demo (its rows list six); a real account counts its own.
@@ -240,7 +243,7 @@ final class PaperPortfolio: ObservableObject {
 		// Only what changed is published - every assignment redraws each Simulate page on the stack.
 		if setupDone != portfolio.initialized { setupDone = portfolio.initialized }
 		if cash != resolvedCash { cash = resolvedCash }
-		let start = portfolio.start ?? PaperPortfolio.defaultPaperStart
+		let start = PaperPortfolio.startingCash(portfolio)
 		if paperStart != start { paperStart = start }
 		if portfolioName != (portfolio.name ?? "") { portfolioName = portfolio.name ?? "" }
 		let strategyText = PaperPortfolio.strategyLabel(portfolio.strategy)
@@ -713,6 +716,17 @@ final class PaperPortfolio: ObservableObject {
 
 	/// Shares to four places - the tickets' "0.8803".
 	nonisolated static func shares(_ value: Double) -> String { String(format: "%.4f", value) }
+
+	/// The XP tiers' practice budgets (shared/src/tierConfig.ts SANDBOX_BUDGETS).
+	nonisolated static let tierBudgets: [Int: Double] = [1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000]
+
+	/// What the account started with - the gains are measured from it. A chosen balance (free choice) is the server's
+	/// start; a tier account's money is its tier's budget, the cash the server granted (web usePaperPortfolio). Reading
+	/// $10,000 for a tier account made a $3,000 tier-2 portfolio show -$7,000.
+	nonisolated static func startingCash(_ portfolio: SandboxPortfolioResponse) -> Double {
+		if portfolio.cashSource == "free_choice" { return portfolio.start ?? defaultPaperStart }
+		return portfolio.tier.flatMap { tierBudgets[$0] } ?? portfolio.start ?? defaultPaperStart
+	}
 
 	/// Today as "Sep 4" - the picked / sold lines' date.
 	nonisolated static func today() -> String { localDayFormatter.string(from: Date()) }

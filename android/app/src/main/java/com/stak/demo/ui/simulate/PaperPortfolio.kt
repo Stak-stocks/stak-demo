@@ -157,6 +157,18 @@ internal object PaperPortfolio {
 
 	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
 	const val PAPER_START = 10000.0
+
+	/** The XP tiers' practice budgets (shared/src/tierConfig.ts SANDBOX_BUDGETS). */
+	private val TIER_BUDGETS = mapOf(1 to 1000.0, 2 to 3000.0, 3 to 5000.0, 4 to 10000.0, 5 to 25000.0)
+
+	/**
+	 * What the account started with - the gains are measured from it. A chosen balance (free choice) is the
+	 * server's start; a tier account's money is its tier's budget, the cash the server granted (web
+	 * usePaperPortfolio). Reading $10,000 for a tier account made a $3,000 tier-2 portfolio show -$7,000.
+	 */
+	private fun startingCash(portfolio: com.stak.demo.data.SandboxPortfolioResponse): Double =
+		if (portfolio.cashSource == "free_choice") portfolio.start ?: PAPER_START
+		else portfolio.tier?.let { TIER_BUDGETS[it] } ?: portfolio.start ?: PAPER_START
 	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
 	const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
 	const val DEFAULT_STRATEGY = "Balanced"
@@ -294,7 +306,10 @@ internal object PaperPortfolio {
 	var demo by mutableStateOf(true)
 		private set
 
+	/** The hero's gain line: the demo's authored week, a real account's gain since it started (labelled all time). */
 	val weekUp: Boolean get() = if (demo) true else allTimeGain >= 0
+	/** "this week" for the demo's authored figure; a real account's line is its gain since it started. */
+	val gainPeriodLabel: String get() = if (demo) "this week" else "all time"
 	val weekGainText: String get() = if (demo) WEEK_GAIN else signedWhole(allTimeGain)
 	val weekPctText: String get() = if (demo) WEEK_PCT else signedPct(allTimeGain / paperStart * 100)
 
@@ -481,7 +496,7 @@ internal object PaperPortfolio {
 			serverTradeCursor = portfolio.tradeCursor
 			setupDone = portfolio.initialized
 			cash = resolvedCash
-			paperStart = portfolio.start ?: PAPER_START
+			paperStart = startingCash(portfolio)
 			portfolioName = portfolio.name ?: ""
 			strategy = strategyFromId(portfolio.strategy)
 			positions = mappedPositions

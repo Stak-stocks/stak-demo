@@ -344,10 +344,10 @@ private struct ScoreHero: View {
 						.foregroundStyle(Sim.bright)
 				}
 				.accessibilityElement(children: .combine)
-				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) this week")
+				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) \(portfolio.gainPeriodLabel)")
 					.font(StakFont.geist(12 * u, .medium))
 					.foregroundStyle(portfolio.weekUp ? Sim.green : Sim.red)
-					.accessibilityLabel("\(portfolio.weekUp ? "Up" : "Down") \(portfolio.weekGainText), \(portfolio.weekPctText), this week")
+					.accessibilityLabel("\(portfolio.weekUp ? "Up" : "Down") \(portfolio.weekGainText), \(portfolio.weekPctText), \(portfolio.gainPeriodLabel)")
 			}
 			.padding(.horizontal, 20 * u)
 
