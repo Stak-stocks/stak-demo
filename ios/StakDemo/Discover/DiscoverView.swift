@@ -860,6 +860,8 @@ struct SheetScaffold<Content: View>: View {
 			Color(argb: 0x99000000)
 				.ignoresSafeArea()
 				.onTapGesture(perform: onDismiss)
+			// The sheet surface is hit-testable (opaque background), so a tap inside it never reaches the
+			// scrim's dismiss - android SheetScaffold swallows it explicitly (reconfirmation walk 2026-10-07).
 			VStack(spacing: 0) {
 				// Authored (1:2159): handle at y10–14, title at y32 — 18 below
 				// the rect after the 10 top padding.
