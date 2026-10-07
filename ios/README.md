@@ -143,10 +143,10 @@ and file name (see `android/README.md`), so one API shape serves both apps.
   (price, weekly change).
 - `Discover/StockDetailView.swift` — per-stock detail facts (stats,
   analyst view, news signal, next earnings date).
-- `Simulate/PickDetailView.swift` — pick specs (price then / now,
-  shares); `Simulate/LeaderboardView.swift` — the board rows.
-- `StakInsights.swift` — derives a NEW account's reads (My STAK read,
-  allocation, insights) from the stores above; the demo persona keeps its
+- `Simulate/PickDetailView.swift` — the demo's pick specs (price then /
+  now, shares); a real account's portfolio comes from the sandbox API.
+- `StakInsights.swift` — the Simulate insight and the demo Taste Graph's
+  buckets, read from the stores above; the demo persona keeps its
   authored copy.
 
 **Firebase:** not wired on iOS yet (Android carries a Hilt module for

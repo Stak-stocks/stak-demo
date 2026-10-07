@@ -60,6 +60,7 @@ enum StakInsights {
 	}
 
 	/// Simulate's INSIGHT card, read from a new account's own picks.
+	@MainActor
 	static func simInsight() -> String {
 		let symbols = PaperPortfolio.shared.positions.map { $0.spec.symbol }
 		if symbols.count == 1 { return "\(symbols[0]) is your first pick. Insights start once it has a week of moves." }
@@ -68,13 +69,6 @@ enum StakInsights {
 			return "Your \(symbols.count) picks span \(all.count) industries. STAK reads a pattern once a few of them share one."
 		}
 		return "\(word(top.count).capitalizedFirst) of your \(symbols.count) picks are \(theme[top.id] ?? top.name) names. Your taste has a type."
-	}
-
-	/// A demo line reshaped to a real move: flat at 0%, the full authored swing at +/-5%, mirrored when negative.
-	static func scaled(_ series: [CGFloat], _ pct: Double) -> [CGFloat] {
-		let amp = CGFloat(min(1, abs(pct) / 5))
-		let sign: CGFloat = pct < 0 ? -1 : 1
-		return series.map { 0.5 + ($0 - 0.5) * amp * sign }
 	}
 }
 

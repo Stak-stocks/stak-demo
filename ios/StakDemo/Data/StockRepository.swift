@@ -16,9 +16,6 @@ final class StockRepository {
     func getTrending() async throws -> TrendingResponse { try await api.getTrending() }
     func getStock(_ symbol: String) async throws -> StockDetailResponse { try await api.getStock(symbol) }
     func getChart(_ symbol: String, range: String) async throws -> ChartResponse { try await api.getChart(symbol, range: range) }
-    func getPortfolioChart(_ tickers: [String], range: String) async throws -> PortfolioChartResponse {
-        try await api.getPortfolioChart(tickers: tickers.joined(separator: ","), range: range)
-    }
     func getPeerMetrics(_ ticker: String) async throws -> PeerMetricsResponse { try await api.getPeerMetrics(ticker) }
     func getAnalyst(_ symbol: String) async throws -> AnalystResponse { try await api.getAnalyst(symbol) }
     func getAnalystActions(_ symbol: String) async throws -> [AnalystAction] { try await api.getAnalystActions(symbol) }

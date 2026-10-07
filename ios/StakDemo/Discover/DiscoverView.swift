@@ -68,7 +68,17 @@ struct BuySpec {
 		BuySpec(
 			title: title, badge: badge, name: name, priceLine: priceLine, change: change,
 			cashBefore: PaperPortfolio.money(cash), cashAfter: PaperPortfolio.money(cash - amount),
-			shares: String(format: "%.4f", amount / price), symbol: symbol
+			shares: String(format: "%.4f", price > 0 ? amount / price : 0), symbol: symbol
+		)
+	}
+
+	/// The ticket re-priced from a live quote, so the paper order fills at today's price.
+	func withQuote(_ price: Double, changePct: Double) -> BuySpec {
+		BuySpec(
+			title: title, badge: badge, name: name,
+			priceLine: PaperPortfolio.money(price) + " today",
+			change: moveText(changePct),
+			cashBefore: cashBefore, cashAfter: cashAfter, shares: shares, symbol: symbol
 		)
 	}
 }
@@ -1437,15 +1447,8 @@ struct DiscoverBuyFlow: View {
 	/// the shell's DISCOVER flow counts it for the receipt (1:2330).
 	/// Declared last - memberwise order; MainTabsView passes it last.
 	var onFilled: () -> Void = {}
-	var executeTrade: (BuySpec, Double, Double?) async -> Bool = { spec, amount, limitPrice in
-		guard PaperPortfolio.shared.canBuy(amount) else { return false }
-		if let limit = limitPrice { return PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit) }
-		PaperPortfolio.shared.buy(spec, amount: amount)
-		return true
-	}
 
 	@State private var filled = false
-	@State private var buying = false
 	/// Codex audit (2026-09-04): the chosen stake - both sheets read the
 	/// ticket AT this amount, so "You get", the cash after and "You now
 	/// hold" agree (1:1970 / 85:1205).
@@ -1458,10 +1461,13 @@ struct DiscoverBuyFlow: View {
 	/// read once, so the receipt's cash after (85:1205) holds still after
 	/// the buy lands in PaperPortfolio.
 	@State private var cashAtOpen: Double = PaperPortfolio.shared.cash
+	/// The ticket re-priced from today's live quote (tickets carry sample prices), so the order fills at today's price.
+	@State private var quoted: BuySpec? = nil
 
 	var body: some View {
-		let live = spec.withAmount(amount, cash: cashAtOpen)
-		SheetScaffold(onDismiss: onClose) {
+		let ticket = quoted ?? spec
+		let live = ticket.withAmount(amount, cash: cashAtOpen)
+		SheetScaffold(onDismiss: { if filled { (onFilledSecondary ?? onClose)() } else { onClose() } }) {
 			ZStack(alignment: .top) {
 				if !filled {
 					// Codex audit (2026-09-04): every host (Discover, Simulate, Stock
@@ -1469,18 +1475,16 @@ struct DiscoverBuyFlow: View {
 					// the host's onFilled.
 					PracticeBuySheet(
 						spec: live,
+						// The order is checked again at confirm - nothing fills past the cash on hand.
 						onConfirm: {
-							guard !filled, !buying, PaperPortfolio.shared.canBuy(amount) else { return }
-							buying = true
-							Task {
-								let isLimit = limitPrice.map { $0 < spec.price } ?? false
-								let ok = await executeTrade(spec, amount, isLimit ? limitPrice : nil)
-								buying = false
-								if ok {
-									if isLimit { placedLimit = limitPrice }
-									filled = true
-									if !isLimit { onFilled() }
-								}
+							guard !filled, ticket.price > 0, PaperPortfolio.shared.canBuy(amount) else { return }
+							if let limit = limitPrice, limit < ticket.price {
+								// Below today's price: an open order, no fill yet (FigJam: Order pending).
+								if PaperPortfolio.shared.placeLimit(ticket, amount: amount, limit: limit) { placedLimit = limit; filled = true }
+							} else {
+								filled = true
+								PaperPortfolio.shared.buy(ticket, amount: amount)
+								onFilled()
 							}
 						},
 						onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 },
@@ -1505,6 +1509,10 @@ struct DiscoverBuyFlow: View {
 				}
 			}
 			.animation(.easeOut(duration: 0.35), value: filled)
+		}
+		.task(id: spec.symbol) {
+			guard let q = await LiveQuotes.shared.quote(spec.symbol), !filled else { return }
+			quoted = spec.withQuote(q.price, changePct: q.changePct)
 		}
 	}
 }

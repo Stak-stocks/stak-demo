@@ -46,8 +46,8 @@ internal object PortfolioHistory {
 
 	/**
 	 * The account's real value on each trading day [range] covers, from its first trade
-	 * to today - null while there's nothing to build from yet (no trades) or every chart
-	 * request for a traded symbol came back empty.
+	 * to today - null while there's nothing to build from yet (no trades) or a traded symbol's
+	 * chart didn't come back.
 	 */
 	suspend fun build(trades: List<Trade>, paperStart: Double, range: String): List<Point>? {
 		val repo = repository ?: return null
@@ -57,7 +57,9 @@ internal object PortfolioHistory {
 			val prices = runCatching { repo.getChart(sym, range.lowercase()).prices }.getOrNull() ?: return@mapNotNull null
 			closesByDay(prices).takeIf { it.isNotEmpty() }?.let { sym to it }
 		}.toMap()
-		if (closesBySymbol.isEmpty()) return null
+		// Every traded symbol's history, or no line: a missing one would count its shares as $0 and
+		// draw a drop that never happened.
+		if (closesBySymbol.size < symbols.size) return null
 		// Every symbol's own real trading days in the window - a day none of them
 		// traded (a market holiday) never becomes a point either.
 		val firstTradeDay = trades.minOf { it.epochDay }

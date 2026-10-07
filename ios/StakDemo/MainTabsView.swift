@@ -16,7 +16,6 @@ private enum PushedPage: Identifiable, Equatable {
 	/// Codex parity audit (2026-09-04): carries the tapped pick's ticker
 	/// (Simulate/PickDetailView.swift PickSpecs).
 	case simPick(symbol: String)
-	case leaderboard
 	/// Phase 4 (2026-10-05): STAK AI chat, opened from the Home sparkle, a Stock page or a Daily Brief.
 	case stakAi(context: StakAiContext?, question: String?, conversationId: String?)
 	/// Phase 4 (2026-10-05): conversation history list.
@@ -40,7 +39,6 @@ private enum PushedPage: Identifiable, Equatable {
 		case .settings(let kind): return "settings-\(kind.rawValue)"
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
-		case .leaderboard: return "leaderboard"
 		case .stakAi(let ctx, let q, let cid): return "stakAi-\(ctx?.ticker ?? "")-\(q ?? "")-\(cid ?? "")"
 		case .stakAiHistory: return "stakAiHistory"
 		case .allCollections: return "allCollections"
@@ -122,7 +120,6 @@ struct MainTabsView: View {
 	@StateObject private var myStakVM = MyStakViewModel()
 	@StateObject private var inboxVM = InboxViewModel()
 	@StateObject private var profileVM = ProfileViewModel()
-	@StateObject private var simulateVM = SimulateViewModel()
 
 	/// One live entry on the pushed stack. Identity is PER PUSH (a fresh
 	/// uid), not per page - an article chain can legally revisit a story
@@ -197,7 +194,6 @@ struct MainTabsView: View {
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 		.onChange(of: backDrag) { _, drag in if drag > 0 { backSwipeLive = true } }
-		.task { await simulateVM.load() }
 		// The day's brief and market news: loaded at launch (Home's mood card reads them as well as the News tab), then
 		// kept current while the app is open - checked every minute and on returning to the app (NewsViewModel
 		// .refreshIfStale decides what is actually due).
@@ -213,14 +209,10 @@ struct MainTabsView: View {
 		.onChange(of: scenePhase) { _, phase in
 			if phase == .active { Task { await newsVM.refreshIfStale() } }
 		}
-		// 30s Simulate refresh — mirrors Android RefreshWhileVisible(intervalMs=30_000, tickOnResume=true).
-		.onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-			guard tab == .simulate else { return }
-			Task { await simulateVM.refresh() }
-		}
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-			guard tab == .simulate else { return }
-			Task { await simulateVM.refresh() }
+		// A paper order that failed on the server after the ticket showed it filled - over every page, since the
+		// ticket opens from Discover, a stock page and Simulate alike.
+		.overlay(alignment: .top) {
+			PaperTradeErrorBanner()
 		}
 	}
 
@@ -292,12 +284,11 @@ struct MainTabsView: View {
 							onOpenPortfolio: { pushInstant(.simPortfolio) },
 							// Every pick tile / row opens ITS pick (Codex parity audit, 2026-09-04).
 							onOpenPick: { symbol in pushInstant(.simPick(symbol: symbol)) },
-							onOpenLeaderboard: { pushInstant(.leaderboard) },
 							// Authored (1:3964): All saved staks -> the My STAK tab.
 							onOpenMyStak: { switchTab(.myStak) },
 							onOpenDiscover: { switchTab(.discover) },
 							onPracticeBuy: { simulateBuy = $0 },
-							executeSetup: { b, n, s in await simulateVM.executeSetup(balance: b, name: n, strategy: s) }
+							isTop: pushed.isEmpty
 						)
 					}
 				}
@@ -327,8 +318,7 @@ struct MainTabsView: View {
 					// Codex audit (2026-09-04): the receipt's Bought count (1:2330)
 					// - the ticket lives here, so the shell reports the fill. Last
 					// argument: onFilled is DiscoverBuyFlow's last stored property.
-					onFilled: { DeckSession.shared.bought += 1 },
-					executeTrade: { spec, amount, limit in await simulateVM.executeTrade(spec: spec, amount: amount, limitPrice: limit) }
+					onFilled: { DeckSession.shared.bought += 1 }
 				)
 				.transition(.opacity)
 			}
@@ -343,8 +333,7 @@ struct MainTabsView: View {
 					// 300, the ticket leaving with the Simulate page beneath
 					// it; Done -> home, DISSOLVE 300.
 					onFilledPrimary: { push(.simPortfolio) { simulateBuy = nil } },
-					onFilledSecondary: { withAnimation(.easeOut(duration: 0.3)) { simulateBuy = nil } },
-					executeTrade: { spec, amount, limit in await simulateVM.executeTrade(spec: spec, amount: amount, limitPrice: limit) }
+					onFilledSecondary: { withAnimation(.easeOut(duration: 0.3)) { simulateBuy = nil } }
 				)
 				.transition(.opacity)
 			}
@@ -388,9 +377,8 @@ struct MainTabsView: View {
 				onKeepExploring: { pop(.dissolve, all: true, landing: .discover) },
 				// Authored (1:2382): the Discover entry's Practice buy lands
 				// on the Simulate tab, Instant.
-				onPracticeBuyToSimulate: { pop(.instant, all: true, landing: .simulate) },
 				// My STAK entry: "Practice with ... · paper money" - Simulate, with the stock waiting (PendingSimBuy).
-				onPracticeInSimulate: { pop(.instant, all: true, landing: .simulate) },
+				onPracticeInSimulate: { pop(.forwardPush, all: true, landing: .simulate) },
 				// Authored (1:2579): the open state's tab bar SWAPs - pop the
 				// detail instantly and land on the tapped tab.
 				onTab: { pop(.instant, all: true, landing: $0) },
@@ -434,7 +422,8 @@ struct MainTabsView: View {
 				// Authored (1:4496): Back -> Simulate home, Instant; rows and
 				// Sell pills open the Pick detail of THEIR ticker, Instant.
 				onBack: { pop(.instant) },
-				onOpenPick: { symbol in pushInstant(.simPick(symbol: symbol)) }
+				onOpenPick: { symbol in pushInstant(.simPick(symbol: symbol)) },
+				isTop: isTop
 			)
 		case .simPick(let symbol):
 			PickDetailView(
@@ -446,11 +435,8 @@ struct MainTabsView: View {
 				// View portfolio -> Portfolio, DISSOLVE 300.
 				onSellBackToSimulate: { pop(.forwardPush, all: true, landing: .simulate) },
 				onSellViewPortfolio: { dissolveToPortfolio() },
-				executeSell: { sym, portion in await simulateVM.executeSell(symbol: sym, portion: portion) }
+				isTop: isTop
 			)
-		case .leaderboard:
-			// Authored (1:4124): Back -> Simulate home, Instant.
-			LeaderboardView(onBack: { pop(.instant) })
 		case .stakAi(let ctx, let q, let cid):
 			StakAiChatView(
 				onBack: { pop(.instant) },

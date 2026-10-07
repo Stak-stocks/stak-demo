@@ -35,7 +35,7 @@ final class StakNotifications: ObservableObject {
 			time: age
 		)
 		if MyStakHoldings.shared.count > 0 { return [welcome] }
-		return [welcome, Item(id: "first-save", title: "Save a stock to start your STAK", body: "Saved stocks power My STAK and the Simulate leaderboard.", time: age)]
+		return [welcome, Item(id: "first-save", title: "Save a stock to start your STAK", body: "Saved stocks power My STAK and Simulate.", time: age)]
 	}
 
 	/// "Just now" on the creation day, then "1d", "6d", "2w" like the persona's authored rows.

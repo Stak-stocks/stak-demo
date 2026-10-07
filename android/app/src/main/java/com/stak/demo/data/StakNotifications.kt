@@ -132,7 +132,7 @@ object StakNotifications {
 			)
 		}
 		if (MyStakHoldings.count == 0) {
-			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", "Today")
+			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and Simulate.", "Today")
 		}
 		welcomeItem()?.let { out += it }
 		return out

@@ -18,6 +18,8 @@ object LiveQuotes {
     suspend fun quote(symbol: String): Pair<Double, Double>? =
         runCatching { repository?.batchQuotes(listOf(symbol))?.quotes?.get(symbol) }
             .getOrNull()
+            // A $0 price is no price: it would value a position at nothing and fill an order for no shares.
+            ?.takeIf { it.price > 0.0 }
             ?.let { it.price to it.changePercent }
             ?.also { cache[symbol] = it }
 
@@ -29,7 +31,7 @@ object LiveQuotes {
         if (symbols.isEmpty()) return
         val repo = repository ?: return
         runCatching { repo.batchQuotes(symbols) }.getOrNull()?.quotes?.forEach { (symbol, q) ->
-            if (q != null) cache[symbol] = q.price to q.changePercent
+            if (q != null && q.price > 0.0) cache[symbol] = q.price to q.changePercent
         }
     }
 }

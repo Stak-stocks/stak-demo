@@ -1,10 +1,7 @@
 import SwiftUI
 
-/// 07 · Simulate — "Simulate home · paper" (CHINEDU 1:3898) with the
-/// Buy-PLTR ticket (1:4232) and Order filled (85:895). Ported from
-/// android/ ui/simulate/SimulateScreen.kt. Every metric is scaled by
-/// the 390pt artboard unit (`figmaUnit`), exactly like the Android
-/// build's `u` scaling.
+/// Simulate's palette (CHINEDU 07 · Simulate). Every metric on these pages is scaled by the 390pt artboard unit
+/// (`figmaUnit`), exactly like the Android build's `u` scaling.
 enum Sim {
 	static let cardBg = Color(argb: 0xFF181F30)
 	static let muted = Color(argb: 0xFF819ABB)
@@ -36,29 +33,34 @@ let costBuy = BuySpec(
 	change: "▲ 0.7%", cashBefore: "$8,800.00", cashAfter: "$8,775.00", shares: "0.0264", symbol: "COST"
 )
 
+/// 07 · Simulate — the paper-money tab: the portfolio-value hero with its chart, saved staks with Buy pills, the
+/// insight, the best/worst duo, how paper trading works, the portfolio rows and the allocation breakdown. Mirrors
+/// android ui/simulate/SimulateScreen.kt.
 struct SimulateView: View {
 	let onOpenPortfolio: () -> Void
-	/// Codex parity audit (2026-09-04): every pick tile / row passes its
-	/// own ticker, so Pick detail serves the tapped pick.
+	/// Every pick tile / row passes its own ticker, so Pick detail serves the tapped pick.
 	let onOpenPick: (String) -> Void
-	let onOpenLeaderboard: () -> Void
 	/// Authored (1:3964): "All saved staks ›" -> My STAK Overview (tab SWAP, Instant).
 	var onOpenMyStak: () -> Void = {}
 	/// The empty state's "Go to Discover" (a new account has nothing saved yet).
 	var onOpenDiscover: () -> Void = {}
-	/// When the shell hosts the ticket (1:4232: the sheet covers the tab bar),
-	/// it raises it here with the tapped row's spec.
+	/// When the shell hosts the ticket (1:4232: the sheet covers the tab bar), it raises it here with the tapped row's spec.
 	var onPracticeBuy: ((BuySpec) -> Void)? = nil
-	var executeSetup: (Double, String, String) async -> Void = { b, n, s in PaperPortfolio.shared.setup(balance: b, name: n, strategy: s) }
+	/// False while a page is pushed over the tab: the prices and the ledger stop refreshing.
+	var isTop = true
 
 	/// The locally hosted ticket's spec (nil = no ticket).
 	@State private var buy: BuySpec? = nil
-	/// Codex audit (2026-09-04): the paper ledger - rows, pick count and
-	/// the saved rows' "In portfolio" line follow it.
+	/// The paper ledger - rows, pick count and the saved rows' "In portfolio" line follow it.
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+	/// A real account's held picks and saved rows mark to today's price while the page is open.
+	@ObservedObject private var quotes = LiveQuotes.shared
+	@ObservedObject private var holdings = MyStakHoldings.shared
+	@Environment(\.scenePhase) private var scenePhase
 
 	var body: some View {
 		let u = figmaUnit
+		let savedRows = savedStakRows()
 		ZStack {
 			VStack(spacing: 0) {
 				ScrollView(showsIndicators: false) {
@@ -71,15 +73,15 @@ struct SimulateView: View {
 									Text("Simulate")
 										.font(StakFont.sora(26 * u, .semiBold))
 										.foregroundStyle(Color.white)
-										.frame(height: 33 * u * typeScale) // 1:3916 line box (exact-design audit 2026-09-04)
+										.frame(minHeight: 33 * u * typeScale) // 1:3916 line box (exact-design audit 2026-09-04)
+										.accessibilityAddTraits(.isHeader)
 									Text("Pick from your saves. Paper money does the talking.")
 										.font(StakFont.geist(12 * u))
 										.foregroundStyle(Sim.muted)
-										.frame(height: 16 * u * typeScale) // 1:3917 line box
+										.frame(minHeight: 16 * u * typeScale) // 1:3917 line box
 								}
 								Spacer()
-								// Codex audit (2026-09-04): the clock (1:3918 "btn") opens the
-								// pick history - SOLD · REALIZED lives on the portfolio page.
+								// The clock (1:3918 "btn") is the pick history - SOLD · REALIZED lives on the portfolio page.
 								Button(action: onOpenPortfolio) {
 									ZStack {
 										Circle().fill(Sim.cardBg)
@@ -95,16 +97,24 @@ struct SimulateView: View {
 							// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
 							// status bar with no bottom inset - the 18 above the hero is the Main column's own.
 							.padding(.top, 8 * u)
-							// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
-							// chooses its balance, name and strategy before its first trade.
-							if portfolio.needsSetup { PortfolioSetupCard(executeSetup: executeSetup) }
-							ScoreHero(onOpenLeaderboard: onOpenLeaderboard)
-							if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
+							// A real account's first read briefly leaves cash and setup at their placeholders - held back,
+							// so a returning account never flashes the setup card and "$10,000 paper" first.
+							if !portfolio.demo && portfolio.loading {
+								ProgressView()
+									.tint(Sim.teal)
+									.frame(maxWidth: .infinity)
+									.frame(height: 160 * u)
+							} else {
+								// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account chooses its
+								// balance, name and strategy before its first trade.
+								if portfolio.needsSetup { PortfolioSetupCard() }
+								ScoreHero()
+								if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
+							}
 						}
 						sectionHeader("Saved staks")
-						let savedRows = savedStakRows()
 						if savedRows.isEmpty {
-							// Product audit (2026-09-05): a new account has saved nothing yet.
+							// A new account has saved nothing yet.
 							EmptyStateCard(title: "Nothing saved yet", text: "Save stocks from the Discover deck and practice buy them here.", link: "Go to Discover", onLink: onOpenDiscover)
 						} else {
 							VStack(spacing: 10 * u) {
@@ -115,60 +125,64 @@ struct SimulateView: View {
 							CenterLink(text: "All saved staks", action: onOpenMyStak)
 						}
 						if portfolio.pickCount > 0 { InsightCard() }
-						// Review (2026-09-04): the tiles follow the ledger - largest and
-						// smallest dollar gain (seeded: NVDA +24.0% / "+$24 on $100",
-						// MSFT -3.0% / "-$3 on $100", as authored). Hidden under two picks.
-						if portfolio.pickCount >= 2, let best = portfolio.best, let worst = portfolio.worst {
+						// Best / worst come from the ledger (largest and smallest dollar gain, live for a real account);
+						// with fewer than two positions there's nothing to compare.
+						let gains = Dictionary(portfolio.positions.map { ($0.id, $0.gainDollars) }, uniquingKeysWith: { a, _ in a })
+						if portfolio.positions.count >= 2,
+						   let best = portfolio.positions.max(by: { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }),
+						   let worst = portfolio.positions.min(by: { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }) {
+							let bestRow = best.liveRow
+							let worstRow = worst.liveRow
 							HStack(spacing: 10 * u) {
-								PickDuo(kicker: "BEST PICK", pct: best.row.pct, pctColor: best.row.up ? Sim.green : Sim.red, badge: best.row.badge, ticker: best.row.ticker, sub: "\(PaperPortfolio.gainLabel(PaperPortfolio.amount(best.row.amount))) on \(best.spec.stakeBasis)", action: { onOpenPick(best.row.ticker) })
-								PickDuo(kicker: "WORST PICK", pct: worst.row.pct, pctColor: worst.row.up ? Sim.green : Sim.red, badge: worst.row.badge, ticker: worst.row.ticker, sub: "\(PaperPortfolio.gainLabel(PaperPortfolio.amount(worst.row.amount))) on \(worst.spec.stakeBasis)", action: { onOpenPick(worst.row.ticker) })
+								PickDuo(kicker: "BEST PICK", pct: bestRow.pct, pctColor: bestRow.up ? Sim.green : Sim.red, badge: bestRow.badge, ticker: bestRow.ticker, sub: best.duoLine, action: { onOpenPick(bestRow.ticker) })
+								PickDuo(kicker: "WORST PICK", pct: worstRow.pct, pctColor: worstRow.up ? Sim.green : Sim.red, badge: worstRow.badge, ticker: worstRow.ticker, sub: worst.duoLine, action: { onOpenPick(worstRow.ticker) })
 							}
 						}
 						HowItWorksCard()
 						sectionHeader("Your portfolio")
-						// Codex audit (2026-09-04): the ledger's first three rows - a
-						// fresh buy lands at the top (1:3898 authored NVDA/TSLA/MSFT
-						// from a 12-pick sample; the seeded six lead NVDA/TSLA/AMD).
+						// The first three held positions - a fresh buy lands at the top.
 						// 1:4009 plist (exact-design audit 2026-09-04): the three rows sit 10 apart, not the column's 18.
 						if portfolio.pickCount == 0 {
-							// Product audit (2026-09-05): a new account has no picks yet.
+							// A new account has no picks yet.
 							EmptyStateCard(title: "No picks yet", text: "Your first practice buy lands here with its live gain.")
 						} else {
-						VStack(spacing: 10 * u) {
-							ForEach(Array(portfolio.positions.prefix(3))) { position in
-								let p = position.row
-								PortfolioRow(badge: p.badge, ticker: p.ticker, sub: p.sub, amount: p.amount, pct: p.pct, up: p.up, action: { onOpenPick(p.ticker) })
+							VStack(spacing: 10 * u) {
+								ForEach(Array(portfolio.positions.prefix(3))) { position in
+									let p = position.liveRow
+									PortfolioRow(badge: p.badge, ticker: p.ticker, sub: p.sub, amount: p.amount, pct: p.pct, up: p.up, action: { onOpenPick(p.ticker) })
+								}
 							}
-						}
-						// Authored copy (user, 2026-09-04 (CHINEDU 07 · Simulate 423:1007): the authored look wins); the ledger still drives the rows above.
-						CenterLink(text: "See all \(portfolio.pickCountText)", action: onOpenPortfolio)
+							CenterLink(text: "See all \(portfolio.pickCountText)", action: onOpenPortfolio)
 						}
 						// 1:4040 Points breakdown (exact-design audit 2026-09-04): the section header
 						// and the Allocation card are 15 apart, not the column's 18.
-						if portfolio.pickCount > 0 { VStack(spacing: 15 * u) {
-							HStack {
-								Text("Portfolio breakdown")
-									.font(StakFont.sora(16 * u, .semiBold))
-									.foregroundStyle(Sim.headerGray)
-								Spacer()
-								Button(action: onOpenPortfolio) {
-									HStack(spacing: 5 * u) {
-										Text("Portfolio")
-											.font(StakFont.geist(14 * u))
-											// 1:4044 (exact-design audit 2026-09-04): teal at 80% - was white.
-											.foregroundStyle(Color(argb: 0xCC69B3CA))
-										// 1:4045 (exact-design audit 2026-09-04): the exported 4.909x9 chevron asset, not a "›" glyph.
-										Image("IcSimChevron")
-											.resizable()
-											.frame(width: 4.909 * u, height: 9 * u)
+						if portfolio.pickCount > 0 {
+							VStack(spacing: 15 * u) {
+								HStack {
+									Text("Portfolio breakdown")
+										.font(StakFont.sora(16 * u, .semiBold))
+										.foregroundStyle(Sim.headerGray)
+										.accessibilityAddTraits(.isHeader)
+									Spacer()
+									Button(action: onOpenPortfolio) {
+										HStack(spacing: 5 * u) {
+											Text("Portfolio")
+												.font(StakFont.geist(14 * u))
+												// 1:4044 (exact-design audit 2026-09-04): teal at 80% - was white.
+												.foregroundStyle(Color(argb: 0xCC69B3CA))
+											// 1:4045 (exact-design audit 2026-09-04): the exported 4.909x9 chevron asset, not a "›" glyph.
+											Image("IcSimChevron")
+												.resizable()
+												.frame(width: 4.909 * u, height: 9 * u)
+												.accessibilityHidden(true)
+										}
 									}
+									.buttonStyle(.pressDim)
 								}
-								.buttonStyle(.pressDim)
+								.frame(minHeight: 21 * u * typeScale) // 1:4041 header row (Sora 16 on a 1.34 line)
+								SimAllocationCard()
 							}
-							.frame(height: 21 * u * typeScale) // 1:4041 header row (Sora 16 on a 1.34 line)
-							SimAllocationCard()
-						} }
-						BoardCard(onOpenLeaderboard: onOpenLeaderboard)
+						}
 					}
 					.padding(.horizontal, 20 * u)
 					.padding(.bottom, 26 * u)
@@ -180,17 +194,49 @@ struct SimulateView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		// The prices of what's held and saved, and the ledger itself (a limit order filled by the server's scheduled job
+		// shows up without a relaunch) - every 15s while the tab is in front, and at once on coming back to it.
+		.task(id: "\(quoteSymbols(savedRows).joined(separator: ",")):\(isTop):\(scenePhase == .active):\(portfolio.demo)") {
+			guard !portfolio.demo, isTop, scenePhase == .active else { return }
+			let symbols = quoteSymbols(savedRows)
+			while true {
+				await quotes.refresh(symbols)
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
+			}
+		}
+		.task(id: "\(isTop):\(scenePhase == .active):\(portfolio.demo)") {
+			guard !portfolio.demo, isTop, scenePhase == .active else { return }
+			while true {
+				portfolio.refresh()
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
+			}
+		}
+		// A company handed over by a stock page's Practice buy - opened on today's price, or not at all: a paper order
+		// must never fill at a price STAK doesn't have. Taken only once the price is in hand, so a failed look-up leaves
+		// the request for the next visit instead of dropping it.
+		.task(id: isTop) {
+			guard isTop, let pending = PendingSimBuy.peek(), let q = await quotes.quote(pending.symbol) else { return }
+			PendingSimBuy.take()
+			practiceBuy(BuySpec(
+				title: "Buy \(pending.company)?", badge: String(pending.company.prefix(1)).uppercased(), name: pending.company,
+				priceLine: "$0.00 today", change: "", cashBefore: "$0.00", cashAfter: "$0.00", shares: "0", symbol: pending.symbol
+			).withQuote(q.price, changePct: q.changePct))
+		}
 	}
 
-	/// The tapped row's ticket: raised to the shell when it hosts the
-	/// sheet, else shown here.
+	/// What's held and what the saved rows offer - the symbols whose prices this page shows.
+	private func quoteSymbols(_ savedRows: [SavedStak]) -> [String] {
+		var seen = Set<String>()
+		return (portfolio.positions.map(\.spec.symbol) + savedRows.map(\.spec.symbol)).filter { seen.insert($0).inserted }
+	}
+
+	/// The tapped row's ticket: raised to the shell when it hosts the sheet, else shown here.
 	private func practiceBuy(_ spec: BuySpec) {
 		if let onPracticeBuy { onPracticeBuy(spec) } else { buy = spec }
 	}
 
-	/// Codex audit (2026-09-04): a saved stak that has been bought reads
-	/// "In portfolio · 0.8803 shares" in place of the authored
-	/// "not in portfolio yet" line (1:3964 template).
+	/// A saved stak that has been bought reads "In portfolio · 0.8803 shares" in place of the "not in portfolio yet"
+	/// line (1:3964 template).
 	private func savedSub(_ symbol: String, authored: String) -> String {
 		guard let held = portfolio.pickSpec(symbol) else { return authored }
 		return "In portfolio · \(held.shares) shares"
@@ -199,46 +245,38 @@ struct SimulateView: View {
 	/// A "Saved staks" row: the stock's buy ticket and its sub line.
 	private struct SavedStak { let spec: BuySpec; let sub: String }
 
-	/// The demo account shows its two authored saves (PLTR / COST); a new account lists what
-	/// IT saved - the saved stocks that have a buy ticket, two at a time (product audit, 2026-09-05).
+	/// The demo account shows its two authored saves (PLTR / COST); a real account lists what IT saved, newest first,
+	/// two at a time, each with its real save day.
 	private func savedStakRows() -> [SavedStak] {
 		if portfolio.demo {
 			return [
-				// Authored 4 and 2 days before the frame's July 4, kept as ages (product audit, 2026-09-05).
+				// Authored 4 and 2 days before the frame's July 4, kept as ages.
 				SavedStak(spec: pltrBuy, sub: savedSub("PLTR", authored: StakClock.savedLabel(daysAgo: 4) + " · not in portfolio yet")),
 				SavedStak(spec: costBuy, sub: savedSub("COST", authored: StakClock.savedLabel(daysAgo: 2) + " · not in portfolio yet"))
 			]
 		}
-		// Every save the account made is a candidate - a Tesla or Amazon story's save
-		// gets a ticket built from the catalogue quote, the way the Other collection
-		// tile does - newest first, and the sub line reads the real save day (audit
-		// 2026-09-07: a TSLA-only account was told nothing was saved, every row "today").
 		let designed = [nvdaBuy, aaplBuy, googlBuy, pltrBuy, costBuy]
-		let held = MyStakHoldings.shared
-		let ordered = held.tickers.sorted { a, b in
-			let da = held.daysSinceSaved(a) ?? Int.max, db = held.daysSinceSaved(b) ?? Int.max
+		let ordered = holdings.tickers.sorted { a, b in
+			let da = holdings.daysSinceSaved(a) ?? Int.max, db = holdings.daysSinceSaved(b) ?? Int.max
 			return da != db ? da < db : a < b
 		}
 		return ordered
-			.map { t in designed.first { $0.symbol == t } ?? Self.catalogueTicket(t) }
+			.map { t in designed.first { $0.symbol == t } ?? catalogTicket(t) }
 			.prefix(2)
-			.map { SavedStak(spec: $0, sub: savedSub($0.symbol, authored: StakClock.savedLabel(daysAgo: held.daysSinceSaved($0.symbol) ?? 0) + " · not in portfolio yet")) }
+			.map { SavedStak(spec: $0, sub: savedSub($0.symbol, authored: StakClock.savedLabel(daysAgo: holdings.daysSinceSaved($0.symbol) ?? 0) + " · not in portfolio yet")) }
 	}
 
-	/// A $25 paper ticket for a saved stock without a designed one, priced off the catalogue quote.
-	private static func catalogueTicket(_ symbol: String) -> BuySpec {
-		let known = NewsArticleFeed.hasStockFacts(symbol)
-		let sf = NewsArticleFeed.stockFacts(symbol)
-		let price = known ? (Double(sf.price.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")) ?? 0) : 0
-		var pct = sf.change.filter { $0.isNumber || $0 == "." }
-		if pct.isEmpty { pct = "0.0" }
-		return BuySpec(
-			title: "Buy \(symbol)?", badge: String(symbol.prefix(1)), name: known ? sf.name : symbol,
-			priceLine: known ? "\(sf.price) today" : "\u{2014} today",
-			change: known ? (sf.up ? "\u{25B2} " : "\u{25BC} ") + pct + "%" : "\u{2014}",
-			cashBefore: "$8,800.00", cashAfter: "$8,775.00",
-			shares: price > 0 ? String(format: "%.4f", 25.0 / price) : "0", symbol: symbol
+	/// A $25 paper ticket for a saved stock without a designed one, priced off today's live quote - the same feed every
+	/// other real-account price reads. Nothing to show yet reads as a dash, never an invented number.
+	private func catalogTicket(_ symbol: String) -> BuySpec {
+		let name = holdings.nameOf(symbol) ?? (NewsArticleFeed.hasStockFacts(symbol) ? NewsArticleFeed.stockFacts(symbol).name : symbol)
+		let blank = BuySpec(
+			title: "Buy \(symbol)?", badge: String(symbol.prefix(1)), name: name,
+			priceLine: "\u{2014} today", change: "\u{2014}",
+			cashBefore: "$8,800.00", cashAfter: "$8,775.00", shares: "0", symbol: symbol
 		)
+		guard let quote = quotes.cached(symbol) else { return blank }
+		return blank.withQuote(quote.price, changePct: quote.changePct).withAmount(25, cash: 8800)
 	}
 
 	private func sectionHeader(_ title: String) -> some View {
@@ -246,34 +284,37 @@ struct SimulateView: View {
 			.font(StakFont.sora(16 * figmaUnit, .semiBold))
 			.foregroundStyle(Sim.headerGray)
 			.frame(maxWidth: .infinity, alignment: .leading)
+			.accessibilityAddTraits(.isHeader)
 	}
 }
 
 /// Portfolio value hero — $10,240.00, cash, weekly change, chart + pills.
-/// Codex audit (2026-09-04): reads PaperPortfolio - value, cash and pick
-/// count follow the ledger; the week figures are the shared constants.
 private struct ScoreHero: View {
-	let onOpenLeaderboard: () -> Void
-
 	@ObservedObject private var portfolio = PaperPortfolio.shared
-	/// Codex audit (2026-09-04): the live range - 3M as authored (1:3935).
+	/// The live range - 3M as authored (1:3935).
 	@State private var range = "3M"
+	/// A real account's ledger value per range - kept while no trade lands, so switching pills doesn't re-fetch.
+	@State private var history: [String: [PortfolioHistory.Point]] = [:]
+	@State private var historyKey = ""
 
 	/// "$10,240.00" split at the point: the 44 figure and the 18 cents.
-	private var figure: (whole: String, cents: String) {
-		let value = PaperPortfolio.money(portfolio.portfolioValue)
+	private func splitFigure(_ value: String) -> (whole: String, cents: String) {
 		guard let dot = value.lastIndex(of: ".") else { return (value, "") }
 		return (String(value[..<dot]), String(value[dot...]))
 	}
 
 	var body: some View {
 		let u = figmaUnit
+		let valueText = PaperPortfolio.money(portfolio.portfolioValue)
+		let figure = splitFigure(valueText)
 		VStack(alignment: .leading, spacing: 11 * u) {
 			Group {
 				Text("PORTFOLIO VALUE")
 					.font(StakFont.geist(10 * u, .medium))
 					.tracking(0.9 * u)
 					.foregroundStyle(Sim.faint)
+					// The figure below says "Portfolio value" with its number.
+					.accessibilityHidden(true)
 				HStack(alignment: .bottom, spacing: 0) {
 					Text(figure.whole)
 						.font(StakFont.sora(44 * u, .semiBold))
@@ -284,13 +325,13 @@ private struct ScoreHero: View {
 					Text(figure.cents)
 						.font(StakFont.sora(18 * u, .semiBold))
 						.foregroundStyle(Sim.muted)
-						// Authored (1:3923): ".00" starts 8 after the figure and its
-						// box bottom sits 8 above the figure's (55 vs y24+h23). The
-						// gap is the design (user, 2026-09-04 (CHINEDU 07 · Simulate 423:1007): the authored look wins).
+						// Authored (1:3923): ".00" starts 8 after the figure and its box bottom sits 8 above the figure's.
 						.padding(.leading, 8 * u)
 						.padding(.bottom, 8 * u)
 				}
-				// The base is the account's own start ($1,000 / $100,000 after Portfolio setup; review 2026-09-14).
+				.accessibilityElement(children: .ignore)
+				.accessibilityLabel("Portfolio value, \(valueText)")
+				// The base is the account's own start ($1,000 / $100,000 after Portfolio setup).
 				Text("\(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper · \(portfolio.pickCountText)")
 					.font(StakFont.geist(12 * u, .light))
 					.foregroundStyle(Sim.muted)
@@ -302,63 +343,63 @@ private struct ScoreHero: View {
 						.font(StakFont.geist(12 * u, .medium))
 						.foregroundStyle(Sim.bright)
 				}
+				.accessibilityElement(children: .combine)
 				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) this week")
 					.font(StakFont.geist(12 * u, .medium))
 					.foregroundStyle(portfolio.weekUp ? Sim.green : Sim.red)
-				// The "#47 this week" chip sits on its own row of the column.
-				Button(action: onOpenLeaderboard) {
-					Text(portfolio.rank.map { "#\($0) this week" } ?? "Unranked this week")
-						.font(StakFont.geist(12 * u, .medium))
-						.foregroundStyle(Sim.teal)
-						.padding(.horizontal, 11 * u)
-						.padding(.vertical, 6 * u)
-						.background(Sim.tealTint, in: RoundedRectangle(cornerRadius: 13 * u))
-				}
-				.buttonStyle(.pressDim)
+					.accessibilityLabel("\(portfolio.weekUp ? "Up" : "Down") \(portfolio.weekGainText), \(portfolio.weekPctText), this week")
 			}
 			.padding(.horizontal, 20 * u)
 
-			// Authored: ranks→chart gap is exactly the column's 11 (1:3935);
-			// the chart bleeds outside the 20u text padding.
-			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
-			RangeLineChart(
-				range: range, tint: Sim.teal, authored: "SimChartLine",
-				width: 343 * u, height: 73.56 * u,
-				move: portfolio.demo ? nil : portfolio.allTimeGain / portfolio.paperStart * 100,
-				portfolioTickers: portfolio.demo ? nil : (portfolio.positions.isEmpty ? nil : portfolio.positions.map { $0.spec.symbol })
-			)
+			chart(u)
+				.frame(width: 343 * u, height: 73.56 * u)
 				.frame(maxWidth: .infinity)
-			HStack(spacing: 37 * u) {
-				ForEach(["1D", "1W", "1M", "3M", "YTD", "1Y"], id: \.self) { label in
-					Button { range = label } label: {
-						if label == range {
-							// The authored 39x22.5 teal chrome follows the selection.
-							Text(label)
-								.font(StakFont.geist(12 * u, .medium))
-								.foregroundStyle(Sim.teal)
-								.frame(width: 39 * u, height: 22.5 * u)
-								.dynamicTypeSize(...DynamicTypeSize.xLarge)
-								.background(Color(argb: 0x292C9DBC), in: RoundedRectangle(cornerRadius: 11.25 * u))
-								.overlay(
-									RoundedRectangle(cornerRadius: 11.25 * u)
-										.strokeBorder(Color(argb: 0x662C9DBC), lineWidth: 0.75 * u)
-								)
-						} else {
-							Text(label)
-								.font(StakFont.geist(12 * u))
-								.foregroundStyle(Sim.muted)
-								.dynamicTypeSize(...DynamicTypeSize.xLarge)
-						}
-					}
-					.buttonStyle(.pressDim)
-				}
-			}
-			.frame(maxWidth: .infinity)
-			// Authored chart→pills gap 40; the column gap contributes 11.
-			.padding(.top, 29 * u)
+			RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted)
+				.frame(maxWidth: .infinity)
+				// Authored chart→pills gap 40; the column gap contributes 11.
+				.padding(.top, 29 * u)
 		}
 		.padding(.vertical, 20 * u)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 18 * u))
+		// A real account's line is its ledger's own value over the range - rebuilt when a trade lands (a buy or sell
+		// changes what every past day held), cached per range otherwise.
+		.task(id: "\(range):\(ledgerKey):\(portfolio.demo)") {
+			guard !portfolio.demo else { return }
+			if historyKey != ledgerKey {
+				history = [:]
+				historyKey = ledgerKey
+			}
+			// The range this task was started for - read again after the wait, a quick pill switch would file this
+			// range's line under the next one.
+			let forRange = range
+			guard history[forRange] == nil else { return }
+			let built = await PortfolioHistory.build(portfolio.trades, paperStart: portfolio.paperStart, range: forRange)
+			guard !Task.isCancelled, let built else { return }
+			history[forRange] = built
+		}
+	}
+
+	/// The ledger's identity: its size and its newest trade - the count alone stops moving once /trades' 100-row page
+	/// is full.
+	private var ledgerKey: String {
+		let t = portfolio.trades.first
+		return "\(portfolio.trades.count)-\(t?.side ?? "")-\(t?.symbol ?? "")-\(t?.amount ?? 0)-\(t?.epochDay ?? 0)"
+	}
+
+	/// The demo keeps its authored line - it has no live price behind its numbers. A real account's line is its own
+	/// cash and shares priced with each traded stock's real history, never a shape invented to fill the box.
+	@ViewBuilder
+	private func chart(_ u: CGFloat) -> some View {
+		if portfolio.demo {
+			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u)
+		} else if let points = history[range], points.count >= 2 {
+			SeriesLine(series: PortfolioHistory.fractions(points), tint: Sim.teal)
+				.accessibilityHidden(true)
+		} else {
+			Text("No history yet")
+				.font(StakFont.geist(11 * u))
+				.foregroundStyle(Sim.faint)
+		}
 	}
 }
 
@@ -391,6 +432,7 @@ private struct SavedStakRow: View {
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 			BuyPill(text: "Buy", action: { onBuy(spec) })
+				.accessibilityLabel("Buy \(ticker)")
 		}
 		.padding(.horizontal, 14 * u)
 		.padding(.vertical, 11 * u)
@@ -421,15 +463,11 @@ struct BuyPill: View {
 	}
 }
 
-/// The authored teal link (1:3964 / 1:4037 / 1:4112 - exact-design audit
-/// 2026-09-04): Geist Medium 13 + "›" 14, both #69b3ca (were white / muted
-/// Regular). Centred across the column unless the host lays it at its own
-/// left edge (the board card's "Full leaderboard"). `centered` is declared
-/// last with a default - memberwise order.
+/// The authored teal link (1:3964 / 1:4037 - exact-design audit 2026-09-04): Geist Medium 13 + "›" 14, both #69b3ca,
+/// centered across the column.
 struct CenterLink: View {
 	let text: String
 	let action: () -> Void
-	var centered: Bool = true
 
 	var body: some View {
 		let u = figmaUnit
@@ -442,8 +480,8 @@ struct CenterLink: View {
 					.font(StakFont.geist(14 * u, .medium))
 					.foregroundStyle(Sim.teal)
 			}
-			.frame(height: 18 * u * typeScale)
-			.frame(maxWidth: centered ? CGFloat.infinity : nil)
+			.frame(minHeight: 18 * u * typeScale)
+			.frame(maxWidth: .infinity)
 		}
 		.buttonStyle(.pressDim)
 	}
@@ -457,6 +495,7 @@ private struct InsightCard: View {
 				Image("IcGistSparkle")
 					.resizable()
 					.frame(width: 16 * u, height: 16 * u)
+					.accessibilityHidden(true)
 				Text("INSIGHT")
 					.font(StakFont.geist(10 * u, .medium))
 					.tracking(0.9 * u)
@@ -660,6 +699,7 @@ private struct SimAllocationCard: View {
 				Image("SimDonut")
 					.resizable()
 					.frame(width: 150 * u, height: 150 * u)
+					.accessibilityHidden(true)
 				VStack(spacing: 12 * u) {
 					SimSector(name: "Tech & AI", share: "42% · 5 stocks", color: Sim.teal, fill: 132)
 					SimSector(name: "Finance", share: "25% · 3 stocks", color: Color(argb: 0xFF7AB3F0), fill: 66)
@@ -684,7 +724,7 @@ private struct SimAllocationCard: View {
 	}
 }
 
-/// The authored bucket palette (1:4040), one colour per collection.
+/// The authored bucket palette (1:4040), one color per collection.
 private func simBucketColor(_ id: String) -> Color {
 	switch id {
 	case "aitech": return Sim.teal
@@ -706,7 +746,7 @@ struct SimSector: View {
 	var body: some View {
 		let u = figmaUnit
 		VStack(spacing: 6 * u) {
-			HStack {
+			HStack(spacing: 0) {
 				Circle().fill(color).frame(width: 9 * u, height: 9 * u)
 				Spacer().frame(width: 8 * u)
 				Text(name)
@@ -722,60 +762,6 @@ struct SimSector: View {
 				RoundedRectangle(cornerRadius: 4 * u).fill(color).frame(width: fill * u, height: 7 * u)
 			}
 		}
-	}
-}
-
-/// THIS WEEK'S BOARD mini-leaderboard.
-private struct BoardCard: View {
-	let onOpenLeaderboard: () -> Void
-	@ObservedObject private var portfolio = PaperPortfolio.shared
-
-	var body: some View {
-		let u = figmaUnit
-		VStack(alignment: .leading, spacing: 10 * u) {
-			HStack {
-				Text("THIS WEEK’S BOARD")
-					.font(StakFont.geist(10 * u, .medium))
-					.tracking(0.9 * u)
-					.foregroundStyle(Sim.faint)
-				Spacer()
-				Text("Trailing 7 days")
-					.font(StakFont.geist(10 * u))
-					.foregroundStyle(Sim.faint)
-			}
-			boardRow(rank: "1", name: "Maya A.", pct: "+9.4%", you: false)
-			boardRow(rank: "2", name: "Jide O.", pct: "+8.8%", you: false)
-			// Audit item 6: the You row quotes the hero's week (1:3898 authored +4.2% here, +1.9% above).
-			// Authored board figures (1:4111 +4.2%; user, 2026-09-04 (CHINEDU 07 · Simulate 423:1007): the authored look wins).
-			boardRow(rank: portfolio.rank.map(String.init) ?? "—", name: "You", pct: portfolio.demo ? "+4.2%" : portfolio.weekPctText, you: true)
-			// 1:4112 (exact-design audit 2026-09-04): the frame lays this link at the card's
-			// left edge (x16, hug width), not centred like the column links.
-			CenterLink(text: "Full leaderboard", action: onOpenLeaderboard, centered: false)
-		}
-		.padding(16 * u)
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-	}
-
-	private func boardRow(rank: String, name: String, pct: String, you: Bool) -> some View {
-		let u = figmaUnit
-		return HStack(spacing: 10 * u) {
-			Text(rank)
-				.font(StakFont.sora(12 * u, .semiBold))
-				.foregroundStyle(you ? Sim.teal : Sim.faint)
-				// 1:4101 (exact-design audit 2026-09-04): the rank sits in a 22-wide box so the names line up.
-				.frame(width: 22 * u * typeScale, alignment: .leading)
-			Text(name)
-				.font(StakFont.geist(13 * u, you ? .semiBold : .medium))
-				.foregroundStyle(Color.white)
-				.frame(maxWidth: .infinity, alignment: .leading)
-			Text(pct)
-				.font(StakFont.sora((you ? 13 : 12) * u, .semiBold))
-				.foregroundStyle(you ? Sim.teal : Sim.headerGray)
-		}
-		.padding(.horizontal, 10 * u)
-		.padding(.vertical, 7 * u)
-		.background(you ? Sim.tealTint : Color.clear, in: RoundedRectangle(cornerRadius: 10 * u))
 	}
 }
 

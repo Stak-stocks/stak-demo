@@ -227,9 +227,11 @@ final class MyStakHoldings: ObservableObject {
 	/// Today as a LOCAL epoch day (Android's LocalDate.now().toEpochDay()).
 	static var today: Int { localEpochDay(Date()) }
 
-	private static func localEpochDay(_ date: Date) -> Int {
-		let seconds = date.timeIntervalSince1970 + Double(TimeZone.current.secondsFromGMT(for: date))
-		return Int((seconds / 86_400).rounded(.down))
+	private static func localEpochDay(_ date: Date) -> Int { epochDay(date, in: .current) }
+
+	/// `date`'s calendar day in `zone`, as days since 1970 - shared with Simulate's ledger.
+	static func epochDay(_ date: Date, in zone: TimeZone) -> Int {
+		Int(((date.timeIntervalSince1970 + Double(zone.secondsFromGMT(for: date))) / 86_400).rounded(.down))
 	}
 
 	private static let isoFractional: ISO8601DateFormatter = {

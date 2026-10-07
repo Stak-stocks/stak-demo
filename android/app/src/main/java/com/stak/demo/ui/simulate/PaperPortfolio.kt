@@ -176,7 +176,11 @@ internal object PaperPortfolio {
 	var setupDone by mutableStateOf(false)
 		private set
 
-	/** True while a hydrate() (initial load or post-mutation reconcile) is in flight. */
+	/**
+	 * True until a real account's first read of its ledger lands - SimulateScreen holds the hero
+	 * back meanwhile. Later reads (the 15s poll, the re-read after a trade) don't set it: the hero
+	 * (and its chart cache, and a setup name being typed) stays put while they run.
+	 */
 	var loading by mutableStateOf(false)
 		private set
 
@@ -207,6 +211,24 @@ internal object PaperPortfolio {
 		withContext(Dispatchers.Main) { lastError = message }
 		hydrate()
 		return failure == null
+	}
+
+	/** The last change sent to the server: each waits for the one before, so a buy then a quick sell arrive in order. */
+	private var lastChange: kotlinx.coroutines.Job? = null
+
+	/**
+	 * Sends a real account's change after any change still on its way (runMutation does the
+	 * request and the reconcile); [then] hears whether it went through. A read already in flight
+	 * predates the change, so it's discarded rather than landing over it.
+	 */
+	private fun send(action: suspend () -> Unit, then: (suspend (Boolean) -> Unit)? = null) {
+		hydrateGeneration.incrementAndGet()
+		val previous = lastChange
+		lastChange = scope.launch {
+			previous?.join()
+			val ok = runMutation(action)
+			then?.invoke(ok)
+		}
 	}
 
 	private fun serverReason(e: Throwable): String? {
@@ -248,7 +270,7 @@ internal object PaperPortfolio {
 		openOrders = emptyList()
 		baseHoldings = 0.0
 		persist()
-		if (!demo) scope.launch { runMutation { repository?.sandboxSetup(balance, name, strategyToId(strategy)) } }
+		if (!demo) send({ repository?.sandboxSetup(balance, name, strategyToId(strategy)) })
 	}
 
 	/** Every buy and sell, newest first (FigJam: Trade history). */
@@ -312,6 +334,9 @@ internal object PaperPortfolio {
 	/** Seeds the authored demo history, or (real account) clears to a loading shell and hydrates from the server. */
 	fun reset(demo: Boolean) {
 		this.demo = demo
+		// A read still in flight for the previous account must not land in this one, nor its error show.
+		hydrateGeneration.incrementAndGet()
+		lastError = null
 		if (demo) {
 			paperStart = PAPER_START
 			portfolioName = "Hamza’s paper"
@@ -377,11 +402,35 @@ internal object PaperPortfolio {
 	@Volatile private var serverTrades: List<Trade> = emptyList()
 	@Volatile private var serverTradeCursor: Long? = null
 
+	// One read at a time: a call while one runs asks for one more read after it, and waits for it.
+	private val hydrateLock = kotlinx.coroutines.sync.Mutex()
+	@Volatile private var readAgain = false
+
 	private suspend fun hydrate() {
+		if (demo || repository == null) return
+		if (!hydrateLock.tryLock()) {
+			readAgain = true
+			hydrateLock.lock()
+			hydrateLock.unlock()
+			return
+		}
+		try {
+			do {
+				readAgain = false
+				hydrateOnce()
+			} while (readAgain && !demo)
+		} finally {
+			hydrateLock.unlock()
+		}
+	}
+
+	/** Company names already read - the ledger carries only tickers, and a name doesn't change. */
+	private val names = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+	private suspend fun hydrateOnce() {
 		val repo = repository ?: return
 		if (demo) return
 		val myGeneration = hydrateGeneration.incrementAndGet()
-		withContext(Dispatchers.Main) { loading = true }
 		val fetched = runCatching {
 			val portfolio = repo.getSandboxPortfolio()
 			// The ledger only changes when a trade lands, and /portfolio says whether one did
@@ -412,9 +461,15 @@ internal object PaperPortfolio {
 		// company name and fundamentals just to read its price.
 		val missingQuotes = portfolio.positions.map { it.ticker }.distinct().filter { com.stak.demo.data.LiveQuotes.cached(it) == null }
 		if (missingQuotes.isNotEmpty()) com.stak.demo.data.LiveQuotes.refresh(missingQuotes)
-		val mappedPositions = coroutineScope {
-			portfolio.positions.map { p -> async { buildPosition(p) } }.awaitAll()
-		}.filterNotNull()
+		// The names from what the saves already know, fetched only for a ticker never named before -
+		// not a full stock read per position on every 15s poll.
+		val unnamed = portfolio.positions.map { it.ticker }.distinct().filter { !names.containsKey(it) && com.stak.demo.data.MyStakHoldings.nameOf(it) == null }
+		coroutineScope {
+			unnamed.map { t -> async { runCatching { repo.getStock(t).name }.getOrNull()?.takeIf { it.isNotBlank() }?.let { names[t] = it } } }.awaitAll()
+		}
+		val mappedPositions = portfolio.positions.map { p ->
+			buildPosition(p, names[p.ticker] ?: com.stak.demo.data.MyStakHoldings.nameOf(p.ticker) ?: p.ticker)
+		}
 		val mappedRealized = computeRealized(mappedTrades)
 		val holdings = mappedPositions.sumOf { it.stake }
 		val resolvedCash = if (portfolio.initialized) (portfolio.cash ?: 0.0) else PAPER_START
@@ -440,18 +495,16 @@ internal object PaperPortfolio {
 		}
 	}
 
-	/** A held position's display spec, built from the server's ticker/shares/cost-basis plus a fresh quote for its name and today's price. Null if the quote can't be fetched right now - dropped rather than shown with guessed numbers. */
-	private suspend fun buildPosition(p: SandboxPositionDto): Position? {
-		val repo = repository ?: return null
-		val detail = runCatching { repo.getStock(p.ticker) }.getOrNull()
-		val price = detail?.quote?.price?.takeIf { it > 0.0 } ?: p.costBasis
-		val name = detail?.name?.takeIf { it.isNotBlank() } ?: p.ticker
+	/** A held position's display spec, from the server's ticker/shares/cost basis plus today's cached quote - valued at its cost basis until a quote lands. */
+	private fun buildPosition(p: SandboxPositionDto, name: String): Position {
+		val quote = com.stak.demo.data.LiveQuotes.cached(p.ticker)
+		val price = quote?.first?.takeIf { it > 0.0 } ?: p.costBasis
 		val badge = p.ticker.take(1)
 		val stakeBasisTotal = p.costBasis * p.shares
 		val currentValue = price * p.shares
 		val gain = currentValue - stakeBasisTotal
 		val gainPctAbs = if (stakeBasisTotal > 0.0) abs(gain / stakeBasisTotal * 100.0) else 0.0
-		val dayChangePct = detail?.quote?.changePercent ?: 0.0
+		val dayChangePct = quote?.second ?: 0.0
 		val pickedDay = dayLabelOf(p.addedAt)
 		val spec = PickSpec(
 			symbol = p.ticker, badge = badge, company = name,
@@ -546,24 +599,29 @@ internal object PaperPortfolio {
 		cash -= amount
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
-		if (!demo) scope.launch {
-			runMutation {
-				if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
-				repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
-			}
-		}
+		if (!demo) send({
+			if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+			repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
+		})
 		return true
 	}
 
-	/** Cancelling an open order releases its reserved stake. */
+	/**
+	 * Canceling an open order releases its reserved stake. An order the server hasn't numbered yet
+	 * (placed a moment ago) can't be canceled there - it says so instead of releasing the stake here
+	 * only to have the next read take it again.
+	 */
 	fun cancelOrder(id: String) {
 		val order = openOrders.firstOrNull { it.id == id } ?: return
+		val serverId = id.toLongOrNull()
+		if (!demo && serverId == null) {
+			lastError = "That order is still being placed — try again in a moment"
+			return
+		}
 		openOrders = openOrders.filterNot { it.id == id }
 		cash += order.amount
 		persist()
-		if (!demo) scope.launch {
-			runMutation { id.toLongOrNull()?.let { repository?.sandboxCancelOrder(it) } }
-		}
+		if (!demo && serverId != null) send({ repository?.sandboxCancelOrder(serverId) })
 	}
 
 	// ---- persistence ------------------------------------------------------------------------
@@ -752,13 +810,13 @@ internal object PaperPortfolio {
 			positions = listOf(fresh) + positions
 			persist()
 		}
-		if (!demo) scope.launch {
-			val ok = runMutation {
+		if (!demo) send(
+			{
 				if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
 				repository?.sandboxBuy(spec.symbol, amount)
-			}
-			if (ok) withContext(Dispatchers.Main) { com.stak.demo.data.MyStakHoldings.add(spec.symbol) }
-		}
+			},
+			then = { ok -> if (ok) withContext(Dispatchers.Main) { com.stak.demo.data.MyStakHoldings.add(spec.symbol) } },
+		)
 	}
 
 	/**
@@ -801,7 +859,7 @@ internal object PaperPortfolio {
 			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = signedUsd(gain * p), up = banked)) + realized
 		}
 		persist()
-		if (!demo) scope.launch { runMutation { repository?.sandboxSell(symbol, p) } }
+		if (!demo) send({ repository?.sandboxSell(symbol, p) })
 		return true
 	}
 }

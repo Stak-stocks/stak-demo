@@ -573,14 +573,17 @@ private fun ScoreHero() {
  */
 @Composable
 private fun rememberPortfolioHistory(range: String): List<PortfolioHistory.Point>? {
-	val tradeCount = PaperPortfolio.trades.size
+	// The ledger's identity: its size and its newest trade - the count alone stops moving once
+	// /trades' 100-row page is full.
+	val newest = PaperPortfolio.trades.firstOrNull()
+	val ledgerKey = "${PaperPortfolio.trades.size}-${newest?.side}-${newest?.symbol}-${newest?.amount}-${newest?.epochDay}"
 	var cache by remember { mutableStateOf<Map<String, List<PortfolioHistory.Point>>>(emptyMap()) }
-	var cachedForTradeCount by remember { mutableStateOf(-1) }
-	if (cachedForTradeCount != tradeCount) {
+	var cachedForLedger by remember { mutableStateOf("") }
+	if (cachedForLedger != ledgerKey) {
 		cache = emptyMap()
-		cachedForTradeCount = tradeCount
+		cachedForLedger = ledgerKey
 	}
-	LaunchedEffect(range, tradeCount) {
+	LaunchedEffect(range, ledgerKey) {
 		if (cache[range] == null) {
 			val built = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.paperStart, range)
 			if (built != null) cache = cache + (range to built)

@@ -13,6 +13,8 @@ struct SimPortfolioView: View {
 	/// Codex parity audit (2026-09-04): every row / Sell pill opens ITS
 	/// pick - the tapped ticker rides to PickDetailView(symbol:).
 	let onOpenPick: (String) -> Void
+	/// The top of the shell's stack: covered by a pick, the prices stop refreshing.
+	var isTop = true
 
 	@State private var showSell = false
 	@State private var showClosed = false
@@ -22,11 +24,15 @@ struct SimPortfolioView: View {
 	@State private var sortChip = 0
 	@State private var historyChip = 0
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+	/// A real account's held picks mark to today's price while this page is open (Position.liveRow).
+	@ObservedObject private var quotes = LiveQuotes.shared
+	@Environment(\.scenePhase) private var scenePhase
 
 	private var sortedPositions: [PaperPortfolio.Position] {
+		let gains = Dictionary(portfolio.positions.map { ($0.id, $0.gainDollars) }, uniquingKeysWith: { a, _ in a })
 		switch sortChip {
-		case 0: return portfolio.positions.sorted { PaperPortfolio.amount($0.row.amount) > PaperPortfolio.amount($1.row.amount) }
-		case 2: return portfolio.positions.sorted { PaperPortfolio.amount($0.row.amount) < PaperPortfolio.amount($1.row.amount) }
+		case 0: return portfolio.positions.sorted { (gains[$0.id] ?? 0) > (gains[$1.id] ?? 0) }
+		case 2: return portfolio.positions.sorted { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }
 		default: return portfolio.positions
 		}
 	}
@@ -41,6 +47,7 @@ struct SimPortfolioView: View {
 					Text("Your portfolio")
 						.font(StakFont.sora(16 * u, .semiBold))
 						.foregroundStyle(Color.white)
+						.accessibilityAddTraits(.isHeader)
 					Spacer()
 					ZStack {
 						Circle().fill(Sim.cardBg)
@@ -49,6 +56,8 @@ struct SimPortfolioView: View {
 							.frame(width: 18 * u, height: 18 * u) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
 					}
 					.frame(width: 40 * u, height: 40 * u)
+					// Drawn, not wired - Android's carries no action either.
+					.accessibilityHidden(true)
 				}
 				.padding(.horizontal, 18 * u)
 				.padding(.vertical, 8 * u)
@@ -60,7 +69,7 @@ struct SimPortfolioView: View {
 						// 1:4519 (exact-design audit 2026-09-04): a r13 OUTLINE in #181f30 (1px, no
 						// fill) with the line inset 16 - was a filled r16 pill.
 						// Authored copy (user, 2026-09-04 (CHINEDU 07 · Simulate 423:1007): the authored look wins).
-						Text(PaperPortfolio.shared.demo ? "12 picks · +$240.00 all time" : "\(PaperPortfolio.shared.pickCountText) · \(PaperPortfolio.signedMoney(PaperPortfolio.shared.allTimeGain)) all time")
+						Text(portfolio.demo ? "12 picks · +$240.00 all time" : "\(portfolio.pickCountText) · \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time")
 							.font(StakFont.geist(10 * u))
 							.foregroundStyle(Sim.muted)
 							.padding(.horizontal, 16 * u)
@@ -78,7 +87,7 @@ struct SimPortfolioView: View {
 								FilterChip(label: "Worst", selected: sortChip == 2) { sortChip = 2 }
 							}
 							ForEach(sortedPositions) { position in
-								let p = position.row
+								let p = position.liveRow
 								PortfolioRow(
 									badge: p.badge, ticker: p.ticker, sub: p.sub,
 									amount: p.amount, pct: p.pct, up: p.up,
@@ -86,7 +95,8 @@ struct SimPortfolioView: View {
 									// Authored (1:4548 template): every Sell pill opens
 									// the Pick detail of ITS ticker, Instant - the authored
 									// sell flow lives there; this page's sheets stay unwired.
-									trailing: { SellPill(action: { onOpenPick(p.ticker) }) },
+									// The pill opens the same page as the row, so VoiceOver gets the row alone.
+								trailing: { SellPill(action: { onOpenPick(p.ticker) }).accessibilityHidden(true) },
 									// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
 									subLight: true
 								)
@@ -125,7 +135,7 @@ struct SimPortfolioView: View {
 				SimSheet(onDismiss: { showSell = false }) {
 					SellConfirmSheet(
 						// Unwired on this page - the authored NVDA sample.
-						pick: PickSpecs.pick("NVDA"),
+						pick: PickSpecs.all[0],
 						onConfirm: { _ in showSell = false; showClosed = true },
 						onDismiss: { showSell = false }
 					)
@@ -134,7 +144,7 @@ struct SimPortfolioView: View {
 			if showClosed {
 				SimSheet(onDismiss: { showClosed = false }) {
 					PositionClosedSheet(
-						pick: PickSpecs.pick("NVDA"),
+						pick: PickSpecs.all[0],
 						onBackToSimulate: { showClosed = false; onBack() },
 						onViewPortfolio: { showClosed = false }
 					)
@@ -142,7 +152,17 @@ struct SimPortfolioView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.task(id: "\(heldSymbols.joined(separator: ",")):\(isTop):\(scenePhase == .active):\(portfolio.demo)") {
+			guard !portfolio.demo, isTop, scenePhase == .active, !heldSymbols.isEmpty else { return }
+			let symbols = heldSymbols
+			while true {
+				await quotes.refresh(symbols)
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
+			}
+		}
 	}
+
+	private var heldSymbols: [String] { portfolio.positions.map(\.spec.symbol) }
 }
 
 private struct FilterChip: View {
@@ -162,6 +182,7 @@ private struct FilterChip: View {
 				.background(selected ? Sim.tealTint : Sim.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityAddTraits(selected ? [.isSelected] : [])
 	}
 }
 
@@ -258,6 +279,9 @@ private struct SimSheet<Content: View>: View {
 			.frame(maxWidth: .infinity)
 			.background(Sim.cardBg, in: UnevenRoundedRectangle(topLeadingRadius: 24 * u, topTrailingRadius: 24 * u))
 			.ignoresSafeArea(edges: .bottom)
+			// The page behind is out of reach while the sheet is up; the escape gesture closes it like the scrim.
+			.accessibilityAddTraits(.isModal)
+			.accessibilityAction(.escape, onDismiss)
 		}
 	}
 }
@@ -470,6 +494,7 @@ struct PositionClosedSheet: View {
 				Image("IcSheetCheck")
 					.resizable()
 					.frame(width: 47 * u, height: 47 * u)
+					.accessibilityHidden(true)
 				Text(full ? "Position closed" : "Position reduced")
 					.font(StakFont.sora(18 * u, .semiBold))
 					.foregroundStyle(Color.white)
@@ -500,7 +525,7 @@ struct PositionClosedSheet: View {
 						Text(pick.stakeValue)
 							.font(StakFont.sora(15 * u, .semiBold))
 							.foregroundStyle(Sim.bright)
-						Text("to your cash (\(pick.gainSigned))")
+						Text("to your cash (\(pick.gain))")
 							.font(StakFont.geist(12 * u))
 							.foregroundStyle(Sim.muted)
 						Spacer()
@@ -542,10 +567,7 @@ struct SellFlowHost: View {
 	var onBackToSimulate: (() -> Void)? = nil
 	var onViewPortfolio: (() -> Void)? = nil
 
-	var executeSell: (String, Double) async -> Bool = { sym, portion in PaperPortfolio.shared.sell(sym, portion: portion) }
-
 	@State private var closed = false
-	@State private var selling = false
 	/// The slice that was sold - the receipt shows it (PR #167).
 	@State private var soldPortion = 1.0
 
@@ -559,18 +581,14 @@ struct SellFlowHost: View {
 					// PaperPortfolio exactly once - here, where the receipt appears.
 					// Review (2026-09-04): the receipt only follows a real sell.
 					SellConfirmSheet(pick: pick, onConfirm: { portion in
-						guard !closed, !selling else { return }
-						selling = true
-						Task {
-							let ok = await executeSell(pick.symbol, portion)
-							if ok { soldPortion = portion; closed = true }
-							selling = false
-						}
+						guard !closed, PaperPortfolio.shared.sell(pick.symbol, portion: portion) else { return }
+						soldPortion = portion
+						closed = true
 					}, onDismiss: onClose)
 						.transition(.opacity)
 				} else {
 					PositionClosedSheet(
-						pick: pick.scaled(soldPortion),
+						pick: pick.slice(soldPortion),
 						full: soldPortion >= 0.999,
 						onBackToSimulate: onBackToSimulate ?? onClose,
 						onViewPortfolio: onViewPortfolio ?? onClose
@@ -580,5 +598,18 @@ struct SellFlowHost: View {
 			}
 			.animation(.easeOut(duration: 0.35), value: closed)
 		}
+	}
+}
+
+extension PickSpec {
+	/// The spec for a slice of a position - a partial sell's receipt: shares, value, basis and gain scaled.
+	func slice(_ portion: Double) -> PickSpec {
+		if portion >= 0.999 { return self }
+		var out = self
+		out.shares = PaperPortfolio.shares((Double(shares) ?? 0) * portion)
+		out.stakeValue = PaperPortfolio.money(PaperPortfolio.amount(stakeValue) * portion)
+		out.stakeBasis = PaperPortfolio.stakeLabel(PaperPortfolio.amount(stakeBasis) * portion)
+		out.gain = PaperPortfolio.signedMoney(PaperPortfolio.amount(gain) * portion)
+		return out
 	}
 }

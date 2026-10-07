@@ -72,9 +72,6 @@ struct ForYouCompanyNews: Decodable { var ticker: String = ""; var articles: [Ne
 
 struct ChartPoint: Decodable { var ts: String = ""; var close: Double = 0; var session: String = "regular" }
 struct ChartResponse: Decodable { var prices: [ChartPoint] = [] }
-struct PortfolioChartResponse: Decodable {
-    var indexed: [Double] = []; var pct: Double?; var moves: [String: Double] = [:]
-}
 
 // MARK: – Peer metrics
 

@@ -1763,7 +1763,8 @@ internal fun DiscoverBuyFlow(
 					// the order into the shared paper portfolio, then tells the host.
 					// The order is checked again at confirm (Codex review, PR #166) - nothing fills past the cash on hand.
 					onConfirm = {
-						if (!filled && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
+						// No price, no fill: a "—" ticket (no quote yet) would buy no shares.
+						if (!filled && quoted.price > 0.0 && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
 							val limit = limitPrice
 							if (limit != null && limit < quoted.price) {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).

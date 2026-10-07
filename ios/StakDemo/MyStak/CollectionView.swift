@@ -353,7 +353,7 @@ private func holdingTile(_ h: MyStakViewModel.Holding) -> CollStock {
 	let pct = h.changePct
 	return CollStock(
 		badge: String(h.ticker.prefix(1)),
-		change: pct.map { ($0 >= 0 ? "\u{25B2} " : "\u{25BC} ") + String(format: "%.1f", abs($0)) + "%" } ?? "—",
+		change: pct.map(moveText) ?? "—",
 		up: (pct ?? 0) >= 0,
 		ticker: h.ticker,
 		company: h.name,

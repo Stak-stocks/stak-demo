@@ -23,8 +23,8 @@ struct SectionKicker: View {
 	}
 }
 
-/// "▲ 1.2%" - one decimal, as Android's "%.1f".
-private func moveText(_ changePercent: Double) -> String {
+/// "▲ 1.2%" - one decimal, as Android's "%.1f". Shared by Home, the collection tiles, Simulate and the tickets.
+func moveText(_ changePercent: Double) -> String {
 	(changePercent >= 0 ? "▲ " : "▼ ") + String(format: "%.1f", abs(changePercent)) + "%"
 }
 

@@ -20,9 +20,6 @@ final class StockApiService {
     func getChart(_ symbol: String, range: String) async throws -> ChartResponse {
         try await net.get("api/stock/\(symbol)/chart", query: ["range": range])
     }
-    func getPortfolioChart(tickers: String, range: String) async throws -> PortfolioChartResponse {
-        try await net.get("api/stock/portfolio-chart", query: ["tickers": tickers, "range": range])
-    }
     func getPeerMetrics(_ ticker: String) async throws -> PeerMetricsResponse {
         try await net.get("api/stock/peer-metrics/\(ticker)")
     }

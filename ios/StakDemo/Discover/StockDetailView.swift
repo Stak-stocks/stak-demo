@@ -214,7 +214,7 @@ struct StockDetailView: View {
 		.task(id: "\(symbol):\(isTop):\(scenePhase == .active)") {
 			guard !session.demoAccount, isTop, scenePhase == .active else { return }
 			while true {
-				do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
 				vm.refreshQuote(symbol, range: range)
 			}
 		}
@@ -328,8 +328,8 @@ struct StockDetailView: View {
 		if demo {
 			RangeLineChart(range: range, tint: teal, authored: "SdChartLine", width: 345 * u, height: 76 * u)
 		} else if let series = vm.chartSeries {
-			// The line's colour is the range's verdict: green where it ends above where it started, red below.
-			LiveLine(series: series, tint: (vm.chartPct ?? 0) < 0 ? red : green)
+			// The line's color is the range's verdict: green where it ends above where it started, red below.
+			SeriesLine(series: series, tint: (vm.chartPct ?? 0) < 0 ? red : green)
 				.frame(width: 345 * u, height: 76 * u)
 				.accessibilityLabel("Price chart, " + (vm.chartPct.map { spokenMove(rangeChangeText($0, range)) } ?? rangeSpoken[range, default: range]))
 		} else {
@@ -434,20 +434,6 @@ struct StockDetailView: View {
 }
 
 // MARK: - Pieces
-
-/// A live price line: the series (fractions of the height, 0 = bottom) spread across the width, a 2-wide round stroke.
-private struct LiveLine: View {
-	let series: [CGFloat]
-	let tint: Color
-
-	var body: some View {
-		let u = figmaUnit
-		GeometryReader { geo in
-			RangeLineChart.linePath(series, in: geo.size)
-				.stroke(tint, style: StrokeStyle(lineWidth: 2 * u, lineCap: .round, lineJoin: .round))
-		}
-	}
-}
 
 /// A card's title row: its icon tile and Sora 15 name.
 private struct CardTitle: View {
@@ -899,7 +885,7 @@ private struct AnalystCard: View {
 		}
 		Text(upside).font(StakFont.geist(11 * u, .medium)).foregroundStyle(upside.hasPrefix("↓") ? muted : green)
 		Kicker(text: live?.consensus ?? f.consensus)
-		// A real track (it was painted in the card's own colour, so only the green fill showed), and the fill's share
+		// A real track (it was painted in the card's own color, so only the green fill showed), and the fill's share
 		// measured against the bar's actual width.
 		GeometryReader { geo in
 			ZStack(alignment: .leading) {
@@ -1112,7 +1098,7 @@ private struct SinceYouSavedCard: View {
 					.font(StakFont.geist(10 * u, .medium))
 					.tracking(0.8 * u)
 					.foregroundStyle(muted)
-				// A dash is no move at all, so it takes neither the up nor the down colour.
+				// A dash is no move at all, so it takes neither the up nor the down color.
 				Text(since.0)
 					.font(StakFont.geist(12 * u, .medium))
 					.foregroundStyle(since.0 == "\u{2014}" ? muted : (since.2 ? green : red))

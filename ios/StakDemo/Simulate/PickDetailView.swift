@@ -6,57 +6,54 @@ import SwiftUI
 /// picks derive from the shared demo table - the same thing the Discover
 /// deck does when "Learn more" serves the tapped stock. Mirrors android/
 /// ui/simulate/PickDetailScreen.kt.
-struct PickSpec: Codable {
+struct PickSpec: Codable, Equatable {
 	let symbol: String
 	let badge: String
-	/// The sell row's name - NVDA's authored "NVIDIA Corp" (1:4698).
+	/// The sell row's name (1:4698) - NVDA keeps the authored "NVIDIA Corp".
 	let company: String
-	let priceNow: String
-	let priceThen: String
+	var priceNow: String
 	let pickedLine: String
-	/// The hero figure split at the decimal (1:4654 sets the cents at 16/20).
-	let gainWhole: String
-	let gainCents: String
-	/// "+$24.00" - the receipt's "(+$24.00)" tail (73:855).
-	let gainSigned: String
-	/// "24.0%" - unsigned; the subtitle reads up/down from `up`.
-	let gainPct: String
-	let up: Bool
-	let shares: String
+	let priceThen: String
+	/// Signed dollars, e.g. "+$24.00" - the hero splits it at the point.
+	var gain: String
+	/// Unsigned, e.g. "24.0%" - `up` picks the up/down wording and the red.
+	var gainPct: String
+	var up: Bool
+	var shares: String
+	/// The position's value - the sell sheet's position value / proceeds.
+	var stakeValue: String
 	let vsMarket: String
 	let ahead: Bool
-	/// The sell row's day move: the ticker's shared collection-tile change
-	/// (NVDA's authored "▲ 2.4%" is its AI & Tech tile; TSLA's comes from
-	/// NewsArticleFeed.stockFacts, whose $291.30 matches the table).
+	/// The day move on the sell row - the same figure the My STAK tile shows.
 	let dayChange: String
-	let dayUp: Bool
-	/// Stake value now = $100 + gain: position value, returning, proceeds
-	/// and returned on the sell sheets.
-	let stakeValue: String
-	/// Review (2026-09-04): the cost basis - "$100" for the authored picks,
-	/// the ticket's stake for a bought one ("$25" / "$25.50"); the "on a
-	/// $100 paper stake" / "from your $100 stake" lines read it. Declared
-	/// after the authored fields with a default - memberwise order.
+	/// Cost basis label - "$100" for the six authored picks; a paper order carries its own.
 	var stakeBasis: String = "$100"
-	/// Review (2026-09-04): the "This week" stat (1:4673) - the authored
-	/// +$3.80 for the seeded picks, +$0.00 for a fresh buy. Declared last.
+	/// The This-week stat (1:4673) - authored "+$3.80"; a fresh order starts at "+$0.00".
 	var weekGain: String = "+$3.80"
+
+	var dayUp: Bool { !dayChange.hasPrefix("▼") }
+	/// "+$24.00" -> "+$24" (the 48 box) and ".00" (its own 16/20 box, 1:4654); "" when there are no cents.
+	var gainWhole: String { gain.components(separatedBy: ".").first ?? gain }
+	var gainCents: String { String(gain.dropFirst(gainWhole.count)) }
 }
 
 enum PickSpecs {
-	static let all: [PickSpec] = [
+	nonisolated static let all: [PickSpec] = [
 		// Figma frame 1:4631 verbatim.
-		PickSpec(symbol: "NVDA", badge: "N", company: "NVIDIA Corp", priceNow: "$122.10", priceThen: "$98.50", pickedLine: "Picked May 8 at $98.50", gainWhole: "+$24", gainCents: ".00", gainSigned: "+$24.00", gainPct: "24.0%", up: true, shares: "1.0152", vsMarket: "+20.8% ahead", ahead: true, dayChange: "▲ 2.4%", dayUp: true, stakeValue: "$124.00"),
-		PickSpec(symbol: "TSLA", badge: "T", company: "Tesla", priceNow: "$291.30", priceThen: "$246.86", pickedLine: "Picked Jun 3 at $246.86", gainWhole: "+$18", gainCents: ".00", gainSigned: "+$18.00", gainPct: "18.0%", up: true, shares: "0.4051", vsMarket: "+14.8% ahead", ahead: true, dayChange: "▼ 7.0%", dayUp: false, stakeValue: "$118.00"),
-		PickSpec(symbol: "AMD", badge: "A", company: "AMD", priceNow: "$164.30", priceThen: "$148.02", pickedLine: "Picked May 29 at $148.02", gainWhole: "+$11", gainCents: ".00", gainSigned: "+$11.00", gainPct: "11.0%", up: true, shares: "0.6756", vsMarket: "+7.8% ahead", ahead: true, dayChange: "▲ 2.1%", dayUp: true, stakeValue: "$111.00"),
-		PickSpec(symbol: "AAPL", badge: "A", company: "Apple", priceNow: "$229.35", priceThen: "$216.37", pickedLine: "Picked Apr 22 at $216.37", gainWhole: "+$6", gainCents: ".00", gainSigned: "+$6.00", gainPct: "6.0%", up: true, shares: "0.4622", vsMarket: "+2.8% ahead", ahead: true, dayChange: "▲ 1.2%", dayUp: true, stakeValue: "$106.00"),
-		PickSpec(symbol: "JPM", badge: "J", company: "JPMorgan", priceNow: "$245.60", priceThen: "$240.78", pickedLine: "Picked Jun 20 at $240.78", gainWhole: "+$2", gainCents: ".00", gainSigned: "+$2.00", gainPct: "2.0%", up: true, shares: "0.4153", vsMarket: "-1.2% behind", ahead: false, dayChange: "▲ 0.6%", dayUp: true, stakeValue: "$102.00"),
-		PickSpec(symbol: "MSFT", badge: "M", company: "Microsoft", priceNow: "$438.20", priceThen: "$451.75", pickedLine: "Picked Jun 26 at $451.75", gainWhole: "-$3", gainCents: ".00", gainSigned: "-$3.00", gainPct: "3.0%", up: false, shares: "0.2214", vsMarket: "-6.2% behind", ahead: false, dayChange: "▼ 0.4%", dayUp: false, stakeValue: "$97.00")
+		PickSpec(symbol: "NVDA", badge: "N", company: "NVIDIA Corp", priceNow: "$122.10", pickedLine: "Picked May 8 at $98.50", priceThen: "$98.50", gain: "+$24.00", gainPct: "24.0%", up: true, shares: "1.0152", stakeValue: "$124.00", vsMarket: "+20.8% ahead", ahead: true, dayChange: "▲ 2.4%"),
+		// TSLA's day move: the News feed's "Tesla drops 7%" story (-6.95% today).
+		PickSpec(symbol: "TSLA", badge: "T", company: "Tesla", priceNow: "$291.30", pickedLine: "Picked Jun 3 at $246.86", priceThen: "$246.86", gain: "+$18.00", gainPct: "18.0%", up: true, shares: "0.4051", stakeValue: "$118.00", vsMarket: "+14.8% ahead", ahead: true, dayChange: "▼ 7.0%"),
+		PickSpec(symbol: "AMD", badge: "A", company: "AMD", priceNow: "$164.30", pickedLine: "Picked May 29 at $148.02", priceThen: "$148.02", gain: "+$11.00", gainPct: "11.0%", up: true, shares: "0.6756", stakeValue: "$111.00", vsMarket: "+7.8% ahead", ahead: true, dayChange: "▲ 2.1%"),
+		PickSpec(symbol: "AAPL", badge: "A", company: "Apple", priceNow: "$229.35", pickedLine: "Picked Apr 22 at $216.37", priceThen: "$216.37", gain: "+$6.00", gainPct: "6.0%", up: true, shares: "0.4622", stakeValue: "$106.00", vsMarket: "+2.8% ahead", ahead: true, dayChange: "▲ 1.2%"),
+		PickSpec(symbol: "JPM", badge: "J", company: "JPMorgan", priceNow: "$245.60", pickedLine: "Picked Jun 20 at $240.78", priceThen: "$240.78", gain: "+$2.00", gainPct: "2.0%", up: true, shares: "0.4153", stakeValue: "$102.00", vsMarket: "-1.2% behind", ahead: false, dayChange: "▲ 0.6%"),
+		PickSpec(symbol: "MSFT", badge: "M", company: "Microsoft", priceNow: "$438.20", pickedLine: "Picked Jun 26 at $451.75", priceThen: "$451.75", gain: "-$3.00", gainPct: "3.0%", up: false, shares: "0.2214", stakeValue: "$97.00", vsMarket: "-6.2% behind", ahead: false, dayChange: "▼ 0.4%"),
 	]
 
-	/// Unknown symbols serve the authored NVDA sample (all[0]).
+	/// The tapped pick's numbers: the live position first (a fresh buy has no authored entry), then the authored
+	/// table; an unknown symbol falls back to the frame's NVDA.
+	@MainActor
 	static func pick(_ symbol: String) -> PickSpec {
-		all.first { $0.symbol == symbol } ?? all[0]
+		PaperPortfolio.shared.pickSpec(symbol) ?? all.first { $0.symbol == symbol } ?? all[0]
 	}
 }
 
@@ -78,22 +75,30 @@ struct PickDetailView: View {
 	/// Back to Simulate (the forward push) and View portfolio (dissolve 300).
 	var onSellBackToSimulate: (() -> Void)? = nil
 	var onSellViewPortfolio: (() -> Void)? = nil
-	var executeSell: (String, Double) async -> Bool = { sym, portion in PaperPortfolio.shared.sell(sym, portion: portion) }
+	/// The top of the shell's stack: covered, the price stops refreshing.
+	var isTop = true
 
 	/// The pick the sell flow is closing (nil = no sheet). Snapshotted at
 	/// the Sell tap so the receipt (73:855) keeps showing the sold pick
-	/// after PaperPortfolio drops it.
+	/// after PaperPortfolio drops it - and the numbers the user confirmed
+	/// against, not a price that moved under the receipt.
 	@State private var selling: PickSpec? = nil
 	/// The range pills select (user, 2026-09-05); "3M" keeps the authored SimChartLine (1:4631).
 	@State private var range = "3M"
+	/// A real pick's own price history per range (the stock page's /chart), so switching pills doesn't re-fetch.
+	@State private var charts: [String: PickChart] = [:]
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+	/// Live prices: a held pick re-prices from them as they land.
+	@ObservedObject private var quotes = LiveQuotes.shared
+	@Environment(\.scenePhase) private var scenePhase
 
-	/// Codex audit (2026-09-04): the ledger's live spec (a bought pick, or
-	/// an authored one topped up) - authored fallback for anything not held.
-	private var pick: PickSpec { selling ?? portfolio.pickSpec(symbol) ?? PickSpecs.pick(symbol) }
+	/// The ledger's live spec (a bought pick, or an authored one topped up) - authored fallback for anything not held.
+	private var pick: PickSpec { selling ?? PickSpecs.pick(symbol) }
 
 	var body: some View {
 		let u = figmaUnit
+		// Worked out once per render - it re-prices off the live quote.
+		let pick = pick
 		ZStack {
 			VStack(spacing: 0) {
 				HStack {
@@ -102,6 +107,7 @@ struct PickDetailView: View {
 					Text(pick.symbol)
 						.font(StakFont.sora(16 * u, .semiBold))
 						.foregroundStyle(Color.white)
+						.accessibilityAddTraits(.isHeader)
 					Spacer()
 					ZStack {
 						Circle().fill(Sim.cardBg)
@@ -110,6 +116,8 @@ struct PickDetailView: View {
 							.frame(width: 18 * u, height: 18 * u) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
 					}
 					.frame(width: 40 * u, height: 40 * u)
+					// Drawn, not wired - Android's carries no action either.
+					.accessibilityHidden(true)
 				}
 				.padding(.horizontal, 18 * u)
 				.padding(.vertical, 8 * u)
@@ -147,6 +155,8 @@ struct PickDetailView: View {
 							}
 							.frame(height: 48 * u * typeScale, alignment: .bottom)
 							.padding(.top, 11 * u)
+							.accessibilityElement(children: .ignore)
+							.accessibilityLabel("Gain, \(pick.gain)")
 							// Review (2026-09-04): the pick's own cost basis ("$100" authored).
 							Text("That is \(pick.up ? "up" : "down") \(pick.gainPct) on a \(pick.stakeBasis) paper stake")
 								// 1:4662 (exact-design audit 2026-09-04): Geist Light, like the hero's all-time line.
@@ -159,9 +169,7 @@ struct PickDetailView: View {
 							Color.clear
 								.frame(maxWidth: .infinity)
 								.frame(height: 73.5 * u)
-								.overlay(
-									RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.5 * u, move: PaperPortfolio.shared.demo ? nil : (Double(pick.gainPct.filter { $0.isNumber || $0 == "." }) ?? 0) * (pick.up ? 1 : -1))
-								)
+								.overlay(chart(u))
 								.padding(.top, 11 * u)
 							RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted)
 							.frame(maxWidth: .infinity)
@@ -169,7 +177,8 @@ struct PickDetailView: View {
 						}
 						.padding(18 * u)
 						.frame(maxWidth: .infinity, alignment: .leading)
-						.frame(height: 307 * u * typeScale, alignment: .top)
+						// A floor, not a pin: enlarged text grows the card instead of being clipped.
+						.frame(minHeight: 307 * u * typeScale, alignment: .top)
 						// 1:4654 (exact-design audit 2026-09-04): the hero is r16 - the r24 was never authored.
 						.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 						.clipShape(RoundedRectangle(cornerRadius: 16 * u))
@@ -194,6 +203,7 @@ struct PickDetailView: View {
 								Image("IcGistSparkle")
 									.resizable()
 									.frame(width: 16 * u, height: 16 * u)
+									.accessibilityHidden(true)
 								Text("INSIGHT")
 									.font(StakFont.geist(10 * u, .medium))
 									.tracking(0.9 * u)
@@ -253,12 +263,63 @@ struct PickDetailView: View {
 					// Authored (1:4698): the confirm's Back -> Pick detail, Instant.
 					onClose: { selling = nil },
 					onBackToSimulate: { if let onSellBackToSimulate { onSellBackToSimulate() } else { selling = nil; onBack() } },
-					onViewPortfolio: { if let onSellViewPortfolio { onSellViewPortfolio() } else { selling = nil; onBack() } },
-					executeSell: executeSell
+					onViewPortfolio: { if let onSellViewPortfolio { onSellViewPortfolio() } else { selling = nil; onBack() } }
 				)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		// A real pick marks to today's price while the page is in front - paused while the sell sheet is up.
+		.task(id: "\(symbol):\(isTop):\(scenePhase == .active):\(portfolio.demo)") {
+			guard !portfolio.demo, isTop, scenePhase == .active else { return }
+			while true {
+				if selling == nil { await quotes.refresh([symbol]) }
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
+			}
+		}
+		.task(id: "\(symbol):\(range):\(portfolio.demo)") {
+			// The range this task was started for - read again after the wait, a quick pill switch would file this
+			// range's line under the next one.
+			let forRange = range
+			guard !portfolio.demo, charts[forRange] == nil else { return }
+			guard let state = await PickChart.load(symbol, range: forRange), !Task.isCancelled else { return }
+			charts[forRange] = state
+		}
+	}
+
+	/// The demo keeps its authored line - it has no live price behind its numbers. A real pick draws its own stock's
+	/// price history, never a shape scaled from its gain (which isn't a price history and would read as one).
+	@ViewBuilder
+	private func chart(_ u: CGFloat) -> some View {
+		if portfolio.demo {
+			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.5 * u)
+		} else {
+			ZStack {
+				switch charts[range] {
+				case .line(let closes):
+					SeriesLine(series: chartFractions(closes), tint: Sim.teal)
+				case .noMovementYet:
+					Text("Not much movement yet today").font(StakFont.geist(11 * u)).foregroundStyle(Sim.faint)
+				case nil:
+					Text("No history yet").font(StakFont.geist(11 * u)).foregroundStyle(Sim.faint)
+				}
+			}
+			.frame(width: 343 * u, height: 73.5 * u)
+		}
+	}
+}
+
+/// What Pick detail's chart has for a range: a real line, or "nothing much yet" - the regular session hasn't opened,
+/// so a 1D line would read as a move that hasn't happened.
+enum PickChart: Equatable {
+	case line([Double])
+	case noMovementYet
+
+	/// The stock's own closes for `range`; nil while there's nothing to show (a failed request, or under two points).
+	static func load(_ symbol: String, range: String) async -> PickChart? {
+		guard let prices = (try? await StockRepository.shared.getChart(symbol, range: range.lowercased()))?.prices.filter({ $0.close > 0 }),
+			  prices.count >= 2 else { return nil }
+		if range == "1D" && allPreMarket(prices) { return .noMovementYet }
+		return .line(prices.map(\.close))
 	}
 }
 
@@ -276,15 +337,19 @@ private struct StatBox: View {
 				.font(StakFont.geist(10 * u))
 				.foregroundStyle(Sim.muted)
 				.frame(height: 13 * u * typeScale) // Authored 10/13 line box — pin so the cell sums to 35
+			// One line: a value too wide wrapped and had its second line clipped ("Even with the").
 			Text(value)
 				.font(StakFont.geist(14 * u))
 				.foregroundStyle(valueColor)
+				.lineLimit(1)
+				.truncationMode(.tail)
 				.frame(height: 18 * u * typeScale) // Authored 14/18 line box
 		}
 		.padding(.horizontal, 14 * u)
 		.padding(.vertical, 13 * u)
 		.frame(maxWidth: .infinity, alignment: .leading)
-		.frame(height: 61 * u * typeScale, alignment: .top)
+		.frame(minHeight: 61 * u * typeScale, alignment: .top)
+		.accessibilityElement(children: .combine)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 14 * u))
 	}
 }

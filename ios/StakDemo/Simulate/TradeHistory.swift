@@ -55,6 +55,7 @@ struct OpenOrdersSection: View {
 							.overlay(RoundedRectangle(cornerRadius: 6 * u).strokeBorder(Color(argb: 0x24FFFFFF), lineWidth: 1 * u))
 					}
 					.buttonStyle(.pressDim)
+					.accessibilityLabel("Cancel \(o.symbol) order")
 				}
 			}
 		}
