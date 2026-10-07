@@ -304,7 +304,10 @@ internal const val DECK_SIZE = 12
  */
 internal fun deckCards(): List<DeckCard> {
 	val held = com.stak.demo.ui.MyStakHoldings.tickers
-	return DECK.filter { it.symbol !in held || com.stak.demo.ui.MyStakHoldings.daysSinceSaved(it.symbol) == null }
+	// 1:1910 (prototype read 2026-10-07): a card saved in THIS run stays on the deck with its Saved
+	// chip until the swipe moves on; it leaves the pool from the next run (restart clears the run).
+	val thisRun = DeckSession.saved
+	return DECK.filter { it.symbol in thisRun || it.symbol !in held || com.stak.demo.ui.MyStakHoldings.daysSinceSaved(it.symbol) == null }
 }
 
 /** The card at a run position over the cards still on the deck (the full design set when none are). */
@@ -374,10 +377,10 @@ internal fun DiscoverScreen(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 
 	/**
-	 * The deck advances: the front card leaves and the next promotes - the
-	 * swipe commit (from `committed` px of travel) and the Save chip (from
-	 * rest; user, 2026-09-08: a saved card must not stay on the deck) share
-	 * it, so Save reads exactly like a swipe.
+	 * The deck advances: the front card leaves and the next promotes on a
+	 * swipe commit (from `committed` px of travel). Since the 2026-10-07
+	 * prototype read the Save chip no longer calls this (1:1910 keeps the
+	 * saved card on the deck); `saving` stays for parity with iOS.
 	 */
 	val advance: suspend (Float, DeckCard?) -> Unit = { committed, saving ->
 		if (seen >= DECK_SIZE - 1) {
@@ -586,8 +589,10 @@ internal fun DiscoverScreen(
 					// 2026-09-04). Saving still lands the pick in My STAK.
 					FrontDeckCard(
 						card = frontCard,
-						// Saving takes the card off the deck like a swipe (user, 2026-09-08).
-						onSave = { savedCards = savedCards + frontCard.symbol; savedToast = true; scope.launch { advance(0f, frontCard) } },
+						// 1:1910 (prototype read 2026-10-07): Save keeps the card on the deck - the chip turns
+						// "Saved", the toast shows, and the swipe moves on. Supersedes the 2026-09-08
+						// "save reads like a swipe" rule.
+						onSave = { savedCards = savedCards + frontCard.symbol; savedToast = true; com.stak.demo.ui.MyStakHoldings.add(frontCard.symbol) },
 						saved = frontCard.symbol in savedCards,
 						u = u,
 						modifier = Modifier
@@ -817,11 +822,11 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 				contentScale = ContentScale.Crop,
 				modifier = Modifier.size((340 * u).dp, (229 * u).dp),
 			)
-			if (showSave && !saved) {
+			if (showSave) {
 				// Every card draws the chip live at the template's authored spot
-				// (art x264 y6); the saved deck (1:1796) has none. The NVDA art
-				// is the chip-less export of 1:1910.
-				SaveChip(u = u, modifier = Modifier.align(Alignment.TopEnd).padding(top = (6 * u).dp, end = (4 * u).dp))
+				// (art x264 y6); once saved it reads "Saved" with the filled glyph
+				// (1:1910 / 1:2042). The NVDA art is the chip-less export of 1:1910.
+				SaveChip(u = u, saved = saved, modifier = Modifier.align(Alignment.TopEnd).padding(top = (6 * u).dp, end = (4 * u).dp))
 			}
 			if (onSave != null && showSave && !saved) {
 				Box(
@@ -901,9 +906,9 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 	}
 }
 
-/** rgba(255,255,255,0.09) Save pill with the small bookmark. */
+/** rgba(255,255,255,0.09) Save pill with the small bookmark; `saved` = the 1:2042 "Saved" state (filled #D9D9D9 glyph). */
 @Composable
-private fun SaveChip(u: Float, modifier: Modifier = Modifier) {
+private fun SaveChip(u: Float, saved: Boolean = false, modifier: Modifier = Modifier) {
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -913,13 +918,13 @@ private fun SaveChip(u: Float, modifier: Modifier = Modifier) {
 			.padding(horizontal = (13 * u).dp, vertical = (7 * u).dp),
 	) {
 		Text(
-			text = "Save",
+			text = if (saved) "Saved" else "Save",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
 		// The pill's own glyph (1:2050): 12 box, 8x10 bookmark, #AEAEAE stroke 1 -
 		// not the hero's dark #0A1020 export (user crop, 2026-09-04).
-		Image(painterResource(R.drawable.ic_save_bookmark), null, modifier = Modifier.size((12 * u).dp))
+		Image(painterResource(if (saved) R.drawable.ic_deck_saved_bookmark else R.drawable.ic_save_bookmark), null, modifier = Modifier.size((12 * u).dp))
 	}
 }
 
