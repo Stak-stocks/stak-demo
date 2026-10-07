@@ -1,59 +1,49 @@
 import SwiftUI
 
-private let cardBg = Color(argb: 0xFF10182B)
-private let muted = Color(argb: 0xFF819ABB)
-private let bodyInk = Color(argb: 0xFFC8D2E0)
-private let divider = Color(argb: 0xFF1A2333)
-private let iconBg = Color(argb: 0xFF1A2333)
-private let teal = Color(argb: 0xFF69B3CA)
-private let dot = Color(argb: 0xFFFF8030)
+/// The row's second line (1:5935 renders #ACAFB1 - the auth subtitle grey, not the section's muted blue).
+private let rowBody = Color(argb: 0xFFACAFB1)
 
-/// The inbox behind the Home bell (product audit, 2026-09-05). Built in the
-/// Profile hub's language - the same header, card and row metrics - because no
-/// frame exists for it. Opening it reads everything, so the bell's dot clears
-/// the way an activity feed does. Mirrors android NotificationsScreen.kt.
+/// 10 · Notifications tab — "Notifications · List" (Chinedu_Mobile 1:5927) and "Notifications ·
+/// Empty" (1:5977), 2026-10-07 (replaces the frameless 2026-09-05 inbox). TODAY and EARLIER cards
+/// of 68-tall rows (title, one-line body, the teal unread dot); opening the page reads everything,
+/// so the Home bell's dot clears the way an activity feed does. Mirrors android NotificationsScreen.kt.
 struct NotificationsView: View {
 	let onBack: () -> Void
-	let onOpenSettings: () -> Void
 	@ObservedObject private var inbox = StakNotifications.shared
 	@State private var readBefore: Set<String> = []
 
 	var body: some View {
 		let u = figmaUnit
-		SettingsScaffold(title: "Notifications", onBack: onBack) {
-			ScrollView(showsIndicators: false) {
-				VStack(spacing: 14 * u) {
-					if inbox.items.isEmpty {
-						VStack(alignment: .leading, spacing: 6 * u) {
-							Text("You’re all caught up.")
-								.font(StakFont.sora(15 * u, .semiBold))
-								.foregroundStyle(StakColors.textPrimary)
-							Text("Price moves on your picks and your daily deck land here.")
-								.font(StakFont.geist(13 * u))
-								.foregroundStyle(muted)
-						}
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.padding(16 * u)
-						.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-					} else {
-						VStack(spacing: 0) {
-							ForEach(Array(inbox.items.enumerated()), id: \.element.id) { i, item in
-								NotificationRow(item: item, unread: !readBefore.contains(item.id))
-								if i < inbox.items.count - 1 {
-									Rectangle().fill(divider).frame(height: 1 * u).padding(.horizontal, 14 * u)
-								}
-							}
-						}
-						.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-					}
-					VStack(spacing: 0) {
-						SettingsLinkRow(label: "Notification settings", action: onOpenSettings)
-					}
-					.padding(.vertical, 4 * u)
-					.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+		let items = inbox.items
+		ProfilePageScaffold(title: "Notifications", onBack: onBack, centred: true) {
+			if items.isEmpty {
+				// 1:5977: "Nothing yet" sits 330 from the frame top (230 under the 100 nav), the 248-wide line 16 below it.
+				VStack(spacing: 16 * u) {
+					Text("Nothing yet")
+						.font(StakFont.sora(20 * u, .semiBold))
+						.foregroundStyle(StakColors.textPrimary)
+					Text("Price moves on your picks, your daily brief, and filled practice orders will show up here.")
+						.font(StakFont.geist(12 * u))
+						.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+						.foregroundStyle(Prof.muted)
+						.multilineTextAlignment(.center)
+						.frame(width: 248 * u)
 				}
-				.padding(.horizontal, 20 * u)
-				.padding(.bottom, 26 * u)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+				.padding(.top, 230 * u)
+			} else {
+				let today = items.filter(\.today)
+				let earlier = items.filter { !$0.today }
+				ProfileContent {
+					if !today.isEmpty {
+						SectionLabel(text: "TODAY")
+						NotificationCard(items: today, readBefore: readBefore, inset: 11)
+					}
+					if !earlier.isEmpty {
+						SectionLabel(text: "EARLIER")
+						NotificationCard(items: earlier, readBefore: readBefore, inset: 9.5)
+					}
+				}
 			}
 		}
 		.onAppear {
@@ -63,35 +53,60 @@ struct NotificationsView: View {
 	}
 }
 
+/// A #10182B r16 card: 8 side inset, `inset` above and below (11 on TODAY, 9.5 on EARLIER as authored), 10 between rows.
+private struct NotificationCard: View {
+	let items: [StakNotifications.Item]
+	let readBefore: Set<String>
+	let inset: CGFloat
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(spacing: 10 * u) {
+			ForEach(items) { item in
+				NotificationRow(item: item, unread: !readBefore.contains(item.id))
+			}
+		}
+		.padding(.horizontal, 8 * u)
+		.padding(.vertical, inset * u)
+		.frame(maxWidth: .infinity)
+		.background(Prof.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+	}
+}
+
+/// One 68-tall #181F30 row (the 08 Permissions card surface): copy at 16/16, the 8 teal dot 16 from the right edge.
 private struct NotificationRow: View {
 	let item: StakNotifications.Item
 	let unread: Bool
 
 	var body: some View {
 		let u = figmaUnit
-		HStack(alignment: .center, spacing: 12 * u) {
-			ZStack {
-				Circle().fill(iconBg)
-				Text(String(item.title.prefix(1)).uppercased())
-					.font(StakFont.sora(14 * u, .semiBold))
-					.foregroundStyle(teal)
-			}
-			.frame(width: 36 * u, height: 36 * u)
-			VStack(alignment: .leading, spacing: 2 * u) {
+		ZStack(alignment: .topLeading) {
+			VStack(alignment: .leading, spacing: 4 * u) {
 				Text(item.title)
 					.font(StakFont.geist(14 * u, .medium))
+					.stakLineHeight(18 * u, size: 14 * u, face: .geist)
 					.foregroundStyle(StakColors.textPrimary)
+					.lineLimit(1)
 				Text(item.body)
 					.font(StakFont.geist(12 * u))
-					.foregroundStyle(bodyInk)
-				Text(item.time)
-					.font(StakFont.geist(11 * u))
-					.foregroundStyle(muted)
+					.stakLineHeight(14 * u, size: 12 * u, face: .geist)
+					.foregroundStyle(rowBody)
+					.lineLimit(1)
 			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			Circle().fill(unread ? dot : Color.clear).frame(width: 6 * u, height: 6 * u)
+			.padding(.leading, 16 * u)
+			.padding(.top, 16 * u)
+			.padding(.trailing, 36 * u)
+			if unread {
+				HStack {
+					Spacer()
+					Circle().fill(Prof.accent).frame(width: 8 * u, height: 8 * u)
+				}
+				.padding(.trailing, 16 * u)
+				.frame(height: 68 * u)
+			}
 		}
-		.padding(.horizontal, 14 * u)
-		.padding(.vertical, 12 * u)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.frame(height: 68 * u)
+		.background(Prof.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
 	}
 }

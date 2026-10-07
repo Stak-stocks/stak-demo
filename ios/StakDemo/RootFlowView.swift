@@ -9,6 +9,9 @@ enum FlowScreen: Hashable {
 	case createAccount
 	case signIn
 	case forgotPassword
+	/// 09 · Auth recovery (2026-10-07): the sent-link page and the reset link's landing.
+	case checkEmail(email: String)
+	case setPassword
 	/// Email verification between an email sign-up and 01 Welcome (FigJam entry flow, 2026-09-14).
 	case verifyEmail(email: String)
 	case welcome
@@ -86,6 +89,11 @@ struct RootFlowView: View {
 						let locked = Session.shared.signedIn && UserProfile.shared.accountLock
 						phase = Session.shared.signedIn ? (locked ? .locked : .main) : .flow
 					}
+					// A cold start from the reset link: the signed-out app opens Set a new password over Sign up.
+					if DeepLinks.shared.pendingReset, !Session.shared.signedIn {
+						DeepLinks.shared.pendingReset = false
+						stack.append(.setPassword)
+					}
 				}
 				.transition(.opacity)
 			case .locked:
@@ -130,6 +138,12 @@ struct RootFlowView: View {
 			// already true then, so this is a no-op until the unlock clears it.
 			if next != .active, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
 		}
+		// The password-reset mail's link (stak://reset, 09 · Auth recovery 1:5892): the auth flow pushes the
+		// page at once; the splash and the tab shell hand it on through DeepLinks.
+		.onOpenURL { url in
+			guard DeepLinks.isReset(url) else { return }
+			if phase == .flow { push(.setPassword, .pushRight) } else { DeepLinks.shared.pendingReset = true }
+		}
 		.background(StakColors.bg.ignoresSafeArea())
 	}
 
@@ -154,7 +168,7 @@ struct RootFlowView: View {
 				onCreateAccount: { push(.welcome, .pushRight) },
 				onSignIn: { push(.signIn, .dissolve) },
 				// FigJam entry flow (2026-09-14): an email sign-up verifies the address first.
-				onVerifyEmail: { email in push(.verifyEmail(email: email), .pushRight) }
+				onVerifyEmail: { email in UserProfile.shared.email = email; push(.verifyEmail(email: email), .pushRight) }
 			)
 			.id(FlowScreen.createAccount)
 		case .verifyEmail(let email):
@@ -191,8 +205,34 @@ struct RootFlowView: View {
 			)
 			.id(FlowScreen.signIn)
 		case .forgotPassword:
-			ForgotPasswordView(onBack: { pop() })
-				.id(FlowScreen.forgotPassword)
+			ForgotPasswordView(
+				onBack: { pop() },
+				// 1:5830 -> 1:5862: the sent link's confirmation page (house forward push).
+				onSent: { email in push(.checkEmail(email: email), .pushRight) },
+				// "Remembered it? Sign in" - back to the sign-in page beneath.
+				onSignIn: { pop() }
+			)
+			.id(FlowScreen.forgotPassword)
+		case .checkEmail(let email):
+			CheckEmailView(email: email, onBack: { pop() })
+				.id(screen)
+		case .setPassword:
+			SetPasswordView(
+				onBack: { pop() },
+				// "You'll stay signed in on this phone": the signed-out account is the demo persona
+				// recovering its account - signed in, straight to Home (demo rule; mirrors android).
+				onSaved: {
+					Session.shared.signIn(demo: true)
+					anim = .pushRight
+					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
+				},
+				// "Changed your mind? Sign in" - the sign-in page becomes the root (its Back re-opens Sign up).
+				onSignIn: {
+					anim = .dissolve
+					withAnimation(FlowAnim.dissolve.animation) { stack = [.createAccount, .signIn] }
+				}
+			)
+			.id(FlowScreen.setPassword)
 		case .welcome:
 			IntroView { push(.brandPicks, .pushRight) }
 				.id(FlowScreen.welcome)

@@ -12,6 +12,12 @@ private enum PushedPage: Identifiable, Equatable {
 	case editProfile
 	case notifications
 	case settings(SettingsKind)
+	/// 08 · Profile (2026-10-07): Taste & risk and the quiz it re-enters.
+	case tasteRisk
+	case quiz(QuizRetakeFlow.Start)
+	/// 09 · Auth recovery from inside the app: Edit profile's "Email me a link" and the reset link.
+	case checkEmail(email: String)
+	case setPassword
 	case simPortfolio
 	/// Codex parity audit (2026-09-04): carries the tapped pick's ticker
 	/// (Simulate/PickDetailView.swift PickSpecs).
@@ -27,6 +33,10 @@ private enum PushedPage: Identifiable, Equatable {
 		case .editProfile: return "editProfile"
 		case .notifications: return "notifications"
 		case .settings(let kind): return "settings-\(kind.rawValue)"
+		case .tasteRisk: return "tasteRisk"
+		case .quiz(let start): return "quiz-\(start)"
+		case .checkEmail(let email): return "checkEmail-\(email)"
+		case .setPassword: return "setPassword"
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
 		case .leaderboard: return "leaderboard"
@@ -122,6 +132,8 @@ struct MainTabsView: View {
 	@State private var navStyle = NavStyle.forwardPush
 	/// Where covered content parks — see NavStyle.parkedShift.
 	@State private var parkedShift: CGFloat = UIScreen.main.bounds.width
+	/// The reset mail's link while the shell is up (09 · Auth recovery): Set a new password, pushed.
+	@ObservedObject private var links = DeepLinks.shared
 
 	private var pageWidth: CGFloat { UIScreen.main.bounds.width }
 
@@ -148,6 +160,10 @@ struct MainTabsView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.onAppear { if links.pendingReset { links.pendingReset = false; push(.setPassword) } }
+		.onChange(of: links.pendingReset) { _, pending in
+			if pending { links.pendingReset = false; push(.setPassword) }
+		}
 	}
 
 	/// One tab page — content, the stable bar and any hoisted ticket. The
@@ -227,6 +243,11 @@ struct MainTabsView: View {
 			}
 			.ignoresSafeArea(edges: .bottom)
 
+			// 11 · States - Home · Loading (1:6057) and Deck · Loading (1:6189) cover the page AND the tab
+			// bar while the tab warms up on its first open this process (Components/Skeletons.swift).
+			if tab == .home { WarmupOverlay(Warmup.home) { HomeLoadingSkeleton() } }
+			if tab == .discover { WarmupOverlay(Warmup.deck) { DeckLoadingSkeleton() } }
+
 			// Hoisted tickets — their scrims cover the tab bar, and living
 			// inside the tab page they ride any forward-push tab switch out
 			// with it.
@@ -285,7 +306,7 @@ struct MainTabsView: View {
 				isTop: isTop
 			)
 		case .stockDetail(let fromMyStak, let symbol):
-			StockDetailView(
+			StockDetailWarmup { StockDetailView(
 				// The My STAK entry's authored Back -> Collection is Instant
 				// (16:1012); the Discover entry's back is unauthored and
 				// keeps its instant pop.
@@ -303,7 +324,7 @@ struct MainTabsView: View {
 				// Authored (1:2579): the open state's tab bar SWAPs - pop the
 				// detail instantly and land on the tapped tab.
 				onTab: { pop(.instant, all: true, landing: $0) }
-			)
+			) }
 		case .collection(let id):
 			CollectionView(
 				// Unknown ids serve the authored AI & Tech sample.
@@ -319,19 +340,43 @@ struct MainTabsView: View {
 				onAddStock: { pop(.instant, all: true, landing: .discover) }
 			)
 		case .profile:
-			// Authored (171:995): Back = BACK action - the house back pop.
-			ProfileView(onBack: { pop() }, onLogOut: onLogOut, onOpenSetting: { kind in push(.settings(kind)) }, onEditProfile: {
-				// Two fingers on the block must not stack two edit pages (review 2026-09-07).
-				if pushed.last?.page != .editProfile { push(.editProfile) }
-			})
+			// 08 · Profile (1:5665): Back = the house back pop; YOUR STAK rows open Taste & risk, the paper
+			// portfolio and the leaderboard; ACCOUNT rows open the settings pages; Delete account clears to Create account.
+			ProfileView(
+				onBack: { pop() },
+				onLogOut: onLogOut,
+				onOpenSetting: { kind in push(.settings(kind)) },
+				onEditProfile: { if pushed.last?.page != .editProfile { push(.editProfile) } },
+				onOpenTasteRisk: { push(.tasteRisk) },
+				onOpenPortfolio: { push(.simPortfolio) },
+				onOpenLeaderboard: { push(.leaderboard) },
+				onAccountDeleted: onAccountDeleted
+			)
 		case .editProfile:
-			// House push in, house back out; Save pops back to the hub, which
-			// observes UserProfile and re-renders the avatar block. Pops only while
-			// this page is still on top: a second tap on Save during the pop must
-			// not take the hub with it.
-			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
+			// Profile · Edit (1:5782): house push in, house back out; Save pops back to the hub, which observes
+			// UserProfile. Pops only while this page is still on top (a second tap on Save during the pop).
+			EditProfileView(
+				onBack: { if pushed.last?.page == .editProfile { pop() } },
+				onSaved: { if pushed.last?.page == .editProfile { pop() } },
+				onResetPassword: { push(.checkEmail(email: UserProfile.shared.emailText)) }
+			)
+		case .tasteRisk:
+			TasteRiskView(
+				onBack: { pop() },
+				// The quiz steps are the onboarding frames; the retake flow returns here after 07.
+				onRetakeQuiz: { QuizRetake.active = true; push(.quiz(.brandPicks)) },
+				onChangeRisk: { QuizRetake.active = true; push(.quiz(.risk)) },
+				onChangeGoal: { QuizRetake.active = true; push(.quiz(.goal)) }
+			)
+		case .quiz(let start):
+			QuizRetakeFlow(start: start, onDone: { if case .quiz? = pushed.last?.page { pop() } })
+		case .checkEmail(let email):
+			CheckEmailView(email: email, onBack: { pop() })
+		case .setPassword:
+			// A signed-in account returns to where it was; "Sign in" from here is the same pop.
+			SetPasswordView(onBack: { pop() }, onSaved: { pop() }, onSignIn: { pop() })
 		case .notifications:
-			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
+			NotificationsView(onBack: { pop() })
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:
@@ -460,6 +505,21 @@ struct MainTabsView: View {
 					}
 				}
 			}
+		}
+	}
+}
+
+/// 11 · States - Stock detail · Loading (Chinedu_Mobile 1:6360, 2026-10-07): the content frame
+/// under the page's real top bar (56 below the status bar) on the first stock open this process.
+private struct StockDetailWarmup<Content: View>: View {
+	@ViewBuilder let content: () -> Content
+
+	var body: some View {
+		let u = figmaUnit
+		ZStack(alignment: .top) {
+			content()
+			WarmupOverlay(Warmup.stock) { StockDetailLoadingSkeleton() }
+				.padding(.top, 56 * u)
 		}
 	}
 }

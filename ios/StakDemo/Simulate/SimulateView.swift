@@ -94,12 +94,22 @@ struct SimulateView: View {
 							// 1:3914 (exact-design audit 2026-09-04): the 52-tall header sits 8 below the
 							// status bar with no bottom inset - the 18 above the hero is the Main column's own.
 							.padding(.top, 8 * u)
-							// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
-							// chooses its balance, name and strategy before its first trade.
-							if portfolio.needsSetup { PortfolioSetupCard() }
-							ScoreHero(onOpenLeaderboard: onOpenLeaderboard)
-							if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
+							// 11 · States - Simulate · Empty (Chinedu_Mobile 1:6543, 2026-10-07): until the first practice
+							// trade the page is the hero (no moves, unranked, no chart) and the invitation, nothing else.
+							// The FigJam portfolio-setup card (2026-09-14) is not in the frame; the first order records the
+							// default setup (PaperPortfolio.ensureSetup) and the card stays in Simulate/PortfolioSetupCard.swift.
+							ScoreHero(onOpenLeaderboard: onOpenLeaderboard, empty: portfolio.pickCount == 0)
 						}
+						if portfolio.pickCount == 0 {
+							EmptyStateBlock(
+								title: "No practice trades yet",
+								body_: "Pick a saved company and buy with paper money at real prices. Nothing here is real until you decide it is.",
+								bodyWidth: 270,
+								link: "See Today’s Pick",
+								onLink: onOpenDiscover
+							)
+						} else {
+						if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
 						sectionHeader("Saved staks")
 						let savedRows = savedStakRows()
 						if savedRows.isEmpty {
@@ -168,6 +178,7 @@ struct SimulateView: View {
 							SimAllocationCard()
 						} }
 						BoardCard(onOpenLeaderboard: onOpenLeaderboard)
+						}
 					}
 					.padding(.horizontal, 20 * u)
 					.padding(.bottom, 26 * u)
@@ -253,6 +264,8 @@ struct SimulateView: View {
 /// count follow the ledger; the week figures are the shared constants.
 private struct ScoreHero: View {
 	let onOpenLeaderboard: () -> Void
+	/// 1:6543: no trades yet - "No moves yet", "Unranked", no chart.
+	var empty: Bool = false
 
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 	/// Codex audit (2026-09-04): the live range - 3M as authored (1:3935).
@@ -290,7 +303,8 @@ private struct ScoreHero: View {
 						.padding(.bottom, 8 * u)
 				}
 				// The base is the account's own start ($1,000 / $100,000 after Portfolio setup; review 2026-09-14).
-				Text("\(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper · \(portfolio.pickCountText)")
+				// 1:6551 authors the untouched account's line without a sign: "$0.00 all time on $10,000 paper · 0 picks".
+				Text("\(empty ? PaperPortfolio.money(0) : PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper · \(portfolio.pickCountText)")
 					.font(StakFont.geist(12 * u, .light))
 					.foregroundStyle(Sim.muted)
 				HStack(spacing: 6 * u) {
@@ -301,12 +315,14 @@ private struct ScoreHero: View {
 						.font(StakFont.geist(12 * u, .medium))
 						.foregroundStyle(Sim.bright)
 				}
-				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) this week")
+				// 1:6556: an account with no trades reads "No moves yet" in the muted ink.
+				Text(empty ? "No moves yet" : "\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) this week")
 					.font(StakFont.geist(12 * u, .medium))
-					.foregroundStyle(Sim.green)
+					.foregroundStyle(empty ? Sim.muted : Sim.green)
 				// The "#47 this week" chip sits on its own row of the column.
 				Button(action: onOpenLeaderboard) {
-					Text(portfolio.rank.map { "#\($0) this week" } ?? "Unranked this week")
+					// 1:6559 authors the rankless chip as "Unranked".
+					Text(portfolio.rank.map { "#\($0) this week" } ?? "Unranked")
 						.font(StakFont.geist(12 * u, .medium))
 						.foregroundStyle(Sim.teal)
 						.padding(.horizontal, 11 * u)
@@ -320,8 +336,11 @@ private struct ScoreHero: View {
 			// Authored: ranks→chart gap is exactly the column's 11 (1:3935);
 			// the chart bleeds outside the 20u text padding.
 			// A new account's line follows its own all-time move - flat on untouched paper (product audit, 2026-09-05).
+			// 1:6560: no chart before the first trade - the range tabs follow the chip directly.
+			if !empty {
 			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u, move: portfolio.demo ? nil : portfolio.allTimeGain / portfolio.paperStart * 100)
 				.frame(maxWidth: .infinity)
+			}
 			HStack(spacing: 37 * u) {
 				ForEach(["1D", "1W", "1M", "3M", "YTD", "1Y"], id: \.self) { label in
 					Button { range = label } label: {

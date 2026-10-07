@@ -402,8 +402,9 @@ struct RiskStyleSheet: View {
 }
 
 /// Where the legal pages live - the landing site's routes.
-private let termsURL = "https://stak.app/terms"
-private let privacyURL = "https://stak.app/privacy"
+/// Where the legal pages live - the landing site's routes (the Profile hub's ACCOUNT rows use them too).
+let termsURL = "https://stak.app/terms"
+let privacyURL = "https://stak.app/privacy"
 
 /// A small selectable chip - the notification threshold, the portfolio setup's balances. Mirrors android SettingsChip.
 struct SettingsChip: View {

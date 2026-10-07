@@ -9,6 +9,9 @@ final class UserProfile: ObservableObject {
 
 	@Published var displayName: String = ""
 	@Published var photoData: Data? = nil
+	/// Profile · Edit (08 · Profile 1:5782): the leaderboard handle and the account email. Blank = the derived defaults below.
+	@Published var handle: String = ""
+	@Published var email: String = ""
 
 	/// The user's risk profile - the "Risk style" the taste graph derives
 	/// from the onboarding answers (05 Risk et al). Feeds the
@@ -42,6 +45,16 @@ final class UserProfile: ObservableObject {
 	var greetingName: String {
 		let name = displayName.trimmingCharacters(in: .whitespaces)
 		return (name.isEmpty ? "Hamza" : name).capitalizedWords
+	}
+
+	/// The handle as shown - the persona's authored "@hamza"; an account that never set one reads "@" + its display name.
+	var handleText: String {
+		handle.isEmpty ? "@" + greetingName.lowercased().replacingOccurrences(of: " ", with: "") : handle
+	}
+
+	/// The account email as shown - the sign-up address, or the persona's authored hamza@gmail.com (1:5782 / 1:5862).
+	var emailText: String {
+		email.isEmpty ? (Session.shared.demoAccount ? "hamza@gmail.com" : "") : email
 	}
 
 	/// BACKEND CONTRACT (user, 2026-08-22): the app sends the device's IANA

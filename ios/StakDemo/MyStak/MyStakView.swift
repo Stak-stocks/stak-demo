@@ -57,6 +57,18 @@ struct MyStakView: View {
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(.top, 20 * u)
+					// 11 · States - My STAK · Empty (Chinedu_Mobile 1:6002, 2026-10-07): nothing saved shows the
+					// empty block 300 from the frame top (64 + 54 header, the column's two 20 gaps and 142) and nothing else.
+					if holdings.count == 0 {
+						Spacer().frame(height: 142 * u)
+						EmptyStateBlock(
+							title: "Nothing saved yet",
+							body_: "Save a company from today’s deck and it lands here, sorted into a collection for you.",
+							bodyWidth: 234,
+							link: "Go to Deck",
+							onLink: onStartSwiping
+						)
+					} else {
 					SectionHeader(title: "Collections")
 					collectionsGrid
 					addMoreCta
@@ -69,6 +81,7 @@ struct MyStakView: View {
 					discoverBanner
 					// 1:3156: the Sections column ends at the Discover CTA and the 86 bottom
 					// padding IS the tab bar, so no trailing gap - exact-design audit 2026-09-04.
+					}
 				}
 				.padding(.horizontal, 20 * u)
 			}

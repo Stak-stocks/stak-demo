@@ -25,6 +25,8 @@ final class Session: ObservableObject {
 	private static let keyPrefs = "stak.prefs"
 	private static let keyJoined = "stak.joined"
 	private static let keyFirstRun = "stak.firstRunPending"
+	private static let keyHandle = "stak.handle"
+	private static let keyEmail = "stak.email"
 
 	@Published private(set) var signedIn: Bool
 
@@ -61,6 +63,8 @@ final class Session: ObservableObject {
 		UserProfile.shared.notificationsOn = d.object(forKey: Self.keyNotif) as? Bool ?? true
 		UserProfile.shared.accountLock = d.bool(forKey: Self.keyLock)
 		UserProfile.shared.joined = d.string(forKey: Self.keyJoined) ?? "July 2026"
+		UserProfile.shared.handle = d.string(forKey: Self.keyHandle) ?? ""
+		UserProfile.shared.email = d.string(forKey: Self.keyEmail) ?? ""
 		if let prefs = d.dictionary(forKey: Self.keyPrefs) {
 			let p = UserProfile.shared
 			p.priceAlerts = prefs["priceAlerts"] as? Bool ?? true
@@ -111,6 +115,9 @@ final class Session: ObservableObject {
 			UserProfile.shared.dailyDeck = true
 			UserProfile.shared.marketNews = false
 			UserProfile.shared.priceThreshold = 3
+			// The persona's authored handle and email (1:5782) are the derived defaults.
+			UserProfile.shared.handle = ""
+			UserProfile.shared.email = ""
 		}
 		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
 		UserProfile.shared.joined = demo ? "July 2026" : StakClock.monthYear()
@@ -167,6 +174,9 @@ final class Session: ObservableObject {
 		UserProfile.shared.linkedGoogle = false
 		UserProfile.shared.linkedApple = false
 		UserProfile.shared.joined = "July 2026"
+		UserProfile.shared.handle = ""
+		UserProfile.shared.email = ""
+		QuizRetake.active = false
 		let d = UserDefaults.standard
 		d.removeObject(forKey: Self.keySignedIn)
 		d.removeObject(forKey: Self.keyName)
@@ -181,6 +191,8 @@ final class Session: ObservableObject {
 		d.removeObject(forKey: Self.keyPrefs)
 		d.removeObject(forKey: Self.keyJoined)
 		d.removeObject(forKey: Self.keyFirstRun)
+		d.removeObject(forKey: Self.keyHandle)
+		d.removeObject(forKey: Self.keyEmail)
 		Self.savePhoto(nil)
 		applyAccount()
 	}
@@ -198,6 +210,8 @@ final class Session: ObservableObject {
 		d.set(UserProfile.shared.accountLock, forKey: Self.keyLock)
 		d.set(UserProfile.shared.joined, forKey: Self.keyJoined)
 		d.set(firstRunPending, forKey: Self.keyFirstRun)
+		d.set(UserProfile.shared.handle, forKey: Self.keyHandle)
+		d.set(UserProfile.shared.email, forKey: Self.keyEmail)
 		let p = UserProfile.shared
 		d.set(["priceAlerts": p.priceAlerts, "dailyDeck": p.dailyDeck, "marketNews": p.marketNews, "priceThreshold": p.priceThreshold, "appearance": p.appearance, "linkedGoogle": p.linkedGoogle, "linkedApple": p.linkedApple] as [String: Any], forKey: Self.keyPrefs)
 		Self.savePhoto(UserProfile.shared.photoData)

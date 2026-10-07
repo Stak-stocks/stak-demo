@@ -42,6 +42,18 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- The password-reset mail's link (09 · Auth recovery 1:5892): stak://reset opens Set a new password. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.stak.demo.reset</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>stak</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Sora-Light.ttf</string>

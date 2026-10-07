@@ -1226,6 +1226,38 @@ struct OrderFilledSheet: View {
 	}
 }
 
+/// "Couldn't place that trade" (Chinedu_Mobile 1:6036 · Practice buy · Failed, 2026-10-07): the
+/// title, the red "Order not placed" line, the stock row, the reassurance, Try again (back to the
+/// ticket) and Not now (close). Same 14 rhythm as the other sheets. Mirrors android OrderFailedContent.
+struct OrderFailedSheet: View {
+	let spec: BuySpec
+	let onTryAgain: () -> Void
+	let onNotNow: () -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(alignment: .leading, spacing: 14 * u) {
+			Text("Couldn’t place that trade")
+				.font(StakFont.sora(18 * u, .semiBold))
+				.foregroundStyle(Color.white)
+			Text("Order not placed")
+				.font(StakFont.geist(12 * u))
+				.foregroundStyle(Color(argb: 0xFFE5484D))
+			SheetStockRow(spec: spec)
+			Text("Prices are refreshing. Your paper cash wasn’t touched.")
+				.font(StakFont.geist(12 * u))
+				.stakLineHeight(18 * u, size: 12 * u, face: .geist)
+				.foregroundStyle(Disc.body)
+				.frame(maxWidth: .infinity, alignment: .leading)
+			VStack(spacing: 16 * u) {
+				SheetCta(text: "Try again", action: onTryAgain)
+				SheetSecondary(text: "Not now", action: onNotNow)
+			}
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
 /// Buy → Order-filled flow, reused by the Stock Detail page. Authored
 /// SMART_ANIMATE 350 (ticket 1:1970 -> receipt 85:1205; the same component
 /// backs 1:3423 -> 71:949 and 1:4232 -> 85:895): ONE sheet stays put while
@@ -1246,6 +1278,8 @@ struct DiscoverBuyFlow: View {
 	var onFilled: () -> Void = {}
 
 	@State private var filled = false
+	/// 11 · States - Practice buy · Failed (Chinedu_Mobile 1:6036, 2026-10-07): an order the ledger refused.
+	@State private var failed = false
 	/// Codex audit (2026-09-04): the chosen stake - both sheets read the
 	/// ticket AT this amount, so "You get", the cash after and "You now
 	/// hold" agree (1:1970 / 85:1205).
@@ -1263,20 +1297,29 @@ struct DiscoverBuyFlow: View {
 		let live = spec.withAmount(amount, cash: cashAtOpen)
 		SheetScaffold(onDismiss: onClose) {
 			ZStack(alignment: .top) {
-				if !filled {
+				if failed {
+					OrderFailedSheet(spec: live, onTryAgain: { failed = false }, onNotNow: onClose)
+						.transition(.opacity)
+				} else if !filled {
 					// Codex audit (2026-09-04): every host (Discover, Simulate, Stock
 					// Detail) fills through here, so the paper buy lands once, before
 					// the host's onFilled.
 					PracticeBuySheet(
 						spec: live,
 						onConfirm: {
-							guard !filled, PaperPortfolio.shared.canBuy(amount) else { return }
-							if let limit = limitPrice, limit < spec.price {
+							guard !filled else { return }
+							let placed: Bool
+							if !PaperPortfolio.shared.canBuy(amount) {
+								placed = false
+							} else if let limit = limitPrice, limit < spec.price {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
-								if PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit) { placedLimit = limit; filled = true }
+								placed = PaperPortfolio.shared.placeLimit(spec, amount: amount, limit: limit)
+								if placed { placedLimit = limit }
 							} else {
-								PaperPortfolio.shared.buy(spec, amount: amount); filled = true; onFilled()
+								PaperPortfolio.shared.buy(spec, amount: amount); onFilled(); placed = true
 							}
+							// Practice buy · Failed (1:6036): the ledger would not take the order - the cash is untouched.
+							if placed { filled = true } else { failed = true }
 						},
 						onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 },
 						limitPrice: limitPrice, onLimit: { limitPrice = $0 }
@@ -1300,6 +1343,7 @@ struct DiscoverBuyFlow: View {
 				}
 			}
 			.animation(.easeOut(duration: 0.35), value: filled)
+			.animation(.easeOut(duration: 0.35), value: failed)
 		}
 	}
 }
