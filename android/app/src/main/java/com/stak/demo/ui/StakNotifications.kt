@@ -11,13 +11,19 @@ import androidx.compose.runtime.setValue
  * state persists per account (StakStore). Mirrors ios StakNotifications.swift.
  */
 object StakNotifications {
-	data class Item(val id: String, val title: String, val body: String, val time: String)
+	/** `today` groups the row under TODAY (else EARLIER) on the Notifications page (1:5927). */
+	data class Item(val id: String, val title: String, val body: String, val time: String, val today: Boolean = true)
 
+	// The persona's inbox as authored (Chinedu_Mobile 1:5927, 2026-10-07).
 	private val DEMO = listOf(
-		Item("nvda-up", "NVDA is up 4.2% today", "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", "2h"),
-		Item("deck-ready", "Your deck is ready", "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", "8h"),
-		Item("weekly-recap", "Weekly recap", "You’re up +1.9% this week and #47 on the board. Nice.", "1d"),
+		Item("nvda-up", "NVDA is up 4.2% today", "One of your picks is moving. Tap to see why.", "2h"),
+		Item("brief-ready", "Your daily brief is ready", "Three stories matter for your STAK this morning.", "8h"),
+		Item("order-filled", "Practice order filled", "0.2048 NVDA at $122.10 · paper", "9h"),
+		Item("weekly-recap", "Weekly recap", "Your paper portfolio gained +1.9% last week.", "1d", today = false),
+		Item("deck-complete", "Deck complete", "You finished Friday’s deck. 12 of 12.", "3d", today = false),
 	)
+	/** 1:5927 authors the two newest rows unread and the rest read - the persona's inbox before its first open. */
+	private val DEMO_READ = setOf("order-filled", "weekly-recap", "deck-complete")
 
 	/**
 	 * A first-time user's inbox, and how it ages: the welcome is stamped with the
@@ -59,7 +65,7 @@ object StakNotifications {
 
 	/** Restores the inbox for the current account. */
 	fun load() {
-		readIds = StakStore.getSet("notif.read") ?: emptySet()
+		readIds = StakStore.getSet("notif.read") ?: (if (Session.demoAccount) DEMO_READ else emptySet())
 	}
 
 	/** Opening the inbox reads everything - like an activity feed. */

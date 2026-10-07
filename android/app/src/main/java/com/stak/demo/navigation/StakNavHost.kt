@@ -13,9 +13,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -83,6 +88,16 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		// Settled = only the top entry stays visible; the one-shot style
 		// falls back so system-back pops keep the house behaviour.
 		if (visibleEntries.size <= 1) shellPop.value = PopStyle.HOUSE_BACK
+	}
+	// The password-reset link (stak://reset / https://stak.app/reset, 09 · Auth recovery 1:5892): consumed
+	// once the splash (and the account lock) are out of the way, on a cold start or a warm one alike.
+	val backEntry by navController.currentBackStackEntryAsState()
+	LaunchedEffect(DeepLinks.pending, backEntry?.destination?.route) {
+		val route = backEntry?.destination?.route
+		if (DeepLinks.pending == DeepLinks.RESET && route != null && route != StakRoutes.SPLASH && route != StakRoutes.LOCK) {
+			DeepLinks.pending = null
+			navController.navigate(StakRoutes.SET_PASSWORD) { launchSingleTop = true }
+		}
 	}
 	// A4: pop the whole pushed chain back to the shell with a chosen
 	// style, optionally landing on a tab (via pendingShellTab).
@@ -229,7 +244,16 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			TasteRevealScreen(
 				onBack = { navController.popBackStack() },
-				onLetsGo = { navController.navigate(StakRoutes.PERMISSIONS) },
+				onLetsGo = {
+					if (com.stak.demo.ui.QuizRetake.active) {
+						// Profile · Taste & risk (1:5732): a retaken quiz lands back on the profile page with its new answers kept.
+						com.stak.demo.ui.QuizRetake.active = false
+						com.stak.demo.ui.Session.saveProfile()
+						navController.popBackStack(StakRoutes.TASTE_RISK, false)
+					} else {
+						navController.navigate(StakRoutes.PERMISSIONS)
+					}
+				},
 			)
 		}
 		composable(
@@ -284,7 +308,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onSignIn = { navController.navigate(StakRoutes.SIGN_IN) },
 				// FigJam entry flow (2026-09-14): an email sign-up verifies the address first.
 				// launchSingleTop: a fast double-tap during the 300 ms push must not stack two verification pages.
-				onVerifyEmail = { email -> navController.navigate(StakRoutes.verifyEmail(email)) { launchSingleTop = true } },
+				onVerifyEmail = { email -> com.stak.demo.ui.UserProfile.email = email; navController.navigate(StakRoutes.verifyEmail(email)) { launchSingleTop = true } },
 			)
 		}
 		composable(
@@ -389,7 +413,46 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			)
 		}
 		composable(StakRoutes.FORGOT_PASSWORD) {
-			com.stak.demo.ui.onboarding.ForgotPasswordScreen(onBack = { navController.popBackStack() })
+			com.stak.demo.ui.onboarding.ForgotPasswordScreen(
+				onBack = { navController.popBackStack() },
+				// 1:5830 -> 1:5862: the sent link's confirmation page (house forward push).
+				onSent = { email -> navController.navigate(StakRoutes.checkEmail(email)) { launchSingleTop = true } },
+				// "Remembered it? Sign in" - back to the sign-in page beneath.
+				onSignIn = { navController.popBackStack() },
+			)
+		}
+		composable(
+			StakRoutes.CHECK_EMAIL,
+			arguments = listOf(navArgument("email") { defaultValue = "" }),
+		) { entry ->
+			com.stak.demo.ui.onboarding.CheckEmailScreen(
+				email = entry.arguments?.getString("email").orEmpty(),
+				onBack = { navController.popBackStack() },
+			)
+		}
+		composable(
+			StakRoutes.SET_PASSWORD,
+			// The reset mail's link (DeepLinks also catches it for a running app).
+			deepLinks = listOf(navDeepLink { uriPattern = "stak://reset" }, navDeepLink { uriPattern = "https://stak.app/reset" }),
+		) {
+			com.stak.demo.ui.onboarding.SetPasswordScreen(
+				onBack = { navController.popBackStack() },
+				// "You'll stay signed in on this phone": a signed-in account returns to where it was; a signed-out
+				// one is the demo persona recovering its account - signed in, straight to Home (demo rule).
+				onSaved = {
+					if (com.stak.demo.ui.Session.signedIn) {
+						navController.popBackStack()
+					} else {
+						com.stak.demo.ui.Session.signIn(demo = true)
+						navController.navigate(StakRoutes.MAIN) { popUpTo(0) { inclusive = true } }
+					}
+				},
+				// "Changed your mind? Sign in" - the sign-in page becomes the root (its Back re-opens Sign up).
+				onSignIn = {
+					if (com.stak.demo.ui.Session.signedIn) navController.popBackStack()
+					else navController.navigate(StakRoutes.SIGN_IN) { popUpTo(0) { inclusive = true } }
+				},
+			)
 		}
 		composable(
 			StakRoutes.MAIN,
@@ -462,7 +525,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popEnterTransition = { EnterTransition.None },
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
-			StockDetailScreen(
+			StockDetailWarmup { StockDetailScreen(
 				onBack = { navController.popBackStack() },
 				symbol = entry.arguments?.getString("symbol") ?: "AAPL",
 				// B5 (1:2382 Motion): Practice buy leaves the detail and
@@ -474,7 +537,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				onKeepExploring = { popToShell(PopStyle.DISSOLVE, MainTab.Discover) },
 				// B9 (1:2579): the open state's tab bar - each tab pops Instant.
 				onTab = { popToShell(PopStyle.INSTANT, it) },
-			)
+			) }
 		}
 		composable(
 			StakRoutes.COLLECTION,
@@ -504,7 +567,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			popEnterTransition = { EnterTransition.None },
 			popExitTransition = { popExitFor(shellPop.value, instantRoute = true) },
 		) { entry ->
-			StockDetailScreen(
+			StockDetailWarmup { StockDetailScreen(
 				onBack = { navController.popBackStack() },
 				// Codex parity audit (2026-09-04): the tapped tile's ticker,
 				// same as the Discover deck's Learn more (STOCK_DETAIL above).
@@ -513,7 +576,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// B13 (71:949/71:994 Motion): View in My STAK forward-pushes
 				// the Overview - the detail (and Collection) pop to the shell.
 				onViewInMyStak = { popToShell(PopStyle.FORWARD_PUSH, MainTab.MySTAK) },
-			)
+			) }
 		}
 		composable(
 			StakRoutes.SIM_PORTFOLIO,
@@ -609,8 +672,14 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// launchSingleTop: two fingers on the block must not stack two edit pages (review 2026-09-07).
 				onEditProfile = { navController.navigate(StakRoutes.EDIT_PROFILE) { launchSingleTop = true } },
 				onBack = { navController.popBackStack() },
-				// Product audit (2026-09-05): the rows open their settings pages.
+				// 08 · Profile (1:5665): YOUR STAK rows open the Taste & risk page, the paper portfolio and the leaderboard.
+				onOpenTasteRisk = { navController.navigate(StakRoutes.TASTE_RISK) { launchSingleTop = true } },
+				onOpenPortfolio = { navController.navigate(StakRoutes.SIM_PORTFOLIO) { launchSingleTop = true } },
+				onOpenLeaderboard = { navController.navigate(StakRoutes.LEADERBOARD) { launchSingleTop = true } },
+				// ACCOUNT rows: Notifications -> its settings page, Contact support -> Help & support (product audit, 2026-09-05).
 				onOpenSetting = { kind -> navController.navigate(StakRoutes.settings(kind)) },
+				// Delete account (1:5710): the session is gone, the stack clears to Create account.
+				onAccountDeleted = { navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } } },
 				onLogOut = {
 					com.stak.demo.ui.Session.signOut()
 					// B21: the session ends and the whole stack clears.
@@ -630,12 +699,23 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			val popEdit: () -> Unit = {
 				if (navController.currentBackStackEntry?.destination?.route == StakRoutes.EDIT_PROFILE) navController.popBackStack()
 			}
-			com.stak.demo.ui.onboarding.ProfileSetupScreen(editing = true, onBack = popEdit, onProceed = popEdit)
+			// Profile · Edit (1:5782) replaced the reused 09 frame on 2026-10-07; Reset password -> Check your email with the account's address.
+			com.stak.demo.ui.profile.EditProfileScreen(
+				onBack = popEdit,
+				onSaved = popEdit,
+				onResetPassword = { navController.navigate(StakRoutes.checkEmail(com.stak.demo.ui.UserProfile.emailText)) { launchSingleTop = true } },
+			)
 		}
 		composable(StakRoutes.NOTIFICATIONS) {
-			com.stak.demo.ui.inbox.NotificationsScreen(
+			com.stak.demo.ui.inbox.NotificationsScreen(onBack = { navController.popBackStack() })
+		}
+		composable(StakRoutes.TASTE_RISK) {
+			com.stak.demo.ui.profile.TasteRiskScreen(
 				onBack = { navController.popBackStack() },
-				onOpenSettings = { navController.navigate(StakRoutes.settings(com.stak.demo.ui.profile.SettingsKind.NOTIFICATIONS)) },
+				// The quiz steps are the onboarding frames; QuizRetake brings 07's Lets go back here.
+				onRetakeQuiz = { com.stak.demo.ui.QuizRetake.active = true; navController.navigate(StakRoutes.BRAND_PICKS) { launchSingleTop = true } },
+				onChangeRisk = { com.stak.demo.ui.QuizRetake.active = true; navController.navigate(StakRoutes.RISK) { launchSingleTop = true } },
+				onChangeGoal = { com.stak.demo.ui.QuizRetake.active = true; navController.navigate(StakRoutes.GOAL) { launchSingleTop = true } },
 			)
 		}
 		composable(StakRoutes.SETTINGS) { entry ->
@@ -873,6 +953,10 @@ private fun MainShell(
 					MainTabBar(selected = page, onSelect = { if (it == MainTab.Discover && page == MainTab.Discover) discoverResetKey++ else switchTab(it) })
 				}
 			}
+			// 11 · States - Home · Loading (1:6057) and Deck · Loading (1:6189) cover the page AND the tab
+			// bar while the tab warms up on its first open this process (Skeletons.kt).
+			if (page == MainTab.Home) com.stak.demo.ui.components.WarmupOverlay(com.stak.demo.ui.components.Warmup.HOME) { com.stak.demo.ui.components.HomeLoadingSkeleton() }
+			if (page == MainTab.Discover) com.stak.demo.ui.components.WarmupOverlay(com.stak.demo.ui.components.Warmup.DECK) { com.stak.demo.ui.components.DeckLoadingSkeleton() }
 			// Practice-buy flow overlays the whole shell — in frame 1:1970 the
 			// ticket's scrim covers the tab bar and the sheet meets the screen
 			// bottom, so it cannot live inside the tab content area. It rides
@@ -933,6 +1017,21 @@ private fun MainShell(
 					}
 				}
 			}
+		}
+	}
+}
+
+/**
+ * 11 · States - Stock detail · Loading (Chinedu_Mobile 1:6360, 2026-10-07): the content frame
+ * under the page's real top bar (56 below the status bar) on the first stock open this process.
+ */
+@Composable
+private fun StockDetailWarmup(content: @Composable () -> Unit) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Box(modifier = Modifier.fillMaxSize()) {
+		content()
+		Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(top = (56 * u).dp)) {
+			com.stak.demo.ui.components.WarmupOverlay(com.stak.demo.ui.components.Warmup.STOCK) { com.stak.demo.ui.components.StockDetailLoadingSkeleton() }
 		}
 	}
 }

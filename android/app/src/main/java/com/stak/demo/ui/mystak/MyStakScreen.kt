@@ -110,6 +110,18 @@ fun MyStakScreen(onOpenCollection: (String) -> Unit, onStartSwiping: () -> Unit)
 					color = Muted,
 				)
 			}
+			// 11 · States - My STAK · Empty (Chinedu_Mobile 1:6002, 2026-10-07): nothing saved shows the
+			// empty block 300 from the frame top (64 + 54 header, the column's two 20 gaps and 142) and nothing else.
+			if (com.stak.demo.ui.MyStakHoldings.count == 0) {
+				Spacer(modifier = Modifier.height((142 * u).dp))
+				com.stak.demo.ui.components.EmptyStateBlock(
+					title = "Nothing saved yet",
+					body = "Save a company from today’s deck and it lands here, sorted into a collection for you.",
+					bodyWidth = 234f,
+					link = "Go to Deck",
+					onLink = onStartSwiping,
+				)
+			} else {
 			SectionHeader("Collections")
 			Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.fillMaxWidth()) {
 				// B10 (1:3180 Motion): the sample card's edge is the TEMPLATE -
@@ -244,6 +256,7 @@ fun MyStakScreen(onOpenCollection: (String) -> Unit, onStartSwiping: () -> Unit)
 						color = Ink,
 					)
 				}
+			}
 			}
 			// 1:3156: the Sections column ends at the Discover CTA and the 86 bottom
 			// padding IS the tab bar, so no trailing gap - exact-design audit 2026-09-04.

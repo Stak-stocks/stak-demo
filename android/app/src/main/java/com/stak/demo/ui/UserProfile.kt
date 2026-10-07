@@ -12,6 +12,9 @@ import androidx.compose.runtime.setValue
 object UserProfile {
 	var displayName by mutableStateOf("")
 	var photoUri by mutableStateOf<String?>(null)
+	/** Profile · Edit (08 · Profile 1:5782): the leaderboard handle and the account email. Blank = the derived defaults below. */
+	var handle by mutableStateOf("")
+	var email by mutableStateOf("")
 
 	/**
 	 * The user's risk profile - the "Risk style" the taste graph derives
@@ -43,6 +46,14 @@ object UserProfile {
 	/** The month the account was created ("September 2026"); the demo's authored "July 2026". */
 	var joined by mutableStateOf("July 2026")
 
+	/** The handle as shown - the persona's authored "@hamza"; an account that never set one reads "@" + its display name. */
+	val handleText: String
+		get() = handle.ifBlank { "@" + greetingName.lowercase().replace(" ", "") }
+
+	/** The account email as shown - the sign-up address, or the persona's authored hamza@gmail.com (1:5782 / 1:5862). */
+	val emailText: String
+		get() = email.ifBlank { if (Session.demoAccount) "hamza@gmail.com" else "" }
+
 	/** The name as the app addresses the user - always capitalized. */
 	val greetingName: String
 		get() = displayName.ifBlank { "Hamza" }.capitalizeWords()
@@ -68,3 +79,11 @@ object UserProfile {
 fun String.capitalizeWords(): String =
 	// Consecutive spaces produce empty segments - dropped, so typed spacing never trips this (Copilot review, PR #166).
 	split(" ").filter { it.isNotEmpty() }.joinToString(" ") { w -> w.replaceFirstChar { c -> c.titlecase() } }
+
+/**
+ * Profile · Taste & risk (1:5732): "Retake the taste quiz" / "Change" re-enter the onboarding quiz from the
+ * profile; while this is set, 07 Taste reveal's Lets go returns to the profile page instead of going on to 08.
+ */
+object QuizRetake {
+	var active by mutableStateOf(false)
+}

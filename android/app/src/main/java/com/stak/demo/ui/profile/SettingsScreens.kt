@@ -286,8 +286,8 @@ private fun FaqRow(question: String, answer: String) {
 }
 
 /** Where the legal pages live - the landing site's routes. */
-private const val TERMS_URL = "https://stak.app/terms"
-private const val PRIVACY_URL = "https://stak.app/privacy"
+internal const val TERMS_URL = "https://stak.app/terms"
+internal const val PRIVACY_URL = "https://stak.app/privacy"
 
 /** A small selectable chip - the notification threshold, the portfolio setup's balances. */
 @Composable

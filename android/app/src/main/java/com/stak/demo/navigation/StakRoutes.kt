@@ -41,8 +41,15 @@ object StakRoutes {
 	/** The Profile hub's settings pages - `kind` is a SettingsKind. */
 	const val SETTINGS = "settings/{kind}"
 	fun settings(kind: String) = "settings/$kind"
-	/** Sign in's "Forgot password?" */
+	/** Sign in's "Forgot password?" - Auth · Forgot password (09 · Auth recovery 1:5830). */
 	const val FORGOT_PASSWORD = "auth/forgot-password"
+	/** Auth · Check your email (1:5862) - `email` is the address the reset link went to. */
+	const val CHECK_EMAIL = "auth/check-email?email={email}"
+	fun checkEmail(email: String) = "auth/check-email?email=" + android.net.Uri.encode(email)
+	/** Auth · Set a new password (1:5892) - opened by the reset link (stak://reset, https://stak.app/reset). */
+	const val SET_PASSWORD = "auth/set-password"
+	/** Profile · Taste & risk (08 · Profile 1:5732). */
+	const val TASTE_RISK = "profile/taste-risk"
 	const val SIM_PORTFOLIO = "simulate/portfolio"
 	/** Pick detail - `symbol` is the tapped pick's ticker; NVDA is the authored frame (1:4631). Codex parity audit (2026-09-04). */
 	const val SIM_PICK = "simulate/pick/{symbol}"

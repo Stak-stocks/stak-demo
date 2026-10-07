@@ -33,6 +33,8 @@ object Session {
 	private const val KEY_LINKED_GOOGLE = "linked_google"
 	private const val KEY_LINKED_APPLE = "linked_apple"
 	private const val KEY_JOINED = "joined"
+	private const val KEY_HANDLE = "handle"
+	private const val KEY_EMAIL = "email"
 	private const val KEY_FIRST_RUN = "first_run_pending"
 
 	private var prefs: SharedPreferences? = null
@@ -95,6 +97,8 @@ object Session {
 		UserProfile.linkedGoogle = p.getBoolean(KEY_LINKED_GOOGLE, false)
 		UserProfile.linkedApple = p.getBoolean(KEY_LINKED_APPLE, false)
 		UserProfile.joined = p.getString(KEY_JOINED, "July 2026") ?: "July 2026"
+		UserProfile.handle = p.getString(KEY_HANDLE, "") ?: ""
+		UserProfile.email = p.getString(KEY_EMAIL, "") ?: ""
 		applyAccount()
 	}
 
@@ -122,6 +126,9 @@ object Session {
 			UserProfile.dailyDeck = true
 			UserProfile.marketNews = false
 			UserProfile.priceThreshold = 3
+			// The persona's authored handle and email (1:5782) are the derived defaults.
+			UserProfile.handle = ""
+			UserProfile.email = ""
 		}
 		// The demo persona joined in July; a new account joins now (product audit, 2026-09-05).
 		UserProfile.joined = if (demo) "July 2026" else StakClock.monthYear()
@@ -188,6 +195,9 @@ object Session {
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false
 		UserProfile.joined = "July 2026"
+		UserProfile.handle = ""
+		UserProfile.email = ""
+		QuizRetake.active = false
 		prefs?.edit()?.clear()?.apply()
 		// The copied avatar leaves with the session it belonged to (Codex review, PR #166):
 		// Delete account promised the photo is gone, and a logged-out profile keeps no photo.
@@ -215,6 +225,8 @@ object Session {
 			?.putBoolean(KEY_LINKED_GOOGLE, UserProfile.linkedGoogle)
 			?.putBoolean(KEY_LINKED_APPLE, UserProfile.linkedApple)
 			?.putString(KEY_JOINED, UserProfile.joined)
+			?.putString(KEY_HANDLE, UserProfile.handle)
+			?.putString(KEY_EMAIL, UserProfile.email)
 			?.putBoolean(KEY_FIRST_RUN, firstRunPending)
 			?.apply()
 	}

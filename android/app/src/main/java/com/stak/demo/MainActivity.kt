@@ -60,6 +60,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 		ContextCompat.registerReceiver(
 			this, pipControls, IntentFilter(NewsPip.ACTION), ContextCompat.RECEIVER_NOT_EXPORTED,
 		)
+		// The password-reset link (09 · Auth recovery): StakRoot opens Set a new password once the splash is done.
+		if (com.stak.demo.navigation.DeepLinks.isReset(intent?.data)) com.stak.demo.navigation.DeepLinks.pending = com.stak.demo.navigation.DeepLinks.RESET
 		if (savedInstanceState == null) {
 			// Cold start: the FIRST frame is the 00 Splash frame drawn with plain
 			// views (PreSplashView), so the OS launch window (a navy blank on
@@ -85,6 +87,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 		} else {
 			compose()
 		}
+	}
+
+	override fun onNewIntent(intent: Intent) {
+		super.onNewIntent(intent)
+		// A running app opened by the reset mail's link.
+		if (com.stak.demo.navigation.DeepLinks.isReset(intent.data)) com.stak.demo.navigation.DeepLinks.pending = com.stak.demo.navigation.DeepLinks.RESET
 	}
 
 	/** The app's Compose content; see onCreate for why it may come one frame late. */

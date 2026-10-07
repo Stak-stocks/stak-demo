@@ -187,10 +187,21 @@ internal fun SimulateScreen(
 						Image(painterResource(R.drawable.ic_sim_clock), "History", modifier = Modifier.size((18 * u).dp))
 					}
 				}
-				// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
-				// chooses its balance, name and strategy before its first trade.
-				if (PaperPortfolio.needsSetup) PortfolioSetupCard()
-				ScoreHero(onOpenLeaderboard = onOpenLeaderboard)
+				// 11 · States - Simulate · Empty (Chinedu_Mobile 1:6543, 2026-10-07): until the first practice
+				// trade the page is the hero (no moves, unranked, no chart) and the invitation, nothing else.
+				// The FigJam portfolio-setup card (2026-09-14) is not in the frame; the first order records the
+				// default setup (PaperPortfolio.ensureSetup) and the card stays available in PortfolioSetupCard.kt.
+				val noTrades = PaperPortfolio.pickCount == 0
+				ScoreHero(onOpenLeaderboard = onOpenLeaderboard, empty = noTrades)
+				if (noTrades) {
+					com.stak.demo.ui.components.EmptyStateBlock(
+						title = "No practice trades yet",
+						body = "Pick a saved company and buy with paper money at real prices. Nothing here is real until you decide it is.",
+						bodyWidth = 270f,
+						link = "See Today’s Pick",
+						onLink = onOpenDiscover,
+					)
+				} else {
 				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
 				val savedRows = savedStakRows()
@@ -273,6 +284,7 @@ internal fun SimulateScreen(
 					SimAllocationCard()
 				}
 				BoardCard(onOpenLeaderboard = onOpenLeaderboard)
+				}
 			}
 		}
 		buySpec?.let { spec ->
@@ -379,7 +391,7 @@ internal fun EmptyStateCard(title: String, body: String, link: String? = null, o
 
 /** Portfolio value hero — $10,240.00, cash, weekly change, chart + pills. */
 @Composable
-private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
+private fun ScoreHero(onOpenLeaderboard: () -> Unit, empty: Boolean = false) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// Codex audit (2026-09-04): the range pills select; "3M" is the authored
 	// default (1:3935) and keeps the authored chart image.
@@ -419,7 +431,8 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		}
 		Text(
-			text = "${PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)} paper · ${PaperPortfolio.pickCountText}",
+			// 1:6551 authors the untouched account's line without a sign: "$0.00 all time on $10,000 paper · 0 picks".
+			text = "${if (empty) PaperPortfolio.usd(0.0) else PaperPortfolio.signedUsd(PaperPortfolio.allTimeGain)} all time on ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)} paper · ${PaperPortfolio.pickCountText}",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Sim.Muted,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
@@ -437,9 +450,10 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 			)
 		}
 		Text(
-			text = "${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) this week",
+			// 1:6556: an account with no trades reads "No moves yet" in the muted ink.
+			text = if (empty) "No moves yet" else "${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) this week",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = if (PaperPortfolio.weekUp) Sim.Green else Sim.Red,
+			color = if (empty) Sim.Muted else if (PaperPortfolio.weekUp) Sim.Green else Sim.Red,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
 		)
 		Box(
@@ -455,7 +469,8 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 				.padding(horizontal = (11 * u).dp, vertical = (6 * u).dp),
 		) {
 			Text(
-				text = PaperPortfolio.weekRank?.let { "#$it this week" } ?: "Unranked this week",
+				// 1:6559 authors the rankless chip as "Unranked".
+				text = PaperPortfolio.weekRank?.let { "#$it this week" } ?: "Unranked",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Sim.Teal,
 			)
@@ -463,7 +478,10 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 		// Authored: ranks→chart gap is exactly the column's 11 (1:3935).
 		val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((343 * u).dp, (73.56 * u).dp)
 		val series = RANGE_SERIES[range]
-		if (series == null && PaperPortfolio.demo) {
+		if (empty) {
+			// 1:6560: no chart before the first trade - the range tabs follow the chip directly (the
+			// authored flat baseline sits 53 under the tabs, inside the card's clip - never visible).
+		} else if (series == null && PaperPortfolio.demo) {
 			Image(
 				painter = painterResource(R.drawable.sim_chart_line),
 				contentDescription = null,
@@ -479,8 +497,8 @@ private fun ScoreHero(onOpenLeaderboard: () -> Unit) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy((37 * u).dp),
-			// Authored chart→pills gap 40; the column gap contributes 11.
-			modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = (29 * u).dp),
+			// Authored chart→pills gap 40; the column gap contributes 11. No chart, no gap (1:6560).
+			modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = ((if (empty) 0f else 29f) * u).dp),
 		) {
 			listOf("1D", "1W", "1M", "3M", "YTD", "1Y").forEach { label ->
 				val select = Modifier.clickable(

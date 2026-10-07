@@ -1376,6 +1376,42 @@ private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, s
 	}
 }
 
+/** The practice ticket's three faces. */
+private enum class SheetState { TICKET, FILLED, FAILED }
+
+/**
+ * "Couldn't place that trade" (Chinedu_Mobile 1:6036 · Practice buy · Failed, 2026-10-07): the
+ * title, the red "Order not placed" line, the stock row, the reassurance, Try again (back to the
+ * ticket) and Not now (close). Same 14 rhythm and 30 bottom pad as the other sheets.
+ */
+@Composable
+private fun OrderFailedContent(onTryAgain: () -> Unit, onNotNow: () -> Unit, spec: BuySpec) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.fillMaxWidth()) {
+		Text(
+			text = "Couldn’t place that trade",
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp, lineHeight = (23 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Color.White,
+		)
+		Text(
+			text = "Order not placed",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Color(0xFFE5484D),
+		)
+		NvdaStockRow(spec)
+		Text(
+			text = "Prices are refreshing. Your paper cash wasn’t touched.",
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Disc.Body,
+			modifier = Modifier.fillMaxWidth(),
+		)
+		Column(verticalArrangement = Arrangement.spacedBy((16 * u).dp), modifier = Modifier.fillMaxWidth()) {
+			SheetCta(text = "Try again", onClick = onTryAgain)
+			SheetSecondary(text = "Not now", onClick = onNotNow)
+		}
+	}
+}
+
 /** 44dp progress ring — #2a3346 track + #69b3ca arc from 12 o'clock. */
 @Composable
 private fun ProgressRing(progress: Float, u: Float) {
@@ -1526,6 +1562,8 @@ internal fun DiscoverBuyFlow(
 	onFilled: () -> Unit = {},
 ) {
 	var filled by rememberSaveable { mutableStateOf(false) }
+	// 11 · States - Practice buy · Failed (Chinedu_Mobile 1:6036, 2026-10-07): an order the ledger refused.
+	var failed by rememberSaveable { mutableStateOf(false) }
 	// Codex audit (2026-09-04): the chosen stake - the authored $25 by
 	// default; both sheets read spec.withAmount(amount), so "You get",
 	// "Cash available" after and "You now hold" follow the pills.
@@ -1542,7 +1580,7 @@ internal fun DiscoverBuyFlow(
 	// The scrim tap is unauthored - it keeps the per-state plain dismiss.
 	SheetScaffold(onDismiss = { if (filled) onFilledSecondary() else onClose() }) {
 		AnimatedContent(
-			targetState = filled,
+			targetState = if (filled) SheetState.FILLED else if (failed) SheetState.FAILED else SheetState.TICKET,
 			transitionSpec = {
 				ContentTransform(
 					fadeIn(tween(350, easing = EaseOut)),
@@ -1552,21 +1590,25 @@ internal fun DiscoverBuyFlow(
 			},
 			contentAlignment = Alignment.BottomCenter,
 			label = "buyMorph",
-		) { isFilled ->
-			if (!isFilled) {
+		) { state ->
+			if (state == SheetState.TICKET) {
 				PracticeBuyContent(
 					// Every host's Confirm (Discover, Simulate, Stock Detail) fills
 					// the order into the shared paper portfolio, then tells the host.
 					// The order is checked again at confirm (Codex review, PR #166) - nothing fills past the cash on hand.
 					onConfirm = {
-						if (!filled && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
+						if (!filled) {
 							val limit = limitPrice
-							if (limit != null && limit < spec.price) {
+							val placed = if (!com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
+								false
+							} else if (limit != null && limit < spec.price) {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
-								if (com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(spec, amount, limit)) { placedLimit = limit; filled = true }
+								com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(spec, amount, limit).also { if (it) placedLimit = limit }
 							} else {
-								filled = true; com.stak.demo.ui.simulate.PaperPortfolio.buy(spec, amount); onFilled()
+								com.stak.demo.ui.simulate.PaperPortfolio.buy(spec, amount); onFilled(); true
 							}
+							// Practice buy · Failed (1:6036): the ledger would not take the order - the cash is untouched.
+							if (placed) filled = true else failed = true
 						}
 					},
 					onDismiss = onClose,
@@ -1577,6 +1619,8 @@ internal fun DiscoverBuyFlow(
 					limitPrice = limitPrice,
 					onLimit = { limitPrice = it },
 				)
+			} else if (state == SheetState.FAILED) {
+				OrderFailedContent(onTryAgain = { failed = false }, onNotNow = onClose, spec = live)
 			} else {
 				// Review 2026-09-04: "You now hold" is the whole holding after the
 				// fill - a top-up shows the summed shares, not just this order's.
