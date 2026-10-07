@@ -22,28 +22,15 @@ struct SimPick: Codable {
 final class PaperPortfolio: ObservableObject {
 	static let shared = PaperPortfolio()
 
-	/// Authored (1:3898): "$10,000 paper", "+$240.00 all time", "Cash available $8,800.00".
+	/// Authored (1:3898): "$10,000 paper", "+$240.00 all time", "Cash available $8,800.00". Every account
+	/// starts here (1:6543); the FigJam setup card that let a new account pick its balance (2026-09-14)
+	/// is not in the Figma and was removed with the user's ruling of 2026-10-07. Mirrors android PAPER_START.
 	static let defaultPaperStart = 10000.0
-	/// What an account that trades before setting up is called (Codex review, PR #167).
-	static let defaultPortfolioName = "My first portfolio"
-	static let defaultStrategy = "Balanced"
-	/// Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
-	/// Strategy). A NEW account picks its starting balance before its first trade;
-	/// the demo persona is the authored $10,000 portfolio. Persisted with the
-	/// ledger. Mirrors android PaperPortfolio.paperStart & co.
-	@Published private(set) var paperStart = PaperPortfolio.defaultPaperStart
-	@Published private(set) var portfolioName = ""
-	@Published private(set) var strategy = ""
-	@Published private(set) var setupDone = false
+	var paperStart: Double { PaperPortfolio.defaultPaperStart }
 	/// Every buy and sell, newest first (FigJam: Trade history).
 	@Published private(set) var trades: [Trade] = []
 	/// Limit orders waiting for their price, newest first (FigJam: Order pending).
 	@Published private(set) var openOrders: [OpenOrder] = []
-	/// The setup card shows until the account has set up or touched its ledger - a trade, a held
-	/// position (a pre-2026-09-14 ledger has positions but no trade log) or a reserved limit order
-	/// (placeLimit records no trade). Review 2026-09-14: setup() must never rebase cash under a reservation.
-	var needsSetup: Bool { !demo && !setupDone && untouched }
-	private var untouched: Bool { trades.isEmpty && positions.isEmpty && openOrders.isEmpty }
 	/// All-time gain = today's value over the paper start (the demo's authored $240 falls out of its $10,240).
 	var allTimeGain: Double { portfolioValue - paperStart }
 	@Published var cash: Double = 8800
@@ -68,10 +55,6 @@ final class PaperPortfolio: ObservableObject {
 	func reset(demo: Bool) {
 		self.demo = demo
 		newStake = 0
-		paperStart = PaperPortfolio.defaultPaperStart
-		portfolioName = demo ? "Hamza\u{2019}s paper" : ""
-		strategy = demo ? "Balanced" : ""
-		setupDone = demo
 		openOrders = []
 		// The persona's authored history as a trade log: a buy per seeded row on its
 		// picked day, a sell per realized row (undated seeds order by their rows).
@@ -104,15 +87,7 @@ final class PaperPortfolio: ObservableObject {
 			realized = saved.realized
 			cash = saved.cash
 			newStake = saved.newStake
-			// Fields the FigJam Simulate work added (2026-09-14) - a ledger persisted before them keeps its defaults.
-			if let start = saved.paperStart {
-				paperStart = start
-				baseValue = demo ? 10240 : start
-				baseCash = demo ? 8800 : start
-			}
-			if let name = saved.name { portfolioName = name }
-			if let strategy = saved.strategy { self.strategy = strategy }
-			if let done = saved.setupDone { setupDone = done }
+			// The trade log and open orders (FigJam Simulate work, 2026-09-14) - a ledger persisted before them keeps its defaults.
 			if let trades = saved.trades { self.trades = trades }
 			if let orders = saved.orders { openOrders = orders }
 		}
@@ -124,40 +99,13 @@ final class PaperPortfolio: ObservableObject {
 		let positions: [Position]
 		let realized: [Realized]
 		// Optional so an older ledger still decodes (FigJam Simulate board, 2026-09-14).
-		var paperStart: Double? = nil
-		var name: String? = nil
-		var strategy: String? = nil
-		var setupDone: Bool? = nil
 		var trades: [Trade]? = nil
 		var orders: [OpenOrder]? = nil
 	}
 
 	private func persist() {
-		let ledger = Ledger(cash: cash, newStake: newStake, positions: positions, realized: realized, paperStart: paperStart, name: portfolioName, strategy: strategy, setupDone: setupDone, trades: trades, orders: openOrders)
+		let ledger = Ledger(cash: cash, newStake: newStake, positions: positions, realized: realized, trades: trades, orders: openOrders)
 		if let data = try? JSONEncoder().encode(ledger) { StakStore.set(data, for: "portfolio") }
-	}
-
-	/// Portfolio setup: only before the first trade, never for the demo persona.
-	/// An order placed before the setup card was used records the default setup with it
-	/// (Codex review, PR #167): the card never hides on an account that reads as unset,
-	/// and the hero's name line has something true to say.
-	private func ensureSetup() {
-		guard !demo, !setupDone else { return }
-		portfolioName = PaperPortfolio.defaultPortfolioName
-		strategy = PaperPortfolio.defaultStrategy
-		setupDone = true
-	}
-
-	func setup(balance: Double, name: String, strategy: String) {
-		guard needsSetup else { return }
-		paperStart = balance
-		cash = balance
-		baseValue = balance
-		baseCash = balance
-		portfolioName = name
-		self.strategy = strategy
-		setupDone = true
-		persist()
 	}
 
 	/// The persona's authored history as a trade log (sells first, then the seeded buys).
@@ -183,7 +131,6 @@ final class PaperPortfolio: ObservableObject {
 	@discardableResult
 	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double) -> Bool {
 		guard canBuy(amount), limit > 0 else { return false }
-		ensureSetup()
 		cash -= amount
 		openOrders.insert(OpenOrder(id: "\(spec.symbol)-\(Int(Date().timeIntervalSince1970 * 1000))", symbol: spec.symbol, badge: spec.badge, name: spec.name, amount: amount, limit: limit, change: spec.change, day: PaperPortfolio.today()), at: 0)
 		persist()
@@ -310,7 +257,6 @@ final class PaperPortfolio: ObservableObject {
 
 	func buy(_ spec: BuySpec, amount: Double) {
 		guard canBuy(amount) else { return }
-		ensureSetup()
 		// A bought stock is in your STAK (Codex review, PR #167): the receipt's
 		// "View in My STAK" lands on a page that lists it, not on an empty one.
 		MyStakHoldings.shared.add(spec.symbol)
