@@ -81,7 +81,6 @@ fun SimPortfolioScreen(
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
 	var sortChip by rememberSaveable { mutableStateOf(0) }
-	var historyChip by rememberSaveable { mutableStateOf(0) }
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -177,10 +176,6 @@ fun SimPortfolioScreen(
 						modifier = Modifier.fillMaxWidth(),
 					)
 				}
-				// FigJam "Order pending -> cancel" (review 2026-09-14): a first-move limit order has no
-				// position or realized row yet, so these live outside the empty-state branch. Both self-hide when empty.
-				OpenOrdersSection()
-				TradeHistorySection(filter = historyChip, onFilter = { historyChip = it })
 			}
 		}
 		// The unwired in-page host keeps the frame's NVDA (1:4698 / 73:855).
