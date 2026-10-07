@@ -20,7 +20,6 @@ struct SimPortfolioView: View {
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
 	@State private var sortChip = 0
-	@State private var historyChip = 0
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 
 	private var sortedPositions: [PaperPortfolio.Position] {
@@ -110,11 +109,6 @@ struct SimPortfolioView: View {
 								.multilineTextAlignment(.center)
 								.frame(maxWidth: .infinity)
 						}
-						// FigJam "Order pending -> cancel": a first-move limit order has no position or
-						// realized row yet, so these live outside the empty-state branch (review
-						// 2026-09-14). Both self-hide when empty.
-						OpenOrdersSection()
-						TradeHistorySection(filter: $historyChip)
 					}
 					.padding(.horizontal, 20 * u)
 					.padding(.top, 6 * u)
