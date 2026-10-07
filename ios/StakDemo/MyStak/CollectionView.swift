@@ -30,26 +30,12 @@ struct CollectionView: View {
 	/// held stocks, so a deck save or an Unsave updates the page live.
 	@ObservedObject private var holdings = MyStakHoldings.shared
 
-	/// Sort (FigJam Watchlist board, 2026-09-14): newest save first, A-Z, or the day's
-	/// biggest movers; Remove = a long press on a tile, confirmed inline. Mirrors Android.
-	private enum Sort: String, CaseIterable { case newest = "Newest", az = "A\u{2013}Z", movers = "Top movers" }
-	@State private var sort = Sort.newest
+	/// Remove = a long press on a tile, confirmed inline (FigJam Watchlist board, 2026-09-14). The sort
+	/// chips went with the Chinedu_Mobile reconfirmation (user ruling 2026-10-07): 1:3680 has none, so
+	/// the grid keeps the collection's authored order. Mirrors Android.
 	@State private var removing: String? = nil
 
-	private var held: [CollStock] {
-		let base = collection.held(in: holdings.tickers)
-		switch sort {
-		case .az: return base.sorted { $0.ticker < $1.ticker }
-		case .movers: return base.sorted { abs(StakInsights.changePct($0)) > abs(StakInsights.changePct($1)) }
-		case .newest:
-			let order = Dictionary(uniqueKeysWithValues: collection.stocks.enumerated().map { ($1.ticker, $0) })
-			return base.sorted { a, b in
-				let da = holdings.daysSinceSaved(a.ticker) ?? Int.max
-				let db = holdings.daysSinceSaved(b.ticker) ?? Int.max
-				return da != db ? da < db : (order[a.ticker] ?? 0) < (order[b.ticker] ?? 0)
-			}
-		}
-	}
+	private var held: [CollStock] { collection.held(in: holdings.tickers) }
 
 	/// One grid cell. `ghost` is an invisible stock-sized filler: it keeps a
 	/// lone Add-stock tile at the authored half width and tile height.
@@ -103,14 +89,6 @@ struct CollectionView: View {
 			ScrollView {
 				VStack(spacing: 20 * u) {
 					hero
-					if held.count > 1 {
-						HStack(spacing: 8 * u) {
-							ForEach(Sort.allCases, id: \.self) { s in
-								SettingsChip(label: s.rawValue, selected: sort == s) { sort = s }
-							}
-							Spacer()
-						}
-					}
 					if let ticker = removing {
 						HStack(spacing: 12 * u) {
 							Text("Remove \(ticker) from My STAK?")

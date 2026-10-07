@@ -140,8 +140,6 @@ struct StockDetailView: View {
 							.padding(.horizontal, 12 * u)
 							.padding(.vertical, 10 * u)
 							.background(card, in: RoundedRectangle(cornerRadius: 12 * u))
-							// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
-							LessonCard(lesson: StockLessons.lessonFor(f.symbol))
 						}
 						.padding(.horizontal, 20 * u)
 						.padding(.vertical, 12 * u)
