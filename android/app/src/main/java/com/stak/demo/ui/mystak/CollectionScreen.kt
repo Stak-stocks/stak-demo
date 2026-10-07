@@ -56,11 +56,6 @@ private val Muted = Color(0xFF819ABB)
 private val Faint = Color(0xFF5C6B85)
 private val Green = Color(0xFF2FD08A)
 private val RedDown = Color(0xFFE5484D)
-/** The collection page's sort keys (FigJam Watchlist board, 2026-09-14). */
-private const val SORT_NEWEST = "newest"
-private const val SORT_AZ = "az"
-private const val SORT_MOVERS = "movers"
-
 private val BadgeInk = Color(0xFF9EADC7)
 
 /**
@@ -85,15 +80,11 @@ fun CollectionScreen(
 	val c = collection(collectionId)
 	// Codex audit (2026-09-04): the page shows what the holdings store
 	// holds of this collection - Unsave on a tile's Stock Detail drops it.
-	// Sort (FigJam Watchlist board, 2026-09-14): newest save first, A-Z, or the
-	// day's biggest movers; Remove = a long press on a tile, confirmed inline.
-	var sort by rememberSaveable { mutableStateOf(SORT_NEWEST) }
+	// Remove = a long press on a tile, confirmed inline (FigJam Watchlist board, 2026-09-14).
+	// The sort chips went with the Chinedu_Mobile reconfirmation (user ruling 2026-10-07): 1:3680 has
+	// none, so the grid keeps the collection's authored order.
 	var removing by rememberSaveable { mutableStateOf<String?>(null) }
-	val held = when (sort) {
-		SORT_AZ -> c.held().sortedBy { it.ticker }
-		SORT_MOVERS -> c.held().sortedByDescending { kotlin.math.abs(com.stak.demo.ui.StakInsights.changePct(it)) }
-		else -> c.held().sortedWith(compareBy<CollStock> { com.stak.demo.ui.MyStakHoldings.daysSinceSaved(it.ticker) ?: Int.MAX_VALUE }.thenBy { c.stocks.indexOf(it) })
-	}
+	val held = c.held()
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -163,13 +154,6 @@ fun CollectionScreen(
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp),
 					color = Color(0xFFC8D2E0),
 				)
-			}
-			if (held.size > 1) {
-				Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp), modifier = Modifier.fillMaxWidth()) {
-					listOf(SORT_NEWEST to "Newest", SORT_AZ to "A\u2013Z", SORT_MOVERS to "Top movers").forEach { (key, label) ->
-						com.stak.demo.ui.profile.SettingsChip(label = label, selected = sort == key) { sort = key }
-					}
-				}
 			}
 			removing?.let { ticker ->
 				Row(

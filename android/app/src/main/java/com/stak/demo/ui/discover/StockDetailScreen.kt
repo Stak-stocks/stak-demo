@@ -245,8 +245,6 @@ fun StockDetailScreen(
 							modifier = Modifier.width((260 * u).dp),
 						)
 					}
-					// Related lesson (FigJam Discover board, 2026-09-14) - the sector's plain-English read.
-					LessonCard(lesson = StockLessons.lessonFor(f.symbol))
 				}
 				Column(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
