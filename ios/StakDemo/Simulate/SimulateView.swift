@@ -107,8 +107,8 @@ struct SimulateView: View {
 							} else {
 								// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account chooses its
 								// balance, name and strategy before its first trade.
-								if portfolio.needsSetup { PortfolioSetupCard() }
-								ScoreHero()
+								// No hero before setup: there is no portfolio yet to put a value or a gain on.
+								if portfolio.needsSetup { PortfolioSetupCard() } else { ScoreHero() }
 								if !portfolio.demo && portfolio.setupDone { PortfolioSetupLine() }
 							}
 						}
@@ -331,7 +331,7 @@ private struct ScoreHero: View {
 				}
 				.accessibilityElement(children: .ignore)
 				.accessibilityLabel("Portfolio value, \(valueText)")
-				// The base is the account's own start ($1,000 / $100,000 after Portfolio setup).
+				// The base is the account's own start (what the user picked at Portfolio setup).
 				Text("\(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper · \(portfolio.pickCountText)")
 					.font(StakFont.geist(12 * u, .light))
 					.foregroundStyle(Sim.muted)

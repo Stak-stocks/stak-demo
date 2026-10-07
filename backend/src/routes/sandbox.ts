@@ -4,7 +4,7 @@ import { pgQuery, pgPool } from "../lib/postgres.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getFinnhubKeys } from "../services/finnhubService.js";
 import {
-	xpToTier, SANDBOX_BUDGETS, SANDBOX_STARTING_BALANCES, SANDBOX_STRATEGIES,
+	SANDBOX_STARTING_BALANCES, SANDBOX_DEFAULT_STARTING_BALANCE, SANDBOX_STRATEGIES,
 	SANDBOX_MAX_OPEN_ORDERS, SANDBOX_MIN_SHARES, SANDBOX_NAME_MAX_LENGTH, marketSessionBucket,
 } from "@stak/shared";
 import { FINNHUB_BASE } from "../services/finnhubService.js";
@@ -12,7 +12,9 @@ import { FINNHUB_BASE } from "../services/finnhubService.js";
 export const sandboxRouter = Router();
 
 const STRATEGY_IDS: readonly string[] = SANDBOX_STRATEGIES.map((s) => s.id);
-const STARTING_BALANCES: readonly number[] = SANDBOX_STARTING_BALANCES;
+// $100,000 is no longer offered (2026-10-07), but app builds already installed still show it: they set up as
+// before rather than meeting a refusal they can't explain. Drop it once those builds have aged out.
+const STARTING_BALANCES: readonly number[] = [...SANDBOX_STARTING_BALANCES, 100_000];
 const MIN_SHARES = SANDBOX_MIN_SHARES;
 
 /**
@@ -60,33 +62,11 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 
 
 
-// POST /api/sandbox/init — set starting cash/tier if sandbox_cash is NULL
-sandboxRouter.post("/init", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	try {
-		const uid = req.user!.uid;
-		const { rows } = await pgQuery<{ total_xp: number | null }>(
-			`SELECT total_xp FROM playground_state WHERE uid = $1`,
-			[uid],
-		);
-		const xp = rows[0]?.total_xp ?? 0;
-		const tier = xpToTier(xp);
-		const budget = SANDBOX_BUDGETS[tier] ?? 1000;
-
-		await pgQuery(
-			`INSERT INTO playground_state (uid, sandbox_cash, sandbox_tier)
-			 VALUES ($1, $2, $3)
-			 ON CONFLICT (uid) DO UPDATE
-			   SET sandbox_cash = COALESCE(playground_state.sandbox_cash, $2),
-			       sandbox_tier = COALESCE(playground_state.sandbox_tier, $3)
-			 WHERE playground_state.sandbox_cash IS NULL`,
-			[uid, budget, tier],
-		);
-
-		res.json({ ok: true });
-	} catch (e) {
-		console.error("[sandbox] init error:", e);
-		res.status(500).json({ error: "Failed to initialize sandbox" });
-	}
+// POST /api/sandbox/init — retired 2026-10-07: a portfolio now starts at /setup, on the amount
+// its owner picks, rather than on an XP-tier grant. Kept as a no-op so an older client's call
+// can't fail - and can't hand out tier cash.
+sandboxRouter.post("/init", authMiddleware, (_req: AuthenticatedRequest, res) => {
+	res.json({ ok: true });
 });
 
 // POST /api/sandbox/buy — fetch live Finnhub price, validate cash, atomically update position + deduct cash
@@ -311,8 +291,7 @@ sandboxRouter.post("/sell", authMiddleware, async (req: AuthenticatedRequest, re
 	}
 });
 
-// POST /api/sandbox/reset — clear portfolio, restore starting cash (tier budget, or the
-// user's own chosen balance for a free-choice portfolio)
+// POST /api/sandbox/reset — clear portfolio, restore the starting cash the portfolio began on
 sandboxRouter.post("/reset", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
@@ -320,22 +299,20 @@ sandboxRouter.post("/reset", authMiddleware, async (req: AuthenticatedRequest, r
 		// One transaction throughout, locking playground_state first (same order every
 		// handler touching both tables uses — /buy, /sell, /setup, /orders/:id/cancel —
 		// so two concurrent requests on the same account, e.g. web + Android, can't deadlock
-		// on these two tables in opposite orders). Reading cash_source/total_xp under this
-		// lock also closes a race with a concurrent /tier-upgrade changing them mid-reset.
+		// on these two tables in opposite orders).
 		const client = await pgPool.connect();
 		try {
 			await client.query("BEGIN");
 			const { rows } = await client.query<{
-				total_xp: number | null; sandbox_cash_source: string | null; sandbox_start: number | null;
-				sandbox_name: string | null; sandbox_strategy: string | null;
+				sandbox_start: number | null; sandbox_name: string | null; sandbox_strategy: string | null;
 			}>(
-				`SELECT total_xp, sandbox_cash_source, sandbox_start, sandbox_name, sandbox_strategy FROM playground_state WHERE uid = $1 FOR UPDATE`,
+				`SELECT sandbox_start, sandbox_name, sandbox_strategy FROM playground_state WHERE uid = $1 FOR UPDATE`,
 				[uid],
 			);
 			const row = rows[0];
-			const isFreeChoice = row?.sandbox_cash_source === "free_choice";
-			const tier = isFreeChoice ? null : xpToTier(row?.total_xp ?? 0);
-			const budget = isFreeChoice ? Number(row?.sandbox_start ?? 10000) : (SANDBOX_BUDGETS[tier!] ?? 1000);
+			// Every portfolio has its start since the one-money-system migration (20261007000000); an
+			// account that never set one up restarts on the default, never on an XP-tier grant.
+			const budget = row?.sandbox_start != null ? Number(row.sandbox_start) : SANDBOX_DEFAULT_STARTING_BALANCE;
 
 			await client.query(`DELETE FROM sandbox_portfolio WHERE uid = $1`, [uid]);
 			// A reset/setup starts a new portfolio: its history starts with it. Leaving the old trades would
@@ -345,22 +322,15 @@ sandboxRouter.post("/reset", authMiddleware, async (req: AuthenticatedRequest, r
 				`UPDATE sandbox_orders SET status = 'cancelled', cancelled_at = now() WHERE uid = $1 AND status = 'open'`,
 				[uid],
 			);
-			if (isFreeChoice) {
-				await client.query(
-					`UPDATE playground_state SET sandbox_cash = $1, sandbox_milestones = '{}' WHERE uid = $2`,
-					[budget, uid],
-				);
-			} else {
-				await client.query(
-					`INSERT INTO playground_state (uid, sandbox_cash, sandbox_tier, sandbox_milestones)
-					 VALUES ($1, $2, $3, '{}')
-					 ON CONFLICT (uid) DO UPDATE
-					   SET sandbox_cash = $2, sandbox_tier = $3, sandbox_milestones = '{}'`,
-					[uid, budget, tier],
-				);
-			}
+			await client.query(
+				`INSERT INTO playground_state (uid, sandbox_cash, sandbox_start, sandbox_cash_source, sandbox_milestones)
+				 VALUES ($1, $2, $2, 'free_choice', '{}')
+				 ON CONFLICT (uid) DO UPDATE
+				   SET sandbox_cash = $2, sandbox_start = $2, sandbox_cash_source = 'free_choice', sandbox_milestones = '{}'`,
+				[uid, budget],
+			);
 			await client.query("COMMIT");
-			res.json({ ok: true, cash: budget, tier, name: row?.sandbox_name ?? null, strategy: row?.sandbox_strategy ?? null });
+			res.json({ ok: true, cash: budget, tier: null, name: row?.sandbox_name ?? null, strategy: row?.sandbox_strategy ?? null });
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;
@@ -398,72 +368,14 @@ sandboxRouter.post("/milestone", authMiddleware, async (req: AuthenticatedReques
 	}
 });
 
-// POST /api/sandbox/tier-upgrade — top up cash if XP tier has increased since last stored tier
-sandboxRouter.post("/tier-upgrade", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	try {
-		const uid = req.user!.uid;
-
-		const client = await pgPool.connect();
-		try {
-			await client.query("BEGIN");
-
-			const row = (await client.query<{ total_xp: number | null; sandbox_tier: number | null; sandbox_cash: number | null; sandbox_cash_source: string | null }>(
-				`SELECT total_xp, sandbox_tier, sandbox_cash, sandbox_cash_source FROM playground_state WHERE uid = $1 FOR UPDATE`,
-				[uid],
-			)).rows[0];
-
-			// Free-choice portfolios opted out of XP-tier top-ups (their cash reflects the
-			// balance the user picked, not a tier baseline the increase math below assumes).
-			if (!row || row.sandbox_cash === null || row.sandbox_cash_source === "free_choice") {
-				await client.query("ROLLBACK");
-				res.json({ ok: true });
-				return;
-			}
-
-			const currentTier = xpToTier(row.total_xp ?? 0);
-			const storedTier = row.sandbox_tier;
-
-			if (storedTier === null) {
-				await client.query(
-					`UPDATE playground_state SET sandbox_tier = $1 WHERE uid = $2`,
-					[currentTier, uid],
-				);
-				await client.query("COMMIT");
-				res.json({ ok: true });
-				return;
-			}
-
-			if (currentTier <= storedTier) {
-				await client.query("ROLLBACK");
-				res.json({ ok: true });
-				return;
-			}
-
-			const safePrevTier = (storedTier >= 1 && storedTier <= 5 ? storedTier : 1) as keyof typeof SANDBOX_BUDGETS;
-			const increase = SANDBOX_BUDGETS[currentTier] - (SANDBOX_BUDGETS[safePrevTier] ?? 1000);
-			await client.query(
-				`UPDATE playground_state
-				 SET sandbox_cash = ROUND(sandbox_cash + $1, 2), sandbox_tier = $2
-				 WHERE uid = $3`,
-				[increase, currentTier, uid],
-			);
-			await client.query("COMMIT");
-
-			res.json({ ok: true, increase, newTier: currentTier });
-		} catch (e) {
-			await client.query("ROLLBACK");
-			throw e;
-		} finally {
-			client.release();
-		}
-	} catch (e) {
-		console.error("[sandbox] tier-upgrade error:", e);
-		res.status(500).json({ error: "Failed to apply tier upgrade" });
-	}
+// POST /api/sandbox/tier-upgrade — retired 2026-10-07: XP tiers no longer add practice cash (one
+// money system - the amount picked at /setup). Kept as a no-op for older clients that still call it.
+sandboxRouter.post("/tier-upgrade", authMiddleware, (_req: AuthenticatedRequest, res) => {
+	res.json({ ok: true });
 });
 
-// POST /api/sandbox/setup — Android's free-choice portfolio model, now on both platforms:
-// user picks a starting balance/name/strategy, opting out of XP-tier top-ups
+// POST /api/sandbox/setup — the user picks a starting balance (what they'd really invest), a name
+// and a strategy; every platform starts a portfolio here
 sandboxRouter.post("/setup", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
@@ -471,7 +383,7 @@ sandboxRouter.post("/setup", authMiddleware, async (req: AuthenticatedRequest, r
 
 		const balance = Number(startingBalance);
 		if (!STARTING_BALANCES.includes(balance)) {
-			res.status(400).json({ error: `startingBalance must be one of ${STARTING_BALANCES.join(", ")}` });
+			res.status(400).json({ error: "Pick one of the starting balances shown." });
 			return;
 		}
 		if (typeof name !== "string" || !name.trim() || name.trim().length > SANDBOX_NAME_MAX_LENGTH) {

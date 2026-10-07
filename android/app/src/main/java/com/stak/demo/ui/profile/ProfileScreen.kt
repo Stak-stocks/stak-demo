@@ -226,18 +226,31 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				Row(modifier = Modifier.fillMaxWidth().height((40 * u).dp).padding(horizontal = 0.dp)) {
 					// Live from the shared paper portfolio (product audit, 2026-09-05).
 					val pp = com.stak.demo.ui.simulate.PaperPortfolio
-					ProfileStat(pp.wholeUsd(pp.portfolioValue), "Portfolio")
+					// Loading, or not set up yet: no portfolio to show (web's profile does the same).
+					val ready = pp.demo || (!pp.loading && !pp.needsSetup)
+					ProfileStat(if (ready) pp.wholeUsd(pp.portfolioValue) else "—", "Portfolio")
 					Spacer(modifier = Modifier.weight(1f))
-					ProfileStat(pp.usd(pp.cash), "Cash")
+					ProfileStat(if (ready) pp.usd(pp.cash) else "—", "Cash")
 					Spacer(modifier = Modifier.weight(1f))
-					ProfileStat(pp.pickCountLabel.toString(), "Picks")
+					ProfileStat(if (ready) pp.pickCountLabel.toString() else "—", "Picks")
 				}
-				val gain = com.stak.demo.ui.simulate.PaperPortfolio.allTimeGain
-				Text(
-					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on ${com.stak.demo.ui.simulate.PaperPortfolio.wholeUsd(com.stak.demo.ui.simulate.PaperPortfolio.paperStart)} paper",
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = if (gain >= 0) Green else Color(0xFFE5484D),
-				)
+				val pp = com.stak.demo.ui.simulate.PaperPortfolio
+				if (pp.demo || (!pp.loading && !pp.needsSetup)) {
+					val gain = pp.allTimeGain
+					// The % with the dollars: starts range from $500 to $10,000, and only a % compares across them.
+					val pct = if (pp.paperStart > 0) gain / pp.paperStart * 100 else 0.0
+					Text(
+						text = "${if (gain >= 0) "▲" else "▼"} ${pp.signedUsd(gain)} (${pp.signedPct(pct)}) all time on ${pp.wholeUsd(pp.paperStart)} paper",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = if (gain >= 0) Green else Color(0xFFE5484D),
+					)
+				} else {
+					Text(
+						text = "Set up your practice portfolio in Simulate to start.",
+						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
 			}
 			// Settings card.
 			Column(

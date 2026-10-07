@@ -243,7 +243,8 @@ internal fun SimulateScreen(
 					// Portfolio setup (FigJam Simulate board, 2026-09-14): a new account
 					// chooses its balance, name and strategy before its first trade.
 					if (PaperPortfolio.needsSetup) PortfolioSetupCard()
-					ScoreHero()
+					// No hero before setup: there is no portfolio yet to put a value or a gain on.
+					else ScoreHero()
 					if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				}
 				SectionHeader("Saved staks")

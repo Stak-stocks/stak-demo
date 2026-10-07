@@ -177,20 +177,30 @@ struct ProfileView: View {
 
 					// Paper stats card.
 					VStack(alignment: .leading, spacing: 10 * u) {
+						// Loading, or not set up yet: no portfolio to show (web's profile does the same).
+						let ready = portfolio.demo || (!portfolio.loading && !portfolio.needsSetup)
 						HStack {
 							// Live from the shared paper portfolio (product audit, 2026-09-05).
-							ProfileStat(value: PaperPortfolio.wholeDollars(portfolio.portfolioValue), label: "Portfolio")
+							ProfileStat(value: ready ? PaperPortfolio.wholeDollars(portfolio.portfolioValue) : "—", label: "Portfolio")
 							Spacer()
-							ProfileStat(value: PaperPortfolio.money(portfolio.cash), label: "Cash")
+							ProfileStat(value: ready ? PaperPortfolio.money(portfolio.cash) : "—", label: "Cash")
 							Spacer()
-							ProfileStat(value: String(portfolio.pickCountLabel), label: "Picks")
+							ProfileStat(value: ready ? String(portfolio.pickCountLabel) : "—", label: "Picks")
 						}
 						.frame(maxWidth: .infinity)
 						// Stat columns sit at the top of the 40u row (171:1013 items-start), not centred - exact-design audit 2026-09-04.
 						.frame(height: 40 * u * typeScale, alignment: .top)
-						Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
-							.font(StakFont.geist(12 * u, .medium))
-							.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))
+						if ready {
+							// The % with the dollars: starts range from $500 to $10,000, and only a % compares across them.
+							let pct = portfolio.paperStart > 0 ? portfolio.allTimeGain / portfolio.paperStart * 100 : 0
+							Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) (\(PaperPortfolio.signedPct(pct))) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
+								.font(StakFont.geist(12 * u, .medium))
+								.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))
+						} else {
+							Text("Set up your practice portfolio in Simulate to start.")
+								.font(StakFont.geist(12 * u))
+								.foregroundStyle(StakColors.muted)
+						}
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(14 * u)

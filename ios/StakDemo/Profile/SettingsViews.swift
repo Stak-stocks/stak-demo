@@ -323,7 +323,7 @@ private struct HelpSupportView: View {
 		let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
 		SettingsPage(title: "Help & support", onBack: onBack) {
 			VStack(spacing: 0) {
-				FaqRow(question: "Is this real money?", answer: "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+				FaqRow(question: "Is this real money?", answer: "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real.")
 				if Session.shared.demoAccount {
 					FaqRow(question: "Where do the prices come from?", answer: "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
 					FaqRow(question: "Is my data private?", answer: "STAK never sells your data.")

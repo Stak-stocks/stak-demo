@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The three starting balances the board's "Choose balance" offers.
-let setupBalances: [Double] = [1_000, 10_000, 100_000]
+/// The starting balances - what the user would really invest (one money system, 2026-10-07). Mirrors
+/// shared/src/sandboxConfig.ts's SANDBOX_STARTING_BALANCES, which the backend validates against (kept in sync by hand).
+let setupBalances: [Double] = [500, 1_000, 5_000, 10_000]
 
 /// One strategy the board's "Strategy" step offers - the label is the persisted value, the blurb its one-line read.
 struct SetupStrategy {
@@ -14,7 +15,10 @@ let setupStrategies = [
 	SetupStrategy(label: "Balanced", blurb: "A mix of steady and growth picks. The default most people start on."),
 	SetupStrategy(label: "Bold", blurb: "Bigger swings on high-growth picks. Expect bumps.")
 ]
-private let defaultBalance = setupBalances.firstIndex(of: 10_000) ?? 1
+/// The balance the form starts on, and a portfolio set up for the user (a trade before the form) starts with.
+/// Mirrors shared/src/sandboxConfig.ts's SANDBOX_DEFAULT_STARTING_BALANCE.
+let defaultSetupBalance: Double = 1_000
+private let defaultBalance = setupBalances.firstIndex(of: defaultSetupBalance) ?? 1
 private let defaultStrategy = setupStrategies.firstIndex { $0.label == PaperPortfolio.defaultStrategy } ?? 1
 /// shared/src/sandboxConfig.ts's SANDBOX_NAME_MAX_LENGTH - the backend's own limit (kept in sync by hand).
 private let setupNameMaxLength = 40
@@ -26,7 +30,8 @@ private let setupNameMaxLength = 40
 struct PortfolioSetupCard: View {
 	// The half-filled form is kept on the phone too, so a relaunch or a log out / in doesn't send the picks back to the
 	// defaults before "Start practicing" is tapped.
-	@State private var balance = min(max(StakStore.int("setup_draft_balance", default: defaultBalance), 0), setupBalances.count - 1)
+	// The draft keeps the AMOUNT: an index would point at a different one whenever the list changes.
+	@State private var balance = setupBalances.firstIndex(of: Double(StakStore.int("setup_draft_balance_amount", default: Int(defaultSetupBalance)))) ?? defaultBalance
 	@State private var name = StakStore.string("setup_draft_name") ?? ""
 	@State private var strategy = min(max(StakStore.int("setup_draft_strategy", default: defaultStrategy), 0), setupStrategies.count - 1)
 
@@ -41,7 +46,7 @@ struct PortfolioSetupCard: View {
 					.stakLineHeight(14 * u, size: 11 * u, face: .geist)
 					.foregroundStyle(Sim.teal)
 					.accessibilityAddTraits(.isHeader)
-				Text("Pick a starting balance, name it and choose how you want to play. Nothing here is real money.")
+				Text("Start with what you’d really invest, so practice feels like the real thing. Name it and choose how you want to play. Nothing here is real money.")
 					.font(StakFont.geist(12 * u))
 					.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(Sim.body)
@@ -101,19 +106,19 @@ struct PortfolioSetupCard: View {
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(16 * u)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
-		.onChange(of: balance) { _, v in StakStore.set(v, for: "setup_draft_balance") }
+		.onChange(of: balance) { _, v in StakStore.set(Int(setupBalances[v]), for: "setup_draft_balance_amount") }
 		.onChange(of: name) { _, v in StakStore.set(v, for: "setup_draft_name") }
 		.onChange(of: strategy) { _, v in StakStore.set(v, for: "setup_draft_strategy") }
 	}
 }
 
-/// The set-up portfolio's one-line badge under the hero: name · strategy · started on $X.
+/// The set-up portfolio's one-line badge under the hero: name · strategy · started with $X.
 struct PortfolioSetupLine: View {
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 
 	var body: some View {
 		let u = figmaUnit
-		Text("\(portfolio.portfolioName) · \(portfolio.strategy) · started on \(PaperPortfolio.wholeDollars(portfolio.paperStart))")
+		Text("\(portfolio.portfolioName) · \(portfolio.strategy) · started with \(PaperPortfolio.wholeDollars(portfolio.paperStart))")
 			.font(StakFont.geist(11 * u))
 			.stakLineHeight(14 * u, size: 11 * u, face: .geist)
 			.foregroundStyle(Sim.muted)

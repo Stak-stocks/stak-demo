@@ -20,12 +20,10 @@ vi.mock("@/lib/supabaseAccount", () => ({
 
 vi.mock("@/lib/api", () => ({
 	incrementSwipeCountServer: vi.fn().mockResolvedValue({ accepted: true, count: 1, limit: 10 }),
-	sandboxInit: vi.fn().mockResolvedValue({ ok: true }),
 	sandboxBuy: vi.fn().mockResolvedValue({ price: 100, shares: 1, costBasis: 100, cost: 100, remainingCash: 900 }),
 	sandboxSell: vi.fn().mockResolvedValue({ price: 100, sharesToSell: 1, sellValue: 100, remaining: 0 }),
 	sandboxReset: vi.fn().mockResolvedValue({ ok: true, cash: 1000, tier: 1 }),
 	sandboxMilestone: vi.fn().mockResolvedValue({ ok: true }),
-	sandboxTierUpgrade: vi.fn().mockResolvedValue({ ok: true }),
 	completeActivity: vi.fn().mockResolvedValue(undefined),
 	completeDailyActivityApi: vi.fn().mockResolvedValue(undefined),
 	addSkillXp: vi.fn().mockResolvedValue(undefined),

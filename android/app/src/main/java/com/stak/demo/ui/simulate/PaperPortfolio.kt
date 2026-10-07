@@ -158,17 +158,17 @@ internal object PaperPortfolio {
 	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
 	const val PAPER_START = 10000.0
 
-	/** The XP tiers' practice budgets (shared/src/tierConfig.ts SANDBOX_BUDGETS). */
+	/** What the XP tiers used to grant (shared/src/tierConfig.ts SANDBOX_BUDGETS) - only a portfolio from before
+	 *  the one money system (2026-10-07) can be missing its start. */
 	private val TIER_BUDGETS = mapOf(1 to 1000.0, 2 to 3000.0, 3 to 5000.0, 4 to 10000.0, 5 to 25000.0)
 
 	/**
-	 * What the account started with - the gains are measured from it. A chosen balance (free choice) is the
-	 * server's start; a tier account's money is its tier's budget, the cash the server granted (web
-	 * usePaperPortfolio). Reading $10,000 for a tier account made a $3,000 tier-2 portfolio show -$7,000.
+	 * What the account started with - the gains are measured from it (web usePaperPortfolio). Every portfolio has
+	 * its start since the one-money-system migration; one from before it started on its tier's grant. Reading
+	 * $10,000 for those made a $3,000 tier-2 portfolio show -$7,000.
 	 */
 	private fun startingCash(portfolio: com.stak.demo.data.SandboxPortfolioResponse): Double =
-		if (portfolio.cashSource == "free_choice") portfolio.start ?: PAPER_START
-		else portfolio.tier?.let { TIER_BUDGETS[it] } ?: portfolio.start ?: PAPER_START
+		portfolio.start ?: portfolio.tier?.let { TIER_BUDGETS[it] } ?: DEFAULT_SETUP_BALANCE
 	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
 	const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
 	const val DEFAULT_STRATEGY = "Balanced"
@@ -487,7 +487,7 @@ internal object PaperPortfolio {
 		}
 		val mappedRealized = computeRealized(mappedTrades)
 		val holdings = mappedPositions.sumOf { it.stake }
-		val resolvedCash = if (portfolio.initialized) (portfolio.cash ?: 0.0) else PAPER_START
+		val resolvedCash = if (portfolio.initialized) (portfolio.cash ?: 0.0) else DEFAULT_SETUP_BALANCE
 
 		if (myGeneration != hydrateGeneration.get()) return
 
@@ -615,7 +615,7 @@ internal object PaperPortfolio {
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
 		if (!demo) send({
-			if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+			if (neededSetup) repository?.sandboxSetup(DEFAULT_SETUP_BALANCE, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
 			repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
 		})
 		return true
@@ -827,7 +827,7 @@ internal object PaperPortfolio {
 		}
 		if (!demo) send(
 			{
-				if (neededSetup) repository?.sandboxSetup(PAPER_START, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+				if (neededSetup) repository?.sandboxSetup(DEFAULT_SETUP_BALANCE, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
 				repository?.sandboxBuy(spec.symbol, amount)
 			},
 			then = { ok -> if (ok) withContext(Dispatchers.Main) { com.stak.demo.data.MyStakHoldings.add(spec.symbol) } },

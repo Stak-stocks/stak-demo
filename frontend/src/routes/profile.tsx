@@ -6,7 +6,7 @@ import { getProfile } from "@/lib/api";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
 import { chips } from "@/lib/tasteModel";
-import { signedUsd, usd, wholeUsd } from "@/lib/simFormat";
+import { signedPct, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
 import { SettingsCard, SettingsLinkRow } from "@/components/profile/ProfileKit";
 import { ProfileDesktop } from "@/components/profile/ProfileDesktop";
 import { shareInvite } from "@/lib/invite";
@@ -113,7 +113,8 @@ function ProfilePage() {
 					</div>
 					{paperReady ? (
 						<p style={{ font: f(500, 12, 16), color: up ? DISC.green : DISC.redDown }}>
-							{up ? "▲" : "▼"} {signedUsd(paper.allTimeGain)} all time on {wholeUsd(paper.paperStart)} paper
+							{/* The % with the dollars: starts now range from $500 to $10,000, and only a % compares across them. */}
+							{up ? "▲" : "▼"} {signedUsd(paper.allTimeGain)} ({signedPct(paper.paperStart > 0 ? (paper.allTimeGain / paper.paperStart) * 100 : 0)}) all time on {wholeUsd(paper.paperStart)} paper
 						</p>
 					) : (
 						<p style={{ font: f(400, 12, 16), color: DISC.muted }}>Set up your practice portfolio in Simulate to start.</p>

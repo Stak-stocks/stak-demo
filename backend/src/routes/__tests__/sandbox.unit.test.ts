@@ -115,7 +115,7 @@ describe("sandboxRouter", () => {
 
 	it("POST /setup rejects an invalid starting balance", async () => {
 		const app = await buildApp();
-		const res = await request(app).post("/setup").send({ startingBalance: 42, name: "My Stak", strategy: "balanced" });
+		const res = await request(app).post("/setup").send({ startingBalance: 2500, name: "My Stak", strategy: "balanced" });
 		expect(res.status).toBe(400);
 		expect(pgPoolConnectMock).not.toHaveBeenCalled();
 	});
@@ -143,14 +143,14 @@ describe("sandboxRouter", () => {
 
 	// ── POST /reset ──────────────────────────────────────────────────────────────
 
-	it("POST /reset restores the chosen balance for a free-choice portfolio (no tier top-up)", async () => {
+	it("POST /reset restores the balance the portfolio started on", async () => {
 		const client = makeClient([
 			{}, // BEGIN
-			{ rows: [{ total_xp: 0, sandbox_cash_source: "free_choice", sandbox_start: 5000, sandbox_name: "My Stak", sandbox_strategy: "bold" }] }, // SELECT state FOR UPDATE
+			{ rows: [{ sandbox_start: 5000, sandbox_name: "My Stak", sandbox_strategy: "bold" }] }, // SELECT state FOR UPDATE
 			{}, // DELETE portfolio
 			{}, // DELETE trades
 			{}, // UPDATE orders cancel
-			{}, // UPDATE state
+			{}, // UPSERT state
 			{}, // COMMIT
 		]);
 		pgPoolConnectMock.mockResolvedValueOnce(client);
@@ -160,16 +160,17 @@ describe("sandboxRouter", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ ok: true, cash: 5000, tier: null, name: "My Stak", strategy: "bold" });
+		expect(client.query.mock.calls[5]![1]).toEqual(["u1", 5000]);
 	});
 
-	it("POST /reset restores the tier budget for a tier-based portfolio unchanged", async () => {
+	it("POST /reset restarts an account with no start on the default, never on XP-tier cash", async () => {
 		const client = makeClient([
 			{}, // BEGIN
-			{ rows: [{ total_xp: 0, sandbox_cash_source: "tier", sandbox_start: null, sandbox_name: null, sandbox_strategy: null }] }, // SELECT state FOR UPDATE
+			{ rows: [{ sandbox_start: null, sandbox_name: null, sandbox_strategy: null }] }, // SELECT state FOR UPDATE
 			{}, // DELETE portfolio
 			{}, // DELETE trades
 			{}, // UPDATE orders cancel
-			{}, // INSERT state
+			{}, // UPSERT state
 			{}, // COMMIT
 		]);
 		pgPoolConnectMock.mockResolvedValueOnce(client);
@@ -179,25 +180,21 @@ describe("sandboxRouter", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body.cash).toBe(1000);
-		expect(res.body.tier).toBe(1);
+		expect(res.body.tier).toBeNull();
+		expect(client.query.mock.calls[5]![0]).toMatch(/sandbox_start = \$2/);
 	});
 
-	// ── POST /tier-upgrade ───────────────────────────────────────────────────────
+	// ── POST /init, POST /tier-upgrade (retired) ─────────────────────────────────
 
-	it("POST /tier-upgrade no-ops for a free-choice portfolio", async () => {
-		const client = makeClient([
-			{}, // BEGIN
-			{ rows: [{ total_xp: 5000, sandbox_tier: 1, sandbox_cash: 5000, sandbox_cash_source: "free_choice" }] }, // SELECT ... FOR UPDATE
-			{}, // ROLLBACK
-		]);
-		pgPoolConnectMock.mockResolvedValueOnce(client);
+	it("POST /init and POST /tier-upgrade no longer touch the account", async () => {
 		const app = await buildApp();
 
-		const res = await request(app).post("/tier-upgrade").send({});
-
-		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ ok: true });
-		expect(client.query.mock.calls[2]![0]).toBe("ROLLBACK");
+		for (const path of ["/init", "/tier-upgrade"]) {
+			const res = await request(app).post(path).send({});
+			expect(res.status).toBe(200);
+			expect(res.body).toEqual({ ok: true });
+		}
+		expect(pgPoolConnectMock).not.toHaveBeenCalled();
 	});
 
 	// ── POST /buy ────────────────────────────────────────────────────────────────

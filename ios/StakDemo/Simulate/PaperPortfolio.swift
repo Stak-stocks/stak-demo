@@ -236,7 +236,7 @@ final class PaperPortfolio: ObservableObject {
 			PaperPortfolio.position(from: p, name: names[p.ticker] ?? MyStakHoldings.shared.nameOf(p.ticker) ?? p.ticker, quote: LiveQuotes.shared.cached(p.ticker))
 		}
 		let holdings = mappedPositions.reduce(0) { $0 + $1.stake }
-		let resolvedCash = portfolio.initialized ? (portfolio.cash ?? 0) : PaperPortfolio.defaultPaperStart
+		let resolvedCash = portfolio.initialized ? (portfolio.cash ?? 0) : defaultSetupBalance
 		let mappedRealized = PaperPortfolio.computeRealized(mappedTrades)
 		serverTrades = mappedTrades
 		serverTradeCursor = portfolio.tradeCursor
@@ -431,7 +431,7 @@ final class PaperPortfolio: ObservableObject {
 		if !demo {
 			send({
 				if neededSetup {
-					_ = try await self.repo.sandboxSetup(startingBalance: PaperPortfolio.defaultPaperStart, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
+					_ = try await self.repo.sandboxSetup(startingBalance: defaultSetupBalance, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
 				}
 				_ = try await self.repo.sandboxBuy(ticker: spec.symbol, amount: amount)
 			}, then: { ok in if ok { MyStakHoldings.shared.add(spec.symbol) } })
@@ -453,7 +453,7 @@ final class PaperPortfolio: ObservableObject {
 		if !demo {
 			send {
 				if neededSetup {
-					_ = try await self.repo.sandboxSetup(startingBalance: PaperPortfolio.defaultPaperStart, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
+					_ = try await self.repo.sandboxSetup(startingBalance: defaultSetupBalance, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
 				}
 				_ = try await self.repo.sandboxPlaceOrder(ticker: spec.symbol, amount: amount, limitPrice: limit)
 			}
@@ -717,15 +717,15 @@ final class PaperPortfolio: ObservableObject {
 	/// Shares to four places - the tickets' "0.8803".
 	nonisolated static func shares(_ value: Double) -> String { String(format: "%.4f", value) }
 
-	/// The XP tiers' practice budgets (shared/src/tierConfig.ts SANDBOX_BUDGETS).
+	/// What the XP tiers used to grant (shared/src/tierConfig.ts SANDBOX_BUDGETS) - only a portfolio from before the one
+	/// money system (2026-10-07) can be missing its start.
 	nonisolated static let tierBudgets: [Int: Double] = [1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000]
 
-	/// What the account started with - the gains are measured from it. A chosen balance (free choice) is the server's
-	/// start; a tier account's money is its tier's budget, the cash the server granted (web usePaperPortfolio). Reading
-	/// $10,000 for a tier account made a $3,000 tier-2 portfolio show -$7,000.
+	/// What the account started with - the gains are measured from it (web usePaperPortfolio). Every portfolio has its
+	/// start since the one-money-system migration; one from before it started on its tier's grant. Reading $10,000 for
+	/// those made a $3,000 tier-2 portfolio show -$7,000.
 	nonisolated static func startingCash(_ portfolio: SandboxPortfolioResponse) -> Double {
-		if portfolio.cashSource == "free_choice" { return portfolio.start ?? defaultPaperStart }
-		return portfolio.tier.flatMap { tierBudgets[$0] } ?? portfolio.start ?? defaultPaperStart
+		portfolio.start ?? portfolio.tier.flatMap { tierBudgets[$0] } ?? defaultSetupBalance
 	}
 
 	/// Today as "Sep 4" - the picked / sold lines' date.

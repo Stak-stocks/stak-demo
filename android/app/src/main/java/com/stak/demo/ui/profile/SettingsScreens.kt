@@ -286,7 +286,7 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
 	SettingsPage(title = "Help & support", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			FaqRow("Is this real money?", "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+			FaqRow("Is this real money?", "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real.")
 			if (Session.demoAccount) {
 				FaqRow("Where do the prices come from?", "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
 			} else {

@@ -35,8 +35,10 @@ import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 
-/** The three starting balances the board's "Choose balance" offers. */
-internal val SETUP_BALANCES = listOf(1_000.0, 10_000.0, 100_000.0)
+/** The starting balances - what the user would really invest (one money system, 2026-10-07). Mirrors
+ *  shared/src/sandboxConfig.ts's SANDBOX_STARTING_BALANCES, which the backend validates against (kept in
+ *  sync by hand). */
+internal val SETUP_BALANCES = listOf(500.0, 1_000.0, 5_000.0, 10_000.0)
 
 /** Matches shared/src/sandboxConfig.ts's SANDBOX_NAME_MAX_LENGTH - the backend's own limit
  *  (Kotlin can't import that file directly; keep this in sync with it by hand). */
@@ -50,7 +52,10 @@ internal val SETUP_STRATEGIES = listOf(
 	SetupStrategy("Balanced", "A mix of steady and growth picks. The default most people start on."),
 	SetupStrategy("Bold", "Bigger swings on high-growth picks. Expect bumps."),
 )
-private val DEFAULT_BALANCE = SETUP_BALANCES.indexOf(10_000.0)
+/** The balance the form starts on, and a portfolio set up for the user (a trade before the form) starts with.
+ *  Mirrors shared/src/sandboxConfig.ts's SANDBOX_DEFAULT_STARTING_BALANCE. */
+internal const val DEFAULT_SETUP_BALANCE = 1_000.0
+private val DEFAULT_BALANCE = SETUP_BALANCES.indexOf(DEFAULT_SETUP_BALANCE)
 private val DEFAULT_STRATEGY = SETUP_STRATEGIES.indexOfFirst { it.label == PaperPortfolio.DEFAULT_STRATEGY }
 
 /**
@@ -64,11 +69,12 @@ internal fun PortfolioSetupCard() {
 	val u = figmaUnit()
 	// The half-filled form is remembered on the phone too, so a relaunch or a log out / in
 	// doesn't send the picks back to the defaults before "Start practicing" is tapped.
-	var balance by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_balance", DEFAULT_BALANCE).coerceIn(SETUP_BALANCES.indices)) }
+	// The draft keeps the AMOUNT: an index would point at a different one whenever the list changes.
+	var balance by rememberSaveable { mutableIntStateOf(SETUP_BALANCES.indexOf(StakStore.getInt("setup_draft_balance_amount", DEFAULT_SETUP_BALANCE.toInt()).toDouble()).takeIf { it >= 0 } ?: DEFAULT_BALANCE) }
 	var name by rememberSaveable { mutableStateOf(StakStore.getString("setup_draft_name") ?: "") }
 	var strategy by rememberSaveable { mutableIntStateOf(StakStore.getInt("setup_draft_strategy", DEFAULT_STRATEGY).coerceIn(SETUP_STRATEGIES.indices)) }
 	LaunchedEffect(balance, name, strategy) {
-		StakStore.putInt("setup_draft_balance", balance)
+		StakStore.putInt("setup_draft_balance_amount", SETUP_BALANCES[balance].toInt())
 		StakStore.putString("setup_draft_name", name)
 		StakStore.putInt("setup_draft_strategy", strategy)
 	}
@@ -77,7 +83,7 @@ internal fun PortfolioSetupCard() {
 		modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(Sim.CardBg).padding((16 * u).dp),
 	) {
 		Text("SET UP YOUR PAPER PORTFOLIO", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Teal)
-		Text("Pick a starting balance, name it and choose how you want to play. Nothing here is real money.", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Body)
+		Text("Start with what you’d really invest, so practice feels like the real thing. Name it and choose how you want to play. Nothing here is real money.", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Body)
 
 		Text("Starting balance", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
 		Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
@@ -133,12 +139,12 @@ internal fun PortfolioSetupCard() {
 	}
 }
 
-/** The set-up portfolio's one-line badge under the hero: name · strategy · started on $X. */
+/** The set-up portfolio's one-line badge under the hero: name · strategy · started with $X. */
 @Composable
 internal fun PortfolioSetupLine() {
 	val u = figmaUnit()
 	Text(
-		"${PaperPortfolio.portfolioName} · ${PaperPortfolio.strategy} · started on ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)}",
+		"${PaperPortfolio.portfolioName} · ${PaperPortfolio.strategy} · started with ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)}",
 		style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 		color = Sim.Muted,
 		modifier = Modifier.fillMaxWidth(),

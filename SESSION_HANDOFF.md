@@ -211,7 +211,12 @@ server. Key facts:
   `sandbox_name`, `sandbox_strategy`, `sandbox_start`, `sandbox_cash_source` (`'tier'` legacy web accounts vs
   `'free_choice'` = user picked a balance); new tables `sandbox_trades` (ledger) and `sandbox_orders` (open
   buy-limit orders). RLS mirrors `sandbox_portfolio`.
-- **Endpoints:** `POST /setup {startingBalance ∈ [1000,10000,100000], name ≤40, strategy}`; `POST /reset`;
+- **One money system (migration `20261007000000_sandbox_one_money_system.sql`):** every portfolio starts on the
+  amount its owner picks ("what you'd really invest", default $1,000); XP tiers no longer add cash (`/init` and
+  `/tier-upgrade` are no-ops for old clients). The migration made each tier portfolio's granted budget its
+  `sandbox_start` and revoked the pre-API sandbox RPCs. Gains read from `sandbox_start` on every platform.
+- **Endpoints:** `POST /setup {startingBalance ∈ [500,1000,5000,10000] (+100000 accepted from old builds), name ≤40,
+  strategy}`; `POST /reset` (back to `sandbox_start`);
   `POST /buy {ticker, amount | shares}`; `POST /sell {ticker, portion | shares}`; `POST /orders`,
   `POST /orders/:id/cancel` (buy-limit only, limit must be below the live price, max 20 open);
   `GET /portfolio` (includes `tradeCursor`); `GET /trades?limit=` (max 500); `POST /fill-orders`

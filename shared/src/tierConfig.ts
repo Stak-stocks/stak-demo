@@ -26,7 +26,8 @@ export function xpToTier(totalXp: number): TierNumber {
 	return 1;
 }
 
-/** Starting sandbox cash per tier — single source of truth for frontend + backend. */
+/** Sandbox cash the XP tiers used to grant. Retired 2026-10-07 (a portfolio starts on the
+ *  amount its owner picks); kept only to read a portfolio from before then that has no start. */
 export const SANDBOX_BUDGETS = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 } as const;
 
 /** Max XP awardable per activity call — enforced both client-side and server-side. */

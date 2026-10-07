@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, CheckCircle2, Info, Minus, Plus, Search } from "lucide-react";
-import { SANDBOX_MIN_SHARES, type BrandSummary } from "@stak/shared";
+import { SANDBOX_DEFAULT_STARTING_BALANCE, SANDBOX_MIN_SHARES, type BrandSummary } from "@stak/shared";
 import { getStockData } from "@/lib/api";
-import { sharesLabel, usd } from "@/lib/simFormat";
+import { sharesLabel, usd, wholeUsd } from "@/lib/simFormat";
 import type { PaperPortfolio } from "@/hooks/usePaperPortfolio";
 import { BrandLogo } from "@/components/BrandLogo";
 import { DESK, DeskButton, Panel, changeColor, deskFocus, signedPctLabel } from "@/components/desktop/deskKit";
@@ -225,8 +225,8 @@ export function TradePanel({ paper, brands, symbol, mode, onSymbol, onMode }: {
 					</p>
 					{problem && <p className="text-[12.5px]" style={{ color: DESK.red }} role="alert">{problem}</p>}
 					{paper.needsSetup ? (
-						<DeskButton size="lg" onClick={() => { void paper.setup(10_000, "My first portfolio", "balanced"); }}>
-							Start with $10,000 of practice money
+						<DeskButton size="lg" onClick={() => { void paper.setup(SANDBOX_DEFAULT_STARTING_BALANCE, "My first portfolio", "balanced"); }}>
+							Start with {wholeUsd(SANDBOX_DEFAULT_STARTING_BALANCE)} of practice money
 						</DeskButton>
 					) : (
 						<DeskButton size="lg" tone={mode === "buy" ? "primary" : "sell"} onClick={() => { void submit(); }} disabled={!canSubmit}>
