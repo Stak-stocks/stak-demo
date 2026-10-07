@@ -14,9 +14,6 @@ struct SimPortfolioView: View {
 	/// the tapped ticker rides to PickDetailView(symbol:).
 	let onOpenPick: (String) -> Void
 
-	/// 1:4876 -> 1:5070 / 1:5242 (user ruling 2026-10-07): the Sell pill sells HERE, over the
-	/// portfolio, as the frames author - not via the pick page. The ticker being sold, or nil.
-	@State private var selling: String? = nil
 	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
@@ -83,8 +80,11 @@ struct SimPortfolioView: View {
 									badge: p.badge, ticker: p.ticker, sub: p.sub,
 									amount: p.amount, pct: p.pct, up: p.up,
 									action: { onOpenPick(p.ticker) },
-									// 1:5070: the Sell pill opens the Sell confirm over this page.
-									trailing: { SellPill(action: { selling = p.ticker }) },
+									// Prototype (read 2026-10-07): every Sell pill opens the Pick detail of ITS
+									// ticker (1:4876 -> 1:5003, six edges) and the pick page's Sell opens the
+									// sheet (1:5070). The sheet frames are drawn over this list - a drawing only;
+									// user ruling 2026-10-07: follow the wiring.
+									trailing: { SellPill(action: { onOpenPick(p.ticker) }) },
 									// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
 									subLight: true
 								)
@@ -113,15 +113,6 @@ struct SimPortfolioView: View {
 					.padding(.top, 6 * u)
 					.padding(.bottom, 26 * u) // 1:4518 pb 26 (exact-design audit 2026-09-04)
 				}
-			}
-			if let symbol = selling {
-				// 1:5070 / 1:5242: the live sell runs here, over the portfolio (user ruling 2026-10-07).
-				SellFlowHost(
-					pick: PaperPortfolio.shared.pickSpec(symbol) ?? PickSpecs.pick(symbol),
-					onClose: { selling = nil },
-					onBackToSimulate: { selling = nil; onBack() },
-					onViewPortfolio: { selling = nil }
-				)
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
