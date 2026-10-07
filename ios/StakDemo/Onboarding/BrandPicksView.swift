@@ -22,8 +22,6 @@ private let brands: [Brand] = [
 	Brand(name: "Uber", asset: "BrandUber")
 ]
 
-/// The five tiles selected on the authored frame (1554:8541), by brand name.
-
 /// Onboarding · 02 Brand picks — Figma node 1554:8541 (CHINEDU file, "STEP 2 OF 6").
 ///
 /// A 3-wide grid of #181f30 tiles, each a white 34pt circle with the real
@@ -38,8 +36,9 @@ struct BrandPicksView: View {
 	// CTA reading "Continue · 5 picked"; the build starts in that state
 	// (Codex parity audit 2026-09-04). Every tile stays toggleable.
 	// Product audit (2026-09-05): a real first run starts with nothing picked (the
-	// frame's five were authored demo state).
-	@State private var picked: Set<String> = []
+	// frame's five were authored demo state). 01 Welcome clears the picks on the way in, so
+	// this reads back only what Continue kept - Back from step 3 finds them still picked.
+	@State private var picked: Set<String> = UserProfile.shared.brandPicks
 
 	var body: some View {
 		let u = figmaUnit
@@ -48,10 +47,7 @@ struct BrandPicksView: View {
 			HStack {
 				AuthBackCircle(action: onBack)
 				Spacer()
-				Text("STEP 2 OF 6")
-					.font(StakFont.geist(10 * u, .medium))
-					.tracking(0.9 * u)
-					.foregroundStyle(Auth.faintText)
+				StepLabel(text: "STEP 2 OF 6")
 			}
 			.padding(.horizontal, 20 * u)
 			.padding(.top, 10 * u)
@@ -112,6 +108,7 @@ struct BrandPicksView: View {
 			.padding(.bottom, 26 * u)
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.sensoryFeedback(.selection, trigger: picked)
 	}
 }
 
@@ -148,5 +145,7 @@ private struct BrandTile: View {
 			}
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityLabel(brand.name)
+		.accessibilityAddTraits(selected ? .isSelected : [])
 	}
 }

@@ -4,8 +4,8 @@ import SwiftUI
 ///
 /// The closing loader: the box-and-coins hero (same flattened render as
 /// the intro), "Building your first deck..." in Sora SemiBold 22, and a
-/// live spinner with "Reading your brand picks". Auto-advances into the
-/// account flow once the deck is "ready".
+/// live spinner with "Getting everything ready". Auto-advances into the
+/// taste reveal after the authored hold.
 struct PreparingDeckView: View {
 	let onDone: () -> Void
 
@@ -17,7 +17,7 @@ struct PreparingDeckView: View {
 		// above its ink inside the 488u box, so the box tops out at 135.
 		// Mirrors android (PreparingDeckScreen).
 		ZStack(alignment: .top) {
-			Image("IntroHeroBox")
+			Image(decorative: "IntroHeroBox")
 				.resizable()
 				.scaledToFit()
 				.frame(width: 342 * u, height: 488 * u)
@@ -31,7 +31,9 @@ struct PreparingDeckView: View {
 				.offset(y: 604 * u)
 			HStack(spacing: 5 * u) {
 				Spinner()
-				Text("Reading your brand picks")
+				// Not "Reading your brand picks" (device report, 2026-09-19): that claims live work there isn't any of -
+				// the picks are already kept, and the real deck loads after Profile setup. This is the authored pacing hold.
+				Text("Getting everything ready")
 					.font(StakFont.geist(12 * u))
 					.stakLineHeight(15 * u, size: 12 * u, face: .geist)
 					.foregroundStyle(Auth.faintText)
@@ -43,7 +45,8 @@ struct PreparingDeckView: View {
 		.background(StakColors.bg.ignoresSafeArea())
 		.task {
 			// Prototype: "After delay 1800ms" → 07 Taste reveal (dissolve).
-			try? await Task.sleep(for: .seconds(1.8))
+			// A page that left early (cancelled) never advances the flow.
+			guard (try? await Task.sleep(for: .seconds(1.8))) != nil else { return }
 			onDone()
 		}
 	}
@@ -55,7 +58,9 @@ private struct Spinner: View {
 
 	var body: some View {
 		let u = figmaUnit
+		// Inset by half the stroke so the ring stays inside its 14u box, as android draws it.
 		Circle()
+			.inset(by: 1.47 * u)
 			.trim(from: 0, to: 0.75)
 			.stroke(Auth.faintText, style: StrokeStyle(lineWidth: 2.94 * u, lineCap: .butt))
 			.frame(width: 14 * u, height: 14 * u)

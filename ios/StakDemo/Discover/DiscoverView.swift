@@ -19,8 +19,6 @@ enum Disc {
 	static let divider = Color(argb: 0xFF2A3346)
 	static let badgeInk = Color(argb: 0xFF9EADC7)
 	static let brightInk = Color(argb: 0xFFF2F6FC)
-	/// #FFFFFF @ 9% - the Save pill on BOTH Discover frames (DE-STAK 1:2048, CHINEDU 1:1759).
-	static let saveChipBg = Color(argb: 0x17FFFFFF)
 	static let amountBg = Color(argb: 0xFF0B1430)
 	static let amountBorder = Color(argb: 0x1FFFFFFF)
 	static let amountInk = Color(argb: 0xFFDCE7F7)
@@ -40,8 +38,8 @@ let discCtaGradient = LinearGradient(
 	startPoint: .top, endPoint: .bottom
 )
 
-/// Compose's EaseOut (CubicBezier 0, 0, 0.58, 1) - every Android tween here uses it.
-private func easeOut(_ seconds: Double) -> Animation { .timingCurve(0, 0, 0.58, 1, duration: seconds) }
+/// Compose's EaseOut (CubicBezier 0, 0, 0.58, 1) - every Android tween here (and the swipe tutorial's) uses it.
+func easeOut(_ seconds: Double) -> Animation { .timingCurve(0, 0, 0.58, 1, duration: seconds) }
 
 /// A practice-buy ticket's stock values (Buy NVDA? 1:2159 / Buy AAPL? 1:3423).
 struct BuySpec {
@@ -518,65 +516,12 @@ struct DiscoverView: View {
 	}
 
 	private func decisionButtons(front: DiscoverCard, u: CGFloat) -> some View {
-		let ratio = min(1, max(-1, swipeOffset / commitPx))
-		let passRatio = Double(max(0, -ratio))
-		let stakRatio = Double(max(0, ratio))
-		let passBg = lerp(0x1C202E, 0xFFFFFF, passRatio)
-		let passIcon = lerp(0xB0B8CC, 0x1C202E, passRatio)
-		let stakBg = lerp(0x1C202E, 0x4FB3D9, stakRatio)
-		return HStack(spacing: 48 * u) {
-			// Pass — the circle fills white as the swipe goes left.
-			VStack(spacing: 6 * u) {
-				Button { animateAndCommit(front, isSTAK: false) } label: {
-					ZStack {
-						Circle().fill(passBg)
-						Canvas { ctx, size in
-							let s = min(size.width, size.height)
-							let sw = s * 0.12, pad = s * 0.1
-							var p = Path()
-							p.move(to: CGPoint(x: pad, y: pad)); p.addLine(to: CGPoint(x: s - pad, y: s - pad))
-							p.move(to: CGPoint(x: s - pad, y: pad)); p.addLine(to: CGPoint(x: pad, y: s - pad))
-							ctx.stroke(p, with: .color(passIcon), style: StrokeStyle(lineWidth: sw, lineCap: .round))
-						}
-						.frame(width: 20 * u, height: 20 * u)
-					}
-					.frame(width: 56 * u, height: 56 * u)
-				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("Pass")
-				Text("Pass")
-					.font(StakFont.geist(12 * u))
-					.foregroundStyle(Disc.muted)
-					.accessibilityHidden(true)
-			}
-			// STAK — the circle fills blue as the swipe goes right.
-			VStack(spacing: 6 * u) {
-				Button { animateAndCommit(front, isSTAK: true) } label: {
-					ZStack {
-						Circle().fill(stakBg)
-						Image("StakLogoMark")
-							.resizable()
-							.frame(width: 28 * u, height: 28 * u)
-					}
-					.frame(width: 56 * u, height: 56 * u)
-				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("STAK")
-				Text("STAK")
-					.font(StakFont.geist(12 * u))
-					.foregroundStyle(Disc.muted)
-					.accessibilityHidden(true)
-			}
-		}
-		.frame(maxWidth: .infinity)
-	}
-
-	private func lerp(_ from: UInt32, _ to: UInt32, _ t: Double) -> Color {
-		func ch(_ v: UInt32, _ shift: UInt32) -> Double { Double((v >> shift) & 0xFF) / 255 }
-		return Color(
-			red: ch(from, 16) + (ch(to, 16) - ch(from, 16)) * t,
-			green: ch(from, 8) + (ch(to, 8) - ch(from, 8)) * t,
-			blue: ch(from, 0) + (ch(to, 0) - ch(from, 0)) * t
+		DecisionButtons(
+			ratio: min(1, max(-1, swipeOffset / commitPx)),
+			labelColor: Disc.muted,
+			u: u,
+			onPass: { animateAndCommit(front, isSTAK: false) },
+			onStak: { animateAndCommit(front, isSTAK: true) }
 		)
 	}
 
@@ -1692,5 +1637,108 @@ private struct QuickLookIconRow: View {
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
+/// The Pass / STAK pair under a swipe deck - Discover's and the onboarding tutorial's. Each circle fills with the
+/// drag (`ratio`: -1 fully toward Pass ... 1 fully toward STAK), and each is just as tappable without dragging.
+struct DecisionButtons: View {
+	let ratio: CGFloat
+	let labelColor: Color
+	let u: CGFloat
+	let onPass: () -> Void
+	let onStak: () -> Void
+
+	var body: some View {
+		let passRatio = Double(max(0, -ratio))
+		let stakRatio = Double(max(0, ratio))
+		let passBg = Self.lerp(0x1C202E, 0xFFFFFF, passRatio)
+		let passIcon = Self.lerp(0xB0B8CC, 0x1C202E, passRatio)
+		let stakBg = Self.lerp(0x1C202E, 0x4FB3D9, stakRatio)
+		HStack(spacing: 48 * u) {
+			// Pass — the circle fills white as the swipe goes left.
+			VStack(spacing: 6 * u) {
+				Button(action: onPass) {
+					ZStack {
+						Circle().fill(passBg)
+						Canvas { ctx, size in
+							let s = min(size.width, size.height)
+							let sw = s * 0.12, pad = s * 0.1
+							var p = Path()
+							p.move(to: CGPoint(x: pad, y: pad)); p.addLine(to: CGPoint(x: s - pad, y: s - pad))
+							p.move(to: CGPoint(x: s - pad, y: pad)); p.addLine(to: CGPoint(x: pad, y: s - pad))
+							ctx.stroke(p, with: .color(passIcon), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+						}
+						.frame(width: 20 * u, height: 20 * u)
+					}
+					.frame(width: 56 * u, height: 56 * u)
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("Pass")
+				Text("Pass")
+					.font(StakFont.geist(12 * u))
+					.foregroundStyle(labelColor)
+					.accessibilityHidden(true)
+			}
+			// STAK — the circle fills blue as the swipe goes right.
+			VStack(spacing: 6 * u) {
+				Button(action: onStak) {
+					ZStack {
+						Circle().fill(stakBg)
+						Image("StakLogoMark")
+							.resizable()
+							.frame(width: 28 * u, height: 28 * u)
+					}
+					.frame(width: 56 * u, height: 56 * u)
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("STAK")
+				Text("STAK")
+					.font(StakFont.geist(12 * u))
+					.foregroundStyle(labelColor)
+					.accessibilityHidden(true)
+			}
+		}
+		.frame(maxWidth: .infinity)
+	}
+
+	/// Compose's lerp(Color, Color): the blend runs in Oklab, so a half-swiped circle shows the same in-between
+	/// color as android (a plain sRGB blend reads darker and muddier midway).
+	private static func lerp(_ from: UInt32, _ to: UInt32, _ t: Double) -> Color {
+		let a = oklab(from), b = oklab(to)
+		let mixed = (0..<3).map { a[$0] + (b[$0] - a[$0]) * t }
+		let (r, g, bl) = srgb(mixed[0], mixed[1], mixed[2])
+		return Color(red: r, green: g, blue: bl)
+	}
+
+	private static func oklab(_ rgb: UInt32) -> [Double] {
+		func linear(_ shift: UInt32) -> Double {
+			let c = Double((rgb >> shift) & 0xFF) / 255
+			return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+		}
+		let r = linear(16), g = linear(8), b = linear(0)
+		let l = cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+		let m = cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+		let s = cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+		return [
+			0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+			1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+			0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+		]
+	}
+
+	private static func srgb(_ L: Double, _ a: Double, _ b: Double) -> (Double, Double, Double) {
+		let l = pow(L + 0.3963377774 * a + 0.2158037573 * b, 3)
+		let m = pow(L - 0.1055613458 * a - 0.0638541728 * b, 3)
+		let s = pow(L - 0.0894841775 * a - 1.2914855480 * b, 3)
+		func gamma(_ c: Double) -> Double {
+			let v = min(1, max(0, c))
+			return v <= 0.0031308 ? 12.92 * v : 1.055 * pow(v, 1 / 2.4) - 0.055
+		}
+		return (
+			gamma(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+			gamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+			gamma(-0.0004196086 * l - 0.7034186147 * m + 1.7076147010 * s)
+		)
 	}
 }

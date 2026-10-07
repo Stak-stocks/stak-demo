@@ -9,8 +9,6 @@ enum FlowScreen: Hashable {
 	case createAccount
 	case signIn
 	case forgotPassword
-	/// Email verification between an email sign-up and 01 Welcome (FigJam entry flow, 2026-09-14).
-	case verifyEmail(email: String)
 	case welcome
 	case brandPicks
 	case swipeTutorial
@@ -29,20 +27,54 @@ enum FlowAnim {
 	case pushLeft
 	case pushRight
 	case dissolve
+	/// The arriving screen dissolves in over a leaving one that goes at once (B21 Log out, 171:995: the profile,
+	/// already blanked, must never show on its way out).
+	case reveal
 
 	var transition: AnyTransition {
 		switch self {
 		case .pushLeft: .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
 		case .pushRight: .asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing))
 		case .dissolve: .opacity
+		case .reveal: .asymmetric(insertion: .opacity, removal: .identity)
 		}
 	}
 
 	var animation: Animation {
 		switch self {
-		case .dissolve: .easeOut(duration: 0.35)
+		case .dissolve, .reveal: .easeOut(duration: 0.35)
 		case .pushLeft, .pushRight: .easeOut(duration: 0.3)
 		}
+	}
+}
+
+/// What was typed on the auth pages that can sit beneath another one (Create account under Sign in, Sign in under
+/// Forgot password). Only the top page is ever built, so a page's own @State would be lost on the way back - android's
+/// back stack keeps it. Dropped wherever android would start that page afresh.
+@MainActor
+final class AuthDrafts: ObservableObject {
+	struct SignUp {
+		var email = ""
+		var password = ""
+		var confirm = ""
+		var code = ""
+		var showPassword = false
+		var attempted = false
+	}
+
+	struct SignIn {
+		var email = ""
+		var password = ""
+		var showPassword = false
+		var attempted = false
+	}
+
+	@Published var signUp = SignUp()
+	@Published var signIn = SignIn()
+
+	func clear() {
+		signUp = SignUp()
+		signIn = SignIn()
 	}
 }
 
@@ -76,12 +108,15 @@ struct RootFlowView: View {
 	/// Shared auth ViewModel — all sign-in/up/password flows share one instance
 	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
 	@StateObject private var authVM = AuthViewModel()
+	@StateObject private var drafts = AuthDrafts()
 	/// The left-edge swipe back (EdgeSwipeBack): how far the top screen is dragged, and whether a swipe is still settling.
 	@State private var flowDrag: CGFloat = 0
 	@State private var flowSwipeLive = false
+	/// An email sign-up waiting on its confirmation code - Create account shows the code entry while it is set.
+	@State private var pendingConfirmation: String? = nil
 
-	/// Screens a swipe can go back from: every screen with an on-screen Back. Create account is the root, 01 Welcome
-	/// and the deck loader have no Back.
+	/// Screens a swipe can go back from: every screen with an on-screen Back, and Sign in (swipe only - android's has
+	/// none, its system Back does it). Create account is the root, 01 Welcome and the deck loader have no Back.
 	private var canSwipeBack: Bool {
 		guard stack.count > 1, let top = stack.last else { return false }
 		switch top {
@@ -116,20 +151,34 @@ struct RootFlowView: View {
 			case .main:
 				ZStack {
 					MainTabsView(onLogOut: {
-						// Authored (171:995): Log out -> Sign in, the authored
-						// PUSH RIGHT 300 = the house back push (FlowAnim.pushLeft),
-						// with the session stack cleared. Sign up sits beneath so
-						// Sign in's authored Back edge (-> Sign up) still works.
-						Session.shared.signOut()
-						anim = .pushLeft
-						stack = [.createAccount, .signIn]
-						withAnimation(FlowAnim.pushLeft.animation) { phase = .flow }
+						Task {
+							// The SDK's live session goes first (android, audit 2026-09-19) - local, no network call, so a
+							// fast re-signup right after can never inherit this account's session.
+							await authVM.clearSession()
+							pendingConfirmation = nil
+							drafts.clear()
+							authVM.resetState()
+							// B21 (171:995): Home leaves at once and Sign in dissolves in (350), the session stack
+							// cleared. Sign up sits beneath so a swipe back from Sign in still reaches it.
+							anim = .reveal
+							stack = [.createAccount, .signIn]
+							withAnimation(FlowAnim.reveal.animation) { phase = .flow }
+							// After the page has gone, so the blanked name never shows (android navigates, then signs out).
+							Session.shared.signOut()
+							// Best-effort: the refresh token revoked server-side too.
+							authVM.revokeSessionRemotely()
+						}
 					}, onAccountDeleted: {
 						// The account is gone (Session.deleteAccount ran): Create account, dissolved in.
+						pendingConfirmation = nil
+						drafts.clear()
+						authVM.resetState()
 						anim = .dissolve
 						stack = [.createAccount]
 						withAnimation(FlowAnim.dissolve.animation) { phase = .flow }
 					})
+					// Locked means locked for VoiceOver too: nothing beneath the gate can be reached.
+					.accessibilityHidden(relocked)
 					if relocked {
 						LockGateView { withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
 							.transition(.opacity)
@@ -151,6 +200,7 @@ struct RootFlowView: View {
 							) {
 								// The screen already slid away: its Back's effect, minus the motion.
 								if stack.count > 1 { stack.removeLast() }
+								settleAuthState()
 							}
 							.transition(anim.transition)
 					}
@@ -170,35 +220,46 @@ struct RootFlowView: View {
 		.onChange(of: authVM.uiState) { _, state in
 			switch state {
 			case .success(let onboardingComplete):
+				// The auth pages share one AuthViewModel, so the routing android does per screen lives here.
+				pendingConfirmation = nil
+				drafts.clear()
 				if onboardingComplete {
-					// Real account that has completed onboarding — go straight to the tab shell.
+					// An account that finished onboarding (Sign in, or Google / Apple on either page) - straight to
+					// Home, the auth stack cleared.
 					Session.shared.signIn(demo: false)
 					anim = .pushRight
 					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
 				} else {
-					// New account — route through onboarding. verifyEmail pops itself then we push welcome.
+					// A new account, or one that never finished onboarding - through it from 01 Welcome (android:
+					// intro with the stack cleared; Create account stays beneath, where 01's missing Back can't reach).
 					anim = .pushRight
-					withAnimation(FlowAnim.pushRight.animation) {
-						stack = stack.filter { $0 != .createAccount } + [.createAccount, .welcome]
-					}
+					withAnimation(FlowAnim.pushRight.animation) { stack = [.createAccount, .welcome] }
 				}
 				authVM.resetState()
 			case .awaitingConfirmation(let email):
-				// signUp returned session=nil → email not confirmed yet; push the code entry screen.
-				if stack.last != .verifyEmail(email: email) {
-					push(.verifyEmail(email: email), .pushRight)
-				}
+				// signUp returned no session: the email needs confirming - Create account turns into the code entry.
+				pendingConfirmation = email
 			default:
 				break
 			}
 		}
+		// A light confirmation when an auth step goes through, a warning buzz when it fails.
+		.sensoryFeedback(trigger: authVM.uiState) { _, state in
+			switch state {
+			case .success, .recoveryVerified, .passwordResetComplete: .success
+			case .error: .error
+			default: nil
+			}
+		}
 		.environmentObject(authVM)
+		.environmentObject(drafts)
 		.background(StakColors.bg.ignoresSafeArea())
 	}
 
 	private func push(_ screen: FlowScreen, _ a: FlowAnim) {
 		anim = a
 		withAnimation(a.animation) { stack.append(screen) }
+		settleAuthState()
 	}
 
 	private func pop(_ a: FlowAnim = .pushLeft) {
@@ -206,44 +267,39 @@ struct RootFlowView: View {
 		withAnimation(a.animation) {
 			if stack.count > 1 { stack.removeLast() }
 		}
+		settleAuthState()
+	}
+
+	/// Android gives every auth page its own AuthViewModel; here they share one, so a page change drops the last
+	/// page's error (or finished reset) - the next page starts clean, as it would there. A request still running
+	/// keeps its state, so its result still routes.
+	private func settleAuthState() {
+		if authVM.uiState != .loading { authVM.resetState() }
 	}
 
 	@ViewBuilder
 	private func screen(for screen: FlowScreen) -> some View {
 		switch screen {
 		case .createAccount:
+			// Where it goes after a sign-up or a social sign-in is decided by authVM.uiState (above).
 			CreateAccountView(
-				onBack: { push(.welcome, .pushLeft) },
-				onCreateAccount: { push(.welcome, .pushRight) },
-				onSignIn: { push(.signIn, .dissolve) },
-				// FigJam entry flow (2026-09-14): an email sign-up verifies the address first.
-				onVerifyEmail: { email in push(.verifyEmail(email: email), .pushRight) }
+				onSignIn: {
+					// Sign in opens fresh each time (android navigates to a new page).
+					drafts.signIn = AuthDrafts.SignIn()
+					push(.signIn, .dissolve)
+				},
+				pendingEmail: $pendingConfirmation
 			)
 			.id(FlowScreen.createAccount)
-		case .verifyEmail(let email):
-			EmailVerificationView(
-				email: email,
-				onBack: { pop() },
-				// "Yes" -> the investor quiz starts at 01 Welcome; the verification page
-				// leaves the stack so Back from 01 lands on Create account as before.
-				onVerified: {
-					anim = .pushRight
-					withAnimation(FlowAnim.pushRight.animation) {
-						stack.removeLast()
-						stack.append(.welcome)
-					}
-				}
-			)
-			.id(screen)
 		case .signIn:
 			SignInView(
-				// Prototype (sign-in frame): back circle returns to sign up
-				// as Push Left; socials/CTA leave to Home first run as Push
-				// Right; the "Create account" link dissolves back.
-				onBack: { pop(.pushLeft) },
-				// Navigation is driven by authVM.uiState; this callback is unused.
-				onSignIn: {},
-				onCreateAccount: { pop(.dissolve) },
+				// Prototype (sign-in frame): socials/CTA leave to Home as Push Right (authVM.uiState, above); the
+				// "Create account" link dissolves back to a fresh sign-up page (android pops to a new one).
+				onCreateAccount: {
+					pendingConfirmation = nil
+					drafts.signUp = AuthDrafts.SignUp()
+					pop(.dissolve)
+				},
 				// Product audit (2026-09-05): the link opens the reset flow.
 				onForgot: { push(.forgotPassword, .pushRight) }
 			)
@@ -252,8 +308,13 @@ struct RootFlowView: View {
 			ForgotPasswordView(onBack: { pop() })
 				.id(FlowScreen.forgotPassword)
 		case .welcome:
-			IntroView { push(.brandPicks, .pushRight) }
-				.id(FlowScreen.welcome)
+			IntroView {
+				// A fresh start on the quiz: android opens 02 on a new page with nothing picked. The pages after it
+				// read these back, so Back through the quiz keeps each answer as android's back stack does.
+				UserProfile.shared.clearTaste()
+				push(.brandPicks, .pushRight)
+			}
+			.id(FlowScreen.welcome)
 		case .brandPicks:
 			BrandPicksView(
 				onBack: { pop() },
@@ -303,13 +364,12 @@ struct RootFlowView: View {
 		case .profileSetup:
 			ProfileSetupView(
 				onBack: { pop() },
-				// Prototype: "Proceed to home" → Home first run, Push Right.
+				// Prototype: "Proceed to home" → Home first run, Push Right. The page has already saved the answers
+				// to the account (awaited); the session starts with them as this account's own.
 				onProceed: {
-					// Save onboarding answers to the backend, then start the session.
-					Session.shared.signIn(demo: false)
+					Session.shared.signIn(demo: false, answeredOnboarding: true)
 					anim = .pushRight
 					withAnimation(FlowAnim.pushRight.animation) { phase = .main }
-					Task { await authVM.saveProfile() }
 				}
 			)
 			.id(FlowScreen.profileSetup)

@@ -74,12 +74,15 @@ struct TasteRevealView: View {
 					.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 16 * u))
 
 					// Risk style chip.
+					Button { showRisk = true } label: {
 					HStack(spacing: 10 * u) {
 						VStack(alignment: .leading, spacing: 2 * u) {
 							Text("Risk style")
 								.font(StakFont.geist(11 * u))
 								.foregroundStyle(StakColors.muted)
-							Text(profile.riskStyle)
+							// riskStyle defaults to "Growth-Oriented" whether or not the question was answered - an unanswered
+							// profile says so instead of reporting a style never chosen.
+							Text(profile.risk < 0 ? "Not set yet" : profile.riskStyle)
 								.font(StakFont.geist(14 * u, .medium))
 								.foregroundStyle(StakColors.textPrimary)
 						}
@@ -93,7 +96,8 @@ struct TasteRevealView: View {
 					.padding(.vertical, 13 * u)
 					.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
 					.contentShape(Rectangle())
-					.onTapGesture { showRisk = true }
+					}
+					.buttonStyle(.pressDim)
 					.sheet(isPresented: $showRisk) { RiskStyleSheet(onDismiss: { showRisk = false }) }
 
 					Text("Your deck adjusts as you swipe.")

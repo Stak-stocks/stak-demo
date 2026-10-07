@@ -331,9 +331,10 @@ class AuthViewModel @Inject constructor(
             msg.contains("network", ignoreCase = true) ||
                 msg.contains("Unable to resolve host", ignoreCase = true) -> "Network error — check your connection"
             msg.contains("weak_password", ignoreCase = true) -> "Password is too weak — use at least 8 characters"
-            // Sign-in before clicking the confirmation link - the "check your email" state
-            // this account never finished, not a wrong-password case.
-            msg.contains("email not confirmed", ignoreCase = true) -> "Confirm your email first — check your inbox for the link we sent."
+            // Sign-in before entering the confirmation code - the "check your email" state this
+            // account never finished, not a wrong-password case. Signing up again with the same
+            // address sends a new code and opens the code entry.
+            msg.contains("email not confirmed", ignoreCase = true) -> "Confirm your email first — sign up again with this email for a new code."
             msg.contains("user not found", ignoreCase = true) -> "No account found for that email"
             // Supabase's own rate-limit wording ("For security purposes, you can only
             // request this after Ns") on a repeated resend/reset tap.

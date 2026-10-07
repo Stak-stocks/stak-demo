@@ -88,7 +88,7 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    /// Robinhood-style in-app 6-digit code entry: verifies the real Supabase signup OTP
+    /// Robinhood-style in-app code entry: verifies the real Supabase signup OTP
     /// and signs in immediately without leaving the app. Mirrors Android verifyEmailCode().
     func verifyEmailCode(email: String, code: String) {
         guard setLoading() else { return }
@@ -99,7 +99,7 @@ final class AuthViewModel: ObservableObject {
                     token: code.trimmingCharacters(in: .whitespaces),
                     type: .signup
                 )
-                guard let session = response.session else { throw AuthError.noSession }
+                guard let session = response.session else { throw AuthFlowError.noSession }
                 Session.shared.setToken(session.accessToken)
                 UserProfile.shared.linkedGoogle = false
                 uiState = .success(onboardingComplete: false)
@@ -121,7 +121,7 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    /// Step 2: verifies the 6-digit recovery code from the reset email.
+    /// Step 2: verifies the recovery code from the reset email.
     func verifyPasswordResetCode(email: String, code: String) {
         guard setLoading() else { return }
         Task {
@@ -131,7 +131,7 @@ final class AuthViewModel: ObservableObject {
                     token: code.trimmingCharacters(in: .whitespaces),
                     type: .recovery
                 )
-                guard let session = response.session else { throw AuthError.noSession }
+                guard let session = response.session else { throw AuthFlowError.noSession }
                 Session.shared.setToken(session.accessToken)
                 uiState = .recoveryVerified
             } catch {
@@ -156,10 +156,12 @@ final class AuthViewModel: ObservableObject {
 
     // MARK: – Onboarding / profile
 
-    /// Saves onboarding completion to the backend (single source of truth checked on every login).
-    /// Mirrors android AuthViewModel.saveProfile().
+    /// Saves onboarding completion to the backend (single source of truth checked on every login). Awaited by
+    /// Profile setup before it leaves, so the write is never cut off by the navigation. Mirrors android
+    /// AuthViewModel.saveProfile().
     func saveProfile() async {
         let p = UserProfile.shared
+        // The answers go with the account, so a new phone shows the same taste.
         let taste = TasteDto(
             goal: p.goal, risk: p.risk, riskStyle: p.riskStyle,
             picks: Array(p.brandPicks).sorted()
@@ -260,7 +262,7 @@ final class AuthViewModel: ObservableObject {
                     idToken: idToken,
                     nonce: nonce
                 ))
-                guard let session = supabase.auth.currentSession else { throw AuthError.noSession }
+                guard let session = supabase.auth.currentSession else { throw AuthFlowError.noSession }
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
                 applyDisplayName(from: me, fallback: fullName)
@@ -273,9 +275,16 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    /// The Apple sheet failed for a reason other than the user backing out (AppleSignInCoordinator).
+    func appleSignInFailed(_ error: Error?) {
+        guard uiState != .loading else { return }
+        uiState = .error(error.map(friendlyError) ?? "Apple sign-in did not return an ID token")
+    }
+
     // MARK: – State helpers
 
-    func resetState() { uiState = .idle }
+    /// Idle again - written only when it isn't, since every write re-renders each auth page.
+    func resetState() { if uiState != .idle { uiState = .idle } }
 
     @discardableResult
     private func setLoading() -> Bool {
@@ -296,16 +305,25 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    /// Supabase's error code ("invalid_credentials", "otp_expired") travels apart from its message on iOS, where
+    /// Kotlin's exception text carries both - joined here so the same rules as android friendlyError match.
     private func friendlyError(_ error: Error) -> String {
-        let msg = error.localizedDescription
+        if error is URLError { return "Network error — check your connection" }
+        let msg: String
+        if let authError = error as? AuthError {
+            msg = authError.errorCode.rawValue + " " + authError.message
+        } else {
+            msg = error.localizedDescription
+        }
         if msg.range(of: "invalid_credentials", options: .caseInsensitive) != nil { return "Wrong email or password" }
         if msg.range(of: "already registered", options: .caseInsensitive) != nil ||
            msg.range(of: "User already registered", options: .caseInsensitive) != nil {
             return "An account with this email already exists"
         }
-        if msg.range(of: "network", options: .caseInsensitive) != nil { return "Network error — check your connection" }
+        if msg.range(of: "network", options: .caseInsensitive) != nil ||
+           msg.range(of: "offline", options: .caseInsensitive) != nil { return "Network error — check your connection" }
         if msg.range(of: "weak_password", options: .caseInsensitive) != nil { return "Password is too weak — use at least 8 characters" }
-        if msg.range(of: "email not confirmed", options: .caseInsensitive) != nil { return "Confirm your email first — check your inbox for the link we sent." }
+        if msg.range(of: "email not confirmed", options: .caseInsensitive) != nil { return "Confirm your email first — sign up again with this email for a new code." }
         if msg.range(of: "user not found", options: .caseInsensitive) != nil { return "No account found for that email" }
         if msg.range(of: "security purposes", options: .caseInsensitive) != nil { return "Give it a moment before trying again." }
         if msg.range(of: "token has expired or is invalid", options: .caseInsensitive) != nil ||
@@ -313,7 +331,9 @@ final class AuthViewModel: ObservableObject {
            msg.range(of: "invalid otp", options: .caseInsensitive) != nil {
             return "That code's wrong or expired — check the email again, or tap Resend."
         }
-        return msg.isEmpty ? "Something went wrong. Try again." : msg
+        // No rule matched: the message alone, without the code joined on above.
+        if let authError = error as? AuthError, !authError.message.isEmpty { return authError.message }
+        return msg.trimmingCharacters(in: .whitespaces).isEmpty ? "Something went wrong. Try again." : msg
     }
 }
 
@@ -335,4 +355,8 @@ extension AuthViewModel {
 
 // MARK: – Internal errors
 
-private enum AuthError: Error { case noSession }
+/// Named apart from Supabase's own AuthError, which friendlyError reads.
+private enum AuthFlowError: LocalizedError {
+    case noSession
+    var errorDescription: String? { "Something went wrong. Try again." }
+}

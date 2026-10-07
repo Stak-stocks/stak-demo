@@ -188,6 +188,7 @@ fun ForgotPasswordScreen(viewModel: AuthViewModel = hiltViewModel(), onBack: () 
 				}
 			}
 			Column(
+				horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
 				verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 				modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 			) {

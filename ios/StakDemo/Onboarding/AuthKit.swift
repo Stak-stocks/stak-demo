@@ -45,7 +45,9 @@ struct Artboard<Content: View>: View {
 					.frame(width: proxy.size.width, height: min(800 * u, proxy.size.height), alignment: .top)
 			}
 		}
-		.ignoresSafeArea(edges: .bottom)
+		// The home-indicator inset only: the keyboard still lifts the CTA block above itself (a number pad has no
+		// Return key - a hidden Verify would leave no way on).
+		.ignoresSafeArea(.container, edges: .bottom)
 	}
 }
 
@@ -56,7 +58,7 @@ struct AuthWatermark: View {
 		// The authored node render (1:831): the tilt AND the 10% opacity are
 		// baked into the asset. Fitted pose: 364u square, center 185.6/582.2,
 		// no rotation. Top-anchored so taller devices don't sink it.
-		Image("AuthWatermark")
+		Image(decorative: "AuthWatermark")
 			.resizable()
 			.frame(width: 364 * u, height: 364 * u)
 			.offset(x: -9.37 * u, y: 400.16 * u)
@@ -105,8 +107,7 @@ struct OnboardingKicker: View {
 }
 
 /// Right-aligned "STEP n OF 6" label used in the nav rows. Scaled by the
-/// artboard unit like the inline twins in BrandPicksView / MatrixQuizView
-/// and android's "STEP 6 OF 6" (Codex parity audit 2026-09-04).
+/// artboard unit like android's "STEP n OF 6" (Codex parity audit 2026-09-04).
 struct StepLabel: View {
 	let text: String
 
@@ -129,7 +130,7 @@ struct SocialPill: View {
 		let u = figmaUnit
 		Button(action: action) {
 			HStack(spacing: 10 * u) {
-				Image(icon)
+				Image(decorative: icon)
 					.resizable()
 					.frame(width: 18 * u, height: 18 * u)
 				Text(text)
@@ -164,6 +165,8 @@ struct AuthInput<Trailing: View>: View {
 	@Binding var text: String
 	var keyboard: UIKeyboardType = .default
 	var hidden = false
+	/// What the field holds for AutoFill - a saved login, a new password, the code from Mail.
+	var contentType: UITextContentType? = nil
 	var trailing: Trailing
 	/// Inline validation (product audit, 2026-09-05): a red hairline and a caption under the field.
 	var error: String? = nil
@@ -179,49 +182,57 @@ struct AuthInput<Trailing: View>: View {
 		text: Binding<String>,
 		keyboard: UIKeyboardType = .default,
 		hidden: Bool = false,
+		contentType: UITextContentType? = nil,
 		@ViewBuilder trailing: () -> Trailing
 	) {
 		self.placeholder = placeholder
 		self._text = text
 		self.keyboard = keyboard
 		self.hidden = hidden
+		self.contentType = contentType
 		self.trailing = trailing()
 	}
 
 	var body: some View {
 		let u = figmaUnit
-		HStack {
-			Group {
-				if hidden {
-					SecureField("", text: $text, prompt: prompt)
-				} else {
-					TextField("", text: $text, prompt: prompt)
+		// Field, then the caption 6 under it (android's Column) - a caption that grows with larger text pushes the
+		// next field down instead of overlapping it.
+		VStack(alignment: .leading, spacing: 6 * u) {
+			HStack(spacing: 0) {
+				Group {
+					if hidden {
+						SecureField("", text: $text, prompt: prompt)
+					} else {
+						TextField("", text: $text, prompt: prompt)
+					}
 				}
+				.font(StakFont.geist(13 * u))
+				.foregroundStyle(StakColors.textPrimary)
+				.tint(StakColors.accent)
+				.keyboardType(keyboard)
+				.textContentType(contentType)
+				.textInputAutocapitalization(.never)
+				.autocorrectionDisabled()
+				// The placeholder stays the field's name once something is typed (android's contentDescription),
+				// and the rule it breaks is read with it.
+				.accessibilityLabel(placeholder)
+				.accessibilityHint(error ?? "")
+				trailing
 			}
-			.font(StakFont.geist(13 * u))
-			.foregroundStyle(StakColors.textPrimary)
-			.tint(StakColors.accent)
-			.keyboardType(keyboard)
-			.textInputAutocapitalization(.never)
-			.autocorrectionDisabled()
-			trailing
-		}
-		.padding(16 * u)
-		.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
-		.overlay(
-			RoundedRectangle(cornerRadius: 14 * u)
-				.strokeBorder(Auth.errorRed, lineWidth: error == nil ? 0 : 1 * u)
-		)
-		.overlay(alignment: .bottomLeading) {
+			.padding(16 * u)
+			.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
+			.overlay(
+				RoundedRectangle(cornerRadius: 14 * u)
+					.strokeBorder(Auth.errorRed, lineWidth: error == nil ? 0 : 1 * u)
+			)
 			if let error {
 				Text(error)
 					.font(StakFont.geist(11 * u))
 					.foregroundStyle(Auth.errorRed)
 					.padding(.leading, 4 * u)
-					.offset(y: 6 * u + 14 * u)
+					.accessibilityHidden(true)
 			}
 		}
-		.padding(.bottom, error == nil ? 0 : 6 * u + 14 * u)
 	}
 
 	private var prompt: Text {
@@ -234,9 +245,57 @@ extension AuthInput where Trailing == EmptyView {
 		_ placeholder: String,
 		text: Binding<String>,
 		keyboard: UIKeyboardType = .default,
-		hidden: Bool = false
+		hidden: Bool = false,
+		contentType: UITextContentType? = nil
 	) {
-		self.init(placeholder, text: text, keyboard: keyboard, hidden: hidden) { EmptyView() }
+		self.init(placeholder, text: text, keyboard: keyboard, hidden: hidden, contentType: contentType) { EmptyView() }
+	}
+}
+
+/// The emailed confirmation code's field - sign-up confirmation and password reset. Not hard-coded to 6: Supabase's
+/// OTP length is a project setting (device report, 2026-09-19: this project's is 8), so the field takes up to ten
+/// digits - the paste path filtered too - and lets the real Verify call be the judge.
+struct AuthCodeInput: View {
+	@Binding var code: String
+	/// Verify waits for at least this many digits.
+	static let minLength = 6
+
+	var body: some View {
+		AuthInput("Confirmation code", text: $code, keyboard: .numberPad, contentType: .oneTimeCode)
+			.onChange(of: code) { _, next in
+				let digits = String(next.filter(\.isNumber).prefix(10))
+				if digits != next { code = digits }
+			}
+	}
+}
+
+/// The #181f30 r14 note card - a title, a line under it and anything that follows (a link).
+struct AuthNoteCard<Extra: View>: View {
+	let title: String
+	let message: String
+	@ViewBuilder var extra: () -> Extra
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(alignment: .leading, spacing: 6 * u) {
+			Text(title)
+				.font(StakFont.geist(14 * u, .medium))
+				.foregroundStyle(StakColors.textPrimary)
+			Text(message)
+				.font(StakFont.geist(11 * u))
+				.stakLineHeight(15 * u, size: 11 * u, face: .geist)
+				.foregroundStyle(Auth.subtitleGray)
+			extra()
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(16 * u)
+		.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
+	}
+}
+
+extension AuthNoteCard where Extra == EmptyView {
+	init(title: String, message: String) {
+		self.init(title: title, message: message) { EmptyView() }
 	}
 }
 
@@ -251,6 +310,7 @@ struct ShowHideToggle: View {
 				.foregroundStyle(Auth.linkTeal)
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityLabel(shown ? "Hide password" : "Show password")
 	}
 }
 
@@ -358,6 +418,37 @@ struct AuthSwitchRow: View {
 	}
 }
 
+/// Under an auth CTA: the spinner while a request runs, else the last error in red - android's
+/// CircularProgressIndicator + error Text pair, shared by every auth page.
+struct AuthStatusLine: View {
+	let loading: Bool
+	let error: String?
+	/// The spinner's size - 24 under a CTA, 16 under an inline link.
+	var spinnerSize: CGFloat = 24
+
+	var body: some View {
+		let u = figmaUnit
+		if loading {
+			ProgressView()
+				.progressViewStyle(.circular)
+				.tint(Auth.linkTeal)
+				.frame(width: spinnerSize * u, height: spinnerSize * u)
+				.accessibilityLabel("Loading")
+		}
+		if let error {
+			Text(error)
+				.font(StakFont.geist(11 * u))
+				.multilineTextAlignment(.center)
+				.foregroundStyle(Auth.errorRed)
+				.frame(maxWidth: .infinity)
+				.padding(.horizontal, 20 * u)
+				// VoiceOver hears each failure without hunting for it (a new message is a new view).
+				.id(error)
+				.onAppear { UIAccessibility.post(notification: .announcement, argument: error) }
+		}
+	}
+}
+
 extension Auth {
 	/// Inline validation red (the app's negative tone).
 	static let errorRed = Color(argb: 0xFFE5484D)
@@ -372,8 +463,12 @@ final class AppleSignInCoordinator: NSObject, ObservableObject,
 
     private var nonce: String?
     private weak var authVM: AuthViewModel?
+    /// The Apple sheet is up: a second tap on the pill must not stack another request.
+    private var inFlight = false
 
     func start(authVM: AuthViewModel) {
+        guard !inFlight else { return }
+        inFlight = true
         self.authVM = authVM
         let rawNonce = AuthViewModel.randomNonce()
         nonce = rawNonce
@@ -387,18 +482,25 @@ final class AppleSignInCoordinator: NSObject, ObservableObject,
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        inFlight = false
         guard
             let cred = authorization.credential as? ASAuthorizationAppleIDCredential,
             let tokenData = cred.identityToken,
             let idToken = String(data: tokenData, encoding: .utf8),
             let n = nonce
-        else { return }
+        else {
+            authVM?.appleSignInFailed(nil)
+            return
+        }
         let name = cred.fullName.flatMap { PersonNameComponentsFormatter.localizedString(from: $0, style: .default) }
         authVM?.signInWithApple(idToken: idToken, nonce: n, fullName: name)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        // Cancel = user backed out; other errors surface via authVM
+        inFlight = false
+        // Backing out of the sheet is not an error (Google's cancel is handled the same way); anything else says so.
+        if (error as? ASAuthorizationError)?.code == .canceled { return }
+        authVM?.appleSignInFailed(error)
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {

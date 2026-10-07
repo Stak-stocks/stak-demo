@@ -413,7 +413,9 @@ struct RiskStyleSheet: View {
 				.foregroundStyle(Auth.subtitleGray)
 				.padding(.bottom, 6 * u)
 			ForEach(options, id: \.0) { index, title, subtitle in
-				let selected = profile.riskStyle == TasteModel.riskStyle(index) && (profile.risk == index || profile.risk < 0)
+				// Only an answer actually given is ticked: riskStyle defaults to "Growth-Oriented" answered or not, so
+				// matching on it ticked that row for everyone who skipped (android RiskStyleSheet).
+				let selected = profile.risk == index
 				Button {
 					profile.risk = index
 					profile.riskStyle = TasteModel.riskStyle(index)

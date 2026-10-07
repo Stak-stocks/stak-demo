@@ -23,7 +23,7 @@ struct SplashView: View {
 			// screen, scaled about its top-center so y0 stays at the top.
 			ZStack(alignment: .top) {
 				// Glass ball — 394 square rotated 48.43°, top-left (183.8, 23).
-				Image("SplashGlassBall")
+				Image(decorative: "SplashGlassBall")
 					.resizable()
 					.frame(width: 394, height: 394)
 					.rotationEffect(.degrees(48.43))
@@ -54,7 +54,8 @@ struct SplashView: View {
 		.ignoresSafeArea()
 		.task {
 			// Prototype: "After delay 1200ms" → Auth · Sign up.
-			try? await Task.sleep(for: .seconds(1.2))
+			// A splash that left early (cancelled) never continues.
+			guard (try? await Task.sleep(for: .seconds(1.2))) != nil else { return }
 			onContinue()
 		}
 	}

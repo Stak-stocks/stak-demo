@@ -20,7 +20,9 @@ struct GoalView: View {
 			onBack: onBack,
 			// Product audit (2026-09-05): nothing pre-selected; the answer shapes the
 			// taste reveal and the Profile chips.
-			onContinue: { choice in UserProfile.shared.goal = choice; onContinue() }
+			onContinue: { choice in UserProfile.shared.goal = choice; onContinue() },
+			// Back from step 5 finds the answer still chosen (01 Welcome clears it on a fresh start).
+			initialSelection: UserProfile.shared.goal
 		)
 	}
 }

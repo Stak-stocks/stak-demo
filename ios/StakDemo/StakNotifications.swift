@@ -154,7 +154,7 @@ final class StakNotifications: ObservableObject {
 		return Item(
 			id: "welcome",
 			title: name.isEmpty ? "Welcome to STAK" : "Welcome to STAK, \(name.capitalizedWords)",
-			body: "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.",
+			body: "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.",
 			time: StakClock.ago(ms / 1000)
 		)
 	}

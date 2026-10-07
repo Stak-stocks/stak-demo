@@ -42,10 +42,7 @@ struct MatrixQuizView: View {
 			HStack {
 				AuthBackCircle(action: onBack)
 				Spacer()
-				Text(stepLabel)
-					.font(StakFont.geist(10 * u, .medium))
-					.tracking(0.9 * u)
-					.foregroundStyle(Auth.faintText)
+				StepLabel(text: stepLabel)
 			}
 			.padding(.horizontal, 20 * u)
 			.padding(.top, 10 * u)
@@ -95,6 +92,7 @@ struct MatrixQuizView: View {
 			.padding(.bottom, 26 * u)
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.sensoryFeedback(.selection, trigger: chosen)
 	}
 }
 
@@ -113,7 +111,7 @@ private struct MatrixCard: View {
 				Spacer().frame(height: option.iconDy * u)
 				ZStack {
 					Circle().fill(Color(argb: 0xFF242B3D))
-					Image(option.icon)
+					Image(decorative: option.icon)
 						.resizable()
 						.frame(width: option.iconSize * u, height: option.iconSize * u)
 				}
@@ -134,8 +132,8 @@ private struct MatrixCard: View {
 			}
 			.padding(.horizontal, 14.74 * u)
 			.padding(.vertical, 15.27 * u)
-			.frame(width: 163.18 * u, alignment: .topLeading)
-			.frame(minHeight: 155.81 * u, maxHeight: .infinity, alignment: .topLeading)
+			// Both cards share the row (android's weight(1f)).
+			.frame(maxWidth: .infinity, minHeight: 155.81 * u, maxHeight: .infinity, alignment: .topLeading)
 			.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 16.85 * u))
 			.overlay {
 				if selected {
@@ -145,5 +143,7 @@ private struct MatrixCard: View {
 			}
 		}
 		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .combine)
+		.accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
 	}
 }

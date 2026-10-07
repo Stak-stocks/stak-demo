@@ -5,11 +5,10 @@ import AuthenticationServices
 /// "Welcome back" header, social pills, two inputs (password with
 /// Show/Hide), a teal "Forgot password?" link, the 10% glass-ball
 /// watermark and the sharp gradient "Sign in" CTA with the
-/// "New to STAK? Create account" switch row.
+/// "New to STAK? Create account" switch row. No back circle, as on android:
+/// the left-edge swipe goes back. Navigation follows authVM.uiState (RootFlowView).
+/// Mirrors android SignInScreen.kt.
 struct SignInView: View {
-	let onBack: () -> Void
-	/// Kept for API compatibility; navigation is now driven by authVM.uiState.
-	let onSignIn: () -> Void
 	let onCreateAccount: () -> Void
 	/// "Forgot password?" -> the reset flow (product audit, 2026-09-05).
 	var onForgot: () -> Void = {}
@@ -17,12 +16,14 @@ struct SignInView: View {
 	@EnvironmentObject private var authVM: AuthViewModel
 	@StateObject private var appleCoord = AppleSignInCoordinator()
 
-	@State private var email = ""
-	@State private var password = ""
-	@State private var showPassword = false
+	/// What's typed here outlives the page, as android's back stack keeps it: Forgot password and back finds it.
+	@EnvironmentObject private var drafts: AuthDrafts
+	private var email: String { drafts.signIn.email }
+	private var password: String { drafts.signIn.password }
+	private var showPassword: Bool { drafts.signIn.showPassword }
 	// Product audit (2026-09-05): validates on the tap - the CTA waits for both
 	// fields, then the email rule speaks inline under the field.
-	@State private var attempted = false
+	private var attempted: Bool { drafts.signIn.attempted }
 	private var emailError: String? { AuthRules.emailError(email) }
 	private var passwordError: String? { password.isEmpty ? "Enter your password" : nil }
 	private var filled: Bool { !email.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty }
@@ -38,14 +39,6 @@ struct SignInView: View {
 			AuthWatermark()
 
 			Artboard {
-				HStack {
-					AuthBackCircle(action: onBack)
-					Spacer()
-				}
-				.padding(.leading, 20 * u)
-				.padding(.top, 10 * u)
-				.padding(.bottom, 4 * u)
-
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14 * u) {
 						VStack(alignment: .leading, spacing: 12 * u) {
@@ -62,19 +55,21 @@ struct SignInView: View {
 
 						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { authVM.signInWithGoogle() })
 							.disabled(isLoading)
-						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: {
-							appleCoord.start(authVM: authVM)
-						})
-						.disabled(isLoading)
+						// Sign in with Apple: the iPhone's own (App Store Guideline 4.8) - Android has Google only.
+						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { appleCoord.start(authVM: authVM) })
+							.disabled(isLoading)
 
 						AuthOrDivider()
 
-						AuthInput("Email address", text: $email, keyboard: .emailAddress)
+						AuthInput("Email address", text: $drafts.signIn.email, keyboard: .emailAddress, contentType: .username)
 							.error(attempted ? emailError : nil)
-						AuthInput("Password", text: $password, hidden: !showPassword) {
-							ShowHideToggle(shown: $showPassword)
+						AuthInput("Password", text: $drafts.signIn.password, hidden: !showPassword, contentType: .password) {
+							ShowHideToggle(shown: $drafts.signIn.showPassword)
 						}
 						.error(attempted ? passwordError : nil)
+						// Return on the password is Sign in, once it would be enabled.
+						.submitLabel(.go)
+						.onSubmit { if filled && !isLoading { submit() } }
 						Button(action: onForgot) {
 							Text("Forgot password?")
 								.font(StakFont.geist(12 * u, .medium))
@@ -86,21 +81,11 @@ struct SignInView: View {
 					.padding(.horizontal, 24 * u)
 					.padding(.top, 14 * u)
 				}
+				.scrollDismissesKeyboard(.interactively)
 
 				VStack(spacing: 12 * u) {
-					if let msg = errorMessage {
-						Text(msg)
-							.font(StakFont.geist(12 * figmaUnit))
-							.foregroundStyle(Color(argb: 0xFFFF5A6A))
-							.frame(maxWidth: .infinity, alignment: .leading)
-							.padding(.horizontal, 24 * figmaUnit)
-					}
-					AuthCta(text: isLoading ? "Signing in…" : "Sign in", enabled: filled && !isLoading, action: {
-						attempted = true
-						if emailError == nil && passwordError == nil {
-							authVM.signIn(email: email, password: password)
-						}
-					})
+					AuthCta(text: "Sign in", enabled: filled && !isLoading, action: submit)
+					AuthStatusLine(loading: isLoading, error: errorMessage)
 					AuthSwitchRow(prefix: "New to STAK?", link: "Create account", action: onCreateAccount)
 				}
 				.padding(.top, 8 * u)
@@ -108,5 +93,12 @@ struct SignInView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+	}
+
+	private func submit() {
+		drafts.signIn.attempted = true
+		if emailError == nil && passwordError == nil {
+			authVM.signIn(email: email, password: password)
+		}
 	}
 }

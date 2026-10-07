@@ -25,7 +25,9 @@ struct RiskView: View {
 				UserProfile.shared.risk = choice
 				UserProfile.shared.riskStyle = TasteModel.riskStyle(choice)
 				onContinue()
-			}
+			},
+			// Back from the reveal finds the answer still chosen - or the one its Risk style sheet changed it to.
+			initialSelection: UserProfile.shared.risk
 		)
 	}
 }

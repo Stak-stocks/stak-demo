@@ -60,12 +60,13 @@ final class Session: ObservableObject {
 		// until every stored property is initialized - both flags come
 		// from the local instead.
 		let wasSignedIn = d.bool(forKey: Self.keySignedIn)
+		let wasDemo = d.object(forKey: Self.keyDemo) as? Bool ?? true
 		signedIn = wasSignedIn
 		resumedSignedIn = wasSignedIn
-		demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
+		demoAccount = wasDemo
 		firstRunPending = d.bool(forKey: Self.keyFirstRun)
-		StakStore.demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
-		UserProfile.shared.demoAccount = d.object(forKey: Self.keyDemo) as? Bool ?? true
+		StakStore.demoAccount = wasDemo
+		UserProfile.shared.demoAccount = wasDemo
 		UserProfile.shared.displayName = d.string(forKey: Self.keyName) ?? ""
 		if let risk = d.string(forKey: Self.keyRisk) { UserProfile.shared.riskStyle = risk }
 		UserProfile.shared.brandPicks = Set(d.stringArray(forKey: Self.keyPicks) ?? [])
@@ -91,6 +92,8 @@ final class Session: ObservableObject {
 		token = d.string(forKey: Self.keyJwt)
 		accountId = token.flatMap(jwtSubject)
 		StakStore.accountId = accountId
+		// Before per-user keys every real account shared "new.": a user already signed in keeps it under their id.
+		StakStore.migrateLegacy(accountId: wasSignedIn && !wasDemo ? accountId : nil)
 		applyAccount()
 	}
 
@@ -116,8 +119,11 @@ final class Session: ObservableObject {
 	private(set) var accountGeneration = 0
 
 	/// Sign-in CTA or account creation (09 Proceed) - remembered across launches.
-	/// `demo` = the authored demo account (Sign in); false = a fresh account (Create account).
-	func signIn(demo: Bool) {
+	/// `demo` = the authored demo account; false = a real account (every live caller passes false).
+	/// `answeredOnboarding` = the taste answers on this phone were just given for this account (Profile setup).
+	/// Any other sign-in drops them - they may be a different account's, or a half-finished onboarding - and
+	/// ProfileSync restores the account's own. Mirrors android Session.signIn.
+	func signIn(demo: Bool, answeredOnboarding: Bool = false) {
 		accountGeneration += 1
 		signedIn = true
 		demoAccount = demo
@@ -125,14 +131,11 @@ final class Session: ObservableObject {
 		UserProfile.shared.demoAccount = demo
 		// Only a brand-new account is a first-time user; Sign in is an active user.
 		firstRunPending = !demo
+		// The persona's own profile, or a real account's own from the server: an onboarding started and abandoned
+		// before "Already have an account? Sign in" must not leak its brand picks or risk answer into the account
+		// (audit 2026-09-07).
+		if demo || !answeredOnboarding { UserProfile.shared.clearTaste() }
 		if demo {
-			// The persona's own profile: an onboarding started and abandoned before
-			// "Already have an account? Sign in" must not leak its brand picks or
-			// risk answer into the active user's account (audit 2026-09-07).
-			UserProfile.shared.riskStyle = "Growth-Oriented"
-			UserProfile.shared.brandPicks = []
-			UserProfile.shared.goal = -1
-			UserProfile.shared.risk = -1
 			// ...nor its 08 Permissions answers or notification preferences (Codex review,
 			// PR #166 mirror): "Not now" on a sign-up that was backed out of must not
 			// silently switch the persona's notifications and account lock off.
@@ -143,32 +146,23 @@ final class Session: ObservableObject {
 			UserProfile.shared.marketNews = false
 			UserProfile.shared.priceThreshold = 3
 		}
-		// The demo shows its authored month (UserProfile.demoJoined); a real account keeps the month the server gave it,
-		// and only a brand-new one with none yet reads as joining now.
-		if !demo && UserProfile.shared.joined.isEmpty { UserProfile.shared.joined = StakClock.monthYear() }
+		// Brand-new account: the server's creation month isn't known yet, and it is this one. Any other sign-in waits
+		// for the month the server gives (ProfileSync).
+		if !demo && answeredOnboarding && UserProfile.shared.joined.isEmpty { UserProfile.shared.joined = StakClock.monthYear() }
 		persist()
-		// A brand-new account starts from nothing; the demo account keeps whatever
-		// it did last time it was signed in.
-		if !demo {
-			StakStore.migrateLegacy(accountId: accountId)
-			StakStore.clearAccount(demo: false)
-		}
+		// A real account keeps its own phone state (saves, paper ledger, inbox, the deck's day) across log out / log
+		// in - only Delete account wipes it.
 		applyAccount(triggerSync: true)
 		if !demo { PushRegistration.sync() }
 	}
 
-	/// Stores the Supabase JWT and marks the session signed-in (real account, not demo).
-	/// Mirrors android Session.kt setToken(). Call this immediately after supabase.auth sign-in;
-	/// applyAccount() is called by signIn(demo:) when navigation settles — not here.
+	/// Stores the Supabase JWT for authenticated API calls. Mirrors android Session.kt setToken(). It does not sign
+	/// the session in: signIn(demo:answeredOnboarding:) does that once navigation settles, so an app closed halfway
+	/// through onboarding opens on Create account again, not on a Home the account never finished setting up.
 	func setToken(_ jwt: String) {
 		token = jwt
 		accountId = jwtSubject(jwt)
 		StakStore.accountId = accountId
-		if !signedIn {
-			signedIn = true
-			demoAccount = false
-			UserProfile.shared.demoAccount = false
-		}
 		persist()
 	}
 
@@ -203,10 +197,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.demoAccount = true
 		UserProfile.shared.displayName = ""
 		UserProfile.shared.photoData = nil
-		UserProfile.shared.riskStyle = "Growth-Oriented"
-		UserProfile.shared.brandPicks = []
-		UserProfile.shared.goal = -1
-		UserProfile.shared.risk = -1
+		UserProfile.shared.clearTaste()
 		UserProfile.shared.notificationsOn = true
 		UserProfile.shared.accountLock = false
 		UserProfile.shared.priceAlerts = true

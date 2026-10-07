@@ -41,7 +41,7 @@ struct IntroView: View {
 				// the flattened group's first vector tops out at 235.5 in 1:179).
 				// The title's natural-height excess is absorbed by the gap above, so
 				// this is the authored pad (mirrors Android, 2026-09-05).
-				Image("IntroHeroBox")
+				Image(decorative: "IntroHeroBox")
 					.resizable()
 					.scaledToFit()
 					.frame(width: 342 * u, height: 488 * u)

@@ -38,6 +38,11 @@ struct ProfileSetupView: View {
 	/// The same thumbnail decoded once, so the avatar does not re-decode
 	/// on every keystroke of the name field.
 	@State private var photo: UIImage? = nil
+	/// The account save in flight: the CTA reads "Saving…" and waits.
+	@State private var isSaving = false
+	/// That save - cancelled if the page is left (a swipe back) before it lands, so it never moves on from elsewhere
+	/// (android's screen-scoped coroutine).
+	@State private var saveTask: Task<Void, Never>? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -102,12 +107,13 @@ struct ProfileSetupView: View {
 					.foregroundStyle(Auth.faintText)
 
 				// Name input — #181f30 r14 card with the live "n / 20" counter.
-				HStack {
+				HStack(spacing: 0) {
 					TextField("Your name", text: $name)
 						.font(StakFont.geist(14 * u))
 						.foregroundStyle(StakColors.textPrimary)
 						.tint(StakColors.accent)
 						.textInputAutocapitalization(.words)
+						.submitLabel(.done)
 						.autocorrectionDisabled()
 						.onChange(of: name) { _, newValue in
 							if newValue.count > nameMax {
@@ -135,22 +141,34 @@ struct ProfileSetupView: View {
 			.padding(.top, 14 * u)
 
 			VStack(spacing: 0) {
-				AuthCta(text: editing ? "Save changes" : "Proceed to home", enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !loadingPhoto, action: {
+				AuthCta(
+					text: isSaving ? "Saving…" : editing ? "Save changes" : "Proceed to home",
+					enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !loadingPhoto && !isSaving
+				) {
+					isSaving = true
 					UserProfile.shared.displayName = name.trimmingCharacters(in: .whitespaces).capitalizedWords
 					UserProfile.shared.photoData = photoData
-					// Editing saves in place - on the phone and with the account (android's updateProfile); onboarding
-					// persists with the account at Proceed.
-					if editing {
-						Session.shared.saveProfile()
-						Task { await AuthViewModel().updateProfile() }
+					Session.shared.saveProfile()
+					saveTask = Task {
+						// The account save is awaited before leaving (android): onboarding's marks the account as
+						// onboarded with its answers, which every later sign-in reads - a write cut off by the
+						// navigation left it un-onboarded.
+						let auth = AuthViewModel()
+						if editing { await auth.updateProfile() } else { await auth.saveProfile() }
+						guard !Task.isCancelled else { return }
+						onProceed()
 					}
-					onProceed()
-				})
+				}
 			}
 			.padding(.top, 8 * u)
 			.padding(.bottom, 26 * u)
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.onDisappear {
+			saveTask?.cancel()
+			saveTask = nil
+			isSaving = false
+		}
 		.onAppear {
 			// Edit mode arrives with the account's current name and photo.
 			guard editing, !seeded else { return }

@@ -38,6 +38,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 		UNUserNotificationCenter.current().delegate = self
 		PushRegistration.sync()
+		// A returning account catches up with the server at launch, as android's Session.init does through
+		// applyAccount - Session's own init can't start these (they read Session.shared, still being built).
+		if Session.shared.signedIn && !Session.shared.demoAccount {
+			ProfileSync.shared.sync(force: true)
+			DeviceStateSync.shared.sync()
+		}
 		if let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String {
 			GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
 		}

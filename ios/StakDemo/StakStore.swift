@@ -47,7 +47,12 @@ enum StakStore {
 
 	/// Before per-user keys every real account shared "new." and was wiped at each sign-in.
 	/// Move any remaining "new." entries under the current account id; drop them if no id.
+	/// Runs once per install: nothing writes "new." keys any more, and reading every default at each launch costs
+	/// time before the first frame.
 	static func migrateLegacy(accountId: String?) {
+		let doneKey = "stak.legacyMigrated"
+		guard !defaults.bool(forKey: doneKey) else { return }
+		defer { defaults.set(true, forKey: doneKey) }
 		let legacy = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("new.") }
 		guard !legacy.isEmpty else { return }
 		for (k, v) in legacy {

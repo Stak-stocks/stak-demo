@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import LocalAuthentication
 
 /// Onboarding · 08 Permissions — Figma node 1:749 (CHINEDU file,
 /// "STEP · ALMOST THERE").
@@ -15,6 +16,9 @@ struct PermissionsView: View {
 
 	@State private var notifications = true
 	@State private var accountSecurity = true
+	/// Read once per launch - the page is rebuilt on every frame of a swipe back, and asking LocalAuthentication
+	/// each time is a needless system call.
+	private static let lockDescription = biometryDescription()
 
 	var body: some View {
 		let u = figmaUnit
@@ -46,7 +50,7 @@ struct PermissionsView: View {
 				)
 				PermissionCard(
 					title: "Account security",
-					description: "Face ID keeps your account locked to you.",
+					description: Self.lockDescription,
 					isOn: $accountSecurity
 				)
 
@@ -84,6 +88,18 @@ struct PermissionsView: View {
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 	}
+
+	/// The frame says Face ID; a Touch ID phone says that, and one with neither, its passcode (android names
+	/// fingerprint or face unlock the same way).
+	private static func biometryDescription() -> String {
+		let context = LAContext()
+		_ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+		switch context.biometryType {
+		case .touchID: return "Touch ID keeps your account locked to you."
+		case .faceID: return "Face ID keeps your account locked to you."
+		default: return "Your passcode keeps your account locked to you."
+		}
+	}
 }
 
 /// One permission row — #181f30 r14 card, copy column + the 42x24 toggle.
@@ -108,7 +124,6 @@ struct PermissionCard: View {
 				// VoiceOver reads the row it switches (Copilot review, PR #167).
 				.accessibilityLabel(title)
 				.accessibilityValue(isOn ? "On" : "Off")
-				.accessibilityAddTraits(.isButton)
 		}
 		.padding(16 * u)
 		.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
@@ -124,7 +139,8 @@ struct StakToggle: View {
 	var body: some View {
 		let u = figmaUnit
 		Button {
-			withAnimation(.easeInOut(duration: 0.15)) { isOn.toggle() }
+			// Compose's animate*AsState default: a critically damped spring at medium stiffness (1500).
+			withAnimation(.spring(response: 0.16, dampingFraction: 1)) { isOn.toggle() }
 		} label: {
 			ZStack(alignment: isOn ? .trailing : .leading) {
 				RoundedRectangle(cornerRadius: 12 * u)

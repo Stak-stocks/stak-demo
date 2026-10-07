@@ -43,6 +43,14 @@ final class UserProfile: ObservableObject {
 	/// Mirrors Session.shared.demoAccount so greetingName can read it without crossing the actor boundary.
 	var demoAccount: Bool = true
 
+	/// Forgets the onboarding answers - a fresh quiz, another account's sign-in, a log out.
+	func clearTaste() {
+		brandPicks = []
+		goal = -1
+		risk = -1
+		riskStyle = "Growth-Oriented"
+	}
+
 	/// The name as the app addresses the user - always capitalized.
 	var greetingName: String {
 		let name = displayName.trimmingCharacters(in: .whitespaces)

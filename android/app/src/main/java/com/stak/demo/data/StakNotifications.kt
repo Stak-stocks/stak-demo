@@ -146,7 +146,7 @@ object StakNotifications {
 		if (System.currentTimeMillis() - createdAt > WELCOME_DAYS * 24 * 60 * 60 * 1000) return null
 		val name = UserProfile.displayName.takeIf { it.isNotBlank() }?.capitalizeWords()
 		val title = if (name != null) "Welcome to STAK, $name" else "Welcome to STAK"
-		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", ago(createdAt))
+		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.", ago(createdAt))
 	}
 
 	private fun ago(atMs: Long): String = StakClock.ago(atMs / 1000)
