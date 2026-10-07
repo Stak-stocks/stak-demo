@@ -82,58 +82,13 @@ private val SEED_ROWS = listOf(
  * ios/StakDemo/Simulate/PaperPortfolio.swift.
  */
 internal object PaperPortfolio {
-	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
+	/**
+	 * The paper stake everyone starts on ("on $10,000 paper", 1:3898 / 1:6543). Every account - the
+	 * persona and a new one - starts here; the FigJam setup card that let a new account pick its
+	 * balance (2026-09-14) is not in the Figma and was removed with the user's ruling of 2026-10-07.
+	 */
 	const val PAPER_START = 10000.0
-	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
-	const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
-	const val DEFAULT_STRATEGY = "Balanced"
-
-	/**
-	 * Portfolio setup (FigJam Simulate board, 2026-09-14: Choose balance, Name,
-	 * Strategy). A NEW account picks its starting balance before its first
-	 * trade; the demo persona is the authored $10,000 portfolio. Persisted with
-	 * the ledger.
-	 */
-	var paperStart by mutableDoubleStateOf(PAPER_START)
-		private set
-	var portfolioName by mutableStateOf("")
-		private set
-	var strategy by mutableStateOf("")
-		private set
-	var setupDone by mutableStateOf(false)
-		private set
-
-	/**
-	 * The setup card shows until the account has set up or touched its ledger - a trade, a held
-	 * position (a pre-2026-09-14 ledger has positions but no trade log) or a reserved limit order
-	 * (placeLimit records no trade). Review 2026-09-14: setup() must never rebase cash under a reservation.
-	 */
-	val needsSetup: Boolean get() = !demo && !setupDone && untouched
-	private val untouched: Boolean get() = trades.isEmpty() && positions.isEmpty() && openOrders.isEmpty()
-
-	/**
-	 * An order placed before the setup card was used records the default setup with it
-	 * (Codex review, PR #167 mirror): the card never hides on an account that reads as
-	 * unset, and the hero's name line has something true to say.
-	 */
-	private fun ensureSetup() {
-		if (demo || setupDone) return
-		portfolioName = DEFAULT_PORTFOLIO_NAME
-		strategy = DEFAULT_STRATEGY
-		setupDone = true
-	}
-
-	fun setup(balance: Double, name: String, strategy: String) {
-		if (!needsSetup) return
-		paperStart = balance
-		cash = balance
-		baseValue = balance
-		baseCash = balance
-		portfolioName = name
-		this.strategy = strategy
-		setupDone = true
-		persist()
-	}
+	val paperStart: Double get() = PAPER_START
 
 	/** Every buy and sell, newest first (FigJam: Trade history). */
 	var trades by mutableStateOf(listOf<Trade>())
@@ -199,10 +154,6 @@ internal object PaperPortfolio {
 	/** Seeds the authored demo history or clears everything to $10,000 of untouched paper cash. */
 	fun reset(demo: Boolean) {
 		this.demo = demo
-		paperStart = PAPER_START
-		portfolioName = if (demo) "Hamza\u2019s paper" else ""
-		strategy = if (demo) "Balanced" else ""
-		setupDone = demo
 		openOrders = emptyList()
 		// The persona's authored history as a trade log: a buy per seeded row on its
 		// picked day, a sell per realized row (undated seeds order by their rows).
@@ -250,7 +201,6 @@ internal object PaperPortfolio {
 	/** True when the cash on hand covers the stake reserved for a limit order too. */
 	fun placeLimit(spec: BuySpec, amount: Double, limit: Double): Boolean {
 		if (!canBuy(amount) || limit <= 0.0) return false
-		ensureSetup()
 		cash -= amount
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
@@ -269,10 +219,6 @@ internal object PaperPortfolio {
 	private fun persist() {
 		val o = org.json.JSONObject()
 		o.put("cash", cash)
-		o.put("paperStart", paperStart)
-		o.put("name", portfolioName)
-		o.put("strategy", strategy)
-		o.put("setupDone", setupDone)
 		o.put("trades", org.json.JSONArray().also { arr ->
 			trades.forEach { t -> arr.put(org.json.JSONObject().put("side", t.side).put("symbol", t.symbol).put("badge", t.badge).put("amount", t.amount).put("shares", t.shares).put("price", t.price).put("day", t.day).put("epochDay", t.epochDay)) }
 		})
@@ -314,15 +260,7 @@ internal object PaperPortfolio {
 			Realized(r.getString("badge"), r.getString("ticker"), r.getString("sub"), r.getString("amount"), r.getBoolean("up"))
 		}
 		cash = o.getDouble("cash")
-		// Fields the FigJam Simulate work added (2026-09-14) - a ledger persisted before them keeps its defaults.
-		if (o.has("paperStart")) {
-			paperStart = o.getDouble("paperStart")
-			baseValue = if (demo) AUTHORED_VALUE else paperStart
-			baseCash = if (demo) SEED_CASH else paperStart
-		}
-		if (o.has("name")) portfolioName = o.getString("name")
-		if (o.has("strategy")) strategy = o.getString("strategy")
-		if (o.has("setupDone")) setupDone = o.getBoolean("setupDone")
+		// The trade log and open orders (FigJam Simulate work, 2026-09-14) - a ledger persisted before them keeps its defaults.
 		if (o.has("trades")) {
 			val arr = o.getJSONArray("trades")
 			trades = (0 until arr.length()).map { i ->
@@ -379,7 +317,6 @@ internal object PaperPortfolio {
 
 	fun buy(spec: BuySpec, amount: Double) {
 		if (!canBuy(amount)) return
-		ensureSetup()
 		// A bought stock is in your STAK (Codex review, PR #167 mirror): the receipt's
 		// "View in My STAK" lands on a page that lists it, not on an empty one.
 		com.stak.demo.ui.MyStakHoldings.add(spec.symbol)

@@ -189,8 +189,7 @@ internal fun SimulateScreen(
 				}
 				// 11 · States - Simulate · Empty (Chinedu_Mobile 1:6543, 2026-10-07): until the first practice
 				// trade the page is the hero (no moves, unranked, no chart) and the invitation, nothing else.
-				// The FigJam portfolio-setup card (2026-09-14) is not in the frame; the first order records the
-				// default setup (PaperPortfolio.ensureSetup) and the card stays available in PortfolioSetupCard.kt.
+				// (The FigJam portfolio-setup card of 2026-09-14 was removed with the user's ruling of 2026-10-07.)
 				val noTrades = PaperPortfolio.pickCount == 0
 				ScoreHero(onOpenLeaderboard = onOpenLeaderboard, empty = noTrades)
 				if (noTrades) {
@@ -202,7 +201,6 @@ internal fun SimulateScreen(
 						onLink = onOpenDiscover,
 					)
 				} else {
-				if (!PaperPortfolio.demo && PaperPortfolio.setupDone) PortfolioSetupLine()
 				SectionHeader("Saved staks")
 				val savedRows = savedStakRows()
 				if (savedRows.isEmpty()) {

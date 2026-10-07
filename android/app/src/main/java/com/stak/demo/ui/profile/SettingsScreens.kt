@@ -233,7 +233,7 @@ private fun FaqRow(question: String, answer: String) {
 internal const val TERMS_URL = "https://stak.app/terms"
 internal const val PRIVACY_URL = "https://stak.app/privacy"
 
-/** A small selectable chip - the notification threshold, the portfolio setup's balances. */
+/** A small selectable chip - the notification threshold. */
 @Composable
 internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit) {
 	val u = figmaUnit()
