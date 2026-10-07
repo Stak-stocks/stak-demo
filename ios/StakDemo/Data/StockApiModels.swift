@@ -655,3 +655,125 @@ extension UpdatesResponse {
         unread = c.value(.unread, or: 0)
     }
 }
+
+// MARK: – Sandbox decoding
+// Postgres sends bigint ids (and some numerics) as text - "42", not 42 - and Gson on Android takes either. These read
+// both, and a missing field falls back instead of failing the whole ledger (a failed read left the portfolio at $0).
+
+extension KeyedDecodingContainer {
+    /// A number sent as a number or as text.
+    func flexibleDouble(_ key: Key, or fallback: Double) -> Double {
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return d }
+        if let s = try? decodeIfPresent(String.self, forKey: key), let d = Double(s) { return d }
+        return fallback
+    }
+
+    func flexibleInt64(_ key: Key) -> Int64? {
+        if let i = try? decodeIfPresent(Int64.self, forKey: key) { return i }
+        if let s = try? decodeIfPresent(String.self, forKey: key), let i = Int64(s) { return i }
+        return nil
+    }
+}
+
+extension SandboxPositionDto {
+    private enum CodingKeys: String, CodingKey { case ticker, shares, costBasis, addedAt, thesis }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: ""); shares = c.flexibleDouble(.shares, or: 0)
+        costBasis = c.flexibleDouble(.costBasis, or: 0); addedAt = c.value(.addedAt, or: "")
+        thesis = c.value(.thesis, or: nil)
+    }
+}
+
+extension SandboxOpenOrderDto {
+    private enum CodingKeys: String, CodingKey { case id, ticker, amount, limitPrice, createdAt }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.flexibleInt64(.id) ?? 0; ticker = c.value(.ticker, or: "")
+        amount = c.flexibleDouble(.amount, or: 0); limitPrice = c.flexibleDouble(.limitPrice, or: 0)
+        createdAt = c.value(.createdAt, or: "")
+    }
+}
+
+extension SandboxPortfolioResponse {
+    private enum CodingKeys: String, CodingKey {
+        case initialized, cash, tier, milestones, name, strategy, start, cashSource, tradeCursor, positions, openOrders
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        initialized = c.value(.initialized, or: false)
+        cash = (try? c.decodeNil(forKey: .cash)) == false ? c.flexibleDouble(.cash, or: 0) : nil
+        tier = c.value(.tier, or: nil); milestones = c.value(.milestones, or: [])
+        name = c.value(.name, or: nil); strategy = c.value(.strategy, or: nil)
+        start = (try? c.decodeNil(forKey: .start)) == false ? c.flexibleDouble(.start, or: 0) : nil
+        cashSource = c.value(.cashSource, or: "tier"); tradeCursor = c.flexibleInt64(.tradeCursor)
+        positions = c.value(.positions, or: []); openOrders = c.value(.openOrders, or: [])
+    }
+}
+
+extension SandboxTradeDto {
+    private enum CodingKeys: String, CodingKey { case id, ticker, side, shares, price, amount, source, executedAt }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.flexibleInt64(.id) ?? 0; ticker = c.value(.ticker, or: ""); side = c.value(.side, or: "")
+        shares = c.flexibleDouble(.shares, or: 0); price = c.flexibleDouble(.price, or: 0)
+        amount = c.flexibleDouble(.amount, or: 0); source = c.value(.source, or: "market")
+        executedAt = c.value(.executedAt, or: "")
+    }
+}
+
+extension SandboxTradesResponse {
+    private enum CodingKeys: String, CodingKey { case trades }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        trades = c.value(.trades, or: [])
+    }
+}
+
+extension SandboxOrderResponse {
+    private enum CodingKeys: String, CodingKey { case id, ticker, amount, limitPrice, status, createdAt, remainingCash }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.flexibleInt64(.id) ?? 0; ticker = c.value(.ticker, or: "")
+        amount = c.flexibleDouble(.amount, or: 0); limitPrice = c.flexibleDouble(.limitPrice, or: 0)
+        status = c.value(.status, or: "open"); createdAt = c.value(.createdAt, or: "")
+        remainingCash = c.flexibleDouble(.remainingCash, or: 0)
+    }
+}
+
+extension SandboxSetupResponse {
+    private enum CodingKeys: String, CodingKey { case ok, cash, name, strategy }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ok = c.value(.ok, or: true); cash = c.flexibleDouble(.cash, or: 0)
+        name = c.value(.name, or: ""); strategy = c.value(.strategy, or: "")
+    }
+}
+
+extension SandboxBuyResponse {
+    private enum CodingKeys: String, CodingKey { case price, shares, costBasis, cost, remainingCash }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        price = c.flexibleDouble(.price, or: 0); shares = c.flexibleDouble(.shares, or: 0)
+        costBasis = c.flexibleDouble(.costBasis, or: 0); cost = c.flexibleDouble(.cost, or: 0)
+        remainingCash = c.flexibleDouble(.remainingCash, or: 0)
+    }
+}
+
+extension SandboxSellResponse {
+    private enum CodingKeys: String, CodingKey { case price, sharesToSell, sellValue, remaining }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        price = c.flexibleDouble(.price, or: 0); sharesToSell = c.flexibleDouble(.sharesToSell, or: 0)
+        sellValue = c.flexibleDouble(.sellValue, or: 0); remaining = c.flexibleDouble(.remaining, or: 0)
+    }
+}
+
+extension OkResponse {
+    private enum CodingKeys: String, CodingKey { case ok }
+    /// A 2xx reply without an `ok` field is still a success.
+    init(from decoder: Decoder) throws {
+        let c = try? decoder.container(keyedBy: CodingKeys.self)
+        ok = c?.value(.ok, or: true) ?? true
+    }
+}
