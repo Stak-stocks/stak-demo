@@ -1,6 +1,8 @@
 package com.stak.demo.ui.inbox
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,10 +45,11 @@ private val RowBody = Color(0xFFACAFB1)
  * 10 · Notifications tab — "Notifications · List" (Chinedu_Mobile 1:5927) and "Notifications ·
  * Empty" (1:5977), 2026-10-07 (replaces the frameless 2026-09-05 inbox). TODAY and EARLIER cards
  * of 68-tall rows (title, one-line body, the teal unread dot); opening the page reads everything,
- * so the Home bell's dot clears the way an activity feed does. Mirrors ios NotificationsView.swift.
+ * so the Home bell's dot clears the way an activity feed does. A row opens where its information
+ * comes from (user, 2026-10-07). Mirrors ios NotificationsView.swift.
  */
 @Composable
-fun NotificationsScreen(onBack: () -> Unit) {
+fun NotificationsScreen(onBack: () -> Unit, onOpen: (StakNotifications.Item) -> Unit = {}) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val items = StakNotifications.items
 	// Captured once: markAllRead rewrites readIds, and the rows opened unread keep their dot for this visit.
@@ -80,11 +83,11 @@ fun NotificationsScreen(onBack: () -> Unit) {
 			ProfileContent(scroll = rememberScrollState()) {
 				if (today.isNotEmpty()) {
 					SectionLabel("TODAY")
-					NotificationCard(today, readBefore, inset = 11f)
+					NotificationCard(today, readBefore, inset = 11f, onOpen = onOpen)
 				}
 				if (earlier.isNotEmpty()) {
 					SectionLabel("EARLIER")
-					NotificationCard(earlier, readBefore, inset = 9.5f)
+					NotificationCard(earlier, readBefore, inset = 9.5f, onOpen = onOpen)
 				}
 			}
 		}
@@ -93,7 +96,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
 
 /** A #10182B r16 card: 8 side inset, `inset` above and below (11 on TODAY, 9.5 on EARLIER as authored), 10 between rows. */
 @Composable
-private fun NotificationCard(items: List<StakNotifications.Item>, readBefore: Set<String>, inset: Float) {
+private fun NotificationCard(items: List<StakNotifications.Item>, readBefore: Set<String>, inset: Float, onOpen: (StakNotifications.Item) -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -103,15 +106,23 @@ private fun NotificationCard(items: List<StakNotifications.Item>, readBefore: Se
 			.background(Prof.CardBg)
 			.padding(horizontal = (8 * u).dp, vertical = (inset * u).dp),
 	) {
-		items.forEach { item -> NotificationRow(item = item, unread = item.id !in readBefore) }
+		items.forEach { item -> NotificationRow(item = item, unread = item.id !in readBefore, onOpen = { onOpen(item) }) }
 	}
 }
 
 /** One 68-tall #181F30 row (the 08 Permissions card surface): copy at 16/16, the 8 teal dot 16 from the right edge. */
 @Composable
-private fun NotificationRow(item: StakNotifications.Item, unread: Boolean) {
+private fun NotificationRow(item: StakNotifications.Item, unread: Boolean, onOpen: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	Box(modifier = Modifier.fillMaxWidth().height((68 * u).dp).clip(RoundedCornerShape((14 * u).dp)).background(Prof.InputBg)) {
+	Box(
+		modifier = Modifier
+			.fillMaxWidth()
+			.height((68 * u).dp)
+			.clip(RoundedCornerShape((14 * u).dp))
+			.background(Prof.InputBg)
+			// User (2026-10-07): the row opens where its information comes from.
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onOpen),
+	) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((4 * u).dp),
 			modifier = Modifier.padding(start = (16 * u).dp, top = (16 * u).dp, end = (36 * u).dp),

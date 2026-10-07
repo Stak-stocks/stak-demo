@@ -12,14 +12,22 @@ import androidx.compose.runtime.setValue
  */
 object StakNotifications {
 	/** `today` groups the row under TODAY (else EARLIER) on the Notifications page (1:5927). */
-	data class Item(val id: String, val title: String, val body: String, val time: String, val today: Boolean = true)
+	/** Where a tapped row goes (user, 2026-10-07: a row "should take the user where the information is coming from"). */
+	sealed class Target {
+		data class Stock(val symbol: String) : Target()
+		data class Pick(val symbol: String) : Target()
+		object Discover : Target()
+		object News : Target()
+		object Simulate : Target()
+	}
+	data class Item(val id: String, val title: String, val body: String, val time: String, val today: Boolean = true, val target: Target = Target.Discover)
 
 	// The persona's inbox as authored (Chinedu_Mobile 1:5927, 2026-10-07).
 	private val DEMO = listOf(
-		Item("nvda-up", "NVDA is up 4.2% today", "One of your picks is moving. Tap to see why.", "2h"),
-		Item("brief-ready", "Your daily brief is ready", "Three stories matter for your STAK this morning.", "8h"),
-		Item("order-filled", "Practice order filled", "0.2048 NVDA at $122.10 · paper", "9h"),
-		Item("weekly-recap", "Weekly recap", "Your paper portfolio gained +1.9% last week.", "1d", today = false),
+		Item("nvda-up", "NVDA is up 4.2% today", "One of your picks is moving. Tap to see why.", "2h", target = Target.Stock("NVDA")),
+		Item("brief-ready", "Your daily brief is ready", "Three stories matter for your STAK this morning.", "8h", target = Target.News),
+		Item("order-filled", "Practice order filled", "0.2048 NVDA at $122.10 · paper", "9h", target = Target.Pick("NVDA")),
+		Item("weekly-recap", "Weekly recap", "Your paper portfolio gained +1.9% last week.", "1d", today = false, target = Target.Simulate),
 		Item("deck-complete", "Deck complete", "You finished Friday’s deck. 12 of 12.", "3d", today = false),
 	)
 	/** 1:5927 authors the two newest rows unread and the rest read - the persona's inbox before its first open. */

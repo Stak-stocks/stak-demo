@@ -707,7 +707,23 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			)
 		}
 		composable(StakRoutes.NOTIFICATIONS) {
-			com.stak.demo.ui.inbox.NotificationsScreen(onBack = { navController.popBackStack() })
+			com.stak.demo.ui.inbox.NotificationsScreen(
+				onBack = { navController.popBackStack() },
+				// User (2026-10-07): a row opens where its information comes from - the stock, the
+				// paper pick, or the tab (the News brief, the Simulate recap, the Discover deck). A page
+				// pushes over the inbox so Back returns here; a tab leaves the inbox with the forward push.
+				onOpen = { item ->
+					when (val t = item.target) {
+						is com.stak.demo.ui.StakNotifications.Target.Stock ->
+							navController.navigate(if (t.symbol in com.stak.demo.ui.MyStakHoldings.tickers) StakRoutes.myStakStock(t.symbol) else StakRoutes.stockDetail(t.symbol))
+						is com.stak.demo.ui.StakNotifications.Target.Pick ->
+							navController.navigate(if (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(t.symbol) != null) StakRoutes.simPick(t.symbol) else StakRoutes.SIM_PORTFOLIO)
+						com.stak.demo.ui.StakNotifications.Target.News -> popToShell(PopStyle.FORWARD_PUSH, MainTab.News)
+						com.stak.demo.ui.StakNotifications.Target.Simulate -> popToShell(PopStyle.FORWARD_PUSH, MainTab.Simulate)
+						com.stak.demo.ui.StakNotifications.Target.Discover -> popToShell(PopStyle.FORWARD_PUSH, MainTab.Discover)
+					}
+				},
+			)
 		}
 		composable(StakRoutes.TASTE_RISK) {
 			com.stak.demo.ui.profile.TasteRiskScreen(
