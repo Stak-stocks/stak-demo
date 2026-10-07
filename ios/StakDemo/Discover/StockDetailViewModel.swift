@@ -398,7 +398,7 @@ final class StockDetailViewModel: ObservableObject {
 			// Each part is published as it lands: the page used to wait for the slowest of ten requests - one slow AI
 			// summary held back the price and everything else. Only "why it moved" needs the quote first.
 			var parts = Parts()
-			func publish() {
+			@MainActor func publish() {
 				guard let built = buildDetail(parts) else { return }
 				liveDetail = liveDetail.map { built.orPrevious($0) } ?? built
 			}
