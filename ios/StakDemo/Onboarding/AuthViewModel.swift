@@ -233,7 +233,8 @@ final class AuthViewModel: ObservableObject {
                 ))
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
-                applyDisplayName(from: me)
+                // The profile's name first; the Google account's name for a new user who has none yet.
+                applyDisplayName(from: me, fallback: result.user.profile?.name)
                 UserProfile.shared.linkedGoogle = true
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
@@ -249,7 +250,8 @@ final class AuthViewModel: ObservableObject {
 
     /// Called from the view after ASAuthorizationAppleIDProvider delivers credentials.
     /// `nonce` is the plain-text nonce whose SHA-256 hash was sent in the Apple request.
-    func signInWithApple(idToken: String, nonce: String) {
+    /// `fullName`: what Apple shares on the first sign-in only - the name for a new user who has none yet.
+    func signInWithApple(idToken: String, nonce: String, fullName: String? = nil) {
         guard setLoading() else { return }
         Task {
             do {
@@ -261,7 +263,7 @@ final class AuthViewModel: ObservableObject {
                 guard let session = supabase.auth.currentSession else { throw AuthError.noSession }
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
-                applyDisplayName(from: me)
+                applyDisplayName(from: me, fallback: fullName)
                 UserProfile.shared.linkedApple = true
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
@@ -282,8 +284,16 @@ final class AuthViewModel: ObservableObject {
         return true
     }
 
-    private func applyDisplayName(from me: MeResponse?) {
-        UserProfile.shared.displayName = me?.displayName.trimmingCharacters(in: .whitespaces) ?? ""
+    /// The account's name from the server, else the provider's (Google, Apple); with neither, the name already on the
+    /// phone stays - a blank from the server never wipes it (android AuthViewModel).
+    private func applyDisplayName(from me: MeResponse?, fallback: String? = nil) {
+        let server = me?.displayName.trimmingCharacters(in: .whitespaces) ?? ""
+        let provider = fallback?.trimmingCharacters(in: .whitespaces) ?? ""
+        if !server.isEmpty {
+            UserProfile.shared.displayName = server
+        } else if !provider.isEmpty {
+            UserProfile.shared.displayName = provider
+        }
     }
 
     private func friendlyError(_ error: Error) -> String {

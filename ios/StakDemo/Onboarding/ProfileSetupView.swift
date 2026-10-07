@@ -138,8 +138,12 @@ struct ProfileSetupView: View {
 				AuthCta(text: editing ? "Save changes" : "Proceed to home", enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !loadingPhoto, action: {
 					UserProfile.shared.displayName = name.trimmingCharacters(in: .whitespaces).capitalizedWords
 					UserProfile.shared.photoData = photoData
-					// Editing saves in place; onboarding persists with the account at Proceed.
-					if editing { Session.shared.saveProfile() }
+					// Editing saves in place - on the phone and with the account (android's updateProfile); onboarding
+					// persists with the account at Proceed.
+					if editing {
+						Session.shared.saveProfile()
+						Task { await AuthViewModel().updateProfile() }
+					}
 					onProceed()
 				})
 			}

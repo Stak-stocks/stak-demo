@@ -393,7 +393,8 @@ final class AppleSignInCoordinator: NSObject, ObservableObject,
             let idToken = String(data: tokenData, encoding: .utf8),
             let n = nonce
         else { return }
-        authVM?.signInWithApple(idToken: idToken, nonce: n)
+        let name = cred.fullName.flatMap { PersonNameComponentsFormatter.localizedString(from: $0, style: .default) }
+        authVM?.signInWithApple(idToken: idToken, nonce: n, fullName: name)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
