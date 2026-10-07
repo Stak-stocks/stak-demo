@@ -91,8 +91,8 @@ fun SignInScreen(
 				}
 				Spacer(modifier = Modifier.height((4 * u).dp))
 
-				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = { com.stak.demo.ui.UserProfile.linkedGoogle = true; onSignIn() })
-				SocialPill(text = "Continue with Apple", iconRes = R.drawable.ic_apple_logo, onClick = { com.stak.demo.ui.UserProfile.linkedApple = true; onSignIn() })
+				SocialPill(text = "Continue with Google", iconRes = R.drawable.ic_google_g, onClick = onSignIn)
+				SocialPill(text = "Continue with Apple", iconRes = R.drawable.ic_apple_logo, onClick = onSignIn)
 
 				AuthOrDivider()
 

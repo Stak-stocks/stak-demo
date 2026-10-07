@@ -54,7 +54,7 @@ private val Body = Color(0xFFC8D2E0)
 private val Teal = Color(0xFF69B3CA)
 
 /**
- * The settings pages behind the Profile hub's rows (product audit,
+ * The settings pages behind the Profile hub's ACCOUNT rows (product audit,
  * 2026-09-05: the rows did nothing). No frames exist for them, so they
  * borrow the hub's language - its header, #10182B r16 cards, 48-tall
  * rows, Geist 13 labels - and the permissions step's toggle card.
@@ -62,12 +62,7 @@ private val Teal = Color(0xFF69B3CA)
  */
 object SettingsKind {
 	const val NOTIFICATIONS = "notifications"
-	const val APPEARANCE = "appearance"
-	const val LINKED = "linked"
 	const val HELP = "help"
-	/** App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account. */
-	const val APP = "app"
-	const val PASSWORD = "password"
 }
 
 /** The hub's header (back circle + centred title) over a dark page. */
@@ -125,15 +120,16 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
 	}
 }
 
-/** `onOpen` pushes a sibling settings page (App settings -> Appearance / Change password); `onAccountDeleted` leaves the signed-out app on Create account. */
+/**
+ * The two pages the 08 · Profile hub (1:5665) opens: Notifications and Contact support (Help &
+ * support). Appearance, Linked accounts, App settings (+ Change password) and Invite a friend were
+ * never in the Figma design - they came from the 2026-09-05 audit and the 2026-09-14 FigJam boards -
+ * and were removed with the user's ruling of 2026-10-07 once the hub's rows were authored.
+ */
 @Composable
-fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = {}, onAccountDeleted: () -> Unit = {}) {
+fun SettingsScreen(kind: String, onBack: () -> Unit) {
 	when (kind) {
 		SettingsKind.NOTIFICATIONS -> NotificationSettingsScreen(onBack)
-		SettingsKind.APPEARANCE -> AppearanceScreen(onBack)
-		SettingsKind.LINKED -> LinkedAccountsScreen(onBack)
-		SettingsKind.APP -> AppSettingsScreen(onBack, onOpen, onAccountDeleted)
-		SettingsKind.PASSWORD -> ChangePasswordScreen(onBack)
 		else -> HelpSupportScreen(onBack)
 	}
 }
@@ -178,58 +174,6 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile() }
 		PermissionCard("Market news", "The stories behind the moves, a few times a week.", UserProfile.marketNews) { UserProfile.marketNews = !UserProfile.marketNews; Session.saveProfile() }
 		Caption("You can change these any time.")
-	}
-}
-
-@Composable
-private fun AppearanceScreen(onBack: () -> Unit) {
-	val u = figmaUnit()
-	SettingsPage(title = "Appearance", onBack = onBack) {
-		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			listOf("dark" to "Dark", "system" to "Match system").forEach { (key, label) ->
-				Row(
-					verticalAlignment = Alignment.CenterVertically,
-					modifier = Modifier
-						.fillMaxWidth()
-						.height((48 * u).dp)
-						.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) { UserProfile.appearance = key; Session.saveProfile() }
-						.padding(horizontal = (14 * u).dp),
-				) {
-					Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
-					Spacer(modifier = Modifier.weight(1f))
-					if (UserProfile.appearance == key) Text("✓", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Teal)
-				}
-			}
-		}
-		Caption("STAK is designed for dark mode. Match system keeps it dark for now and follows your phone once a light theme ships.")
-	}
-}
-
-@Composable
-private fun LinkedAccountsScreen(onBack: () -> Unit) {
-	val u = figmaUnit()
-	SettingsPage(title = "Linked accounts", onBack = onBack) {
-		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
-			LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
-		}
-		Caption("A linked account lets you sign in with one tap. Your STAK stays the same either way.")
-	}
-}
-
-@Composable
-private fun LinkedRow(name: String, linked: Boolean, onToggle: () -> Unit) {
-	val u = figmaUnit()
-	Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((48 * u).dp).padding(horizontal = (14 * u).dp)) {
-		Text(name, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
-		Spacer(modifier = Modifier.weight(1f))
-		Text(if (linked) "Linked" else "Not linked", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = if (linked) Teal else Muted, modifier = Modifier.padding(end = (12 * u).dp))
-		Text(
-			if (linked) "Unlink" else "Link",
-			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
-			color = Teal,
-			modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onToggle),
-		)
 	}
 }
 
@@ -306,91 +250,3 @@ internal fun SettingsChip(label: String, selected: Boolean, onClick: () -> Unit)
 	}
 }
 
-/**
- * App settings (FigJam Profile board, 2026-09-14: Dark mode, Biometric login,
- * Change password, Delete / log out). Dark mode opens the Appearance page;
- * Biometric login is the 08 Permissions "Account security" switch, now
- * changeable after onboarding; Delete account wipes this account's state on
- * the phone and signs out (Log out stays on the hub). Mirrors ios
- * AppSettingsView.
- */
-@Composable
-private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAccountDeleted: () -> Unit) {
-	val u = figmaUnit()
-	var confirmDelete by rememberSaveable { mutableStateOf(false) }
-	SettingsPage(title = "App settings", onBack = onBack) {
-		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			SettingsLinkRow(label = "Dark mode", value = if (UserProfile.appearance == "system") "Match system" else "On") { onOpen(SettingsKind.APPEARANCE) }
-			SettingsLinkRow(label = "Change password") { onOpen(SettingsKind.PASSWORD) }
-		}
-		PermissionCard("Biometric login", "Unlock STAK with your fingerprint, face or phone PIN whenever you come back.", UserProfile.accountLock) { UserProfile.accountLock = !UserProfile.accountLock; Session.saveProfile() }
-		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete }
-			AnimatedVisibility(visible = confirmDelete) {
-				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
-					Text(
-						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
-						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Body,
-					)
-					Box(
-						contentAlignment = Alignment.Center,
-						modifier = Modifier
-							.fillMaxWidth()
-							.height((44 * u).dp)
-							.clip(RoundedCornerShape((6 * u).dp))
-							.background(Color(0x33E5484D))
-							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim) {
-								Session.deleteAccount()
-								onAccountDeleted()
-							},
-					) {
-						Text("Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))
-					}
-				}
-			}
-		}
-		// Account-aware (review 2026-09-14): Sign in always restores the demo persona; a created account's state is not re-enterable after log out.
-		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
-	}
-}
-
-/**
- * Change password (FigJam Profile board, 2026-09-14). The demo has no auth
- * backend: the new password must pass the sign-up rules and match its
- * confirmation, then the page flips into its "Password updated" state.
- */
-@Composable
-private fun ChangePasswordScreen(onBack: () -> Unit) {
-	val u = figmaUnit()
-	var current by rememberSaveable { mutableStateOf("") }
-	var next by rememberSaveable { mutableStateOf("") }
-	var confirm by rememberSaveable { mutableStateOf("") }
-	var show by rememberSaveable { mutableStateOf(false) }
-	var attempted by rememberSaveable { mutableStateOf(false) }
-	var updated by rememberSaveable { mutableStateOf(false) }
-	val currentError = if (current.isEmpty()) "Enter your current password" else null
-	val nextError = com.stak.demo.ui.onboarding.AuthRules.passwordError(next) ?: if (next == current) "Choose a password you haven\u2019t used" else null
-	val confirmError = com.stak.demo.ui.onboarding.AuthRules.confirmError(next, confirm)
-	SettingsPage(title = "Change password", onBack = onBack) {
-		if (updated) {
-			Column(
-				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
-				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
-			) {
-				Text("Password updated", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
-				Text("Use it the next time you sign in. Sessions on other phones were signed out.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
-			}
-			com.stak.demo.ui.onboarding.AuthCta(text = "Done", onClick = onBack)
-		} else {
-			com.stak.demo.ui.onboarding.AuthInput(value = current, onValueChange = { current = it }, placeholder = "Current password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, trailing = { com.stak.demo.ui.onboarding.ShowHideToggle(shown = show, onToggle = { show = !show }) }, error = if (attempted) currentError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = next, onValueChange = { next = it }, placeholder = "New password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) nextError else null)
-			com.stak.demo.ui.onboarding.AuthInput(value = confirm, onValueChange = { confirm = it }, placeholder = "Confirm new password", keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, hidden = !show, error = if (attempted) confirmError else null)
-			Caption("At least ${com.stak.demo.ui.onboarding.AuthRules.PASSWORD_MIN} characters.")
-			com.stak.demo.ui.onboarding.AuthCta(text = "Update password", enabled = current.isNotEmpty() && next.isNotEmpty() && confirm.isNotEmpty(), onClick = {
-				attempted = true
-				if (currentError == null && nextError == null && confirmError == null) updated = true
-			})
-		}
-	}
-}

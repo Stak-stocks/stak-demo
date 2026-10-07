@@ -722,11 +722,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.profile.SettingsScreen(
 				kind = entry.arguments?.getString("kind") ?: com.stak.demo.ui.profile.SettingsKind.HELP,
 				onBack = { navController.popBackStack() },
-				onOpen = { kind -> navController.navigate(StakRoutes.settings(kind)) },
-				// Delete account (FigJam Profile board, 2026-09-14): the session is gone, the stack clears to Create account.
-				onAccountDeleted = {
-					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
-				},
 			)
 		}
 		composable(

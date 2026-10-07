@@ -29,9 +29,6 @@ object Session {
 	private const val KEY_DAILY_DECK = "pref_daily_deck"
 	private const val KEY_MARKET_NEWS = "pref_market_news"
 	private const val KEY_PRICE_THRESHOLD = "pref_price_threshold"
-	private const val KEY_APPEARANCE = "pref_appearance"
-	private const val KEY_LINKED_GOOGLE = "linked_google"
-	private const val KEY_LINKED_APPLE = "linked_apple"
 	private const val KEY_JOINED = "joined"
 	private const val KEY_HANDLE = "handle"
 	private const val KEY_EMAIL = "email"
@@ -91,11 +88,6 @@ object Session {
 		UserProfile.dailyDeck = p.getBoolean(KEY_DAILY_DECK, true)
 		UserProfile.marketNews = p.getBoolean(KEY_MARKET_NEWS, false)
 		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, 3)
-		// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
-		// value that build stored reads as Dark, so the Appearance page always shows a choice.
-		UserProfile.appearance = p.getString(KEY_APPEARANCE, "dark").let { if (it == "system") "system" else "dark" }
-		UserProfile.linkedGoogle = p.getBoolean(KEY_LINKED_GOOGLE, false)
-		UserProfile.linkedApple = p.getBoolean(KEY_LINKED_APPLE, false)
 		UserProfile.joined = p.getString(KEY_JOINED, "July 2026") ?: "July 2026"
 		UserProfile.handle = p.getString(KEY_HANDLE, "") ?: ""
 		UserProfile.email = p.getString(KEY_EMAIL, "") ?: ""
@@ -191,9 +183,6 @@ object Session {
 		UserProfile.dailyDeck = true
 		UserProfile.marketNews = false
 		UserProfile.priceThreshold = 3
-		UserProfile.appearance = "dark"
-		UserProfile.linkedGoogle = false
-		UserProfile.linkedApple = false
 		UserProfile.joined = "July 2026"
 		UserProfile.handle = ""
 		UserProfile.email = ""
@@ -221,9 +210,6 @@ object Session {
 			?.putBoolean(KEY_DAILY_DECK, UserProfile.dailyDeck)
 			?.putBoolean(KEY_MARKET_NEWS, UserProfile.marketNews)
 			?.putInt(KEY_PRICE_THRESHOLD, UserProfile.priceThreshold)
-			?.putString(KEY_APPEARANCE, UserProfile.appearance)
-			?.putBoolean(KEY_LINKED_GOOGLE, UserProfile.linkedGoogle)
-			?.putBoolean(KEY_LINKED_APPLE, UserProfile.linkedApple)
 			?.putString(KEY_JOINED, UserProfile.joined)
 			?.putString(KEY_HANDLE, UserProfile.handle)
 			?.putString(KEY_EMAIL, UserProfile.email)
