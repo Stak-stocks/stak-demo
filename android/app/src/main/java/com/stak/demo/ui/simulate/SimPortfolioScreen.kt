@@ -64,7 +64,7 @@ import com.stak.demo.ui.theme.StakColors
 
 /**
  * 07 · Simulate — "Final · Portfolio · paper" (CHINEDU 1:4496) with the
- * Sell confirm (1:5070) and Position closed (1:5242) sheets over the list, as authored.
+ * Sell pills that open each pick's page (1:5003), where the sell flow lives.
  * Mirrors ios/StakDemo/Simulate/SimPortfolioView.swift.
  */
 @Composable
@@ -75,10 +75,6 @@ fun SimPortfolioScreen(
 	onOpenPick: (String) -> Unit,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	// 1:4876 -> 1:5070 / 1:5242 (user ruling 2026-10-07, "the simulate section is different"):
-	// the Sell pill sells HERE, over the portfolio, as the frames author - not via the pick
-	// page the old prototype's B16 hop went through. The ticker being sold, or null.
-	var selling by rememberSaveable { mutableStateOf<String?>(null) }
 	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
@@ -160,8 +156,11 @@ fun SimPortfolioScreen(
 							// 1:4539 (exact-design audit 2026-09-04): this page's picked line is Geist Light.
 							subLight = true,
 							onClick = { onOpenPick(p.ticker) },
-							// 1:5070: the Sell pill opens the Sell confirm over this page.
-							trailing = { SellPill(onClick = { selling = p.ticker }) },
+							// Prototype (read 2026-10-07): every Sell pill opens the Pick detail of ITS
+							// ticker (1:4876 -> 1:5003, six edges) and the pick page's Sell opens the
+							// sheet (1:5070). The sheet frames are drawn over this list - a drawing only;
+							// user ruling 2026-10-07: follow the wiring.
+							trailing = { SellPill(onClick = { onOpenPick(p.ticker) }) },
 						)
 					}
 					PortfolioKicker("SOLD · REALIZED")
@@ -177,16 +176,6 @@ fun SimPortfolioScreen(
 					)
 				}
 			}
-		}
-		// 1:5070 / 1:5242: the live sell runs here, over the portfolio (user ruling 2026-10-07).
-		selling?.let { symbol ->
-			SellFlowHost(
-				pick = pickSpec(symbol),
-				onClose = { selling = null },
-				// 1:5242: Back to Simulate leaves the page; View portfolio stays on it.
-				onBackToSimulate = { selling = null; onBack() },
-				onViewPortfolio = { selling = null },
-			)
 		}
 	}
 }
