@@ -1,3 +1,4 @@
+import { fillHeight } from "@/app/FitCanvas";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PrimaryButton } from "@/app/auth/ui";
@@ -120,10 +121,11 @@ function OnboardingPage() {
 	const togglePick = (id: string) => setPicks((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
 	return (
-		<div className="relative min-h-[1024px] w-full overflow-clip bg-[#0a1020] font-geist antialiased">
+		<div className="relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
+			<div className="absolute left-0 h-[1024px] w-full" style={{ top: "var(--stak-band, 0px)" }}>
 			{step === 1 && (
 				<>
-					<BackControl className="absolute left-[60px] top-[96px]" onClick={back} />
+					<BackControl className="absolute left-[60px]" style={{ top: "calc(96px - var(--stak-band, 0px))" }} onClick={back} />
 					<div className="absolute left-[calc(50%+0.5px)] top-[calc(50%-0.4px)] flex w-[633px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[48px]">
 						<HeroBox />
 						<div className="flex w-full flex-col items-center gap-[70px]">
@@ -152,7 +154,7 @@ function OnboardingPage() {
 						title="Which brands do you know or use?"
 						subtitle="Pick a few. STAK uses this to learn what feels familiar to you."
 					/>
-					<div className="absolute left-[240px] top-[320px] flex w-[960px] flex-col items-center gap-[90px]">
+					<div className="absolute left-1/2 top-[320px] flex w-[960px] -translate-x-1/2 flex-col items-center gap-[90px]">
 						<div className="relative h-[268px] w-full overflow-clip">
 							{BRANDS.map((b, i) => (
 								<BrandCard key={b.id} brand={b} selected={picks.includes(b.id)} onToggle={() => togglePick(b.id)} index={i} />
@@ -174,7 +176,7 @@ function OnboardingPage() {
 						title="Now try a few swipes."
 						subtitle="Use ← → keys or click. Save what you like."
 					/>
-					<div className="absolute left-[500px] top-[283px] flex w-[440px] flex-col items-center gap-[70px]">
+					<div className="absolute left-1/2 top-[283px] flex w-[440px] -translate-x-1/2 flex-col items-center gap-[70px]">
 						<SwipeCards />
 						<PrimaryButton onClick={() => goTo(4)}>Continue</PrimaryButton>
 					</div>
@@ -234,7 +236,7 @@ function OnboardingPage() {
 			{step === 7 && (
 				<>
 					<OnboardingChrome label="STEP 6 OF 6" logoText="taste" progress={6} onBack={back} />
-					<p className="absolute left-[640px] top-[632px] whitespace-nowrap font-geist text-[11px] leading-[14px] text-[#819abb]">
+					<p className="absolute left-1/2 top-[632px] -translate-x-1/2 whitespace-nowrap font-geist text-[11px] leading-[14px] text-[#819abb]">
 						Your deck adjusts as you swipe.
 					</p>
 					<div className="absolute left-1/2 top-[calc(50%+0.5px)] flex w-[700px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[70px]">
@@ -326,6 +328,7 @@ function OnboardingPage() {
 					</div>
 				</>
 			)}
+			</div>
 		</div>
 	);
 }

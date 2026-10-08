@@ -53,7 +53,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}
 			<main className="min-w-0 flex-1">
 				<div className="pr-[50px] pt-[88px] transition-[padding-left] duration-[280ms] ease-in-out" style={{ paddingLeft: navOpen ? 40 : 24 }}>
-					{children}
+					{/* the frame's column (1134 open / 1294 closed at 1440); on wider screens it sits centred, nothing scales */}
+					<div style={{ maxWidth: navOpen ? 1134 : 1294, marginInline: "auto" }}>{children}</div>
 				</div>
 			</main>
 		</div>

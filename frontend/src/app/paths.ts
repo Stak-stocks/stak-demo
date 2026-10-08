@@ -21,6 +21,13 @@ export const DESKTOP_APP_PREFIXES = [
 	"/onboarding",
 ] as const;
 
+/** Pages rendered inside the sidebar shell (the _app layout); the rest are standalone 1440 compositions. */
+export const SHELL_PREFIXES = ["/home", "/news", "/discover", "/stocks", "/my-stak", "/simulate", "/profile"] as const;
+
+export function isShellPath(pathname: string): boolean {
+	return SHELL_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function isDesktopAppPath(pathname: string): boolean {
 	return DESKTOP_APP_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

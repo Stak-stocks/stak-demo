@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { OB } from "./assets";
 
@@ -18,28 +19,34 @@ type ChromeProps = {
 export function OnboardingChrome({ label, logoText, progress, onBack }: ChromeProps) {
 	return (
 		<>
-			<img alt="" src={OB.logoIcon} className="absolute left-[60.05px] top-[44.03px] size-[26.478px]" />
-			<img alt="STAK" src={OB.logoText[logoText]} className="absolute left-[91.01px] top-[49.77px] h-[14.983px] w-[78.163px]" />
-			<p className="absolute right-[60px] top-[50px] whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#819abb]">
+			<img alt="" src={OB.logoIcon} className="absolute left-[60.05px] size-[26.478px]" style={{ top: "calc(44.03px - var(--stak-band, 0px))" }} />
+			<img alt="STAK" src={OB.logoText[logoText]} className="absolute left-[91.01px] h-[14.983px] w-[78.163px]" style={{ top: "calc(49.77px - var(--stak-band, 0px))" }} />
+			<p style={{ top: "calc(50px - var(--stak-band, 0px))" }} className="absolute right-[60px] whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#819abb]">
 				{label}
 			</p>
 			{progress !== undefined && (
-				<div className="absolute left-[537px] top-[100px] flex items-start gap-[6px] overflow-clip">
+				<div style={{ top: "calc(100px - var(--stak-band, 0px))" }} className="absolute left-1/2 flex -translate-x-1/2 items-start gap-[6px] overflow-clip">
 					{[1, 2, 3, 4, 5, 6].map((i) => (
 						<div key={i} className={cn("h-[4px] w-[56px] rounded-[2px]", i <= progress ? "bg-[#a6e4f7]" : "bg-[rgba(255,255,255,0.14)]")} />
 					))}
 				</div>
 			)}
-			<BackControl className="absolute left-[60px] top-[96px]" onClick={onBack} />
+			<BackControl className="absolute left-[60px]" style={{ top: "calc(96px - var(--stak-band, 0px))" }} onClick={onBack} />
 		</>
 	);
 }
 
-export function BackControl({ className, onClick, flipped }: { className?: string; onClick: () => void; flipped?: boolean }) {
+export function BackControl({
+	className,
+	style,
+	onClick,
+	flipped,
+}: { className?: string; style?: CSSProperties; onClick: () => void; flipped?: boolean }) {
 	return (
 		<button
 			type="button"
 			aria-label={flipped ? "Next" : "Back"}
+			style={style}
 			onClick={onClick}
 			className={cn("flex size-[40px] items-center justify-center overflow-clip rounded-[20px] bg-[#192238]", flipped && "rotate-180", className)}
 		>

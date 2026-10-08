@@ -391,3 +391,8 @@ input::-webkit-credentials-auto-fill-button {
 .stak-sheet-in {
 	animation: stak-sheet-in 0.3s ease-out both;
 }
+
+/* standalone pages: the 1024-tall frame band is centred in taller windows; header chrome subtracts it to stay at the top */
+.stak-canvas {
+	--stak-band: max(0px, calc((100vh / var(--stak-zoom, 1) - 1024px) / 2));
+}

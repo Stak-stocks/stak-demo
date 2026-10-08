@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AU } from "@/app/auth/assets";
+import { fillHeight } from "@/app/FitCanvas";
 
 type SplashSearch = { hold?: boolean };
 
@@ -24,9 +25,10 @@ function SplashPage() {
 		<Link
 			to="/signup"
 			aria-label="Welcome to STAK, continue"
-			className="relative block min-h-[1024px] w-full overflow-clip bg-[#0a1020] font-geist antialiased"
+			className="relative block w-full overflow-clip bg-[#0a1020] font-geist antialiased"
+			style={{ minHeight: fillHeight }}
 		>
-			<div className="absolute left-[463px] top-[-702px] flex size-[1770.774px] items-center justify-center">
+			<div className="absolute left-[calc(50%-257px)] top-[calc(50%-1214px)] flex size-[1770.774px] items-center justify-center">
 				<div className="flex-none rotate-[48.43deg]">
 					<div className="relative size-[1254.379px] opacity-40">
 						<div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -35,7 +37,7 @@ function SplashPage() {
 					</div>
 				</div>
 			</div>
-			<div className="absolute left-[547px] top-[374px] flex flex-col items-center overflow-clip">
+			<div className="absolute left-[calc(50%-173px)] top-[calc(50%-138px)] flex flex-col items-center overflow-clip">
 				<img alt="" src={AU.splashLogo} className="size-[64px] shrink-0" />
 				<div className="h-[46px] w-[10px] shrink-0" />
 				<p className="whitespace-nowrap font-sora text-[38px] font-semibold leading-[48px] text-white">Welcome to STAK</p>

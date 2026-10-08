@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { fillHeight } from "@/app/FitCanvas";
 import { AU } from "./assets";
 
 /** Button canon (00 References): r6, h52, Geist Medium, hairline + glow, gradient fill. */
@@ -99,12 +100,17 @@ export function FootRow({ text, linkLabel, to, onClick }: { text: string; linkLa
 }
 
 /** 40px round back control (#192238) with the 22px chevron. */
-export function BackButton({ className, fallbackTo = "/splash" }: { className?: string; fallbackTo?: string }) {
+export function BackButton({
+	className,
+	style,
+	fallbackTo = "/splash",
+}: { className?: string; style?: CSSProperties; fallbackTo?: string }) {
 	const navigate = useNavigate();
 	return (
 		<button
 			type="button"
 			aria-label="Back"
+			style={style}
 			onClick={() => {
 				if (window.history.length > 1) window.history.back();
 				else navigate({ to: fallbackTo });
@@ -130,26 +136,36 @@ export function Spinner() {
  * top is the frame's own value.
  */
 export function AuthLayout({ formTop, backTo, children }: { formTop: number; backTo?: string; children: ReactNode }) {
+	// Frame 1440x1024: brand panel 600 wide, form column 840 wide with the 460 form block centred (x 790).
+	// On a bigger window both panels stretch; their content stays inside a 1024 band centred vertically.
+	const panel = "max(600px, 41.6667%)";
+	const BAND = "var(--stak-band, 0px)";
 	return (
-		<div className="relative min-h-[1024px] w-full overflow-clip bg-[#0a1020] font-geist antialiased">
-			<aside className="absolute inset-y-0 left-0 w-[600px] overflow-clip bg-[#060c1d]">
-				<div className="absolute left-[calc(50%-108.87px)] top-[calc(50%-406.87px)] flex size-[992.254px] -translate-x-1/2 -translate-y-1/2 items-center justify-center">
-					<div className="flex-none rotate-[48.43deg]">
-						<div className="relative size-[702.892px] opacity-40">
-							<div className="pointer-events-none absolute inset-0 overflow-hidden">
-								<img alt="" src={AU.glass} className="absolute left-[0.55%] top-[0.49%] size-full max-w-none" />
+		<div className="relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
+			<aside className="absolute inset-y-0 left-0 overflow-clip bg-[#060c1d]" style={{ width: panel }}>
+				<div className="absolute left-0 h-[1024px] w-full" style={{ top: BAND }}>
+					<div className="absolute left-[191.13px] top-[105.13px] flex size-[992.254px] -translate-x-1/2 -translate-y-1/2 items-center justify-center">
+						<div className="flex-none rotate-[48.43deg]">
+							<div className="relative size-[702.892px] opacity-40">
+								<div className="pointer-events-none absolute inset-0 overflow-hidden">
+									<img alt="" src={AU.glass} className="absolute left-[0.55%] top-[0.49%] size-full max-w-none" />
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-				<div className="absolute left-[82px] top-[calc(50%+0.5px)] flex -translate-y-1/2 flex-col items-start gap-[12px] overflow-clip whitespace-nowrap">
-					<p className="font-geist text-[30px] font-medium leading-[39px] text-white">Before you buy it, STAK it.</p>
-					<p className="font-geist text-[18px] leading-[23px] text-[#cbcccc]">Discover stocks you actually vibe with.</p>
+					<div className="absolute left-[82px] top-[calc(50%+0.5px)] flex -translate-y-1/2 flex-col items-start gap-[12px] overflow-clip whitespace-nowrap">
+						<p className="font-geist text-[30px] font-medium leading-[39px] text-white">Before you buy it, STAK it.</p>
+						<p className="font-geist text-[18px] leading-[23px] text-[#cbcccc]">Discover stocks you actually vibe with.</p>
+					</div>
 				</div>
 			</aside>
-			<BackButton className="absolute left-[627px] top-[63px]" fallbackTo={backTo} />
-			<div className="absolute left-[790px] flex items-center p-[10px]" style={{ top: formTop }}>
-				<div className="flex w-[440px] flex-col items-center justify-center gap-[26px] overflow-clip">{children}</div>
+			<div className="absolute inset-y-0 right-0" style={{ left: panel }}>
+				<div className="absolute left-0 h-[1024px] w-full" style={{ top: BAND }}>
+					<BackButton className="absolute left-[27px]" style={{ top: `calc(63px - ${BAND})` }} fallbackTo={backTo} />
+					<div className="absolute left-1/2 flex -translate-x-1/2 items-center p-[10px]" style={{ top: formTop }}>
+						<div className="flex w-[440px] flex-col items-center justify-center gap-[26px] overflow-clip">{children}</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	);
