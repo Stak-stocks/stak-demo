@@ -35,14 +35,13 @@ function Root() {
 	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
 	const isDesktopApp = isDesktopAppPath(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [briefOpen, setBriefOpen] = useState(false);
 	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
 	const [refreshKey, setRefreshKey] = useState(0);
-	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const themeAppliedForUid = useRef<string | null>(null);
 

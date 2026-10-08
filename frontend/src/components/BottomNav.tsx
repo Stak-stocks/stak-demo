@@ -1,6 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
-import { useAccount } from "@/context/AccountContext";
+import { Compass, Layers, UserCircle } from "lucide-react";
 
 
 const NAV_ITEMS = [
@@ -21,22 +20,6 @@ const NAV_ITEMS = [
 		dotColor: "bg-violet-500 dark:bg-violet-400",
 	},
 	{
-		to: "/feed",
-		label: "News",
-		icon: Newspaper,
-		activeColor: "text-orange-500 dark:text-orange-400",
-		activeBg: "bg-orange-500/10",
-		dotColor: "bg-orange-500 dark:bg-orange-400",
-	},
-	{
-		to: "/playground",
-		label: "Playground",
-		icon: Gamepad2,
-		activeColor: "text-pink-500 dark:text-pink-400",
-		activeBg: "bg-pink-500/10",
-		dotColor: "bg-pink-500 dark:bg-pink-400",
-	},
-	{
 		to: "/profile",
 		label: "Profile",
 		icon: UserCircle,
@@ -49,12 +32,6 @@ const NAV_ITEMS = [
 export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
-	const { account } = useAccount();
-
-	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
-	);
 
 	const isActive = (path: string) => {
 		if (path === "/") return currentPath === "/";
@@ -83,9 +60,6 @@ export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () 
 								{/* Icon with tinted background when active */}
 								<div className={`relative w-[38px] h-[34px] rounded-[10px] flex items-center justify-center transition-all ${active ? item.activeBg : ""}`}>
 									<Icon className="w-[20px] h-[20px]" strokeWidth={active ? 2.2 : 1.8} />
-									{item.to === "/playground" && !challengeDone && (
-										<span className="absolute top-[2px] right-[2px] w-[7px] h-[7px] rounded-full bg-amber-400 border-[1.5px] border-background" />
-									)}
 								</div>
 								{/* Label */}
 								<span className="text-[10px] font-semibold whitespace-nowrap">{item.label}</span>
