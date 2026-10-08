@@ -2,6 +2,7 @@ import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useEffect, useRef } from "react";
 import { Toaster } from "sonner";
+import { FitCanvas } from "@/app/FitCanvas";
 import { isDesktopAppPath } from "@/app/paths";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { logEvent } from "@/lib/firebase";
@@ -26,6 +27,10 @@ function Root() {
 	}, []);
 
 	useEffect(() => {
+		document.documentElement.style.backgroundColor = isDesktopApp ? "#0a1020" : "";
+	}, [isDesktopApp]);
+
+	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
 		document.body.style.overflow = "";
 		logEvent("page_view", { page_path: location.pathname });
@@ -43,7 +48,9 @@ function Root() {
 	if (isDesktopApp) {
 		return (
 			<ErrorBoundary tagName="main" className="min-h-full">
-				<Outlet />
+				<FitCanvas>
+					<Outlet />
+				</FitCanvas>
 				{toaster}
 			</ErrorBoundary>
 		);

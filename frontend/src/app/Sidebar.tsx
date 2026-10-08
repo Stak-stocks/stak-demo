@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { A } from "./assets";
+import { viewportHeight } from "./FitCanvas";
 import { useAccountDisplay } from "./useAccountDisplay";
 
 /** Figma "Desktop Sidebar · Nav (locked)" — 6 sections × open (216) / closed (72). */
@@ -20,8 +21,8 @@ export function Sidebar({ open, active, onToggle }: Props) {
 	const width = open ? 216 : 72;
 	return (
 		<aside
-			className="sticky top-0 h-screen shrink-0 overflow-clip bg-[#080d1a] transition-[width] duration-[280ms] ease-in-out"
-			style={{ width }}
+			className="sticky top-0 shrink-0 overflow-clip bg-[#080d1a] transition-[width] duration-[280ms] ease-in-out"
+			style={{ width, height: viewportHeight() }}
 			data-nav={open ? "open" : "closed"}
 		>
 			{open ? (

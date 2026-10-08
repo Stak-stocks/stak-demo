@@ -1,4 +1,5 @@
 import { A } from "./assets";
+import { viewportHeight } from "./FitCanvas";
 
 /** Skeleton bar (#223050) used by the loading frames of section 10. */
 export function Bar({ w, h, r = 6, className }: { w: number; h: number; r?: number; className?: string }) {
@@ -28,7 +29,7 @@ const ROWS: Record<"home" | "discover", Row[]> = {
 /** Figma "Desktop Sidebar · Nav (locked)" as drawn in the loading frames (2:1992, 2:2114, 2:2306). */
 export function SidebarSkeleton({ active = "home" }: { active?: "home" | "discover" }) {
 	return (
-		<aside className="sticky top-0 h-screen w-[216px] shrink-0 overflow-clip bg-[#080d1a]" aria-busy="true" data-nav="skeleton">
+		<aside className="sticky top-0 w-[216px] shrink-0 overflow-clip bg-[#080d1a]" style={{ height: viewportHeight() }} aria-busy="true" data-nav="skeleton">
 			<Bar w={74} h={14} r={7} className="absolute left-[26.96px] top-[36.89px]" />
 			{ROWS[active].map((row, i) => (
 				<div
