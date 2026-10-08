@@ -1,6 +1,5 @@
 import { AlertTriangle } from "lucide-react";
 import React, { type JSX, useReducer } from "react";
-import { ScrollArea } from "./ui/scroll-area";
 
 interface ErrorBoundaryState {
 	hasError: boolean;
@@ -89,11 +88,11 @@ function ErrorMask(props: {
 						{props.error?.message}
 					</div>
 
-					<ScrollArea className="h-40 w-full">
+					<div className="h-40 w-full overflow-auto">
 						<pre className="text-sm whitespace-pre-wrap text-red-500 text-left">
 							{props.errorInfo?.componentStack || props.error?.stack}
 						</pre>
-					</ScrollArea>
+					</div>
 
 					<div className="flex items-center gap-2 mx-auto">
 						<button

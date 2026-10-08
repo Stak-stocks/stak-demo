@@ -9,10 +9,8 @@ import { routeTree } from "./routeTree.gen";
 
 import "./styles.css";
 import { Analytics } from "@vercel/analytics/react";
-import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./context/AuthContext";
 import { AccountProvider } from "./context/AccountContext";
-
 
 // Create a new router instance
 const router = createRouter({
@@ -38,17 +36,14 @@ if (rootElement && !rootElement.innerHTML) {
 	const root = ReactDOM.createRoot(rootElement);
 	root.render(
 		<StrictMode>
-			<ThemeProvider>
-				<AuthProvider>
-					<AccountProvider>
-						<QueryClientProvider client={queryClient}>
-							<RouterProvider router={router} />
-							<Analytics />
-						</QueryClientProvider>
-					</AccountProvider>
-				</AuthProvider>
-			</ThemeProvider>
+			<AuthProvider>
+				<AccountProvider>
+					<QueryClientProvider client={queryClient}>
+						<RouterProvider router={router} />
+						<Analytics />
+					</QueryClientProvider>
+				</AccountProvider>
+			</AuthProvider>
 		</StrictMode>,
 	);
 }
-
