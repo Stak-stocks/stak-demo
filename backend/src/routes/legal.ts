@@ -14,7 +14,9 @@ const DOCS: Record<string, { doc: LegalDoc; version: string }> = {
 };
 
 legalRouter.get("/:doc", (req, res) => {
-	const entry = DOCS[req.params.doc ?? ""];
+	// Own keys only: "constructor" or "__proto__" would otherwise find an Object built-in.
+	const name = req.params.doc ?? "";
+	const entry = Object.hasOwn(DOCS, name) ? DOCS[name] : undefined;
 	if (!entry) {
 		res.status(404).json({ error: "Unknown document" });
 		return;

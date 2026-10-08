@@ -19,5 +19,7 @@ describe("GET /api/legal/:doc", () => {
 	it("serves the Privacy Policy, and nothing else", async () => {
 		expect((await request(app).get("/privacy")).body.title).toBe("Privacy Policy");
 		expect((await request(app).get("/cookies")).status).toBe(404);
+		expect((await request(app).get("/constructor")).status).toBe(404);
+		expect((await request(app).get("/toString")).status).toBe(404);
 	});
 });
