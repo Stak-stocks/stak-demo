@@ -102,7 +102,7 @@ struct LegalDocResponse: Decodable {
     }
 }
 
-/// POST /api/me/eligibility - "Before we get started": all three boxes.
+/// POST /api/me/eligibility - "Before we get started": all three confirmations.
 struct EligibilityRequest: Encodable {
     var ageConfirmed = true
     var inUS = true

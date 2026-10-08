@@ -13,27 +13,22 @@ enum LegalDocKind: String, Identifiable {
 enum LegalDocs {
 	private static var cache: [LegalDocKind: LegalDocResponse] = [:]
 
-	/// Nil when it couldn't be read (the sheet offers a retry). `fresh`: read it again even if kept - what someone agrees
-	/// to must be the current version.
-	static func load(_ kind: LegalDocKind, fresh: Bool = false) async -> LegalDocResponse? {
-		if !fresh, let hit = cache[kind] { return hit }
+	/// Nil when it couldn't be read (the sheet offers a retry).
+	static func load(_ kind: LegalDocKind) async -> LegalDocResponse? {
+		if let hit = cache[kind] { return hit }
 		guard let doc = try? await StockRepository.shared.getLegal(kind.rawValue) else { return nil }
 		cache[kind] = doc
 		return doc
 	}
 }
 
-/// The document in a sheet over the app - the whole text to scroll through, no browser. With `onAgree` (the
-/// eligibility gate), "I agree" sits at the bottom and switches on once the end has been reached; without it the sheet
-/// only reads. Mirrors android ui/components/LegalSheet.kt.
+/// The document in a sheet over the app - the whole text to read, no browser. Mirrors android
+/// ui/components/LegalSheet.kt.
 struct LegalSheetView: View {
 	let kind: LegalDocKind
-	var onAgree: (() -> Void)? = nil
 	@Environment(\.dismiss) private var dismiss
 	@State private var doc: LegalDocResponse? = nil
 	@State private var failed = false
-	@State private var reachedEnd = false
-	@State private var viewport: CGFloat = 0
 
 	private static let textInk = Color(argb: 0xFFC8D2E0)
 
@@ -101,19 +96,10 @@ struct LegalSheetView: View {
 								}
 								.padding(.top, 8 * u)
 							}
-							// Where the text ends - reached once it's inside the visible area (not just built: a lazy stack builds a
-							// little ahead of the screen).
-							Color.clear.frame(height: 1)
-								.background(GeometryReader { g in
-									Color.clear.preference(key: LegalEndKey.self, value: g.frame(in: .named("legalScroll")).minY)
-								})
 						}
 						.padding(.horizontal, 20 * u)
 						.padding(.bottom, 16 * u)
 					}
-					.coordinateSpace(name: "legalScroll")
-					.background(GeometryReader { g in Color.clear.onAppear { viewport = g.size.height }.onChange(of: g.size.height) { _, h in viewport = h } })
-					.onPreferenceChange(LegalEndKey.self) { y in if viewport > 0, y <= viewport { reachedEnd = true } }
 				} else if failed {
 					VStack(spacing: 10 * u) {
 						Text("Couldn’t load this right now.").font(StakFont.geist(13 * u)).foregroundStyle(StakColors.muted)
@@ -130,21 +116,6 @@ struct LegalSheetView: View {
 				}
 			}
 			.frame(maxHeight: .infinity)
-
-			if let onAgree {
-				VStack(spacing: 8 * u) {
-					if doc != nil && !reachedEnd {
-						Text("Scroll to the end to agree").font(StakFont.geist(11 * u)).foregroundStyle(StakColors.muted)
-					}
-					AuthCta(text: "I agree", enabled: doc != nil && reachedEnd) {
-						guard doc != nil, reachedEnd else { return }
-						onAgree()
-						dismiss()
-					}
-				}
-				.padding(.top, 8 * u)
-				.padding(.bottom, 16 * u)
-			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 		.presentationDragIndicator(.visible)
@@ -154,14 +125,7 @@ struct LegalSheetView: View {
 
 	private func load() async {
 		failed = false
-		// What someone agrees to is read fresh; reading only may use the kept copy.
-		doc = await LegalDocs.load(kind, fresh: onAgree != nil)
+		doc = await LegalDocs.load(kind)
 		failed = doc == nil
 	}
-}
-
-/// Where the legal text's end sits in the sheet's scroll area (LegalSheetView).
-private struct LegalEndKey: PreferenceKey {
-	static var defaultValue: CGFloat = .infinity
-	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
 }

@@ -213,7 +213,7 @@ data class LegalSectionDto(val heading: String = "", val sub: String? = null, va
 /** A paragraph ([text]) or a bulleted list ([list]). */
 data class LegalBlockDto(val text: String? = null, val list: List<String>? = null)
 
-/** POST /api/me/eligibility - "Before we get started": all three boxes. */
+/** POST /api/me/eligibility - "Before we get started": all three confirmations. */
 data class EligibilityRequest(val ageConfirmed: Boolean = true, val inUS: Boolean = true, val acceptTerms: Boolean = true)
 
 /** One headline behind an update. */

@@ -16,12 +16,9 @@ object LegalDocs {
 		repository = repo
 	}
 
-	/**
-	 * [doc] is [TERMS] or [PRIVACY]; null when it couldn't be read (the sheet offers a retry). [fresh]: read it again even
-	 * if kept - what someone agrees to must be the current version.
-	 */
-	suspend fun load(doc: String, fresh: Boolean = false): LegalDocResponse? {
-		if (!fresh) cache[doc]?.let { return it }
+	/** [doc] is [TERMS] or [PRIVACY]; null when it couldn't be read (the sheet offers a retry). */
+	suspend fun load(doc: String): LegalDocResponse? {
+		cache[doc]?.let { return it }
 		val repo = repository ?: return null
 		return runCatching { repo.getLegal(doc) }.getOrNull()?.also { cache[doc] = it }
 	}

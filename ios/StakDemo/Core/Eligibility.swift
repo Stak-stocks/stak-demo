@@ -1,7 +1,7 @@
 import Foundation
 
-/// "Before we get started": three boxes - 18 or older, living in the United States, and the Terms / Privacy (Terms
-/// §2); no date of birth. While an account hasn't confirmed them, `required` is true and the gate (EligibilityView)
+/// "Before we get started": one "Agree and continue" confirms 18 or older, living in the United States, and the Terms /
+/// Privacy (Terms §2); no date of birth. While an account hasn't confirmed them, `required` is true and the gate (EligibilityView)
 /// covers the whole app - a new account right after it signs up, an existing one the next time it opens. The server
 /// keeps that each was confirmed, when, and which versions of the documents. Mirrors shared/src/eligibility.ts, web
 /// components/onboarding/EligibilityGate.tsx and android data/Eligibility.kt.
@@ -39,22 +39,14 @@ final class EligibilityGate: ObservableObject {
 		}
 	}
 
-	enum Outcome: Equatable {
-		case confirmed
-		/// `invalid`: the server didn't get all three boxes; otherwise a network or server failure.
-		case failed(invalid: Bool)
-	}
-
-	/// Sends the three confirmations.
-	func confirm() async -> Outcome {
+	/// Sends the three confirmations; false when they didn't reach the server (a network or server failure).
+	func confirm() async -> Bool {
 		do {
 			_ = try await StockRepository.shared.confirmEligibility()
 			required = false
-			return .confirmed
-		} catch NetworkError.http(let code, _) {
-			return .failed(invalid: code == 400)
+			return true
 		} catch {
-			return .failed(invalid: false)
+			return false
 		}
 	}
 

@@ -18,12 +18,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stak.demo.data.LegalDocResponse
 import com.stak.demo.data.LegalDocs
-import com.stak.demo.ui.onboarding.AuthCta
 import com.stak.demo.ui.onboarding.figmaUnit
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.PressDim
@@ -54,44 +51,31 @@ private val CardBg = Color(0xFF171D2C)
 
 /**
  * The Terms of Service or Privacy Policy ([doc]: LegalDocs.TERMS / PRIVACY) in a full-screen sheet over the app - the
- * whole text to scroll through, no browser. With [onAgree] (the eligibility gate), "I agree" sits at the bottom and
- * switches on once the end has been reached; without it the sheet only reads. A full-screen dialog, so TalkBack can't
- * wander into the screen beneath and Back closes it. Mirrors iOS LegalSheetView.
+ * whole text to read, no browser. A full-screen dialog, so TalkBack can't wander into the screen beneath and Back
+ * closes it. Mirrors iOS LegalSheetView.
  */
 @Composable
-fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) {
+fun LegalSheet(doc: String, onClose: () -> Unit) {
 	androidx.compose.ui.window.Dialog(
 		onDismissRequest = onClose,
 		properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
 	) {
-		// A fresh sheet per document - the gate goes from the Terms straight to the Privacy Policy, which starts at its top.
-		androidx.compose.runtime.key(doc) { LegalSheetContent(doc, onClose, onAgree) }
+		// A fresh sheet per document, starting at its top.
+		androidx.compose.runtime.key(doc) { LegalSheetContent(doc, onClose) }
 	}
 }
 
 @Composable
-private fun LegalSheetContent(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)?) {
+private fun LegalSheetContent(doc: String, onClose: () -> Unit) {
 	val u = figmaUnit()
 	var loaded by remember(doc) { mutableStateOf<LegalDocResponse?>(null) }
 	var failed by remember(doc) { mutableStateOf(false) }
 	var attempt by remember(doc) { mutableIntStateOf(0) }
 	LaunchedEffect(doc, attempt) {
 		failed = false
-		// What someone agrees to is read fresh; reading only may use the kept copy.
-		loaded = LegalDocs.load(doc, fresh = onAgree != null)
+		loaded = LegalDocs.load(doc)
 		failed = loaded == null
 	}
-	val listState = rememberLazyListState()
-	// The end is reached once the last item has been on screen - not "can't scroll further", which a screen reader's
-	// focus may stop just short of, and which reads true before the list has been laid out.
-	var atEnd by remember(doc) { mutableStateOf(false) }
-	val lastSeen by remember {
-		derivedStateOf {
-			val info = listState.layoutInfo
-			info.totalItemsCount > 0 && info.visibleItemsInfo.lastOrNull()?.index == info.totalItemsCount - 1
-		}
-	}
-	LaunchedEffect(lastSeen) { if (lastSeen) atEnd = true }
 
 	Box(
 		modifier = Modifier
@@ -127,7 +111,6 @@ private fun LegalSheetContent(doc: String, onClose: () -> Unit, onAgree: (() -> 
 			Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
 				when {
 					text != null -> LazyColumn(
-						state = listState,
 						verticalArrangement = Arrangement.spacedBy((12 * u).dp),
 						contentPadding = androidx.compose.foundation.layout.PaddingValues(start = (20 * u).dp, end = (20 * u).dp, bottom = (16 * u).dp),
 						modifier = Modifier.fillMaxSize(),
@@ -193,19 +176,6 @@ private fun LegalSheetContent(doc: String, onClose: () -> Unit, onAgree: (() -> 
 						)
 					}
 					else -> Text("Loading…", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = StakColors.Muted, modifier = Modifier.align(Alignment.Center))
-				}
-			}
-			if (onAgree != null) {
-				Column(
-					horizontalAlignment = Alignment.CenterHorizontally,
-					verticalArrangement = Arrangement.spacedBy((8 * u).dp),
-					modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (16 * u).dp),
-				) {
-					val ready = loaded != null && atEnd
-					if (loaded != null && !atEnd) {
-						Text("Scroll to the end to agree", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = StakColors.Muted)
-					}
-					AuthCta(text = "I agree", enabled = ready) { if (ready) onAgree() }
 				}
 			}
 		}

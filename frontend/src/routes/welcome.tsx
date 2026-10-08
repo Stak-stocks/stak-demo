@@ -458,35 +458,40 @@ function ProofLogos() {
 	);
 }
 
-/**
- * Phone and tablet: the partner row scrolls slowly and endlessly (it's wider than the screen), so it loops instead of
- * sitting cut off at both edges. Two copies side by side, the track sliding by one copy's width; the second copy is
- * hidden from screen readers. Still for anyone who prefers reduced motion.
- */
-function ProofStrip() {
-	const gap = useLayout() === "phone" ? 34 : 50;
-	const [paused, setPaused] = useState(false);
-	const row: CSSProperties = { display: "flex", alignItems: "center", gap, paddingRight: gap, flexShrink: 0 };
-	return (
-		<div className="landing-proof" style={{ position: "relative", minHeight: 115, padding: "47px 0", boxSizing: "border-box", overflow: "hidden" }}>
-			<div className={paused ? "landing-marquee landing-paused" : "landing-marquee"} style={{ display: "flex", width: "max-content" }}>
-				<div className="landing-proof-row" style={row}><ProofLogos /></div>
-				<div className="landing-proof-copy" style={row} aria-hidden="true"><ProofLogos /></div>
+/** The six partner logos, standing still - nothing moves on its own, so there's nothing to pause (WCAG 2.2.2). Desktop:
+ *  one row that fits. Phone and tablet: one row wider than the screen, centred, faded at both edges and swipeable
+ *  sideways to bring the rest into view. */
+function ProofRow() {
+	const l = useLayout();
+	const scrollRef = useRef<HTMLDivElement>(null);
+	// Centred on arrival, and again when the screen turns or resizes.
+	useLayoutEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		const centre = () => { el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; };
+		centre();
+		const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(centre) : null;
+		ro?.observe(el);
+		return () => ro?.disconnect();
+	}, [l]);
+	if (l === "desktop") {
+		return (
+			<div style={{ position: "relative", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "24px 79px", maxWidth: 987 + 48, margin: "53px auto 0", paddingInline: 24, boxSizing: "border-box" }}>
+				<ProofLogos />
 			</div>
-			<div className="landing-proof-fade" style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 64, background: "linear-gradient(to right, rgba(10,16,32,0.99) 41.41%, rgba(10,16,32,0.12) 74.22%)", pointerEvents: "none" }} />
-			<div className="landing-proof-fade" style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 64, background: "linear-gradient(to left, rgb(10,16,32) 27.344%, rgba(10,16,32,0.79) 133.59%)", pointerEvents: "none" }} />
-			<button
-				type="button"
-				className="landing-proof-toggle"
-				onClick={() => setPaused((v) => !v)}
-				aria-label={paused ? "Play the partner logos" : "Pause the partner logos"}
-				aria-pressed={paused}
-				style={{ ...btnReset, position: "absolute", right: 8, bottom: 8, width: 28, height: 28, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(36,43,61,0.79)", color: "#C8D2E0" }}
-			>
-				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor">
-					{paused ? <path d="M3 1.5v9l7.5-4.5z" /> : <><rect x="2.5" y="1.5" width="2.5" height="9" rx="0.5" /><rect x="7" y="1.5" width="2.5" height="9" rx="0.5" /></>}
-				</svg>
-			</button>
+		);
+	}
+	return (
+		<div style={{ position: "relative" }}>
+			{/* Focusable, so a keyboard can scroll it in every browser (Chrome does this on its own, Safari doesn't). */}
+			<div ref={scrollRef} className="landing-proof-scroll" tabIndex={0} role="region" aria-label="Partner logos" style={{ overflowX: "auto", overflowY: "hidden", scrollbarWidth: "none", padding: "47px 0" }}>
+				{/* Centred when it fits (a wide tablet); the auto margins give way once it's wider than the screen. */}
+				<div style={{ display: "flex", alignItems: "center", gap: l === "phone" ? 34 : 50, width: "max-content", paddingInline: 64, margin: "0 auto" }}>
+					<ProofLogos />
+				</div>
+			</div>
+			<div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 64, background: "linear-gradient(to right, rgba(10,16,32,0.99) 41.41%, rgba(10,16,32,0.12) 74.22%)", pointerEvents: "none" }} />
+			<div aria-hidden="true" style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 64, background: "linear-gradient(to left, rgb(10,16,32) 27.344%, rgba(10,16,32,0.79) 133.59%)", pointerEvents: "none" }} />
 		</div>
 	);
 }
@@ -519,13 +524,7 @@ function Hero() {
 				fetchPriority="high"
 				style={{ position: "relative", display: "block", margin: `${phone ? -6 : desktop ? -10 : -14}px auto ${phone ? 42 : desktop ? 0 : 22}px`, width: phone ? "min(100%, 520px)" : "min(587.309px, 100%)", height: "auto", aspectRatio: phone ? "390 / 422.5" : "587.309 / 563.5", pointerEvents: "none" }}
 			/>
-			{desktop ? (
-				<div style={{ position: "relative", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "24px 79px", maxWidth: 987 + 48, margin: "53px auto 0", paddingInline: 24, boxSizing: "border-box" }}>
-					<ProofLogos />
-				</div>
-			) : (
-				<ProofStrip />
-			)}
+			<ProofRow />
 		</Section>
 	);
 }
@@ -1535,24 +1534,15 @@ function LandingPage() {
 					outline: 2px solid #69B3CA;
 					outline-offset: 2px;
 				}
+				.landing-proof-scroll::-webkit-scrollbar {
+					display: none;
+				}
+				.landing-proof-scroll:focus-visible {
+					outline: 2px solid #69B3CA;
+					outline-offset: -2px;
+				}
 				.landing-scroll input::placeholder {
 					color: #819ABB;
-				}
-				@keyframes landing-marquee {
-					from { transform: translateX(0); }
-					to { transform: translateX(-50%); }
-				}
-				.landing-marquee {
-					animation: landing-marquee 30s linear infinite;
-				}
-				.landing-marquee.landing-paused,
-				.landing-proof:hover .landing-marquee {
-					animation-play-state: paused;
-				}
-				@media (prefers-reduced-motion: reduce) {
-					.landing-marquee { animation: none; width: auto !important; justify-content: center; }
-					.landing-proof-row { flex: 1 1 100% !important; max-width: 100%; box-sizing: border-box; flex-wrap: wrap; justify-content: center; row-gap: 24px; padding: 0 16px !important; }
-					.landing-proof-copy, .landing-proof-fade, .landing-proof-toggle { display: none !important; }
 				}
 			`}</style>
 			<Header ref={headerRef} onScrollTo={scrollTo} />

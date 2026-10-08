@@ -102,7 +102,7 @@ interface StockApiService {
     @GET("api/legal/{doc}")
     suspend fun getLegal(@Path("doc") doc: String): LegalDocResponse
 
-    /** "Before we get started": 400 = not all three boxes. */
+    /** "Before we get started": 400 = not all three confirmations. */
     @POST("api/me/eligibility")
     suspend fun confirmEligibility(@Body body: EligibilityRequest): OkResponse
 
